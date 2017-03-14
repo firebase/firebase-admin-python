@@ -54,4 +54,3 @@ Release Notes for the Firebase Admin Python SDK are available
 
 The Firebase Admin Python SDK is covered by the
 [Terms of Service for Firebase Services](https://firebase.google.com/terms/).
-

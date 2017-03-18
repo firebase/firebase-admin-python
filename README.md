@@ -23,12 +23,13 @@ the following command.
 pylint --version
 ```
 
-There are two pylint configuration files at the root of this repository.
- * .pylintrc: Settings for validating the source files in firebase module.
- * .test_pylintrc: Settings for validating the test files. This is a marginally
-    relaxed version of .pylintrc.
+There are two pylint configuration files at the root of this Git repository.
+ * `.pylintrc`: Settings for validating the source files in firebase module.
+ * `.test_pylintrc`: Settings for validating the test files. This is a
+   marginally relaxed version of .pylintrc.
     
-You can run pylint directly using the above configuration files.
+You can run pylint directly from the command-line using the above configuration
+files.
 
 ```
 pylint --rcfile .pylintrc firebase
@@ -47,5 +48,14 @@ all source files, pass `all` as an argument.
 Ideally you should not see any pylint errors or warnings when you run the linter.
 This means source files are properly formatted, and the linter has not found any
 issues. If you do observe any errors, fix them before sending a pull request.
-Details on how to interpret pylint errors are available here 
+Details on how to interpret pylint errors are available 
 [here](https://pylint.readthedocs.io/en/latest/user_guide/output.html).
+
+Our configuration files suppress the verbose reports usually generated
+by pylint, and only output the detected issues. If you wish to obtain the
+comprehensive reports, run pylint from command-line with the `-r` flag.
+
+```
+pylint -r yes --rcfile .pylintrc firebase
+pylint -r yes --rcfile .test_pylintrc tests
+```

@@ -2,11 +2,8 @@
 
 function lintAllFiles () {
   files=`find $1 -name *.py`
-  for f in $files
-  do
-    echo "Running linter on $f"
-    pylint --rcfile $2 $f
-  done
+  echo "Running linter on module $1"
+  pylint --rcfile $2 $files
 }
 
 function lintChangedFiles () {

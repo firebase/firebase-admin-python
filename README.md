@@ -46,5 +46,6 @@ all source files, pass `all` as an argument.
 
 Ideally you should not see any pylint errors or warnings when you run the linter.
 This means source files are properly formatted, and the linter has not found any
-issues. If you do observe any errors, take action to correct them before sending
-a pull request.
+issues. If you do observe any errors, fix them before sending a pull request.
+Details on how to interpret pylint errors are available here 
+[here](https://pylint.readthedocs.io/en/latest/user_guide/output.html).

@@ -1,5 +1,11 @@
 # Firebase Admin Python SDK
 
+Firebase Admin Python SDK enables server-side (backend) Python developers
+to integrate [Firebase](http://firebase.google.com) into their services
+and applications. Currently this SDK provides Firebase custom authentication
+support. Other Firebase APIs will be added soon.
+
+
 ## Unit Testing
 We use [pytest](http://doc.pytest.org/en/latest/) for writing and executing
 unit tests. Download pytest 3.0.6 or higher using pip.

@@ -1,0 +1,5 @@
+*.pyc
+.python-version
+.cache/
+.tox/
+*.egg-info/

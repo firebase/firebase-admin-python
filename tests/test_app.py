@@ -69,4 +69,4 @@ class TestFirebaseApp(object):
     @pytest.mark.parametrize('name', invalid_names)
     def test_app_get_with_invalid_name(self, name):
         with pytest.raises(ValueError):
-            firebase.initialize_app(OPTIONS, name)
+            firebase.get_app(name)

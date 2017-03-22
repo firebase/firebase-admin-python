@@ -12,18 +12,15 @@ from firebase import jwt
 from tests import testutils
 
 
-SERVICE_ACCOUNT_EMAIL = 'test-484@mg-test-1210.iam.gserviceaccount.com'
-CLIENT_CERT_URL = ('https://www.googleapis.com/robot/v1/metadata/x509/'
-                   'test-484%40mg-test-1210.iam.gserviceaccount.com')
-
 FIREBASE_AUDIENCE = ('https://identitytoolkit.googleapis.com/'
                      'google.identity.identitytoolkit.v1.IdentityToolkit')
-USER = 'user1'
 
-CREDENTIAL = auth.CertificateCredential(
+MOCK_UID = 'user1'
+MOCK_CREDENTIAL = auth.CertificateCredential(
     testutils.resource_filename('service_account.json'))
-PUBLIC_CERTS = testutils.resource('public_certs.json')
-PRIVATE_KEY = testutils.resource('private_key.pem')
+MOCK_PUBLIC_CERTS = testutils.resource('public_certs.json')
+MOCK_PRIVATE_KEY = testutils.resource('private_key.pem')
+MOCK_SERVICE_ACCOUNT_EMAIL = MOCK_CREDENTIAL.service_account_email
 
 
 class AuthFixture(object):
@@ -46,8 +43,8 @@ class AuthFixture(object):
             return auth.verify_id_token(*args)
 
 def setup_module():
-    firebase.initialize_app({'credential': CREDENTIAL})
-    firebase.initialize_app({'credential': CREDENTIAL}, 'testApp')
+    firebase.initialize_app({'credential': MOCK_CREDENTIAL})
+    firebase.initialize_app({'credential': MOCK_CREDENTIAL}, 'testApp')
 
 def teardown_module():
     firebase.delete_app('[DEFAULT]')
@@ -55,10 +52,23 @@ def teardown_module():
 
 @pytest.fixture(params=[None, 'testApp'], ids=['DefaultApp', 'CustomApp'])
 def authtest(request):
+    """Returns an AuthFixture instance.
+
+    Instances returned by this fixture are parameterized to use either the defult App instance,
+    or a custom App instance named 'testApp'. Due to this parameterization, each test case that
+    depends on this fixture will get executed twice (as two test cases); once with the default
+    App, and once with the custom App.
+    """
     return AuthFixture(request.param)
 
 @pytest.fixture
 def non_cert_app():
+    """Returns an App instance initialized with a mock non-cert credential.
+
+    The lines of code following the yield statement are guaranteed to run after each test case
+    that depends on this fixture. This ensures the proper cleanup of the App instance after
+    tests.
+    """
     app = firebase.initialize_app(
         {'credential': auth.Credential()}, 'non-cert-app')
     yield app
@@ -69,11 +79,10 @@ def verify_custom_token(custom_token, expected_claims):
     token = client.verify_id_token(
         custom_token,
         FIREBASE_AUDIENCE,
-        http=testutils.HttpMock(200, PUBLIC_CERTS),
-        cert_uri=CLIENT_CERT_URL)
-    assert token['uid'] == USER
-    assert token['iss'] == SERVICE_ACCOUNT_EMAIL
-    assert token['sub'] == SERVICE_ACCOUNT_EMAIL
+        http=testutils.HttpMock(200, MOCK_PUBLIC_CERTS))
+    assert token['uid'] == MOCK_UID
+    assert token['iss'] == MOCK_SERVICE_ACCOUNT_EMAIL
+    assert token['sub'] == MOCK_SERVICE_ACCOUNT_EMAIL
     header, _ = jwt.decode(custom_token)
     assert header.get('typ') == 'JWT'
     assert header.get('alg') == 'RS256'
@@ -89,17 +98,16 @@ def _merge_jwt_claims(defaults, overrides):
     return defaults
 
 def get_id_token(payload_overrides=None, header_overrides=None):
-    signer = crypt.Signer.from_string(PRIVATE_KEY)
+    signer = crypt.Signer.from_string(MOCK_PRIVATE_KEY)
     headers = {
-        'kid': 'd98d290613ae1468f7e5f5cf604ead38ca9c8358'
+        'kid': 'mock-key-id-1'
     }
     payload = {
-        'aud': 'mg-test-1210',
-        'iss': 'https://securetoken.google.com/mg-test-1210',
+        'aud': MOCK_CREDENTIAL.project_id,
+        'iss': 'https://securetoken.google.com/' + MOCK_CREDENTIAL.project_id,
         'iat': int(time.time()) - 100,
         'exp': int(time.time()) + 3600,
         'sub': '1234567890',
-        'uid': USER,
         'admin': True,
     }
     if header_overrides:
@@ -112,9 +120,9 @@ def get_id_token(payload_overrides=None, header_overrides=None):
 class TestCreateCustomToken(object):
 
     valid_args = {
-        'Basic': (USER, {'one': 2, 'three': 'four'}),
-        'NoDevClaims': (USER, None),
-        'EmptyDevClaims': (USER, {}),
+        'Basic': (MOCK_UID, {'one': 2, 'three': 'four'}),
+        'NoDevClaims': (MOCK_UID, None),
+        'EmptyDevClaims': (MOCK_UID, {}),
     }
 
     invalid_args = {
@@ -126,12 +134,12 @@ class TestCreateCustomToken(object):
         'ListUid': ([], None, ValueError),
         'EmptyDictUid': ({}, None, ValueError),
         'NonEmptyDictUid': ({'a':1}, None, ValueError),
-        'BoolClaims': (USER, True, ValueError),
-        'IntClaims': (USER, 1, ValueError),
-        'StrClaims': (USER, 'foo', ValueError),
-        'ListClaims': (USER, [], ValueError),
-        'TupleClaims': (USER, (1, 2), ValueError),
-        'ReservedClaims': (USER, {'sub':'1234'}, ValueError),
+        'BoolClaims': (MOCK_UID, True, ValueError),
+        'IntClaims': (MOCK_UID, 1, ValueError),
+        'StrClaims': (MOCK_UID, 'foo', ValueError),
+        'ListClaims': (MOCK_UID, [], ValueError),
+        'TupleClaims': (MOCK_UID, (1, 2), ValueError),
+        'ReservedClaims': (MOCK_UID, {'sub':'1234'}, ValueError),
     }
 
     @pytest.mark.parametrize('user,claims', valid_args.values(),
@@ -147,7 +155,7 @@ class TestCreateCustomToken(object):
 
     def test_noncert_credential(self, non_cert_app):
         with pytest.raises(ValueError):
-            auth.create_custom_token(USER, app=non_cert_app)
+            auth.create_custom_token(MOCK_UID, app=non_cert_app)
 
 
 class TestVerifyIdToken(object):
@@ -187,13 +195,12 @@ class TestVerifyIdToken(object):
     }
 
     def setup_method(self):
-        auth._http = testutils.HttpMock(200, PUBLIC_CERTS)
+        auth._http = testutils.HttpMock(200, MOCK_PUBLIC_CERTS)
 
     def test_valid_token(self, authtest):
         id_token = get_id_token()
         claims = authtest.verify_id_token(id_token)
         assert claims['admin'] is True
-        assert claims['uid'] == USER
 
     @pytest.mark.parametrize('id_token,error', invalid_tokens.values(),
                              ids=invalid_tokens.keys())
@@ -205,10 +212,9 @@ class TestVerifyIdToken(object):
         id_token = get_id_token()
         gcloud_project = os.environ.get(auth.GCLOUD_PROJECT_ENV_VAR)
         try:
-            os.environ[auth.GCLOUD_PROJECT_ENV_VAR] = 'mg-test-1210'
+            os.environ[auth.GCLOUD_PROJECT_ENV_VAR] = MOCK_CREDENTIAL.project_id
             claims = auth.verify_id_token(id_token, non_cert_app)
             assert claims['admin'] is True
-            assert claims['uid'] == USER
         finally:
             if gcloud_project:
                 os.environ[auth.GCLOUD_PROJECT_ENV_VAR] = gcloud_project
@@ -217,9 +223,8 @@ class TestVerifyIdToken(object):
 
     def test_no_project_id(self, non_cert_app):
         id_token = get_id_token()
-        gcloud_project = None
-        if os.environ.has_key(auth.GCLOUD_PROJECT_ENV_VAR):
-            gcloud_project = os.environ.get(auth.GCLOUD_PROJECT_ENV_VAR)
+        gcloud_project = os.environ.get(auth.GCLOUD_PROJECT_ENV_VAR)
+        if gcloud_project:
             del os.environ[auth.GCLOUD_PROJECT_ENV_VAR]
         try:
             with pytest.raises(ValueError):
@@ -229,7 +234,7 @@ class TestVerifyIdToken(object):
                 os.environ[auth.GCLOUD_PROJECT_ENV_VAR] = gcloud_project
 
     def test_custom_token(self, authtest):
-        id_token = authtest.create_custom_token(USER)
+        id_token = authtest.create_custom_token(MOCK_UID)
         with pytest.raises(crypt.AppIdentityError):
             authtest.verify_id_token(id_token)
 

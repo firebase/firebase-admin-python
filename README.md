@@ -21,7 +21,7 @@ For more information, visit the
 ## Documentation
 
 * [Setup Guide](https://firebase.google.com/docs/admin/setup/)
-
+* [API Reference](https://firebase.google.com/docs/reference/admin/python/)
 
 ## License and Terms
 

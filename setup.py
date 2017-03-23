@@ -6,8 +6,7 @@ from setuptools import setup, find_packages
 here = path.abspath(path.dirname(__file__))
 
 long_description = ('The Firebase Admin Python SDK enables server-side (backend) Python developers '
-                    'to integrate Firebase into their services and applications. Currently this '
-                    'SDK provides Firebase custom authentication support.')
+                    'to integrate Firebase into their services and applications.')
 
 setup(
     name='firebase',
@@ -20,11 +19,10 @@ setup(
     description='Firebase Admin Python SDK',
     long_description=long_description,
 
-    url='https://github.com/firebase/firebase-admin-python',
+    url='https://firebase.google.com/docs/admin/setup/',
 
     # Author details
-    author='Firebase Team',
-    author_email='firebase-talk@googlegroups.com',
+    author='Firebase',
 
     # Choose your license
     license='https://firebase.google.com/terms/',

@@ -15,7 +15,7 @@ We get lots of those and we love helping you, but GitHub is not the best place f
 which just ask about usage will be closed. Here are some resources to get help:
 
 - Go through the [guides](https://firebase.google.com/docs/admin/setup/)
-- Read the full [API reference](https://firebase.google.com/docs/reference/admin/node/)
+- Read the full [API reference](https://firebase.google.com/docs/reference/admin/python/)
 
 If the official documentation doesn't help, try asking a question on the
 [Firebase Google Group](https://groups.google.com/forum/#!forum/firebase-talk/) or one of our
@@ -71,35 +71,14 @@ Run the following commands from the command line to get your local environment s
 
 ```bash
 $ git clone https://github.com/firebase/firebase-admin-python.git
-$ cd firebase-admin-python    # go to the firebase-admin-python directory
-$ pip install -U pytest       # globally install pytest test framework and executor
-$ pip install -U pylint       # globally install pylint code quality checker
+$ cd firebase-admin-python                 # go to the firebase-admin-python directory
+$ pip install -r .github/requirements.txt  # Install additional tools and dependencies
 ```
 
 ### Running Linters
 
 We use [pylint](https://pylint.org/) for verifying source code format, and
-enforcing other Python programming best practices. Install pylint 1.6.4 or
-higher using pip:
-
-```
-pip install -U pylint
-```
-
-Specify a pylint version explicitly if the above command installs an older
-version:
-
-```
-pip install pylint==1.6.4
-```
-
-Once installed, you can check the version of the installed binary by running
-the following command:
-
-```
-pylint --version
-```
-
+enforcing other Python programming best practices.
 There is a pylint configuration file (`.pylintrc`) at the root of this Git
 repository. This enables you to invoke pylint directly from the command line:
 
@@ -137,19 +116,14 @@ pylint -r yes firebase
 ### Unit Testing
 
 We use [pytest](http://doc.pytest.org/en/latest/) for writing and executing
-unit tests. Download pytest 3.0.6 or higher using pip:
-
-```
-pip install -U pytest
-```
-
-All source files containing test code is located in the `tests/`
+unit tests. All source files containing test code is located in the `tests/`
 directory. Simply launch pytest from the root of the Git repository, or from
 within the `tests/` directory to execute all test cases.
 
 ```
 pytest
 ```
+
 Refer to the pytest [usage and invocations guide](http://doc.pytest.org/en/latest/usage.html)
 to learn how to run a subset of all test cases.
 
@@ -170,12 +144,8 @@ Now you can execute the following command from the root of the repository:
 tox
 ```
 
-This command will read a list of target environments from the `tox.ini` file
-in the Git repository, and execute test cases in each of those environments.
-We currently define the following target environments in `tox.ini`:
-
- * python 2.7
-
+This command will read a list of target environments from the [`tox.ini`](../tox.ini)
+file in the Git repository, and execute test cases in each of those environments.
 
 ### Repo Organization
 

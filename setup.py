@@ -20,8 +20,7 @@ setup(
     description='Firebase Admin Python SDK',
     long_description=long_description,
 
-    # The project's main homepage.
-    url='https://github.com/pypa/sampleproject',
+    url='https://github.com/firebase/firebase-admin-python',
 
     # Author details
     author='Firebase Team',

@@ -131,14 +131,9 @@ to learn how to run a subset of all test cases.
 
 Sometimes we may want to run unit tests in multiple environments (e.g. different
 Python versions), and ensure that the SDK works as expected in each of them.
-We use [tox](https://tox.readthedocs.io/en/latest/) for this purpose. Install
-the latest version of tox using pip:
-
-```
-pip install -U tox
-```
-
-Now you can execute the following command from the root of the repository:
+We use [tox](https://tox.readthedocs.io/en/latest/) for this purpose.
+You can execute the following command from the root of the repository to
+launch tox:
 
 ```
 tox

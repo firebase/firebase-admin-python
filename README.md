@@ -21,8 +21,6 @@ For more information, visit the
 ## Documentation
 
 * [Setup Guide](https://firebase.google.com/docs/admin/setup/)
-* [Database Guide](https://firebase.google.com/docs/database/admin/start/)
-* [Authentication Guide](https://firebase.google.com/docs/auth/admin/)
 
 
 ## License and Terms

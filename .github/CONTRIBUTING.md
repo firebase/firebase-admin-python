@@ -127,7 +127,7 @@ pytest
 Refer to the pytest [usage and invocations guide](http://doc.pytest.org/en/latest/usage.html)
 to learn how to run a subset of all test cases.
 
-### Testing on Different Platforms
+### Testing in Different Environments
 
 Sometimes we may want to run unit tests in multiple environments (e.g. different
 Python versions), and ensure that the SDK works as expected in each of them.

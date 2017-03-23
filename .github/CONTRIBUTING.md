@@ -79,14 +79,14 @@ $ pip install -r .github/requirements.txt  # Install additional tools and depend
 
 We use [pylint](https://pylint.org/) for verifying source code format, and
 enforcing other Python programming best practices.
-There is a pylint configuration file (`.pylintrc`) at the root of this Git
+There is a pylint configuration file ([`.pylintrc`](../.pylintrc)) at the root of this Git
 repository. This enables you to invoke pylint directly from the command line:
 
 ```
 pylint firebase
 ```
 
-However, it is recommended that you use the `lint.sh` bash script to invoke
+However, it is recommended that you use the [`lint.sh`](../lint.sh) bash script to invoke
 pylint. This script will run the linter on both `firebase` and the corresponding
 `tests` module. It suprresses some of the noisy warnings that get generated
 when running pylint on test code. Note that by default `lint.sh` will only

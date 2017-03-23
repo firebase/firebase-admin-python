@@ -1,84 +1,29 @@
 # Firebase Admin Python SDK
 
-The Firebase Admin Python SDK enables server-side (backend) Python developers
-to integrate [Firebase](https://firebase.google.com) into their services
-and applications. Currently this SDK provides Firebase custom authentication
-support.
+## Table of Contents
+
+ * [Overview](#overview)
+ * [Documentation](#documentation)
+ * [License and Terms](#license-and-terms)
+
+## Overview
+
+[Firebase](https://firebase.google.com) provides the tools and infrastructure
+you need to develop apps, grow your user base, and earn money. The Firebase
+Admin Python SDK enables server-side (backend) Python developers to integrate
+Firebase into their services and applications. Currently this SDK provides
+Firebase custom authentication support.
+
+For more information, visit the
+[Firebase Admin SDK setup guide](https://firebase.google.com/docs/admin/setup/).
 
 
-## Unit Testing
-We use [pytest](http://doc.pytest.org/en/latest/) for writing and executing
-unit tests. Download pytest 3.0.6 or higher using pip:
+## Documentation
 
-```
-pip install -U pytest
-```
-
-All source files containing test code is located in the `tests/`
-directory. Simply launch pytest from the root of the Git repository, or from
-within the `tests/` directory to execute all test cases.
-
-```
-pytest
-```
-
-Refer to the pytest [usage and invocations guide](http://doc.pytest.org/en/latest/usage.html)
-to learn how to run a subset of all test cases.
+* [Setup Guide](https://firebase.google.com/docs/admin/setup/)
 
 
-## Running Linters
-We use [pylint](https://pylint.org/) for verifying source code format, and
-enforcing other Python programming best practices. Install pylint 1.6.4 or
-higher using pip:
+## License and Terms
 
-```
-pip install -U pylint
-```
-
-Specify a pylint version explicitly if the above command installs an older
-version:
-
-```
-pip install pylint==1.6.4
-```
-
-Once installed, you can check the version of the installed binary by running
-the following command:
-
-```
-pylint --version
-```
-
-There is a pylint configuration file (`.pylintrc`) at the root of this Git
-repository. This enables you to invoke pylint directly from the command line:
-
-```
-pylint firebase
-```
-
-However, it is recommended that you use the `lint.sh` bash script to invoke
-pylint. This script will run the linter on both `firebase` and the corresponding
-`tests` module. It suprresses some of the noisy warnings that get generated
-when running pylint on test code. Note that by default `lint.sh` will only
-validate the locally modified source files. To validate all source files,
-pass `all` as an argument.
-
-```
-./lint.sh      # Lint locally modified source files
-./lint.sh all  # Lint all source files 
-```
-
-Ideally you should not see any pylint errors or warnings when you run the
-linter. This means source files are properly formatted, and the linter has
-not found any issues. If you do observe any errors, fix them before
-committing or sending a pull request. Details on how to interpret pylint
-errors are available
-[here](https://pylint.readthedocs.io/en/latest/user_guide/output.html).
-
-Our configuration files suppress the verbose reports usually generated
-by pylint, and only output the detected issues. If you wish to obtain the
-comprehensive reports, run pylint from command-line with the `-r` flag.
-
-```
-pylint -r yes firebase
-```
+Your use of Firebase is governed by the
+[Terms of Service for Firebase Services](https://firebase.google.com/terms/).

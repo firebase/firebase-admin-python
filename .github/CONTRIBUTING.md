@@ -67,7 +67,14 @@ before we can accept your pull request.
 
 ### Initial Setup
 
-Run the following commands from the command line to get your local environment set up:
+We recommend using [pip](https://pypi.python.org/pypi/pip) for installing the necessary tools and
+project dependencies. Most recent versions of Python ship with pip. If your development environment
+does not already have pip, use the software package manager of your platform (e.g. apt-get, brew)
+to download and install it. Alternatively you may also follow the official
+[pip installation guide](https://pip.pypa.io/en/stable/installing/).
+
+Once pip is installed, run the following commands from the command line to get your local
+environment set up:
 
 ```bash
 $ git clone https://github.com/firebase/firebase-admin-python.git

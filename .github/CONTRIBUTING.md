@@ -71,8 +71,8 @@ Run the following commands from the command line to get your local environment s
 
 ```bash
 $ git clone https://github.com/firebase/firebase-admin-python.git
-$ cd firebase-admin-python                 # go to the firebase-admin-python directory
-$ pip install -r .github/requirements.txt  # Install additional tools and dependencies
+$ cd firebase-admin-python         # go to the firebase-admin-python directory
+$ pip install -r requirements.txt  # Install additional tools and dependencies
 ```
 
 ### Running Linters
@@ -152,5 +152,6 @@ Here are some highlights of the directory structure and notable source files
 * `.github/` - Contribution instructions as well as issue and pull request templates.
 * `lint.sh` - Runs pylint to check for code quality.
 * `.pylintrc` - Default configuration for pylint.
+* `requirements.txt` - Requirements specification for installing project dependencies via pip.
 * `setup.py` - Python setup script for building distribution artifacts.
 * `tox.ini` - Tox configuration for running tests on different environments.

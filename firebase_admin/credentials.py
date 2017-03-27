@@ -1,5 +1,8 @@
 """Firebase credentials module."""
 import json
+import sys
+
+import httplib2
 
 from oauth2client import client
 from oauth2client import crypt

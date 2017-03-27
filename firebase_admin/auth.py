@@ -4,14 +4,10 @@ This module contains helper methods and utilities for minting and verifying
 JWTs used for authenticating against Firebase services.
 """
 
-import json
 import os
-import sys
 import threading
 import time
 
-import httplib2
-from oauth2client import client
 from oauth2client import crypt
 
 import firebase_admin

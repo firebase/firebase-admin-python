@@ -13,8 +13,8 @@ CREDENTIAL = credentials.Certificate(
 class TestFirebaseApp(object):
     """Test cases for App initialization and life cycle."""
 
-    invalid_credentials = ['', 0, 1, dict(), list(), tuple(), True, False]
-    invalid_options = [None, '', 0, 1, list(), tuple(), True, False]
+    invalid_credentials = [None, '', 'foo', 0, 1, dict(), list(), tuple(), True, False]
+    invalid_options = ['', 0, 1, list(), tuple(), True, False]
     invalid_names = [None, '', 0, 1, dict(), list(), tuple(), True, False]
 
     def teardown_method(self):

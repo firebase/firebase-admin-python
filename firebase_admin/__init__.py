@@ -10,7 +10,7 @@ _apps_lock = threading.RLock()
 _DEFAULT_APP_NAME = '[DEFAULT]'
 
 
-def initialize_app(credential=None, options=dict(), name=_DEFAULT_APP_NAME):
+def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
     """Initializes and returns a new App instance.
 
     Creates a new App intance using the specified options
@@ -115,9 +115,12 @@ class _AppOptions(object):
     """A collection of configuration options for an App."""
 
     def __init__(self, options):
+        if options is None:
+            options = {}
         if not isinstance(options, dict):
             raise ValueError('Illegal Firebase app options type: {0}. Options '
                              'must be a dictionary.'.format(type(options)))
+        self._options = options
 
 
 class App(object):

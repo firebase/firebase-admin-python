@@ -18,9 +18,9 @@ SKIP_FOR_TESTS="redefined-outer-name,protected-access,missing-docstring"
 
 if [[ $1 = "all" ]]
 then
-  lintAllFiles firebase
+  lintAllFiles firebase_admin
   lintAllFiles tests $SKIP_FOR_TESTS
 else
-  lintChangedFiles firebase
+  lintChangedFiles firebase_admin
   lintChangedFiles tests $SKIP_FOR_TESTS
 fi

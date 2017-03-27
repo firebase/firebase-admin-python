@@ -8,6 +8,9 @@ from oauth2client import client
 from oauth2client import crypt
 
 
+_http = httplib2.Http()
+
+
 class Base(object):
     """Provides OAuth2 access tokens for accessing Firebase services."""
 
@@ -70,8 +73,7 @@ class Certificate(Base):
         return self._service_account_email
 
     def get_access_token(self):
-        self._g_credential.refresh(httplib2.Http())
-        return self._g_credential.get_access_token()
+        return self._g_credential.get_access_token(_http)
 
     def get_credential(self):
         return self._g_credential

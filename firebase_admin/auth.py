@@ -1,4 +1,4 @@
-"""Firebase custom authentication module.
+"""Firebase Authentication module.
 
 This module contains helper methods and utilities for minting and verifying
 JWTs used for authenticating against Firebase services.

@@ -20,7 +20,8 @@ def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
     App constructor.
 
     Args:
-      credential: A credential object derived from credentials.Base interface (optional).
+      credential: A credential object used to initialize the SDK (optional). If none is provided,
+      Google Application Default Credentials are used.
       options: A dictionary of configuration options (optional).
       name: Name of the app (optional).
 
@@ -135,7 +136,7 @@ class App(object):
 
         Args:
           name: Name of the application.
-          credential: A credential object derived from credentials.Base interface.
+          credential: A credential object.
           options: A dictionary of configuration options.
 
         Raises:

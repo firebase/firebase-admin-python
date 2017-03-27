@@ -1,4 +1,4 @@
-"""Tests for firebase.App."""
+"""Tests for firebase_admin.App."""
 import pytest
 
 import firebase_admin
@@ -13,7 +13,7 @@ CREDENTIAL = credentials.Certificate(
 class TestFirebaseApp(object):
     """Test cases for App initialization and life cycle."""
 
-    invalid_credentials = [None, '', 'foo', 0, 1, dict(), list(), tuple(), True, False]
+    invalid_credentials = ['', 'foo', 0, 1, dict(), list(), tuple(), True, False]
     invalid_options = ['', 0, 1, list(), tuple(), True, False]
     invalid_names = [None, '', 0, 1, dict(), list(), tuple(), True, False]
 

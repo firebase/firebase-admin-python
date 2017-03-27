@@ -3,3 +3,4 @@
 .cache/
 .tox/
 *.egg-info/
+*~

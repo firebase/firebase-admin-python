@@ -90,11 +90,11 @@ There is a pylint configuration file ([`.pylintrc`](../.pylintrc)) at the root o
 repository. This enables you to invoke pylint directly from the command line:
 
 ```
-pylint firebase
+pylint firebase_admin
 ```
 
 However, it is recommended that you use the [`lint.sh`](../lint.sh) bash script to invoke
-pylint. This script will run the linter on both `firebase` and the corresponding
+pylint. This script will run the linter on both `firebase_admin` and the corresponding
 `tests` module. It suprresses some of the noisy warnings that get generated
 when running pylint on test code. Note that by default `lint.sh` will only
 validate the locally modified source files. To validate all source files,
@@ -117,7 +117,7 @@ by pylint, and only output the detected issues. If you wish to obtain the
 comprehensive reports, run pylint from command-line with the `-r` flag.
 
 ```
-pylint -r yes firebase
+pylint -r yes firebase_admin
 ```
 
 ### Unit Testing
@@ -153,7 +153,7 @@ file in the Git repository, and execute test cases in each of those environments
 
 Here are some highlights of the directory structure and notable source files
 
-* `firebase/` - Source directory for the `firebase` module.
+* `firebase_admin/` - Source directory for the `firebase_admin` module.
 * `tests/` - Unit tests.
   * `data/` - Provides mocks for several variables as well as mock service account keys.
 * `.github/` - Contribution instructions as well as issue and pull request templates.

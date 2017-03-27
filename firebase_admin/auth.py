@@ -147,7 +147,7 @@ class _TokenGenerator(object):
         if not isinstance(self._app.credential, credentials.Certificate):
             raise ValueError(
                 'Must initialize Firebase App with a certificate credential '
-                'to call create_custom_token(). found: ' + str(type(self._app.credential)))
+                'to call create_custom_token().')
 
         if developer_claims is not None:
             if not isinstance(developer_claims, dict):

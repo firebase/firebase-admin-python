@@ -1,0 +1,5 @@
+pylint >= 1.6.4
+pytest >= 3.0.6
+tox >= 2.6.0
+
+oauth2client >= 4.0.0

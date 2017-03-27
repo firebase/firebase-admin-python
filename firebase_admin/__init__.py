@@ -130,12 +130,12 @@ class App(object):
        common to all Firebase APIs.
     """
 
-    def __init__(self, name, cred, options):
+    def __init__(self, name, credential, options):
         """Constructs a new App using the provided name and options.
 
         Args:
           name: Name of the application.
-          cred: A credential object.
+          credential: A credential object derived from credentials.Base interface.
           options: A dictionary of configuration options.
 
         Raises:
@@ -146,10 +146,10 @@ class App(object):
                              'non-empty string.'.format(name))
         self._name = name
 
-        if not cred or not isinstance(cred, credentials.Base):
+        if not isinstance(credential, credentials.Base):
             raise ValueError('Illegal Firebase credential provided. App must be initialized '
                              'with a valid credential instance.')
-        self._credential = cred
+        self._credential = credential
         self._options = _AppOptions(options)
 
     @property

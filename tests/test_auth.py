@@ -1,4 +1,4 @@
-"""Test cases for firebase.auth module."""
+"""Test cases for firebase_admin.auth module."""
 import os
 import time
 
@@ -6,9 +6,10 @@ from oauth2client import client
 from oauth2client import crypt
 import pytest
 
-import firebase
-from firebase import auth
-from firebase import jwt
+import firebase_admin
+from firebase_admin import auth
+from firebase_admin import credentials
+from firebase_admin import jwt
 from tests import testutils
 
 
@@ -16,7 +17,7 @@ FIREBASE_AUDIENCE = ('https://identitytoolkit.googleapis.com/'
                      'google.identity.identitytoolkit.v1.IdentityToolkit')
 
 MOCK_UID = 'user1'
-MOCK_CREDENTIAL = auth.CertificateCredential(
+MOCK_CREDENTIAL = credentials.Certificate(
     testutils.resource_filename('service_account.json'))
 MOCK_PUBLIC_CERTS = testutils.resource('public_certs.json')
 MOCK_PRIVATE_KEY = testutils.resource('private_key.pem')
@@ -26,7 +27,7 @@ MOCK_SERVICE_ACCOUNT_EMAIL = MOCK_CREDENTIAL.service_account_email
 class AuthFixture(object):
     def __init__(self, name=None):
         if name:
-            self.app = firebase.get_app(name)
+            self.app = firebase_admin.get_app(name)
         else:
             self.app = None
 
@@ -43,12 +44,12 @@ class AuthFixture(object):
             return auth.verify_id_token(*args)
 
 def setup_module():
-    firebase.initialize_app({'credential': MOCK_CREDENTIAL})
-    firebase.initialize_app({'credential': MOCK_CREDENTIAL}, 'testApp')
+    firebase_admin.initialize_app(MOCK_CREDENTIAL)
+    firebase_admin.initialize_app(MOCK_CREDENTIAL, name='testApp')
 
 def teardown_module():
-    firebase.delete_app('[DEFAULT]')
-    firebase.delete_app('testApp')
+    firebase_admin.delete_app('[DEFAULT]')
+    firebase_admin.delete_app('testApp')
 
 @pytest.fixture(params=[None, 'testApp'], ids=['DefaultApp', 'CustomApp'])
 def authtest(request):
@@ -69,10 +70,9 @@ def non_cert_app():
     that depends on this fixture. This ensures the proper cleanup of the App instance after
     tests.
     """
-    app = firebase.initialize_app(
-        {'credential': auth.Credential()}, 'non-cert-app')
+    app = firebase_admin.initialize_app(credentials.Base(), name='non-cert-app')
     yield app
-    firebase.delete_app(app.name)
+    firebase_admin.delete_app(app.name)
 
 def verify_custom_token(custom_token, expected_claims):
     assert isinstance(custom_token, basestring)

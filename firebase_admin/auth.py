@@ -1,6 +1,6 @@
-"""Firebase Authentication Library.
+"""Firebase custom authentication module.
 
-This library contains helper methods and utilities for minting and verifying
+This module contains helper methods and utilities for minting and verifying
 JWTs used for authenticating against Firebase services.
 """
 
@@ -14,8 +14,9 @@ import httplib2
 from oauth2client import client
 from oauth2client import crypt
 
-import firebase
-from firebase import jwt
+import firebase_admin
+from firebase_admin import credentials
+from firebase_admin import jwt
 
 _auth_lock = threading.Lock()
 
@@ -30,16 +31,16 @@ GCLOUD_PROJECT_ENV_VAR = 'GCLOUD_PROJECT'
 
 def _get_initialized_app(app):
     if app is None:
-        return firebase.get_app()
-    elif isinstance(app, firebase.App):
-        initialized_app = firebase.get_app(app.name)
+        return firebase_admin.get_app()
+    elif isinstance(app, firebase_admin.App):
+        initialized_app = firebase_admin.get_app(app.name)
         if app is not initialized_app:
             raise ValueError('Illegal app argument. App instance not '
                              'initialized via the firebase module.')
         return app
     else:
         raise ValueError('Illegal app argument. Argument must be of type '
-                         ' firebase.App, but given "{0}".'.format(type(app)))
+                         ' firebase_admin.App, but given "{0}".'.format(type(app)))
 
 
 def _get_token_generator(app):
@@ -99,7 +100,7 @@ def verify_id_token(id_token, app=None):
 
     Raises:
       ValueError: If the input parameters are invalid, or if the App was not
-      initialized with a CertificateCredential.
+      initialized with a credentials.Certificate.
       AppIdenityError: The JWT was found to be invalid, the message will contain
       details.
     """
@@ -147,11 +148,10 @@ class _TokenGenerator(object):
         Raises:
           ValueError: If input parameters are invalid.
         """
-        credential = self._app.options.credential
-        if not isinstance(credential, CertificateCredential):
+        if not isinstance(self._app.credential, credentials.Certificate):
             raise ValueError(
-                'Must initialize Firebase App with a certificate credential'
-                'to call create_custom_token().')
+                'Must initialize Firebase App with a certificate credential '
+                'to call create_custom_token(). found: ' + str(type(self._app.credential)))
 
         if developer_claims is not None:
             if not isinstance(developer_claims, dict):
@@ -176,8 +176,8 @@ class _TokenGenerator(object):
 
         now = int(time.time())
         payload = {
-            'iss': credential.service_account_email,
-            'sub': credential.service_account_email,
+            'iss': self._app.credential.service_account_email,
+            'sub': self._app.credential.service_account_email,
             'aud': self.FIREBASE_AUDIENCE,
             'uid': uid,
             'iat': now,
@@ -187,7 +187,7 @@ class _TokenGenerator(object):
         if developer_claims is not None:
             payload['claims'] = developer_claims
 
-        return jwt.encode(payload, credential.signer)
+        return jwt.encode(payload, self._app.credential.signer)
 
     def verify_id_token(self, id_token):
         """Verifies the signature and data for the provided JWT.
@@ -202,7 +202,7 @@ class _TokenGenerator(object):
           A dict consisting of the key-value pairs parsed from the decoded JWT.
 
         Raises:
-          ValueError: The app was not initialized with a CertificateCredential
+          ValueError: The app was not initialized with a credentials.Certificate instance.
           AppIdenityError: The JWT was found to be invalid, the message will
           contain details.
         """
@@ -210,14 +210,13 @@ class _TokenGenerator(object):
             raise ValueError('Illegal ID token provided: {0}. ID token '
                              'must be a non-empty string.'.format(id_token))
 
-        credential = self._app.options.credential
         try:
-            project_id = credential.project_id
+            project_id = self._app.credential.project_id
         except AttributeError:
             project_id = os.environ.get(GCLOUD_PROJECT_ENV_VAR)
 
         if not project_id:
-            raise ValueError('Must initialize app with a CertificateCredential '
+            raise ValueError('Must initialize app with a credentials.Certificate '
                              'or set your Firebase project ID as the '
                              'GCLOUD_PROJECT environment variable to call '
                              'verify_id_token().')
@@ -281,76 +280,3 @@ class _TokenGenerator(object):
             audience=project_id,
             kid=header.get('kid'),
             http=_http)
-
-
-class Credential(object):
-    """Provides OAuth2 access tokens for accessing Firebase services.
-    """
-
-    def get_access_token(self, force_refresh=False):
-        """Fetches a Google OAuth2 access token using this credential instance.
-
-        Args:
-          force_refresh: A boolean value indicating whether to fetch a new token
-                         or use a cached one if available.
-        """
-        raise NotImplementedError
-
-    def get_credential(self):
-        """Returns the credential instance used for authentication."""
-        raise NotImplementedError
-
-
-class CertificateCredential(Credential):
-    """A Credential initialized from a JSON keyfile."""
-
-    def __init__(self, file_path):
-        """Initializes a credential from a certificate file.
-
-        Parses the specified certificate file (service account file), and
-        creates a credential instance from it.
-
-        Args:
-          file_path: Path to a service account certificate file.
-
-        Raises:
-          IOError: If the specified file doesn't exist or cannot be read.
-          ValueError: If an error occurs while parsing the file content.
-        """
-        super(CertificateCredential, self).__init__()
-        # TODO(hkj): Clean this up once we are able to take a dependency
-        # TODO(hkj): on latest oauth2client.
-        with open(file_path) as json_keyfile:
-            json_data = json.load(json_keyfile)
-        self._project_id = json_data.get('project_id')
-        try:
-            self._signer = crypt.Signer.from_string(
-                json_data.get('private_key'))
-        except Exception as error:
-            err_type, err_value, err_traceback = sys.exc_info()
-            err_message = 'Failed to parse the private key string: {0}'.format(
-                error)
-            raise ValueError, (err_message, err_type, err_value), err_traceback
-        self._service_account_email = json_data.get('client_email')
-        self._g_credential = client.GoogleCredentials.from_stream(file_path)
-
-    @property
-    def project_id(self):
-        return self._project_id
-
-    @property
-    def signer(self):
-        return self._signer
-
-    @property
-    def service_account_email(self):
-        return self._service_account_email
-
-    def get_access_token(self, force_refresh=False):
-        if force_refresh:
-            self._g_credential.refresh(httplib2.Http())
-        token_info = self._g_credential.get_access_token()
-        return token_info.access_token
-
-    def get_credential(self):
-        return self._g_credential

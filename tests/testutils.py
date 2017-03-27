@@ -3,7 +3,7 @@ import os
 
 import httplib2
 
-import firebase
+import firebase_admin
 
 
 def resource_filename(filename):
@@ -18,10 +18,10 @@ def resource(filename):
 
 
 def cleanup_apps():
-    with firebase._apps_lock:
-        app_names = list(firebase._apps.keys())
+    with firebase_admin._apps_lock:
+        app_names = list(firebase_admin._apps.keys())
         for name in app_names:
-            firebase.delete_app(name)
+            firebase_admin.delete_app(name)
 
 
 class HttpMock(object):

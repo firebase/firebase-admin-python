@@ -1,6 +1,8 @@
 """Firebase Admin SDK for Python."""
 import threading
 
+from firebase_admin import credentials
+
 
 _apps = {}
 _apps_lock = threading.RLock()
@@ -8,7 +10,7 @@ _apps_lock = threading.RLock()
 _DEFAULT_APP_NAME = '[DEFAULT]'
 
 
-def initialize_app(options, name=_DEFAULT_APP_NAME):
+def initialize_app(credential=None, options=dict(), name=_DEFAULT_APP_NAME):
     """Initializes and returns a new App instance.
 
     Creates a new App intance using the specified options
@@ -18,7 +20,8 @@ def initialize_app(options, name=_DEFAULT_APP_NAME):
     App constructor.
 
     Args:
-      options: A dictionary of configuration options.
+      credential: A credential object derived from credentials.Base interface (optional).
+      options: A dictionary of configuration options (optional).
       name: Name of the app (optional).
 
     Returns:
@@ -28,7 +31,7 @@ def initialize_app(options, name=_DEFAULT_APP_NAME):
       ValueError: If the app name is already in use, or any of the
       provided arguments are invalid.
     """
-    app = App(name, options)
+    app = App(name, credential, options)
     with _apps_lock:
         if app.name not in _apps:
             _apps[app.name] = app
@@ -115,14 +118,6 @@ class _AppOptions(object):
         if not isinstance(options, dict):
             raise ValueError('Illegal Firebase app options type: {0}. Options '
                              'must be a dictionary.'.format(type(options)))
-        self._credential = options.get('credential', None)
-        if not self._credential:
-            raise ValueError('Options must be a dict containing at least a'
-                             ' "credential" key.')
-
-    @property
-    def credential(self):
-        return self._credential
 
 
 class App(object):
@@ -132,25 +127,35 @@ class App(object):
        common to all Firebase APIs.
     """
 
-    def __init__(self, name, options):
+    def __init__(self, name, cred, options):
         """Constructs a new App using the provided name and options.
 
         Args:
           name: Name of the application.
+          cred: A credential object.
           options: A dictionary of configuration options.
 
         Raises:
           ValueError: If an argument is None or invalid.
         """
         if not name or not isinstance(name, basestring):
-            raise ValueError('Illegal Firebase app name "{0}" provided. App '
-                             'name must be a non-empty string.'.format(name))
+            raise ValueError('Illegal Firebase app name "{0}" provided. App name must be a '
+                             'non-empty string.'.format(name))
         self._name = name
+
+        if not cred or not isinstance(cred, credentials.Base):
+            raise ValueError('Illegal Firebase credential provided. App must be initialized '
+                             'with a valid credential instance.')
+        self._credential = cred
         self._options = _AppOptions(options)
 
     @property
     def name(self):
         return self._name
+
+    @property
+    def credential(self):
+        return self._credential
 
     @property
     def options(self):

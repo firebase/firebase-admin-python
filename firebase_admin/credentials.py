@@ -83,13 +83,13 @@ class Certificate(Base):
 
 
 class ApplicationDefault(Base):
-    """A Google application default credential."""
+    """A Google Application Default credential."""
 
     def __init__(self):
-        """Initializes the application default credentials for the current environment.
+        """Initializes the Application Default credentials for the current environment.
 
         Raises:
-          oauth2client.client.ApplicationDefaultCredentialsError: If application default
+          oauth2client.client.ApplicationDefaultCredentialsError: If Application Default
           credentials cannot be initialized in the current environment.
         """
         super(ApplicationDefault, self).__init__()
@@ -106,7 +106,7 @@ class RefreshToken(Base):
     """A credential initialized from an existing refresh token."""
 
     def __init__(self, file_path):
-        """Initialized a refresh token credential from the specified JSON file.
+        """Initializes a refresh token credential from the specified JSON file.
 
         Args:
           file_path: File path to a refresh token JSON file.

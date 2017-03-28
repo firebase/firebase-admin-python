@@ -92,6 +92,7 @@ class TestRefreshToken(object):
         credentials._http = testutils.HttpMock(200, json.dumps(mock_response))
         access_token = credential.get_access_token()
         assert access_token.access_token == 'mock_access_token'
+        # GoogleCredentials class recalculates the expires_in property before returning.
         assert access_token.expires_in <= 1234
 
     def test_init_from_nonexisting_file(self):

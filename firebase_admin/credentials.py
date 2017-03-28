@@ -40,7 +40,7 @@ class Certificate(Base):
 
         Raises:
           IOError: If the specified file doesn't exist or cannot be read.
-          ValueError: If an error occurs while parsing the file content.
+          ValueError: If the certificate file is invalid.
         """
         super(Certificate, self).__init__()
         # TODO(hkj): Clean this up once we are able to take a dependency

@@ -1,6 +1,8 @@
 """Firebase Admin SDK for Python."""
 import threading
 
+import six
+
 from firebase_admin import credentials
 
 
@@ -32,6 +34,8 @@ def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
       ValueError: If the app name is already in use, or any of the
       provided arguments are invalid.
     """
+    if credential is None:
+        credential = credentials.ApplicationDefault()
     app = App(name, credential, options)
     with _apps_lock:
         if app.name not in _apps:
@@ -63,7 +67,7 @@ def delete_app(name):
     Raises:
       ValueError: If the name is not a string.
     """
-    if not isinstance(name, basestring):
+    if not isinstance(name, six.string_types):
         raise ValueError('Illegal app name argument type: "{}". App name '
                          'must be a string.'.format(type(name)))
     with _apps_lock:
@@ -94,7 +98,7 @@ def get_app(name=_DEFAULT_APP_NAME):
       ValueError: If the specified name is not a string, or if the specified
       app does not exist.
     """
-    if not isinstance(name, basestring):
+    if not isinstance(name, six.string_types):
         raise ValueError('Illegal app name argument type: "{}". App name '
                          'must be a string.'.format(type(name)))
     with _apps_lock:
@@ -142,7 +146,7 @@ class App(object):
         Raises:
           ValueError: If an argument is None or invalid.
         """
-        if not name or not isinstance(name, basestring):
+        if not name or not isinstance(name, six.string_types):
             raise ValueError('Illegal Firebase app name "{0}" provided. App name must be a '
                              'non-empty string.'.format(name))
         self._name = name

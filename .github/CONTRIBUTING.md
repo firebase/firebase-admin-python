@@ -136,18 +136,34 @@ to learn how to run a subset of all test cases.
 
 ### Testing in Different Environments
 
-Sometimes we may want to run unit tests in multiple environments (e.g. different
-Python versions), and ensure that the SDK works as expected in each of them.
-We use [tox](https://tox.readthedocs.io/en/latest/) for this purpose.
-You can execute the following command from the root of the repository to
-launch tox:
+Sometimes we want to run unit tests in multiple environments (e.g. different Python versions), and
+ensure that the SDK works as expected in each of them. We use 
+[tox](https://tox.readthedocs.io/en/latest/) for this purpose. 
+
+But before you can invoke tox, you must set up all the necessary target environments on your
+workstation. The easiest and cleanest way to achieve this is by using a tool like
+[pyenv](https://github.com/pyenv/pyenv). Refer to the 
+[pyenv documentation](https://github.com/pyenv/pyenv#installation) for instructions on how to
+install it. This generally involves installing some binaries as well as modifying a system level
+configuration file such as `.bash_profile`. Once pyenv is installed, you can install multiple
+versions of Python as follows:
+
+```
+pyenv install 2.7.6 # install Python 2.7.6
+pyenv install 3.3.0 # install Python 3.3.0
+```
+
+Refer to the [`tox.ini`](../tox.ini) file for a list of target environments that we usually test
+the Python Admin SDK on. Use pyenv to install all the required Python versions on your workstation.
+When your system is fully set up, you can execute the following command from the root of the
+repository to launch tox:
 
 ```
 tox
 ```
 
-This command will read a list of target environments from the [`tox.ini`](../tox.ini)
-file in the Git repository, and execute test cases in each of those environments.
+This command will read the list of target environments from `tox.ini`, and execute tests in each of
+those environments.
 
 ### Repo Organization
 

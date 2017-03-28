@@ -9,6 +9,7 @@ import threading
 import time
 
 from oauth2client import crypt
+import six
 
 import firebase_admin
 from firebase_admin import credentials
@@ -166,9 +167,8 @@ class _TokenGenerator(object):
                                          ', '.join(disallowed_keys)))
                 raise ValueError(error_message)
 
-        if not uid or not isinstance(uid, basestring) or len(uid) > 128:
-            raise ValueError(
-                'uid must be a string between 1 and 128 characters.')
+        if not uid or not isinstance(uid, six.string_types) or len(uid) > 128:
+            raise ValueError('uid must be a string between 1 and 128 characters.')
 
         now = int(time.time())
         payload = {
@@ -202,9 +202,15 @@ class _TokenGenerator(object):
           AppIdenityError: The JWT was found to be invalid, the message will
           contain details.
         """
-        if not id_token or not isinstance(id_token, basestring):
-            raise ValueError('Illegal ID token provided: {0}. ID token '
-                             'must be a non-empty string.'.format(id_token))
+        if not id_token:
+            raise ValueError('Illegal ID token provided: {0}. ID token must be a non-empty '
+                             'string.'.format(id_token))
+
+        if isinstance(id_token, six.text_type):
+            id_token = id_token.encode('ascii')
+        if not isinstance(id_token, six.binary_type):
+            raise ValueError('Illegal ID token provided: {0}. ID token must be a non-empty '
+                             'string.'.format(id_token))
 
         try:
             project_id = self._app.credential.project_id
@@ -256,7 +262,7 @@ class _TokenGenerator(object):
                              .format(expected_issuer, issuer,
                                      project_id_match_msg,
                                      verify_id_token_msg))
-        elif subject is None or not isinstance(subject, basestring):
+        elif subject is None or not isinstance(subject, six.string_types):
             error_message = ('Firebase ID token has no "sub" (subject) '
                              'claim. ') + verify_id_token_msg
         elif not subject:

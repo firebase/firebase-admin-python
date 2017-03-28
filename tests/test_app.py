@@ -1,4 +1,6 @@
 """Tests for firebase_admin.App."""
+import os
+
 import pytest
 
 import firebase_admin
@@ -8,6 +10,57 @@ from tests import testutils
 
 CREDENTIAL = credentials.Certificate(
     testutils.resource_filename('service_account.json'))
+
+class CredentialProvider(object):
+    def init(self):
+        pass
+
+    def get(self):
+        pass
+
+    def cleanup(self):
+        pass
+
+
+class Cert(CredentialProvider):
+    def get(self):
+        return CREDENTIAL
+
+
+class RefreshToken(CredentialProvider):
+    def get(self):
+        credentials.RefreshToken(testutils.resource_filename('refresh_token.json'))
+
+
+class ExplicitAppDefault(CredentialProvider):
+    VAR_NAME = 'GOOGLE_APPLICATION_CREDENTIALS'
+
+    def init(self):
+        self.file_path = os.environ.get(self.VAR_NAME)
+        os.environ[self.VAR_NAME] = testutils.resource_filename('service_account.json')
+
+    def get(self):
+        return credentials.ApplicationDefault()
+
+    def cleanup(self):
+        if self.file_path:
+            os.environ[self.VAR_NAME] = self.file_path
+        else:
+            del os.environ[self.VAR_NAME]
+
+
+class ImplicitAppDefault(ExplicitAppDefault):
+    def get(self):
+        return None
+
+
+@pytest.fixture(params=[Cert(), RefreshToken(), ExplicitAppDefault(), ImplicitAppDefault()],
+                ids=['cert', 'refreshtoken', 'explicit-appdefault', 'implicit-appdefault'])
+def app_credential(request):
+    provider = request.param
+    provider.init()
+    yield provider.get()
+    provider.cleanup()
 
 
 class TestFirebaseApp(object):
@@ -20,19 +73,25 @@ class TestFirebaseApp(object):
     def teardown_method(self):
         testutils.cleanup_apps()
 
-    def test_default_app_init(self):
-        app = firebase_admin.initialize_app(CREDENTIAL)
+    def test_default_app_init(self, app_credential):
+        app = firebase_admin.initialize_app(app_credential)
         assert firebase_admin._DEFAULT_APP_NAME == app.name
-        assert CREDENTIAL is app.credential
+        if app_credential:
+            assert app_credential is app.credential
+        else:
+            assert isinstance(app.credential, credentials.ApplicationDefault)
         with pytest.raises(ValueError):
-            firebase_admin.initialize_app(CREDENTIAL)
+            firebase_admin.initialize_app(app_credential)
 
-    def test_non_default_app_init(self):
-        app = firebase_admin.initialize_app(CREDENTIAL, name='myApp')
+    def test_non_default_app_init(self, app_credential):
+        app = firebase_admin.initialize_app(app_credential, name='myApp')
         assert app.name == 'myApp'
-        assert CREDENTIAL is app.credential
+        if app_credential:
+            assert app_credential is app.credential
+        else:
+            assert isinstance(app.credential, credentials.ApplicationDefault)
         with pytest.raises(ValueError):
-            firebase_admin.initialize_app(CREDENTIAL, name='myApp')
+            firebase_admin.initialize_app(app_credential, name='myApp')
 
     @pytest.mark.parametrize('cred', invalid_credentials)
     def test_app_init_with_invalid_credential(self, cred):

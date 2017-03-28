@@ -121,7 +121,22 @@ class RefreshToken(Base):
         if json_data.get('type') != client.AUTHORIZED_USER:
             raise ValueError('Invalid refresh token file. File must contain a '
                              '"type" field set to "{0}".'.format(client.AUTHORIZED_USER))
+        self._client_id = json_data.get('client_id')
+        self._client_secret = json_data.get('client_secret')
+        self._refresh_token = json_data.get('refresh_token')
         self._g_credential = client.GoogleCredentials.from_stream(file_path)
+
+    @property
+    def client_id(self):
+        return self._client_id
+
+    @property
+    def client_secret(self):
+        return self._client_secret
+
+    @property
+    def refresh_token(self):
+        return self._refresh_token
 
     def get_access_token(self):
         return self._g_credential.get_access_token(_http)

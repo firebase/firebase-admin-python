@@ -2,5 +2,5 @@
   "type": "authorized_user",
   "client_id": "mock.apps.googleusercontent.com",
   "client_secret": "mock-secret",
-  "refresh_token": "1/0PuhXjzQXaGdcGk3788ECApegAa1IoeTPfPh_cNLjmU"
+  "refresh_token": "mock-refresh-token"
 }

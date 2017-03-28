@@ -77,6 +77,9 @@ class TestRefreshToken(object):
     def test_init_from_file(self):
         credential = credentials.RefreshToken(
             testutils.resource_filename('refresh_token.json'))
+        assert credential.client_id == 'mock.apps.googleusercontent.com'
+        assert credential.client_secret == 'mock-secret'
+        assert credential.refresh_token == 'mock-refresh-token'
 
         g_credential = credential.get_credential()
         assert isinstance(g_credential, client.GoogleCredentials)

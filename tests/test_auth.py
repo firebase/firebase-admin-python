@@ -5,6 +5,7 @@ import time
 from oauth2client import client
 from oauth2client import crypt
 import pytest
+import six
 
 import firebase_admin
 from firebase_admin import auth
@@ -75,7 +76,7 @@ def non_cert_app():
     firebase_admin.delete_app(app.name)
 
 def verify_custom_token(custom_token, expected_claims):
-    assert isinstance(custom_token, basestring)
+    assert isinstance(custom_token, six.binary_type)
     token = client.verify_id_token(
         custom_token,
         FIREBASE_AUDIENCE,
@@ -117,6 +118,9 @@ def get_id_token(payload_overrides=None, header_overrides=None):
     return jwt.encode(payload, signer, headers=headers)
 
 
+TEST_ID_TOKEN = get_id_token()
+
+
 class TestCreateCustomToken(object):
 
     valid_args = {
@@ -143,12 +147,12 @@ class TestCreateCustomToken(object):
     }
 
     @pytest.mark.parametrize('user,claims', valid_args.values(),
-                             ids=valid_args.keys())
+                             ids=list(valid_args))
     def test_valid_params(self, authtest, user, claims):
         verify_custom_token(authtest.create_custom_token(user, claims), claims)
 
     @pytest.mark.parametrize('user,claims,error', invalid_args.values(),
-                             ids=invalid_args.keys())
+                             ids=list(invalid_args))
     def test_invalid_params(self, authtest, user, claims, error):
         with pytest.raises(error):
             authtest.create_custom_token(user, claims)
@@ -159,6 +163,11 @@ class TestCreateCustomToken(object):
 
 
 class TestVerifyIdToken(object):
+
+    valid_tokens = {
+        'BinaryToken': TEST_ID_TOKEN,
+        'TextToken': TEST_ID_TOKEN.decode('utf-8'),
+    }
 
     invalid_tokens = {
         'NoKid': (get_id_token(header_overrides={'kid': None}),
@@ -197,23 +206,22 @@ class TestVerifyIdToken(object):
     def setup_method(self):
         auth._http = testutils.HttpMock(200, MOCK_PUBLIC_CERTS)
 
-    def test_valid_token(self, authtest):
-        id_token = get_id_token()
+    @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
+    def test_valid_token(self, authtest, id_token):
         claims = authtest.verify_id_token(id_token)
         assert claims['admin'] is True
 
     @pytest.mark.parametrize('id_token,error', invalid_tokens.values(),
-                             ids=invalid_tokens.keys())
+                             ids=list(invalid_tokens))
     def test_invalid_token(self, authtest, id_token, error):
         with pytest.raises(error):
             authtest.verify_id_token(id_token)
 
     def test_project_id_env_var(self, non_cert_app):
-        id_token = get_id_token()
         gcloud_project = os.environ.get(auth.GCLOUD_PROJECT_ENV_VAR)
         try:
             os.environ[auth.GCLOUD_PROJECT_ENV_VAR] = MOCK_CREDENTIAL.project_id
-            claims = auth.verify_id_token(id_token, non_cert_app)
+            claims = auth.verify_id_token(TEST_ID_TOKEN, non_cert_app)
             assert claims['admin'] is True
         finally:
             if gcloud_project:
@@ -222,13 +230,12 @@ class TestVerifyIdToken(object):
                 del os.environ[auth.GCLOUD_PROJECT_ENV_VAR]
 
     def test_no_project_id(self, non_cert_app):
-        id_token = get_id_token()
         gcloud_project = os.environ.get(auth.GCLOUD_PROJECT_ENV_VAR)
         if gcloud_project:
             del os.environ[auth.GCLOUD_PROJECT_ENV_VAR]
         try:
             with pytest.raises(ValueError):
-                auth.verify_id_token(id_token, non_cert_app)
+                auth.verify_id_token(TEST_ID_TOKEN, non_cert_app)
         finally:
             if gcloud_project:
                 os.environ[auth.GCLOUD_PROJECT_ENV_VAR] = gcloud_project
@@ -239,7 +246,6 @@ class TestVerifyIdToken(object):
             authtest.verify_id_token(id_token)
 
     def test_certificate_request_failure(self, authtest):
-        id_token = get_id_token()
         auth._http = testutils.HttpMock(404, 'not found')
         with pytest.raises(client.VerifyJwtTokenError):
-            authtest.verify_id_token(id_token)
+            authtest.verify_id_token(TEST_ID_TOKEN)

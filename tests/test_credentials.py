@@ -6,6 +6,7 @@ from firebase_admin import credentials
 from oauth2client import client
 from oauth2client import crypt
 import pytest
+import six
 
 from tests import testutils
 
@@ -26,7 +27,7 @@ class TestCertificate(object):
         # The HTTP client should not be used or referenced.
         credentials._http = 'unused'
         access_token = credential.get_access_token()
-        assert isinstance(access_token.access_token, basestring)
+        assert isinstance(access_token.access_token, six.string_types)
         assert isinstance(access_token.expires_in, int)
 
     def test_init_from_nonexisting_file(self):
@@ -42,11 +43,14 @@ class TestCertificate(object):
 
 @pytest.fixture
 def app_default(request):
-    file_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
-    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = request.param
+    var_name = 'GOOGLE_APPLICATION_CREDENTIALS'
+    file_path = os.environ.get(var_name)
+    os.environ[var_name] = request.param
     yield
     if file_path:
-        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = file_path
+        os.environ[var_name] = file_path
+    else:
+        del os.environ[var_name]
 
 
 class TestApplicationDefault(object):
@@ -62,7 +66,7 @@ class TestApplicationDefault(object):
         # The HTTP client should not be used.
         credentials._http = 'unused'
         access_token = credential.get_access_token()
-        assert isinstance(access_token.access_token, basestring)
+        assert isinstance(access_token.access_token, six.string_types)
         assert isinstance(access_token.expires_in, int)
 
     @pytest.mark.parametrize('app_default', [testutils.resource_filename('non_existing.json')],

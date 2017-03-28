@@ -15,15 +15,10 @@ import six
 
 from oauth2client import client
 from oauth2client import crypt
+from oauth2client import transport
 
-try:
-    # Newer versions of oauth2client (> v1.4)
-    # pylint: disable=g-import-not-at-top
-    from oauth2client import transport
-    _cached_http = httplib2.Http(transport.MemoryCache())
-except ImportError:
-    # Older versions of oauth2client (<= v1.4)
-    _cached_http = httplib2.Http(client.MemoryCache())
+
+_cached_http = httplib2.Http(transport.MemoryCache())
 
 
 def _to_bytes(value, encoding='ascii'):
@@ -139,8 +134,9 @@ def verify_id_token(id_token, cert_uri, audience=None, kid=None, http=None):
         raise client.VerifyJwtTokenError(
             ('Failed to load public key certificates from URL "{0}". Received '
              'HTTP status code {1}.').format(cert_uri, resp.status))
-    certs = json.loads(content.decode('utf-8'))
-    if kid and not certs.has_key(kid):
+    str_content = content.decode('utf-8') if isinstance(content, six.binary_type) else content
+    certs = json.loads(str_content)
+    if kid and kid not in certs:
         raise client.VerifyJwtTokenError(
             'Firebase ID token has "kid" claim which does'
             ' not correspond to a known public key. Most'

@@ -149,14 +149,13 @@ configuration file such as `.bash_profile`. Once pyenv is installed, you can ins
 versions of Python as follows:
 
 ```
-pyenv install 2.7.6 # install Python 2.7.6
-pyenv install 3.3.0 # install Python 3.3.0
+pyenv install 2.7.6  # install Python 2.7.6
+pyenv install 3.3.0  # install Python 3.3.0
 ```
 
-Refer to the [`tox.ini`](../tox.ini) file for a list of target environments that we usually test
-the Python Admin SDK on. Use pyenv to install all the required Python versions on your workstation.
-When your system is fully set up, you can execute the following command from the root of the
-repository to launch tox:
+Refer to the [`tox.ini`](../tox.ini) file for a list of target environments that we usually test.
+Use pyenv to install all the required Python versions on your workstation. When your system is
+fully set up, you can execute the following command from the root of the repository to launch tox:
 
 ```
 tox

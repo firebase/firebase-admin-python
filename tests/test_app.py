@@ -29,7 +29,7 @@ class Cert(CredentialProvider):
 
 class RefreshToken(CredentialProvider):
     def get(self):
-        credentials.RefreshToken(testutils.resource_filename('refresh_token.json'))
+        return credentials.RefreshToken(testutils.resource_filename('refresh_token.json'))
 
 
 class ExplicitAppDefault(CredentialProvider):

@@ -48,6 +48,9 @@ class Certificate(Base):
         # TODO(hkj): on latest oauth2client.
         with open(file_path) as json_keyfile:
             json_data = json.load(json_keyfile)
+        if json_data.get('type') != client.SERVICE_ACCOUNT:
+            raise ValueError('Invalid certificate file. File must contain a '
+                             '"type" field set to "{0}".'.format(client.SERVICE_ACCOUNT))
         self._project_id = json_data.get('project_id')
         try:
             self._signer = crypt.Signer.from_string(
@@ -71,6 +74,54 @@ class Certificate(Base):
     @property
     def service_account_email(self):
         return self._service_account_email
+
+    def get_access_token(self):
+        return self._g_credential.get_access_token(_http)
+
+    def get_credential(self):
+        return self._g_credential
+
+
+class ApplicationDefault(Base):
+    """A Google application default credential."""
+
+    def __init__(self):
+        """Initializes the application default credentials for the current environment.
+
+        Raises:
+          oauth2client.client.ApplicationDefaultCredentialsError: If application default
+          credentials cannot be initialized.
+        """
+        super(ApplicationDefault, self).__init__()
+        self._g_credential = client.GoogleCredentials.get_application_default()
+
+    def get_access_token(self):
+        return self._g_credential.get_access_token(_http)
+
+    def get_credential(self):
+        return self._g_credential
+
+
+class RefreshToken(Base):
+    """A credential initialized from an existing refresh token."""
+
+    def __init__(self, file_path):
+        """Initialized a refresh token credential from the specified JSON file.
+
+        Args:
+          file_path: File path to a refresh token JSON file.
+
+        Raises:
+          IOError: If the specified file doesn't exist or cannot be read.
+          ValueError: If the refresh token file is invalid.
+        """
+        super(RefreshToken, self).__init__()
+        with open(file_path) as json_keyfile:
+            json_data = json.load(json_keyfile)
+        if json_data.get('type') != client.AUTHORIZED_USER:
+            raise ValueError('Invalid refresh token file. File must contain a '
+                             '"type" field set to "{0}".'.format(client.AUTHORIZED_USER))
+        self._g_credential = client.GoogleCredentials.from_stream(file_path)
 
     def get_access_token(self):
         return self._g_credential.get_access_token(_http)

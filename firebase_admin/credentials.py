@@ -1,6 +1,5 @@
 """Firebase credentials module."""
 import json
-import sys
 
 import httplib2
 
@@ -52,16 +51,17 @@ class Certificate(Base):
             raise ValueError('Invalid certificate file. File must contain a '
                              '"type" field set to "{0}".'.format(client.SERVICE_ACCOUNT))
         self._project_id = json_data.get('project_id')
-        try:
-            self._signer = crypt.Signer.from_string(
-                json_data.get('private_key'))
-        except Exception as error:
-            err_type, err_value, err_traceback = sys.exc_info()
-            err_message = 'Failed to parse the private key string: {0}'.format(
-                error)
-            raise ValueError, (err_message, err_type, err_value), err_traceback
         self._service_account_email = json_data.get('client_email')
-        self._g_credential = client.GoogleCredentials.from_stream(file_path)
+        try:
+            self._signer = crypt.Signer.from_string(json_data.get('private_key'))
+        except Exception as error:
+            raise ValueError('Failed to parse the private key string or initialize an '
+                             'RSA signer. Caused by: "{0}".'.format(error))
+        try:
+            self._g_credential = client.GoogleCredentials.from_stream(file_path)
+        except client.ApplicationDefaultCredentialsError as error:
+            raise ValueError('Failed to initialize a certificate credential from file "{0}". '
+                             'Caused by: "{1}"'.format(file_path, error))
 
     @property
     def project_id(self):
@@ -90,7 +90,7 @@ class ApplicationDefault(Base):
 
         Raises:
           oauth2client.client.ApplicationDefaultCredentialsError: If application default
-          credentials cannot be initialized.
+          credentials cannot be initialized in the current environment.
         """
         super(ApplicationDefault, self).__init__()
         self._g_credential = client.GoogleCredentials.get_application_default()
@@ -124,7 +124,11 @@ class RefreshToken(Base):
         self._client_id = json_data.get('client_id')
         self._client_secret = json_data.get('client_secret')
         self._refresh_token = json_data.get('refresh_token')
-        self._g_credential = client.GoogleCredentials.from_stream(file_path)
+        try:
+            self._g_credential = client.GoogleCredentials.from_stream(file_path)
+        except client.ApplicationDefaultCredentialsError as error:
+            raise ValueError('Failed to initialize a refresh token credential from file "{0}". '
+                             'Caused by: "{1}".'.format(file_path, error))
 
     @property
     def client_id(self):

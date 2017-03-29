@@ -168,7 +168,7 @@ tox
 ```
 
 This command will read the list of target environments from `tox.ini`, and execute tests in each of
-those environments. It will also generate a code coverage report, at the end of the execution.
+those environments. It will also generate a code coverage report at the end of the execution.
 
 ### Repo Organization
 

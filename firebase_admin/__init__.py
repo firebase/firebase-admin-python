@@ -28,7 +28,7 @@ def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
       name: Name of the app (optional).
 
     Returns:
-      A newly initialized instance of App.
+      App: A newly initialized instance of App.
 
     Raises:
       ValueError: If the app name is already in use, or any of the
@@ -92,7 +92,7 @@ def get_app(name=_DEFAULT_APP_NAME):
       name: Name of the App instance to retrieve (optional).
 
     Returns:
-      An App instance.
+      App: An App instance with the given name.
 
     Raises:
       ValueError: If the specified name is not a string, or if the specified

@@ -57,7 +57,7 @@ def encode(payload, signer, headers=None):
       headers: An dictionary of headers (optional).
 
     Returns:
-      A signed JWT token as a string
+      string: A signed JWT token.
     """
     header = {'typ': 'JWT', 'alg': 'RS256'}
     if headers:
@@ -86,7 +86,7 @@ def decode(token):
       token: A signed JWT token as a string.
 
     Returns:
-      A 2-tuple where the first element is a dictionary of JWT headers,
+      tuple: A 2-tuple where the first element is a dictionary of JWT headers,
       and the second element is a dictionary of payload claims.
 
     Raises:
@@ -118,7 +118,7 @@ def verify_id_token(id_token, cert_uri, audience=None, kid=None, http=None):
       http: An httplib2 HTTP client instance.
 
     Returns:
-      A dictionary of claims extracted from the ID token.
+      dict: A dictionary of claims extracted from the ID token.
 
     Raises:
       ValueError: Certificate URI is None or empty.

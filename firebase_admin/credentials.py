@@ -14,11 +14,7 @@ class Base(object):
     """Provides OAuth2 access tokens for accessing Firebase services."""
 
     def get_access_token(self):
-        """Fetches a Google OAuth2 access token using this credential instance.
-
-        Returns:
-          An oauth2client.client.AccessTokenInfo instance
-        """
+        """Fetches a Google OAuth2 access token using this credential instance."""
         raise NotImplementedError
 
     def get_credential(self):
@@ -76,9 +72,18 @@ class Certificate(Base):
         return self._service_account_email
 
     def get_access_token(self):
+        """Fetches a Google OAuth2 access token using this certificate credential.
+
+        Returns:
+          oauth2client.client.AccessTokenInfo: An access token obtained via oauth2client.
+        """
         return self._g_credential.get_access_token(_http)
 
     def get_credential(self):
+        """Returns the underlying Google credential.
+
+        Returns:
+          oauth2client.client.GoogleCredentials: An oauth2client credential instance."""
         return self._g_credential
 
 
@@ -96,9 +101,18 @@ class ApplicationDefault(Base):
         self._g_credential = client.GoogleCredentials.get_application_default()
 
     def get_access_token(self):
+        """Fetches a Google OAuth2 access token using this application default credential.
+
+        Returns:
+          oauth2client.client.AccessTokenInfo: An access token obtained via oauth2client.
+        """
         return self._g_credential.get_access_token(_http)
 
     def get_credential(self):
+        """Returns the underlying Google credential.
+
+        Returns:
+          oauth2client.client.GoogleCredentials: An oauth2client credential instance."""
         return self._g_credential
 
 
@@ -143,7 +157,16 @@ class RefreshToken(Base):
         return self._refresh_token
 
     def get_access_token(self):
+        """Fetches a Google OAuth2 access token using this refresh token credential.
+
+        Returns:
+          oauth2client.client.AccessTokenInfo: An access token obtained via oauth2client.
+        """
         return self._g_credential.get_access_token(_http)
 
     def get_credential(self):
+        """Returns the underlying Google credential.
+
+        Returns:
+          oauth2client.client.GoogleCredentials: An oauth2client credential instance."""
         return self._g_credential

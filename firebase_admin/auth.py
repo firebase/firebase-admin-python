@@ -51,7 +51,7 @@ def _get_token_generator(app):
       app: A Firebase App instance (or None to use the default App).
 
     Returns:
-      A _TokenGenerator instance.
+      _TokenGenerator: A _TokenGenerator for the specified App instance.
 
     Raises:
       ValueError: If the app argument is invalid.
@@ -73,7 +73,7 @@ def create_custom_token(uid, developer_claims=None, app=None):
       app: An App instance (optional).
 
     Returns:
-      A token string minted from the input parameters.
+      string: A token minted from the input parameters.
 
     Raises:
       ValueError: If input parameters are invalid.
@@ -93,7 +93,7 @@ def verify_id_token(id_token, app=None):
       app: An App instance (optional).
 
     Returns:
-      A dict consisting of the key-value pairs parsed from the decoded JWT.
+      dict: A dictionary of key-value pairs parsed from the decoded JWT.
 
     Raises:
       ValueError: If the input parameters are invalid, or if the App was not
@@ -140,7 +140,7 @@ class _TokenGenerator(object):
           developer_claims: A dictionary of claims to be included in the token.
 
         Returns:
-          A token string minted from the input parameters.
+          string: A token string minted from the input parameters.
 
         Raises:
           ValueError: If input parameters are invalid.
@@ -195,7 +195,7 @@ class _TokenGenerator(object):
           id_token: A string of the encoded JWT.
 
         Returns:
-          A dict consisting of the key-value pairs parsed from the decoded JWT.
+          dict: A dictionary of key-value pairs parsed from the decoded JWT.
 
         Raises:
           ValueError: The app was not initialized with a credentials.Certificate instance.

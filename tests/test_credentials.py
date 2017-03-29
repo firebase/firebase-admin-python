@@ -13,6 +13,13 @@ from tests import testutils
 
 class TestCertificate(object):
 
+    invalid_certs = {
+        'NonExistingFile': ('non_existing.json', IOError),
+        'RefreskToken': ('refresh_token.json', ValueError),
+        'MalformedPrivateKey': ('malformed_key.json', ValueError),
+        'MissingClientId': ('no_client_id_service_account.json', ValueError),
+    }
+
     def test_init_from_file(self):
         credential = credentials.Certificate(
             testutils.resource_filename('service_account.json'))
@@ -30,21 +37,10 @@ class TestCertificate(object):
         assert isinstance(access_token.access_token, six.string_types)
         assert isinstance(access_token.expires_in, int)
 
-    def test_init_from_nonexisting_file(self):
-        with pytest.raises(IOError):
-            credentials.Certificate(testutils.resource_filename('non_existing.json'))
-
-    def test_init_from_refresh_token(self):
-        with pytest.raises(ValueError):
-            credentials.Certificate(testutils.resource_filename('refresh_token.json'))
-
-    def test_init_from_malformed_key(self):
-        with pytest.raises(ValueError):
-            credentials.Certificate(testutils.resource_filename('malformed_key.json'))
-
-    def test_init_from_malformed_json(self):
-        with pytest.raises(ValueError):
-            credentials.Certificate(testutils.resource_filename('private_key.pem'))
+    @pytest.mark.parametrize('file_name,error', invalid_certs.values(), ids=list(invalid_certs))
+    def test_init_from_invalid_certificate(self, file_name, error):
+        with pytest.raises(error):
+            credentials.Certificate(testutils.resource_filename(file_name))
 
 
 @pytest.fixture

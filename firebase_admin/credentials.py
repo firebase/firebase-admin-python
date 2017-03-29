@@ -80,7 +80,7 @@ class Certificate(Base):
         return self._g_credential.get_access_token(_http)
 
     def get_credential(self):
-        """Returns the underlying Google credential instance.
+        """Returns the underlying Google credential.
 
         Returns:
           oauth2client.client.GoogleCredentials: An oauth2client credential instance."""
@@ -109,7 +109,7 @@ class ApplicationDefault(Base):
         return self._g_credential.get_access_token(_http)
 
     def get_credential(self):
-        """Returns the underlying Google credential instance.
+        """Returns the underlying Google credential.
 
         Returns:
           oauth2client.client.GoogleCredentials: An oauth2client credential instance."""
@@ -165,7 +165,7 @@ class RefreshToken(Base):
         return self._g_credential.get_access_token(_http)
 
     def get_credential(self):
-        """Returns the underlying Google credential instance.
+        """Returns the underlying Google credential.
 
         Returns:
           oauth2client.client.GoogleCredentials: An oauth2client credential instance."""

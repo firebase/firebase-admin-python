@@ -57,7 +57,7 @@ def encode(payload, signer, headers=None):
       headers: An dictionary of headers (optional).
 
     Returns:
-      String: A signed JWT token.
+      string: A signed JWT token.
     """
     header = {'typ': 'JWT', 'alg': 'RS256'}
     if headers:
@@ -86,7 +86,7 @@ def decode(token):
       token: A signed JWT token as a string.
 
     Returns:
-      Tuple: A 2-tuple where the first element is a dictionary of JWT headers,
+      tuple: A 2-tuple where the first element is a dictionary of JWT headers,
       and the second element is a dictionary of payload claims.
 
     Raises:

@@ -51,7 +51,7 @@ def _get_token_generator(app):
       app: A Firebase App instance (or None to use the default App).
 
     Returns:
-      _TokenGenerator: A _TokenGenerator instance for the specified App instance.
+      _TokenGenerator: A _TokenGenerator for the specified App instance.
 
     Raises:
       ValueError: If the app argument is invalid.

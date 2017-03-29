@@ -134,6 +134,12 @@ pytest
 Refer to the pytest [usage and invocations guide](http://doc.pytest.org/en/latest/usage.html)
 to learn how to run a subset of all test cases.
 
+You can also get a code coverage report by launching pytest as follows:
+
+```
+pytest --cov=firebase_admin --cov=tests
+```
+
 ### Testing in Different Environments
 
 Sometimes we want to run unit tests in multiple environments (e.g. different Python versions), and
@@ -149,20 +155,40 @@ configuration file such as `.bash_profile`. Once pyenv is installed, you can ins
 versions of Python as follows:
 
 ```
-pyenv install 2.7.6  # install Python 2.7.6
-pyenv install 3.3.0  # install Python 3.3.0
+pyenv install 2.7.6        # install Python 2.7.6
+pyenv install 3.3.0        # install Python 3.3.0
+pyenv install pypy2-5.6.0  # install pypy2
 ```
 
 Refer to the [`tox.ini`](../tox.ini) file for a list of target environments that we usually test.
-Use pyenv to install all the required Python versions on your workstation. When your system is
-fully set up, you can execute the following command from the root of the repository to launch tox:
+Use pyenv to install all the required Python versions on your workstation. Verify that they are
+installed by running the following command:
+
+```
+pyenv versions
+```
+
+To make all the required Python versions available to tox for testing, run the `pyenv local` command
+with all the Python versions as arguments. The following example shows how to make Python versions
+2.7.6, 3.3.0 and pypy2 available to tox.
+
+```
+pyenv local 2.7.6 3.3.0 pypy2-5.6.0
+```
+
+Once your system is fully set up, you can execute the following command from the root of the
+repository to launch tox:
 
 ```
 tox
 ```
 
 This command will read the list of target environments from `tox.ini`, and execute tests in each of
-those environments.
+those environments. It will also generate a code coverage report at the end of the execution.
+
+```
+pyenv local 2.7.6 3.3.0 pypy2-5.6.0
+```
 
 ### Repo Organization
 

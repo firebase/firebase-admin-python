@@ -164,7 +164,6 @@ Refer to the [`tox.ini`](../tox.ini) file for a list of target environments that
 Use pyenv to install all the required Python versions on your workstation. Verify that they are
 installed by running the following command:
 
-
 ```
 pyenv versions
 ```
@@ -186,7 +185,6 @@ tox
 
 This command will read the list of target environments from `tox.ini`, and execute tests in each of
 those environments. It will also generate a code coverage report at the end of the execution.
-
 
 ```
 pyenv local 2.7.6 3.3.0 pypy2-5.6.0

@@ -32,13 +32,19 @@ class TestCertificate(object):
 
     def test_init_from_nonexisting_file(self):
         with pytest.raises(IOError):
-            credentials.Certificate(
-                testutils.resource_filename('non_existing.json'))
+            credentials.Certificate(testutils.resource_filename('non_existing.json'))
 
-    def test_init_from_invalid_file(self):
+    def test_init_from_refresh_token(self):
         with pytest.raises(ValueError):
-            credentials.Certificate(
-                testutils.resource_filename('refresh_token.json'))
+            credentials.Certificate(testutils.resource_filename('refresh_token.json'))
+
+    def test_init_from_malformed_key(self):
+        with pytest.raises(ValueError):
+            credentials.Certificate(testutils.resource_filename('malformed_key.json'))
+
+    def test_init_from_malformed_json(self):
+        with pytest.raises(ValueError):
+            credentials.Certificate(testutils.resource_filename('private_key.pem'))
 
 
 @pytest.fixture

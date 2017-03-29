@@ -134,6 +134,12 @@ pytest
 Refer to the pytest [usage and invocations guide](http://doc.pytest.org/en/latest/usage.html)
 to learn how to run a subset of all test cases.
 
+You can also get a code coverage report by launching pytest as follows:
+
+```
+pytest --cov=firebase_admin --cov=tests
+```
+
 ### Testing in Different Environments
 
 Sometimes we want to run unit tests in multiple environments (e.g. different Python versions), and
@@ -162,7 +168,7 @@ tox
 ```
 
 This command will read the list of target environments from `tox.ini`, and execute tests in each of
-those environments.
+those environments. It will also generate a code coverage report, at the end of the execution.
 
 ### Repo Organization
 

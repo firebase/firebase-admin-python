@@ -169,8 +169,8 @@ pyenv versions
 ```
 
 To make all the required Python versions available to tox for testing, run the `pyenv local` command
-with all the Python versions as arguments. Following example shows how to make Python versions 2.7.6,
-3.3.0 and pypy2 available to tox.
+with all the Python versions as arguments. The following example shows how to make Python versions
+2.7.6, 3.3.0 and pypy2 available to tox.
 
 ```
 pyenv local 2.7.6 3.3.0 pypy2-5.6.0

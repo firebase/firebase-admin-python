@@ -58,31 +58,31 @@ def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
             'you call initialize_app().').format(name))
 
 
-def delete_app(name):
+def delete_app(app):
     """Gracefully deletes an App instance.
 
     Args:
-      name: Name of the app instance to be deleted.
+      app: The app instance to be deleted.
 
     Raises:
-      ValueError: If the name is not a string.
+      ValueError: If the app is not initialized.
     """
-    if not isinstance(name, six.string_types):
-        raise ValueError('Illegal app name argument type: "{}". App name '
-                         'must be a string.'.format(type(name)))
+    if not isinstance(app, App):
+        raise ValueError('Illegal app argument type: "{}". Argument must be of '
+                         'type App.'.format(type(app)))
     with _apps_lock:
-        if name in _apps:
-            del _apps[name]
+        if _apps.get(app.name) is app:
+            del _apps[app.name]
             return
-    if name == _DEFAULT_APP_NAME:
+    if app.name == _DEFAULT_APP_NAME:
         raise ValueError(
-            'The default Firebase app does not exist. Make sure to initialize '
-            'the SDK by calling initialize_app().')
+            'The default Firebase app is not initialized. Make sure to initialize '
+            'the default app by calling initialize_app().')
     else:
         raise ValueError(
-            ('Firebase app named "{0}" does not exist. Make sure to initialize '
-             'the SDK by calling initialize_app() with your app name as the '
-             'second argument.').format(name))
+            ('Firebase app named "{0}" is not initialized. Make sure to initialize '
+             'the app by calling initialize_app() with your app name as the '
+             'second argument.').format(app.name))
 
 
 def get_app(name=_DEFAULT_APP_NAME):

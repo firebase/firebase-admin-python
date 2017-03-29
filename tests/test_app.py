@@ -62,6 +62,13 @@ def app_credential(request):
     yield provider.get()
     provider.cleanup()
 
+@pytest.fixture(params=[None, 'myApp'], ids=['DefaultApp', 'CustomApp'])
+def init_app(request):
+    if request.param:
+        return firebase_admin.initialize_app(CREDENTIAL, name=request.param)
+    else:
+        return firebase_admin.initialize_app(CREDENTIAL)
+
 
 class TestFirebaseApp(object):
     """Test cases for App initialization and life cycle."""
@@ -69,6 +76,10 @@ class TestFirebaseApp(object):
     invalid_credentials = ['', 'foo', 0, 1, dict(), list(), tuple(), True, False]
     invalid_options = ['', 0, 1, list(), tuple(), True, False]
     invalid_names = [None, '', 0, 1, dict(), list(), tuple(), True, False]
+    invalid_apps = [
+        None, '', 0, 1, dict(), list(), tuple(), True, False,
+        firebase_admin.App('uninitialized', CREDENTIAL, {})
+    ]
 
     def teardown_method(self):
         testutils.cleanup_apps()
@@ -108,13 +119,8 @@ class TestFirebaseApp(object):
         with pytest.raises(ValueError):
             firebase_admin.initialize_app(CREDENTIAL, name=name)
 
-    def test_default_app_get(self):
-        app = firebase_admin.initialize_app(CREDENTIAL)
-        assert app is firebase_admin.get_app()
-
-    def test_non_default_app_get(self):
-        app = firebase_admin.initialize_app(CREDENTIAL, name='myApp')
-        assert app is firebase_admin.get_app('myApp')
+    def test_app_get(self, init_app):
+        assert init_app is firebase_admin.get_app(init_app.name)
 
     @pytest.mark.parametrize('args', [(), ('myApp',)],
                              ids=['DefaultApp', 'CustomApp'])
@@ -126,3 +132,16 @@ class TestFirebaseApp(object):
     def test_app_get_with_invalid_name(self, name):
         with pytest.raises(ValueError):
             firebase_admin.get_app(name)
+
+    @pytest.mark.parametrize('app', invalid_apps)
+    def test_invalid_app_delete(self, app):
+        with pytest.raises(ValueError):
+            firebase_admin.delete_app(app)
+
+    def test_app_delete(self, init_app):
+        assert firebase_admin.get_app(init_app.name) is init_app
+        firebase_admin.delete_app(init_app)
+        with pytest.raises(ValueError):
+            firebase_admin.get_app(init_app.name)
+        with pytest.raises(ValueError):
+            firebase_admin.delete_app(init_app)

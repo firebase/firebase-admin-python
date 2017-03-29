@@ -49,8 +49,8 @@ def setup_module():
     firebase_admin.initialize_app(MOCK_CREDENTIAL, name='testApp')
 
 def teardown_module():
-    firebase_admin.delete_app('[DEFAULT]')
-    firebase_admin.delete_app('testApp')
+    firebase_admin.delete_app(firebase_admin.get_app())
+    firebase_admin.delete_app(firebase_admin.get_app('testApp'))
 
 @pytest.fixture(params=[None, 'testApp'], ids=['DefaultApp', 'CustomApp'])
 def authtest(request):
@@ -73,7 +73,7 @@ def non_cert_app():
     """
     app = firebase_admin.initialize_app(credentials.Base(), name='non-cert-app')
     yield app
-    firebase_admin.delete_app(app.name)
+    firebase_admin.delete_app(app)
 
 def verify_custom_token(custom_token, expected_claims):
     assert isinstance(custom_token, six.binary_type)

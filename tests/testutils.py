@@ -19,9 +19,9 @@ def resource(filename):
 
 def cleanup_apps():
     with firebase_admin._apps_lock:
-        app_names = list(firebase_admin._apps.keys())
-        for name in app_names:
-            firebase_admin.delete_app(name)
+        apps = list(firebase_admin._apps.values())
+        for app in apps:
+            firebase_admin.delete_app(app)
 
 
 class HttpMock(object):

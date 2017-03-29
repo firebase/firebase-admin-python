@@ -9,7 +9,7 @@ long_description = ('The Firebase Admin Python SDK enables server-side (backend)
                     'to integrate Firebase into their services and applications.')
 
 setup(
-    name='firebase',
+    name='firebase_admin',
 
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see

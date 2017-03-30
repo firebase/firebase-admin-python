@@ -6,6 +6,8 @@ import six
 from firebase_admin import credentials
 
 
+__version__ = '0.0.1'
+
 _apps = {}
 _apps_lock = threading.RLock()
 

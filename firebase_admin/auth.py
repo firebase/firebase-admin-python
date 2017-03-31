@@ -276,9 +276,11 @@ class _TokenGenerator(object):
         if error_message:
             raise crypt.AppIdentityError(error_message)
 
-        return jwt.verify_id_token(
+        verified_claims = jwt.verify_id_token(
             id_token,
             self.FIREBASE_CERT_URI,
             audience=project_id,
             kid=header.get('kid'),
             http=_http)
+        verified_claims['uid'] = verified_claims['sub']
+        return verified_claims

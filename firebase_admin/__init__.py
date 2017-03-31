@@ -6,6 +6,8 @@ import six
 from firebase_admin import credentials
 
 
+# Declaring module version as per https://www.python.org/dev/peps/pep-0396/#specification
+# Update this accordingly for each release.
 __version__ = '0.0.1'
 
 _apps = {}

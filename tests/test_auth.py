@@ -210,6 +210,7 @@ class TestVerifyIdToken(object):
     def test_valid_token(self, authtest, id_token):
         claims = authtest.verify_id_token(id_token)
         assert claims['admin'] is True
+        assert claims['uid'] == claims['sub']
 
     @pytest.mark.parametrize('id_token,error', invalid_tokens.values(),
                              ids=list(invalid_tokens))

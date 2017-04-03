@@ -87,7 +87,7 @@ def decode(token):
 
     Returns:
       tuple: A 2-tuple where the first element is a dictionary of JWT headers,
-      and the second element is a dictionary of payload claims.
+          and the second element is a dictionary of payload claims.
 
     Raises:
       AppIdentityError: If the token is malformed or badly formatted

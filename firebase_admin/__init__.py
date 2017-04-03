@@ -27,7 +27,7 @@ def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
 
     Args:
       credential: A credential object used to initialize the SDK (optional). If none is provided,
-      Google Application Default Credentials are used.
+          Google Application Default Credentials are used.
       options: A dictionary of configuration options (optional).
       name: Name of the app (optional).
 
@@ -36,7 +36,7 @@ def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
 
     Raises:
       ValueError: If the app name is already in use, or any of the
-      provided arguments are invalid.
+          provided arguments are invalid.
     """
     if credential is None:
         credential = credentials.ApplicationDefault()
@@ -100,7 +100,7 @@ def get_app(name=_DEFAULT_APP_NAME):
 
     Raises:
       ValueError: If the specified name is not a string, or if the specified
-      app does not exist.
+          app does not exist.
     """
     if not isinstance(name, six.string_types):
         raise ValueError('Illegal app name argument type: "{}". App name '

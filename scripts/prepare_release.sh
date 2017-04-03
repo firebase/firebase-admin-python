@@ -61,9 +61,13 @@ if [[ `git status --porcelain` ]]; then
     exit 1
 fi
 
-
+HOST=$(uname)
 echo "[INFO] Updating version number in firebase_admin/__init__.py"
-sed --in-place -e "s/__version__ = '$CUR_VERSION'/__version__ = '$VERSION'/" "../firebase_admin/__init__.py"
+if [ $HOST == "Darwin" ]; then
+    sed -i "" -e "s/__version__ = '$CUR_VERSION'/__version__ = '$VERSION'/" "../firebase_admin/__init__.py"
+else
+    sed --in-place -e "s/__version__ = '$CUR_VERSION'/__version__ = '$VERSION'/" "../firebase_admin/__init__.py"
+fi
 
 echo "[INFO] Running unit tests"
 tox --workdir ..

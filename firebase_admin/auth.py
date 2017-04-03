@@ -69,7 +69,7 @@ def create_custom_token(uid, developer_claims=None, app=None):
     Args:
       uid: ID of the user for whom the token is created.
       developer_claims: A dictionary of claims to be included in the token
-        (optional).
+          (optional).
       app: An App instance (optional).
 
     Returns:
@@ -97,9 +97,8 @@ def verify_id_token(id_token, app=None):
 
     Raises:
       ValueError: If the input parameters are invalid, or if the App was not
-      initialized with a credentials.Certificate.
-      AppIdenityError: The JWT was found to be invalid, the message will contain
-      details.
+          initialized with a credentials.Certificate.
+      AppIdenityError: The JWT was found to be invalid, the message will contain details.
     """
     token_generator = _get_token_generator(app)
     return token_generator.verify_id_token(id_token)
@@ -199,8 +198,7 @@ class _TokenGenerator(object):
 
         Raises:
           ValueError: The app was not initialized with a credentials.Certificate instance.
-          AppIdenityError: The JWT was found to be invalid, the message will
-          contain details.
+          AppIdenityError: The JWT was found to be invalid, the message will contain details.
         """
         if not id_token:
             raise ValueError('Illegal ID token provided: {0}. ID token must be a non-empty '

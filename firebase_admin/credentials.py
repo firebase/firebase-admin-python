@@ -95,7 +95,7 @@ class ApplicationDefault(Base):
 
         Raises:
           oauth2client.client.ApplicationDefaultCredentialsError: If Application Default
-          credentials cannot be initialized in the current environment.
+              credentials cannot be initialized in the current environment.
         """
         super(ApplicationDefault, self).__init__()
         self._g_credential = client.GoogleCredentials.get_application_default()

@@ -1,14 +1,6 @@
 #!/bin/bash
 
-function parseVersion {
-    if [[ ! "$1" =~ ^([0-9]*)\.([0-9]*)\.([0-9]*)$ ]]; then
-        return 1
-    fi
-    MAJOR_VERSION=$(echo "$1" | sed -e 's/^\([0-9]*\)\.\([0-9]*\)\.\([0-9]*\)$/\1/')
-    MINOR_VERSION=$(echo "$1" | sed -e 's/^\([0-9]*\)\.\([0-9]*\)\.\([0-9]*\)$/\2/')
-    PATCH_VERSION=$(echo "$1" | sed -e 's/^\([0-9]*\)\.\([0-9]*\)\.\([0-9]*\)$/\3/')
-    return 0
-}
+source bash_utils.sh
 
 function isNewerVersion {
     parseVersion "$1"
@@ -59,6 +51,11 @@ if ! isNewerVersion "$VERSION" "$CUR_VERSION"; then
     exit 1
 fi
 
+CHECKED_OUT_BRANCH="$(git branch | grep "*" | awk -F ' ' '{print $2}')"
+if [[ $CHECKED_OUT_BRANCH != "master" ]]; then
+    echo "[ERROR] You are on the '${CHECKED_OUT_BRANCH}' branch. Release must be prepared from the 'master' branch."
+    exit 1
+fi
 if [[ `git status --porcelain` ]]; then
     echo "[ERROR] Local changes exist in the repo. Resolve local changes before release."
     exit 1

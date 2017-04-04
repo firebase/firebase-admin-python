@@ -8,7 +8,7 @@ from firebase_admin import credentials
 
 # Declaring module version as per https://www.python.org/dev/peps/pep-0396/#specification
 # Update this accordingly for each release.
-__version__ = '0.0.1'
+__version__ = '1.0.0'
 
 _apps = {}
 _apps_lock = threading.RLock()
@@ -19,7 +19,7 @@ _DEFAULT_APP_NAME = '[DEFAULT]'
 def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
     """Initializes and returns a new App instance.
 
-    Creates a new App intance using the specified options
+    Creates a new App instance using the specified options
     and the app name. If an instance already exists by the same
     app name a ValueError is raised. Use this function whenever
     a new App instance is required. Do not directly invoke the

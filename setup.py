@@ -36,7 +36,7 @@ setup(
     install_requires=install_requires,
     packages=find_packages(exclude=['tests']),
     classifiers=[
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'Topic :: Software Development :: Build Tools',
         'Programming Language :: Python :: 2',

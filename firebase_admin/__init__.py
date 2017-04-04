@@ -19,7 +19,7 @@ _DEFAULT_APP_NAME = '[DEFAULT]'
 def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
     """Initializes and returns a new App instance.
 
-    Creates a new App intance using the specified options
+    Creates a new App instance using the specified options
     and the app name. If an instance already exists by the same
     app name a ValueError is raised. Use this function whenever
     a new App instance is required. Do not directly invoke the

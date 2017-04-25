@@ -2,15 +2,16 @@
 import os
 import time
 
-from oauth2client import client
-from oauth2client import crypt
+from google.auth import crypt
+from google.auth import exceptions
+from google.auth import jwt
+import google.oauth2.id_token
 import pytest
 import six
 
 import firebase_admin
 from firebase_admin import auth
 from firebase_admin import credentials
-from firebase_admin import jwt
 from tests import testutils
 
 
@@ -77,14 +78,14 @@ def non_cert_app():
 
 def verify_custom_token(custom_token, expected_claims):
     assert isinstance(custom_token, six.binary_type)
-    token = client.verify_id_token(
+    token = google.oauth2.id_token.verify_token(
         custom_token,
-        FIREBASE_AUDIENCE,
-        http=testutils.HttpMock(200, MOCK_PUBLIC_CERTS))
+        testutils.MockRequest(200, MOCK_PUBLIC_CERTS),
+        FIREBASE_AUDIENCE)
     assert token['uid'] == MOCK_UID
     assert token['iss'] == MOCK_SERVICE_ACCOUNT_EMAIL
     assert token['sub'] == MOCK_SERVICE_ACCOUNT_EMAIL
-    header, _ = jwt.decode(custom_token)
+    header = jwt.decode_header(custom_token)
     assert header.get('typ') == 'JWT'
     assert header.get('alg') == 'RS256'
     if expected_claims:
@@ -99,7 +100,7 @@ def _merge_jwt_claims(defaults, overrides):
     return defaults
 
 def get_id_token(payload_overrides=None, header_overrides=None):
-    signer = crypt.Signer.from_string(MOCK_PRIVATE_KEY)
+    signer = crypt.RSASigner.from_string(MOCK_PRIVATE_KEY)
     headers = {
         'kid': 'mock-key-id-1'
     }
@@ -115,7 +116,7 @@ def get_id_token(payload_overrides=None, header_overrides=None):
         headers = _merge_jwt_claims(headers, header_overrides)
     if payload_overrides:
         payload = _merge_jwt_claims(payload, payload_overrides)
-    return jwt.encode(payload, signer, headers=headers)
+    return jwt.encode(signer, payload, header=headers)
 
 
 TEST_ID_TOKEN = get_id_token()
@@ -170,41 +171,32 @@ class TestVerifyIdToken(object):
     }
 
     invalid_tokens = {
-        'NoKid': (get_id_token(header_overrides={'kid': None}),
-                  crypt.AppIdentityError),
-        'WrongKid': (get_id_token(header_overrides={'kid': 'foo'}),
-                     client.VerifyJwtTokenError),
-        'WrongAlg': (get_id_token(header_overrides={'alg': 'HS256'}),
-                     crypt.AppIdentityError),
-        'BadAudience': (get_id_token({'aud': 'bad-audience'}),
-                        crypt.AppIdentityError),
-        'BadIssuer': (get_id_token({
+        'NoKid': get_id_token(header_overrides={'kid': None}),
+        'WrongKid': get_id_token(header_overrides={'kid': 'foo'}),
+        'BadAudience': get_id_token({'aud': 'bad-audience'}),
+        'BadIssuer': get_id_token({
             'iss': 'https://securetoken.google.com/wrong-issuer'
-        }), crypt.AppIdentityError),
-        'EmptySubject': (get_id_token({'sub': ''}),
-                         crypt.AppIdentityError),
-        'IntSubject': (get_id_token({'sub': 10}),
-                       crypt.AppIdentityError),
-        'LongStrSubject': (get_id_token({'sub': 'a' * 129}),
-                           crypt.AppIdentityError),
-        'FutureToken': (get_id_token({'iat': int(time.time()) + 1000}),
-                        crypt.AppIdentityError),
-        'ExpiredToken': (get_id_token({
+        }),
+        'EmptySubject': get_id_token({'sub': ''}),
+        'IntSubject': get_id_token({'sub': 10}),
+        'LongStrSubject': get_id_token({'sub': 'a' * 129}),
+        'FutureToken': get_id_token({'iat': int(time.time()) + 1000}),
+        'ExpiredToken': get_id_token({
             'iat': int(time.time()) - 10000,
             'exp': int(time.time()) - 3600
-        }), crypt.AppIdentityError),
-        'NoneToken': (None, ValueError),
-        'EmptyToken': ('', ValueError),
-        'BoolToken': (True, ValueError),
-        'IntToken': (1, ValueError),
-        'ListToken': ([], ValueError),
-        'EmptyDictToken': ({}, ValueError),
-        'NonEmptyDictToken': ({'a': 1}, ValueError),
-        'BadFormatToken': ('foobar', crypt.AppIdentityError)
+        }),
+        'NoneToken': None,
+        'EmptyToken': '',
+        'BoolToken': True,
+        'IntToken': 1,
+        'ListToken': [],
+        'EmptyDictToken': {},
+        'NonEmptyDictToken': {'a': 1},
+        'BadFormatToken': 'foobar'
     }
 
     def setup_method(self):
-        auth._http = testutils.HttpMock(200, MOCK_PUBLIC_CERTS)
+        auth._http = testutils.MockRequest(200, MOCK_PUBLIC_CERTS)
 
     @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
     def test_valid_token(self, authtest, id_token):
@@ -212,10 +204,10 @@ class TestVerifyIdToken(object):
         assert claims['admin'] is True
         assert claims['uid'] == claims['sub']
 
-    @pytest.mark.parametrize('id_token,error', invalid_tokens.values(),
+    @pytest.mark.parametrize('id_token', invalid_tokens.values(),
                              ids=list(invalid_tokens))
-    def test_invalid_token(self, authtest, id_token, error):
-        with pytest.raises(error):
+    def test_invalid_token(self, authtest, id_token):
+        with pytest.raises(ValueError):
             authtest.verify_id_token(id_token)
 
     def test_project_id_env_var(self, non_cert_app):
@@ -243,10 +235,10 @@ class TestVerifyIdToken(object):
 
     def test_custom_token(self, authtest):
         id_token = authtest.create_custom_token(MOCK_UID)
-        with pytest.raises(crypt.AppIdentityError):
+        with pytest.raises(ValueError):
             authtest.verify_id_token(id_token)
 
     def test_certificate_request_failure(self, authtest):
-        auth._http = testutils.HttpMock(404, 'not found')
-        with pytest.raises(client.VerifyJwtTokenError):
+        auth._http = testutils.MockRequest(404, 'not found')
+        with pytest.raises(exceptions.TransportError):
             authtest.verify_id_token(TEST_ID_TOKEN)

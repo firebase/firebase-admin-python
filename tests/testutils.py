@@ -5,6 +5,8 @@ import httplib2
 
 import firebase_admin
 
+from google.auth import transport
+
 
 def resource_filename(filename):
     """Returns the absolute path to a test resource."""
@@ -41,3 +43,28 @@ class HttpMock(object):
         del args
         del kwargs
         return httplib2.Response({'status': self.status}), self.response
+
+class MockResponse(transport.Response):
+    def __init__(self, status, response):
+        self._status = status
+        self._response = response
+
+    @property
+    def status(self):
+        return self._status
+
+    @property
+    def headers(self):
+        return {}
+
+    @property
+    def data(self):
+        return self._response
+
+class MockRequest(transport.Request):
+
+    def __init__(self, status, response):
+        self.response = MockResponse(status, response)
+
+    def __call__(self, *args, **kwargs):
+        return self.response

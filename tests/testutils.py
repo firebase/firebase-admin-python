@@ -1,9 +1,8 @@
 """Common utility classes and functions for testing."""
 import os
 
-import firebase_admin
-
 from google.auth import transport
+import firebase_admin
 
 
 def resource_filename(filename):
@@ -42,6 +41,13 @@ class MockResponse(transport.Response):
         return self._response.encode()
 
 class MockRequest(transport.Request):
+    """A mock HTTP requests implementation.
+
+    This can be used whenever an HTTP interaction needs to be mocked
+    for testing purposes. For example HTTP calls to fetch public key
+    certificates, and HTTP calls to retrieve access tokens can be
+    mocked using this class.
+    """
 
     def __init__(self, status, response):
         self.response = MockResponse(status, response)

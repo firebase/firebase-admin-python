@@ -9,7 +9,6 @@ from google.oauth2 import credentials as gcredentials
 from google.oauth2 import service_account
 from firebase_admin import credentials
 import pytest
-import six
 
 from tests import testutils
 

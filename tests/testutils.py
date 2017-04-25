@@ -1,8 +1,6 @@
 """Common utility classes and functions for testing."""
 import os
 
-import httplib2
-
 import firebase_admin
 
 from google.auth import transport
@@ -26,24 +24,6 @@ def cleanup_apps():
             firebase_admin.delete_app(app)
 
 
-class HttpMock(object):
-    """A mock HTTP client implementation.
-
-    This can be used whenever an HTTP interaction needs to be mocked
-    for testing purposes. For example HTTP calls to fetch public key
-    certificates, and HTTP calls to retrieve access tokens can be
-    mocked using this class.
-    """
-
-    def __init__(self, status, response):
-        self.status = status
-        self.response = response
-
-    def request(self, *args, **kwargs):
-        del args
-        del kwargs
-        return httplib2.Response({'status': self.status}), self.response
-
 class MockResponse(transport.Response):
     def __init__(self, status, response):
         self._status = status
@@ -59,7 +39,7 @@ class MockResponse(transport.Response):
 
     @property
     def data(self):
-        return self._response
+        return self._response.encode()
 
 class MockRequest(transport.Request):
 

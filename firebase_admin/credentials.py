@@ -8,7 +8,7 @@ from google.oauth2 import credentials
 from google.oauth2 import service_account
 
 
-_http = requests.Request()
+_request = requests.Request()
 
 
 AccessTokenInfo = collections.namedtuple(
@@ -72,7 +72,7 @@ class Certificate(Base):
         Returns:
           AccessTokenInfo: An access token obtained using the credential.
         """
-        self._g_credential.refresh(_http)
+        self._g_credential.refresh(_request)
         return AccessTokenInfo(self._g_credential.token, self._g_credential.expiry)
 
     def get_credential(self):
@@ -94,7 +94,7 @@ class ApplicationDefault(Base):
               credentials cannot be initialized in the current environment.
         """
         super(ApplicationDefault, self).__init__()
-        self._g_credential, _ = google.auth.default()
+        self._g_credential, self._project_id = google.auth.default()
 
     def get_access_token(self):
         """Fetches a Google OAuth2 access token using this application default credential.
@@ -102,7 +102,7 @@ class ApplicationDefault(Base):
         Returns:
           AccessTokenInfo: An access token obtained using the credential.
         """
-        self._g_credential.refresh(_http)
+        self._g_credential.refresh(_request)
         return AccessTokenInfo(self._g_credential.token, self._g_credential.expiry)
 
     def get_credential(self):
@@ -111,6 +111,10 @@ class ApplicationDefault(Base):
         Returns:
           google.auth.credentials.Credentials: A Google Auth credential instance."""
         return self._g_credential
+
+    @property
+    def project_id(self):
+        return self._project_id
 
 
 class RefreshToken(Base):
@@ -160,7 +164,7 @@ class RefreshToken(Base):
         Returns:
           AccessTokenInfo: An access token obtained using the credential.
         """
-        self._g_credential.refresh(_http)
+        self._g_credential.refresh(_request)
         return AccessTokenInfo(self._g_credential.token, self._g_credential.expiry)
 
     def get_credential(self):

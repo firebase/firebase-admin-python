@@ -8,21 +8,18 @@ import os
 import threading
 import time
 
+from google.auth import jwt
+from google.auth.transport import requests
+import google.oauth2.id_token
 import six
 
 import firebase_admin
 from firebase_admin import credentials
 
-from google.auth import jwt
-from google.auth.transport import requests
-import google.oauth2.id_token
-
 _auth_lock = threading.Lock()
 
-"""Provided for overriding during tests. (OAuth2 client uses a caching-enabled
-   HTTP client internally if none provided)
-"""
-_http = requests.Request()
+"""Provided for overriding during tests."""
+_request = requests.Request()
 
 _AUTH_ATTRIBUTE = '_auth'
 GCLOUD_PROJECT_ENV_VAR = 'GCLOUD_PROJECT'
@@ -214,14 +211,16 @@ class _TokenGenerator(object):
 
         try:
             project_id = self._app.credential.project_id
+            if project_id is None:
+                project_id = os.environ.get(GCLOUD_PROJECT_ENV_VAR)
         except AttributeError:
             project_id = os.environ.get(GCLOUD_PROJECT_ENV_VAR)
 
         if not project_id:
-            raise ValueError('Must initialize app with a credentials.Certificate '
-                             'or set your Firebase project ID as the '
-                             'GCLOUD_PROJECT environment variable to call '
-                             'verify_id_token().')
+            raise ValueError('Failed to ascertain project ID from the credential or the '
+                             'environment. Must initialize app with a credentials.Certificate or '
+                             'set your Firebase project ID as the GCLOUD_PROJECT environment '
+                             'variable to call verify_id_token().')
 
         header = jwt.decode_header(id_token)
         payload = jwt.decode(id_token, verify=False)
@@ -279,7 +278,7 @@ class _TokenGenerator(object):
 
         verified_claims = google.oauth2.id_token.verify_firebase_token(
             id_token,
-            request=_http,
+            request=_request,
             audience=project_id)
         verified_claims['uid'] = verified_claims['sub']
         return verified_claims

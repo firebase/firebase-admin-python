@@ -196,7 +196,7 @@ class TestVerifyIdToken(object):
     }
 
     def setup_method(self):
-        auth._http = testutils.MockRequest(200, MOCK_PUBLIC_CERTS)
+        auth._request = testutils.MockRequest(200, MOCK_PUBLIC_CERTS)
 
     @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
     def test_valid_token(self, authtest, id_token):
@@ -239,6 +239,6 @@ class TestVerifyIdToken(object):
             authtest.verify_id_token(id_token)
 
     def test_certificate_request_failure(self, authtest):
-        auth._http = testutils.MockRequest(404, 'not found')
+        auth._request = testutils.MockRequest(404, 'not found')
         with pytest.raises(exceptions.TransportError):
             authtest.verify_id_token(TEST_ID_TOKEN)

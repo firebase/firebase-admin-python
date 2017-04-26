@@ -34,7 +34,7 @@ class TestCertificate(object):
         assert g_credential.token is None
 
         mock_response = {'access_token': 'mock_access_token', 'expires_in': 3600}
-        credentials._http = testutils.MockRequest(200, json.dumps(mock_response))
+        credentials._request = testutils.MockRequest(200, json.dumps(mock_response))
         access_token = credential.get_access_token()
         assert access_token.access_token == 'mock_access_token'
         assert isinstance(access_token.expiry, datetime.datetime)
@@ -63,12 +63,14 @@ class TestApplicationDefault(object):
                              indirect=True)
     def test_init(self, app_default): # pylint: disable=unused-argument
         credential = credentials.ApplicationDefault()
+        assert credential.project_id == 'mock-project-id'
+
         g_credential = credential.get_credential()
         assert isinstance(g_credential, google.auth.credentials.Credentials)
         assert g_credential.token is None
 
         mock_response = {'access_token': 'mock_access_token', 'expires_in': 3600}
-        credentials._http = testutils.MockRequest(200, json.dumps(mock_response))
+        credentials._request = testutils.MockRequest(200, json.dumps(mock_response))
         access_token = credential.get_access_token()
         assert access_token.access_token == 'mock_access_token'
         assert isinstance(access_token.expiry, datetime.datetime)
@@ -97,7 +99,7 @@ class TestRefreshToken(object):
             'access_token': 'mock_access_token',
             'expires_in': 3600
         }
-        credentials._http = testutils.MockRequest(200, json.dumps(mock_response))
+        credentials._request = testutils.MockRequest(200, json.dumps(mock_response))
         access_token = credential.get_access_token()
         assert access_token.access_token == 'mock_access_token'
         assert isinstance(access_token.expiry, datetime.datetime)

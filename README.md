@@ -51,7 +51,7 @@ on PyPy and Google App Engine environments.
 
 ## License and Terms
 
-Firebas Admin Python SDK is licensed under the
+Firebase Admin Python SDK is licensed under the
 [Apache License, version 2.0](http://www.apache.org/licenses/LICENSE-2.0).
 
 Your use of Firebase is governed by the

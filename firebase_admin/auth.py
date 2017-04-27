@@ -22,19 +22,18 @@ import os
 import threading
 import time
 
-from oauth2client import crypt
+from google.auth import jwt
+from google.auth.transport import requests
+import google.oauth2.id_token
 import six
 
 import firebase_admin
 from firebase_admin import credentials
-from firebase_admin import jwt
 
 _auth_lock = threading.Lock()
 
-"""Provided for overriding during tests. (OAuth2 client uses a caching-enabled
-   HTTP client internally if none provided)
-"""
-_http = None
+"""Provided for overriding during tests."""
+_request = requests.Request()
 
 _AUTH_ATTRIBUTE = '_auth'
 GCLOUD_PROJECT_ENV_VAR = 'GCLOUD_PROJECT'
@@ -196,7 +195,7 @@ class _TokenGenerator(object):
         if developer_claims is not None:
             payload['claims'] = developer_claims
 
-        return jwt.encode(payload, self._app.credential.signer)
+        return jwt.encode(self._app.credential.signer, payload)
 
     def verify_id_token(self, id_token):
         """Verifies the signature and data for the provided JWT.
@@ -226,16 +225,19 @@ class _TokenGenerator(object):
 
         try:
             project_id = self._app.credential.project_id
+            if project_id is None:
+                project_id = os.environ.get(GCLOUD_PROJECT_ENV_VAR)
         except AttributeError:
             project_id = os.environ.get(GCLOUD_PROJECT_ENV_VAR)
 
         if not project_id:
-            raise ValueError('Must initialize app with a credentials.Certificate '
-                             'or set your Firebase project ID as the '
-                             'GCLOUD_PROJECT environment variable to call '
-                             'verify_id_token().')
+            raise ValueError('Failed to ascertain project ID from the credential or the '
+                             'environment. Must initialize app with a credentials.Certificate or '
+                             'set your Firebase project ID as the GCLOUD_PROJECT environment '
+                             'variable to call verify_id_token().')
 
-        header, payload = jwt.decode(id_token)
+        header = jwt.decode_header(id_token)
+        payload = jwt.decode(id_token, verify=False)
         issuer = payload.get('iss')
         audience = payload.get('aud')
         subject = payload.get('sub')
@@ -286,13 +288,11 @@ class _TokenGenerator(object):
                              'characters. ') + verify_id_token_msg
 
         if error_message:
-            raise crypt.AppIdentityError(error_message)
+            raise ValueError(error_message)
 
-        verified_claims = jwt.verify_id_token(
+        verified_claims = google.oauth2.id_token.verify_firebase_token(
             id_token,
-            self.FIREBASE_CERT_URI,
-            audience=project_id,
-            kid=header.get('kid'),
-            http=_http)
+            request=_request,
+            audience=project_id)
         verified_claims['uid'] = verified_claims['sub']
         return verified_claims

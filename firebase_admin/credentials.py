@@ -13,15 +13,20 @@
 # limitations under the License.
 
 """Firebase credentials module."""
+import collections
 import json
 
-import httplib2
+import google.auth
+from google.auth.transport import requests
+from google.oauth2 import credentials
+from google.oauth2 import service_account
 
-from oauth2client import client
-from oauth2client import crypt
+
+_request = requests.Request()
 
 
-_http = httplib2.Http()
+AccessTokenInfo = collections.namedtuple(
+    'AccessTokenInfo', ['access_token', 'expiry'])
 
 
 class Base(object):
@@ -39,6 +44,8 @@ class Base(object):
 class Certificate(Base):
     """A credential initialized from a JSON certificate keyfile."""
 
+    _CREDENTIAL_TYPE = 'service_account'
+
     def __init__(self, file_path):
         """Initializes a credential from a certificate file.
 
@@ -53,25 +60,13 @@ class Certificate(Base):
           ValueError: If the certificate file is invalid.
         """
         super(Certificate, self).__init__()
-        # TODO(hkj): Clean this up once we are able to take a dependency
-        # TODO(hkj): on latest oauth2client.
         with open(file_path) as json_keyfile:
             json_data = json.load(json_keyfile)
-        if json_data.get('type') != client.SERVICE_ACCOUNT:
+        if json_data.get('type') != self._CREDENTIAL_TYPE:
             raise ValueError('Invalid certificate file. File must contain a '
-                             '"type" field set to "{0}".'.format(client.SERVICE_ACCOUNT))
+                             '"type" field set to "{0}".'.format(self._CREDENTIAL_TYPE))
         self._project_id = json_data.get('project_id')
-        self._service_account_email = json_data.get('client_email')
-        try:
-            self._signer = crypt.Signer.from_string(json_data.get('private_key'))
-        except Exception as error:
-            raise ValueError('Failed to parse the private key string or initialize an '
-                             'RSA signer. Caused by: "{0}".'.format(error))
-        try:
-            self._g_credential = client.GoogleCredentials.from_stream(file_path)
-        except client.ApplicationDefaultCredentialsError as error:
-            raise ValueError('Failed to initialize a certificate credential from file "{0}". '
-                             'Caused by: "{1}"'.format(file_path, error))
+        self._g_credential = service_account.Credentials.from_service_account_info(json_data)
 
     @property
     def project_id(self):
@@ -79,25 +74,26 @@ class Certificate(Base):
 
     @property
     def signer(self):
-        return self._signer
+        return self._g_credential.signer
 
     @property
     def service_account_email(self):
-        return self._service_account_email
+        return self._g_credential.service_account_email
 
     def get_access_token(self):
         """Fetches a Google OAuth2 access token using this certificate credential.
 
         Returns:
-          oauth2client.client.AccessTokenInfo: An access token obtained via oauth2client.
+          AccessTokenInfo: An access token obtained using the credential.
         """
-        return self._g_credential.get_access_token(_http)
+        self._g_credential.refresh(_request)
+        return AccessTokenInfo(self._g_credential.token, self._g_credential.expiry)
 
     def get_credential(self):
         """Returns the underlying Google credential.
 
         Returns:
-          oauth2client.client.GoogleCredentials: An oauth2client credential instance."""
+          google.auth.credentials.Credentials: A Google Auth credential instance."""
         return self._g_credential
 
 
@@ -108,30 +104,37 @@ class ApplicationDefault(Base):
         """Initializes the Application Default credentials for the current environment.
 
         Raises:
-          oauth2client.client.ApplicationDefaultCredentialsError: If Application Default
+          google.auth.exceptions.DefaultCredentialsError: If Application Default
               credentials cannot be initialized in the current environment.
         """
         super(ApplicationDefault, self).__init__()
-        self._g_credential = client.GoogleCredentials.get_application_default()
+        self._g_credential, self._project_id = google.auth.default()
 
     def get_access_token(self):
         """Fetches a Google OAuth2 access token using this application default credential.
 
         Returns:
-          oauth2client.client.AccessTokenInfo: An access token obtained via oauth2client.
+          AccessTokenInfo: An access token obtained using the credential.
         """
-        return self._g_credential.get_access_token(_http)
+        self._g_credential.refresh(_request)
+        return AccessTokenInfo(self._g_credential.token, self._g_credential.expiry)
 
     def get_credential(self):
         """Returns the underlying Google credential.
 
         Returns:
-          oauth2client.client.GoogleCredentials: An oauth2client credential instance."""
+          google.auth.credentials.Credentials: A Google Auth credential instance."""
         return self._g_credential
+
+    @property
+    def project_id(self):
+        return self._project_id
 
 
 class RefreshToken(Base):
     """A credential initialized from an existing refresh token."""
+
+    _CREDENTIAL_TYPE = 'authorized_user'
 
     def __init__(self, file_path):
         """Initializes a refresh token credential from the specified JSON file.
@@ -146,41 +149,41 @@ class RefreshToken(Base):
         super(RefreshToken, self).__init__()
         with open(file_path) as json_keyfile:
             json_data = json.load(json_keyfile)
-        if json_data.get('type') != client.AUTHORIZED_USER:
+        if json_data.get('type') != self._CREDENTIAL_TYPE:
             raise ValueError('Invalid refresh token file. File must contain a '
-                             '"type" field set to "{0}".'.format(client.AUTHORIZED_USER))
-        self._client_id = json_data.get('client_id')
-        self._client_secret = json_data.get('client_secret')
-        self._refresh_token = json_data.get('refresh_token')
-        try:
-            self._g_credential = client.GoogleCredentials.from_stream(file_path)
-        except client.ApplicationDefaultCredentialsError as error:
-            raise ValueError('Failed to initialize a refresh token credential from file "{0}". '
-                             'Caused by: "{1}".'.format(file_path, error))
+                             '"type" field set to "{0}".'.format(self._CREDENTIAL_TYPE))
+        client_id = json_data.get('client_id')
+        client_secret = json_data.get('client_secret')
+        refresh_token = json_data.get('refresh_token')
+        self._g_credential = credentials.Credentials(
+            token=None, refresh_token=refresh_token,
+            token_uri='https://accounts.google.com/o/oauth2/token',
+            client_id=client_id, client_secret=client_secret)
 
     @property
     def client_id(self):
-        return self._client_id
+        return self._g_credential.client_id
 
     @property
     def client_secret(self):
-        return self._client_secret
+        return self._g_credential.client_secret
 
     @property
     def refresh_token(self):
-        return self._refresh_token
+        return self._g_credential.refresh_token
 
     def get_access_token(self):
         """Fetches a Google OAuth2 access token using this refresh token credential.
 
         Returns:
-          oauth2client.client.AccessTokenInfo: An access token obtained via oauth2client.
+          AccessTokenInfo: An access token obtained using the credential.
         """
-        return self._g_credential.get_access_token(_http)
+        self._g_credential.refresh(_request)
+        return AccessTokenInfo(self._g_credential.token, self._g_credential.expiry)
 
     def get_credential(self):
         """Returns the underlying Google credential.
 
         Returns:
-          oauth2client.client.GoogleCredentials: An oauth2client credential instance."""
+          google.auth.credentials.Credentials: A Google Auth credential instance."""
         return self._g_credential

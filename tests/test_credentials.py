@@ -33,7 +33,7 @@ class TestCertificate(object):
         'NonExistingFile': ('non_existing.json', IOError),
         'RefreskToken': ('refresh_token.json', ValueError),
         'MalformedPrivateKey': ('malformed_key.json', ValueError),
-        'MissingClientId': ('no_client_id_service_account.json', ValueError),
+        'MissingClientId': ('no_client_email_service_account.json', ValueError),
     }
 
     def test_init_from_file(self):

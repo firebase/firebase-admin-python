@@ -27,6 +27,13 @@ import pytest
 from tests import testutils
 
 
+def check_scopes(g_credential):
+    assert isinstance(g_credential, google.auth.credentials.Scoped)
+    assert len(credentials._scopes) == len(g_credential.scopes)
+    for s in credentials._scopes:
+        assert s in g_credential.scopes
+
+
 class TestCertificate(object):
 
     invalid_certs = {
@@ -46,6 +53,7 @@ class TestCertificate(object):
         g_credential = credential.get_credential()
         assert isinstance(g_credential, service_account.Credentials)
         assert g_credential.token is None
+        check_scopes(g_credential)
 
         mock_response = {'access_token': 'mock_access_token', 'expires_in': 3600}
         credentials._request = testutils.MockRequest(200, json.dumps(mock_response))
@@ -82,6 +90,7 @@ class TestApplicationDefault(object):
         g_credential = credential.get_credential()
         assert isinstance(g_credential, google.auth.credentials.Credentials)
         assert g_credential.token is None
+        check_scopes(g_credential)
 
         mock_response = {'access_token': 'mock_access_token', 'expires_in': 3600}
         credentials._request = testutils.MockRequest(200, json.dumps(mock_response))
@@ -108,6 +117,7 @@ class TestRefreshToken(object):
         g_credential = credential.get_credential()
         assert isinstance(g_credential, gcredentials.Credentials)
         assert g_credential.token is None
+        check_scopes(g_credential)
 
         mock_response = {
             'access_token': 'mock_access_token',

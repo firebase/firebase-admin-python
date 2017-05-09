@@ -23,7 +23,10 @@ from google.oauth2 import service_account
 
 
 _request = requests.Request()
-
+_scopes = [
+    'https://www.googleapis.com/auth/firebase',
+    'https://www.googleapis.com/auth/userinfo.email'
+]
 
 AccessTokenInfo = collections.namedtuple(
     'AccessTokenInfo', ['access_token', 'expiry'])
@@ -67,7 +70,8 @@ class Certificate(Base):
                              '"type" field set to "{1}".'.format(file_path, self._CREDENTIAL_TYPE))
         self._project_id = json_data.get('project_id')
         try:
-            self._g_credential = service_account.Credentials.from_service_account_info(json_data)
+            self._g_credential = service_account.Credentials.from_service_account_info(
+                json_data, scopes=_scopes)
         except ValueError as error:
             raise ValueError('Failed to initialize a certificate credential from file "{0}". '
                              'Caused by: "{1}"'.format(file_path, error))
@@ -112,7 +116,7 @@ class ApplicationDefault(Base):
               credentials cannot be initialized in the current environment.
         """
         super(ApplicationDefault, self).__init__()
-        self._g_credential, self._project_id = google.auth.default()
+        self._g_credential, self._project_id = google.auth.default(scopes=_scopes)
 
     def get_access_token(self):
         """Fetches a Google OAuth2 access token using this application default credential.
@@ -166,7 +170,7 @@ class RefreshToken(Base):
         self._g_credential = credentials.Credentials(
             token=None, refresh_token=refresh_token,
             token_uri='https://accounts.google.com/o/oauth2/token',
-            client_id=client_id, client_secret=client_secret)
+            client_id=client_id, client_secret=client_secret, scopes=_scopes)
 
     @property
     def client_id(self):

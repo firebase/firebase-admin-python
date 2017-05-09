@@ -30,8 +30,8 @@ from tests import testutils
 def check_scopes(g_credential):
     assert isinstance(g_credential, google.auth.credentials.Scoped)
     assert len(credentials._scopes) == len(g_credential.scopes)
-    for s in credentials._scopes:
-        assert s in g_credential.scopes
+    for scope in credentials._scopes:
+        assert scope in g_credential.scopes
 
 
 class TestCertificate(object):

@@ -13,7 +13,7 @@
 
 [Firebase](https://firebase.google.com) provides the tools and infrastructure
 you need to develop apps, grow your user base, and earn money. The Firebase
-Admin Python SDK Enables access to Firebase services from privileged environments
+Admin Python SDK enables access to Firebase services from privileged environments
 (such as servers or cloud) in Python. Currently this SDK provides
 Firebase custom authentication support.
 

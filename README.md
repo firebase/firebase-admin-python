@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/firebase/firebase-admin-python.svg?branch=master)](https://travis-ci.org/firebase/firebase-admin-python)
+
 # Firebase Admin Python SDK
 
 ## Table of Contents

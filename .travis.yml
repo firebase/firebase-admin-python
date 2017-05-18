@@ -5,5 +5,6 @@ python:
   - "3.5"
 # command to install dependencies
 install: "pip install -r requirements.txt"
+before_script: ./lint.sh all
 # command to run tests
 script: pytest

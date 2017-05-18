@@ -17,6 +17,11 @@
 function lintAllFiles () {
   echo "Running linter on module $1"
   pylint --disable=$2 $1
+  rc=$?
+  if [ $rc -ne 0 ]
+  then
+    exit $rc
+  fi
 }
 
 function lintChangedFiles () {
@@ -25,6 +30,11 @@ function lintChangedFiles () {
   do
     echo "Running linter on $f"
     pylint --disable=$2 $f
+    rc=$?
+    if [ $rc -ne 0 ]
+    then
+      exit $rc
+    fi
   done
 }
 

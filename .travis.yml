@@ -5,6 +5,8 @@ python:
   - "3.5"
 # command to install dependencies
 install: "pip install -r requirements.txt"
-before_script: ./lint.sh all
+before_script: 
+  - export PY_VERSION=`python -c 'import sys; print sys.version_info.major'`
+  - if [ $PY_VERSION == '2' ]; then ./lint.sh all; fi
 # command to run tests
 script: pytest

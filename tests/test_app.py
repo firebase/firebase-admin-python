@@ -13,6 +13,8 @@
 # limitations under the License.
 
 """Tests for firebase_admin.App."""
+import datetime
+import json
 import os
 
 import pytest
@@ -159,3 +161,25 @@ class TestFirebaseApp(object):
             firebase_admin.get_app(init_app.name)
         with pytest.raises(ValueError):
             firebase_admin.delete_app(init_app)
+
+    # pylint: disable=protected-access
+    def test_get_token(self, init_app):
+        mock_response = {'access_token': 'mock_access_token_1', 'expires_in': 3600}
+        credentials._request = testutils.MockRequest(200, json.dumps(mock_response))
+
+        assert init_app.get_token() == 'mock_access_token_1'
+
+        mock_response = {'access_token': 'mock_access_token_2', 'expires_in': 3600}
+        credentials._request = testutils.MockRequest(200, json.dumps(mock_response))
+
+        expiry = init_app._token.expiry
+        # should return same token from cache
+        firebase_admin._clock = lambda: expiry - datetime.timedelta(
+            seconds=firebase_admin._CLOCK_SKEW_SECONDS + 1)
+        assert init_app.get_token() == 'mock_access_token_1'
+
+        # should return new token from RPC call
+        firebase_admin._clock = lambda: expiry - datetime.timedelta(
+            seconds=firebase_admin._CLOCK_SKEW_SECONDS)
+        assert init_app.get_token() == 'mock_access_token_2'
+

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Firebase Admin SDK for Python."""
+import datetime
 import threading
 
 import six
@@ -26,8 +27,10 @@ __version__ = '2.0.0'
 
 _apps = {}
 _apps_lock = threading.RLock()
+_clock = datetime.datetime.utcnow
 
 _DEFAULT_APP_NAME = '[DEFAULT]'
+_CLOCK_SKEW_SECONDS = 300
 
 
 def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
@@ -174,6 +177,7 @@ class App(object):
                              'with a valid credential instance.')
         self._credential = credential
         self._options = _AppOptions(options)
+        self._token = None
 
     @property
     def name(self):
@@ -186,3 +190,22 @@ class App(object):
     @property
     def options(self):
         return self._options
+
+    def _token_valid(self):
+        if self._token is None:
+            return False
+        skewed_expiry = self._token.expiry - datetime.timedelta(seconds=_CLOCK_SKEW_SECONDS)
+        return _clock() < skewed_expiry
+
+    def get_token(self):
+        """Returns an OAuth2 bearer token.
+
+           This method may return a cached token. But it handles cache invalidation, and therefore
+           is guaranteed to always return unexpired tokens.
+
+           Returns:
+             string: An unexpired OAuth2 token.
+        """
+        if not self._token_valid():
+            self._token = self._credential.get_access_token()
+        return self._token.access_token

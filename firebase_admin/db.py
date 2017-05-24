@@ -31,9 +31,25 @@ def get_reference(path='/', app=None):
     app = utils.get_initialized_app(app)
     with _db_lock:
         if not hasattr(app, _DB_ATTRIBUTE):
-            setattr(app, _DB_ATTRIBUTE, _Context(app))
+            setattr(app, _DB_ATTRIBUTE, _new_context(app))
         context = getattr(app, _DB_ATTRIBUTE)
     return _new_reference(context, path)
+
+def _new_context(app):
+    """Created a new _Context from given App"""
+    url = app.options.get('dbURL')
+    if not url or not isinstance(url, six.string_types):
+        raise ValueError(
+            'Invalid dbURL option: "{0}". dbURL must be a non-empty URL string.'.format(url))
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme != 'https':
+        raise ValueError(
+            'Invalid dbURL option: "{0}". dbURL must be an HTTPS URL.'.format(url))
+    elif not parsed.netloc.endswith('.firebaseio.com'):
+        raise ValueError(
+            'Invalid dbURL option: "{0}". dbURL must be a valid URL to a Firebase realtime '
+            'database instance.'.format(url))
+    return _Context('https://{0}'.format(parsed.netloc), _OAuth(app), requests.Session())
 
 def _new_reference(context, path):
     """Creates a new DatabaseReference from given context and path."""
@@ -126,22 +142,10 @@ class _Context(object):
     instances. It handles authenticating HTTP requests, and parsing responses as JSON.
     """
 
-    def __init__(self, app):
-        url = app.options.get('dbURL')
-        if not url or not isinstance(url, six.string_types):
-            raise ValueError(
-                'Invalid dbURL option: "{0}". dbURL must be a non-empty URL string.'.format(url))
-        parsed = urllib.parse.urlparse(url)
-        if parsed.scheme != 'https':
-            raise ValueError(
-                'Invalid dbURL option: "{0}". dbURL must be an HTTPS URL.'.format(url))
-        elif not parsed.netloc.endswith('.firebaseio.com'):
-            raise ValueError(
-                'Invalid dbURL option: "{0}". dbURL must be a valid URL to a Firebase realtime '
-                'database instance.'.format(url))
-        self._url = 'https://{0}'.format(parsed.netloc)
-        self._auth = _OAuth(app)
-        self._session = requests.Session()
+    def __init__(self, url, auth, session):
+        self._url = url
+        self._auth = auth
+        self._session = session
 
     def request(self, method, urlpath, **kwargs):
         resp = self._session.request(method, self._url + urlpath, auth=self._auth, **kwargs)
@@ -149,7 +153,7 @@ class _Context(object):
         return resp.json()
 
     def request_oneway(self, method, urlpath, **kwargs):
-        resp = requests.request(method, self._url + urlpath, auth=self._auth, **kwargs)
+        resp = self._session.request(method, self._url + urlpath, auth=self._auth, **kwargs)
         resp.raise_for_status()
 
     def close(self):

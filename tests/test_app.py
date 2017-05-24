@@ -162,7 +162,6 @@ class TestFirebaseApp(object):
         with pytest.raises(ValueError):
             firebase_admin.delete_app(init_app)
 
-    # pylint: disable=protected-access
     def test_get_token(self, init_app):
         mock_response = {'access_token': 'mock_access_token_1', 'expires_in': 3600}
         credentials._request = testutils.MockRequest(200, json.dumps(mock_response))

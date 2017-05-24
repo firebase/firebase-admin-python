@@ -182,4 +182,3 @@ class TestFirebaseApp(object):
         firebase_admin._clock = lambda: expiry - datetime.timedelta(
             seconds=firebase_admin._CLOCK_SKEW_SECONDS)
         assert init_app.get_token() == 'mock_access_token_2'
-

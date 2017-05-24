@@ -148,6 +148,10 @@ class _AppOptions(object):
                              'must be a dictionary.'.format(type(options)))
         self._options = options
 
+    def get(self, key):
+        """Returns the option identified by the provided key."""
+        return self._options.get(key)
+
 
 class App(object):
     """The entry point for Firebase Python SDK.

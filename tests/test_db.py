@@ -34,20 +34,21 @@ def context():
     return db._Context(app)
 
 
-class TestDatabaseReference(object):
-    """Test cases for DatabaseReference class."""
+class TestReferenceCreation(object):
+    """Test cases for db._Path class."""
 
-    valid_keys = {
-        '/' : '/',
-        '' : '/',
-        '/foo' : '/foo',
-        'foo' : '/foo',
-        '/foo/bar' : '/foo/bar',
-        'foo/bar' : '/foo/bar',
-        '/foo/bar/' : '/foo/bar',
+    # path => (fullstr, key, parent)
+    valid_paths = {
+        '/' : ('/', None, None),
+        '' : ('/', None, None),
+        '/foo' : ('/foo', 'foo', '/'),
+        'foo' :  ('/foo', 'foo', '/'),
+        '/foo/bar' : ('/foo/bar', 'bar', '/foo'),
+        'foo/bar' : ('/foo/bar', 'bar', '/foo'),
+        '/foo/bar/' : ('/foo/bar', 'bar', '/foo'),
     }
 
-    invalid_keys = [
+    invalid_paths = [
         None, True, False, 0, 1, dict(), list(), tuple(),
         'foo#', 'foo.', 'foo$', 'foo[', 'foo]'
     ]
@@ -63,23 +64,29 @@ class TestDatabaseReference(object):
         'foo#', 'foo.', 'foo$', 'foo[', 'foo]'
     ]
 
-    @pytest.mark.parametrize('key, expected', valid_keys.items())
-    def test_valid_key(self, key, expected, context):
-        ref = db.DatabaseReference(context, key)
-        assert ref._path == expected
+    @pytest.mark.parametrize('path, expected', valid_paths.items())
+    def test_valid_path(self, path, expected):
+        ref = db._new_reference(None, path)
+        fullstr, key, parent = expected
+        assert ref.path == fullstr
+        assert ref.key == key
+        if parent is None:
+            assert ref.parent is None
+        else:
+            assert ref.parent.path == parent
 
-    @pytest.mark.parametrize('key', invalid_keys)
-    def test_invalid_key(self, key, context):
+    @pytest.mark.parametrize('path', invalid_paths)
+    def test_invalid_key(self, path):
         with pytest.raises(ValueError):
-            db.DatabaseReference(context, key)
+            db._new_reference(None, path)
 
-    @pytest.mark.parametrize('key, expected', valid_children.items())
-    def test_valid_child(self, key, expected, context):
-        ref = db.DatabaseReference(context, '/test')
-        assert ref.child(key)._path == '/test' + expected
+    @pytest.mark.parametrize('child, expected', valid_children.items())
+    def test_valid_child(self, child, expected):
+        parent = db._new_reference(None, '/test')
+        assert parent.child(child).path == '/test' + expected
 
-    @pytest.mark.parametrize('key', invalid_children)
-    def test_invalid_child(self, key, context):
-        ref = db.DatabaseReference(context, '/test')
+    @pytest.mark.parametrize('child', invalid_children)
+    def test_invalid_child(self, child):
+        parent = db._new_reference(None, '/test')
         with pytest.raises(ValueError):
-            ref.child(key)
+            parent.child(child)

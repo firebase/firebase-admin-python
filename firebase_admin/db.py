@@ -22,7 +22,7 @@ from six.moves import urllib
 from firebase_admin import utils
 
 _DB_ATTRIBUTE = '_database'
-_INVALID_PATH_REGEX = r'[].#$'
+_INVALID_PATH_CHARACTERS = r'[].#$'
 
 _db_lock = threading.Lock()
 
@@ -33,110 +33,134 @@ def get_reference(path='/', app=None):
         if not hasattr(app, _DB_ATTRIBUTE):
             setattr(app, _DB_ATTRIBUTE, _Context(app))
         context = getattr(app, _DB_ATTRIBUTE)
-        return DatabaseReference(context, path)
+    return _new_reference(context, path)
 
-def _parse_path(path):
-    """Parses and validates the given reference path."""
+def _new_reference(context, path):
+    """Creates a new DatabaseReference from given context and path."""
     if not isinstance(path, six.string_types):
         raise ValueError('Invalid path argument: "{0}". Path must be a string.'.format(path))
-    if any(ch in path for ch in _INVALID_PATH_REGEX):
+    if any(ch in path for ch in _INVALID_PATH_CHARACTERS):
         raise ValueError(
             'Invalid path argument: "{0}". Path contains illegal characters.'.format(path))
-
     segments = []
     for seg in path.split('/'):
         if seg:
             segments.append(seg)
-    return '/{0}'.format('/'.join(segments))
-
-def _get_db_url(app):
-    """Extracts database URL from a Firebase App."""
-    url = app.options.get('dbURL')
-    if not url or not isinstance(url, six.string_types):
-        raise ValueError(
-            'Invalid dbURL option: "{0}". dbURL must be a non-empty URL string.'.format(url))
-    parsed = urllib.parse.urlparse(url)
-    if parsed.scheme != 'https':
-        raise ValueError(
-            'Invalid dbURL option: "{0}". dbURL must be an HTTPS URL.'.format(url))
-    elif not parsed.netloc.endswith('.firebaseio.com'):
-        raise ValueError(
-            'Invalid dbURL option: "{0}". dbURL must be a valid URL to a Firebase realtime '
-            'database instance.'.format(url))
-    return 'https://{0}'.format(parsed.netloc)
+    return Reference(context, segments)
 
 
-class DatabaseReference(object):
-    """DatabaseReference represents a node in the Firebase realtime database."""
+class Reference(object):
+    """Reference represents a node in the Firebase realtime database."""
 
-    def __init__(self, context, path):
-        if not isinstance(context, _Context):
-            raise ValueError('Illegal context argument.')
+    def __init__(self, context, segments):
+        """Creates a new Reference from the given context and path segments.
+
+        This method is for internal use only. Use db.get_reference() to retrieve an instance of
+        Reference.
+        """
         self._context = context
-        self._path = _parse_path(path)
+        self._segments = segments
+        self._pathurl = '/' + '/'.join(segments)
+
+    @property
+    def key(self):
+        if self._segments:
+            return self._segments[-1]
+        return None
+
+    @property
+    def path(self):
+        return self._pathurl
+
+    @property
+    def parent(self):
+        if self._segments:
+            return Reference(self._context, self._segments[:-1])
+        return None
 
     def child(self, path):
         if not path or not isinstance(path, six.string_types):
-            raise ValueError('Invalid child path argument: "{0}". Child path must be a non-empty '
-                             'string.'.format(path))
+            raise ValueError(
+                'Invalid path argument: "{0}". Path must be a non-empty string.'.format(path))
         if path.startswith('/'):
-            raise ValueError('Invalid child path argument: "{0}". Child path must not begin with '
-                             'a "/".'.format(path))
-        return DatabaseReference(self._context, '{0}/{1}'.format(self._path, path))
+            raise ValueError(
+                'Invalid path argument: "{0}". Child path must not start with "/"'.format(path))
+        return _new_reference(self._context, self._pathurl + '/' + path)
 
     def get_value(self):
-        resp = requests.get(self._get_url(), auth=self._context)
-        resp.raise_for_status()
-        return resp.json()
+        return self._context.request('get', self._add_suffix())
 
     def set_value(self, value=None):
         if value is None:
-            value = {}
+            value = ''
         params = {'print':'silent'}
-        resp = requests.put(self._get_url(), json=value, params=params, auth=self._context)
-        resp.raise_for_status()
+        self._context.request_oneway('put', self._add_suffix(), json=value, params=params)
 
     def push(self, value=None):
         if value is None:
             value = ''
-        resp = requests.post(self._get_url(), json=value, auth=self._context)
-        resp.raise_for_status()
-        push_id = resp.json().get('name')
+        output = self._context.request('post', self._add_suffix(), json=value)
+        push_id = output.get('name')
         if not push_id:
             raise RuntimeError('Unexpected error while pushing to: "{0}". Server did not return '
-                               'a push ID.'.format(self._path))
+                               'a push ID.'.format(self._pathurl))
         return self.child(push_id)
 
     def update_children(self, value):
         if not value or not isinstance(value, dict):
             raise ValueError('Value argument must be a non-empty dictionary.')
         params = {'print':'silent'}
-        resp = requests.patch(self._get_url(), json=value, params=params, auth=self._context)
-        resp.raise_for_status()
+        self._context.request_oneway('patch', self._add_suffix(), json=value, params=params)
 
-    def _get_url(self, suffix='.json'):
-        return '{0}{1}{2}'.format(self._context.url, self._path, suffix)
+    def delete(self):
+        self._context.request_oneway('delete', self._add_suffix())
 
-
-class _OAuth2(requests.auth.AuthBase):
-    def __init__(self, app):
-        self._app = app
-
-    def __call__(self, req):
-        req.headers['Authorization'] = 'Bearer {0}'.format(self._app.get_token())
-        return req
+    def _add_suffix(self, suffix='.json'):
+        return self._pathurl + suffix
 
 
 class _Context(object):
-    """Client for accessing the Firebase realtime database via REST calls."""
+    """Per-App context used to make REST calls.
+
+    _Context maintains a HTTP session, and other attributes shared across DatabaseReference
+    instances. It handles authenticating HTTP requests, and parsing responses as JSON.
+    """
 
     def __init__(self, app):
-        self._app = app
-        self._url = _get_db_url(app)
+        url = app.options.get('dbURL')
+        if not url or not isinstance(url, six.string_types):
+            raise ValueError(
+                'Invalid dbURL option: "{0}". dbURL must be a non-empty URL string.'.format(url))
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme != 'https':
+            raise ValueError(
+                'Invalid dbURL option: "{0}". dbURL must be an HTTPS URL.'.format(url))
+        elif not parsed.netloc.endswith('.firebaseio.com'):
+            raise ValueError(
+                'Invalid dbURL option: "{0}". dbURL must be a valid URL to a Firebase realtime '
+                'database instance.'.format(url))
+        self._url = 'https://{0}'.format(parsed.netloc)
+        self._auth = _OAuth(app)
+        self._session = requests.Session()
 
-    @property
-    def url(self):
-        return self._url
+    def request(self, method, urlpath, **kwargs):
+        resp = self._session.request(method, self._url + urlpath, auth=self._auth, **kwargs)
+        resp.raise_for_status()
+        return resp.json()
+
+    def request_oneway(self, method, urlpath, **kwargs):
+        resp = requests.request(method, self._url + urlpath, auth=self._auth, **kwargs)
+        resp.raise_for_status()
+
+    def close(self):
+        self._session.close()
+        self._auth = None
+        self._url = None
+
+
+class _OAuth(requests.auth.AuthBase):
+    def __init__(self, app):
+        self._app = app
 
     def __call__(self, req):
         req.headers['Authorization'] = 'Bearer {0}'.format(self._app.get_token())

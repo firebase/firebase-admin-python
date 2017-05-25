@@ -38,7 +38,7 @@ class MockAdapter(adapters.HTTPAdapter):
         self._recorder.append(request)
         resp = models.Response()
         resp.status_code = self._status
-        resp.raw = six.StringIO(self._data)
+        resp.raw = six.BytesIO(self._data.encode())
         return resp
 
 
@@ -127,7 +127,7 @@ class TestReference(object):
 
     def instrument(self, ref, payload, status=200):
         recorder = []
-        adapter = MockAdapter(payload.encode(), status, recorder)
+        adapter = MockAdapter(payload, status, recorder)
         ref._client._session.mount(self.test_url, adapter)
         return recorder
 

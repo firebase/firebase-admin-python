@@ -13,10 +13,10 @@
 # limitations under the License.
 
 """Tests for firebase_admin.db."""
+import datetime
 import json
 
 import pytest
-import requests
 from requests import adapters
 from requests import models
 import six
@@ -42,36 +42,17 @@ class MockAdapter(adapters.HTTPAdapter):
         return resp
 
 
-class MockApp(object):
-    def get_token(self):
-        return 'mock-token'
+class MockCredential(credentials.Base):
+    def get_access_token(self):
+        expiry = datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+        return credentials.AccessTokenInfo('mock-token', expiry)
 
-def ref_with_context(path, data, recorder, status=200):
-    """Creates a new db.Reference with a mock transport session and context.
-
-    Creates a mock transport session that records HTTP requests, and responds to them with the
-    provided data string. Then creates a db.Reference which would use the mock transport for
-    making HTTP calls.
-
-    Args:
-        path: Path to the database node.
-        data: Data string to respond with for HTTP calls.
-        recorder: A list to record HTTP calls made by the Reference.
-        status: HTTP status code to include in responses (optional).
-
-    Returns:
-        Reference: A database Reference.
-    """
-    session = requests.Session()
-    test_url = 'https://test.firebaseio.com'
-    session.mount(test_url, MockAdapter(data, status, recorder))
-    auth = db._OAuth(MockApp())
-    context = db._Client(test_url, auth, session)
-    return db.Reference(context, path)
+    def get_credential(self):
+        return None
 
 
-class TestReferenceCreation(object):
-    """Test cases for creating db.Reference objects."""
+class TestReferencePath(object):
+    """Test cases for Reference paths."""
 
     # path => (fullstr, key, parent)
     valid_paths = {
@@ -90,9 +71,9 @@ class TestReferenceCreation(object):
     ]
 
     valid_children = {
-        'foo': '/foo',
-        'foo/bar' : '/foo/bar',
-        'foo/bar/' : '/foo/bar',
+        'foo': ('/test/foo', 'foo', '/test'),
+        'foo/bar' : ('/test/foo/bar', 'bar', '/test/foo'),
+        'foo/bar/' : ('/test/foo/bar', 'bar', '/test/foo'),
     }
 
     invalid_children = [
@@ -102,7 +83,7 @@ class TestReferenceCreation(object):
 
     @pytest.mark.parametrize('path, expected', valid_paths.items())
     def test_valid_path(self, path, expected):
-        ref = db.Reference(db._Client(), path)
+        ref = db.Reference(path=path)
         fullstr, key, parent = expected
         assert ref.path == fullstr
         assert ref.key == key
@@ -114,27 +95,46 @@ class TestReferenceCreation(object):
     @pytest.mark.parametrize('path', invalid_paths)
     def test_invalid_key(self, path):
         with pytest.raises(ValueError):
-            db.Reference(db._Client(), path)
+            db.Reference(path=path)
 
     @pytest.mark.parametrize('child, expected', valid_children.items())
     def test_valid_child(self, child, expected):
-        parent = db.Reference(db._Client(), '/test')
-        assert parent.child(child).path == '/test' + expected
+        fullstr, key, parent = expected
+        childref = db.Reference(path='/test').child(child)
+        assert childref.path == fullstr
+        assert childref.key == key
+        assert childref.parent.path == parent
 
     @pytest.mark.parametrize('child', invalid_children)
     def test_invalid_child(self, child):
-        parent = db.Reference(db._Client(), '/test')
+        parent = db.Reference(path='/test')
         with pytest.raises(ValueError):
             parent.child(child)
 
 
-class TestReferenceQueries(object):
-    """Test cases for querying db.Reference class."""
+class TestReference(object):
+    """Test cases for database queries via References."""
+
+    test_url = 'https://test.firebaseio.com'
+
+    @classmethod
+    def setup_class(cls):
+        firebase_admin.initialize_app(MockCredential(), {'dbURL' : cls.test_url})
+
+    @classmethod
+    def teardown_class(cls):
+        testutils.cleanup_apps()
+
+    def instrument(self, ref, payload, status=200):
+        recorder = []
+        adapter = MockAdapter(payload.encode(), status, recorder)
+        ref._client._session.mount(self.test_url, adapter)
+        return recorder
 
     def test_get_value(self):
+        ref = db.get_reference('/test')
         data = {'foo' : 'bar'}
-        recorder = []
-        ref = ref_with_context('/test', json.dumps(data), recorder)
+        recorder = self.instrument(ref, json.dumps(data))
         assert ref.get_value() == data
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
@@ -142,9 +142,9 @@ class TestReferenceQueries(object):
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
     def test_set_value(self):
+        ref = db.get_reference('/test')
+        recorder = self.instrument(ref, '')
         data = {'foo' : 'bar'}
-        recorder = []
-        ref = ref_with_context('/test', '', recorder)
         ref.set_value(data)
         assert len(recorder) == 1
         assert recorder[0].method == 'PUT'
@@ -153,8 +153,8 @@ class TestReferenceQueries(object):
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
     def test_set_value_default(self):
-        recorder = []
-        ref = ref_with_context('/test', '', recorder)
+        ref = db.get_reference('/test')
+        recorder = self.instrument(ref, '')
         ref.set_value()
         assert len(recorder) == 1
         assert recorder[0].method == 'PUT'
@@ -163,9 +163,9 @@ class TestReferenceQueries(object):
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
     def test_update_children(self):
+        ref = db.get_reference('/test')
         data = {'foo' : 'bar'}
-        recorder = []
-        ref = ref_with_context('/test', '', recorder)
+        recorder = self.instrument(ref, json.dumps(data))
         ref.update_children(data)
         assert len(recorder) == 1
         assert recorder[0].method == 'PATCH'
@@ -174,15 +174,19 @@ class TestReferenceQueries(object):
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
     def test_update_children_default(self):
-        ref = ref_with_context('/test', '', [])
+        ref = db.get_reference('/test')
+        recorder = self.instrument(ref, '')
         with pytest.raises(ValueError):
             ref.update_children({})
+        assert len(recorder) is 0
 
     def test_push(self):
+        ref = db.get_reference('/test')
         data = {'foo' : 'bar'}
-        recorder = []
-        ref = ref_with_context('/test', json.dumps({'name' : 'testkey'}), recorder)
-        assert ref.push(data).key == 'testkey'
+        recorder = self.instrument(ref, json.dumps({'name' : 'testkey'}))
+        child = ref.push(data)
+        assert isinstance(child, db.Reference)
+        assert child.key == 'testkey'
         assert len(recorder) == 1
         assert recorder[0].method == 'POST'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
@@ -190,8 +194,8 @@ class TestReferenceQueries(object):
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
     def test_push_default(self):
-        recorder = []
-        ref = ref_with_context('/test', json.dumps({'name' : 'testkey'}), recorder)
+        ref = db.get_reference('/test')
+        recorder = self.instrument(ref, json.dumps({'name' : 'testkey'}))
         assert ref.push().key == 'testkey'
         assert len(recorder) == 1
         assert recorder[0].method == 'POST'
@@ -200,32 +204,21 @@ class TestReferenceQueries(object):
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
     def test_delete(self):
-        recorder = []
-        ref = ref_with_context('/test', '', recorder)
+        ref = db.get_reference('/test')
+        recorder = self.instrument(ref, '')
         ref.delete()
         assert len(recorder) == 1
         assert recorder[0].method == 'DELETE'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
-
-class TestDatabaseModule(object):
-    """Test cases for db module."""
-
-    def teardown_method(self):
-        testutils.cleanup_apps()
-
     def test_get_root_reference(self):
-        firebase_admin.initialize_app(
-            credentials.Base(), {'dbURL' : 'https://test.firebaseio.com'})
         ref = db.get_reference()
         assert ref.key is None
         assert ref.path == '/'
 
-    @pytest.mark.parametrize('path, expected', TestReferenceCreation.valid_paths.items())
+    @pytest.mark.parametrize('path, expected', TestReferencePath.valid_paths.items())
     def test_get_reference(self, path, expected):
-        firebase_admin.initialize_app(
-            credentials.Base(), {'dbURL' : 'https://test.firebaseio.com'})
         ref = db.get_reference(path)
         fullstr, key, parent = expected
         assert ref.path == fullstr
@@ -235,10 +228,29 @@ class TestDatabaseModule(object):
         else:
             assert ref.parent.path == parent
 
+
+class TestDatabseInitialization(object):
+    """Test cases for database initialization."""
+
+    def teardown_method(self):
+        testutils.cleanup_apps()
+
+    def test_no_app(self):
+        with pytest.raises(ValueError):
+            db.get_reference()
+
     def test_no_db_url(self):
         firebase_admin.initialize_app(credentials.Base())
         with pytest.raises(ValueError):
             db.get_reference()
+
+    @pytest.mark.parametrize('url', [
+        'https://test.firebaseio.com', 'https://test.firebaseio.com/'
+    ])
+    def test_valid_db_url(self, url):
+        firebase_admin.initialize_app(credentials.Base(), {'dbURL' : url})
+        ref = db.get_reference()
+        assert ref._client._url == 'https://test.firebaseio.com'
 
     @pytest.mark.parametrize('url', [
         None, '', 'foo', 'http://test.firebaseio.com', 'https://google.com',

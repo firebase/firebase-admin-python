@@ -39,38 +39,37 @@ def get_reference(path='/', app=None):
       ValueError: If the specified path or app is invalid.
     """
     client = utils.get_app_service(app, _DB_ATTRIBUTE, _Client.from_app)
-    return Reference(client, path)
+    return Reference(client=client, path=path)
+
+def _parse_path(path):
+    """Parses a path string into a set of segments."""
+    if not isinstance(path, six.string_types):
+        raise ValueError('Invalid path: "{0}". Path must be a string.'.format(path))
+    if any(ch in path for ch in _INVALID_PATH_CHARACTERS):
+        raise ValueError(
+            'Invalid path: "{0}". Path contains illegal characters.'.format(path))
+    segments = []
+    for seg in path.split('/'):
+        if seg:
+            segments.append(seg)
+    return segments
 
 
 class Reference(object):
     """Reference represents a node in the Firebase realtime database."""
 
-    def __init__(self, client, path, segments=None):
-        """Creates a new Reference using the given client and path.
+    def __init__(self, **kwargs):
+        """Creates a new Reference using the provided parameters.
 
         This method is for internal use only. Use db.get_reference() to obtain an instance of
         Reference.
         """
-        if not isinstance(client, _Client):
-            raise ValueError('Illegal client argument.')
-        self._client = client
-        if segments is None:
-            segments = self._parse(path)
-        self._segments = segments
-        self._pathurl = '/' + '/'.join(segments)
-
-    def _parse(self, path):
-        """Parses a path string into a set of segments."""
-        if not isinstance(path, six.string_types):
-            raise ValueError('Invalid path: "{0}". Path must be a string.'.format(path))
-        if any(ch in path for ch in _INVALID_PATH_CHARACTERS):
-            raise ValueError(
-                'Invalid path: "{0}". Path contains illegal characters.'.format(path))
-        segments = []
-        for seg in path.split('/'):
-            if seg:
-                segments.append(seg)
-        return segments
+        self._client = kwargs.get('client')
+        if 'segments' in kwargs:
+            self._segments = kwargs.get('segments')
+        else:
+            self._segments = _parse_path(kwargs.get('path'))
+        self._pathurl = '/' + '/'.join(self._segments)
 
     @property
     def key(self):
@@ -85,7 +84,7 @@ class Reference(object):
     @property
     def parent(self):
         if self._segments:
-            return Reference(self._client, None, self._segments[:-1])
+            return Reference(client=self._client, segments=self._segments[:-1])
         return None
 
     def child(self, path):
@@ -95,7 +94,8 @@ class Reference(object):
         if path.startswith('/'):
             raise ValueError(
                 'Invalid path argument: "{0}". Child path must not start with "/"'.format(path))
-        return Reference(self._client, self._pathurl + '/' + path)
+        full_path = self._pathurl + '/' + path
+        return Reference(client=self._client, path=full_path)
 
     def get_value(self):
         return self._client.request('get', self._add_suffix())

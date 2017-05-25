@@ -116,6 +116,9 @@ class TestReference(object):
     """Test cases for database queries via References."""
 
     test_url = 'https://test.firebaseio.com'
+    valid_values = [
+        '', 'foo', 0, 1, 100, 1.2, True, False, [], [1, 2], {}, {'foo' : 'bar'}
+    ]
 
     @classmethod
     def setup_class(cls):
@@ -131,9 +134,9 @@ class TestReference(object):
         ref._client._session.mount(self.test_url, adapter)
         return recorder
 
-    def test_get_value(self):
+    @pytest.mark.parametrize('data', valid_values)
+    def test_get_value(self, data):
         ref = db.get_reference('/test')
-        data = {'foo' : 'bar'}
         recorder = self.instrument(ref, json.dumps(data))
         assert ref.get_value() == data
         assert len(recorder) == 1
@@ -141,7 +144,17 @@ class TestReference(object):
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
-    def test_set_value(self):
+    def test_get_priority(self):
+        ref = db.get_reference('/test')
+        recorder = self.instrument(ref, json.dumps('10'))
+        assert ref.get_priority() == '10'
+        assert len(recorder) == 1
+        assert recorder[0].method == 'GET'
+        assert recorder[0].url == 'https://test.firebaseio.com/test/.priority.json'
+        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+
+    @pytest.mark.parametrize('data', valid_values)
+    def test_set_value(self, data):
         ref = db.get_reference('/test')
         recorder = self.instrument(ref, '')
         data = {'foo' : 'bar'}
@@ -149,6 +162,28 @@ class TestReference(object):
         assert len(recorder) == 1
         assert recorder[0].method == 'PUT'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json?print=silent'
+        assert json.loads(recorder[0].body.decode()) == data
+        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+
+    def test_set_primitive_value_with_priority(self):
+        ref = db.get_reference('/test')
+        recorder = self.instrument(ref, '')
+        ref.set_value('foo', '10')
+        assert len(recorder) == 1
+        assert recorder[0].method == 'PUT'
+        assert recorder[0].url == 'https://test.firebaseio.com/test.json?print=silent'
+        assert json.loads(recorder[0].body.decode()) == {'.value' : 'foo', '.priority' : '10'}
+        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+
+    def test_set_value_with_priority(self):
+        ref = db.get_reference('/test')
+        recorder = self.instrument(ref, '')
+        data = {'foo' : 'bar'}
+        ref.set_value(data, '10')
+        assert len(recorder) == 1
+        assert recorder[0].method == 'PUT'
+        assert recorder[0].url == 'https://test.firebaseio.com/test.json?print=silent'
+        data['.priority'] = '10'
         assert json.loads(recorder[0].body.decode()) == data
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
@@ -161,6 +196,12 @@ class TestReference(object):
         assert recorder[0].url == 'https://test.firebaseio.com/test.json?print=silent'
         assert json.loads(recorder[0].body.decode()) == ''
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+
+    def test_set_none_value(self):
+        ref = db.get_reference('/test')
+        self.instrument(ref, '')
+        with pytest.raises(ValueError):
+            ref.set_value(None)
 
     def test_update_children(self):
         ref = db.get_reference('/test')
@@ -180,9 +221,18 @@ class TestReference(object):
             ref.update_children({})
         assert len(recorder) is 0
 
-    def test_push(self):
+    @pytest.mark.parametrize('update', [
+        None, {}, {None:'foo'}, {'foo': None}, '', 'foo', 0, 1, list(), tuple()
+    ])
+    def test_set_invalid_update(self, update):
         ref = db.get_reference('/test')
-        data = {'foo' : 'bar'}
+        self.instrument(ref, '')
+        with pytest.raises(ValueError):
+            ref.update_children(update)
+
+    @pytest.mark.parametrize('data', valid_values)
+    def test_push(self, data):
+        ref = db.get_reference('/test')
         recorder = self.instrument(ref, json.dumps({'name' : 'testkey'}))
         child = ref.push(data)
         assert isinstance(child, db.Reference)
@@ -202,6 +252,12 @@ class TestReference(object):
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
         assert json.loads(recorder[0].body.decode()) == ''
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+
+    def test_push_none_value(self):
+        ref = db.get_reference('/test')
+        self.instrument(ref, '')
+        with pytest.raises(ValueError):
+            ref.push(None)
 
     def test_delete(self):
         ref = db.get_reference('/test')

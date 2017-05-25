@@ -100,15 +100,23 @@ class Reference(object):
     def get_value(self):
         return self._client.request('get', self._add_suffix())
 
-    def set_value(self, value=None):
+    def get_priority(self):
+        return self._client.request('get', self._add_suffix('/.priority.json'))
+
+    def set_value(self, value='', priority=None):
         if value is None:
-            value = ''
-        params = {'print':'silent'}
+            raise ValueError('Value must not be None.')
+        if priority is not None:
+            if isinstance(value, dict):
+                value['.priority'] = priority
+            else:
+                value = {'.value' : value, '.priority' : priority}
+        params = {'print' : 'silent'}
         self._client.request_oneway('put', self._add_suffix(), json=value, params=params)
 
-    def push(self, value=None):
+    def push(self, value=''):
         if value is None:
-            value = ''
+            raise ValueError('Value must not be None.')
         output = self._client.request('post', self._add_suffix(), json=value)
         push_id = output.get('name')
         if not push_id:
@@ -119,6 +127,8 @@ class Reference(object):
     def update_children(self, value):
         if not value or not isinstance(value, dict):
             raise ValueError('Value argument must be a non-empty dictionary.')
+        if None in value.keys() or None in value.values():
+            raise ValueError('Dictionary must not contain None keys or values.')
         params = {'print':'silent'}
         self._client.request_oneway('patch', self._add_suffix(), json=value, params=params)
 

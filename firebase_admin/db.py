@@ -13,8 +13,6 @@
 # limitations under the License.
 
 """Firebase database module."""
-import threading
-
 import requests
 import six
 from six.moves import urllib
@@ -24,15 +22,23 @@ from firebase_admin import utils
 _DB_ATTRIBUTE = '_database'
 _INVALID_PATH_CHARACTERS = r'[].#$'
 
-_db_lock = threading.Lock()
-
 
 def get_reference(path='/', app=None):
-    app = utils.get_initialized_app(app)
-    with _db_lock:
-        if not hasattr(app, _DB_ATTRIBUTE):
-            setattr(app, _DB_ATTRIBUTE, _new_context(app))
-        context = getattr(app, _DB_ATTRIBUTE)
+    """Returns a database Reference representing the node at the specified path.
+
+    If no path is specified, this function returns a Reference that represents the database root.
+
+    Args:
+      path: Path to a node in the Firebase realtime database (optional).
+      app: An App instance (optional).
+
+    Returns:
+      Reference: A newly initialized Reference.
+
+    Raises:
+      ValueError: If the specified path or app is invalid.
+    """
+    context = utils.get_app_service(app, _DB_ATTRIBUTE, _new_context)
     return _new_reference(context, path)
 
 def _new_context(app):

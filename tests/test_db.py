@@ -14,14 +14,17 @@
 
 """Tests for firebase_admin.db."""
 import json
-import StringIO
 
 import pytest
 import requests
 from requests import adapters
 from requests import models
+import six
 
+import firebase_admin
+from firebase_admin import credentials
 from firebase_admin import db
+from tests import testutils
 
 
 class MockAdapter(adapters.HTTPAdapter):
@@ -35,10 +38,25 @@ class MockAdapter(adapters.HTTPAdapter):
         self._recorder.append(request)
         resp = models.Response()
         resp.status_code = self._status
-        resp.raw = StringIO.StringIO(self._data)
+        resp.raw = six.StringIO(self._data)
         return resp
 
 def ref_with_context(path, data, recorder, status=200):
+    """Creates a new db.Reference with a mock transport session and context.
+
+    Creates a mock transport session that records HTTP requests, and responds to them with the
+    provided data string. Then creates a db.Reference which would use the mock transport for
+    making HTTP calls.
+
+    Args:
+        path: Path to the database node.
+        data: Data string to respond with for HTTP calls.
+        recorder: A list to record HTTP calls made by the Reference.
+        status: HTTP status code to include in responses (optional).
+
+    Returns:
+        Reference: A database Reference.
+    """
     session = requests.Session()
     test_url = 'https://test.firebaseio.com'
     session.mount(test_url, MockAdapter(data, status, recorder))
@@ -105,7 +123,7 @@ class TestReferenceCreation(object):
 
 
 class TestReferenceQueries(object):
-    """Test cases for querying db.Reference objects."""
+    """Test cases for querying db.Reference class."""
 
     def test_get_value(self):
         data = {'foo' : 'bar'}
@@ -176,3 +194,53 @@ class TestReferenceQueries(object):
         assert len(recorder) == 1
         assert recorder[0].method == 'DELETE'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
+
+
+class TestDatabaseModule(object):
+    """Test cases for db module."""
+
+    def teardown_method(self):
+        testutils.cleanup_apps()
+
+    def test_get_root_reference(self):
+        firebase_admin.initialize_app(
+            credentials.Base(), {'dbURL' : 'https://test.firebaseio.com'})
+        ref = db.get_reference()
+        assert ref.key is None
+        assert ref.path == '/'
+
+    @pytest.mark.parametrize('path, expected', TestReferenceCreation.valid_paths.items())
+    def test_get_reference(self, path, expected):
+        firebase_admin.initialize_app(
+            credentials.Base(), {'dbURL' : 'https://test.firebaseio.com'})
+        ref = db.get_reference(path)
+        fullstr, key, parent = expected
+        assert ref.path == fullstr
+        assert ref.key == key
+        if parent is None:
+            assert ref.parent is None
+        else:
+            assert ref.parent.path == parent
+
+    def test_no_db_url(self):
+        firebase_admin.initialize_app(credentials.Base())
+        with pytest.raises(ValueError):
+            db.get_reference()
+
+    @pytest.mark.parametrize('url', [
+        None, '', 'foo', 'http://test.firebaseio.com', 'https://google.com',
+        True, False, 1, 0, dict(), list(), tuple(),
+    ])
+    def test_invalid_db_url(self, url):
+        firebase_admin.initialize_app(credentials.Base(), {'dbURL' : url})
+        with pytest.raises(ValueError):
+            db.get_reference()
+
+    def test_app_delete(self):
+        app = firebase_admin.initialize_app(
+            credentials.Base(), {'dbURL' : 'https://test.firebaseio.com'})
+        ref = db.get_reference()
+        assert ref is not None
+        firebase_admin.delete_app(app)
+        with pytest.raises(ValueError):
+            db.get_reference()

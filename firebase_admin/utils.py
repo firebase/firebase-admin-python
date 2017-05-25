@@ -16,7 +16,7 @@
 
 import firebase_admin
 
-def get_initialized_app(app):
+def _get_initialized_app(app):
     if app is None:
         return firebase_admin.get_app()
     elif isinstance(app, firebase_admin.App):
@@ -28,3 +28,7 @@ def get_initialized_app(app):
     else:
         raise ValueError('Illegal app argument. Argument must be of type '
                          ' firebase_admin.App, but given "{0}".'.format(type(app)))
+
+def get_app_service(app, name, initializer):
+    app = _get_initialized_app(app)
+    return app._get_service(name, initializer) # pylint: disable=protected-access

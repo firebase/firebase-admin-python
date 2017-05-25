@@ -94,6 +94,7 @@ def delete_app(app):
     with _apps_lock:
         if _apps.get(app.name) is app:
             del _apps[app.name]
+            app._cleanup() # pylint: disable=protected-access
             return
     if app.name == _DEFAULT_APP_NAME:
         raise ValueError(
@@ -182,6 +183,8 @@ class App(object):
         self._credential = credential
         self._options = _AppOptions(options)
         self._token = None
+        self._lock = threading.RLock()
+        self._services = {}
 
     @property
     def name(self):
@@ -195,12 +198,6 @@ class App(object):
     def options(self):
         return self._options
 
-    def _token_valid(self):
-        if self._token is None:
-            return False
-        skewed_expiry = self._token.expiry - datetime.timedelta(seconds=_CLOCK_SKEW_SECONDS)
-        return _clock() < skewed_expiry
-
     def get_token(self):
         """Returns an OAuth2 bearer token.
 
@@ -213,3 +210,28 @@ class App(object):
         if not self._token_valid():
             self._token = self._credential.get_access_token()
         return self._token.access_token
+
+    def _token_valid(self):
+        if self._token is None:
+            return False
+        skewed_expiry = self._token.expiry - datetime.timedelta(seconds=_CLOCK_SKEW_SECONDS)
+        return _clock() < skewed_expiry
+
+    def _get_service(self, name, initializer):
+        if not name or not isinstance(name, six.string_types):
+            raise ValueError(
+                'Illegal name argument: "{0}". Name must be a non-empty string.'.format(name))
+        with self._lock:
+            if self._services is None:
+                raise ValueError(
+                    'Service requested from deleted Firebase App: "{0}".'.format(self._name))
+            if not self._services.has_key(name):
+                self._services[name] = initializer(self)
+            return self._services[name]
+
+    def _cleanup(self):
+        with self._lock:
+            for service in self._services:
+                if hasattr(service, 'close'):
+                    service.close()
+            self._services = None

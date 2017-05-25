@@ -55,11 +55,7 @@ def _get_token_generator(app):
     Raises:
       ValueError: If the app argument is invalid.
     """
-    app = utils.get_initialized_app(app)
-    with _auth_lock:
-        if not hasattr(app, _AUTH_ATTRIBUTE):
-            setattr(app, _AUTH_ATTRIBUTE, _TokenGenerator(app))
-        return getattr(app, _AUTH_ATTRIBUTE)
+    return utils.get_app_service(app, _AUTH_ATTRIBUTE, _TokenGenerator)
 
 
 def create_custom_token(uid, developer_claims=None, app=None):

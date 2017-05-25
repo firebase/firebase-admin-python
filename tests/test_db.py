@@ -144,6 +144,19 @@ class TestReference(object):
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
+    @pytest.mark.parametrize('data', valid_values)
+    def test_get_value_with_filter(self, data):
+        ref = db.get_reference('/test')
+        recorder = self.instrument(ref, json.dumps(data))
+        query_filter = db.QueryFilter.order_by_child('foo')
+        query_filter.set_limit_first(100)
+        query_str = 'limitToFirst=100&orderBy=%22foo%22'
+        assert ref.get_value(query_filter) == data
+        assert len(recorder) == 1
+        assert recorder[0].method == 'GET'
+        assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
+        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+
     def test_get_priority(self):
         ref = db.get_reference('/test')
         recorder = self.instrument(ref, json.dumps('10'))
@@ -325,3 +338,105 @@ class TestDatabseInitialization(object):
         firebase_admin.delete_app(app)
         with pytest.raises(ValueError):
             db.get_reference()
+
+@pytest.fixture(params=['foo', '$key', '$value', '$priority'])
+def initquery(request):
+    if request.param == '$key':
+        return db.QueryFilter.order_by_key(), request.param
+    elif request.param == '$value':
+        return db.QueryFilter.order_by_value(), request.param
+    elif request.param == '$priority':
+        return db.QueryFilter.order_by_priority(), request.param
+    else:
+        return db.QueryFilter.order_by_child(request.param), request.param
+
+
+class TestFilter(object):
+    """Test cases for db.Filter class."""
+
+    valid_paths = {
+        'foo' : 'foo',
+        'foo/bar' : 'foo/bar',
+        'foo/bar/' : 'foo/bar'
+    }
+
+    @pytest.mark.parametrize('path', [
+        '', None, '/', '/foo', 0, 1, True, False, dict(), list(), tuple(),
+        '$foo', '.foo', '#foo', '[foo', 'foo]', '$key', '$value', '$priority'
+    ])
+    def test_invalid_path(self, path):
+        with pytest.raises(ValueError):
+            db.QueryFilter.order_by_child(path)
+
+    @pytest.mark.parametrize('path, expected', valid_paths.items())
+    def test_valid_path(self, path, expected):
+        query = db.QueryFilter.order_by_child(path)
+        query.set_equal_to(10)
+        assert query.querystr == 'equalTo=10&orderBy="{0}"'.format(expected)
+
+    def test_key_filter(self):
+        query = db.QueryFilter.order_by_key()
+        query.set_equal_to(10)
+        assert query.querystr == 'equalTo=10&orderBy="$key"'
+
+    def test_value_filter(self):
+        query = db.QueryFilter.order_by_value()
+        query.set_equal_to(10)
+        assert query.querystr == 'equalTo=10&orderBy="$value"'
+
+    def test_priority_filter(self):
+        query = db.QueryFilter.order_by_priority()
+        query.set_equal_to(10)
+        assert query.querystr == 'equalTo=10&orderBy="$priority"'
+
+    def test_multiple_limits(self):
+        query = db.QueryFilter.order_by_child('foo')
+        query.set_limit_first(1)
+        with pytest.raises(ValueError):
+            query.set_limit_last(2)
+
+        query = db.QueryFilter.order_by_child('foo')
+        query.set_limit_last(2)
+        with pytest.raises(ValueError):
+            query.set_limit_first(1)
+
+    def test_start_at_none(self):
+        query = db.QueryFilter.order_by_child('foo')
+        with pytest.raises(ValueError):
+            query.set_start_at(None)
+
+    def test_end_at_none(self):
+        query = db.QueryFilter.order_by_child('foo')
+        with pytest.raises(ValueError):
+            query.set_end_at(None)
+
+    def test_equal_to_none(self):
+        query = db.QueryFilter.order_by_child('foo')
+        with pytest.raises(ValueError):
+            query.set_equal_to(None)
+
+    def test_range_query(self, initquery):
+        query, order_by = initquery
+        query.set_start_at(1)
+        query.set_equal_to(2)
+        query.set_end_at(3)
+        assert query.querystr == 'endAt=3&equalTo=2&orderBy="{0}"&startAt=1'.format(order_by)
+
+    def test_limit_first_query(self, initquery):
+        query, order_by = initquery
+        query.set_limit_first(1)
+        assert query.querystr == 'limitToFirst=1&orderBy="{0}"'.format(order_by)
+
+    def test_limit_last_query(self, initquery):
+        query, order_by = initquery
+        query.set_limit_last(1)
+        assert query.querystr == 'limitToLast=1&orderBy="{0}"'.format(order_by)
+
+    def test_all_in(self, initquery):
+        query, order_by = initquery
+        query.set_start_at(1)
+        query.set_equal_to(2)
+        query.set_end_at(3)
+        query.set_limit_first(10)
+        expected = 'endAt=3&equalTo=2&limitToFirst=10&orderBy="{0}"&startAt=1'.format(order_by)
+        assert query.querystr == expected

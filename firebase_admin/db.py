@@ -13,6 +13,8 @@
 # limitations under the License.
 
 """Firebase database module."""
+import json
+
 import requests
 import six
 from six.moves import urllib
@@ -97,8 +99,13 @@ class Reference(object):
         full_path = self._pathurl + '/' + path
         return Reference(client=self._client, path=full_path)
 
-    def get_value(self):
-        return self._client.request('get', self._add_suffix())
+    def get_value(self, query_filter=None):
+        url = self._add_suffix()
+        if query_filter:
+            if not isinstance(query_filter, QueryFilter):
+                raise ValueError('Illegal filter argument: {0}.'.format(query_filter))
+            url += '?{0}'.format(query_filter.querystr)
+        return self._client.request('get', url)
 
     def get_priority(self):
         return self._client.request('get', self._add_suffix('/.priority.json'))
@@ -139,46 +146,50 @@ class Reference(object):
         return self._pathurl + suffix
 
 
-class Filter(object):
+class QueryFilter(object):
     """Represents a filter that can be applied when querying Firebase database."""
+
+    _reserved = ('$key', '$value', '$priority')
 
     def __init__(self, order_by):
         if not order_by or not isinstance(order_by, six.string_types):
             raise ValueError('order_by field must be a non-empty string')
-        if order_by not in ('$key', '$value', '$prioroity'):
+        if order_by not in QueryFilter._reserved:
             if order_by.startswith('/'):
                 raise ValueError('Invalid path argument: "{0}". Child path must not start '
                                  'with "/"'.format(order_by))
             segments = _parse_path(order_by)
             order_by = '/'.join(segments)
-        self._params = {'orderBy' : order_by}
+        self._params = {'orderBy' : json.dumps(order_by)}
 
     @classmethod
     def order_by_child(cls, path):
-        return Filter(path)
+        if path in cls._reserved:
+            raise ValueError('Illegal child path: {0}.'.format(path))
+        return QueryFilter(path)
 
     @classmethod
     def order_by_key(cls):
-        return Filter('$key')
+        return QueryFilter('$key')
 
     @classmethod
     def order_by_value(cls):
-        return Filter('$value')
+        return QueryFilter('$value')
 
     @classmethod
     def order_by_priority(cls):
-        return Filter('$priority')
+        return QueryFilter('$priority')
 
     def set_limit_first(self, limit):
-        if not limit:
-            raise ValueError('Limit must not be empty or None.')
+        if not isinstance(limit, int):
+            raise ValueError('Limit must be an integer.')
         if 'limitToLast' in self._params:
             raise ValueError('Cannot set both first and last limits.')
         self._params['limitToFirst'] = limit
 
     def set_limit_last(self, limit):
-        if not limit:
-            raise ValueError('Limit must not be empty or None.')
+        if not isinstance(limit, int):
+            raise ValueError('Limit must be an integer.')
         if 'limitToFirst' in self._params:
             raise ValueError('Cannot set both first and last limits.')
         self._params['limitToLast'] = limit
@@ -186,17 +197,27 @@ class Filter(object):
     def set_start_at(self, start):
         if not start:
             raise ValueError('Start value must not be empty or None.')
-        self._params['startAt'] = start
+        self._params['startAt'] = json.dumps(start)
 
     def set_end_at(self, end):
         if not end:
             raise ValueError('End value must not be empty or None.')
-        self._params['endAt'] = end
+        self._params['endAt'] = json.dumps(end)
 
     def set_equal_to(self, value):
         if not value:
             raise ValueError('Equal to value must not be empty or None.')
-        self._params['equalTo'] = value
+        self._params['equalTo'] = json.dumps(value)
+
+    @property
+    def querystr(self):
+        if len(self._params) < 2:
+            raise ValueError('Illegal query filter configuration: {0}. Filter must have "orderBy" '
+                             'and at least one other setting.'.format(self._params))
+        params = []
+        for key in sorted(self._params):
+            params.append('{0}={1}'.format(key, self._params[key]))
+        return '&'.join(params)
 
 
 class _Client(object):

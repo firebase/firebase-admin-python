@@ -149,7 +149,7 @@ class TestReference(object):
         assert len(recorder) == 1
         assert recorder[0].method == 'PUT'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json?print=silent'
-        assert json.loads(recorder[0].body) == data
+        assert json.loads(recorder[0].body.decode()) == data
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
     def test_set_value_default(self):
@@ -159,7 +159,7 @@ class TestReference(object):
         assert len(recorder) == 1
         assert recorder[0].method == 'PUT'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json?print=silent'
-        assert json.loads(recorder[0].body) == ''
+        assert json.loads(recorder[0].body.decode()) == ''
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
     def test_update_children(self):
@@ -170,7 +170,7 @@ class TestReference(object):
         assert len(recorder) == 1
         assert recorder[0].method == 'PATCH'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json?print=silent'
-        assert json.loads(recorder[0].body) == data
+        assert json.loads(recorder[0].body.decode()) == data
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
     def test_update_children_default(self):
@@ -190,7 +190,7 @@ class TestReference(object):
         assert len(recorder) == 1
         assert recorder[0].method == 'POST'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
-        assert json.loads(recorder[0].body) == data
+        assert json.loads(recorder[0].body.decode()) == data
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
     def test_push_default(self):
@@ -200,7 +200,7 @@ class TestReference(object):
         assert len(recorder) == 1
         assert recorder[0].method == 'POST'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
-        assert json.loads(recorder[0].body) == ''
+        assert json.loads(recorder[0].body.decode()) == ''
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
     def test_delete(self):

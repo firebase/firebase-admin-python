@@ -30,8 +30,8 @@ from tests import testutils
 class MockAdapter(adapters.HTTPAdapter):
     def __init__(self, data, status, recorder):
         adapters.HTTPAdapter.__init__(self)
-        self._status = status
         self._data = data
+        self._status = status
         self._recorder = recorder
 
     def send(self, request, **kwargs): # pylint: disable=unused-argument
@@ -40,6 +40,11 @@ class MockAdapter(adapters.HTTPAdapter):
         resp.status_code = self._status
         resp.raw = six.StringIO(self._data)
         return resp
+
+
+class MockApp(object):
+    def get_token(self):
+        return 'mock-token'
 
 def ref_with_context(path, data, recorder, status=200):
     """Creates a new db.Reference with a mock transport session and context.
@@ -60,8 +65,9 @@ def ref_with_context(path, data, recorder, status=200):
     session = requests.Session()
     test_url = 'https://test.firebaseio.com'
     session.mount(test_url, MockAdapter(data, status, recorder))
-    context = db._Context(test_url, None, session)
-    return db._new_reference(context, path)
+    auth = db._OAuth(MockApp())
+    context = db._Client(test_url, auth, session)
+    return db.Reference(context, path)
 
 
 class TestReferenceCreation(object):
@@ -96,7 +102,7 @@ class TestReferenceCreation(object):
 
     @pytest.mark.parametrize('path, expected', valid_paths.items())
     def test_valid_path(self, path, expected):
-        ref = db._new_reference(None, path)
+        ref = db.Reference(db._Client(), path)
         fullstr, key, parent = expected
         assert ref.path == fullstr
         assert ref.key == key
@@ -108,16 +114,16 @@ class TestReferenceCreation(object):
     @pytest.mark.parametrize('path', invalid_paths)
     def test_invalid_key(self, path):
         with pytest.raises(ValueError):
-            db._new_reference(None, path)
+            db.Reference(db._Client(), path)
 
     @pytest.mark.parametrize('child, expected', valid_children.items())
     def test_valid_child(self, child, expected):
-        parent = db._new_reference(None, '/test')
+        parent = db.Reference(db._Client(), '/test')
         assert parent.child(child).path == '/test' + expected
 
     @pytest.mark.parametrize('child', invalid_children)
     def test_invalid_child(self, child):
-        parent = db._new_reference(None, '/test')
+        parent = db.Reference(db._Client(), '/test')
         with pytest.raises(ValueError):
             parent.child(child)
 
@@ -133,6 +139,7 @@ class TestReferenceQueries(object):
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
+        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
     def test_set_value(self):
         data = {'foo' : 'bar'}
@@ -143,6 +150,7 @@ class TestReferenceQueries(object):
         assert recorder[0].method == 'PUT'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json?print=silent'
         assert json.loads(recorder[0].body) == data
+        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
     def test_set_value_default(self):
         recorder = []
@@ -152,6 +160,7 @@ class TestReferenceQueries(object):
         assert recorder[0].method == 'PUT'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json?print=silent'
         assert json.loads(recorder[0].body) == ''
+        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
     def test_update_children(self):
         data = {'foo' : 'bar'}
@@ -162,6 +171,7 @@ class TestReferenceQueries(object):
         assert recorder[0].method == 'PATCH'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json?print=silent'
         assert json.loads(recorder[0].body) == data
+        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
     def test_update_children_default(self):
         ref = ref_with_context('/test', '', [])
@@ -177,6 +187,7 @@ class TestReferenceQueries(object):
         assert recorder[0].method == 'POST'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
         assert json.loads(recorder[0].body) == data
+        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
     def test_push_default(self):
         recorder = []
@@ -186,6 +197,7 @@ class TestReferenceQueries(object):
         assert recorder[0].method == 'POST'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
         assert json.loads(recorder[0].body) == ''
+        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
     def test_delete(self):
         recorder = []
@@ -194,6 +206,7 @@ class TestReferenceQueries(object):
         assert len(recorder) == 1
         assert recorder[0].method == 'DELETE'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
+        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
 
 class TestDatabaseModule(object):

@@ -225,7 +225,7 @@ class App(object):
             if self._services is None:
                 raise ValueError(
                     'Service requested from deleted Firebase App: "{0}".'.format(self._name))
-            if not self._services.has_key(name):
+            if name not in self._services:
                 self._services[name] = initializer(self)
             return self._services[name]
 

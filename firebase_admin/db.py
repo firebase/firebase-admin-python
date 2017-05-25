@@ -139,10 +139,70 @@ class Reference(object):
         return self._pathurl + suffix
 
 
+class Filter(object):
+    """Represents a filter that can be applied when querying Firebase database."""
+
+    def __init__(self, order_by):
+        if not order_by or not isinstance(order_by, six.string_types):
+            raise ValueError('order_by field must be a non-empty string')
+        if order_by not in ('$key', '$value', '$prioroity'):
+            if order_by.startswith('/'):
+                raise ValueError('Invalid path argument: "{0}". Child path must not start '
+                                 'with "/"'.format(order_by))
+            segments = _parse_path(order_by)
+            order_by = '/'.join(segments)
+        self._params = {'orderBy' : order_by}
+
+    @classmethod
+    def order_by_child(cls, path):
+        return Filter(path)
+
+    @classmethod
+    def order_by_key(cls):
+        return Filter('$key')
+
+    @classmethod
+    def order_by_value(cls):
+        return Filter('$value')
+
+    @classmethod
+    def order_by_priority(cls):
+        return Filter('$priority')
+
+    def set_limit_first(self, limit):
+        if not limit:
+            raise ValueError('Limit must not be empty or None.')
+        if 'limitToLast' in self._params:
+            raise ValueError('Cannot set both first and last limits.')
+        self._params['limitToFirst'] = limit
+
+    def set_limit_last(self, limit):
+        if not limit:
+            raise ValueError('Limit must not be empty or None.')
+        if 'limitToFirst' in self._params:
+            raise ValueError('Cannot set both first and last limits.')
+        self._params['limitToLast'] = limit
+
+    def set_start_at(self, start):
+        if not start:
+            raise ValueError('Start value must not be empty or None.')
+        self._params['startAt'] = start
+
+    def set_end_at(self, end):
+        if not end:
+            raise ValueError('End value must not be empty or None.')
+        self._params['endAt'] = end
+
+    def set_equal_to(self, value):
+        if not value:
+            raise ValueError('Equal to value must not be empty or None.')
+        self._params['equalTo'] = value
+
+
 class _Client(object):
     """HTTP client used to make REST calls.
 
-    _Client maintains a HTTP session, and handles authenticating HTTP requests along with
+    _Client maintains an HTTP session, and handles authenticating HTTP requests along with
     marshalling and unmarshalling of JSON data.
     """
 

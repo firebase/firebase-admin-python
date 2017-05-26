@@ -23,6 +23,7 @@ from firebase_admin import utils
 
 _DB_ATTRIBUTE = '_database'
 _INVALID_PATH_CHARACTERS = r'[].#$'
+_RESERVED_FILTERS = ('$key', '$value', '$priority')
 
 
 def get_reference(path='/', app=None):
@@ -99,13 +100,8 @@ class Reference(object):
         full_path = self._pathurl + '/' + path
         return Reference(client=self._client, path=full_path)
 
-    def get_value(self, query_filter=None):
-        url = self._add_suffix()
-        if query_filter:
-            if not isinstance(query_filter, QueryFilter):
-                raise ValueError('Illegal filter argument: {0}.'.format(query_filter))
-            url += '?{0}'.format(query_filter.querystr)
-        return self._client.request('get', url)
+    def get_value(self):
+        return self._client.request('get', self._add_suffix())
 
     def get_priority(self):
         return self._client.request('get', self._add_suffix('/.priority.json'))
@@ -142,43 +138,42 @@ class Reference(object):
     def delete(self):
         self._client.request_oneway('delete', self._add_suffix())
 
+    def order_by_child(self, path):
+        if path in _RESERVED_FILTERS:
+            raise ValueError('Illegal child path: {0}'.format(path))
+        return Query(order_by=path, client=self._client, pathurl=self._add_suffix())
+
+    def order_by_key(self):
+        return Query(order_by='$key', client=self._client, pathurl=self._add_suffix())
+
+    def order_by_value(self):
+        return Query(order_by='$value', client=self._client, pathurl=self._add_suffix())
+
+    def order_by_priority(self):
+        return Query(order_by='$priority', client=self._client, pathurl=self._add_suffix())
+
     def _add_suffix(self, suffix='.json'):
         return self._pathurl + suffix
 
 
-class QueryFilter(object):
-    """Represents a filter that can be applied when querying Firebase database."""
+class Query(object):
+    """Represents a complex query that can be executed on a Reference."""
 
-    _reserved = ('$key', '$value', '$priority')
-
-    def __init__(self, order_by):
+    def __init__(self, **kwargs):
+        order_by = kwargs.pop('order_by')
         if not order_by or not isinstance(order_by, six.string_types):
             raise ValueError('order_by field must be a non-empty string')
-        if order_by not in QueryFilter._reserved:
+        if order_by not in _RESERVED_FILTERS:
             if order_by.startswith('/'):
                 raise ValueError('Invalid path argument: "{0}". Child path must not start '
                                  'with "/"'.format(order_by))
             segments = _parse_path(order_by)
             order_by = '/'.join(segments)
+        self._client = kwargs.pop('client')
+        self._pathurl = kwargs.pop('pathurl')
         self._params = {'orderBy' : json.dumps(order_by)}
-
-    @classmethod
-    def order_by_child(cls, path):
-        if path in cls._reserved:
-            raise ValueError('Illegal child path: {0}.'.format(path))
-        return QueryFilter(path)
-
-    @classmethod
-    def order_by_key(cls):
-        return QueryFilter('$key')
-
-    @classmethod
-    def order_by_value(cls):
-        return QueryFilter('$value')
-
-    @classmethod
-    def order_by_priority(cls):
-        return QueryFilter('$priority')
+        if kwargs:
+            raise ValueError('Unexpected keyword arguments: {0}'.format(kwargs))
 
     def set_limit_first(self, limit):
         if not isinstance(limit, int):
@@ -186,6 +181,7 @@ class QueryFilter(object):
         if 'limitToLast' in self._params:
             raise ValueError('Cannot set both first and last limits.')
         self._params['limitToFirst'] = limit
+        return self
 
     def set_limit_last(self, limit):
         if not isinstance(limit, int):
@@ -193,31 +189,38 @@ class QueryFilter(object):
         if 'limitToFirst' in self._params:
             raise ValueError('Cannot set both first and last limits.')
         self._params['limitToLast'] = limit
+        return self
 
     def set_start_at(self, start):
         if not start:
             raise ValueError('Start value must not be empty or None.')
         self._params['startAt'] = json.dumps(start)
+        return self
 
     def set_end_at(self, end):
         if not end:
             raise ValueError('End value must not be empty or None.')
         self._params['endAt'] = json.dumps(end)
+        return self
 
     def set_equal_to(self, value):
         if not value:
             raise ValueError('Equal to value must not be empty or None.')
         self._params['equalTo'] = json.dumps(value)
+        return self
 
     @property
     def querystr(self):
         if len(self._params) < 2:
-            raise ValueError('Illegal query filter configuration: {0}. Filter must have "orderBy" '
+            raise ValueError('Illegal query configuration: {0}. Query must have "orderBy" '
                              'and at least one other setting.'.format(self._params))
         params = []
         for key in sorted(self._params):
             params.append('{0}={1}'.format(key, self._params[key]))
         return '&'.join(params)
+
+    def run(self):
+        return self._client.request('get', '{0}?{1}'.format(self._pathurl, self.querystr))
 
 
 class _Client(object):

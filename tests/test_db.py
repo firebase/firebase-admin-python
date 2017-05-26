@@ -145,13 +145,13 @@ class TestReference(object):
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
     @pytest.mark.parametrize('data', valid_values)
-    def test_get_value_with_filter(self, data):
+    def test_query(self, data):
         ref = db.get_reference('/test')
         recorder = self.instrument(ref, json.dumps(data))
-        query_filter = db.QueryFilter.order_by_child('foo')
-        query_filter.set_limit_first(100)
+        query = ref.order_by_child('foo')
+        query.set_limit_first(100)
         query_str = 'limitToFirst=100&orderBy=%22foo%22'
-        assert ref.get_value(query_filter) == data
+        assert query.run() == data
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
@@ -341,14 +341,15 @@ class TestDatabseInitialization(object):
 
 @pytest.fixture(params=['foo', '$key', '$value', '$priority'])
 def initquery(request):
+    ref = db.Reference(path='foo')
     if request.param == '$key':
-        return db.QueryFilter.order_by_key(), request.param
+        return ref.order_by_key(), request.param
     elif request.param == '$value':
-        return db.QueryFilter.order_by_value(), request.param
+        return ref.order_by_value(), request.param
     elif request.param == '$priority':
-        return db.QueryFilter.order_by_priority(), request.param
+        return ref.order_by_priority(), request.param
     else:
-        return db.QueryFilter.order_by_child(request.param), request.param
+        return ref.order_by_child(request.param), request.param
 
 
 class TestFilter(object):
@@ -360,58 +361,60 @@ class TestFilter(object):
         'foo/bar/' : 'foo/bar'
     }
 
+    ref = db.Reference(path='foo')
+
     @pytest.mark.parametrize('path', [
         '', None, '/', '/foo', 0, 1, True, False, dict(), list(), tuple(),
         '$foo', '.foo', '#foo', '[foo', 'foo]', '$key', '$value', '$priority'
     ])
     def test_invalid_path(self, path):
         with pytest.raises(ValueError):
-            db.QueryFilter.order_by_child(path)
+            self.ref.order_by_child(path)
 
     @pytest.mark.parametrize('path, expected', valid_paths.items())
     def test_valid_path(self, path, expected):
-        query = db.QueryFilter.order_by_child(path)
+        query = self.ref.order_by_child(path)
         query.set_equal_to(10)
         assert query.querystr == 'equalTo=10&orderBy="{0}"'.format(expected)
 
     def test_key_filter(self):
-        query = db.QueryFilter.order_by_key()
+        query = self.ref.order_by_key()
         query.set_equal_to(10)
         assert query.querystr == 'equalTo=10&orderBy="$key"'
 
     def test_value_filter(self):
-        query = db.QueryFilter.order_by_value()
+        query = self.ref.order_by_value()
         query.set_equal_to(10)
         assert query.querystr == 'equalTo=10&orderBy="$value"'
 
     def test_priority_filter(self):
-        query = db.QueryFilter.order_by_priority()
+        query = self.ref.order_by_priority()
         query.set_equal_to(10)
         assert query.querystr == 'equalTo=10&orderBy="$priority"'
 
     def test_multiple_limits(self):
-        query = db.QueryFilter.order_by_child('foo')
+        query = self.ref.order_by_child('foo')
         query.set_limit_first(1)
         with pytest.raises(ValueError):
             query.set_limit_last(2)
 
-        query = db.QueryFilter.order_by_child('foo')
+        query = self.ref.order_by_child('foo')
         query.set_limit_last(2)
         with pytest.raises(ValueError):
             query.set_limit_first(1)
 
     def test_start_at_none(self):
-        query = db.QueryFilter.order_by_child('foo')
+        query = self.ref.order_by_child('foo')
         with pytest.raises(ValueError):
             query.set_start_at(None)
 
     def test_end_at_none(self):
-        query = db.QueryFilter.order_by_child('foo')
+        query = self.ref.order_by_child('foo')
         with pytest.raises(ValueError):
             query.set_end_at(None)
 
     def test_equal_to_none(self):
-        query = db.QueryFilter.order_by_child('foo')
+        query = self.ref.order_by_child('foo')
         with pytest.raises(ValueError):
             query.set_equal_to(None)
 

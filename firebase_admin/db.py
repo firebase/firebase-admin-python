@@ -14,6 +14,7 @@
 
 """Firebase database module."""
 import json
+import numbers
 
 import requests
 import six
@@ -106,10 +107,24 @@ class Reference(object):
     def get_priority(self):
         return self._client.request('get', self._add_suffix('/.priority.json'))
 
-    def set_value(self, value='', priority=None):
+    def set_value(self, value, priority=None):
+        """Sets the data at this location to the given value.
+
+        The value must be JSON-serializable and not None. If a priority is specified, the node will
+        be assigned that priority along with the value.
+
+        Args:
+          value: JSON-serialable value to be set at this location.
+          priority: A numeric or alphanumeric priority value (optional).
+
+        Raises:
+          ValueError: If the value is None or priority is invalid.
+          TypeError: If the value is not JSON-serializable.
+        """
         if value is None:
             raise ValueError('Value must not be None.')
         if priority is not None:
+            Reference._check_priority(priority)
             if isinstance(value, dict):
                 value = dict(value)
                 value['.priority'] = priority
@@ -155,6 +170,15 @@ class Reference(object):
 
     def _add_suffix(self, suffix='.json'):
         return self._pathurl + suffix
+
+    @classmethod
+    def _check_priority(cls, priority):
+        if isinstance(priority, six.string_types) and priority.isalnum():
+            return
+        if isinstance(priority, numbers.Number):
+            return
+        raise ValueError('Illegal priority value: "{0}". Priority values must be numeric or '
+                         'alphanumeric.'.format(priority))
 
 
 class Query(object):

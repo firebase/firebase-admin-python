@@ -20,6 +20,16 @@ import pytest
 from firebase_admin import db
 from tests import testutils
 
+def _update_rules():
+    with open(testutils.resource_filename('dinosaurs_index.json')) as index_file:
+        index = json.load(index_file)
+    client = db.get_reference()._client
+    rules = client.request('get', '/.settings/rules.json')
+    existing = rules.get('rules', dict()).get('_adminsdk')
+    if existing != index:
+        rules['rules']['_adminsdk'] = index
+        client.request('put', '/.settings/rules.json', json=rules)
+
 @pytest.fixture(scope='module')
 def testdata():
     with open(testutils.resource_filename('dinosaurs.json')) as dino_file:
@@ -27,6 +37,15 @@ def testdata():
 
 @pytest.fixture(scope='module')
 def testref():
+    """Adds the necessary DB indices, and sets the initial values.
+
+    This fixture is attached to the module scope, and therefore is guaranteed to run only once
+    during the execution of this test module.
+
+    Returns:
+        Reference: A reference to the test dinosaur database.
+    """
+    _update_rules()
     ref = db.get_reference('_adminsdk/python/dinodb')
     ref.set_value(testdata())
     return ref
@@ -78,12 +97,14 @@ class TestWriteOperations(object):
     def test_push(self, testref):
         python = testref.parent
         ref = python.child('users').push()
+        assert ref.path == '/_adminsdk/python/users/' + ref.key
         assert ref.get_value() == ''
 
     def test_push_with_value(self, testref):
         python = testref.parent
         value = {'name' : 'Luis Alvarez', 'since' : 1911}
         ref = python.child('users').push(value)
+        assert ref.path == '/_adminsdk/python/users/' + ref.key
         assert ref.get_value() == value
 
     def test_set_value(self, testref):
@@ -118,3 +139,48 @@ class TestWriteOperations(object):
         assert ref.get_value() == 'foo'
         ref.delete()
         assert ref.get_value() is None
+
+
+class TestAdvancedQueries(object):
+    """Test cases for advanced interactions via the db.Query interface."""
+
+    def test_limit_first(self, testref):
+        value = testref.child('dinosaurs').order_by_child('height').set_limit_first(2).run()
+        assert len(value) == 2
+        assert 'pterodactyl' in value
+        assert 'linhenykus' in value
+
+    def test_limit_first_all(self, testref):
+        value = testref.child('dinosaurs').order_by_child('height').set_limit_first(10).run()
+        assert len(value) == 6
+
+    def test_limit_last(self, testref):
+        value = testref.child('dinosaurs').order_by_child('height').set_limit_last(2).run()
+        assert len(value) == 2
+        assert 'stegosaurus' in value
+        assert 'bruhathkayosaurus' in value
+
+    def test_limit_last_all(self, testref):
+        value = testref.child('dinosaurs').order_by_child('height').set_limit_last(10).run()
+        assert len(value) == 6
+
+    def test_start_at(self, testref):
+        value = testref.child('dinosaurs').order_by_child('height').set_start_at(3.5).run()
+        assert len(value) == 2
+        assert 'stegosaurus' in value
+        assert 'bruhathkayosaurus' in value
+
+    def test_end_at(self, testref):
+        value = testref.child('dinosaurs').order_by_child('height').set_end_at(3.5).run()
+        assert len(value) == 4
+        assert 'pterodactyl' in value
+        assert 'linhenykus' in value
+        assert 'lambeosaurus' in value
+        assert 'triceratops' in value
+
+    def test_start_and_end_at(self, testref):
+        value = testref.child('dinosaurs').order_by_child('height') \
+            .set_start_at(2.5).set_end_at(5).run()
+        assert len(value) == 2
+        assert 'stegosaurus' in value
+        assert 'triceratops' in value

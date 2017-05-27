@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""pytest configuration and global fixtures for integration tests."""
 import json
 
 import pytest
@@ -33,6 +34,12 @@ def _get_cert_path(request):
 
 @pytest.fixture(autouse=True, scope='session')
 def default_app(request):
+    """Initializes the default Firebase App instance used for all integration tests.
+
+    This fixture is attached to the session scope, which ensures that it runs only once during
+    a test session. It is also marked as autouse, and therefore runs automatically without
+    test cases having to call it explicitly.
+    """
     cert_path = _get_cert_path(request)
     with open(cert_path) as cert:
         project_id = json.load(cert).get('project_id')

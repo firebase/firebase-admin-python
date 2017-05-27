@@ -1,0 +1,9 @@
+{
+    "python": {
+        "dinodb": {
+            "dinosaurs": {
+                ".indexOn": ["height", "length"]
+            }
+        }
+    }
+}

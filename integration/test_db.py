@@ -126,6 +126,21 @@ class TestWriteOperations(object):
         ref.set_value(value)
         assert ref.get_value() == value
 
+    def test_set_primitive_value_with_priority(self, testref):
+        python = testref.parent
+        ref = python.child('users').push()
+        ref.set_value('value', 1)
+        assert ref.get_value() == 'value'
+        assert ref.get_priority() == 1
+
+    def test_set_complex_value_with_priority(self, testref):
+        python = testref.parent
+        value = {'name' : 'Barnum Brown', 'since' : 1873}
+        ref = python.child('users').push()
+        ref.set_value(value, 2)
+        assert ref.get_value() == value
+        assert ref.get_priority() == 2
+
     def test_update_children(self, testref):
         python = testref.parent
         value = {'name' : 'Robert Bakker', 'since' : 1945}
@@ -184,3 +199,27 @@ class TestAdvancedQueries(object):
         assert len(value) == 2
         assert 'stegosaurus' in value
         assert 'triceratops' in value
+
+    def test_order_by_key(self, testref):
+        value = testref.child('dinosaurs').order_by_key().set_limit_first(2).run()
+        assert len(value) == 2
+        assert 'bruhathkayosaurus' in value
+        assert 'lambeosaurus' in value
+
+    def test_order_by_value(self, testref):
+        value = testref.child('scores').order_by_value().set_limit_last(2).run()
+        assert len(value) == 2
+        assert 'pterodactyl' in value
+        assert 'linhenykus' in value
+
+    def test_order_by_priority(self, testref):
+        python = testref.parent
+        museums = python.child('museums').push()
+        values = {'Berlin' : 1, 'Chicago' : 2, 'Brussels' : 3}
+        for name, priority in values.items():
+            ref = museums.push()
+            ref.set_value(name, priority)
+        result = museums.order_by_priority().set_limit_last(2).run()
+        assert len(result) == 2
+        assert 'Brussels' in result.values()
+        assert 'Chicago' in result.values()

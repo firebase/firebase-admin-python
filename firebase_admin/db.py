@@ -111,6 +111,7 @@ class Reference(object):
             raise ValueError('Value must not be None.')
         if priority is not None:
             if isinstance(value, dict):
+                value = dict(value)
                 value['.priority'] = priority
             else:
                 value = {'.value' : value, '.priority' : priority}

@@ -3,6 +3,9 @@
         "dinodb": {
             "dinosaurs": {
                 ".indexOn": ["height", "length"]
+            },
+            "scores": {
+                ".indexOn": ".value"
             }
         }
     }

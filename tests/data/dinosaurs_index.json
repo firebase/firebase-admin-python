@@ -2,7 +2,7 @@
     "python": {
         "dinodb": {
             "dinosaurs": {
-                ".indexOn": ["height", "length"]
+                ".indexOn": ["height", "ratings/pos"]
             },
             "scores": {
                 ".indexOn": ".value"

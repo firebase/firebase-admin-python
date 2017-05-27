@@ -107,12 +107,6 @@ class TestWriteOperations(object):
         assert ref.path == '/_adminsdk/python/users/' + ref.key
         assert ref.get_value() == value
 
-    def test_set_value(self, testref):
-        python = testref.parent
-        ref = python.child('users').push()
-        ref.set_value()
-        assert ref.get_value() == ''
-
     def test_set_primitive_value(self, testref):
         python = testref.parent
         ref = python.child('users').push()
@@ -197,6 +191,19 @@ class TestAdvancedQueries(object):
         value = testref.child('dinosaurs').order_by_child('height') \
             .set_start_at(2.5).set_end_at(5).run()
         assert len(value) == 2
+        assert 'stegosaurus' in value
+        assert 'triceratops' in value
+
+    def test_equal_to(self, testref):
+        value = testref.child('dinosaurs').order_by_child('height').set_equal_to(0.6).run()
+        assert len(value) == 2
+        assert 'linhenykus' in value
+        assert 'pterodactyl' in value
+
+    def test_order_by_nested_child(self, testref):
+        value = testref.child('dinosaurs').order_by_child('ratings/pos').set_start_at(4).run()
+        assert len(value) == 3
+        assert 'pterodactyl' in value
         assert 'stegosaurus' in value
         assert 'triceratops' in value
 

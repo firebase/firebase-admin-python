@@ -248,6 +248,14 @@ class Query(object):
         return self._client.request('get', '{0}?{1}'.format(self._pathurl, self.querystr))
 
 
+class ApiCallError(Exception):
+    """Represents an Exception encountered while invoking the Firebase database server API."""
+
+    def __init__(self, message, error):
+        Exception.__init__(self, message)
+        self.detail = error
+
+
 class _Client(object):
     """HTTP client used to make REST calls.
 
@@ -278,13 +286,25 @@ class _Client(object):
         return _Client('https://{0}'.format(parsed.netloc), _OAuth(app), requests.Session())
 
     def request(self, method, urlpath, **kwargs):
-        resp = self._session.request(method, self._url + urlpath, auth=self._auth, **kwargs)
-        resp.raise_for_status()
-        return resp.json()
+        return self._do_request(method, urlpath, **kwargs).json()
 
     def request_oneway(self, method, urlpath, **kwargs):
-        resp = self._session.request(method, self._url + urlpath, auth=self._auth, **kwargs)
-        resp.raise_for_status()
+        self._do_request(method, urlpath, **kwargs)
+
+    def _do_request(self, method, urlpath, **kwargs):
+        try:
+            resp = self._session.request(method, self._url + urlpath, auth=self._auth, **kwargs)
+            resp.raise_for_status()
+            return resp
+        except requests.exceptions.RequestException as error:
+            raise ApiCallError(self._extract_error_message(error), error)
+
+    def _extract_error_message(self, error):
+        if error.response is not None:
+            data = json.loads(error.response.content)
+            if isinstance(data, dict):
+                return '{0}\nReason: {1}'.format(error, data.get('error', 'unknown'))
+        return str(error)
 
     def close(self):
         self._session.close()

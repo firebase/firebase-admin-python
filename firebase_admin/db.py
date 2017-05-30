@@ -12,7 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Firebase database module."""
+"""Firebase Database module.
+
+This module contains functions and classes that facilitate interacting with the Firebase database.
+It supports basic data manipulation operations, as well as a complex queries such as limit queries,
+and range queries. This module uses the Firebase REST API underneath. Therefore it does not
+support realtime update notifications.
+"""
+
 import json
 import numbers
 
@@ -92,6 +99,20 @@ class Reference(object):
         return None
 
     def child(self, path):
+        """Returns a Reference to the specified child node.
+
+        The path may point to an immediate child of the current Reference, or a deeply nested
+        child. Child paths must not begin with '/'.
+
+        Args:
+          path: Path to the child node.
+
+        Returns:
+          Reference: A database Reference representing the specified child node.
+
+        Raises:
+          ValueError: If the child path is not a string, not well-formed or begins with '/'.
+        """
         if not path or not isinstance(path, six.string_types):
             raise ValueError(
                 'Invalid path argument: "{0}". Path must be a non-empty string.'.format(path))
@@ -102,9 +123,19 @@ class Reference(object):
         return Reference(client=self._client, path=full_path)
 
     def get_value(self):
+        """Returns the value at the current location of the database.
+
+        Returns:
+          object: Decoded JSON value of the current database Reference.
+        """
         return self._client.request('get', self._add_suffix())
 
     def get_priority(self):
+        """Returns the priority of this node, if specified.
+
+        Returns:
+          object: A priority value or None.
+        """
         return self._client.request('get', self._add_suffix('/.priority.json'))
 
     def set_value(self, value, priority=None):
@@ -155,6 +186,20 @@ class Reference(object):
         self._client.request_oneway('delete', self._add_suffix())
 
     def order_by_child(self, path):
+        """Returns a Query instance that can be used to filter data by child values.
+
+        Returned Query can be used to set additional parameters, and execute complex database
+        queries (e.g. limit queries, range queries).
+
+        Args:
+          path: Path to a valid child of the current Reference.
+
+        Returns:
+          Query: A database Query instance.
+
+        Raises:
+          ValueError: If the child path is not a string, not well-formed or None.
+        """
         if path in _RESERVED_FILTERS:
             raise ValueError('Illegal child path: {0}'.format(path))
         return Query(order_by=path, client=self._client, pathurl=self._add_suffix())
@@ -182,7 +227,15 @@ class Reference(object):
 
 
 class Query(object):
-    """Represents a complex query that can be executed on a Reference."""
+    """Represents a complex query that can be executed on a Reference.
+
+    Complex queries consist of 2 components - an ordering constraint, and a filtering constraint.
+    At the server, data is first sorted according to the given ordering constraint (e.g. order by
+    child). Then the filtering constraint (e.g. limit, range) is applied on the sorted data to
+    produce the final result. Despite the ordering constraint, the final result is returned by the
+    Query interface as an unordered collection. Therefore the caller should not expect this
+    interface to return sorted results.
+    """
 
     def __init__(self, **kwargs):
         order_by = kwargs.pop('order_by')

@@ -413,10 +413,8 @@ class _SortEntry(object):
         """
         self_key, other_key = self.index_type, other.index_type
         if self_key == other_key:
-            if self_key in (self._type_numeric, self._type_string):
+            if self_key in (self._type_numeric, self._type_string) and self.index != other.index:
                 self_key, other_key = self.index, other.index
-                if self_key == other_key:
-                    self_key, other_key = self.key, other.key
             else:
                 self_key, other_key = self.key, other.key
 

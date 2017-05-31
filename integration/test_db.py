@@ -154,6 +154,11 @@ class TestWriteOperations(object):
 class TestAdvancedQueries(object):
     """Test cases for advanced interactions via the db.Query interface."""
 
+    height_sorted = [
+        'linhenykus', 'pterodactyl', 'lambeosaurus',
+        'triceratops', 'stegosaurus', 'bruhathkayosaurus',
+    ]
+
     def test_order_by_key(self, testref):
         value = testref.child('dinosaurs').order_by_key().run()
         assert isinstance(value, collections.OrderedDict)
@@ -171,57 +176,40 @@ class TestAdvancedQueries(object):
 
     def test_order_by_child(self, testref):
         value = testref.child('dinosaurs').order_by_child('height').run()
-        assert list(value.keys()) == [
-            'linhenykus', 'pterodactyl', 'lambeosaurus',
-            'triceratops', 'stegosaurus', 'bruhathkayosaurus',
-        ]
+        assert list(value.keys()) == self.height_sorted
 
     def test_limit_first(self, testref):
         value = testref.child('dinosaurs').order_by_child('height').set_limit_first(2).run()
-        assert len(value) == 2
-        assert 'pterodactyl' in value
-        assert 'linhenykus' in value
+        assert list(value.keys()) == self.height_sorted[:2]
 
     def test_limit_first_all(self, testref):
         value = testref.child('dinosaurs').order_by_child('height').set_limit_first(10).run()
-        assert len(value) == 6
+        assert list(value.keys()) == self.height_sorted
 
     def test_limit_last(self, testref):
         value = testref.child('dinosaurs').order_by_child('height').set_limit_last(2).run()
-        assert len(value) == 2
-        assert 'stegosaurus' in value
-        assert 'bruhathkayosaurus' in value
+        assert list(value.keys()) == self.height_sorted[-2:]
 
     def test_limit_last_all(self, testref):
         value = testref.child('dinosaurs').order_by_child('height').set_limit_last(10).run()
-        assert len(value) == 6
+        assert list(value.keys()) == self.height_sorted
 
     def test_start_at(self, testref):
         value = testref.child('dinosaurs').order_by_child('height').set_start_at(3.5).run()
-        assert len(value) == 2
-        assert 'stegosaurus' in value
-        assert 'bruhathkayosaurus' in value
+        assert list(value.keys()) == self.height_sorted[-2:]
 
     def test_end_at(self, testref):
         value = testref.child('dinosaurs').order_by_child('height').set_end_at(3.5).run()
-        assert len(value) == 4
-        assert 'pterodactyl' in value
-        assert 'linhenykus' in value
-        assert 'lambeosaurus' in value
-        assert 'triceratops' in value
+        assert list(value.keys()) == self.height_sorted[:4]
 
     def test_start_and_end_at(self, testref):
         value = testref.child('dinosaurs').order_by_child('height') \
             .set_start_at(2.5).set_end_at(5).run()
-        assert len(value) == 2
-        assert 'stegosaurus' in value
-        assert 'triceratops' in value
+        assert list(value.keys()) == self.height_sorted[-3:-1]
 
     def test_equal_to(self, testref):
         value = testref.child('dinosaurs').order_by_child('height').set_equal_to(0.6).run()
-        assert len(value) == 2
-        assert 'linhenykus' in value
-        assert 'pterodactyl' in value
+        assert list(value.keys()) == self.height_sorted[:2]
 
     def test_order_by_nested_child(self, testref):
         value = testref.child('dinosaurs').order_by_child('ratings/pos').set_start_at(4).run()
@@ -250,6 +238,7 @@ class TestAdvancedQueries(object):
             ref = museums.push()
             ref.set_value(name, priority)
         result = museums.order_by_priority().set_limit_last(2).run()
+        assert isinstance(result, dict)
         assert len(result) == 2
         assert 'Brussels' in result.values()
         assert 'Chicago' in result.values()

@@ -300,11 +300,10 @@ class Query(object):
 
     def run(self):
         result = self._client.request('get', '{0}?{1}'.format(self._pathurl, self.querystr))
-        if not isinstance(result, dict):
-            return result
-        else:
+        if isinstance(result, (dict, list)):
             sorter = _Sorter(result, self._params['orderBy'])
             return sorter.get()
+        return result
 
 
 class ApiCallError(Exception):
@@ -316,13 +315,24 @@ class ApiCallError(Exception):
 
 
 class _Sorter(object):
+    """Helper class for sorting query results."""
 
     def __init__(self, results, order_by):
-        entries = [_SortEntry(k, v, order_by) for k, v in results.items()]
+        if isinstance(results, dict):
+            self.dict_input = True
+            entries = [_SortEntry(k, v, order_by) for k, v in results.items()]
+        elif isinstance(results, list):
+            self.dict_input = False
+            entries = [_SortEntry(k, v, order_by) for k, v in enumerate(results)]
+        else:
+            raise ValueError('Sorting not supported for "{0}" object.'.format(type(results)))
         self.sort_entries = sorted(entries)
 
     def get(self):
-        return collections.OrderedDict([(e.key, e.value) for e in self.sort_entries])
+        if self.dict_input:
+            return collections.OrderedDict([(e.key, e.value) for e in self.sort_entries])
+        else:
+            return [e.value for e in self.sort_entries]
 
 
 class _SortEntry(object):

@@ -475,11 +475,24 @@ class TestSorter(object):
          ['k3', 'k5', 'k1', 'k2', 'k4', 'k6']),
     ]
 
+    list_test_cases = [
+        ([1, 2, 3], [1, 2, 3]),
+        ([3, 2, 1], [1, 2, 3]),
+        ([1, 3, 2], [1, 2, 3]),
+        (['foo', 'bar', 'baz'], ['bar', 'baz', 'foo']),
+    ]
+
     @pytest.mark.parametrize('result, expected', value_test_cases)
     def test_order_by_value(self, result, expected):
         ordered = db._Sorter(result, '$value').get()
         assert isinstance(ordered, collections.OrderedDict)
         assert list(ordered.keys()) == expected
+
+    @pytest.mark.parametrize('result, expected', list_test_cases)
+    def test_order_by_value_with_list(self, result, expected):
+        ordered = db._Sorter(result, '$value').get()
+        assert isinstance(ordered, list)
+        assert ordered == expected
 
     @pytest.mark.parametrize('result, expected', [
         ({'k1' : 1, 'k2' : 2, 'k3' : 3}, ['k1', 'k2', 'k3']),

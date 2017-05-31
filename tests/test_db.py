@@ -149,12 +149,38 @@ class TestReference(object):
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
     @pytest.mark.parametrize('data', valid_values)
-    def test_query(self, data):
+    def test_order_by_query(self, data):
+        ref = db.get_reference('/test')
+        recorder = self.instrument(ref, json.dumps(data))
+        query = ref.order_by_child('foo')
+        query_str = 'orderBy=%22foo%22'
+        assert query.run() == data
+        assert len(recorder) == 1
+        assert recorder[0].method == 'GET'
+        assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
+        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+
+    @pytest.mark.parametrize('data', valid_values)
+    def test_limit_query(self, data):
         ref = db.get_reference('/test')
         recorder = self.instrument(ref, json.dumps(data))
         query = ref.order_by_child('foo')
         query.set_limit_first(100)
         query_str = 'limitToFirst=100&orderBy=%22foo%22'
+        assert query.run() == data
+        assert len(recorder) == 1
+        assert recorder[0].method == 'GET'
+        assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
+        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+
+    @pytest.mark.parametrize('data', valid_values)
+    def test_range_query(self, data):
+        ref = db.get_reference('/test')
+        recorder = self.instrument(ref, json.dumps(data))
+        query = ref.order_by_child('foo')
+        query.set_start_at(100)
+        query.set_end_at(200)
+        query_str = 'endAt=200&orderBy=%22foo%22&startAt=100'
         assert query.run() == data
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
@@ -365,8 +391,8 @@ def initquery(request):
         return ref.order_by_child(request.param), request.param
 
 
-class TestFilter(object):
-    """Test cases for db.Filter class."""
+class TestQuery(object):
+    """Test cases for db.Query class."""
 
     valid_paths = {
         'foo' : 'foo',
@@ -385,20 +411,37 @@ class TestFilter(object):
             self.ref.order_by_child(path)
 
     @pytest.mark.parametrize('path, expected', valid_paths.items())
-    def test_valid_path(self, path, expected):
+    def test_order_by_valid_path(self, path, expected):
+        query = self.ref.order_by_child(path)
+        assert query.querystr == 'orderBy="{0}"'.format(expected)
+
+    @pytest.mark.parametrize('path, expected', valid_paths.items())
+    def test_filter_by_valid_path(self, path, expected):
         query = self.ref.order_by_child(path)
         query.set_equal_to(10)
         assert query.querystr == 'equalTo=10&orderBy="{0}"'.format(expected)
+
+    def test_order_by_key(self):
+        query = self.ref.order_by_key()
+        assert query.querystr == 'orderBy="$key"'
 
     def test_key_filter(self):
         query = self.ref.order_by_key()
         query.set_equal_to(10)
         assert query.querystr == 'equalTo=10&orderBy="$key"'
 
+    def test_order_by_value(self):
+        query = self.ref.order_by_value()
+        assert query.querystr == 'orderBy="$value"'
+
     def test_value_filter(self):
         query = self.ref.order_by_value()
         query.set_equal_to(10)
         assert query.querystr == 'equalTo=10&orderBy="$value"'
+
+    def test_order_by_priority(self):
+        query = self.ref.order_by_priority()
+        assert query.querystr == 'orderBy="$priority"'
 
     def test_priority_filter(self):
         query = self.ref.order_by_priority()
@@ -459,6 +502,7 @@ class TestFilter(object):
 
 
 class TestSorter(object):
+    """Test cases for db._Sorter class."""
 
     value_test_cases = [
         ({'k1' : 1, 'k2' : 2, 'k3' : 3}, ['k1', 'k2', 'k3']),
@@ -476,10 +520,12 @@ class TestSorter(object):
     ]
 
     list_test_cases = [
+        ([], []),
         ([1, 2, 3], [1, 2, 3]),
         ([3, 2, 1], [1, 2, 3]),
         ([1, 3, 2], [1, 2, 3]),
         (['foo', 'bar', 'baz'], ['bar', 'baz', 'foo']),
+        (['foo', 1, False, None, 0, True], [None, False, True, 0, 1, 'foo']),
     ]
 
     @pytest.mark.parametrize('result, expected', value_test_cases)
@@ -493,6 +539,11 @@ class TestSorter(object):
         ordered = db._Sorter(result, '$value').get()
         assert isinstance(ordered, list)
         assert ordered == expected
+
+    @pytest.mark.parametrize('value', [None, False, True, 0, 1, "foo"])
+    def test_invalid_sort(self, value):
+        with pytest.raises(ValueError):
+            db._Sorter(value, '$value')
 
     @pytest.mark.parametrize('result, expected', [
         ({'k1' : 1, 'k2' : 2, 'k3' : 3}, ['k1', 'k2', 'k3']),

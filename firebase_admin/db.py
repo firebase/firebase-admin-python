@@ -230,12 +230,15 @@ class Reference(object):
 class Query(object):
     """Represents a complex query that can be executed on a Reference.
 
-    Complex queries consist of 2 components - an ordering constraint, and a filtering constraint.
-    At the server, data is first sorted according to the given ordering constraint (e.g. order by
-    child). Then the filtering constraint (e.g. limit, range) is applied on the sorted data to
-    produce the final result. Despite the ordering constraint, the final result is returned by the
-    Query interface as an unordered collection. Therefore the caller should not expect this
-    interface to return sorted results.
+    Complex queries can consist of up to 2 components - a required ordering constraint, and an
+    optional filtering constraint. At the server, data is first sorted according to the given
+    ordering constraint (e.g. order by child). Then the filtering constraint (e.g. limit, range)
+    is applied on the sorted data to produce the final result. Despite the ordering constraint,
+    the final result is returned by the server as an unordered collection. Therefore the Query
+    interface performs another round of sorting at the client-side before returning the results
+    to the caller. This client-side sorted results are returned to the user as a Python
+    OrderedDict. However, client-side sorting is not feasible for order-by-priority queries.
+    Therefore for such queries results are returned as a regular unordered dict.
     """
 
     def __init__(self, **kwargs):
@@ -290,9 +293,6 @@ class Query(object):
 
     @property
     def querystr(self):
-        if len(self._params) < 2:
-            raise ValueError('Illegal query configuration: {0}. Query must have "orderBy" '
-                             'and at least one other setting.'.format(self._params))
         params = []
         for key in sorted(self._params):
             params.append('{0}={1}'.format(key, self._params[key]))
@@ -300,9 +300,9 @@ class Query(object):
 
     def run(self):
         result = self._client.request('get', '{0}?{1}'.format(self._pathurl, self.querystr))
-        if isinstance(result, (dict, list)):
-            sorter = _Sorter(result, self._params['orderBy'])
-            return sorter.get()
+        order_by = self._params['orderBy']
+        if isinstance(result, (dict, list)) and order_by != '$priority':
+            return _Sorter(result, order_by).get()
         return result
 
 
@@ -338,36 +338,59 @@ class _Sorter(object):
 class _SortEntry(object):
     """A wrapper that is capable of sorting items in a dictionary."""
 
+    _type_none = 0
+    _type_bool_false = 1
+    _type_bool_true = 2
+    _type_numeric = 3
+    _type_string = 4
+    _type_object = 5
+
     def __init__(self, key, value, order_by):
-        self.key = key
-        self.value = value
+        self._key = key
+        self._value = value
         if order_by == '$key' or order_by == '$priority':
-            self.sort_key = key
+            self._index = key
         elif order_by == '$value':
-            self.sort_key = value
+            self._index = value
         else:
-            self.sort_key = _SortEntry._extract_child(value, order_by)
-        self.type_index = _SortEntry._get_type_index(self.sort_key)
+            self._index = _SortEntry._extract_child(value, order_by)
+        self._index_type = _SortEntry._get_index_type(self._index)
+
+    @property
+    def key(self):
+        return self._key
+
+    @property
+    def index(self):
+        return self._index
+
+    @property
+    def index_type(self):
+        return self._index_type
+
+    @property
+    def value(self):
+        return self._value
 
     @classmethod
-    def _get_type_index(cls, sort_key):
-        """Assigns an integer code (type index) to the type of the sort key.
+    def _get_index_type(cls, index):
+        """Assigns an integer code (type index) to the type of the index.
 
-        The type index determines how diffrent typed keys should be sorted. This ordering is based
+        The index type determines how diffrent typed values are sorted. This ordering is based
         on https://firebase.google.com/docs/database/rest/retrieve-data#section-rest-ordered-data
         """
-        if sort_key is None:
-            return 0
-        elif isinstance(sort_key, bool) and not sort_key:
-            return 1
-        elif isinstance(sort_key, bool) and sort_key:
-            return 2
-        elif isinstance(sort_key, (int, float)):
-            return 3
-        elif isinstance(sort_key, six.string_types):
-            return 4
+        if index is None:
+            return cls._type_none
+        elif isinstance(index, bool) and not index:
+            return cls._type_bool_false
+        elif isinstance(index, bool) and index:
+            return cls._type_bool_true
+        elif isinstance(index, (int, float)):
+            return cls._type_numeric
+        elif isinstance(index, six.string_types):
+            return cls._type_string
         else:
-            return 5
+            return cls._type_object
 
     @classmethod
     def _extract_child(cls, value, path):
@@ -383,16 +406,16 @@ class _SortEntry(object):
     def _compare(self, other):
         """Compares two _SortEntry instances.
 
-        If both entries have same-typed sort keys, compare the sort keys (or compare the keys, if
-        the sort keys are objects). If the sort keys are of different types, use the ordering
-        imposed by the type index.
+        If the indices have the same numeric or string type, compare them directly. If they
+        have the same type, but are neither numeric nor string, compare the keys. Otherwise
+        compare based on the ordering provided by index types.
         """
-        self_key, other_key = self.type_index, other.type_index
+        self_key, other_key = self.index_type, other.index_type
         if self_key == other_key:
-            if isinstance(self.sort_key, dict):
-                self_key, other_key = self.key, other.key
+            if self_key in (self._type_numeric, self._type_string):
+                self_key, other_key = self.index, other.index
             else:
-                self_key, other_key = self.sort_key, other.sort_key
+                self_key, other_key = self.key, other.key
 
         if self_key < other_key:
             return -1

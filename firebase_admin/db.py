@@ -128,6 +128,9 @@ class Reference(object):
 
         Returns:
           object: Decoded JSON value of the current database Reference.
+
+        Raises:
+          ApiCallError: If an error occurs while communicating with the remote database server.
         """
         return self._client.request('get', self._add_suffix())
 
@@ -136,6 +139,9 @@ class Reference(object):
 
         Returns:
           object: A priority value or None.
+
+        Raises:
+          ApiCallError: If an error occurs while communicating with the remote database server.
         """
         return self._client.request('get', self._add_suffix('/.priority.json'))
 
@@ -152,6 +158,7 @@ class Reference(object):
         Raises:
           ValueError: If the value is None or priority is invalid.
           TypeError: If the value is not JSON-serializable.
+          ApiCallError: If an error occurs while communicating with the remote database server.
         """
         if value is None:
             raise ValueError('Value must not be None.')
@@ -166,16 +173,38 @@ class Reference(object):
         self._client.request_oneway('put', self._add_suffix(), json=value, params=params)
 
     def push(self, value=''):
+        """Creates a new child node.
+
+        The optional value argument can be used to provide an initial value for the child node. If
+        no value is provided, child node will have empty string as the default value.
+
+        Args:
+          value: JSON-serializable initial value for the child node (optional).
+
+        Returns:
+          Reference: A Reference representing the newly created child node.
+
+        Raises:
+          ValueError: If the value is None.
+          TypeError: If the value is not JSON-serializable.
+          ApiCallError: If an error occurs while communicating with the remote database server.
+        """
         if value is None:
             raise ValueError('Value must not be None.')
         output = self._client.request('post', self._add_suffix(), json=value)
         push_id = output.get('name')
-        if not push_id:
-            raise RuntimeError('Unexpected error while pushing to: "{0}". Server did not return '
-                               'a push ID.'.format(self._pathurl))
         return self.child(push_id)
 
     def update_children(self, value):
+        """Updates the specified child keys of this Reference to the provided values.
+
+        Args:
+          value: A dictionary containing the child keys to update, and their new values.
+
+        Raises:
+          ValueError: If value is empty or not a dictionary.
+          ApiCallError: If an error occurs while communicating with the remote database server.
+        """
         if not value or not isinstance(value, dict):
             raise ValueError('Value argument must be a non-empty dictionary.')
         if None in value.keys() or None in value.values():
@@ -184,10 +213,15 @@ class Reference(object):
         self._client.request_oneway('patch', self._add_suffix(), json=value, params=params)
 
     def delete(self):
+        """Deleted this node from the database.
+
+        Raises:
+          ApiCallError: If an error occurs while communicating with the remote database server.
+        """
         self._client.request_oneway('delete', self._add_suffix())
 
     def order_by_child(self, path):
-        """Returns a Query instance that can be used to filter data by child values.
+        """Returns a Query that orders data by child values.
 
         Returned Query can be used to set additional parameters, and execute complex database
         queries (e.g. limit queries, range queries).
@@ -206,12 +240,39 @@ class Reference(object):
         return Query(order_by=path, client=self._client, pathurl=self._add_suffix())
 
     def order_by_key(self):
+        """Creates a Query that orderes data by key.
+
+        Returned Query can be used to set additional parameters, and execute complex database
+        queries (e.g. limit queries, range queries).
+
+        Returns:
+          Query: A database Query instance.
+        """
         return Query(order_by='$key', client=self._client, pathurl=self._add_suffix())
 
     def order_by_value(self):
+        """Creates a Query that orderes data by value.
+
+        Returned Query can be used to set additional parameters, and execute complex database
+        queries (e.g. limit queries, range queries).
+
+        Returns:
+          Query: A database Query instance.
+        """
         return Query(order_by='$value', client=self._client, pathurl=self._add_suffix())
 
     def order_by_priority(self):
+        """Creates a Query that orderes data by priority.
+
+        Returned Query can be used to set additional parameters, and execute complex database
+        queries (e.g. limit queries, range queries). Due to a limitation of the
+        underlying REST API, the order-by-priority constraint can only be enforced during
+        the execution time of the Query. When the Query returns results, the actual results
+        will be returned as an unordered collection.
+
+        Returns:
+          Query: A database Query instance.
+        """
         return Query(order_by='$priority', client=self._client, pathurl=self._add_suffix())
 
     def _add_suffix(self, suffix='.json'):
@@ -259,6 +320,17 @@ class Query(object):
             raise ValueError('Unexpected keyword arguments: {0}'.format(kwargs))
 
     def set_limit_first(self, limit):
+        """Creates a query with limit, and anchors it to the start of the window.
+
+        Args:
+          limit: The maximum number of child nodes to return.
+
+        Returns:
+          Query: The updated Query instance.
+
+        Raises:
+          ValueError: If the value is not an integer, or set_limit_last() was called previously.
+        """
         if not isinstance(limit, int):
             raise ValueError('Limit must be an integer.')
         if 'limitToLast' in self._params:
@@ -267,6 +339,17 @@ class Query(object):
         return self
 
     def set_limit_last(self, limit):
+        """Creates a query with limit, and anchors it to the end of the window.
+
+        Args:
+          limit: The maximum number of child nodes to return.
+
+        Returns:
+          Query: The updated Query instance.
+
+        Raises:
+          ValueError: If the value is not an integer, or set_limit_first() was called previously.
+        """
         if not isinstance(limit, int):
             raise ValueError('Limit must be an integer.')
         if 'limitToFirst' in self._params:
@@ -275,18 +358,59 @@ class Query(object):
         return self
 
     def set_start_at(self, start):
+        """Sets the lowerbound for a range query.
+
+        The Query will only return child nodes with a value greater than or equal to the specified
+        value.
+
+        Args:
+          start: JSON-serializable value to start at, inclusive.
+
+        Returns:
+          Query: The updated Query instance.
+
+        Raises:
+          ValueError: If the value is empty or None.
+        """
         if not start:
             raise ValueError('Start value must not be empty or None.')
         self._params['startAt'] = json.dumps(start)
         return self
 
     def set_end_at(self, end):
+        """Sets the upperbound for a range query.
+
+        The Query will only return child nodes with a value less than or equal to the specified
+        value.
+
+        Args:
+          end: JSON-serializable value to end at, inclusive.
+
+        Returns:
+          Query: The updated Query instance.
+
+        Raises:
+          ValueError: If the value is empty or None.
+        """
         if not end:
             raise ValueError('End value must not be empty or None.')
         self._params['endAt'] = json.dumps(end)
         return self
 
     def set_equal_to(self, value):
+        """Sets an equals constraint on the Query.
+
+        The Query will only return child nodes whose value is equal to the specified value.
+
+        Args:
+          value: JSON-serializable value to query for.
+
+        Returns:
+          Query: The updated Query instance.
+
+        Raises:
+          ValueError: If the value is empty or None.
+        """
         if not value:
             raise ValueError('Equal to value must not be empty or None.')
         self._params['equalTo'] = json.dumps(value)
@@ -300,6 +424,17 @@ class Query(object):
         return '&'.join(params)
 
     def run(self):
+        """Executes this Query and returns the results.
+
+        The results will be returned as a sorted list or an OrderedDict, except in the case of
+        order-by-priority queries.
+
+        Returns:
+           object: Decoded JSON result of the Query.
+
+        Raises:
+          ApiCallError: If an error occurs while communicating with the remote database server.
+        """
         result = self._client.request('get', '{0}?{1}'.format(self._pathurl, self.querystr))
         if isinstance(result, (dict, list)) and self._order_by != '$priority':
             return _Sorter(result, self._order_by).get()

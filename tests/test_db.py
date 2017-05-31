@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Tests for firebase_admin.db."""
+import collections
 import datetime
 import json
 
@@ -455,3 +456,65 @@ class TestFilter(object):
         query.set_limit_first(10)
         expected = 'endAt=3&equalTo=2&limitToFirst=10&orderBy="{0}"&startAt=1'.format(order_by)
         assert query.querystr == expected
+
+
+class TestSorter(object):
+
+    value_test_cases = [
+        ({'k1' : 1, 'k2' : 2, 'k3' : 3}, ['k1', 'k2', 'k3']),
+        ({'k1' : 3, 'k2' : 2, 'k3' : 1}, ['k3', 'k2', 'k1']),
+        ({'k1' : 3, 'k2' : 1, 'k3' : 2}, ['k2', 'k3', 'k1']),
+        ({'k1' : 'foo', 'k2' : 'bar', 'k3' : 'baz'}, ['k2', 'k3', 'k1']),
+        ({'k1' : 'foo', 'k2' : 'bar', 'k3' : 10}, ['k3', 'k2', 'k1']),
+        ({'k1' : 'foo', 'k2' : 'bar', 'k3' : None}, ['k3', 'k2', 'k1']),
+        ({'k1' : 5, 'k2' : 'bar', 'k3' : None}, ['k3', 'k1', 'k2']),
+        ({'k1' : False, 'k2' : 'bar', 'k3' : None}, ['k3', 'k1', 'k2']),
+        ({'k1' : False, 'k2' : 1, 'k3' : None}, ['k3', 'k1', 'k2']),
+        ({'k1' : True, 'k2' : 0, 'k3' : None, 'k4' : 'foo'}, ['k3', 'k1', 'k2', 'k4']),
+        ({'k1' : True, 'k2' : 0, 'k3' : None, 'k4' : 'foo', 'k5' : False, 'k6' : dict()},
+         ['k3', 'k5', 'k1', 'k2', 'k4', 'k6']),
+    ]
+
+    @pytest.mark.parametrize('result, expected', value_test_cases)
+    def test_order_by_value(self, result, expected):
+        ordered = db._Sorter(result, '$value').get()
+        assert isinstance(ordered, collections.OrderedDict)
+        assert list(ordered.keys()) == expected
+
+    @pytest.mark.parametrize('result, expected', [
+        ({'k1' : 1, 'k2' : 2, 'k3' : 3}, ['k1', 'k2', 'k3']),
+        ({'k3' : 3, 'k2' : 2, 'k1' : 1}, ['k1', 'k2', 'k3']),
+        ({'k1' : 3, 'k3' : 1, 'k2' : 2}, ['k1', 'k2', 'k3']),
+    ])
+    def test_order_by_key(self, result, expected):
+        ordered = db._Sorter(result, '$key').get()
+        assert isinstance(ordered, collections.OrderedDict)
+        assert list(ordered.keys()) == expected
+
+    @pytest.mark.parametrize('result, expected', value_test_cases)
+    def test_order_by_child(self, result, expected):
+        nested = {}
+        for key, val in result.items():
+            nested[key] = {'child' : val}
+        ordered = db._Sorter(nested, 'child').get()
+        assert isinstance(ordered, collections.OrderedDict)
+        assert list(ordered.keys()) == expected
+
+    @pytest.mark.parametrize('result, expected', value_test_cases)
+    def test_order_by_grand_child(self, result, expected):
+        nested = {}
+        for key, val in result.items():
+            nested[key] = {'child' : {'grandchild' : val}}
+        ordered = db._Sorter(nested, 'child/grandchild').get()
+        assert isinstance(ordered, collections.OrderedDict)
+        assert list(ordered.keys()) == expected
+
+    @pytest.mark.parametrize('result, expected', [
+        ({'k1': {'child': 1}, 'k2': {}}, ['k2', 'k1']),
+        ({'k1': {'child': 1}, 'k2': {'child': 0}}, ['k2', 'k1']),
+        ({'k1': {'child': 1}, 'k2': {'child': {}}, 'k3': {}}, ['k3', 'k1', 'k2']),
+    ])
+    def test_child_path_resolution(self, result, expected):
+        ordered = db._Sorter(result, 'child').get()
+        assert isinstance(ordered, collections.OrderedDict)
+        assert list(ordered.keys()) == expected

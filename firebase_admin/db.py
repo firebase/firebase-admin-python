@@ -20,6 +20,7 @@ and range queries. This module uses the Firebase REST API underneath. Therefore 
 support realtime update notifications.
 """
 
+import collections
 import json
 import numbers
 
@@ -298,7 +299,12 @@ class Query(object):
         return '&'.join(params)
 
     def run(self):
-        return self._client.request('get', '{0}?{1}'.format(self._pathurl, self.querystr))
+        result = self._client.request('get', '{0}?{1}'.format(self._pathurl, self.querystr))
+        if not isinstance(result, dict):
+            return result
+        else:
+            sorter = _Sorter(result, self._params['orderBy'])
+            return sorter.get()
 
 
 class ApiCallError(Exception):
@@ -307,6 +313,98 @@ class ApiCallError(Exception):
     def __init__(self, message, error):
         Exception.__init__(self, message)
         self.detail = error
+
+
+class _Sorter(object):
+
+    def __init__(self, results, order_by):
+        entries = [_SortEntry(k, v, order_by) for k, v in results.items()]
+        self.sort_entries = sorted(entries)
+
+    def get(self):
+        return collections.OrderedDict([(e.key, e.value) for e in self.sort_entries])
+
+
+class _SortEntry(object):
+    """A wrapper that is capable of sorting items in a dictionary."""
+
+    def __init__(self, key, value, order_by):
+        self.key = key
+        self.value = value
+        if order_by == '$key' or order_by == '$priority':
+            self.sort_key = key
+        elif order_by == '$value':
+            self.sort_key = value
+        else:
+            self.sort_key = _SortEntry._extract_child(value, order_by)
+        self.type_index = _SortEntry._get_type_index(self.sort_key)
+
+    @classmethod
+    def _get_type_index(cls, sort_key):
+        """Assigns an integer code (type index) to the type of the sort key.
+
+        The type index determines how diffrent typed keys should be sorted. This ordering is based
+        on https://firebase.google.com/docs/database/rest/retrieve-data#section-rest-ordered-data
+        """
+        if sort_key is None:
+            return 0
+        elif isinstance(sort_key, bool) and not sort_key:
+            return 1
+        elif isinstance(sort_key, bool) and sort_key:
+            return 2
+        elif isinstance(sort_key, (int, float)):
+            return 3
+        elif isinstance(sort_key, six.string_types):
+            return 4
+        else:
+            return 5
+
+    @classmethod
+    def _extract_child(cls, value, path):
+        segments = path.split('/')
+        current = value
+        for segment in segments:
+            if isinstance(current, dict):
+                current = current.get(segment)
+            else:
+                return None
+        return current
+
+    def _compare(self, other):
+        """Compares two _SortEntry instances.
+
+        If both entries have same-typed sort keys, compare the sort keys (or compare the keys, if
+        the sort keys are objects). If the sort keys are of different types, use the ordering
+        imposed by the type index.
+        """
+        self_key, other_key = self.type_index, other.type_index
+        if self_key == other_key:
+            if isinstance(self.sort_key, dict):
+                self_key, other_key = self.key, other.key
+            else:
+                self_key, other_key = self.sort_key, other.sort_key
+
+        if self_key < other_key:
+            return -1
+        elif self_key > other_key:
+            return 1
+        else:
+            return 0
+
+    def __lt__(self, other):
+        return self._compare(other) < 0
+
+    def __le__(self, other):
+        return self._compare(other) <= 0
+
+    def __gt__(self, other):
+        return self._compare(other) > 0
+
+    def __ge__(self, other):
+        return self._compare(other) >= 0
+
+    def __eq__(self, other):
+        return self._compare(other) is 0
 
 
 class _Client(object):

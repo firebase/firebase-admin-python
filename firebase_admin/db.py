@@ -253,6 +253,7 @@ class Query(object):
             order_by = '/'.join(segments)
         self._client = kwargs.pop('client')
         self._pathurl = kwargs.pop('pathurl')
+        self._order_by = order_by
         self._params = {'orderBy' : json.dumps(order_by)}
         if kwargs:
             raise ValueError('Unexpected keyword arguments: {0}'.format(kwargs))
@@ -300,9 +301,8 @@ class Query(object):
 
     def run(self):
         result = self._client.request('get', '{0}?{1}'.format(self._pathurl, self.querystr))
-        order_by = self._params['orderBy']
-        if isinstance(result, (dict, list)) and order_by != '$priority':
-            return _Sorter(result, order_by).get()
+        if isinstance(result, (dict, list)) and self._order_by != '$priority':
+            return _Sorter(result, self._order_by).get()
         return result
 
 
@@ -406,14 +406,17 @@ class _SortEntry(object):
     def _compare(self, other):
         """Compares two _SortEntry instances.
 
-        If the indices have the same numeric or string type, compare them directly. If they
-        have the same type, but are neither numeric nor string, compare the keys. Otherwise
-        compare based on the ordering provided by index types.
+        If the indices have the same numeric or string type, compare them directly. Ties are
+        broken by comparing the keys. If the indices have the same type, but are neither numeric
+        nor string, compare the keys. In all other cases compare based on the ordering provided
+        by index types.
         """
         self_key, other_key = self.index_type, other.index_type
         if self_key == other_key:
             if self_key in (self._type_numeric, self._type_string):
                 self_key, other_key = self.index, other.index
+                if self_key == other_key:
+                    self_key, other_key = self.key, other.key
             else:
                 self_key, other_key = self.key, other.key
 

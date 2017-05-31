@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Integration tests for firebase_admin.db module."""
+import collections
 import json
 
 import pytest
@@ -153,6 +154,28 @@ class TestWriteOperations(object):
 class TestAdvancedQueries(object):
     """Test cases for advanced interactions via the db.Query interface."""
 
+    def test_order_by_key(self, testref):
+        value = testref.child('dinosaurs').order_by_key().run()
+        assert isinstance(value, collections.OrderedDict)
+        assert list(value.keys()) == [
+            'bruhathkayosaurus', 'lambeosaurus', 'linhenykus',
+            'pterodactyl', 'stegosaurus', 'triceratops'
+        ]
+
+    def test_order_by_value(self, testref):
+        value = testref.child('scores').order_by_value().run()
+        assert list(value.keys()) == [
+            'stegosaurus', 'lambeosaurus', 'triceratops',
+            'bruhathkayosaurus', 'linhenykus', 'pterodactyl',
+        ]
+
+    def test_order_by_child(self, testref):
+        value = testref.child('dinosaurs').order_by_child('height').run()
+        assert list(value.keys()) == [
+            'linhenykus', 'pterodactyl', 'lambeosaurus',
+            'triceratops', 'stegosaurus', 'bruhathkayosaurus',
+        ]
+
     def test_limit_first(self, testref):
         value = testref.child('dinosaurs').order_by_child('height').set_limit_first(2).run()
         assert len(value) == 2
@@ -207,13 +230,13 @@ class TestAdvancedQueries(object):
         assert 'stegosaurus' in value
         assert 'triceratops' in value
 
-    def test_order_by_key(self, testref):
+    def test_filter_by_key(self, testref):
         value = testref.child('dinosaurs').order_by_key().set_limit_first(2).run()
         assert len(value) == 2
         assert 'bruhathkayosaurus' in value
         assert 'lambeosaurus' in value
 
-    def test_order_by_value(self, testref):
+    def test_filter_by_value(self, testref):
         value = testref.child('scores').order_by_value().set_limit_last(2).run()
         assert len(value) == 2
         assert 'pterodactyl' in value

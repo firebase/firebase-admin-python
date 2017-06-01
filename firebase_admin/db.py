@@ -327,8 +327,8 @@ class Query(object):
         Raises:
           ValueError: If the value is not an integer, or set_limit_last() was called previously.
         """
-        if not isinstance(limit, int):
-            raise ValueError('Limit must be an integer.')
+        if not isinstance(limit, int) or limit < 0:
+            raise ValueError('Limit must be a non-negative integer.')
         if 'limitToLast' in self._params:
             raise ValueError('Cannot set both first and last limits.')
         self._params['limitToFirst'] = limit
@@ -346,8 +346,8 @@ class Query(object):
         Raises:
           ValueError: If the value is not an integer, or set_limit_first() was called previously.
         """
-        if not isinstance(limit, int):
-            raise ValueError('Limit must be an integer.')
+        if not isinstance(limit, int) or limit < 0:
+            raise ValueError('Limit must be a non-negative integer.')
         if 'limitToFirst' in self._params:
             raise ValueError('Cannot set both first and last limits.')
         self._params['limitToLast'] = limit
@@ -608,6 +608,23 @@ class _Client(object):
         self._do_request(method, urlpath, **kwargs)
 
     def _do_request(self, method, urlpath, **kwargs):
+        """Makes an HTTP call using the Python requests library.
+
+        Refer to http://docs.python-requests.org/en/master/api/ for more information on supported
+        options and features.
+
+        Args:
+          method: HTTP method name as a string (e.g. get, post).
+          urlpath: URL path of the remote endpoint. This will be appended to the server's base URL.
+          kwargs: An additional set of keyword arguments to be passed into requests API
+              (e.g. json, params).
+
+        Returns:
+          Response: An HTTP response object.
+
+        Raises:
+          ApiCallError: If an error occurs while making the HTTP call.
+        """
         try:
             resp = self._session.request(method, self._url + urlpath, auth=self._auth, **kwargs)
             resp.raise_for_status()
@@ -616,11 +633,29 @@ class _Client(object):
             raise ApiCallError(self._extract_error_message(error), error)
 
     def _extract_error_message(self, error):
-        if error.response is not None:
-            data = json.loads(error.response.content)
+        """Extracts an error message from an exception.
+
+        If the server has not sent any response, simply converts the exception into a string.
+        If the server has sent a JSON response with an 'error' field, which is the typical
+        behavior of the Realtime Database REST API, parses the response to retrieve the error
+        message. If the server has sent a non-JSON response, returns the full response
+        as the error message.
+
+        Args:
+          error: An exception raised by the requests library.
+
+        Returns:
+          str: A string error message extracted from the exception.
+        """
+        if error.response is None:
+            return str(error)
+        try:
+            data = error.response.json()
             if isinstance(data, dict):
                 return '{0}\nReason: {1}'.format(error, data.get('error', 'unknown'))
-        return str(error)
+        except ValueError:
+            pass
+        return '{0}\nReason: {1}'.format(error, error.response.content.decode())
 
     def close(self):
         self._session.close()

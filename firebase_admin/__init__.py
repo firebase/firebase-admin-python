@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Firebase Admin SDK for Python."""
+import datetime
 import threading
 
 import six
@@ -26,8 +27,10 @@ __version__ = '2.0.0'
 
 _apps = {}
 _apps_lock = threading.RLock()
+_clock = datetime.datetime.utcnow
 
 _DEFAULT_APP_NAME = '[DEFAULT]'
+_CLOCK_SKEW_SECONDS = 300
 
 
 def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
@@ -91,6 +94,7 @@ def delete_app(app):
     with _apps_lock:
         if _apps.get(app.name) is app:
             del _apps[app.name]
+            app._cleanup() # pylint: disable=protected-access
             return
     if app.name == _DEFAULT_APP_NAME:
         raise ValueError(
@@ -145,12 +149,16 @@ class _AppOptions(object):
                              'must be a dictionary.'.format(type(options)))
         self._options = options
 
+    def get(self, key):
+        """Returns the option identified by the provided key."""
+        return self._options.get(key)
+
 
 class App(object):
     """The entry point for Firebase Python SDK.
 
-       Represents a Firebase app, while holding the configuration and state
-       common to all Firebase APIs.
+    Represents a Firebase app, while holding the configuration and state
+    common to all Firebase APIs.
     """
 
     def __init__(self, name, credential, options):
@@ -174,6 +182,9 @@ class App(object):
                              'with a valid credential instance.')
         self._credential = credential
         self._options = _AppOptions(options)
+        self._token = None
+        self._lock = threading.RLock()
+        self._services = {}
 
     @property
     def name(self):
@@ -186,3 +197,65 @@ class App(object):
     @property
     def options(self):
         return self._options
+
+    def get_token(self):
+        """Returns an OAuth2 bearer token.
+
+        This method may return a cached token. But it handles cache invalidation, and therefore
+        is guaranteed to always return unexpired tokens.
+
+        Returns:
+          string: An unexpired OAuth2 token.
+        """
+        if not self._token_valid():
+            self._token = self._credential.get_access_token()
+        return self._token.access_token
+
+    def _token_valid(self):
+        if self._token is None:
+            return False
+        skewed_expiry = self._token.expiry - datetime.timedelta(seconds=_CLOCK_SKEW_SECONDS)
+        return _clock() < skewed_expiry
+
+    def _get_service(self, name, initializer):
+        """Returns the service instance identified by the given name.
+
+        Services are functional entities exposed by the Admin SDK (e.g. auth, database). Each
+        service instance is associated with exactly one App. If the named service
+        instance does not exist yet, _get_service() calls the provided initializer function to
+        create the service instance. The created instance will be cached, so that subsequent
+        calls would always fetch it from the cache.
+
+        Args:
+          name: Name of the service to retrieve.
+          initializer: A function that can be used to initialize a service for the first time.
+
+        Returns:
+          object: The specified service instance.
+
+        Raises:
+          ValueError: If the provided name is invalid, or if the App is already deleted.
+        """
+        if not name or not isinstance(name, six.string_types):
+            raise ValueError(
+                'Illegal name argument: "{0}". Name must be a non-empty string.'.format(name))
+        with self._lock:
+            if self._services is None:
+                raise ValueError(
+                    'Service requested from deleted Firebase App: "{0}".'.format(self._name))
+            if name not in self._services:
+                self._services[name] = initializer(self)
+            return self._services[name]
+
+    def _cleanup(self):
+        """Cleans up any services associated with this App.
+
+        Checks whether each service contains a close() method, and calls it if available.
+        This is to be called when an App is being deleted, thus ensuring graceful termination of
+        any services started by the App.
+        """
+        with self._lock:
+            for service in self._services.values():
+                if hasattr(service, 'close') and hasattr(service.close, '__call__'):
+                    service.close()
+            self._services = None

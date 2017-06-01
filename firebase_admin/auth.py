@@ -27,8 +27,8 @@ from google.auth.transport import requests
 import google.oauth2.id_token
 import six
 
-import firebase_admin
 from firebase_admin import credentials
+from firebase_admin import utils
 
 _auth_lock = threading.Lock()
 
@@ -37,20 +37,6 @@ _request = requests.Request()
 
 _AUTH_ATTRIBUTE = '_auth'
 GCLOUD_PROJECT_ENV_VAR = 'GCLOUD_PROJECT'
-
-
-def _get_initialized_app(app):
-    if app is None:
-        return firebase_admin.get_app()
-    elif isinstance(app, firebase_admin.App):
-        initialized_app = firebase_admin.get_app(app.name)
-        if app is not initialized_app:
-            raise ValueError('Illegal app argument. App instance not '
-                             'initialized via the firebase module.')
-        return app
-    else:
-        raise ValueError('Illegal app argument. Argument must be of type '
-                         ' firebase_admin.App, but given "{0}".'.format(type(app)))
 
 
 def _get_token_generator(app):
@@ -69,11 +55,7 @@ def _get_token_generator(app):
     Raises:
       ValueError: If the app argument is invalid.
     """
-    app = _get_initialized_app(app)
-    with _auth_lock:
-        if not hasattr(app, _AUTH_ATTRIBUTE):
-            setattr(app, _AUTH_ATTRIBUTE, _TokenGenerator(app))
-        return getattr(app, _AUTH_ATTRIBUTE)
+    return utils.get_app_service(app, _AUTH_ATTRIBUTE, _TokenGenerator)
 
 
 def create_custom_token(uid, developer_claims=None, app=None):

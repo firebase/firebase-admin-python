@@ -1,0 +1,12 @@
+{
+    "python": {
+        "dinodb": {
+            "dinosaurs": {
+                ".indexOn": ["height", "ratings/pos"]
+            },
+            "scores": {
+                ".indexOn": ".value"
+            }
+        }
+    }
+}

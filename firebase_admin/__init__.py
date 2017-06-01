@@ -157,8 +157,8 @@ class _AppOptions(object):
 class App(object):
     """The entry point for Firebase Python SDK.
 
-       Represents a Firebase app, while holding the configuration and state
-       common to all Firebase APIs.
+    Represents a Firebase app, while holding the configuration and state
+    common to all Firebase APIs.
     """
 
     def __init__(self, name, credential, options):
@@ -201,11 +201,11 @@ class App(object):
     def get_token(self):
         """Returns an OAuth2 bearer token.
 
-           This method may return a cached token. But it handles cache invalidation, and therefore
-           is guaranteed to always return unexpired tokens.
+        This method may return a cached token. But it handles cache invalidation, and therefore
+        is guaranteed to always return unexpired tokens.
 
-           Returns:
-             string: An unexpired OAuth2 token.
+        Returns:
+          string: An unexpired OAuth2 token.
         """
         if not self._token_valid():
             self._token = self._credential.get_access_token()
@@ -218,6 +218,24 @@ class App(object):
         return _clock() < skewed_expiry
 
     def _get_service(self, name, initializer):
+        """Returns the service instance identified by the given name.
+
+        Services are functional entities exposed by the Admin SDK (e.g. auth, database). Each
+        service instance is associated with exactly one App. If the named service
+        instance does not exist yet, _get_service() calls the provided initializer function to
+        create the service instance. The created instance will be cached, so that subsequent
+        calls would always fetch it from the cache.
+
+        Args:
+          name: Name of the service to retrieve.
+          initializer: A function that can be used to initialize a service for the first time.
+
+        Returns:
+          object: The specified service instance.
+
+        Raises:
+          ValueError: If the provided name is invalid, or if the App is already deleted.
+        """
         if not name or not isinstance(name, six.string_types):
             raise ValueError(
                 'Illegal name argument: "{0}". Name must be a non-empty string.'.format(name))
@@ -230,8 +248,14 @@ class App(object):
             return self._services[name]
 
     def _cleanup(self):
+        """Cleans up any services associated with this App.
+
+        Checks whether each service contains a close() method, and calls it if available.
+        This is to be called when an App is being deleted, thus ensuring graceful termination of
+        any services started by the App.
+        """
         with self._lock:
-            for service in self._services:
-                if hasattr(service, 'close'):
+            for service in self._services.values():
+                if hasattr(service, 'close') and hasattr(service.close, '__call__'):
                     service.close()
             self._services = None

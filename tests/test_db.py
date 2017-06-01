@@ -374,9 +374,12 @@ class TestDatabseInitialization(object):
             credentials.Base(), {'dbURL' : 'https://test.firebaseio.com'})
         ref = db.get_reference()
         assert ref is not None
+        assert ref._client._auth is not None
         firebase_admin.delete_app(app)
+        assert ref._client._auth is None
         with pytest.raises(ValueError):
             db.get_reference()
+
 
 @pytest.fixture(params=['foo', '$key', '$value', '$priority'])
 def initquery(request):
@@ -544,7 +547,7 @@ class TestSorter(object):
         assert isinstance(ordered, list)
         assert ordered == expected
 
-    @pytest.mark.parametrize('value', [None, False, True, 0, 1, "foo"])
+    @pytest.mark.parametrize('value', [None, False, True, 0, 1, 'foo'])
     def test_invalid_sort(self, value):
         with pytest.raises(ValueError):
             db._Sorter(value, '$value')

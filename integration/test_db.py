@@ -143,6 +143,12 @@ class TestWriteOperations(object):
         ref.update_children(value)
         assert ref.get_value() == value
 
+    def test_update_children_with_existing_values(self, testref):
+        python = testref.parent
+        ref = python.child('users').push({'name' : 'Edwin Colbert', 'since' : 1900})
+        ref.update_children({'since' : 1905})
+        assert ref.get_value() == {'name' : 'Edwin Colbert', 'since' : 1905}
+
     def test_delete(self, testref):
         python = testref.parent
         ref = python.child('users').push('foo')

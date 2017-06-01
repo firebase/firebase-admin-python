@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Firebase Database module.
+"""Firebase Realtime Database module.
 
-This module contains functions and classes that facilitate interacting with the Firebase database.
-It supports basic data manipulation operations, as well as a complex queries such as limit queries,
-and range queries. This module uses the Firebase REST API underneath. Therefore it does not
-support realtime update notifications.
+This module contains functions and classes that facilitate interacting with the Firebase Realtime
+Database. It supports basic data manipulation operations, as well as complex queries such as
+limit queries and range queries. However, it does not support realtime update notifications. This
+module uses the Firebase REST API underneath.
 """
 
 import collections
@@ -31,7 +31,7 @@ from six.moves import urllib
 from firebase_admin import utils
 
 _DB_ATTRIBUTE = '_database'
-_INVALID_PATH_CHARACTERS = r'[].#$'
+_INVALID_PATH_CHARACTERS = '[].#$'
 _RESERVED_FILTERS = ('$key', '$value', '$priority')
 
 
@@ -60,11 +60,7 @@ def _parse_path(path):
     if any(ch in path for ch in _INVALID_PATH_CHARACTERS):
         raise ValueError(
             'Invalid path: "{0}". Path contains illegal characters.'.format(path))
-    segments = []
-    for seg in path.split('/'):
-        if seg:
-            segments.append(seg)
-    return segments
+    return [seg for seg in path.split('/') if seg]
 
 
 class Reference(object):
@@ -291,7 +287,7 @@ class Reference(object):
 class Query(object):
     """Represents a complex query that can be executed on a Reference.
 
-    Complex queries can consist of up to 2 components - a required ordering constraint, and an
+    Complex queries can consist of up to 2 components: a required ordering constraint, and an
     optional filtering constraint. At the server, data is first sorted according to the given
     ordering constraint (e.g. order by child). Then the filtering constraint (e.g. limit, range)
     is applied on the sorted data to produce the final result. Despite the ordering constraint,
@@ -358,7 +354,7 @@ class Query(object):
         return self
 
     def set_start_at(self, start):
-        """Sets the lowerbound for a range query.
+        """Sets the lower bound for a range query.
 
         The Query will only return child nodes with a value greater than or equal to the specified
         value.
@@ -378,7 +374,7 @@ class Query(object):
         return self
 
     def set_end_at(self, end):
-        """Sets the upperbound for a range query.
+        """Sets the upper bound for a range query.
 
         The Query will only return child nodes with a value less than or equal to the specified
         value.
@@ -430,7 +426,7 @@ class Query(object):
         order-by-priority queries.
 
         Returns:
-           object: Decoded JSON result of the Query.
+          object: Decoded JSON result of the Query.
 
         Raises:
           ApiCallError: If an error occurs while communicating with the remote database server.
@@ -509,9 +505,9 @@ class _SortEntry(object):
 
     @classmethod
     def _get_index_type(cls, index):
-        """Assigns an integer code (type index) to the type of the index.
+        """Assigns an integer code to the type of the index.
 
-        The index type determines how diffrent typed values are sorted. This ordering is based
+        The index type determines how differently typed values are sorted. This ordering is based
         on https://firebase.google.com/docs/database/rest/retrieve-data#section-rest-ordered-data
         """
         if index is None:
@@ -601,8 +597,8 @@ class _Client(object):
                 'Invalid dbURL option: "{0}". dbURL must be an HTTPS URL.'.format(url))
         elif not parsed.netloc.endswith('.firebaseio.com'):
             raise ValueError(
-                'Invalid dbURL option: "{0}". dbURL must be a valid URL to a Firebase realtime '
-                'database instance.'.format(url))
+                'Invalid dbURL option: "{0}". dbURL must be a valid URL to a Firebase Realtime '
+                'Database instance.'.format(url))
         return _Client('https://{0}'.format(parsed.netloc), _OAuth(app), requests.Session())
 
     def request(self, method, urlpath, **kwargs):

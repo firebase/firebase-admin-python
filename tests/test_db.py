@@ -38,6 +38,7 @@ class MockAdapter(adapters.HTTPAdapter):
     def send(self, request, **kwargs): # pylint: disable=unused-argument
         self._recorder.append(request)
         resp = models.Response()
+        resp.url = request.url
         resp.status_code = self._status
         resp.raw = six.BytesIO(self._data.encode())
         return resp
@@ -336,6 +337,21 @@ class TestReference(object):
         else:
             assert ref.parent.path == parent
 
+    @pytest.mark.parametrize('error_code', [400, 401, 500])
+    def test_server_error(self, error_code):
+        ref = db.get_reference('/test')
+        self.instrument(ref, json.dumps({'error' : 'json error message'}), error_code)
+        with pytest.raises(db.ApiCallError) as excinfo:
+            ref.get_value()
+        assert 'Reason: json error message' in str(excinfo.value)
+
+    @pytest.mark.parametrize('error_code', [400, 401, 500])
+    def test_other_error(self, error_code):
+        ref = db.get_reference('/test')
+        self.instrument(ref, 'custom error message', error_code)
+        with pytest.raises(db.ApiCallError) as excinfo:
+            ref.get_value()
+        assert 'Reason: custom error message' in str(excinfo.value)
 
 class TestDatabseInitialization(object):
     """Test cases for database initialization."""
@@ -461,6 +477,14 @@ class TestQuery(object):
         query.set_limit_last(2)
         with pytest.raises(ValueError):
             query.set_limit_first(1)
+
+    @pytest.mark.parametrize('limit', [None, -1, 'foo', 1.2, list(), dict(), tuple()])
+    def test_invalid_limit(self, limit):
+        query = self.ref.order_by_child('foo')
+        with pytest.raises(ValueError):
+            query.set_limit_first(limit)
+        with pytest.raises(ValueError):
+            query.set_limit_last(limit)
 
     def test_start_at_none(self):
         query = self.ref.order_by_child('foo')

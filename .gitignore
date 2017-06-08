@@ -5,3 +5,5 @@
 .tox/
 *.egg-info/
 *~
+scripts/cert.json
+scripts/apikey.txt

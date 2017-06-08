@@ -158,6 +158,25 @@ You can also get a code coverage report by launching pytest as follows:
 pytest --cov=firebase_admin --cov=tests
 ```
 
+### Integration Testing
+
+A suite of integration tests are available under the `integration/` directory.
+These tests are designed to run against an actual Firebase project. Create a new
+project in the [Firebase Console](https://console.firebase.google.com), if you
+do not already have one suitable for running the tests aginst. Then obtain the
+following credentials from the project:
+
+1. *Service account certificate*: This can be downloaded as a JSON file from
+   the "Settings > Service Accounts" tab of the Firebase console.
+2. *Web API key*: This is displayed in the "Settings > General" tab of the
+   console. Copy it and save to a new text file.
+
+Now you can invoke the integration test suite as follows:
+
+```
+pytest integration/ --cert path/to/service_acct.json --apikey path/to/apikey.txt
+```
+
 ### Testing in Different Environments
 
 Sometimes we want to run unit tests in multiple environments (e.g. different Python versions), and
@@ -213,6 +232,7 @@ pyenv local 2.7.6 3.3.0 pypy2-5.6.0
 Here are some highlights of the directory structure and notable source files
 
 * `firebase_admin/` - Source directory for the `firebase_admin` module.
+* `integration/` - Integration tests.
 * `tests/` - Unit tests.
   * `data/` - Provides mocks for several variables as well as mock service account keys.
 * `.github/` - Contribution instructions as well as issue and pull request templates.

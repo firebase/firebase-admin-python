@@ -24,6 +24,8 @@ from firebase_admin import credentials
 def pytest_addoption(parser):
     parser.addoption(
         '--cert', action='store', help='Service account certificate file for integration tests.')
+    parser.addoption(
+        '--apikey', action='store', help='API key file for integration tests.')
 
 def _get_cert_path(request):
     cert = request.config.getoption('--cert')
@@ -48,3 +50,13 @@ def default_app(request):
     cred = credentials.Certificate(cert_path)
     ops = {'dbURL' : 'https://{0}.firebaseio.com'.format(project_id)}
     return firebase_admin.initialize_app(cred, ops)
+
+@pytest.fixture(scope='session')
+def api_key(request):
+    path = request.config.getoption('--apikey')
+    if not path:
+        raise ValueError('API key file not specified. Make sure to specify the "--apikey" '
+                         'command-line option.')
+    with open(path) as keyfile:
+        return keyfile.read().strip()
+ 

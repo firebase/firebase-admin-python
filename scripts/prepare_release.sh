@@ -77,10 +77,12 @@ fi
 
 if [[ ! -e "cert.json" ]]; then
     echo "[ERROR] cert.json file is required to run integration tests."
+    exit 1
 fi
 
 if [[ ! -e "apikey.txt" ]]; then
     echo "[ERROR] apikey.txt file is required to run integration tests."
+    exit 1
 fi
 
 HOST=$(uname)

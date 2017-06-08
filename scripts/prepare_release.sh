@@ -75,6 +75,14 @@ if [[ `git status --porcelain` ]]; then
     exit 1
 fi
 
+if [[ ! -e "cert.json" ]]; then
+    echo "[ERROR] cert.json file is required to run integration tests."
+fi
+
+if [[ ! -e "apikey.txt" ]]; then
+    echo "[ERROR] apikey.txt file is required to run integration tests."
+fi
+
 HOST=$(uname)
 echo "[INFO] Updating version number in firebase_admin/__init__.py"
 if [ $HOST == "Darwin" ]; then
@@ -85,5 +93,8 @@ fi
 
 echo "[INFO] Running unit tests"
 tox --workdir ..
+
+echo "[INFO] Running integration tests"
+pytest ../integration --cert cert.json --apikey apikey.txt
 
 echo "[INFO] This repo has been prepared for a release. Create a branch and commit the changes."

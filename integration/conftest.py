@@ -48,7 +48,7 @@ def default_app(request):
     if not project_id:
         raise ValueError('Failed to determine project ID from service account certificate.')
     cred = credentials.Certificate(cert_path)
-    ops = {'dbURL' : 'https://{0}.firebaseio.com'.format(project_id)}
+    ops = {'databaseURL' : 'https://{0}.firebaseio.com'.format(project_id)}
     return firebase_admin.initialize_app(cred, ops)
 
 @pytest.fixture(scope='session')

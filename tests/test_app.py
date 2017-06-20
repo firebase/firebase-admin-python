@@ -166,7 +166,7 @@ class TestFirebaseApp(object):
         mock_response = {'access_token': 'mock_access_token_1', 'expires_in': 3600}
         credentials._request = testutils.MockRequest(200, json.dumps(mock_response))
 
-        assert init_app.get_token() == 'mock_access_token_1'
+        assert init_app._get_token() == 'mock_access_token_1'
 
         mock_response = {'access_token': 'mock_access_token_2', 'expires_in': 3600}
         credentials._request = testutils.MockRequest(200, json.dumps(mock_response))
@@ -175,9 +175,9 @@ class TestFirebaseApp(object):
         # should return same token from cache
         firebase_admin._clock = lambda: expiry - datetime.timedelta(
             seconds=firebase_admin._CLOCK_SKEW_SECONDS + 1)
-        assert init_app.get_token() == 'mock_access_token_1'
+        assert init_app._get_token() == 'mock_access_token_1'
 
         # should return new token from RPC call
         firebase_admin._clock = lambda: expiry - datetime.timedelta(
             seconds=firebase_admin._CLOCK_SKEW_SECONDS)
-        assert init_app.get_token() == 'mock_access_token_2'
+        assert init_app._get_token() == 'mock_access_token_2'

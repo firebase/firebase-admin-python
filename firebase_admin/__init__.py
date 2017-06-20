@@ -198,7 +198,7 @@ class App(object):
     def options(self):
         return self._options
 
-    def get_token(self):
+    def _get_token(self):
         """Returns an OAuth2 bearer token.
 
         This method may return a cached token. But it handles cache invalidation, and therefore

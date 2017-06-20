@@ -35,7 +35,7 @@ _INVALID_PATH_CHARACTERS = '[].#$'
 _RESERVED_FILTERS = ('$key', '$value', '$priority')
 
 
-def get_reference(path='/', app=None):
+def reference(path='/', app=None):
     """Returns a database Reference representing the node at the specified path.
 
     If no path is specified, this function returns a Reference that represents the database root.
@@ -69,7 +69,7 @@ class Reference(object):
     def __init__(self, **kwargs):
         """Creates a new Reference using the provided parameters.
 
-        This method is for internal use only. Use db.get_reference() to obtain an instance of
+        This method is for internal use only. Use db.reference() to obtain an instance of
         Reference.
         """
         self._client = kwargs.get('client')
@@ -119,7 +119,7 @@ class Reference(object):
         full_path = self._pathurl + '/' + path
         return Reference(client=self._client, path=full_path)
 
-    def get_value(self):
+    def get(self):
         """Returns the value at the current location of the database.
 
         Returns:
@@ -130,41 +130,21 @@ class Reference(object):
         """
         return self._client.request('get', self._add_suffix())
 
-    def get_priority(self):
-        """Returns the priority of this node, if specified.
-
-        Returns:
-          object: A priority value or None.
-
-        Raises:
-          ApiCallError: If an error occurs while communicating with the remote database server.
-        """
-        return self._client.request('get', self._add_suffix('/.priority.json'))
-
-    def set_value(self, value, priority=None):
+    def set(self, value):
         """Sets the data at this location to the given value.
 
-        The value must be JSON-serializable and not None. If a priority is specified, the node will
-        be assigned that priority along with the value.
+        The value must be JSON-serializable and not None.
 
         Args:
           value: JSON-serialable value to be set at this location.
-          priority: A numeric or alphanumeric priority value (optional).
 
         Raises:
-          ValueError: If the value is None or priority is invalid.
+          ValueError: If the value is None.
           TypeError: If the value is not JSON-serializable.
           ApiCallError: If an error occurs while communicating with the remote database server.
         """
         if value is None:
             raise ValueError('Value must not be None.')
-        if priority is not None:
-            Reference._check_priority(priority)
-            if isinstance(value, dict):
-                value = dict(value)
-                value['.priority'] = priority
-            else:
-                value = {'.value' : value, '.priority' : priority}
         params = {'print' : 'silent'}
         self._client.request_oneway('put', self._add_suffix(), json=value, params=params)
 
@@ -191,7 +171,7 @@ class Reference(object):
         push_id = output.get('name')
         return self.child(push_id)
 
-    def update_children(self, value):
+    def update(self, value):
         """Updates the specified child keys of this Reference to the provided values.
 
         Args:
@@ -257,20 +237,6 @@ class Reference(object):
         """
         return Query(order_by='$value', client=self._client, pathurl=self._add_suffix())
 
-    def order_by_priority(self):
-        """Creates a Query that orderes data by priority.
-
-        Returned Query can be used to set additional parameters, and execute complex database
-        queries (e.g. limit queries, range queries). Due to a limitation of the
-        underlying REST API, the order-by-priority constraint can only be enforced during
-        the execution time of the Query. When the Query returns results, the actual results
-        will be returned as an unordered collection.
-
-        Returns:
-          Query: A database Query instance.
-        """
-        return Query(order_by='$priority', client=self._client, pathurl=self._add_suffix())
-
     def _add_suffix(self, suffix='.json'):
         return self._pathurl + suffix
 
@@ -294,8 +260,7 @@ class Query(object):
     the final result is returned by the server as an unordered collection. Therefore the Query
     interface performs another round of sorting at the client-side before returning the results
     to the caller. This client-side sorted results are returned to the user as a Python
-    OrderedDict. However, client-side sorting is not feasible for order-by-priority queries.
-    Therefore for such queries results are returned as a regular unordered dict.
+    OrderedDict.
     """
 
     def __init__(self, **kwargs):
@@ -315,7 +280,7 @@ class Query(object):
         if kwargs:
             raise ValueError('Unexpected keyword arguments: {0}'.format(kwargs))
 
-    def set_limit_first(self, limit):
+    def limit_to_first(self, limit):
         """Creates a query with limit, and anchors it to the start of the window.
 
         Args:
@@ -334,7 +299,7 @@ class Query(object):
         self._params['limitToFirst'] = limit
         return self
 
-    def set_limit_last(self, limit):
+    def limit_to_last(self, limit):
         """Creates a query with limit, and anchors it to the end of the window.
 
         Args:
@@ -353,7 +318,7 @@ class Query(object):
         self._params['limitToLast'] = limit
         return self
 
-    def set_start_at(self, start):
+    def start_at(self, start):
         """Sets the lower bound for a range query.
 
         The Query will only return child nodes with a value greater than or equal to the specified
@@ -373,7 +338,7 @@ class Query(object):
         self._params['startAt'] = json.dumps(start)
         return self
 
-    def set_end_at(self, end):
+    def end_at(self, end):
         """Sets the upper bound for a range query.
 
         The Query will only return child nodes with a value less than or equal to the specified
@@ -393,7 +358,7 @@ class Query(object):
         self._params['endAt'] = json.dumps(end)
         return self
 
-    def set_equal_to(self, value):
+    def equal_to(self, value):
         """Sets an equals constraint on the Query.
 
         The Query will only return child nodes whose value is equal to the specified value.
@@ -419,7 +384,7 @@ class Query(object):
             params.append('{0}={1}'.format(key, self._params[key]))
         return '&'.join(params)
 
-    def run(self):
+    def get(self):
         """Executes this Query and returns the results.
 
         The results will be returned as a sorted list or an OrderedDict, except in the case of
@@ -587,18 +552,19 @@ class _Client(object):
     @classmethod
     def from_app(cls, app):
         """Created a new _Client for a given App"""
-        url = app.options.get('dbURL')
+        url = app.options.get('databaseURL')
         if not url or not isinstance(url, six.string_types):
             raise ValueError(
-                'Invalid dbURL option: "{0}". dbURL must be a non-empty URL string.'.format(url))
+                'Invalid databaseURL option: "{0}". databaseURL must be a non-empty URL '
+                'string.'.format(url))
         parsed = urllib.parse.urlparse(url)
         if parsed.scheme != 'https':
             raise ValueError(
-                'Invalid dbURL option: "{0}". dbURL must be an HTTPS URL.'.format(url))
+                'Invalid databaseURL option: "{0}". databaseURL must be an HTTPS URL.'.format(url))
         elif not parsed.netloc.endswith('.firebaseio.com'):
             raise ValueError(
-                'Invalid dbURL option: "{0}". dbURL must be a valid URL to a Firebase Realtime '
-                'Database instance.'.format(url))
+                'Invalid databaseURL option: "{0}". databaseURL must be a valid URL to a '
+                'Firebase Realtime Database instance.'.format(url))
         return _Client('https://{0}'.format(parsed.netloc), _OAuth(app), requests.Session())
 
     def request(self, method, urlpath, **kwargs):
@@ -668,5 +634,6 @@ class _OAuth(requests.auth.AuthBase):
         self._app = app
 
     def __call__(self, req):
-        req.headers['Authorization'] = 'Bearer {0}'.format(self._app.get_token())
+        # pylint: disable=protected-access
+        req.headers['Authorization'] = 'Bearer {0}'.format(self._app._get_token())
         return req

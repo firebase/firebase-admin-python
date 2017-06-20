@@ -127,7 +127,7 @@ class TestReference(object):
 
     @classmethod
     def setup_class(cls):
-        firebase_admin.initialize_app(MockCredential(), {'dbURL' : cls.test_url})
+        firebase_admin.initialize_app(MockCredential(), {'databaseURL' : cls.test_url})
 
     @classmethod
     def teardown_class(cls):
@@ -141,9 +141,9 @@ class TestReference(object):
 
     @pytest.mark.parametrize('data', valid_values)
     def test_get_value(self, data):
-        ref = db.get_reference('/test')
+        ref = db.reference('/test')
         recorder = self.instrument(ref, json.dumps(data))
-        assert ref.get_value() == data
+        assert ref.get() == data
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
@@ -151,11 +151,11 @@ class TestReference(object):
 
     @pytest.mark.parametrize('data', valid_values)
     def test_order_by_query(self, data):
-        ref = db.get_reference('/test')
+        ref = db.reference('/test')
         recorder = self.instrument(ref, json.dumps(data))
         query = ref.order_by_child('foo')
         query_str = 'orderBy=%22foo%22'
-        assert query.run() == data
+        assert query.get() == data
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
@@ -163,12 +163,12 @@ class TestReference(object):
 
     @pytest.mark.parametrize('data', valid_values)
     def test_limit_query(self, data):
-        ref = db.get_reference('/test')
+        ref = db.reference('/test')
         recorder = self.instrument(ref, json.dumps(data))
         query = ref.order_by_child('foo')
-        query.set_limit_first(100)
+        query.limit_to_first(100)
         query_str = 'limitToFirst=100&orderBy=%22foo%22'
-        assert query.run() == data
+        assert query.get() == data
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
@@ -176,91 +176,50 @@ class TestReference(object):
 
     @pytest.mark.parametrize('data', valid_values)
     def test_range_query(self, data):
-        ref = db.get_reference('/test')
+        ref = db.reference('/test')
         recorder = self.instrument(ref, json.dumps(data))
         query = ref.order_by_child('foo')
-        query.set_start_at(100)
-        query.set_end_at(200)
+        query.start_at(100)
+        query.end_at(200)
         query_str = 'endAt=200&orderBy=%22foo%22&startAt=100'
-        assert query.run() == data
+        assert query.get() == data
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
-    def test_get_priority(self):
-        ref = db.get_reference('/test')
-        recorder = self.instrument(ref, json.dumps('10'))
-        assert ref.get_priority() == '10'
-        assert len(recorder) == 1
-        assert recorder[0].method == 'GET'
-        assert recorder[0].url == 'https://test.firebaseio.com/test/.priority.json'
-        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
-
     @pytest.mark.parametrize('data', valid_values)
     def test_set_value(self, data):
-        ref = db.get_reference('/test')
+        ref = db.reference('/test')
         recorder = self.instrument(ref, '')
         data = {'foo' : 'bar'}
-        ref.set_value(data)
+        ref.set(data)
         assert len(recorder) == 1
         assert recorder[0].method == 'PUT'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json?print=silent'
-        assert json.loads(recorder[0].body.decode()) == data
-        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
-
-    def test_set_primitive_value_with_priority(self):
-        ref = db.get_reference('/test')
-        recorder = self.instrument(ref, '')
-        ref.set_value('foo', '10')
-        assert len(recorder) == 1
-        assert recorder[0].method == 'PUT'
-        assert recorder[0].url == 'https://test.firebaseio.com/test.json?print=silent'
-        assert json.loads(recorder[0].body.decode()) == {'.value' : 'foo', '.priority' : '10'}
-        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
-
-    @pytest.mark.parametrize('priority', [10, 10.0, True, False, 'foo', 'foo123'])
-    def test_set_value_with_priority(self, priority):
-        ref = db.get_reference('/test')
-        recorder = self.instrument(ref, '')
-        data = {'foo' : 'bar'}
-        ref.set_value(data, priority)
-        assert len(recorder) == 1
-        assert recorder[0].method == 'PUT'
-        assert recorder[0].url == 'https://test.firebaseio.com/test.json?print=silent'
-        data['.priority'] = priority
         assert json.loads(recorder[0].body.decode()) == data
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
     def test_set_none_value(self):
-        ref = db.get_reference('/test')
+        ref = db.reference('/test')
         self.instrument(ref, '')
         with pytest.raises(ValueError):
-            ref.set_value(None)
+            ref.set(None)
 
     @pytest.mark.parametrize('value', [
         _Object(), {'foo': _Object()}, [_Object()]
     ])
     def test_set_non_json_value(self, value):
-        ref = db.get_reference('/test')
+        ref = db.reference('/test')
         self.instrument(ref, '')
         with pytest.raises(TypeError):
-            ref.set_value(value)
-
-    @pytest.mark.parametrize('priority', [
-        '', list(), tuple(), dict(), _Object(), {'foo': _Object()}
-    ])
-    def test_set_invalid_priority(self, priority):
-        ref = db.get_reference('/test')
-        self.instrument(ref, '')
-        with pytest.raises(ValueError):
-            ref.set_value('', priority)
+            ref.set(value)
 
     def test_update_children(self):
-        ref = db.get_reference('/test')
+        ref = db.reference('/test')
         data = {'foo' : 'bar'}
         recorder = self.instrument(ref, json.dumps(data))
-        ref.update_children(data)
+        ref.update(data)
         assert len(recorder) == 1
         assert recorder[0].method == 'PATCH'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json?print=silent'
@@ -268,24 +227,24 @@ class TestReference(object):
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
     def test_update_children_default(self):
-        ref = db.get_reference('/test')
+        ref = db.reference('/test')
         recorder = self.instrument(ref, '')
         with pytest.raises(ValueError):
-            ref.update_children({})
+            ref.update({})
         assert len(recorder) is 0
 
     @pytest.mark.parametrize('update', [
         None, {}, {None:'foo'}, {'foo': None}, '', 'foo', 0, 1, list(), tuple()
     ])
     def test_set_invalid_update(self, update):
-        ref = db.get_reference('/test')
+        ref = db.reference('/test')
         self.instrument(ref, '')
         with pytest.raises(ValueError):
-            ref.update_children(update)
+            ref.update(update)
 
     @pytest.mark.parametrize('data', valid_values)
     def test_push(self, data):
-        ref = db.get_reference('/test')
+        ref = db.reference('/test')
         recorder = self.instrument(ref, json.dumps({'name' : 'testkey'}))
         child = ref.push(data)
         assert isinstance(child, db.Reference)
@@ -297,7 +256,7 @@ class TestReference(object):
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
     def test_push_default(self):
-        ref = db.get_reference('/test')
+        ref = db.reference('/test')
         recorder = self.instrument(ref, json.dumps({'name' : 'testkey'}))
         assert ref.push().key == 'testkey'
         assert len(recorder) == 1
@@ -307,13 +266,13 @@ class TestReference(object):
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
     def test_push_none_value(self):
-        ref = db.get_reference('/test')
+        ref = db.reference('/test')
         self.instrument(ref, '')
         with pytest.raises(ValueError):
             ref.push(None)
 
     def test_delete(self):
-        ref = db.get_reference('/test')
+        ref = db.reference('/test')
         recorder = self.instrument(ref, '')
         ref.delete()
         assert len(recorder) == 1
@@ -322,13 +281,13 @@ class TestReference(object):
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
     def test_get_root_reference(self):
-        ref = db.get_reference()
+        ref = db.reference()
         assert ref.key is None
         assert ref.path == '/'
 
     @pytest.mark.parametrize('path, expected', TestReferencePath.valid_paths.items())
     def test_get_reference(self, path, expected):
-        ref = db.get_reference(path)
+        ref = db.reference(path)
         fullstr, key, parent = expected
         assert ref.path == fullstr
         assert ref.key == key
@@ -339,18 +298,18 @@ class TestReference(object):
 
     @pytest.mark.parametrize('error_code', [400, 401, 500])
     def test_server_error(self, error_code):
-        ref = db.get_reference('/test')
+        ref = db.reference('/test')
         self.instrument(ref, json.dumps({'error' : 'json error message'}), error_code)
         with pytest.raises(db.ApiCallError) as excinfo:
-            ref.get_value()
+            ref.get()
         assert 'Reason: json error message' in str(excinfo.value)
 
     @pytest.mark.parametrize('error_code', [400, 401, 500])
     def test_other_error(self, error_code):
-        ref = db.get_reference('/test')
+        ref = db.reference('/test')
         self.instrument(ref, 'custom error message', error_code)
         with pytest.raises(db.ApiCallError) as excinfo:
-            ref.get_value()
+            ref.get()
         assert 'Reason: custom error message' in str(excinfo.value)
 
 class TestDatabseInitialization(object):
@@ -361,19 +320,19 @@ class TestDatabseInitialization(object):
 
     def test_no_app(self):
         with pytest.raises(ValueError):
-            db.get_reference()
+            db.reference()
 
     def test_no_db_url(self):
         firebase_admin.initialize_app(credentials.Base())
         with pytest.raises(ValueError):
-            db.get_reference()
+            db.reference()
 
     @pytest.mark.parametrize('url', [
         'https://test.firebaseio.com', 'https://test.firebaseio.com/'
     ])
     def test_valid_db_url(self, url):
-        firebase_admin.initialize_app(credentials.Base(), {'dbURL' : url})
-        ref = db.get_reference()
+        firebase_admin.initialize_app(credentials.Base(), {'databaseURL' : url})
+        ref = db.reference()
         assert ref._client._url == 'https://test.firebaseio.com'
 
     @pytest.mark.parametrize('url', [
@@ -381,31 +340,29 @@ class TestDatabseInitialization(object):
         True, False, 1, 0, dict(), list(), tuple(),
     ])
     def test_invalid_db_url(self, url):
-        firebase_admin.initialize_app(credentials.Base(), {'dbURL' : url})
+        firebase_admin.initialize_app(credentials.Base(), {'databaseURL' : url})
         with pytest.raises(ValueError):
-            db.get_reference()
+            db.reference()
 
     def test_app_delete(self):
         app = firebase_admin.initialize_app(
-            credentials.Base(), {'dbURL' : 'https://test.firebaseio.com'})
-        ref = db.get_reference()
+            credentials.Base(), {'databaseURL' : 'https://test.firebaseio.com'})
+        ref = db.reference()
         assert ref is not None
         assert ref._client._auth is not None
         firebase_admin.delete_app(app)
         assert ref._client._auth is None
         with pytest.raises(ValueError):
-            db.get_reference()
+            db.reference()
 
 
-@pytest.fixture(params=['foo', '$key', '$value', '$priority'])
+@pytest.fixture(params=['foo', '$key', '$value'])
 def initquery(request):
     ref = db.Reference(path='foo')
     if request.param == '$key':
         return ref.order_by_key(), request.param
     elif request.param == '$value':
         return ref.order_by_value(), request.param
-    elif request.param == '$priority':
-        return ref.order_by_priority(), request.param
     else:
         return ref.order_by_child(request.param), request.param
 
@@ -437,7 +394,7 @@ class TestQuery(object):
     @pytest.mark.parametrize('path, expected', valid_paths.items())
     def test_filter_by_valid_path(self, path, expected):
         query = self.ref.order_by_child(path)
-        query.set_equal_to(10)
+        query.equal_to(10)
         assert query.querystr == 'equalTo=10&orderBy="{0}"'.format(expected)
 
     def test_order_by_key(self):
@@ -446,7 +403,7 @@ class TestQuery(object):
 
     def test_key_filter(self):
         query = self.ref.order_by_key()
-        query.set_equal_to(10)
+        query.equal_to(10)
         assert query.querystr == 'equalTo=10&orderBy="$key"'
 
     def test_order_by_value(self):
@@ -455,75 +412,66 @@ class TestQuery(object):
 
     def test_value_filter(self):
         query = self.ref.order_by_value()
-        query.set_equal_to(10)
+        query.equal_to(10)
         assert query.querystr == 'equalTo=10&orderBy="$value"'
-
-    def test_order_by_priority(self):
-        query = self.ref.order_by_priority()
-        assert query.querystr == 'orderBy="$priority"'
-
-    def test_priority_filter(self):
-        query = self.ref.order_by_priority()
-        query.set_equal_to(10)
-        assert query.querystr == 'equalTo=10&orderBy="$priority"'
 
     def test_multiple_limits(self):
         query = self.ref.order_by_child('foo')
-        query.set_limit_first(1)
+        query.limit_to_first(1)
         with pytest.raises(ValueError):
-            query.set_limit_last(2)
+            query.limit_to_last(2)
 
         query = self.ref.order_by_child('foo')
-        query.set_limit_last(2)
+        query.limit_to_last(2)
         with pytest.raises(ValueError):
-            query.set_limit_first(1)
+            query.limit_to_first(1)
 
     @pytest.mark.parametrize('limit', [None, -1, 'foo', 1.2, list(), dict(), tuple()])
     def test_invalid_limit(self, limit):
         query = self.ref.order_by_child('foo')
         with pytest.raises(ValueError):
-            query.set_limit_first(limit)
+            query.limit_to_first(limit)
         with pytest.raises(ValueError):
-            query.set_limit_last(limit)
+            query.limit_to_last(limit)
 
     def test_start_at_none(self):
         query = self.ref.order_by_child('foo')
         with pytest.raises(ValueError):
-            query.set_start_at(None)
+            query.start_at(None)
 
     def test_end_at_none(self):
         query = self.ref.order_by_child('foo')
         with pytest.raises(ValueError):
-            query.set_end_at(None)
+            query.end_at(None)
 
     def test_equal_to_none(self):
         query = self.ref.order_by_child('foo')
         with pytest.raises(ValueError):
-            query.set_equal_to(None)
+            query.equal_to(None)
 
     def test_range_query(self, initquery):
         query, order_by = initquery
-        query.set_start_at(1)
-        query.set_equal_to(2)
-        query.set_end_at(3)
+        query.start_at(1)
+        query.equal_to(2)
+        query.end_at(3)
         assert query.querystr == 'endAt=3&equalTo=2&orderBy="{0}"&startAt=1'.format(order_by)
 
     def test_limit_first_query(self, initquery):
         query, order_by = initquery
-        query.set_limit_first(1)
+        query.limit_to_first(1)
         assert query.querystr == 'limitToFirst=1&orderBy="{0}"'.format(order_by)
 
     def test_limit_last_query(self, initquery):
         query, order_by = initquery
-        query.set_limit_last(1)
+        query.limit_to_last(1)
         assert query.querystr == 'limitToLast=1&orderBy="{0}"'.format(order_by)
 
     def test_all_in(self, initquery):
         query, order_by = initquery
-        query.set_start_at(1)
-        query.set_equal_to(2)
-        query.set_end_at(3)
-        query.set_limit_first(10)
+        query.start_at(1)
+        query.equal_to(2)
+        query.end_at(3)
+        query.limit_to_first(10)
         expected = 'endAt=3&equalTo=2&limitToFirst=10&orderBy="{0}"&startAt=1'.format(order_by)
         assert query.querystr == expected
 

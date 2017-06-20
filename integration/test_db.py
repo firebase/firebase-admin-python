@@ -24,7 +24,7 @@ from tests import testutils
 def _update_rules():
     with open(testutils.resource_filename('dinosaurs_index.json')) as index_file:
         index = json.load(index_file)
-    client = db.get_reference()._client
+    client = db.reference()._client
     rules = client.request('get', '/.settings/rules.json')
     existing = rules.get('rules', dict()).get('_adminsdk')
     if existing != index:
@@ -47,8 +47,8 @@ def testref():
         Reference: A reference to the test dinosaur database.
     """
     _update_rules()
-    ref = db.get_reference('_adminsdk/python/dinodb')
-    ref.set_value(testdata())
+    ref = db.reference('_adminsdk/python/dinodb')
+    ref.set(testdata())
     return ref
 
 
@@ -74,22 +74,22 @@ class TestReadOperations(object):
     """Test cases for reading node values."""
 
     def test_get_value(self, testref, testdata):
-        value = testref.get_value()
+        value = testref.get()
         assert isinstance(value, dict)
         assert testdata == value
 
     def test_get_child_value(self, testref, testdata):
-        value = testref.child('dinosaurs').get_value()
+        value = testref.child('dinosaurs').get()
         assert isinstance(value, dict)
         assert testdata['dinosaurs'] == value
 
     def test_get_grandchild_value(self, testref, testdata):
-        value = testref.child('dinosaurs').child('lambeosaurus').get_value()
+        value = testref.child('dinosaurs').child('lambeosaurus').get()
         assert isinstance(value, dict)
         assert testdata['dinosaurs']['lambeosaurus'] == value
 
     def test_get_nonexisting_child_value(self, testref):
-        assert testref.child('none_existing').get_value() is None
+        assert testref.child('none_existing').get() is None
 
 
 class TestWriteOperations(object):
@@ -99,62 +99,47 @@ class TestWriteOperations(object):
         python = testref.parent
         ref = python.child('users').push()
         assert ref.path == '/_adminsdk/python/users/' + ref.key
-        assert ref.get_value() == ''
+        assert ref.get() == ''
 
     def test_push_with_value(self, testref):
         python = testref.parent
         value = {'name' : 'Luis Alvarez', 'since' : 1911}
         ref = python.child('users').push(value)
         assert ref.path == '/_adminsdk/python/users/' + ref.key
-        assert ref.get_value() == value
+        assert ref.get() == value
 
     def test_set_primitive_value(self, testref):
         python = testref.parent
         ref = python.child('users').push()
-        ref.set_value('value')
-        assert ref.get_value() == 'value'
+        ref.set('value')
+        assert ref.get() == 'value'
 
     def test_set_complex_value(self, testref):
         python = testref.parent
         value = {'name' : 'Mary Anning', 'since' : 1799}
         ref = python.child('users').push()
-        ref.set_value(value)
-        assert ref.get_value() == value
-
-    def test_set_primitive_value_with_priority(self, testref):
-        python = testref.parent
-        ref = python.child('users').push()
-        ref.set_value('value', 1)
-        assert ref.get_value() == 'value'
-        assert ref.get_priority() == 1
-
-    def test_set_complex_value_with_priority(self, testref):
-        python = testref.parent
-        value = {'name' : 'Barnum Brown', 'since' : 1873}
-        ref = python.child('users').push()
-        ref.set_value(value, 2)
-        assert ref.get_value() == value
-        assert ref.get_priority() == 2
+        ref.set(value)
+        assert ref.get() == value
 
     def test_update_children(self, testref):
         python = testref.parent
         value = {'name' : 'Robert Bakker', 'since' : 1945}
         ref = python.child('users').push()
-        ref.update_children(value)
-        assert ref.get_value() == value
+        ref.update(value)
+        assert ref.get() == value
 
     def test_update_children_with_existing_values(self, testref):
         python = testref.parent
         ref = python.child('users').push({'name' : 'Edwin Colbert', 'since' : 1900})
-        ref.update_children({'since' : 1905})
-        assert ref.get_value() == {'name' : 'Edwin Colbert', 'since' : 1905}
+        ref.update({'since' : 1905})
+        assert ref.get() == {'name' : 'Edwin Colbert', 'since' : 1905}
 
     def test_delete(self, testref):
         python = testref.parent
         ref = python.child('users').push('foo')
-        assert ref.get_value() == 'foo'
+        assert ref.get() == 'foo'
         ref.delete()
-        assert ref.get_value() is None
+        assert ref.get() is None
 
 
 class TestAdvancedQueries(object):
@@ -166,7 +151,7 @@ class TestAdvancedQueries(object):
     ]
 
     def test_order_by_key(self, testref):
-        value = testref.child('dinosaurs').order_by_key().run()
+        value = testref.child('dinosaurs').order_by_key().get()
         assert isinstance(value, collections.OrderedDict)
         assert list(value.keys()) == [
             'bruhathkayosaurus', 'lambeosaurus', 'linhenykus',
@@ -174,77 +159,64 @@ class TestAdvancedQueries(object):
         ]
 
     def test_order_by_value(self, testref):
-        value = testref.child('scores').order_by_value().run()
+        value = testref.child('scores').order_by_value().get()
         assert list(value.keys()) == [
             'stegosaurus', 'lambeosaurus', 'triceratops',
             'bruhathkayosaurus', 'linhenykus', 'pterodactyl',
         ]
 
     def test_order_by_child(self, testref):
-        value = testref.child('dinosaurs').order_by_child('height').run()
+        value = testref.child('dinosaurs').order_by_child('height').get()
         assert list(value.keys()) == self.height_sorted
 
     def test_limit_first(self, testref):
-        value = testref.child('dinosaurs').order_by_child('height').set_limit_first(2).run()
+        value = testref.child('dinosaurs').order_by_child('height').limit_to_first(2).get()
         assert list(value.keys()) == self.height_sorted[:2]
 
     def test_limit_first_all(self, testref):
-        value = testref.child('dinosaurs').order_by_child('height').set_limit_first(10).run()
+        value = testref.child('dinosaurs').order_by_child('height').limit_to_first(10).get()
         assert list(value.keys()) == self.height_sorted
 
     def test_limit_last(self, testref):
-        value = testref.child('dinosaurs').order_by_child('height').set_limit_last(2).run()
+        value = testref.child('dinosaurs').order_by_child('height').limit_to_last(2).get()
         assert list(value.keys()) == self.height_sorted[-2:]
 
     def test_limit_last_all(self, testref):
-        value = testref.child('dinosaurs').order_by_child('height').set_limit_last(10).run()
+        value = testref.child('dinosaurs').order_by_child('height').limit_to_last(10).get()
         assert list(value.keys()) == self.height_sorted
 
     def test_start_at(self, testref):
-        value = testref.child('dinosaurs').order_by_child('height').set_start_at(3.5).run()
+        value = testref.child('dinosaurs').order_by_child('height').start_at(3.5).get()
         assert list(value.keys()) == self.height_sorted[-2:]
 
     def test_end_at(self, testref):
-        value = testref.child('dinosaurs').order_by_child('height').set_end_at(3.5).run()
+        value = testref.child('dinosaurs').order_by_child('height').end_at(3.5).get()
         assert list(value.keys()) == self.height_sorted[:4]
 
     def test_start_and_end_at(self, testref):
         value = testref.child('dinosaurs').order_by_child('height') \
-            .set_start_at(2.5).set_end_at(5).run()
+            .start_at(2.5).end_at(5).get()
         assert list(value.keys()) == self.height_sorted[-3:-1]
 
     def test_equal_to(self, testref):
-        value = testref.child('dinosaurs').order_by_child('height').set_equal_to(0.6).run()
+        value = testref.child('dinosaurs').order_by_child('height').equal_to(0.6).get()
         assert list(value.keys()) == self.height_sorted[:2]
 
     def test_order_by_nested_child(self, testref):
-        value = testref.child('dinosaurs').order_by_child('ratings/pos').set_start_at(4).run()
+        value = testref.child('dinosaurs').order_by_child('ratings/pos').start_at(4).get()
         assert len(value) == 3
         assert 'pterodactyl' in value
         assert 'stegosaurus' in value
         assert 'triceratops' in value
 
     def test_filter_by_key(self, testref):
-        value = testref.child('dinosaurs').order_by_key().set_limit_first(2).run()
+        value = testref.child('dinosaurs').order_by_key().limit_to_first(2).get()
         assert len(value) == 2
         assert 'bruhathkayosaurus' in value
         assert 'lambeosaurus' in value
 
     def test_filter_by_value(self, testref):
-        value = testref.child('scores').order_by_value().set_limit_last(2).run()
+        value = testref.child('scores').order_by_value().limit_to_last(2).get()
         assert len(value) == 2
         assert 'pterodactyl' in value
         assert 'linhenykus' in value
-
-    def test_order_by_priority(self, testref):
-        python = testref.parent
-        museums = python.child('museums').push()
-        values = {'Berlin' : 1, 'Chicago' : 2, 'Brussels' : 3}
-        for name, priority in values.items():
-            ref = museums.push()
-            ref.set_value(name, priority)
-        result = museums.order_by_priority().set_limit_last(2).run()
-        assert isinstance(result, dict)
-        assert len(result) == 2
-        assert 'Brussels' in result.values()
-        assert 'Chicago' in result.values()

@@ -192,7 +192,6 @@ class TestReference(object):
     def test_set_value(self, data):
         ref = db.reference('/test')
         recorder = self.instrument(ref, '')
-        data = {'foo' : 'bar'}
         ref.set(data)
         assert len(recorder) == 1
         assert recorder[0].method == 'PUT'
@@ -312,6 +311,79 @@ class TestReference(object):
             ref.get()
         assert 'Reason: custom error message' in str(excinfo.value)
 
+
+class TestReferenceWithAuthOverride(object):
+    """Test cases for database queries via References."""
+
+    test_url = 'https://test.firebaseio.com'
+    valid_values = [
+        '', 'foo', 0, 1, 100, 1.2, True, False, [], [1, 2], {}, {'foo' : 'bar'}
+    ]
+    encoded_override = '%7B%22uid%22%3A%22user1%22%7D'
+
+    @classmethod
+    def setup_class(cls):
+        firebase_admin.initialize_app(MockCredential(), {
+            'databaseURL' : cls.test_url,
+            'databaseAuthVariableOverride' : {'uid':'user1'}
+        })
+
+    @classmethod
+    def teardown_class(cls):
+        testutils.cleanup_apps()
+
+    def instrument(self, ref, payload, status=200):
+        recorder = []
+        adapter = MockAdapter(payload, status, recorder)
+        ref._client._session.mount(self.test_url, adapter)
+        return recorder
+
+    def test_get_value(self):
+        ref = db.reference('/test')
+        recorder = self.instrument(ref, json.dumps('data'))
+        query_str = 'auth_variable_override={0}'.format(self.encoded_override)
+        assert ref.get() == 'data'
+        assert len(recorder) == 1
+        assert recorder[0].method == 'GET'
+        assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
+        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+
+    def test_set_value(self):
+        ref = db.reference('/test')
+        recorder = self.instrument(ref, '')
+        data = {'foo' : 'bar'}
+        ref.set(data)
+        query_str = 'print=silent&auth_variable_override={0}'.format(self.encoded_override)
+        assert len(recorder) == 1
+        assert recorder[0].method == 'PUT'
+        assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
+        assert json.loads(recorder[0].body.decode()) == data
+        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+
+    def test_order_by_query(self):
+        ref = db.reference('/test')
+        recorder = self.instrument(ref, json.dumps('data'))
+        query = ref.order_by_child('foo')
+        query_str = 'orderBy=%22foo%22&auth_variable_override={0}'.format(self.encoded_override)
+        assert query.get() == 'data'
+        assert len(recorder) == 1
+        assert recorder[0].method == 'GET'
+        assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
+        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+
+    def test_range_query(self):
+        ref = db.reference('/test')
+        recorder = self.instrument(ref, json.dumps('data'))
+        query = ref.order_by_child('foo').start_at(1).end_at(10)
+        query_str = ('endAt=10&orderBy=%22foo%22&startAt=1&'
+                     'auth_variable_override={0}'.format(self.encoded_override))
+        assert query.get() == 'data'
+        assert len(recorder) == 1
+        assert recorder[0].method == 'GET'
+        assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
+        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+
+
 class TestDatabseInitialization(object):
     """Test cases for database initialization."""
 
@@ -334,6 +406,7 @@ class TestDatabseInitialization(object):
         firebase_admin.initialize_app(credentials.Base(), {'databaseURL' : url})
         ref = db.reference()
         assert ref._client._url == 'https://test.firebaseio.com'
+        assert ref._client._auth_override is None
 
     @pytest.mark.parametrize('url', [
         None, '', 'foo', 'http://test.firebaseio.com', 'https://google.com',
@@ -341,6 +414,25 @@ class TestDatabseInitialization(object):
     ])
     def test_invalid_db_url(self, url):
         firebase_admin.initialize_app(credentials.Base(), {'databaseURL' : url})
+        with pytest.raises(ValueError):
+            db.reference()
+
+    def test_valid_auth_override(self):
+        override = {'uid':'user1'}
+        firebase_admin.initialize_app(credentials.Base(), {
+            'databaseURL' : 'https://test.firebaseio.com',
+            'databaseAuthVariableOverride': override
+        })
+        ref = db.reference()
+        assert ref._client._url == 'https://test.firebaseio.com'
+        assert ref._client._auth_override == json.dumps(override, separators=(',', ':'))
+
+    @pytest.mark.parametrize('override', ['', 'foo', {}, 0, 1, True, False, list(), tuple()])
+    def test_invalid_auth_override(self, override):
+        firebase_admin.initialize_app(credentials.Base(), {
+            'databaseURL' : 'https://test.firebaseio.com',
+            'databaseAuthVariableOverride': override
+        })
         with pytest.raises(ValueError):
             db.reference()
 
@@ -389,31 +481,31 @@ class TestQuery(object):
     @pytest.mark.parametrize('path, expected', valid_paths.items())
     def test_order_by_valid_path(self, path, expected):
         query = self.ref.order_by_child(path)
-        assert query.querystr == 'orderBy="{0}"'.format(expected)
+        assert query._querystr == 'orderBy="{0}"'.format(expected)
 
     @pytest.mark.parametrize('path, expected', valid_paths.items())
     def test_filter_by_valid_path(self, path, expected):
         query = self.ref.order_by_child(path)
         query.equal_to(10)
-        assert query.querystr == 'equalTo=10&orderBy="{0}"'.format(expected)
+        assert query._querystr == 'equalTo=10&orderBy="{0}"'.format(expected)
 
     def test_order_by_key(self):
         query = self.ref.order_by_key()
-        assert query.querystr == 'orderBy="$key"'
+        assert query._querystr == 'orderBy="$key"'
 
     def test_key_filter(self):
         query = self.ref.order_by_key()
         query.equal_to(10)
-        assert query.querystr == 'equalTo=10&orderBy="$key"'
+        assert query._querystr == 'equalTo=10&orderBy="$key"'
 
     def test_order_by_value(self):
         query = self.ref.order_by_value()
-        assert query.querystr == 'orderBy="$value"'
+        assert query._querystr == 'orderBy="$value"'
 
     def test_value_filter(self):
         query = self.ref.order_by_value()
         query.equal_to(10)
-        assert query.querystr == 'equalTo=10&orderBy="$value"'
+        assert query._querystr == 'equalTo=10&orderBy="$value"'
 
     def test_multiple_limits(self):
         query = self.ref.order_by_child('foo')
@@ -454,17 +546,17 @@ class TestQuery(object):
         query.start_at(1)
         query.equal_to(2)
         query.end_at(3)
-        assert query.querystr == 'endAt=3&equalTo=2&orderBy="{0}"&startAt=1'.format(order_by)
+        assert query._querystr == 'endAt=3&equalTo=2&orderBy="{0}"&startAt=1'.format(order_by)
 
     def test_limit_first_query(self, initquery):
         query, order_by = initquery
         query.limit_to_first(1)
-        assert query.querystr == 'limitToFirst=1&orderBy="{0}"'.format(order_by)
+        assert query._querystr == 'limitToFirst=1&orderBy="{0}"'.format(order_by)
 
     def test_limit_last_query(self, initquery):
         query, order_by = initquery
         query.limit_to_last(1)
-        assert query.querystr == 'limitToLast=1&orderBy="{0}"'.format(order_by)
+        assert query._querystr == 'limitToLast=1&orderBy="{0}"'.format(order_by)
 
     def test_all_in(self, initquery):
         query, order_by = initquery
@@ -473,7 +565,7 @@ class TestQuery(object):
         query.end_at(3)
         query.limit_to_first(10)
         expected = 'endAt=3&equalTo=2&limitToFirst=10&orderBy="{0}"&startAt=1'.format(order_by)
-        assert query.querystr == expected
+        assert query._querystr == expected
 
 
 class TestSorter(object):

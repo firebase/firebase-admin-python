@@ -1,0 +1,14 @@
+{
+    "python": {
+        "protected": {
+            "$uid": {
+                ".read": "true",
+                ".write": "$uid === auth.uid"
+            }
+        },
+        "admin": {
+            ".read": "false",
+            ".write": "false"
+        }
+    }
+}

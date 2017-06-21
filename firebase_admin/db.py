@@ -378,7 +378,7 @@ class Query(object):
         return self
 
     @property
-    def querystr(self):
+    def _querystr(self):
         params = []
         for key in sorted(self._params):
             params.append('{0}={1}'.format(key, self._params[key]))
@@ -396,7 +396,7 @@ class Query(object):
         Raises:
           ApiCallError: If an error occurs while communicating with the remote database server.
         """
-        result = self._client.request('get', '{0}?{1}'.format(self._pathurl, self.querystr))
+        result = self._client.request('get', '{0}?{1}'.format(self._pathurl, self._querystr))
         if isinstance(result, (dict, list)) and self._order_by != '$priority':
             return _Sorter(result, self._order_by).get()
         return result
@@ -544,10 +544,11 @@ class _Client(object):
     marshalling and unmarshalling of JSON data.
     """
 
-    def __init__(self, url=None, auth=None, session=None):
+    def __init__(self, url=None, auth=None, session=None, auth_override=None):
         self._url = url
         self._auth = auth
         self._session = session
+        self._auth_override = auth_override
 
     @classmethod
     def from_app(cls, app):
@@ -565,7 +566,15 @@ class _Client(object):
             raise ValueError(
                 'Invalid databaseURL option: "{0}". databaseURL must be a valid URL to a '
                 'Firebase Realtime Database instance.'.format(url))
-        return _Client('https://{0}'.format(parsed.netloc), _OAuth(app), requests.Session())
+
+        auth_override = app.options.get('databaseAuthVariableOverride')
+        if auth_override is not None:
+            if not isinstance(auth_override, dict) or len(auth_override) is 0:
+                raise ValueError('Invalid databaseAuthVariableOverride option: "{0}". Override '
+                                 'value must be a non-empty dict.'.format(auth_override))
+            auth_override = json.dumps(auth_override, separators=(',', ':'))
+        return _Client('https://{0}'.format(parsed.netloc), _OAuth(app),
+                       requests.Session(), auth_override)
 
     def request(self, method, urlpath, **kwargs):
         return self._do_request(method, urlpath, **kwargs).json()
@@ -591,6 +600,10 @@ class _Client(object):
         Raises:
           ApiCallError: If an error occurs while making the HTTP call.
         """
+        if self._auth_override:
+            params = kwargs.get('params', {})
+            params['auth_variable_override'] = self._auth_override
+            kwargs['params'] = params
         try:
             resp = self._session.request(method, self._url + urlpath, auth=self._auth, **kwargs)
             resp.raise_for_status()

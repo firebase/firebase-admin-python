@@ -18,17 +18,17 @@ import json
 
 import pytest
 
+import firebase_admin
 from firebase_admin import db
+from integration import conftest
 from tests import testutils
 
-def _update_rules():
-    with open(testutils.resource_filename('dinosaurs_index.json')) as index_file:
-        index = json.load(index_file)
+def _update_rules(new_rules):
     client = db.reference()._client
     rules = client.request('get', '/.settings/rules.json')
     existing = rules.get('rules', dict()).get('_adminsdk')
-    if existing != index:
-        rules['rules']['_adminsdk'] = index
+    if existing != new_rules:
+        rules['rules']['_adminsdk'] = new_rules
         client.request('put', '/.settings/rules.json', json=rules)
 
 @pytest.fixture(scope='module')
@@ -46,7 +46,9 @@ def testref():
     Returns:
         Reference: A reference to the test dinosaur database.
     """
-    _update_rules()
+    with open(testutils.resource_filename('dinosaurs_index.json')) as index_file:
+        index = json.load(index_file)
+    _update_rules(index)
     ref = db.reference('_adminsdk/python/dinodb')
     ref.set(testdata())
     return ref
@@ -220,3 +222,67 @@ class TestAdvancedQueries(object):
         assert len(value) == 2
         assert 'pterodactyl' in value
         assert 'linhenykus' in value
+
+
+@pytest.fixture(scope='module')
+def override_app(request):
+    with open(testutils.resource_filename('acl.json')) as acl_file:
+        acl = json.load(acl_file)
+    _update_rules(acl)
+    cred, project_id = conftest.integration_conf(request)
+    ops = {
+        'databaseURL' : 'https://{0}.firebaseio.com'.format(project_id),
+        'databaseAuthVariableOverride' : {'uid' : 'user1'}
+    }
+    app = firebase_admin.initialize_app(cred, ops, 'db-override')
+    yield app
+    firebase_admin.delete_app(app)
+
+
+class TestAuthVariableOverride(object):
+    """Test cases for database auth variable overrides."""
+
+    def init_ref(self, path):
+        admin_ref = db.reference(path)
+        admin_ref.set('test')
+        assert admin_ref.get() == 'test'
+
+    def test_no_access(self, override_app):
+        path = '_adminsdk/python/admin'
+        self.init_ref(path)
+        user_ref = db.reference(path, override_app)
+        with pytest.raises(db.ApiCallError) as excinfo:
+            assert user_ref.get() == 'test'
+        assert isinstance(excinfo.value, db.ApiCallError)
+        assert 'Reason: Permission denied' in excinfo.value.message
+
+        with pytest.raises(db.ApiCallError) as excinfo:
+            user_ref.set('test2')
+        assert isinstance(excinfo.value, db.ApiCallError)
+        assert 'Reason: Permission denied' in excinfo.value.message
+
+    def test_read(self, override_app):
+        path = '_adminsdk/python/protected/user2'
+        self.init_ref(path)
+        user_ref = db.reference(path, override_app)
+        assert user_ref.get() == 'test'
+        with pytest.raises(db.ApiCallError) as excinfo:
+            user_ref.set('test2')
+        assert isinstance(excinfo.value, db.ApiCallError)
+        assert 'Reason: Permission denied' in excinfo.value.message
+
+    def test_read_write(self, override_app):
+        path = '_adminsdk/python/protected/user1'
+        self.init_ref(path)
+        user_ref = db.reference(path, override_app)
+        assert user_ref.get() == 'test'
+        user_ref.set('test2')
+        assert user_ref.get() == 'test2'
+
+    def test_query(self, override_app):
+        path = '_adminsdk/python/dinodb/dinosaurs'
+        user_ref = db.reference(path, override_app)
+        with pytest.raises(db.ApiCallError) as excinfo:
+            user_ref.order_by_child('height').limit_to_first(2).get()
+        assert isinstance(excinfo.value, db.ApiCallError)
+        assert 'Reason: Permission denied' in excinfo.value.message

@@ -316,9 +316,6 @@ class TestReferenceWithAuthOverride(object):
     """Test cases for database queries via References."""
 
     test_url = 'https://test.firebaseio.com'
-    valid_values = [
-        '', 'foo', 0, 1, 100, 1.2, True, False, [], [1, 2], {}, {'foo' : 'bar'}
-    ]
     encoded_override = '%7B%22uid%22:%22user1%22%7D'
 
     @classmethod

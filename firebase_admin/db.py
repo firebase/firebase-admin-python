@@ -543,6 +543,19 @@ class _Client(object):
     """
 
     def __init__(self, **kwargs):
+        """Creates a new _Client from the given parameters.
+
+        This exists primarily to enable testing. For regular use, obtain _Client instances by
+        calling the from_app() class method.
+
+        Keyword Args:
+          url: Firebase Realtime Database URL.
+          auth: An instance of requests.auth.AuthBase for authenticating outgoing HTTP requests.
+          session: An HTTP session created using the the requests module.
+          auth_override: A dictionary representing auth variable overrides or None (optional).
+              Defaults to empty dict, which provides admin privileges. A None value here provides
+              un-authenticated guest privileges.
+        """
         self._url = kwargs.pop('url')
         self._auth = kwargs.pop('auth')
         self._session = kwargs.pop('session')
@@ -555,7 +568,7 @@ class _Client(object):
 
     @classmethod
     def from_app(cls, app):
-        """Created a new _Client for a given App"""
+        """Creates a new _Client for a given App"""
         url = app.options.get('databaseURL')
         if not url or not isinstance(url, six.string_types):
             raise ValueError(

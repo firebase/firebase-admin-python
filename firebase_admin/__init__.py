@@ -149,7 +149,7 @@ class _AppOptions(object):
                              'must be a dictionary.'.format(type(options)))
         self._options = options
 
-    def _get(self, key, default=None):
+    def get(self, key, default=None):
         """Returns the option identified by the provided key."""
         return self._options.get(key, default)
 

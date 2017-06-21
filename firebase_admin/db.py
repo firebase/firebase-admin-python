@@ -556,7 +556,7 @@ class _Client(object):
     @classmethod
     def from_app(cls, app):
         """Created a new _Client for a given App"""
-        url = utils.get_option(app, 'databaseURL')
+        url = app.options.get('databaseURL')
         if not url or not isinstance(url, six.string_types):
             raise ValueError(
                 'Invalid databaseURL option: "{0}". databaseURL must be a non-empty URL '
@@ -570,7 +570,7 @@ class _Client(object):
                 'Invalid databaseURL option: "{0}". databaseURL must be a valid URL to a '
                 'Firebase Realtime Database instance.'.format(url))
 
-        auth_override = utils.get_option(app, 'databaseAuthVariableOverride', {})
+        auth_override = app.options.get('databaseAuthVariableOverride', {})
         if auth_override is not None and not isinstance(auth_override, dict):
             raise ValueError('Invalid databaseAuthVariableOverride option: "{0}". Override '
                              'value must be a dict or None.'.format(auth_override))

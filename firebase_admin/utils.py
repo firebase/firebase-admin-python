@@ -32,6 +32,3 @@ def _get_initialized_app(app):
 def get_app_service(app, name, initializer):
     app = _get_initialized_app(app)
     return app._get_service(name, initializer) # pylint: disable=protected-access
-
-def get_option(app, name, default=None):
-    return app.options._get(name, default) # pylint: disable=protected-access

@@ -23,7 +23,10 @@ from firebase_admin import db
 from integration import conftest
 from tests import testutils
 
-def _update_rules(new_rules):
+@pytest.fixture(scope='module')
+def update_rules():
+    with open(testutils.resource_filename('dinosaurs_index.json')) as rules_file:
+        new_rules = json.load(rules_file)
     client = db.reference()._client
     rules = client.request('get', '/.settings/rules.json')
     existing = rules.get('rules', dict()).get('_adminsdk')
@@ -37,7 +40,7 @@ def testdata():
         return json.load(dino_file)
 
 @pytest.fixture(scope='module')
-def testref():
+def testref(update_rules):
     """Adds the necessary DB indices, and sets the initial values.
 
     This fixture is attached to the module scope, and therefore is guaranteed to run only once
@@ -46,9 +49,6 @@ def testref():
     Returns:
         Reference: A reference to the test dinosaur database.
     """
-    with open(testutils.resource_filename('dinosaurs_index.json')) as index_file:
-        index = json.load(index_file)
-    _update_rules(index)
     ref = db.reference('_adminsdk/python/dinodb')
     ref.set(testdata())
     return ref
@@ -133,11 +133,15 @@ class TestWriteOperations(object):
     def test_update_children_with_existing_values(self, testref):
         python = testref.parent
         ref = python.child('users').push({'name' : 'Edwin Colbert', 'since' : 1900})
-        ref.update({'since' : 1904})
-        assert ref.get() == {'name' : 'Edwin Colbert', 'since' : 1904}
-        nested_key = '{0}/since'.format(ref.key)
-        python.child('users').update({nested_key: 1905})
+        ref.update({'since' : 1905})
         assert ref.get() == {'name' : 'Edwin Colbert', 'since' : 1905}
+
+    def test_update_nested_children(self, testref):
+        python = testref.parent
+        ref = python.child('users').push({'name' : 'Edward Cope', 'since' : 1800})
+        nested_key = '{0}/since'.format(ref.key)
+        python.child('users').update({nested_key: 1840})
+        assert ref.get() == {'name' : 'Edward Cope', 'since' : 1840}
 
     def test_delete(self, testref):
         python = testref.parent
@@ -226,14 +230,9 @@ class TestAdvancedQueries(object):
         assert 'pterodactyl' in value
         assert 'linhenykus' in value
 
-@pytest.fixture(scope='module')
-def setup_acl():
-    with open(testutils.resource_filename('acl.json')) as acl_file:
-        acl = json.load(acl_file)
-    _update_rules(acl)
 
 @pytest.fixture(scope='module')
-def override_app(request, setup_acl):
+def override_app(request, update_rules):
     cred, project_id = conftest.integration_conf(request)
     ops = {
         'databaseURL' : 'https://{0}.firebaseio.com'.format(project_id),
@@ -244,7 +243,7 @@ def override_app(request, setup_acl):
     firebase_admin.delete_app(app)
 
 @pytest.fixture(scope='module')
-def none_override_app(request, setup_acl):
+def none_override_app(request, update_rules):
     cred, project_id = conftest.integration_conf(request)
     ops = {
         'databaseURL' : 'https://{0}.firebaseio.com'.format(project_id),

@@ -319,7 +319,7 @@ class TestReferenceWithAuthOverride(object):
     valid_values = [
         '', 'foo', 0, 1, 100, 1.2, True, False, [], [1, 2], {}, {'foo' : 'bar'}
     ]
-    encoded_override = '%7B%22uid%22%3A%22user1%22%7D'
+    encoded_override = '%7B%22uid%22:%22user1%22%7D'
 
     @classmethod
     def setup_class(cls):

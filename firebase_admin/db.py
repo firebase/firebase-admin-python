@@ -145,8 +145,7 @@ class Reference(object):
         """
         if value is None:
             raise ValueError('Value must not be None.')
-        params = collections.OrderedDict([('print', 'silent')])
-        self._client.request_oneway('put', self._add_suffix(), json=value, params=params)
+        self._client.request_oneway('put', self._add_suffix(), json=value, params='print=silent')
 
     def push(self, value=''):
         """Creates a new child node.
@@ -185,8 +184,7 @@ class Reference(object):
             raise ValueError('Value argument must be a non-empty dictionary.')
         if None in value.keys() or None in value.values():
             raise ValueError('Dictionary must not contain None keys or values.')
-        params = collections.OrderedDict([('print', 'silent')])
-        self._client.request_oneway('patch', self._add_suffix(), json=value, params=params)
+        self._client.request_oneway('patch', self._add_suffix(), json=value, params='print=silent')
 
     def delete(self):
         """Deleted this node from the database.
@@ -396,7 +394,7 @@ class Query(object):
         Raises:
           ApiCallError: If an error occurs while communicating with the remote database server.
         """
-        result = self._client.request('get', '{0}?{1}'.format(self._pathurl, self._querystr))
+        result = self._client.request('get', self._pathurl, params=self._querystr)
         if isinstance(result, (dict, list)) and self._order_by != '$priority':
             return _Sorter(result, self._order_by).get()
         return result
@@ -601,8 +599,12 @@ class _Client(object):
           ApiCallError: If an error occurs while making the HTTP call.
         """
         if self._auth_override:
-            params = kwargs.get('params', {})
-            params['auth_variable_override'] = self._auth_override
+            override_param = 'auth_variable_override={0}'.format(self._auth_override)
+            params = kwargs.get('params')
+            if params:
+                params += '&{0}'.format(override_param)
+            else:
+                params = override_param
             kwargs['params'] = params
         try:
             resp = self._session.request(method, self._url + urlpath, auth=self._auth, **kwargs)

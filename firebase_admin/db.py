@@ -145,7 +145,7 @@ class Reference(object):
         """
         if value is None:
             raise ValueError('Value must not be None.')
-        params = {'print' : 'silent'}
+        params = collections.OrderedDict([('print', 'silent')])
         self._client.request_oneway('put', self._add_suffix(), json=value, params=params)
 
     def push(self, value=''):
@@ -185,7 +185,7 @@ class Reference(object):
             raise ValueError('Value argument must be a non-empty dictionary.')
         if None in value.keys() or None in value.values():
             raise ValueError('Dictionary must not contain None keys or values.')
-        params = {'print':'silent'}
+        params = collections.OrderedDict([('print', 'silent')])
         self._client.request_oneway('patch', self._add_suffix(), json=value, params=params)
 
     def delete(self):

@@ -425,7 +425,8 @@ class TestDatabseInitialization(object):
         })
         ref = db.reference()
         assert ref._client._url == 'https://test.firebaseio.com'
-        assert ref._client._auth_override == json.dumps(override, separators=(',', ':'))
+        encoded = json.dumps(override, separators=(',', ':'))
+        assert ref._client._auth_override == 'auth_variable_override={0}'.format(encoded)
 
     @pytest.mark.parametrize('override', ['', 'foo', {}, 0, 1, True, False, list(), tuple()])
     def test_invalid_auth_override(self, override):

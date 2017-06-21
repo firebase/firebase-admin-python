@@ -546,7 +546,11 @@ class _Client(object):
         self._url = url
         self._auth = auth
         self._session = session
-        self._auth_override = auth_override
+        if auth_override:
+            encoded = json.dumps(auth_override, separators=(',', ':'))
+            self._auth_override = 'auth_variable_override={0}'.format(encoded)
+        else:
+            self._auth_override = None
 
     @classmethod
     def from_app(cls, app):
@@ -570,7 +574,6 @@ class _Client(object):
             if not isinstance(auth_override, dict) or len(auth_override) is 0:
                 raise ValueError('Invalid databaseAuthVariableOverride option: "{0}". Override '
                                  'value must be a non-empty dict.'.format(auth_override))
-            auth_override = json.dumps(auth_override, separators=(',', ':'))
         return _Client('https://{0}'.format(parsed.netloc), _OAuth(app),
                        requests.Session(), auth_override)
 
@@ -599,12 +602,11 @@ class _Client(object):
           ApiCallError: If an error occurs while making the HTTP call.
         """
         if self._auth_override:
-            override_param = 'auth_variable_override={0}'.format(self._auth_override)
             params = kwargs.get('params')
             if params:
-                params += '&{0}'.format(override_param)
+                params += '&{0}'.format(self._auth_override)
             else:
-                params = override_param
+                params = self._auth_override
             kwargs['params'] = params
         try:
             resp = self._session.request(method, self._url + urlpath, auth=self._auth, **kwargs)

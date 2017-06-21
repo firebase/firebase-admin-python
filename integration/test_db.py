@@ -133,7 +133,10 @@ class TestWriteOperations(object):
     def test_update_children_with_existing_values(self, testref):
         python = testref.parent
         ref = python.child('users').push({'name' : 'Edwin Colbert', 'since' : 1900})
-        ref.update({'since' : 1905})
+        ref.update({'since' : 1904})
+        assert ref.get() == {'name' : 'Edwin Colbert', 'since' : 1904}
+        nested_key = '{0}/since'.format(ref.key)
+        python.child('users').update({nested_key: 1905})
         assert ref.get() == {'name' : 'Edwin Colbert', 'since' : 1905}
 
     def test_delete(self, testref):
@@ -223,18 +226,31 @@ class TestAdvancedQueries(object):
         assert 'pterodactyl' in value
         assert 'linhenykus' in value
 
-
 @pytest.fixture(scope='module')
-def override_app(request):
+def setup_acl():
     with open(testutils.resource_filename('acl.json')) as acl_file:
         acl = json.load(acl_file)
     _update_rules(acl)
+
+@pytest.fixture(scope='module')
+def override_app(request, setup_acl):
     cred, project_id = conftest.integration_conf(request)
     ops = {
         'databaseURL' : 'https://{0}.firebaseio.com'.format(project_id),
         'databaseAuthVariableOverride' : {'uid' : 'user1'}
     }
     app = firebase_admin.initialize_app(cred, ops, 'db-override')
+    yield app
+    firebase_admin.delete_app(app)
+
+@pytest.fixture(scope='module')
+def none_override_app(request, setup_acl):
+    cred, project_id = conftest.integration_conf(request)
+    ops = {
+        'databaseURL' : 'https://{0}.firebaseio.com'.format(project_id),
+        'databaseAuthVariableOverride' : None
+    }
+    app = firebase_admin.initialize_app(cred, ops, 'db-none-override')
     yield app
     firebase_admin.delete_app(app)
 
@@ -247,19 +263,21 @@ class TestAuthVariableOverride(object):
         admin_ref.set('test')
         assert admin_ref.get() == 'test'
 
+    def check_permission_error(self, excinfo):
+        assert isinstance(excinfo.value, db.ApiCallError)
+        assert 'Reason: Permission denied' in str(excinfo.value)
+
     def test_no_access(self, override_app):
         path = '_adminsdk/python/admin'
         self.init_ref(path)
         user_ref = db.reference(path, override_app)
         with pytest.raises(db.ApiCallError) as excinfo:
-            assert user_ref.get() == 'test'
-        assert isinstance(excinfo.value, db.ApiCallError)
-        assert 'Reason: Permission denied' in excinfo.value.message
+            assert user_ref.get()
+        self.check_permission_error(excinfo)
 
         with pytest.raises(db.ApiCallError) as excinfo:
             user_ref.set('test2')
-        assert isinstance(excinfo.value, db.ApiCallError)
-        assert 'Reason: Permission denied' in excinfo.value.message
+        self.check_permission_error(excinfo)
 
     def test_read(self, override_app):
         path = '_adminsdk/python/protected/user2'
@@ -268,8 +286,7 @@ class TestAuthVariableOverride(object):
         assert user_ref.get() == 'test'
         with pytest.raises(db.ApiCallError) as excinfo:
             user_ref.set('test2')
-        assert isinstance(excinfo.value, db.ApiCallError)
-        assert 'Reason: Permission denied' in excinfo.value.message
+        self.check_permission_error(excinfo)
 
     def test_read_write(self, override_app):
         path = '_adminsdk/python/protected/user1'
@@ -280,9 +297,26 @@ class TestAuthVariableOverride(object):
         assert user_ref.get() == 'test2'
 
     def test_query(self, override_app):
-        path = '_adminsdk/python/dinodb/dinosaurs'
-        user_ref = db.reference(path, override_app)
+        user_ref = db.reference('_adminsdk/python/protected', override_app)
         with pytest.raises(db.ApiCallError) as excinfo:
-            user_ref.order_by_child('height').limit_to_first(2).get()
-        assert isinstance(excinfo.value, db.ApiCallError)
-        assert 'Reason: Permission denied' in excinfo.value.message
+            user_ref.order_by_key().limit_to_first(2).get()
+        self.check_permission_error(excinfo)
+
+    def test_none_auth_override(self, none_override_app):
+        path = '_adminsdk/python/public'
+        self.init_ref(path)
+        public_ref = db.reference(path, none_override_app)
+        assert public_ref.get() == 'test'
+
+        ref = db.reference('_adminsdk/python', none_override_app)
+        with pytest.raises(db.ApiCallError) as excinfo:
+            assert ref.child('protected/user1').get()
+        self.check_permission_error(excinfo)
+
+        with pytest.raises(db.ApiCallError) as excinfo:
+            assert ref.child('protected/user2').get()
+        self.check_permission_error(excinfo)
+
+        with pytest.raises(db.ApiCallError) as excinfo:
+            assert ref.child('admin').get()
+        self.check_permission_error(excinfo)

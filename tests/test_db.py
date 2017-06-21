@@ -417,18 +417,21 @@ class TestDatabseInitialization(object):
         with pytest.raises(ValueError):
             db.reference()
 
-    def test_valid_auth_override(self):
-        override = {'uid':'user1'}
+    @pytest.mark.parametrize('override', [{}, {'uid':'user1'}, None])
+    def test_valid_auth_override(self, override):
         firebase_admin.initialize_app(credentials.Base(), {
             'databaseURL' : 'https://test.firebaseio.com',
             'databaseAuthVariableOverride': override
         })
         ref = db.reference()
         assert ref._client._url == 'https://test.firebaseio.com'
-        encoded = json.dumps(override, separators=(',', ':'))
-        assert ref._client._auth_override == 'auth_variable_override={0}'.format(encoded)
+        if override == {}:
+            assert ref._client._auth_override is None
+        else:
+            encoded = json.dumps(override, separators=(',', ':'))
+            assert ref._client._auth_override == 'auth_variable_override={0}'.format(encoded)
 
-    @pytest.mark.parametrize('override', ['', 'foo', {}, 0, 1, True, False, list(), tuple()])
+    @pytest.mark.parametrize('override', ['', 'foo', 0, 1, True, False, list(), tuple()])
     def test_invalid_auth_override(self, override):
         firebase_admin.initialize_app(credentials.Base(), {
             'databaseURL' : 'https://test.firebaseio.com',

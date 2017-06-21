@@ -542,11 +542,12 @@ class _Client(object):
     marshalling and unmarshalling of JSON data.
     """
 
-    def __init__(self, url=None, auth=None, session=None, auth_override=None):
-        self._url = url
-        self._auth = auth
-        self._session = session
-        if auth_override:
+    def __init__(self, **kwargs):
+        self._url = kwargs.pop('url')
+        self._auth = kwargs.pop('auth')
+        self._session = kwargs.pop('session')
+        auth_override = kwargs.pop('auth_override', {})
+        if auth_override != {}:
             encoded = json.dumps(auth_override, separators=(',', ':'))
             self._auth_override = 'auth_variable_override={0}'.format(encoded)
         else:
@@ -555,7 +556,7 @@ class _Client(object):
     @classmethod
     def from_app(cls, app):
         """Created a new _Client for a given App"""
-        url = app.options.get('databaseURL')
+        url = utils.get_option(app, 'databaseURL')
         if not url or not isinstance(url, six.string_types):
             raise ValueError(
                 'Invalid databaseURL option: "{0}". databaseURL must be a non-empty URL '
@@ -569,13 +570,12 @@ class _Client(object):
                 'Invalid databaseURL option: "{0}". databaseURL must be a valid URL to a '
                 'Firebase Realtime Database instance.'.format(url))
 
-        auth_override = app.options.get('databaseAuthVariableOverride')
-        if auth_override is not None:
-            if not isinstance(auth_override, dict) or len(auth_override) is 0:
-                raise ValueError('Invalid databaseAuthVariableOverride option: "{0}". Override '
-                                 'value must be a non-empty dict.'.format(auth_override))
-        return _Client('https://{0}'.format(parsed.netloc), _OAuth(app),
-                       requests.Session(), auth_override)
+        auth_override = utils.get_option(app, 'databaseAuthVariableOverride', {})
+        if auth_override is not None and not isinstance(auth_override, dict):
+            raise ValueError('Invalid databaseAuthVariableOverride option: "{0}". Override '
+                             'value must be a dict or None.'.format(auth_override))
+        return _Client(url='https://{0}'.format(parsed.netloc), auth=_OAuth(app),
+                       session=requests.Session(), auth_override=auth_override)
 
     def request(self, method, urlpath, **kwargs):
         return self._do_request(method, urlpath, **kwargs).json()

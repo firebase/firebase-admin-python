@@ -145,8 +145,7 @@ class Reference(object):
         """
         if value is None:
             raise ValueError('Value must not be None.')
-        params = {'print' : 'silent'}
-        self._client.request_oneway('put', self._add_suffix(), json=value, params=params)
+        self._client.request_oneway('put', self._add_suffix(), json=value, params='print=silent')
 
     def push(self, value=''):
         """Creates a new child node.
@@ -185,8 +184,7 @@ class Reference(object):
             raise ValueError('Value argument must be a non-empty dictionary.')
         if None in value.keys() or None in value.values():
             raise ValueError('Dictionary must not contain None keys or values.')
-        params = {'print':'silent'}
-        self._client.request_oneway('patch', self._add_suffix(), json=value, params=params)
+        self._client.request_oneway('patch', self._add_suffix(), json=value, params='print=silent')
 
     def delete(self):
         """Deleted this node from the database.
@@ -378,7 +376,7 @@ class Query(object):
         return self
 
     @property
-    def querystr(self):
+    def _querystr(self):
         params = []
         for key in sorted(self._params):
             params.append('{0}={1}'.format(key, self._params[key]))
@@ -396,7 +394,7 @@ class Query(object):
         Raises:
           ApiCallError: If an error occurs while communicating with the remote database server.
         """
-        result = self._client.request('get', '{0}?{1}'.format(self._pathurl, self.querystr))
+        result = self._client.request('get', self._pathurl, params=self._querystr)
         if isinstance(result, (dict, list)) and self._order_by != '$priority':
             return _Sorter(result, self._order_by).get()
         return result
@@ -544,14 +542,33 @@ class _Client(object):
     marshalling and unmarshalling of JSON data.
     """
 
-    def __init__(self, url=None, auth=None, session=None):
-        self._url = url
-        self._auth = auth
-        self._session = session
+    def __init__(self, **kwargs):
+        """Creates a new _Client from the given parameters.
+
+        This exists primarily to enable testing. For regular use, obtain _Client instances by
+        calling the from_app() class method.
+
+        Keyword Args:
+          url: Firebase Realtime Database URL.
+          auth: An instance of requests.auth.AuthBase for authenticating outgoing HTTP requests.
+          session: An HTTP session created using the the requests module.
+          auth_override: A dictionary representing auth variable overrides or None (optional).
+              Defaults to empty dict, which provides admin privileges. A None value here provides
+              un-authenticated guest privileges.
+        """
+        self._url = kwargs.pop('url')
+        self._auth = kwargs.pop('auth')
+        self._session = kwargs.pop('session')
+        auth_override = kwargs.pop('auth_override', {})
+        if auth_override != {}:
+            encoded = json.dumps(auth_override, separators=(',', ':'))
+            self._auth_override = 'auth_variable_override={0}'.format(encoded)
+        else:
+            self._auth_override = None
 
     @classmethod
     def from_app(cls, app):
-        """Created a new _Client for a given App"""
+        """Creates a new _Client for a given App"""
         url = app.options.get('databaseURL')
         if not url or not isinstance(url, six.string_types):
             raise ValueError(
@@ -565,7 +582,13 @@ class _Client(object):
             raise ValueError(
                 'Invalid databaseURL option: "{0}". databaseURL must be a valid URL to a '
                 'Firebase Realtime Database instance.'.format(url))
-        return _Client('https://{0}'.format(parsed.netloc), _OAuth(app), requests.Session())
+
+        auth_override = app.options.get('databaseAuthVariableOverride', {})
+        if auth_override is not None and not isinstance(auth_override, dict):
+            raise ValueError('Invalid databaseAuthVariableOverride option: "{0}". Override '
+                             'value must be a dict or None.'.format(auth_override))
+        return _Client(url='https://{0}'.format(parsed.netloc), auth=_OAuth(app),
+                       session=requests.Session(), auth_override=auth_override)
 
     def request(self, method, urlpath, **kwargs):
         return self._do_request(method, urlpath, **kwargs).json()
@@ -591,6 +614,13 @@ class _Client(object):
         Raises:
           ApiCallError: If an error occurs while making the HTTP call.
         """
+        if self._auth_override:
+            params = kwargs.get('params')
+            if params:
+                params += '&{0}'.format(self._auth_override)
+            else:
+                params = self._auth_override
+            kwargs['params'] = params
         try:
             resp = self._session.request(method, self._url + urlpath, auth=self._auth, **kwargs)
             resp.raise_for_status()

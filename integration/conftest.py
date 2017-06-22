@@ -34,6 +34,14 @@ def _get_cert_path(request):
     raise ValueError('Service account certificate not specified. Make sure to specify the '
                      '"--cert" command-line option.')
 
+def integration_conf(request):
+    cert_path = _get_cert_path(request)
+    with open(cert_path) as cert:
+        project_id = json.load(cert).get('project_id')
+    if not project_id:
+        raise ValueError('Failed to determine project ID from service account certificate.')
+    return credentials.Certificate(cert_path), project_id
+
 @pytest.fixture(autouse=True, scope='session')
 def default_app(request):
     """Initializes the default Firebase App instance used for all integration tests.
@@ -42,12 +50,7 @@ def default_app(request):
     a test session. It is also marked as autouse, and therefore runs automatically without
     test cases having to call it explicitly.
     """
-    cert_path = _get_cert_path(request)
-    with open(cert_path) as cert:
-        project_id = json.load(cert).get('project_id')
-    if not project_id:
-        raise ValueError('Failed to determine project ID from service account certificate.')
-    cred = credentials.Certificate(cert_path)
+    cred, project_id = integration_conf(request)
     ops = {'databaseURL' : 'https://{0}.firebaseio.com'.format(project_id)}
     return firebase_admin.initialize_app(cred, ops)
 

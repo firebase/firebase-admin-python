@@ -18,17 +18,20 @@ import json
 
 import pytest
 
+import firebase_admin
 from firebase_admin import db
+from integration import conftest
 from tests import testutils
 
-def _update_rules():
-    with open(testutils.resource_filename('dinosaurs_index.json')) as index_file:
-        index = json.load(index_file)
+@pytest.fixture(scope='module')
+def update_rules():
+    with open(testutils.resource_filename('dinosaurs_index.json')) as rules_file:
+        new_rules = json.load(rules_file)
     client = db.reference()._client
     rules = client.request('get', '/.settings/rules.json')
     existing = rules.get('rules', dict()).get('_adminsdk')
-    if existing != index:
-        rules['rules']['_adminsdk'] = index
+    if existing != new_rules:
+        rules['rules']['_adminsdk'] = new_rules
         client.request('put', '/.settings/rules.json', json=rules)
 
 @pytest.fixture(scope='module')
@@ -37,7 +40,7 @@ def testdata():
         return json.load(dino_file)
 
 @pytest.fixture(scope='module')
-def testref():
+def testref(update_rules):
     """Adds the necessary DB indices, and sets the initial values.
 
     This fixture is attached to the module scope, and therefore is guaranteed to run only once
@@ -46,7 +49,6 @@ def testref():
     Returns:
         Reference: A reference to the test dinosaur database.
     """
-    _update_rules()
     ref = db.reference('_adminsdk/python/dinodb')
     ref.set(testdata())
     return ref
@@ -134,6 +136,13 @@ class TestWriteOperations(object):
         ref.update({'since' : 1905})
         assert ref.get() == {'name' : 'Edwin Colbert', 'since' : 1905}
 
+    def test_update_nested_children(self, testref):
+        python = testref.parent
+        ref = python.child('users').push({'name' : 'Edward Cope', 'since' : 1800})
+        nested_key = '{0}/since'.format(ref.key)
+        python.child('users').update({nested_key: 1840})
+        assert ref.get() == {'name' : 'Edward Cope', 'since' : 1840}
+
     def test_delete(self, testref):
         python = testref.parent
         ref = python.child('users').push('foo')
@@ -220,3 +229,93 @@ class TestAdvancedQueries(object):
         assert len(value) == 2
         assert 'pterodactyl' in value
         assert 'linhenykus' in value
+
+
+@pytest.fixture(scope='module')
+def override_app(request, update_rules):
+    cred, project_id = conftest.integration_conf(request)
+    ops = {
+        'databaseURL' : 'https://{0}.firebaseio.com'.format(project_id),
+        'databaseAuthVariableOverride' : {'uid' : 'user1'}
+    }
+    app = firebase_admin.initialize_app(cred, ops, 'db-override')
+    yield app
+    firebase_admin.delete_app(app)
+
+@pytest.fixture(scope='module')
+def none_override_app(request, update_rules):
+    cred, project_id = conftest.integration_conf(request)
+    ops = {
+        'databaseURL' : 'https://{0}.firebaseio.com'.format(project_id),
+        'databaseAuthVariableOverride' : None
+    }
+    app = firebase_admin.initialize_app(cred, ops, 'db-none-override')
+    yield app
+    firebase_admin.delete_app(app)
+
+
+class TestAuthVariableOverride(object):
+    """Test cases for database auth variable overrides."""
+
+    def init_ref(self, path):
+        admin_ref = db.reference(path)
+        admin_ref.set('test')
+        assert admin_ref.get() == 'test'
+
+    def check_permission_error(self, excinfo):
+        assert isinstance(excinfo.value, db.ApiCallError)
+        assert 'Reason: Permission denied' in str(excinfo.value)
+
+    def test_no_access(self, override_app):
+        path = '_adminsdk/python/admin'
+        self.init_ref(path)
+        user_ref = db.reference(path, override_app)
+        with pytest.raises(db.ApiCallError) as excinfo:
+            assert user_ref.get()
+        self.check_permission_error(excinfo)
+
+        with pytest.raises(db.ApiCallError) as excinfo:
+            user_ref.set('test2')
+        self.check_permission_error(excinfo)
+
+    def test_read(self, override_app):
+        path = '_adminsdk/python/protected/user2'
+        self.init_ref(path)
+        user_ref = db.reference(path, override_app)
+        assert user_ref.get() == 'test'
+        with pytest.raises(db.ApiCallError) as excinfo:
+            user_ref.set('test2')
+        self.check_permission_error(excinfo)
+
+    def test_read_write(self, override_app):
+        path = '_adminsdk/python/protected/user1'
+        self.init_ref(path)
+        user_ref = db.reference(path, override_app)
+        assert user_ref.get() == 'test'
+        user_ref.set('test2')
+        assert user_ref.get() == 'test2'
+
+    def test_query(self, override_app):
+        user_ref = db.reference('_adminsdk/python/protected', override_app)
+        with pytest.raises(db.ApiCallError) as excinfo:
+            user_ref.order_by_key().limit_to_first(2).get()
+        self.check_permission_error(excinfo)
+
+    def test_none_auth_override(self, none_override_app):
+        path = '_adminsdk/python/public'
+        self.init_ref(path)
+        public_ref = db.reference(path, none_override_app)
+        assert public_ref.get() == 'test'
+
+        ref = db.reference('_adminsdk/python', none_override_app)
+        with pytest.raises(db.ApiCallError) as excinfo:
+            assert ref.child('protected/user1').get()
+        self.check_permission_error(excinfo)
+
+        with pytest.raises(db.ApiCallError) as excinfo:
+            assert ref.child('protected/user2').get()
+        self.check_permission_error(excinfo)
+
+        with pytest.raises(db.ApiCallError) as excinfo:
+            assert ref.child('admin').get()
+        self.check_permission_error(excinfo)

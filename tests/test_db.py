@@ -16,6 +16,7 @@
 import collections
 import datetime
 import json
+import sys
 
 import pytest
 from requests import adapters
@@ -148,6 +149,7 @@ class TestReference(object):
         assert recorder[0].method == 'GET'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+        assert recorder[0].headers['User-Agent'] == db._USER_AGENT
 
     @pytest.mark.parametrize('data', valid_values)
     def test_order_by_query(self, data):
@@ -233,7 +235,7 @@ class TestReference(object):
         assert len(recorder) is 0
 
     @pytest.mark.parametrize('update', [
-        None, {}, {None:'foo'}, {'foo': None}, '', 'foo', 0, 1, list(), tuple()
+        None, {}, {None:'foo'}, {'foo': None}, '', 'foo', 0, 1, list(), tuple(), _Object()
     ])
     def test_set_invalid_update(self, update):
         ref = db.reference('/test')
@@ -253,6 +255,7 @@ class TestReference(object):
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
         assert json.loads(recorder[0].body.decode()) == data
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+        assert recorder[0].headers['User-Agent'] == db._USER_AGENT
 
     def test_push_default(self):
         ref = db.reference('/test')
@@ -263,6 +266,7 @@ class TestReference(object):
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
         assert json.loads(recorder[0].body.decode()) == ''
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+        assert recorder[0].headers['User-Agent'] == db._USER_AGENT
 
     def test_push_none_value(self):
         ref = db.reference('/test')
@@ -278,6 +282,7 @@ class TestReference(object):
         assert recorder[0].method == 'DELETE'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+        assert recorder[0].headers['User-Agent'] == db._USER_AGENT
 
     def test_get_root_reference(self):
         ref = db.reference()
@@ -344,6 +349,7 @@ class TestReferenceWithAuthOverride(object):
         assert recorder[0].method == 'GET'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+        assert recorder[0].headers['User-Agent'] == db._USER_AGENT
 
     def test_set_value(self):
         ref = db.reference('/test')
@@ -356,6 +362,7 @@ class TestReferenceWithAuthOverride(object):
         assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
         assert json.loads(recorder[0].body.decode()) == data
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+        assert recorder[0].headers['User-Agent'] == db._USER_AGENT
 
     def test_order_by_query(self):
         ref = db.reference('/test')
@@ -367,6 +374,7 @@ class TestReferenceWithAuthOverride(object):
         assert recorder[0].method == 'GET'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+        assert recorder[0].headers['User-Agent'] == db._USER_AGENT
 
     def test_range_query(self):
         ref = db.reference('/test')
@@ -379,6 +387,7 @@ class TestReferenceWithAuthOverride(object):
         assert recorder[0].method == 'GET'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+        assert recorder[0].headers['User-Agent'] == db._USER_AGENT
 
 
 class TestDatabseInitialization(object):
@@ -407,7 +416,7 @@ class TestDatabseInitialization(object):
 
     @pytest.mark.parametrize('url', [
         None, '', 'foo', 'http://test.firebaseio.com', 'https://google.com',
-        True, False, 1, 0, dict(), list(), tuple(),
+        True, False, 1, 0, dict(), list(), tuple(), _Object()
     ])
     def test_invalid_db_url(self, url):
         firebase_admin.initialize_app(credentials.Base(), {'databaseURL' : url})
@@ -428,7 +437,8 @@ class TestDatabseInitialization(object):
             encoded = json.dumps(override, separators=(',', ':'))
             assert ref._client._auth_override == 'auth_variable_override={0}'.format(encoded)
 
-    @pytest.mark.parametrize('override', ['', 'foo', 0, 1, True, False, list(), tuple()])
+    @pytest.mark.parametrize('override', [
+        '', 'foo', 0, 1, True, False, list(), tuple(), _Object()])
     def test_invalid_auth_override(self, override):
         firebase_admin.initialize_app(credentials.Base(), {
             'databaseURL' : 'https://test.firebaseio.com',
@@ -447,6 +457,11 @@ class TestDatabseInitialization(object):
         assert ref._client._auth is None
         with pytest.raises(ValueError):
             db.reference()
+
+    def test_user_agent_format(self):
+        expected = 'Firebase/HTTP/{0}/{1}.{2}/AdminPython'.format(
+            firebase_admin.__version__, sys.version_info.major, sys.version_info.minor)
+        assert db._USER_AGENT == expected
 
 
 @pytest.fixture(params=['foo', '$key', '$value'])
@@ -472,7 +487,7 @@ class TestQuery(object):
     ref = db.Reference(path='foo')
 
     @pytest.mark.parametrize('path', [
-        '', None, '/', '/foo', 0, 1, True, False, dict(), list(), tuple(),
+        '', None, '/', '/foo', 0, 1, True, False, dict(), list(), tuple(), _Object(),
         '$foo', '.foo', '#foo', '[foo', 'foo]', '$key', '$value', '$priority'
     ])
     def test_invalid_path(self, path):
@@ -519,7 +534,7 @@ class TestQuery(object):
         with pytest.raises(ValueError):
             query.limit_to_first(1)
 
-    @pytest.mark.parametrize('limit', [None, -1, 'foo', 1.2, list(), dict(), tuple()])
+    @pytest.mark.parametrize('limit', [None, -1, 'foo', 1.2, list(), dict(), tuple(), _Object()])
     def test_invalid_limit(self, limit):
         query = self.ref.order_by_child('foo')
         with pytest.raises(ValueError):

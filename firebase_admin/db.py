@@ -23,16 +23,20 @@ module uses the Firebase REST API underneath.
 import collections
 import json
 import numbers
+import sys
 
 import requests
 import six
 from six.moves import urllib
 
+import firebase_admin
 from firebase_admin import utils
 
 _DB_ATTRIBUTE = '_database'
 _INVALID_PATH_CHARACTERS = '[].#$'
 _RESERVED_FILTERS = ('$key', '$value', '$priority')
+_USER_AGENT = 'Firebase/HTTP/{0}/{1}.{2}/AdminPython'.format(
+    firebase_admin.__version__, sys.version_info.major, sys.version_info.minor)
 
 
 def reference(path='/', app=None):
@@ -385,8 +389,7 @@ class Query(object):
     def get(self):
         """Executes this Query and returns the results.
 
-        The results will be returned as a sorted list or an OrderedDict, except in the case of
-        order-by-priority queries.
+        The results will be returned as a sorted list or an OrderedDict.
 
         Returns:
           object: Decoded JSON result of the Query.
@@ -551,7 +554,7 @@ class _Client(object):
         Keyword Args:
           url: Firebase Realtime Database URL.
           auth: An instance of requests.auth.AuthBase for authenticating outgoing HTTP requests.
-          session: An HTTP session created using the the requests module.
+          session: An HTTP session created using the requests module.
           auth_override: A dictionary representing auth variable overrides or None (optional).
               Defaults to empty dict, which provides admin privileges. A None value here provides
               un-authenticated guest privileges.
@@ -587,8 +590,11 @@ class _Client(object):
         if auth_override is not None and not isinstance(auth_override, dict):
             raise ValueError('Invalid databaseAuthVariableOverride option: "{0}". Override '
                              'value must be a dict or None.'.format(auth_override))
+
+        session = requests.Session()
+        session.headers.update({'User-Agent': _USER_AGENT})
         return _Client(url='https://{0}'.format(parsed.netloc), auth=_OAuth(app),
-                       session=requests.Session(), auth_override=auth_override)
+                       session=session, auth_override=auth_override)
 
     def request(self, method, urlpath, **kwargs):
         return self._do_request(method, urlpath, **kwargs).json()

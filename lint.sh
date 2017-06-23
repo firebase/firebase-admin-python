@@ -31,7 +31,7 @@ function lintChangedFiles () {
 set -o errexit
 set -o nounset
 
-SKIP_FOR_TESTS="redefined-outer-name,protected-access,missing-docstring"
+SKIP_FOR_TESTS="redefined-outer-name,protected-access,missing-docstring,unused-argument"
 
 if [[ "$#" -eq 1 && "$1" = "all" ]]
 then
@@ -48,7 +48,9 @@ if [[ "$CHECK_ALL" = true ]]
 then
   lintAllFiles "firebase_admin" ""
   lintAllFiles "tests" "$SKIP_FOR_TESTS"
+  lintAllFiles "integration" "$SKIP_FOR_TESTS"
 else
   lintChangedFiles "firebase_admin" ""
   lintChangedFiles "tests" "$SKIP_FOR_TESTS"
+  lintAllFiles "integration" "$SKIP_FOR_TESTS"
 fi

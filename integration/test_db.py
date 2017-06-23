@@ -138,10 +138,15 @@ class TestWriteOperations(object):
 
     def test_update_nested_children(self, testref):
         python = testref.parent
-        ref = python.child('users').push({'name' : 'Edward Cope', 'since' : 1800})
-        nested_key = '{0}/since'.format(ref.key)
-        python.child('users').update({nested_key: 1840})
-        assert ref.get() == {'name' : 'Edward Cope', 'since' : 1840}
+        edward = python.child('users').push({'name' : 'Edward Cope', 'since' : 1800})
+        jack = python.child('users').push({'name' : 'Jack Horner', 'since' : 1940})
+        delta = {
+            '{0}/since'.format(edward.key) : 1840,
+            '{0}/since'.format(jack.key) : 1946
+        }
+        python.child('users').update(delta)
+        assert edward.get() == {'name' : 'Edward Cope', 'since' : 1840}
+        assert jack.get() == {'name' : 'Jack Horner', 'since' : 1946}
 
     def test_delete(self, testref):
         python = testref.parent

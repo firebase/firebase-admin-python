@@ -49,6 +49,7 @@ def testref(update_rules):
     Returns:
         Reference: A reference to the test dinosaur database.
     """
+    del update_rules
     ref = db.reference('_adminsdk/python/dinodb')
     ref.set(testdata())
     return ref
@@ -238,6 +239,7 @@ class TestAdvancedQueries(object):
 
 @pytest.fixture(scope='module')
 def override_app(request, update_rules):
+    del update_rules
     cred, project_id = conftest.integration_conf(request)
     ops = {
         'databaseURL' : 'https://{0}.firebaseio.com'.format(project_id),
@@ -249,6 +251,7 @@ def override_app(request, update_rules):
 
 @pytest.fixture(scope='module')
 def none_override_app(request, update_rules):
+    del update_rules
     cred, project_id = conftest.integration_conf(request)
     ops = {
         'databaseURL' : 'https://{0}.firebaseio.com'.format(project_id),

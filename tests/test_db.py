@@ -37,6 +37,7 @@ class MockAdapter(adapters.HTTPAdapter):
         self._recorder = recorder
 
     def send(self, request, **kwargs):
+        del kwargs
         self._recorder.append(request)
         resp = models.Response()
         resp.url = request.url

@@ -31,7 +31,7 @@ function lintChangedFiles () {
 set -o errexit
 set -o nounset
 
-SKIP_FOR_TESTS="redefined-outer-name,protected-access,missing-docstring,unused-argument"
+SKIP_FOR_TESTS="redefined-outer-name,protected-access,missing-docstring"
 
 if [[ "$#" -eq 1 && "$1" = "all" ]]
 then

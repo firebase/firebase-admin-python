@@ -36,7 +36,8 @@ class MockAdapter(adapters.HTTPAdapter):
         self._status = status
         self._recorder = recorder
 
-    def send(self, request, **kwargs): # pylint: disable=unused-argument
+    def send(self, request, **kwargs):
+        del kwargs
         self._recorder.append(request)
         resp = models.Response()
         resp.url = request.url

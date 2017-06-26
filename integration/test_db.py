@@ -49,6 +49,7 @@ def testref(update_rules):
     Returns:
         Reference: A reference to the test dinosaur database.
     """
+    del update_rules
     ref = db.reference('_adminsdk/python/dinodb')
     ref.set(testdata())
     return ref
@@ -138,10 +139,15 @@ class TestWriteOperations(object):
 
     def test_update_nested_children(self, testref):
         python = testref.parent
-        ref = python.child('users').push({'name' : 'Edward Cope', 'since' : 1800})
-        nested_key = '{0}/since'.format(ref.key)
-        python.child('users').update({nested_key: 1840})
-        assert ref.get() == {'name' : 'Edward Cope', 'since' : 1840}
+        edward = python.child('users').push({'name' : 'Edward Cope', 'since' : 1800})
+        jack = python.child('users').push({'name' : 'Jack Horner', 'since' : 1940})
+        delta = {
+            '{0}/since'.format(edward.key) : 1840,
+            '{0}/since'.format(jack.key) : 1946
+        }
+        python.child('users').update(delta)
+        assert edward.get() == {'name' : 'Edward Cope', 'since' : 1840}
+        assert jack.get() == {'name' : 'Jack Horner', 'since' : 1946}
 
     def test_delete(self, testref):
         python = testref.parent
@@ -233,6 +239,7 @@ class TestAdvancedQueries(object):
 
 @pytest.fixture(scope='module')
 def override_app(request, update_rules):
+    del update_rules
     cred, project_id = conftest.integration_conf(request)
     ops = {
         'databaseURL' : 'https://{0}.firebaseio.com'.format(project_id),
@@ -244,6 +251,7 @@ def override_app(request, update_rules):
 
 @pytest.fixture(scope='module')
 def none_override_app(request, update_rules):
+    del update_rules
     cred, project_id = conftest.integration_conf(request)
     ops = {
         'databaseURL' : 'https://{0}.firebaseio.com'.format(project_id),

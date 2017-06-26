@@ -81,7 +81,8 @@ class TestApplicationDefault(object):
 
     @pytest.mark.parametrize('app_default', [testutils.resource_filename('service_account.json')],
                              indirect=True)
-    def test_init(self, app_default): # pylint: disable=unused-argument
+    def test_init(self, app_default):
+        del app_default
         credential = credentials.ApplicationDefault()
         assert credential.project_id == 'mock-project-id'
 
@@ -98,7 +99,8 @@ class TestApplicationDefault(object):
 
     @pytest.mark.parametrize('app_default', [testutils.resource_filename('non_existing.json')],
                              indirect=True)
-    def test_nonexisting_path(self, app_default): # pylint: disable=unused-argument
+    def test_nonexisting_path(self, app_default):
+        del app_default
         with pytest.raises(IOError):
             credentials.ApplicationDefault()
 

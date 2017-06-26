@@ -91,9 +91,8 @@ def verify_id_token(id_token, app=None):
       dict: A dictionary of key-value pairs parsed from the decoded JWT.
 
     Raises:
-      ValueError: If the input parameters are invalid, or if the App was not
+      ValueError: If the JWT was found to be invalid, or if the App was not
           initialized with a credentials.Certificate.
-      AppIdenityError: The JWT was found to be invalid, the message will contain details.
     """
     token_generator = _get_token_generator(app)
     return token_generator.verify_id_token(id_token)
@@ -192,8 +191,8 @@ class _TokenGenerator(object):
           dict: A dictionary of key-value pairs parsed from the decoded JWT.
 
         Raises:
-          ValueError: The app was not initialized with a credentials.Certificate instance.
-          AppIdenityError: The JWT was found to be invalid, the message will contain details.
+          ValueError: The JWT was found to be invalid, or the app was not initialized with a
+              credentials.Certificate instance.
         """
         if not id_token:
             raise ValueError('Illegal ID token provided: {0}. ID token must be a non-empty '

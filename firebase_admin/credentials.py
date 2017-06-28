@@ -36,7 +36,11 @@ class Base(object):
     """Provides OAuth2 access tokens for accessing Firebase services."""
 
     def get_access_token(self):
-        """Fetches a Google OAuth2 access token using this credential instance."""
+        """Fetches a Google OAuth2 access token using this credential instance.
+
+        Returns:
+          AccessTokenInfo: An access token obtained using the credential.
+        """
         google_cred = self.get_credential()
         google_cred.refresh(_request)
         return AccessTokenInfo(google_cred.token, google_cred.expiry)

@@ -14,7 +14,6 @@
 
 """Tests for firebase_admin.db."""
 import collections
-import datetime
 import json
 import sys
 
@@ -47,12 +46,14 @@ class MockAdapter(adapters.HTTPAdapter):
 
 
 class MockCredential(credentials.Base):
-    def get_access_token(self):
-        expiry = datetime.datetime.utcnow() + datetime.timedelta(hours=24)
-        return credentials.AccessTokenInfo('mock-token', expiry)
+    """A mock Firebase credential implementation."""
+
+    def __init__(self):
+        self._g_credential = testutils.MockGoogleCredential()
 
     def get_credential(self):
-        return None
+        return self._g_credential
+
 
 class _Object(object):
     pass
@@ -402,7 +403,7 @@ class TestDatabseInitialization(object):
             db.reference()
 
     def test_no_db_url(self):
-        firebase_admin.initialize_app(credentials.Base())
+        firebase_admin.initialize_app(MockCredential())
         with pytest.raises(ValueError):
             db.reference()
 
@@ -410,7 +411,7 @@ class TestDatabseInitialization(object):
         'https://test.firebaseio.com', 'https://test.firebaseio.com/'
     ])
     def test_valid_db_url(self, url):
-        firebase_admin.initialize_app(credentials.Base(), {'databaseURL' : url})
+        firebase_admin.initialize_app(MockCredential(), {'databaseURL' : url})
         ref = db.reference()
         assert ref._client._url == 'https://test.firebaseio.com'
         assert ref._client._auth_override is None
@@ -420,13 +421,13 @@ class TestDatabseInitialization(object):
         True, False, 1, 0, dict(), list(), tuple(), _Object()
     ])
     def test_invalid_db_url(self, url):
-        firebase_admin.initialize_app(credentials.Base(), {'databaseURL' : url})
+        firebase_admin.initialize_app(MockCredential(), {'databaseURL' : url})
         with pytest.raises(ValueError):
             db.reference()
 
     @pytest.mark.parametrize('override', [{}, {'uid':'user1'}, None])
     def test_valid_auth_override(self, override):
-        firebase_admin.initialize_app(credentials.Base(), {
+        firebase_admin.initialize_app(MockCredential(), {
             'databaseURL' : 'https://test.firebaseio.com',
             'databaseAuthVariableOverride': override
         })
@@ -441,7 +442,7 @@ class TestDatabseInitialization(object):
     @pytest.mark.parametrize('override', [
         '', 'foo', 0, 1, True, False, list(), tuple(), _Object()])
     def test_invalid_auth_override(self, override):
-        firebase_admin.initialize_app(credentials.Base(), {
+        firebase_admin.initialize_app(MockCredential(), {
             'databaseURL' : 'https://test.firebaseio.com',
             'databaseAuthVariableOverride': override
         })
@@ -450,12 +451,10 @@ class TestDatabseInitialization(object):
 
     def test_app_delete(self):
         app = firebase_admin.initialize_app(
-            credentials.Base(), {'databaseURL' : 'https://test.firebaseio.com'})
+            MockCredential(), {'databaseURL' : 'https://test.firebaseio.com'})
         ref = db.reference()
         assert ref is not None
-        assert ref._client._auth is not None
         firebase_admin.delete_app(app)
-        assert ref._client._auth is None
         with pytest.raises(ValueError):
             db.reference()
 

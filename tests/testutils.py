@@ -15,6 +15,7 @@
 """Common utility classes and functions for testing."""
 import os
 
+from google.auth import credentials
 from google.auth import transport
 import firebase_admin
 
@@ -68,3 +69,9 @@ class MockRequest(transport.Request):
 
     def __call__(self, *args, **kwargs):
         return self.response
+
+
+class MockGoogleCredential(credentials.Credentials):
+    """A mock Google authentication credential."""
+    def refresh(self, request):
+        self.token = 'mock-token'

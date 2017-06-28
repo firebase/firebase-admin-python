@@ -30,7 +30,6 @@ _apps_lock = threading.RLock()
 _clock = datetime.datetime.utcnow
 
 _DEFAULT_APP_NAME = '[DEFAULT]'
-_CLOCK_SKEW_SECONDS = 300
 
 
 def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):

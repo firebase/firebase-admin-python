@@ -37,10 +37,12 @@ class Base(object):
 
     def get_access_token(self):
         """Fetches a Google OAuth2 access token using this credential instance."""
-        raise NotImplementedError
+        google_cred = self.get_credential()
+        google_cred.refresh(_request)
+        return AccessTokenInfo(google_cred.token, google_cred.expiry)
 
     def get_credential(self):
-        """Returns the credential instance used for authentication."""
+        """Returns the Google credential instance used for authentication."""
         raise NotImplementedError
 
 
@@ -88,15 +90,6 @@ class Certificate(Base):
     def service_account_email(self):
         return self._g_credential.service_account_email
 
-    def get_access_token(self):
-        """Fetches a Google OAuth2 access token using this certificate credential.
-
-        Returns:
-          AccessTokenInfo: An access token obtained using the credential.
-        """
-        self._g_credential.refresh(_request)
-        return AccessTokenInfo(self._g_credential.token, self._g_credential.expiry)
-
     def get_credential(self):
         """Returns the underlying Google credential.
 
@@ -117,15 +110,6 @@ class ApplicationDefault(Base):
         """
         super(ApplicationDefault, self).__init__()
         self._g_credential, self._project_id = google.auth.default(scopes=_scopes)
-
-    def get_access_token(self):
-        """Fetches a Google OAuth2 access token using this application default credential.
-
-        Returns:
-          AccessTokenInfo: An access token obtained using the credential.
-        """
-        self._g_credential.refresh(_request)
-        return AccessTokenInfo(self._g_credential.token, self._g_credential.expiry)
 
     def get_credential(self):
         """Returns the underlying Google credential.
@@ -183,15 +167,6 @@ class RefreshToken(Base):
     @property
     def refresh_token(self):
         return self._g_credential.refresh_token
-
-    def get_access_token(self):
-        """Fetches a Google OAuth2 access token using this refresh token credential.
-
-        Returns:
-          AccessTokenInfo: An access token obtained using the credential.
-        """
-        self._g_credential.refresh(_request)
-        return AccessTokenInfo(self._g_credential.token, self._g_credential.expiry)
 
     def get_credential(self):
         """Returns the underlying Google credential.

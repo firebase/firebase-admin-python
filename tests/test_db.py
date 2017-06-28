@@ -51,10 +51,6 @@ class MockCredential(credentials.Base):
     def __init__(self):
         self._g_credential = testutils.MockGoogleCredential()
 
-    def get_access_token(self):
-        self._g_credential.refresh(None)
-        return credentials.AccessTokenInfo(self._g_credential.token, self._g_credential.expiry)
-
     def get_credential(self):
         return self._g_credential
 

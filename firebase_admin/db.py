@@ -25,6 +25,7 @@ import json
 import numbers
 import sys
 
+from google.auth import transport
 import requests
 import six
 from six.moves import urllib
@@ -553,14 +554,12 @@ class _Client(object):
 
         Keyword Args:
           url: Firebase Realtime Database URL.
-          auth: An instance of requests.auth.AuthBase for authenticating outgoing HTTP requests.
           session: An HTTP session created using the requests module.
           auth_override: A dictionary representing auth variable overrides or None (optional).
               Defaults to empty dict, which provides admin privileges. A None value here provides
               un-authenticated guest privileges.
         """
         self._url = kwargs.pop('url')
-        self._auth = kwargs.pop('auth')
         self._session = kwargs.pop('session')
         auth_override = kwargs.pop('auth_override', {})
         if auth_override != {}:
@@ -591,9 +590,10 @@ class _Client(object):
             raise ValueError('Invalid databaseAuthVariableOverride option: "{0}". Override '
                              'value must be a dict or None.'.format(auth_override))
 
-        session = requests.Session()
+        g_credential = app.credential.get_credential()
+        session = transport.requests.AuthorizedSession(g_credential)
         session.headers.update({'User-Agent': _USER_AGENT})
-        return _Client(url='https://{0}'.format(parsed.netloc), auth=_OAuth(app),
+        return _Client(url='https://{0}'.format(parsed.netloc),
                        session=session, auth_override=auth_override)
 
     def request(self, method, urlpath, **kwargs):
@@ -628,7 +628,7 @@ class _Client(object):
                 params = self._auth_override
             kwargs['params'] = params
         try:
-            resp = self._session.request(method, self._url + urlpath, auth=self._auth, **kwargs)
+            resp = self._session.request(method, self._url + urlpath, **kwargs)
             resp.raise_for_status()
             return resp
         except requests.exceptions.RequestException as error:
@@ -663,13 +663,3 @@ class _Client(object):
         self._session.close()
         self._auth = None
         self._url = None
-
-
-class _OAuth(requests.auth.AuthBase):
-    def __init__(self, app):
-        self._app = app
-
-    def __call__(self, req):
-        # pylint: disable=protected-access
-        req.headers['Authorization'] = 'Bearer {0}'.format(self._app._get_token())
-        return req

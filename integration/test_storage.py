@@ -15,8 +15,6 @@
 """Integration tests for firebase_admin.storage module."""
 import time
 
-from google.cloud import storage as gcs # pylint: disable=import-error,no-name-in-module
-
 from firebase_admin import storage
 
 
@@ -29,10 +27,13 @@ def test_custom_bucket(project_id):
     bucket = storage.bucket(bucket_name)
     _verify_bucket(bucket, bucket_name)
 
+def test_non_existing_bucket():
+    assert storage.bucket('non.existing') is None
+
 def _verify_bucket(bucket, expected_name):
     assert bucket.name == expected_name
     file_name = 'data_{0}.txt'.format(int(time.time()))
-    blob = gcs.Blob(file_name, bucket)
+    blob = bucket.blob(file_name)
     blob.upload_from_string('Hello World')
 
     blob = bucket.get_blob(file_name)

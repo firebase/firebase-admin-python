@@ -18,7 +18,7 @@ This module contains utilities for accessing Google Cloud Storage buckets associ
 Firebase apps. This requires installing the google-cloud-storage Python module separately.
 """
 
-from google.cloud import storage
+from google.cloud import storage # pylint: disable=import-error,no-name-in-module
 import six
 
 from firebase_admin import utils

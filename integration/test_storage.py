@@ -15,7 +15,7 @@
 """Integration tests for firebase_admin.storage module."""
 import time
 
-from google.cloud import storage as gcs
+from google.cloud import storage as gcs # pylint: disable=import-error,no-name-in-module
 
 from firebase_admin import storage
 

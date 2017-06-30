@@ -43,13 +43,14 @@ def bucket(name=None, app=None):
 
     Raises:
       ValueError: If a bucket name is not specified either via options or method arguments,
-          or if the specified bucket name is not a valid string.
+          if the specified bucket name is not a valid string, or if the spcecified bucket
+          does not exist.
     """
     client = utils.get_app_service(app, _STORAGE_ATTRIBUTE, _StorageClient.from_app)
     try:
         return client.bucket(name)
     except exceptions.NotFound:
-        return None
+        raise ValueError('Bucket "{0}" does not exist.'.format(name))
 
 
 class _StorageClient(object):

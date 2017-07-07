@@ -29,9 +29,9 @@ def update_rules():
         new_rules = json.load(rules_file)
     client = db.reference()._client
     rules = client.request('get', '/.settings/rules.json')
-    existing = rules.get('rules', dict()).get('_adminsdk')
+    existing = rules.get('rules')
     if existing != new_rules:
-        rules['rules']['_adminsdk'] = new_rules
+        rules['rules'] = new_rules
         client.request('put', '/.settings/rules.json', json=rules)
 
 @pytest.fixture(scope='module')

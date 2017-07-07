@@ -22,7 +22,7 @@ _id_toolkit_url = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/ve
 
 
 def _sign_in(custom_token, api_key):
-    body = {'token' : custom_token, 'returnSecureToken' : True}
+    body = {'token' : custom_token.decode(), 'returnSecureToken' : True}
     params = {'key' : api_key}
     resp = requests.request('post', _id_toolkit_url, params=params, json=body)
     resp.raise_for_status()

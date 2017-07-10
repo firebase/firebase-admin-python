@@ -44,6 +44,24 @@ class TestCertificate(object):
     def test_init_from_file(self):
         credential = credentials.Certificate(
             testutils.resource_filename('service_account.json'))
+        self._verify_credential(credential)
+
+    def test_init_from_dict(self):
+        parsed_json = json.loads(testutils.resource('service_account.json'))
+        credential = credentials.Certificate(parsed_json)
+        self._verify_credential(credential)
+
+    @pytest.mark.parametrize('file_name,error', invalid_certs.values(), ids=list(invalid_certs))
+    def test_init_from_invalid_certificate(self, file_name, error):
+        with pytest.raises(error):
+            credentials.Certificate(testutils.resource_filename(file_name))
+
+    @pytest.mark.parametrize('arg', [None, 0, 1, True, False, list(), tuple(), dict()])
+    def test_invalid_args(self, arg):
+        with pytest.raises(ValueError):
+            credentials.Certificate(arg)
+
+    def _verify_credential(self, credential):
         assert credential.project_id == 'mock-project-id'
         assert credential.service_account_email == 'mock-email@mock-project.iam.gserviceaccount.com'
         assert isinstance(credential.signer, crypt.Signer)
@@ -58,11 +76,6 @@ class TestCertificate(object):
         access_token = credential.get_access_token()
         assert access_token.access_token == 'mock_access_token'
         assert isinstance(access_token.expiry, datetime.datetime)
-
-    @pytest.mark.parametrize('file_name,error', invalid_certs.values(), ids=list(invalid_certs))
-    def test_init_from_invalid_certificate(self, file_name, error):
-        with pytest.raises(error):
-            credentials.Certificate(testutils.resource_filename(file_name))
 
 
 @pytest.fixture
@@ -110,6 +123,29 @@ class TestRefreshToken(object):
     def test_init_from_file(self):
         credential = credentials.RefreshToken(
             testutils.resource_filename('refresh_token.json'))
+        self._verify_credential(credential)
+
+    def test_init_from_dict(self):
+        parsed_json = json.loads(testutils.resource('refresh_token.json'))
+        credential = credentials.RefreshToken(parsed_json)
+        self._verify_credential(credential)
+
+    def test_init_from_nonexisting_file(self):
+        with pytest.raises(IOError):
+            credentials.RefreshToken(
+                testutils.resource_filename('non_existing.json'))
+
+    def test_init_from_invalid_file(self):
+        with pytest.raises(ValueError):
+            credentials.RefreshToken(
+                testutils.resource_filename('service_account.json'))
+
+    @pytest.mark.parametrize('arg', [None, 0, 1, True, False, list(), tuple(), dict()])
+    def test_invalid_args(self, arg):
+        with pytest.raises(ValueError):
+            credentials.RefreshToken(arg)
+
+    def _verify_credential(self, credential):
         assert credential.client_id == 'mock.apps.googleusercontent.com'
         assert credential.client_secret == 'mock-secret'
         assert credential.refresh_token == 'mock-refresh-token'
@@ -127,13 +163,3 @@ class TestRefreshToken(object):
         access_token = credential.get_access_token()
         assert access_token.access_token == 'mock_access_token'
         assert isinstance(access_token.expiry, datetime.datetime)
-
-    def test_init_from_nonexisting_file(self):
-        with pytest.raises(IOError):
-            credentials.RefreshToken(
-                testutils.resource_filename('non_existing.json'))
-
-    def test_init_from_invalid_file(self):
-        with pytest.raises(ValueError):
-            credentials.RefreshToken(
-                testutils.resource_filename('service_account.json'))

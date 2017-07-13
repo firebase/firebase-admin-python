@@ -13,6 +13,8 @@
 # limitations under the License.
 
 """Integration tests for firebase_admin.auth module."""
+import uuid
+
 import pytest
 import requests
 
@@ -45,15 +47,57 @@ def test_custom_token_with_claims(api_key):
     assert claims['subscription'] == 'silver'
 
 def test_get_non_existing_user():
-    with pytest.raises(auth.FirebaseAuthError) as excinfo:
+    with pytest.raises(auth.AuthError) as excinfo:
         auth.get_user('non.existing')
     assert 'USER_NOT_FOUND_ERROR' in str(excinfo.value.code)
 
+def test_get_non_existing_user_by_email():
+    with pytest.raises(auth.AuthError) as excinfo:
+        auth.get_user_by_email('non.existing@definitely.non.existing')
+    assert 'USER_NOT_FOUND_ERROR' in str(excinfo.value.code)
+
+def test_update_non_existing_user():
+    with pytest.raises(auth.AuthError) as excinfo:
+        auth.update_user('non.existing', {})
+    assert 'USER_UPDATE_ERROR' in str(excinfo.value.code)
+
+def test_delete_non_existing_user():
+    with pytest.raises(auth.AuthError) as excinfo:
+        auth.delete_user('non.existing')
+    assert 'USER_DELETE_ERROR' in str(excinfo.value.code)
+
+def test_create_user_with_params():
+    random_id = str(uuid.uuid4()).lower().replace('-', '')
+    email = 'test{0}@example.{1}.com'.format(random_id[:12], random_id[12:])
+    user = auth.create_user({
+        'uid' : random_id,
+        'email' : email,
+        'displayName' : 'Random User',
+        'photoUrl' : 'https://example.com/photo.png',
+        'emailVerified' : True,
+        'password' : 'secret',
+    })
+    try:
+        assert user.uid == random_id
+        assert user.display_name == 'Random User'
+        assert user.email == email
+        assert user.photo_url == 'https://example.com/photo.png'
+        assert user.email_verified is True
+        assert user.disabled is False
+
+        with pytest.raises(auth.AuthError) as excinfo:
+            auth.create_user({'uid' : random_id})
+        assert excinfo.value.code == 'USER_CREATE_ERROR'
+    finally:
+        auth.delete_user(random_id)
+
 def test_user_lifecycle():
+    # Create user
     user = auth.create_user()
     uid = user.uid
     assert uid
 
+    # Get user
     user = auth.get_user(uid)
     assert user.uid == uid
     assert user.display_name is None
@@ -63,3 +107,43 @@ def test_user_lifecycle():
     assert user.disabled is False
     assert user.user_metadata.creation_timestamp > 0
     assert user.user_metadata.last_sign_in_timestamp is None
+
+    # Update user
+    random_id = str(uuid.uuid4()).lower().replace('-', '')
+    email = 'test{0}@example.{1}.com'.format(random_id[:12], random_id[12:])
+    user = auth.update_user(uid, {
+        'email' : email,
+        'displayName' : 'Updated Name',
+        'photoUrl' : 'https://example.com/photo.png',
+        'emailVerified' : True,
+        'password' : 'secret',
+    })
+    assert user.uid == uid
+    assert user.display_name == 'Updated Name'
+    assert user.email == email
+    assert user.photo_url == 'https://example.com/photo.png'
+    assert user.email_verified is True
+    assert user.disabled is False
+
+    # Get user by email
+    user = auth.get_user_by_email(email)
+    assert user.uid == uid
+
+    # Disable user and remove properties
+    user = auth.update_user(uid, {
+        'displayName' : None,
+        'photoUrl' : None,
+        'disabled' : True,
+    })
+    assert user.uid == uid
+    assert user.display_name is None
+    assert user.email == email
+    assert user.photo_url is None
+    assert user.email_verified is True
+    assert user.disabled is True
+
+    # Delete user
+    auth.delete_user(uid)
+    with pytest.raises(auth.AuthError) as excinfo:
+        auth.get_user(uid)
+    assert excinfo.value.code == 'USER_NOT_FOUND_ERROR'

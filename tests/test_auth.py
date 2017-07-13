@@ -316,15 +316,16 @@ class TestGetUser(object):
 
     def test_get_user_non_existing(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 200, '{"users":[]}')
-        with pytest.raises(auth.FirebaseAuthError) as excinfo:
+        with pytest.raises(auth.AuthError) as excinfo:
             auth.get_user('testuser', user_mgt_app)
         assert excinfo.value.code == 'USER_NOT_FOUND_ERROR'
 
     def test_get_user_http_error(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 500, '{}')
-        with pytest.raises(auth.FirebaseAuthError) as excinfo:
+        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
+        with pytest.raises(auth.AuthError) as excinfo:
             auth.get_user('testuser', user_mgt_app)
-        assert excinfo.value.code == 'INTERNAL_ERROR'
+        assert excinfo.value.code == 'HTTP_ERROR'
+        assert '{"error":"test"}' in str(excinfo.value)
 
 
 class TestCreateUser(object):

@@ -103,7 +103,7 @@ def verify_id_token(id_token, app=None):
 
 
 def get_user(uid, app=None):
-    """Get the user data corresponding to the specified user ID.
+    """Gets the user data corresponding to the specified user ID.
 
     Args:
         uid: A user ID string.
@@ -113,16 +113,16 @@ def get_user(uid, app=None):
         UserRecord: A UserRecord instance.
 
     Raises:
-        ValueError: If the user ID string is not a non-empty string.
-        FirebaseAuthError: If an error occurs while retrieving the user or if the specified
-            user ID does not exist.
+        ValueError: If the user ID is None or empty.
+        AuthError: If an error occurs while retrieving the user or if the specified user ID
+            does not exist.
     """
     user_manager = _get_auth_service(app).user_manager
     return user_manager.get_user(uid)
 
 
 def get_user_by_email(email, app=None):
-    """Get the user data corresponding to the specified user email.
+    """Gets the user data corresponding to the specified user email.
 
     Args:
         email: A user email address string.
@@ -132,9 +132,9 @@ def get_user_by_email(email, app=None):
         UserRecord: A UserRecord instance.
 
     Raises:
-        ValueError: If the email is not a non-empty string.
-        FirebaseAuthError: If an error occurs while retrieving the user or no user exists by
-            the specified email address.
+        ValueError: If the email is None or empty.
+        AuthError: If an error occurs while retrieving the user or no user exists by the specified
+            email address.
     """
     user_manager = _get_auth_service(app).user_manager
     return user_manager.get_user_by_email(email)
@@ -152,11 +152,48 @@ def create_user(properties=None, app=None):
 
     Raises:
         ValueError: If the specified user properties are invalid.
-        FirebaseAuthError: If an error occurs while creating the user account.
+        AuthError: If an error occurs while creating the user account.
     """
     user_manager = _get_auth_service(app).user_manager
     uid = user_manager.create_user(properties)
     return user_manager.get_user(uid)
+
+
+def update_user(uid, properties, app=None):
+    """Updates an existing user account with the specified properties.
+
+    Properties 'displayName' and 'photoUrl' can be removed by explicitly passing a None value.
+
+    Args:
+        uid: A user ID string.
+        properties: A dictionary containing user attributes to update.
+        app: An App instance (optional).
+
+    Returns:
+        UserRecord: An updated UserRecord instance for the user.
+
+    Raises:
+        ValueError: If the specified user ID or properties are invalid.
+        AuthError: If an error occurs while updating the user account.
+    """
+    user_manager = _get_auth_service(app).user_manager
+    user_manager.update_user(uid, properties)
+    return user_manager.get_user(uid)
+
+
+def delete_user(uid, app=None):
+    """Deletes the user identified by the specified user ID.
+
+    Args:
+        uid: A user ID string.
+        app: An App instance (optional).
+
+    Raises:
+        ValueError: If the user ID is None or empty.
+        AuthError: If an error occurs while deleting the user account.
+    """
+    user_manager = _get_auth_service(app).user_manager
+    user_manager.delete_user(uid)
 
 
 class UserInfo(object):
@@ -288,7 +325,7 @@ class _ProviderUserInfo(UserInfo):
         return self._data.get('providerId')
 
 
-class FirebaseAuthError(Exception):
+class AuthError(Exception):
     """Represents an Exception encountered while invoking the Firebase auth API."""
 
     def __init__(self, code, message, error=None):
@@ -357,14 +394,23 @@ class _Validator(object):
                 'Invalid disabled status: "{0}". Disabled status must be '
                 'boolean.'.format(disabled))
 
+    @classmethod
+    def validate_delete_attributes(cls, delete_attr):
+        if not isinstance(delete_attr, list) or not delete_attr:
+            raise ValueError(
+                'Invalid delete attributes: "{0}". Delete attributes must be a '
+                'non-empty list.'.format(delete_attr))
+
 
 class _UserManager(object):
     """Provides methods for interacting with the Google Identity Toolkit."""
 
     _ID_TOOLKIT_URL = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/'
 
-    _CREATE_USER_ATTRIBUTES = {
+    _USER_ATTRIBUTES = {
+        'deleteAttribute' : _Validator.validate_delete_attributes,
         'disabled' : _Validator.validate_disabled,
+        'disableUser' : _Validator.validate_disabled,
         'displayName' : _Validator.validate_display_name,
         'email' : _Validator.validate_email,
         'emailVerified' : _Validator.validate_email_verified,
@@ -373,10 +419,16 @@ class _UserManager(object):
         'password' : _Validator.validate_password,
     }
 
-    _INTERNAL_ERROR = 'INTERNAL_ERROR'
+    _REMOVABLE_FIELDS = {
+        'displayName' : 'DISPLAY_NAME',
+        'photoUrl' : 'PHOTO_URL'
+    }
+
+    _HTTP_ERROR = 'HTTP_ERROR'
     _USER_NOT_FOUND_ERROR = 'USER_NOT_FOUND_ERROR'
     _USER_CREATE_ERROR = 'USER_CREATE_ERROR'
-
+    _USER_UPDATE_ERROR = 'USER_UPDATE_ERROR'
+    _USER_DELETE_ERROR = 'USER_DELETE_ERROR'
 
     def __init__(self, app):
         g_credential = app.credential.get_credential()
@@ -386,44 +438,46 @@ class _UserManager(object):
         self._session = session
 
     def get_user(self, uid):
+        """Gets the user data corresponding to the specified user ID."""
         if not isinstance(uid, six.string_types) or not uid:
             raise ValueError(
                 'Invalid user ID: "{0}". User ID must be a non-empty string.'.format(uid))
 
-        payload = {'localId' : [uid]}
         try:
-            response = self._request('post', 'getAccountInfo', json=payload)
+            response = self._request('post', 'getAccountInfo', json={'localId' : [uid]})
         except requests.exceptions.RequestException as error:
-            msg = 'Error while retrieving user with ID: {0}'.format(uid)
-            raise FirebaseAuthError(_UserManager._INTERNAL_ERROR, msg, error)
+            self._handle_http_error(
+                _UserManager._HTTP_ERROR, 'Failed to get user: {0}.'.format(uid), error)
         else:
             if not response or not response.get('users'):
-                msg = 'No user record found for the provided user ID: {0}'.format(uid)
-                raise FirebaseAuthError(_UserManager._USER_NOT_FOUND_ERROR, msg)
+                raise AuthError(
+                    _UserManager._USER_NOT_FOUND_ERROR,
+                    'No user record found for the provided user ID: {0}'.format(uid))
             return UserRecord(response['users'][0])
 
     def get_user_by_email(self, email):
+        """Gets the user data corresponding to the specified user email."""
         if not isinstance(email, six.string_types) or not email:
             raise ValueError(
                 'Invalid email: "{0}". Email must be a non-empty string.'.format(email))
 
-        payload = {'email' : [email]}
         try:
-            response = self._request('post', 'getAccountInfo', json=payload)
+            response = self._request('post', 'getAccountInfo', json={'email' : [email]})
         except requests.exceptions.RequestException as error:
-            msg = 'Error while retrieving user with email: {0}'.format(email)
-            raise FirebaseAuthError(_UserManager._INTERNAL_ERROR, msg, error)
+            self._handle_http_error(
+                _UserManager._HTTP_ERROR, 'Failed to get user by email: {0}.'.format(email), error)
         else:
             if not response or not response.get('users'):
-                msg = 'No user record found for the provided email: {0}'.format(email)
-                raise FirebaseAuthError(_UserManager._USER_NOT_FOUND_ERROR, msg)
+                raise AuthError(
+                    _UserManager._USER_NOT_FOUND_ERROR,
+                    'No user record found for the provided email: {0}'.format(email))
             return UserRecord(response['users'][0])
 
     def create_user(self, properties=None):
         """Creates a new user account with the specified properties."""
         if properties is not None and not isinstance(properties, dict):
-            raise ValueError(
-                'Invalid user properties: "{0}". Properties must be a dictionary or None.')
+            raise ValueError('Invalid user properties: "{0}". Properties must be a dictionary '
+                             'or None.'.format(properties))
         if properties is None:
             properties = {}
 
@@ -431,17 +485,66 @@ class _UserManager(object):
         if 'uid' in payload:
             payload['localId'] = payload['uid']
             del payload['uid']
-        self._validate(payload, self._CREATE_USER_ATTRIBUTES, 'create user')
+
+        self._validate(payload, self._USER_ATTRIBUTES, 'create user')
         try:
             response = self._request('post', 'signupNewUser', json=payload)
         except requests.exceptions.RequestException as error:
-            raise FirebaseAuthError(
-                _UserManager._USER_CREATE_ERROR, 'Failed to create new user', error)
+            self._handle_http_error(
+                _UserManager._USER_CREATE_ERROR, 'Failed to create new user.', error)
         else:
             if not response or not response.get('localId'):
-                raise FirebaseAuthError(
-                    _UserManager._USER_CREATE_ERROR, 'Failed to create new user')
+                raise AuthError(_UserManager._USER_CREATE_ERROR, 'Failed to create new user.')
             return response.get('localId')
+
+    def update_user(self, uid, properties):
+        """Updates an existing user account with the specified properties"""
+        if not isinstance(uid, six.string_types) or not uid:
+            raise ValueError(
+                'Invalid user ID: "{0}". User ID must be a non-empty string.'.format(uid))
+        if not isinstance(properties, dict):
+            raise ValueError('Invalid user properties: "{0}". Properties must be a '
+                             'dictionary.'.format(properties))
+
+        payload = dict(properties)
+        payload['localId'] = uid
+        remove = []
+        for key, value in _UserManager._REMOVABLE_FIELDS.items():
+            if key in payload and payload[key] is None:
+                remove.append(value)
+                del payload[key]
+        if remove:
+            payload['deleteAttribute'] = remove
+        if 'disabled' in payload:
+            payload['disableUser'] = payload['disabled']
+            del payload['disabled']
+
+        self._validate(payload, self._USER_ATTRIBUTES, 'update user')
+        try:
+            response = self._request('post', 'setAccountInfo', json=payload)
+        except requests.exceptions.RequestException as error:
+            self._handle_http_error(
+                _UserManager._USER_UPDATE_ERROR, 'Failed to update user: {0}.'.format(uid), error)
+        else:
+            if not response or not response.get('localId'):
+                raise AuthError(
+                    _UserManager._USER_UPDATE_ERROR, 'Failed to update user: {0}.'.format(uid))
+
+    def delete_user(self, uid):
+        """Deletes the user identified by the specified user ID."""
+        if not isinstance(uid, six.string_types) or not uid:
+            raise ValueError(
+                'Invalid user ID: "{0}". User ID must be a non-empty string.'.format(uid))
+
+        try:
+            response = self._request('post', 'deleteAccount', json={'localId' : [uid]})
+        except requests.exceptions.RequestException as error:
+            self._handle_http_error(
+                _UserManager._USER_DELETE_ERROR, 'Failed to delete user: {0}.'.format(uid), error)
+        else:
+            if not response or not response.get('kind'):
+                raise AuthError(
+                    _UserManager._USER_DELETE_ERROR, 'Failed to delete user: {0}.'.format(uid))
 
     def _validate(self, properties, validators, operation):
         for key, value in properties.items():
@@ -449,6 +552,13 @@ class _UserManager(object):
             if not validator:
                 raise ValueError('Unsupported property: "{0}" in {1} call.'.format(key, operation))
             validator(value)
+
+    def _handle_http_error(self, code, msg, error):
+        if error.response is not None:
+            msg += '\nServer response: {0}'.format(error.response.content.decode())
+        else:
+            msg += '\nReason: {0}'.format(error)
+        raise AuthError(code, msg, error)
 
     def _request(self, method, urlpath, **kwargs):
         """Makes an HTTP call using the Python requests library.

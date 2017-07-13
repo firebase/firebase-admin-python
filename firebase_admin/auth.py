@@ -227,13 +227,13 @@ class UserMetadata(object):
     @property
     def creation_timestamp(self):
         if 'createdAt' in self._data:
-            return long(self._data['createdAt'])
+            return int(self._data['createdAt'])
         return None
 
     @property
     def last_sign_in_timestamp(self):
         if 'lastLoginAt' in self._data:
-            return long(self._data['lastLoginAt'])
+            return int(self._data['lastLoginAt'])
         return None
 
 

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Test cases for firebase_admin.auth module."""
+"""Test cases for the token handling functionality in firebase_admin.auth module."""
 import os
 import time
 
@@ -256,53 +256,3 @@ class TestVerifyIdToken(object):
         auth._request = testutils.MockRequest(404, 'not found')
         with pytest.raises(exceptions.TransportError):
             authtest.verify_id_token(TEST_ID_TOKEN)
-
-
-class TestUserManager(object):
-
-    invalid_strings = [0, 1, True, False, list(), tuple(), dict()]
-    invalid_bools = [None, '', 'foo', 0, 1, list(), tuple(), dict()]
-
-    @pytest.mark.parametrize('arg', invalid_strings)
-    def test_invalid_get_user(self, arg):
-        with pytest.raises(ValueError):
-            auth.get_user(arg)
-
-    @pytest.mark.parametrize('arg', invalid_strings + ['a'*129])
-    def test_invalid_uid(self, arg):
-        with pytest.raises(ValueError):
-            auth.create_user({'uid' : arg})
-
-    @pytest.mark.parametrize('arg', invalid_strings + ['not-an-email'])
-    def test_invalid_email(self, arg):
-        with pytest.raises(ValueError):
-            auth.create_user({'email' : arg})
-
-    @pytest.mark.parametrize('arg', invalid_strings)
-    def test_invalid_display_name(self, arg):
-        with pytest.raises(ValueError):
-            auth.create_user({'displayName' : arg})
-
-    @pytest.mark.parametrize('arg', invalid_strings + ['not-a-url'])
-    def test_invalid_photo_url(self, arg):
-        with pytest.raises(ValueError):
-            auth.create_user({'photoUrl' : arg})
-
-    @pytest.mark.parametrize('arg', invalid_strings + ['short'])
-    def test_invalid_password(self, arg):
-        with pytest.raises(ValueError):
-            auth.create_user({'password' : arg})
-
-    @pytest.mark.parametrize('arg', invalid_bools)
-    def test_invalid_email_verified(self, arg):
-        with pytest.raises(ValueError):
-            auth.create_user({'emailVerified' : arg})
-
-    @pytest.mark.parametrize('arg', invalid_bools)
-    def test_invalid_disabled(self, arg):
-        with pytest.raises(ValueError):
-            auth.create_user({'disabled' : arg})
-
-    def test_invalid_property(self):
-        with pytest.raises(ValueError):
-            auth.create_user({'unsupported' : 'value'})

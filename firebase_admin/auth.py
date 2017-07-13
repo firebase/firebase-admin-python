@@ -226,11 +226,15 @@ class UserMetadata(object):
 
     @property
     def creation_timestamp(self):
-        return self._data.get('createdAt')
+        if 'createdAt' in self._data:
+            return long(self._data['createdAt'])
+        return None
 
     @property
     def last_sign_in_timestamp(self):
-        return self._data.get('lastLoginAt')
+        if 'lastLoginAt' in self._data:
+            return long(self._data['lastLoginAt'])
+        return None
 
 
 class _ProviderUserInfo(UserInfo):
@@ -246,23 +250,23 @@ class _ProviderUserInfo(UserInfo):
 
     @property
     def uid(self):
-        raise self._data.get('rawId')
+        return self._data.get('rawId')
 
     @property
     def display_name(self):
-        raise self._data.get('displayName')
+        return self._data.get('displayName')
 
     @property
     def email(self):
-        raise self._data.get('email')
+        return self._data.get('email')
 
     @property
     def photo_url(self):
-        raise self._data.get('photoUrl')
+        return self._data.get('photoUrl')
 
     @property
     def provider_id(self):
-        raise self._data.get('providerId')
+        return self._data.get('providerId')
 
 
 class FirebaseAuthError(Exception):

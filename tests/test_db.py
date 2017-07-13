@@ -18,30 +18,10 @@ import json
 import sys
 
 import pytest
-from requests import adapters
-from requests import models
-import six
 
 import firebase_admin
 from firebase_admin import db
 from tests import testutils
-
-
-class MockAdapter(adapters.HTTPAdapter):
-    def __init__(self, data, status, recorder):
-        adapters.HTTPAdapter.__init__(self)
-        self._data = data
-        self._status = status
-        self._recorder = recorder
-
-    def send(self, request, **kwargs):
-        del kwargs
-        self._recorder.append(request)
-        resp = models.Response()
-        resp.url = request.url
-        resp.status_code = self._status
-        resp.raw = six.BytesIO(self._data.encode())
-        return resp
 
 
 class _Object(object):
@@ -127,7 +107,7 @@ class TestReference(object):
 
     def instrument(self, ref, payload, status=200):
         recorder = []
-        adapter = MockAdapter(payload, status, recorder)
+        adapter = testutils.MockAdapter(payload, status, recorder)
         ref._client._session.mount(self.test_url, adapter)
         return recorder
 
@@ -327,7 +307,7 @@ class TestReferenceWithAuthOverride(object):
 
     def instrument(self, ref, payload, status=200):
         recorder = []
-        adapter = MockAdapter(payload, status, recorder)
+        adapter = testutils.MockAdapter(payload, status, recorder)
         ref._client._session.mount(self.test_url, adapter)
         return recorder
 

@@ -17,6 +17,10 @@ import os
 
 from google.auth import credentials
 from google.auth import transport
+from requests import adapters
+from requests import models
+import six
+
 import firebase_admin
 
 
@@ -85,3 +89,21 @@ class MockCredential(firebase_admin.credentials.Base):
 
     def get_credential(self):
         return self._g_credential
+
+
+class MockAdapter(adapters.HTTPAdapter):
+    """A mock HTTP adapter for the Python requests module."""
+    def __init__(self, data, status, recorder):
+        adapters.HTTPAdapter.__init__(self)
+        self._data = data
+        self._status = status
+        self._recorder = recorder
+
+    def send(self, request, **kwargs):
+        del kwargs
+        self._recorder.append(request)
+        resp = models.Response()
+        resp.url = request.url
+        resp.status_code = self._status
+        resp.raw = six.BytesIO(self._data.encode())
+        return resp

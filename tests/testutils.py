@@ -75,3 +75,13 @@ class MockGoogleCredential(credentials.Credentials):
     """A mock Google authentication credential."""
     def refresh(self, request):
         self.token = 'mock-token'
+
+
+class MockCredential(firebase_admin.credentials.Base):
+    """A mock Firebase credential implementation."""
+
+    def __init__(self):
+        self._g_credential = MockGoogleCredential()
+
+    def get_credential(self):
+        return self._g_credential

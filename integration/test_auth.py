@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Integration tests for firebase_admin.auth module."""
+import pytest
 import requests
 
 from firebase_admin import auth
@@ -42,3 +43,23 @@ def test_custom_token_with_claims(api_key):
     assert claims['uid'] == 'user2'
     assert claims['premium'] is True
     assert claims['subscription'] == 'silver'
+
+def test_get_non_existing_user():
+    with pytest.raises(auth.FirebaseAuthError) as excinfo:
+        auth.get_user('non.existing')
+    assert 'USER_NOT_FOUND_ERROR' in str(excinfo.value.code)
+
+def test_user_lifecycle():
+    user = auth.create_user()
+    uid = user.uid
+    assert uid
+
+    user = auth.get_user(uid)
+    assert user.uid == uid
+    assert user.display_name is None
+    assert user.email is None
+    assert user.photo_url is None
+    assert user.email_verified is False
+    assert user.disabled is False
+    assert user.user_metadata.creation_timestamp > 0
+    assert user.user_metadata.last_sign_in_timestamp is None

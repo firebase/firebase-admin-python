@@ -121,6 +121,25 @@ def get_user(uid, app=None):
     return user_manager.get_user(uid)
 
 
+def get_user_by_email(email, app=None):
+    """Get the user data corresponding to the specified user email.
+
+    Args:
+        email: A user email address string.
+        app: An App instance (optional).
+
+    Returns:
+        UserRecord: A UserRecord instance.
+
+    Raises:
+        ValueError: If the email is not a non-empty string.
+        FirebaseAuthError: If an error occurs while retrieving the user or no user exists by
+            the specified email address.
+    """
+    user_manager = _get_auth_service(app).user_manager
+    return user_manager.get_user_by_email(email)
+
+
 def create_user(properties=None, app=None):
     """Creates a new user account with the specified properties.
 
@@ -137,7 +156,7 @@ def create_user(properties=None, app=None):
     """
     user_manager = _get_auth_service(app).user_manager
     uid = user_manager.create_user(properties)
-    return get_user(uid)
+    return user_manager.get_user(uid)
 
 
 class UserInfo(object):
@@ -374,13 +393,31 @@ class _UserManager(object):
         payload = {'localId' : [uid]}
         try:
             response = self._request('post', 'getAccountInfo', json=payload)
+        except requests.exceptions.RequestException as error:
+            msg = 'Error while retrieving user with ID: {0}'.format(uid)
+            raise FirebaseAuthError(_UserManager._INTERNAL_ERROR, msg, error)
+        else:
             if not response or not response.get('users'):
                 msg = 'No user record found for the provided user ID: {0}'.format(uid)
                 raise FirebaseAuthError(_UserManager._USER_NOT_FOUND_ERROR, msg)
             return UserRecord(response['users'][0])
+
+    def get_user_by_email(self, email):
+        if not isinstance(email, six.string_types) or not email:
+            raise ValueError(
+                'Invalid email: "{0}". Email must be a non-empty string.'.format(email))
+
+        payload = {'email' : [email]}
+        try:
+            response = self._request('post', 'getAccountInfo', json=payload)
         except requests.exceptions.RequestException as error:
-            msg = 'Error while retrieving user with ID: {0}'.format(uid)
+            msg = 'Error while retrieving user with email: {0}'.format(email)
             raise FirebaseAuthError(_UserManager._INTERNAL_ERROR, msg, error)
+        else:
+            if not response or not response.get('users'):
+                msg = 'No user record found for the provided email: {0}'.format(email)
+                raise FirebaseAuthError(_UserManager._USER_NOT_FOUND_ERROR, msg)
+            return UserRecord(response['users'][0])
 
     def create_user(self, properties=None):
         """Creates a new user account with the specified properties."""
@@ -397,13 +434,14 @@ class _UserManager(object):
         self._validate(payload, self._CREATE_USER_ATTRIBUTES, 'create user')
         try:
             response = self._request('post', 'signupNewUser', json=payload)
+        except requests.exceptions.RequestException as error:
+            raise FirebaseAuthError(
+                _UserManager._USER_CREATE_ERROR, 'Failed to create new user', error)
+        else:
             if not response or not response.get('localId'):
                 raise FirebaseAuthError(
                     _UserManager._USER_CREATE_ERROR, 'Failed to create new user')
             return response.get('localId')
-        except requests.exceptions.RequestException as error:
-            raise FirebaseAuthError(
-                _UserManager._USER_CREATE_ERROR, 'Failed to create new user', error)
 
     def _validate(self, properties, validators, operation):
         for key, value in properties.items():

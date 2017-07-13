@@ -424,7 +424,7 @@ class _UserManager(object):
         'photoUrl' : 'PHOTO_URL'
     }
 
-    _HTTP_ERROR = 'HTTP_ERROR'
+    _INTERNAL_ERROR = 'INTERNAL_ERROR'
     _USER_NOT_FOUND_ERROR = 'USER_NOT_FOUND_ERROR'
     _USER_CREATE_ERROR = 'USER_CREATE_ERROR'
     _USER_UPDATE_ERROR = 'USER_UPDATE_ERROR'
@@ -447,7 +447,7 @@ class _UserManager(object):
             response = self._request('post', 'getAccountInfo', json={'localId' : [uid]})
         except requests.exceptions.RequestException as error:
             self._handle_http_error(
-                _UserManager._HTTP_ERROR, 'Failed to get user: {0}.'.format(uid), error)
+                _UserManager._INTERNAL_ERROR, 'Failed to get user: {0}.'.format(uid), error)
         else:
             if not response or not response.get('users'):
                 raise AuthError(
@@ -465,7 +465,8 @@ class _UserManager(object):
             response = self._request('post', 'getAccountInfo', json={'email' : [email]})
         except requests.exceptions.RequestException as error:
             self._handle_http_error(
-                _UserManager._HTTP_ERROR, 'Failed to get user by email: {0}.'.format(email), error)
+                _UserManager._INTERNAL_ERROR,
+                'Failed to get user by email: {0}.'.format(email), error)
         else:
             if not response or not response.get('users'):
                 raise AuthError(

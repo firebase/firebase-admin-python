@@ -3,6 +3,7 @@
   "users" : [ {
     "localId" : "testuser",
     "email" : "testuser@example.com",
+    "phoneNumber" : "+1234567890",
     "emailVerified" : true,
     "displayName" : "Test User",
     "providerUserInfo" : [ {

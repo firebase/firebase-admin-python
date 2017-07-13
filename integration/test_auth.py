@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Integration tests for firebase_admin.auth module."""
+import random
 import uuid
 
 import pytest
@@ -69,9 +70,11 @@ def test_delete_non_existing_user():
 def test_create_user_with_params():
     random_id = str(uuid.uuid4()).lower().replace('-', '')
     email = 'test{0}@example.{1}.com'.format(random_id[:12], random_id[12:])
+    phone = '+1' + ''.join([str(random.randint(0, 9)) for _ in range(0, 10)])
     user = auth.create_user({
         'uid' : random_id,
         'email' : email,
+        'phoneNumber' : phone,
         'displayName' : 'Random User',
         'photoUrl' : 'https://example.com/photo.png',
         'emailVerified' : True,
@@ -81,6 +84,7 @@ def test_create_user_with_params():
         assert user.uid == random_id
         assert user.display_name == 'Random User'
         assert user.email == email
+        assert user.phone_number == phone
         assert user.photo_url == 'https://example.com/photo.png'
         assert user.email_verified is True
         assert user.disabled is False
@@ -102,6 +106,7 @@ def test_user_lifecycle():
     assert user.uid == uid
     assert user.display_name is None
     assert user.email is None
+    assert user.phone_number is None
     assert user.photo_url is None
     assert user.email_verified is False
     assert user.disabled is False
@@ -111,8 +116,10 @@ def test_user_lifecycle():
     # Update user
     random_id = str(uuid.uuid4()).lower().replace('-', '')
     email = 'test{0}@example.{1}.com'.format(random_id[:12], random_id[12:])
+    phone = '+1' + ''.join([str(random.randint(0, 9)) for _ in range(0, 10)])
     user = auth.update_user(uid, {
         'email' : email,
+        'phoneNumber' : phone,
         'displayName' : 'Updated Name',
         'photoUrl' : 'https://example.com/photo.png',
         'emailVerified' : True,
@@ -121,12 +128,17 @@ def test_user_lifecycle():
     assert user.uid == uid
     assert user.display_name == 'Updated Name'
     assert user.email == email
+    assert user.phone_number == phone
     assert user.photo_url == 'https://example.com/photo.png'
     assert user.email_verified is True
     assert user.disabled is False
 
     # Get user by email
     user = auth.get_user_by_email(email)
+    assert user.uid == uid
+
+    # Get user by phone
+    user = auth.get_user_by_phone_number(phone)
     assert user.uid == uid
 
     # Disable user and remove properties
@@ -138,6 +150,7 @@ def test_user_lifecycle():
     assert user.uid == uid
     assert user.display_name is None
     assert user.email == email
+    assert user.phone_number == phone
     assert user.photo_url is None
     assert user.email_verified is True
     assert user.disabled is True

@@ -140,6 +140,25 @@ def get_user_by_email(email, app=None):
     return user_manager.get_user_by_email(email)
 
 
+def get_user_by_phone_number(phone_number, app=None):
+    """Gets the user data corresponding to the specified phone number.
+
+    Args:
+        phone_number: A phone number string.
+        app: An App instance (optional).
+
+    Returns:
+        UserRecord: A UserRecord instance.
+
+    Raises:
+        ValueError: If the phone number is None or empty.
+        AuthError: If an error occurs while retrieving the user or no user exists by the specified
+            phone number.
+    """
+    user_manager = _get_auth_service(app).user_manager
+    return user_manager.get_user_by_phone_number(phone_number)
+
+
 def create_user(properties=None, app=None):
     """Creates a new user account with the specified properties.
 
@@ -218,6 +237,11 @@ class UserInfo(object):
         raise NotImplementedError
 
     @property
+    def phone_number(self):
+        """Returns the phone number associated with this user."""
+        raise NotImplementedError
+
+    @property
     def photo_url(self):
         """Returns the photo URL of this user."""
         raise NotImplementedError
@@ -269,6 +293,15 @@ class UserRecord(UserInfo):
           string: An email address string or None.
         """
         return self._data.get('email')
+
+    @property
+    def phone_number(self):
+        """Returns the phone number associated with this user.
+
+        Returns:
+          string: A phone number string or None.
+        """
+        return self._data.get('phoneNumber')
 
     @property
     def photo_url(self):
@@ -373,6 +406,10 @@ class _ProviderUserInfo(UserInfo):
         return self._data.get('email')
 
     @property
+    def phone_number(self):
+        return self._data.get('phoneNumber')
+
+    @property
     def photo_url(self):
         return self._data.get('photoUrl')
 
@@ -409,6 +446,24 @@ class _Validator(object):
                 'Invalid email: "{0}". Email must be a non-empty string.'.format(email))
         elif not cls.EMAIL_PATTERN.match(email):
             raise ValueError('Malformed email address string: "{0}".'.format(email))
+
+    @classmethod
+    def validate_phone(cls, phone):
+        """Validates the specified phone number.
+
+        Phone number vlidation is very lax here. Backend will enforce E.164 spec compliance, and
+        normalize accordingly. Here we check if the number starts with + sign, and contains at
+        least one alphanumeric character.
+        """
+        if not isinstance(phone, six.string_types) or not phone:
+            raise ValueError('Invalid phone number: "{0}". Phone number must be a non-empty '
+                             'string.'.format(phone))
+        if not phone.startswith('+'):
+            raise ValueError('Invalid phone number: "{0}". Phone number must begin with a "+"'
+                             'sign.'.format(phone))
+        if not re.search('[a-zA-Z0-9]', phone):
+            raise ValueError('Invalid phone number: "{0}". Phone number must contain at least '
+                             'one alphanumeric character.'.format(phone))
 
     @classmethod
     def validate_password(cls, password):
@@ -471,8 +526,9 @@ class _UserManager(object):
         'email' : _Validator.validate_email,
         'emailVerified' : _Validator.validate_email_verified,
         'localId' : _Validator.validate_uid,
-        'photoUrl' : _Validator.validate_photo_url,
         'password' : _Validator.validate_password,
+        'phoneNumber' : _Validator.validate_phone,
+        'photoUrl' : _Validator.validate_photo_url,
     }
 
     _REMOVABLE_FIELDS = {
@@ -530,6 +586,26 @@ class _UserManager(object):
                     'No user record found for the provided email: {0}'.format(email))
             return UserRecord(response['users'][0])
 
+    def get_user_by_phone_number(self, phone_number):
+        """Gets the user data corresponding to the specified phone number."""
+        if not isinstance(phone_number, six.string_types) or not phone_number:
+            raise ValueError('Invalid phone number: "{0}". Phone number must be a non-empty '
+                             'string.'.format(phone_number))
+
+        try:
+            response = self._request(
+                'post', 'getAccountInfo', json={'phoneNumber' : [phone_number]})
+        except requests.exceptions.RequestException as error:
+            self._handle_http_error(
+                _UserManager._INTERNAL_ERROR,
+                'Failed to get user by phone number: {0}.'.format(phone_number), error)
+        else:
+            if not response or not response.get('users'):
+                raise AuthError(
+                    _UserManager._USER_NOT_FOUND_ERROR,
+                    'No user record found for the provided phone number: {0}'.format(phone_number))
+            return UserRecord(response['users'][0])
+
     def create_user(self, properties=None):
         """Creates a new user account with the specified properties."""
         if properties is not None and not isinstance(properties, dict):
@@ -572,6 +648,9 @@ class _UserManager(object):
                 del payload[key]
         if remove:
             payload['deleteAttribute'] = remove
+        if 'phoneNumber' in payload and payload['phoneNumber'] is None:
+            payload['deleteProvider'] = ['phone']
+            del payload['phoneNumber']
         if 'disabled' in payload:
             payload['disableUser'] = payload['disabled']
             del payload['disabled']

@@ -293,6 +293,7 @@ def _check_user_record(user):
     provider = user.provider_data[0]
     assert provider.uid == 'testuser@example.com'
     assert provider.email == 'testuser@example.com'
+    assert provider.phone_number == '+1234567890'
     assert provider.display_name == 'Test User'
     assert provider.photo_url == 'http://www.example.com/testuser/photo.png'
     assert provider.provider_id == 'password'
@@ -314,6 +315,9 @@ class TestUserRecord(object):
         metadata = auth.UserMetadata({'createdAt' : 10, 'lastLoginAt' : 20})
         assert metadata.creation_timestamp == 10
         assert metadata.last_sign_in_timestamp == 20
+        metadata = auth.UserMetadata({})
+        assert metadata.creation_timestamp is None
+        assert metadata.last_sign_in_timestamp is None
 
     @pytest.mark.parametrize('data', INVALID_DICTS + [{}, {'foo':'bar'}])
     def test_invalid_provider(self, data):
@@ -395,7 +399,7 @@ class TestCreateUser(object):
         with pytest.raises(ValueError):
             auth.create_user({'email' : arg})
 
-    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-a-phone'])
+    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-a-phone', '+'])
     def test_invalid_phone(self, arg):
         with pytest.raises(ValueError):
             auth.create_user({'phoneNumber' : arg})
@@ -472,7 +476,7 @@ class TestUpdateUser(object):
         with pytest.raises(ValueError):
             auth.update_user('user', {'email' : arg})
 
-    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['not-a-phone'])
+    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['not-a-phone', '+'])
     def test_invalid_phone(self, arg):
         with pytest.raises(ValueError):
             auth.update_user('user', {'phoneNumber' : arg})

@@ -32,6 +32,14 @@ def _sign_in(custom_token, api_key):
     resp.raise_for_status()
     return resp.json().get('idToken')
 
+def _random_id():
+    random_id = str(uuid.uuid4()).lower().replace('-', '')
+    email = 'test{0}@example.{1}.com'.format(random_id[:12], random_id[12:])
+    return random_id, email
+
+def _random_phone():
+    return '+1' + ''.join([str(random.randint(0, 9)) for _ in range(0, 10)])
+
 def test_custom_token(api_key):
     custom_token = auth.create_custom_token('user1')
     id_token = _sign_in(custom_token, api_key)
@@ -67,10 +75,16 @@ def test_delete_non_existing_user():
         auth.delete_user('non.existing')
     assert 'USER_DELETE_ERROR' in str(excinfo.value.code)
 
-def test_create_user_with_params():
-    random_id = str(uuid.uuid4()).lower().replace('-', '')
-    email = 'test{0}@example.{1}.com'.format(random_id[:12], random_id[12:])
-    phone = '+1' + ''.join([str(random.randint(0, 9)) for _ in range(0, 10)])
+@pytest.fixture
+def new_user():
+    user = auth.create_user()
+    yield user
+    auth.delete_user(user.uid)
+
+@pytest.fixture
+def new_user_with_params():
+    random_id, email = _random_id()
+    phone = _random_phone()
     user = auth.create_user({
         'uid' : random_id,
         'email' : email,
@@ -80,30 +94,27 @@ def test_create_user_with_params():
         'emailVerified' : True,
         'password' : 'secret',
     })
-    try:
-        assert user.uid == random_id
-        assert user.display_name == 'Random User'
-        assert user.email == email
-        assert user.phone_number == phone
-        assert user.photo_url == 'https://example.com/photo.png'
-        assert user.email_verified is True
-        assert user.disabled is False
+    yield user
+    auth.delete_user(user.uid)
 
-        with pytest.raises(auth.AuthError) as excinfo:
-            auth.create_user({'uid' : random_id})
-        assert excinfo.value.code == 'USER_CREATE_ERROR'
-    finally:
-        auth.delete_user(random_id)
+def test_get_user(new_user_with_params):
+    user = auth.get_user(new_user_with_params.uid)
+    assert user.uid == new_user_with_params.uid
+    assert user.display_name == 'Random User'
+    assert user.email == new_user_with_params.email
+    assert user.phone_number == new_user_with_params.phone_number
+    assert user.photo_url == 'https://example.com/photo.png'
+    assert user.email_verified is True
+    assert user.disabled is False
 
-def test_user_lifecycle():
-    # Create user
-    user = auth.create_user()
-    uid = user.uid
-    assert uid
+    user = auth.get_user_by_email(new_user_with_params.email)
+    assert user.uid == new_user_with_params.uid
+    user = auth.get_user_by_phone_number(new_user_with_params.phone_number)
+    assert user.uid == new_user_with_params.uid
 
-    # Get user
-    user = auth.get_user(uid)
-    assert user.uid == uid
+def test_create_user(new_user):
+    user = auth.get_user(new_user.uid)
+    assert user.uid == new_user.uid
     assert user.display_name is None
     assert user.email is None
     assert user.phone_number is None
@@ -112,12 +123,14 @@ def test_user_lifecycle():
     assert user.disabled is False
     assert user.user_metadata.creation_timestamp > 0
     assert user.user_metadata.last_sign_in_timestamp is None
+    with pytest.raises(auth.AuthError) as excinfo:
+        auth.create_user({'uid' : new_user.uid})
+    assert excinfo.value.code == 'USER_CREATE_ERROR'
 
-    # Update user
-    random_id = str(uuid.uuid4()).lower().replace('-', '')
-    email = 'test{0}@example.{1}.com'.format(random_id[:12], random_id[12:])
-    phone = '+1' + ''.join([str(random.randint(0, 9)) for _ in range(0, 10)])
-    user = auth.update_user(uid, {
+def test_update_user(new_user):
+    _, email = _random_id()
+    phone = _random_phone()
+    user = auth.update_user(new_user.uid, {
         'email' : email,
         'phoneNumber' : phone,
         'displayName' : 'Updated Name',
@@ -125,7 +138,7 @@ def test_user_lifecycle():
         'emailVerified' : True,
         'password' : 'secret',
     })
-    assert user.uid == uid
+    assert user.uid == new_user.uid
     assert user.display_name == 'Updated Name'
     assert user.email == email
     assert user.phone_number == phone
@@ -133,30 +146,24 @@ def test_user_lifecycle():
     assert user.email_verified is True
     assert user.disabled is False
 
-    # Get user by email
-    user = auth.get_user_by_email(email)
-    assert user.uid == uid
-
-    # Get user by phone
-    user = auth.get_user_by_phone_number(phone)
-    assert user.uid == uid
-
-    # Disable user and remove properties
-    user = auth.update_user(uid, {
+def test_disable_user(new_user_with_params):
+    user = auth.update_user(new_user_with_params.uid, {
         'displayName' : None,
         'photoUrl' : None,
+        'phoneNumber' : None,
         'disabled' : True,
     })
-    assert user.uid == uid
+    assert user.uid == new_user_with_params.uid
+    assert user.email == new_user_with_params.email
     assert user.display_name is None
-    assert user.email == email
-    assert user.phone_number == phone
+    assert user.phone_number is None
     assert user.photo_url is None
     assert user.email_verified is True
     assert user.disabled is True
 
-    # Delete user
-    auth.delete_user(uid)
+def test_delete_user():
+    user = auth.create_user()
+    auth.delete_user(user.uid)
     with pytest.raises(auth.AuthError) as excinfo:
-        auth.get_user(uid)
+        auth.get_user(user.uid)
     assert excinfo.value.code == 'USER_NOT_FOUND_ERROR'

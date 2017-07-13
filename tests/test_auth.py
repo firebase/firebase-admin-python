@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Test cases for the firebase_admin.auth module."""
+import json
 import os
 import time
 
@@ -271,10 +272,11 @@ def user_mgt_app():
 def _instrument_user_manager(app, status, payload):
     auth_service = auth._get_auth_service(app)
     user_manager = auth_service.user_manager
+    recorder = []
     user_manager._session.mount(
         auth._UserManager._ID_TOOLKIT_URL,
-        testutils.MockAdapter(payload, status, []))
-    return user_manager
+        testutils.MockAdapter(payload, status, recorder))
+    return user_manager, recorder
 
 def _check_user_record(user):
     assert user.uid == 'testuser'
@@ -428,8 +430,22 @@ class TestCreateUser(object):
             auth.create_user({'unsupported' : 'value'})
 
     def test_create_user(self, user_mgt_app):
-        user_mgt = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
         assert user_mgt.create_user() == 'testuser'
+        request = json.loads(recorder[0].body.decode())
+        assert request == {}
+
+    def test_create_user_with_params(self, user_mgt_app):
+        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        assert user_mgt.create_user({'email' : 'test@example.com'}) == 'testuser'
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'email' : 'test@example.com'}
+
+    def test_create_user_with_id(self, user_mgt_app):
+        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        assert user_mgt.create_user({'uid' : 'testuser'}) == 'testuser'
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'localId' : 'testuser'}
 
     def test_create_user_error(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
@@ -456,7 +472,7 @@ class TestUpdateUser(object):
         with pytest.raises(ValueError):
             auth.update_user('user', {'email' : arg})
 
-    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-a-phone'])
+    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['not-a-phone'])
     def test_invalid_phone(self, arg):
         with pytest.raises(ValueError):
             auth.update_user('user', {'phoneNumber' : arg})
@@ -491,9 +507,24 @@ class TestUpdateUser(object):
             auth.update_user('user', {'unsupported' : 'value'})
 
     def test_update_user(self, user_mgt_app):
-        user_mgt = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
-        # should not raise
+        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
         user_mgt.update_user('testuser', {})
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'localId' : 'testuser'}
+
+    def test_update_user_delete_fields(self, user_mgt_app):
+        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        user_mgt.update_user('testuser', {
+            'displayName' : None,
+            'photoUrl' : None,
+            'phoneNumber' : None
+        })
+        request = json.loads(recorder[0].body.decode())
+        assert request == {
+            'localId' : 'testuser',
+            'deleteAttribute' : ['DISPLAY_NAME', 'PHOTO_URL'],
+            'deleteProvider' : ['phone'],
+        }
 
     def test_update_user_error(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')

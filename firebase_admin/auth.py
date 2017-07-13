@@ -510,10 +510,10 @@ class _Validator(object):
                 'boolean.'.format(disabled))
 
     @classmethod
-    def validate_delete_attributes(cls, delete_attr):
+    def validate_delete_list(cls, delete_attr):
         if not isinstance(delete_attr, list) or not delete_attr:
             raise ValueError(
-                'Invalid delete attributes: "{0}". Delete attributes must be a '
+                'Invalid delete list: "{0}". Delete list must be a '
                 'non-empty list.'.format(delete_attr))
 
 
@@ -523,7 +523,8 @@ class _UserManager(object):
     _ID_TOOLKIT_URL = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/'
 
     _USER_ATTRIBUTES = {
-        'deleteAttribute' : _Validator.validate_delete_attributes,
+        'deleteAttribute' : _Validator.validate_delete_list,
+        'deleteProvider' : _Validator.validate_delete_list,
         'disabled' : _Validator.validate_disabled,
         'disableUser' : _Validator.validate_disabled,
         'displayName' : _Validator.validate_display_name,
@@ -640,7 +641,7 @@ class _UserManager(object):
                 remove.append(value)
                 del payload[key]
         if remove:
-            payload['deleteAttribute'] = remove
+            payload['deleteAttribute'] = sorted(remove)
         if 'phoneNumber' in payload and payload['phoneNumber'] is None:
             payload['deleteProvider'] = ['phone']
             del payload['phoneNumber']

@@ -113,7 +113,7 @@ def get_user(uid, app=None):
         UserRecord: A UserRecord instance.
 
     Raises:
-        ValueError: If the user ID is None or empty.
+        ValueError: If the user ID is None, empty or malformed.
         AuthError: If an error occurs while retrieving the user or if the specified user ID
             does not exist.
     """
@@ -132,7 +132,7 @@ def get_user_by_email(email, app=None):
         UserRecord: A UserRecord instance.
 
     Raises:
-        ValueError: If the email is None or empty.
+        ValueError: If the email is None, empty or malformed.
         AuthError: If an error occurs while retrieving the user or no user exists by the specified
             email address.
     """
@@ -151,7 +151,7 @@ def get_user_by_phone_number(phone_number, app=None):
         UserRecord: A UserRecord instance.
 
     Raises:
-        ValueError: If the phone number is None or empty.
+        ValueError: If the phone number is None, empty or malformed.
         AuthError: If an error occurs while retrieving the user or no user exists by the specified
             phone number.
     """
@@ -208,7 +208,7 @@ def delete_user(uid, app=None):
         app: An App instance (optional).
 
     Raises:
-        ValueError: If the user ID is None or empty.
+        ValueError: If the user ID is None, empty or malformed.
         AuthError: If an error occurs while deleting the user account.
     """
     user_manager = _get_auth_service(app).user_manager
@@ -428,7 +428,11 @@ class AuthError(Exception):
 
 
 class _Validator(object):
-    """A collectoin of data validation utilities."""
+    """A collectoin of data validation utilities.
+
+    Method provided in this class raise ValueErrors if any validations fail. Normal returns
+    signal success.
+    """
 
     EMAIL_PATTERN = re.compile('^[^@]+@[^@]+$')
 
@@ -551,10 +555,7 @@ class _UserManager(object):
 
     def get_user(self, uid):
         """Gets the user data corresponding to the specified user ID."""
-        if not isinstance(uid, six.string_types) or not uid:
-            raise ValueError(
-                'Invalid user ID: "{0}". User ID must be a non-empty string.'.format(uid))
-
+        _Validator.validate_uid(uid)
         try:
             response = self._request('post', 'getAccountInfo', json={'localId' : [uid]})
         except requests.exceptions.RequestException as error:
@@ -569,10 +570,7 @@ class _UserManager(object):
 
     def get_user_by_email(self, email):
         """Gets the user data corresponding to the specified user email."""
-        if not isinstance(email, six.string_types) or not email:
-            raise ValueError(
-                'Invalid email: "{0}". Email must be a non-empty string.'.format(email))
-
+        _Validator.validate_email(email)
         try:
             response = self._request('post', 'getAccountInfo', json={'email' : [email]})
         except requests.exceptions.RequestException as error:
@@ -588,10 +586,7 @@ class _UserManager(object):
 
     def get_user_by_phone_number(self, phone_number):
         """Gets the user data corresponding to the specified phone number."""
-        if not isinstance(phone_number, six.string_types) or not phone_number:
-            raise ValueError('Invalid phone number: "{0}". Phone number must be a non-empty '
-                             'string.'.format(phone_number))
-
+        _Validator.validate_phone(phone_number)
         try:
             response = self._request(
                 'post', 'getAccountInfo', json={'phoneNumber' : [phone_number]})
@@ -632,9 +627,7 @@ class _UserManager(object):
 
     def update_user(self, uid, properties):
         """Updates an existing user account with the specified properties"""
-        if not isinstance(uid, six.string_types) or not uid:
-            raise ValueError(
-                'Invalid user ID: "{0}". User ID must be a non-empty string.'.format(uid))
+        _Validator.validate_uid(uid)
         if not isinstance(properties, dict):
             raise ValueError('Invalid user properties: "{0}". Properties must be a '
                              'dictionary.'.format(properties))
@@ -668,10 +661,7 @@ class _UserManager(object):
 
     def delete_user(self, uid):
         """Deletes the user identified by the specified user ID."""
-        if not isinstance(uid, six.string_types) or not uid:
-            raise ValueError(
-                'Invalid user ID: "{0}". User ID must be a non-empty string.'.format(uid))
-
+        _Validator.validate_uid(uid)
         try:
             response = self._request('post', 'deleteAccount', json={'localId' : [uid]})
         except requests.exceptions.RequestException as error:

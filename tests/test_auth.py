@@ -321,7 +321,7 @@ class TestUserRecord(object):
 
 class TestGetUser(object):
 
-    @pytest.mark.parametrize('arg', INVALID_STRINGS)
+    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
     def test_invalid_get_user(self, arg):
         with pytest.raises(ValueError):
             auth.get_user(arg)
@@ -330,7 +330,7 @@ class TestGetUser(object):
         _instrument_user_manager(user_mgt_app, 200, testutils.resource('get_user.json'))
         _check_user_record(auth.get_user('testuser', user_mgt_app))
 
-    @pytest.mark.parametrize('arg', INVALID_STRINGS)
+    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-an-email'])
     def test_invalid_get_user_by_email(self, arg):
         with pytest.raises(ValueError):
             auth.get_user_by_email(arg)
@@ -339,7 +339,7 @@ class TestGetUser(object):
         _instrument_user_manager(user_mgt_app, 200, testutils.resource('get_user.json'))
         _check_user_record(auth.get_user_by_email('testuser@example.com', user_mgt_app))
 
-    @pytest.mark.parametrize('arg', INVALID_STRINGS)
+    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-a-phone'])
     def test_invalid_get_user_by_phone(self, arg):
         with pytest.raises(ValueError):
             auth.get_user_by_phone_number(arg)
@@ -441,7 +441,7 @@ class TestCreateUser(object):
 
 class TestUpdateUser(object):
 
-    @pytest.mark.parametrize('arg', INVALID_STRINGS)
+    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
     def test_invalid_uid(self, arg):
         with pytest.raises(ValueError):
             auth.update_user(arg, {})
@@ -505,7 +505,7 @@ class TestUpdateUser(object):
 
 class TestDeleteUser(object):
 
-    @pytest.mark.parametrize('arg', INVALID_STRINGS)
+    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
     def test_invalid_delete_user(self, arg):
         with pytest.raises(ValueError):
             auth.get_user(arg)

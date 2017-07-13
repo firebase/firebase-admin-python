@@ -204,22 +204,31 @@ class UserInfo(object):
 
     @property
     def uid(self):
+        """Returns the user ID of this user."""
         raise NotImplementedError
 
     @property
     def display_name(self):
+        """Returns the display name of this user."""
         raise NotImplementedError
 
     @property
     def email(self):
+        """Returns the email address associated with this user."""
         raise NotImplementedError
 
     @property
     def photo_url(self):
+        """Returns the photo URL of this user."""
         raise NotImplementedError
 
     @property
     def provider_id(self):
+        """Returns the ID of the identity provider.
+
+        This can be a short domain name (e.g. google.com), or the identity of an OpenID
+        identity provider.
+        """
         raise NotImplementedError
 
 
@@ -236,38 +245,85 @@ class UserRecord(UserInfo):
 
     @property
     def uid(self):
+        """Returns the user ID of this user.
+
+        Returns:
+          string: A user ID string. This value is never None or empty.
+        """
         return self._data.get('localId')
 
     @property
     def display_name(self):
+        """Returns the display name of this user.
+
+        Returns:
+          string: A display name string or None.
+        """
         return self._data.get('displayName')
 
     @property
     def email(self):
+        """Returns the email address associated with this user.
+
+        Returns:
+          string: An email address string or None.
+        """
         return self._data.get('email')
 
     @property
     def photo_url(self):
+        """Returns the photo URL of this user.
+
+        Returns:
+          string: A URL string or None.
+        """
         return self._data.get('photoUrl')
 
     @property
     def provider_id(self):
+        """Returns the provider ID of this user.
+
+        Returns:
+          string: A constant provider ID value.
+        """
         return 'firebase'
 
     @property
     def email_verified(self):
+        """Returns whether the email address of this user has been verified.
+
+        Returns:
+          bool: True if the email has been verified, and False otherwise.
+        """
         return bool(self._data.get('emailVerified'))
 
     @property
     def disabled(self):
+        """Returns whether this user account is disabled.
+
+        Returns:
+          bool: True if the user account is disabled, and False otherwise.
+        """
         return bool(self._data.get('disabled'))
 
     @property
     def user_metadata(self):
+        """Returns additional metadata associated with this user.
+
+        Returns:
+          UserMetadata: A UserMetadata instance. Does not return None.
+        """
         return UserMetadata(self._data)
 
     @property
     def provider_data(self):
+        """Returns a list of UserInfo instances.
+
+        Each object represents an identity from an identity provider that is linked to this user.
+
+        Returns:
+          list: A list of UserInfo objects, which may be empty.
+        """
         providers = self._data.get('providerUserInfo', [])
         return [_ProviderUserInfo(entry) for entry in providers]
 

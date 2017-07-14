@@ -12,8 +12,11 @@
       "photoUrl" : "http://www.example.com/testuser/photo.png",
       "federatedId" : "testuser@example.com",
       "email" : "testuser@example.com",
-      "phoneNumber" : "+1234567890",
       "rawId" : "testuser@example.com"
+    }, {
+        "providerId" : "phone",
+        "phoneNumber" : "+1234567890",
+        "rawId" : "+1234567890"
     } ],
     "photoUrl" : "http://www.example.com/testuser/photo.png",
     "passwordHash" : "passwordhash",

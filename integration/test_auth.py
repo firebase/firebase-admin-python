@@ -112,6 +112,10 @@ def test_get_user(new_user_with_params):
     user = auth.get_user_by_phone_number(new_user_with_params.phone_number)
     assert user.uid == new_user_with_params.uid
 
+    assert len(user.provider_data) == 2
+    provider_ids = sorted([provider.provider_id for provider in user.provider_data])
+    assert provider_ids == ['password', 'phone']
+
 def test_create_user(new_user):
     user = auth.get_user(new_user.uid)
     assert user.uid == new_user.uid
@@ -123,6 +127,7 @@ def test_create_user(new_user):
     assert user.disabled is False
     assert user.user_metadata.creation_timestamp > 0
     assert user.user_metadata.last_sign_in_timestamp is None
+    assert len(user.provider_data) is 0
     with pytest.raises(auth.AuthError) as excinfo:
         auth.create_user({'uid' : new_user.uid})
     assert excinfo.value.code == 'USER_CREATE_ERROR'
@@ -145,6 +150,7 @@ def test_update_user(new_user):
     assert user.photo_url == 'https://example.com/photo.png'
     assert user.email_verified is True
     assert user.disabled is False
+    assert len(user.provider_data) == 2
 
 def test_disable_user(new_user_with_params):
     user = auth.update_user(new_user_with_params.uid, {
@@ -160,6 +166,7 @@ def test_disable_user(new_user_with_params):
     assert user.photo_url is None
     assert user.email_verified is True
     assert user.disabled is True
+    assert len(user.provider_data) == 1
 
 def test_delete_user():
     user = auth.create_user()

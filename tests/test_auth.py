@@ -289,14 +289,23 @@ def _check_user_record(user):
     assert user.user_metadata.creation_timestamp == 1234567890
     assert user.user_metadata.last_sign_in_timestamp is None
     assert user.provider_id == 'firebase'
-    assert len(user.provider_data) == 1
+
+    assert len(user.provider_data) == 2
     provider = user.provider_data[0]
     assert provider.uid == 'testuser@example.com'
     assert provider.email == 'testuser@example.com'
-    assert provider.phone_number == '+1234567890'
+    assert provider.phone_number is None
     assert provider.display_name == 'Test User'
     assert provider.photo_url == 'http://www.example.com/testuser/photo.png'
     assert provider.provider_id == 'password'
+
+    provider = user.provider_data[1]
+    assert provider.uid == '+1234567890'
+    assert provider.email is None
+    assert provider.phone_number == '+1234567890'
+    assert provider.display_name is None
+    assert provider.photo_url is None
+    assert provider.provider_id == 'phone'
 
 
 class TestUserRecord(object):

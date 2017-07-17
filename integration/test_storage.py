@@ -15,8 +15,6 @@
 """Integration tests for firebase_admin.storage module."""
 import time
 
-import pytest
-
 from firebase_admin import storage
 
 
@@ -30,10 +28,8 @@ def test_custom_bucket(project_id):
     _verify_bucket(bucket, bucket_name)
 
 def test_non_existing_bucket():
-    with pytest.raises(ValueError) as excinfo:
-        storage.bucket('non.existing')
-    assert isinstance(excinfo.value, ValueError)
-    assert str(excinfo.value) == 'Bucket "non.existing" does not exist.'
+    bucket = storage.bucket('non.existing')
+    assert bucket.exists() is False
 
 def _verify_bucket(bucket, expected_name):
     assert bucket.name == expected_name

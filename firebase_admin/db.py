@@ -187,8 +187,8 @@ class Reference(object):
         parameters = {}
         # reset path and build_query for next query
         request_ref = '{0}{1}.json?{2}'.format(self._client._url, self._pathurl, urlencode(parameters))
-        self.path = ""
-        self.build_query = {}
+        #self.stream_path = ""
+        #self.build_query = {}
         return Stream(request_ref, stream_handler, self.build_headers, stream_id)
 
     def child(self, path):

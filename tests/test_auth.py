@@ -448,7 +448,18 @@ class TestCreateUser(object):
         request = json.loads(recorder[0].body.decode())
         assert request == {}
 
-    def test_create_user_with_params(self, user_mgt_app):
+    @pytest.mark.parametrize('params', [
+        {'phoneNumber' : '+11234567890'},
+        {'phoneNumber' : '+1 123 456 7890'},
+        {'phoneNumber' : '+1 (123) 456-7890'},
+    ])
+    def test_create_user_with_phone(self, user_mgt_app, params):
+        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        assert user_mgt.create_user(params) == 'testuser'
+        request = json.loads(recorder[0].body.decode())
+        assert request == params
+
+    def test_create_user_with_email(self, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
         assert user_mgt.create_user({'email' : 'test@example.com'}) == 'testuser'
         request = json.loads(recorder[0].body.decode())

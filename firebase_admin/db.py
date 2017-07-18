@@ -178,7 +178,7 @@ class Reference(object):
     def build_headers(self, token=None):
         headers = {"content-type": "application/json; charset=UTF-8"}
         if not token and self._client._session.credentials:
-            access_token = self._client._session.credentials.get_access_token().access_token
+            access_token = self._client._session.credentials.access_token
             headers['Authorization'] = 'Bearer ' + access_token
         return headers
 

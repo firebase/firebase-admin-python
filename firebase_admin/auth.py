@@ -462,12 +462,9 @@ class _Validator(object):
         if not isinstance(phone, six.string_types) or not phone:
             raise ValueError('Invalid phone number: "{0}". Phone number must be a non-empty '
                              'string.'.format(phone))
-        if not phone.startswith('+'):
-            raise ValueError('Invalid phone number: "{0}". Phone number must begin with a "+"'
-                             'sign.'.format(phone))
-        if not re.search('[a-zA-Z0-9]', phone):
-            raise ValueError('Invalid phone number: "{0}". Phone number must contain at least '
-                             'one alphanumeric character.'.format(phone))
+        if not phone.startswith('+') or not re.search('[a-zA-Z0-9]', phone):
+            raise ValueError('Invalid phone number: "{0}". Phone number must be a valid, E.164 '
+                             'compliant identifier.'.format(phone))
 
     @classmethod
     def validate_password(cls, password):

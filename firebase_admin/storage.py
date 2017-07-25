@@ -36,7 +36,8 @@ def bucket(name=None, app=None):
     """Returns a handle to a Google Cloud Storage bucket.
 
     If the name argument is not provided, uses the 'storageBucket' option specified when
-    initializing the App. If that is also not available raises an error.
+    initializing the App. If that is also not available raises an error. This function
+    does not make any RPC calls.
 
     Args:
       name: Name of a cloud storage bucket (optional).

@@ -37,3 +37,9 @@ def test_invalid_config():
 def test_invalid_name(name):
     with pytest.raises(ValueError):
         storage.bucket(name)
+
+def test_valid_name():
+    # Should not make RPC calls.
+    bucket = storage.bucket('foo')
+    assert bucket is not None
+    assert bucket.name == 'foo'

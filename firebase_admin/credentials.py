@@ -15,6 +15,7 @@
 """Firebase credentials module."""
 import collections
 import json
+import six
 
 import google.auth
 from google.auth.transport import requests
@@ -56,32 +57,41 @@ class Certificate(Base):
 
     _CREDENTIAL_TYPE = 'service_account'
 
-    def __init__(self, file_path):
-        """Initializes a credential from a certificate file.
+    def __init__(self, cert):
+        """Initializes a credential from a Google service account certificate.
 
-        Parses the specified certificate file (service account file), and
-        creates a credential instance from it.
+        Service account certificates can be downloaded as JSON files from the Firebase console.
+        To instantiate a credential from a certificate file, either specify the file path or a
+        dict representing the parsed contents of the file.
 
         Args:
-          file_path: Path to a service account certificate file.
+          cert: Path to a certificate file or a dict representing the contents of a certificate.
 
         Raises:
-          IOError: If the specified file doesn't exist or cannot be read.
-          ValueError: If the certificate file is invalid.
+          IOError: If the specified certificate file doesn't exist or cannot be read.
+          ValueError: If the specified certificate is invalid.
         """
         super(Certificate, self).__init__()
-        with open(file_path) as json_keyfile:
-            json_data = json.load(json_keyfile)
+        if isinstance(cert, six.string_types):
+            with open(cert) as json_file:
+                json_data = json.load(json_file)
+        elif isinstance(cert, dict):
+            json_data = cert
+        else:
+            raise ValueError(
+                'Invalid certificate argument: "{0}". Certificate argument must be a file path, '
+                'or a dict containing the parsed file contents.'.format(cert))
+
         if json_data.get('type') != self._CREDENTIAL_TYPE:
-            raise ValueError('Invalid certificate file: "{0}". File must contain a '
-                             '"type" field set to "{1}".'.format(file_path, self._CREDENTIAL_TYPE))
+            raise ValueError('Invalid service account certificate. Certificate must contain a '
+                             '"type" field set to "{0}".'.format(self._CREDENTIAL_TYPE))
         self._project_id = json_data.get('project_id')
         try:
             self._g_credential = service_account.Credentials.from_service_account_info(
                 json_data, scopes=_scopes)
         except ValueError as error:
-            raise ValueError('Failed to initialize a certificate credential from file "{0}". '
-                             'Caused by: "{1}"'.format(file_path, error))
+            raise ValueError('Failed to initialize a certificate credential. '
+                             'Caused by: "{0}"'.format(error))
 
     @property
     def project_id(self):
@@ -133,29 +143,43 @@ class RefreshToken(Base):
 
     _CREDENTIAL_TYPE = 'authorized_user'
 
-    def __init__(self, file_path):
-        """Initializes a refresh token credential from the specified JSON file.
+    def __init__(self, refresh_token):
+        """Initializes a credential from a refresh token JSON file.
+
+        The JSON must consist of client_id, client_secert and refresh_token fields. Refresh
+        token files are typically created and managed by the gcloud SDK. To instantiate
+        a credential from a refresh token file, either specify the file path or a dict
+        representing the parsed contents of the file.
 
         Args:
-          file_path: File path to a refresh token JSON file.
+          refresh_token: Path to a refresh token file or a dict representing the contents of a
+              refresh token file.
 
         Raises:
           IOError: If the specified file doesn't exist or cannot be read.
-          ValueError: If the refresh token file is invalid.
+          ValueError: If the refresh token configuration is invalid.
         """
         super(RefreshToken, self).__init__()
-        with open(file_path) as json_keyfile:
-            json_data = json.load(json_keyfile)
+        if isinstance(refresh_token, six.string_types):
+            with open(refresh_token) as json_file:
+                json_data = json.load(json_file)
+        elif isinstance(refresh_token, dict):
+            json_data = refresh_token
+        else:
+            raise ValueError(
+                'Invalid refresh token argument: "{0}". Refresh token argument must be a file '
+                'path, or a dict containing the parsed file contents.'.format(refresh_token))
+
         if json_data.get('type') != self._CREDENTIAL_TYPE:
-            raise ValueError('Invalid refresh token file: "{0}". File must contain a '
-                             '"type" field set to "{1}".'.format(file_path, self._CREDENTIAL_TYPE))
+            raise ValueError('Invalid refresh token configuration. JSON must contain a '
+                             '"type" field set to "{0}".'.format(self._CREDENTIAL_TYPE))
         try:
             client_id = json_data['client_id']
             client_secret = json_data['client_secret']
             refresh_token = json_data['refresh_token']
         except KeyError as error:
-            raise ValueError('Failed to initialize a refresh token credential from file "{0}". '
-                             'Caused by: "{1}"'.format(file_path, error))
+            raise ValueError('Failed to initialize a refresh token credential. '
+                             'Caused by: "{0}"'.format(error))
         self._g_credential = credentials.Credentials(
             token=None, refresh_token=refresh_token,
             token_uri='https://accounts.google.com/o/oauth2/token',

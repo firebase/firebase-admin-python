@@ -781,7 +781,7 @@ class _TokenGenerator(object):
           developer_claims: A dictionary of claims to be included in the token.
 
         Returns:
-          string: A token string minted from the input parameters.
+          string: A token minted from the input parameters as a byte string.
 
         Raises:
           ValueError: If input parameters are invalid.

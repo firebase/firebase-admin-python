@@ -396,51 +396,46 @@ class TestCreateUser(object):
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
     def test_invalid_uid(self, arg):
         with pytest.raises(ValueError):
-            auth.create_user({'uid' : arg})
-
-    @pytest.mark.parametrize('props', INVALID_DICTS[1:])
-    def test_invalid_properties(self, props):
-        with pytest.raises(ValueError):
-            auth.create_user(props)
+            auth.create_user(uid=arg)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-an-email'])
     def test_invalid_email(self, arg):
         with pytest.raises(ValueError):
-            auth.create_user({'email' : arg})
+            auth.create_user(email=arg)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-a-phone', '+'])
     def test_invalid_phone(self, arg):
         with pytest.raises(ValueError):
-            auth.create_user({'phoneNumber' : arg})
+            auth.create_user(phone_number=arg)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS)
     def test_invalid_display_name(self, arg):
         with pytest.raises(ValueError):
-            auth.create_user({'displayName' : arg})
+            auth.create_user(display_name=arg)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-a-url'])
     def test_invalid_photo_url(self, arg):
         with pytest.raises(ValueError):
-            auth.create_user({'photoUrl' : arg})
+            auth.create_user(photo_url=arg)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['short'])
     def test_invalid_password(self, arg):
         with pytest.raises(ValueError):
-            auth.create_user({'password' : arg})
+            auth.create_user(password=arg)
 
     @pytest.mark.parametrize('arg', INVALID_BOOLS)
     def test_invalid_email_verified(self, arg):
         with pytest.raises(ValueError):
-            auth.create_user({'emailVerified' : arg})
+            auth.create_user(email_verified=arg)
 
     @pytest.mark.parametrize('arg', INVALID_BOOLS)
     def test_invalid_disabled(self, arg):
         with pytest.raises(ValueError):
-            auth.create_user({'disabled' : arg})
+            auth.create_user(disabled=arg)
 
     def test_invalid_property(self):
         with pytest.raises(ValueError):
-            auth.create_user({'unsupported' : 'value'})
+            auth.create_user(unsupported='value')
 
     def test_create_user(self, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
@@ -448,26 +443,24 @@ class TestCreateUser(object):
         request = json.loads(recorder[0].body.decode())
         assert request == {}
 
-    @pytest.mark.parametrize('params', [
-        {'phoneNumber' : '+11234567890'},
-        {'phoneNumber' : '+1 123 456 7890'},
-        {'phoneNumber' : '+1 (123) 456-7890'},
+    @pytest.mark.parametrize('phone', [
+        '+11234567890', '+1 123 456 7890', '+1 (123) 456-7890',
     ])
-    def test_create_user_with_phone(self, user_mgt_app, params):
+    def test_create_user_with_phone(self, user_mgt_app, phone):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
-        assert user_mgt.create_user(params) == 'testuser'
+        assert user_mgt.create_user(phone_number=phone) == 'testuser'
         request = json.loads(recorder[0].body.decode())
-        assert request == params
+        assert request == {'phoneNumber' : phone}
 
     def test_create_user_with_email(self, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
-        assert user_mgt.create_user({'email' : 'test@example.com'}) == 'testuser'
+        assert user_mgt.create_user(email='test@example.com') == 'testuser'
         request = json.loads(recorder[0].body.decode())
         assert request == {'email' : 'test@example.com'}
 
     def test_create_user_with_id(self, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
-        assert user_mgt.create_user({'uid' : 'testuser'}) == 'testuser'
+        assert user_mgt.create_user(uid='testuser') == 'testuser'
         request = json.loads(recorder[0].body.decode())
         assert request == {'localId' : 'testuser'}
 
@@ -484,65 +477,56 @@ class TestUpdateUser(object):
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
     def test_invalid_uid(self, arg):
         with pytest.raises(ValueError):
-            auth.update_user(arg, {})
-
-    @pytest.mark.parametrize('props', INVALID_DICTS)
-    def test_invalid_properties(self, props):
-        with pytest.raises(ValueError):
-            auth.update_user('user', props)
+            auth.update_user(arg)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-an-email'])
     def test_invalid_email(self, arg):
         with pytest.raises(ValueError):
-            auth.update_user('user', {'email' : arg})
+            auth.update_user('user', email=arg)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['not-a-phone', '+'])
     def test_invalid_phone(self, arg):
         with pytest.raises(ValueError):
-            auth.update_user('user', {'phoneNumber' : arg})
+            auth.update_user('user', phone_number=arg)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS[1:])
     def test_invalid_display_name(self, arg):
         with pytest.raises(ValueError):
-            auth.update_user('user', {'displayName' : arg})
+            auth.update_user('user', display_name=arg)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['not-a-url'])
     def test_invalid_photo_url(self, arg):
         with pytest.raises(ValueError):
-            auth.update_user('user', {'photoUrl' : arg})
+            auth.update_user('user', photo_url=arg)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['short'])
     def test_invalid_password(self, arg):
         with pytest.raises(ValueError):
-            auth.update_user('user', {'password' : arg})
+            auth.update_user('user', password=arg)
 
     @pytest.mark.parametrize('arg', INVALID_BOOLS)
     def test_invalid_email_verified(self, arg):
         with pytest.raises(ValueError):
-            auth.update_user('user', {'emailVerified' : arg})
+            auth.update_user('user', email_verified=arg)
 
     @pytest.mark.parametrize('arg', INVALID_BOOLS)
     def test_invalid_disabled(self, arg):
         with pytest.raises(ValueError):
-            auth.update_user('user', {'disabled' : arg})
+            auth.update_user('user', disabled=arg)
 
     def test_invalid_property(self):
         with pytest.raises(ValueError):
-            auth.update_user('user', {'unsupported' : 'value'})
+            auth.update_user('user', unsupported='arg')
 
     def test_update_user(self, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
-        user_mgt.update_user('testuser', {})
+        user_mgt.update_user('testuser')
         request = json.loads(recorder[0].body.decode())
         assert request == {'localId' : 'testuser'}
 
     def test_update_user_delete_fields(self, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
-        user_mgt.update_user('testuser', {
-            'displayName' : None,
-            'photoUrl' : None,
-            'phoneNumber' : None
-        })
+        user_mgt.update_user('testuser', display_name=None, photo_url=None, phone_number=None)
         request = json.loads(recorder[0].body.decode())
         assert request == {
             'localId' : 'testuser',
@@ -553,7 +537,7 @@ class TestUpdateUser(object):
     def test_update_user_error(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
         with pytest.raises(auth.AuthError) as excinfo:
-            auth.update_user('user', {}, app=user_mgt_app)
+            auth.update_user('user', app=user_mgt_app)
         assert excinfo.value.code == auth._UserManager._USER_UPDATE_ERROR
         assert '{"error":"test"}' in str(excinfo.value)
 

@@ -67,7 +67,7 @@ def test_get_non_existing_user_by_email():
 
 def test_update_non_existing_user():
     with pytest.raises(auth.AuthError) as excinfo:
-        auth.update_user('non.existing', {})
+        auth.update_user('non.existing')
     assert 'USER_UPDATE_ERROR' in str(excinfo.value.code)
 
 def test_delete_non_existing_user():
@@ -85,15 +85,15 @@ def new_user():
 def new_user_with_params():
     random_id, email = _random_id()
     phone = _random_phone()
-    user = auth.create_user({
-        'uid' : random_id,
-        'email' : email,
-        'phoneNumber' : phone,
-        'displayName' : 'Random User',
-        'photoUrl' : 'https://example.com/photo.png',
-        'emailVerified' : True,
-        'password' : 'secret',
-    })
+    user = auth.create_user(
+        uid=random_id,
+        email=email,
+        phone_number=phone,
+        display_name='Random User',
+        photo_url='https://example.com/photo.png',
+        email_verified=True,
+        password='secret',
+    )
     yield user
     auth.delete_user(user.uid)
 
@@ -129,20 +129,20 @@ def test_create_user(new_user):
     assert user.user_metadata.last_sign_in_timestamp is None
     assert len(user.provider_data) is 0
     with pytest.raises(auth.AuthError) as excinfo:
-        auth.create_user({'uid' : new_user.uid})
+        auth.create_user(uid=new_user.uid)
     assert excinfo.value.code == 'USER_CREATE_ERROR'
 
 def test_update_user(new_user):
     _, email = _random_id()
     phone = _random_phone()
-    user = auth.update_user(new_user.uid, {
-        'email' : email,
-        'phoneNumber' : phone,
-        'displayName' : 'Updated Name',
-        'photoUrl' : 'https://example.com/photo.png',
-        'emailVerified' : True,
-        'password' : 'secret',
-    })
+    user = auth.update_user(
+        new_user.uid,
+        email=email,
+        phone_number=phone,
+        display_name='Updated Name',
+        photo_url='https://example.com/photo.png',
+        email_verified=True,
+        password='secret')
     assert user.uid == new_user.uid
     assert user.display_name == 'Updated Name'
     assert user.email == email
@@ -153,12 +153,12 @@ def test_update_user(new_user):
     assert len(user.provider_data) == 2
 
 def test_disable_user(new_user_with_params):
-    user = auth.update_user(new_user_with_params.uid, {
-        'displayName' : None,
-        'photoUrl' : None,
-        'phoneNumber' : None,
-        'disabled' : True,
-    })
+    user = auth.update_user(
+        new_user_with_params.uid,
+        display_name=None,
+        photo_url=None,
+        phone_number=None,
+        disabled=True)
     assert user.uid == new_user_with_params.uid
     assert user.email == new_user_with_params.email
     assert user.display_name is None

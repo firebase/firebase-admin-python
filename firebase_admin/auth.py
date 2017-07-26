@@ -159,11 +159,19 @@ def get_user_by_phone_number(phone_number, app=None):
     return user_manager.get_user_by_phone_number(phone_number)
 
 
-def create_user(properties=None, app=None):
+def create_user(**kwargs):
     """Creates a new user account with the specified properties.
 
-    Args:
-        properties: A dictionary containing user attributes (optional).
+    Keyword Args:
+        uid: User ID to assign to the newly created user (optional).
+        display_name: The user's display name (optional).
+        email: The user's primary email (optional).
+        email_verified: A boolean indicating whether or not the user's primary email is
+            verified (optional).
+        phone_number: The user's primary phone number (optional).
+        photo_url: The user's photo URL (optional).
+        password: The user's raw, unhashed password. (optional).
+        disabled: A boolean indicating whether or not the user account is disabled (optional).
         app: An App instance (optional).
 
     Returns:
@@ -173,19 +181,30 @@ def create_user(properties=None, app=None):
         ValueError: If the specified user properties are invalid.
         AuthError: If an error occurs while creating the user account.
     """
+    app = kwargs.pop('app', None)
     user_manager = _get_auth_service(app).user_manager
-    uid = user_manager.create_user(properties)
+    uid = user_manager.create_user(**kwargs)
     return user_manager.get_user(uid)
 
 
-def update_user(uid, properties, app=None):
+def update_user(uid, **kwargs):
     """Updates an existing user account with the specified properties.
-
-    Properties 'displayName' and 'photoUrl' can be removed by explicitly passing a None value.
 
     Args:
         uid: A user ID string.
-        properties: A dictionary containing user attributes to update.
+        kwargs: A variable list of keyword arguments.
+
+    Keyword Args:
+        display_name: The user's display name (optional). Can be removed by explicitly passing
+            None.
+        email: The user's primary email (optional).
+        email_verified: A boolean indicating whether or not the user's primary email is
+            verified (optional).
+        phone_number: The user's primary phone number (optional). Can be removed by explicitly
+            passing None.
+        photo_url: The user's photo URL (optional). Can be removed by explicitly passing None.
+        password: The user's raw, unhashed password. (optional).
+        disabled: A boolean indicating whether or not the user account is disabled (optional).
         app: An App instance (optional).
 
     Returns:
@@ -195,8 +214,9 @@ def update_user(uid, properties, app=None):
         ValueError: If the specified user ID or properties are invalid.
         AuthError: If an error occurs while updating the user account.
     """
+    app = kwargs.pop('app', None)
     user_manager = _get_auth_service(app).user_manager
-    user_manager.update_user(uid, properties)
+    user_manager.update_user(uid, **kwargs)
     return user_manager.get_user(uid)
 
 
@@ -519,7 +539,7 @@ class _UserManager(object):
 
     _ID_TOOLKIT_URL = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/'
 
-    _USER_ATTRIBUTES = {
+    _VALIDATORS = {
         'deleteAttribute' : _Validator.validate_delete_list,
         'deleteProvider' : _Validator.validate_delete_list,
         'disabled' : _Validator.validate_disabled,
@@ -531,6 +551,27 @@ class _UserManager(object):
         'password' : _Validator.validate_password,
         'phoneNumber' : _Validator.validate_phone,
         'photoUrl' : _Validator.validate_photo_url,
+    }
+
+    _CREATE_USER_FIELDS = {
+        'uid' : 'localId',
+        'display_name' : 'displayName',
+        'email' : 'email',
+        'email_verified' : 'emailVerified',
+        'phone_number' : 'phoneNumber',
+        'photo_url' : 'photoUrl',
+        'password' : 'password',
+        'disabled' : 'disabled',
+    }
+
+    _UPDATE_USER_FIELDS = {
+        'display_name' : 'displayName',
+        'email' : 'email',
+        'email_verified' : 'emailVerified',
+        'phone_number' : 'phoneNumber',
+        'photo_url' : 'photoUrl',
+        'password' : 'password',
+        'disabled' : 'disabled',
     }
 
     _REMOVABLE_FIELDS = {
@@ -599,20 +640,18 @@ class _UserManager(object):
                     'No user record found for the provided phone number: {0}'.format(phone_number))
             return UserRecord(response['users'][0])
 
-    def create_user(self, properties=None):
+    def create_user(self, **kwargs):
         """Creates a new user account with the specified properties."""
-        if properties is not None and not isinstance(properties, dict):
-            raise ValueError('Invalid user properties: "{0}". Properties must be a dictionary '
-                             'or None.'.format(properties))
-        if properties is None:
-            properties = {}
+        payload = {}
+        for key, value in _UserManager._CREATE_USER_FIELDS.items():
+            if key in kwargs:
+                payload[value] = kwargs.pop(key)
+        if kwargs:
+            unexpected_keys = ', '.join(kwargs.keys())
+            raise ValueError(
+                'Unsupported arguments: "{0}" in call to create_user()'.format(unexpected_keys))
 
-        payload = dict(properties)
-        if 'uid' in payload:
-            payload['localId'] = payload['uid']
-            del payload['uid']
-
-        self._validate(payload, self._USER_ATTRIBUTES, 'create user')
+        self._validate(payload, self._VALIDATORS, 'create user')
         try:
             response = self._request('post', 'signupNewUser', json=payload)
         except requests.exceptions.RequestException as error:
@@ -623,15 +662,18 @@ class _UserManager(object):
                 raise AuthError(_UserManager._USER_CREATE_ERROR, 'Failed to create new user.')
             return response.get('localId')
 
-    def update_user(self, uid, properties):
+    def update_user(self, uid, **kwargs):
         """Updates an existing user account with the specified properties"""
         _Validator.validate_uid(uid)
-        if not isinstance(properties, dict):
-            raise ValueError('Invalid user properties: "{0}". Properties must be a '
-                             'dictionary.'.format(properties))
+        payload = {'localId' : uid}
+        for key, value in _UserManager._UPDATE_USER_FIELDS.items():
+            if key in kwargs:
+                payload[value] = kwargs.pop(key)
+        if kwargs:
+            unexpected_keys = ', '.join(kwargs.keys())
+            raise ValueError(
+                'Unsupported arguments: "{0}" in call to update_user()'.format(unexpected_keys))
 
-        payload = dict(properties)
-        payload['localId'] = uid
         remove = []
         for key, value in _UserManager._REMOVABLE_FIELDS.items():
             if key in payload and payload[key] is None:
@@ -646,7 +688,7 @@ class _UserManager(object):
             payload['disableUser'] = payload['disabled']
             del payload['disabled']
 
-        self._validate(payload, self._USER_ATTRIBUTES, 'update user')
+        self._validate(payload, self._VALIDATORS, 'update user')
         try:
             response = self._request('post', 'setAccountInfo', json=payload)
         except requests.exceptions.RequestException as error:

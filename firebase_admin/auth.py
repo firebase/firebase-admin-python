@@ -14,13 +14,13 @@
 
 """Firebase Authentication module.
 
-This module contains helper methods and utilities for minting and verifying
-JWTs used for authenticating against Firebase services.
+This module contains functions for minting and verifying JWTs used for
+authenticating against Firebase services. It also provides functions for
+creating and managing user accounts in Firebase projects.
 """
 
 import os
 import re
-import threading
 import time
 
 from google.auth import jwt
@@ -34,9 +34,7 @@ import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import utils
 
-_auth_lock = threading.Lock()
-
-"""Provided for overriding during tests."""
+# Provided for overriding during tests.
 _request = transport.requests.Request()
 
 _AUTH_ATTRIBUTE = '_auth'
@@ -187,12 +185,11 @@ def create_user(**kwargs):
     return user_manager.get_user(uid)
 
 
-def update_user(uid, **kwargs):
+def update_user(uid, **kwargs): # pylint: disable=missing-param-doc
     """Updates an existing user account with the specified properties.
 
     Args:
         uid: A user ID string.
-        kwargs: A variable list of keyword arguments.
 
     Keyword Args:
         display_name: The user's display name (optional). Can be removed by explicitly passing

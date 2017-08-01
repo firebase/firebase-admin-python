@@ -27,6 +27,7 @@ import six
 import firebase_admin
 from firebase_admin import auth
 from firebase_admin import credentials
+from firebase_admin import _user_mgt
 from tests import testutils
 
 
@@ -274,7 +275,7 @@ def _instrument_user_manager(app, status, payload):
     user_manager = auth_service.user_manager
     recorder = []
     user_manager._session.mount(
-        auth._UserManager._ID_TOOLKIT_URL,
+        _user_mgt.ID_TOOLKIT_URL,
         testutils.MockAdapter(payload, status, recorder))
     return user_manager, recorder
 
@@ -368,27 +369,27 @@ class TestGetUser(object):
         _instrument_user_manager(user_mgt_app, 200, '{"users":[]}')
         with pytest.raises(auth.AuthError) as excinfo:
             auth.get_user('nonexistentuser', user_mgt_app)
-        assert excinfo.value.code == auth._UserManager._USER_NOT_FOUND_ERROR
+        assert excinfo.value.code == _user_mgt.USER_NOT_FOUND_ERROR
 
     def test_get_user_http_error(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
         with pytest.raises(auth.AuthError) as excinfo:
             auth.get_user('testuser', user_mgt_app)
-        assert excinfo.value.code == auth._UserManager._INTERNAL_ERROR
+        assert excinfo.value.code == _user_mgt.INTERNAL_ERROR
         assert '{"error":"test"}' in str(excinfo.value)
 
     def test_get_user_by_email_http_error(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
         with pytest.raises(auth.AuthError) as excinfo:
             auth.get_user_by_email('non.existent.user@example.com', user_mgt_app)
-        assert excinfo.value.code == auth._UserManager._INTERNAL_ERROR
+        assert excinfo.value.code == _user_mgt.INTERNAL_ERROR
         assert '{"error":"test"}' in str(excinfo.value)
 
     def test_get_user_by_phone_http_error(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
         with pytest.raises(auth.AuthError) as excinfo:
             auth.get_user_by_phone_number('+1234567890', user_mgt_app)
-        assert excinfo.value.code == auth._UserManager._INTERNAL_ERROR
+        assert excinfo.value.code == _user_mgt.INTERNAL_ERROR
         assert '{"error":"test"}' in str(excinfo.value)
 
 
@@ -469,7 +470,7 @@ class TestCreateUser(object):
         _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
         with pytest.raises(auth.AuthError) as excinfo:
             auth.create_user(app=user_mgt_app)
-        assert excinfo.value.code == auth._UserManager._USER_CREATE_ERROR
+        assert excinfo.value.code == _user_mgt.USER_CREATE_ERROR
         assert '{"error":"test"}' in str(excinfo.value)
 
 
@@ -539,7 +540,7 @@ class TestUpdateUser(object):
         _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
         with pytest.raises(auth.AuthError) as excinfo:
             auth.update_user('user', app=user_mgt_app)
-        assert excinfo.value.code == auth._UserManager._USER_UPDATE_ERROR
+        assert excinfo.value.code == _user_mgt.USER_UPDATE_ERROR
         assert '{"error":"test"}' in str(excinfo.value)
 
 
@@ -559,5 +560,5 @@ class TestDeleteUser(object):
         _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
         with pytest.raises(auth.AuthError) as excinfo:
             auth.delete_user('user', app=user_mgt_app)
-        assert excinfo.value.code == auth._UserManager._USER_DELETE_ERROR
+        assert excinfo.value.code == _user_mgt.USER_DELETE_ERROR
         assert '{"error":"test"}' in str(excinfo.value)

@@ -116,7 +116,7 @@ def get_user(uid, app=None):
             does not exist.
     """
     user_manager = _get_auth_service(app).user_manager
-    return user_manager.get_user(uid)
+    return user_manager.get_user(uid=uid)
 
 
 def get_user_by_email(email, app=None):
@@ -135,7 +135,7 @@ def get_user_by_email(email, app=None):
             email address.
     """
     user_manager = _get_auth_service(app).user_manager
-    return user_manager.get_user_by_email(email)
+    return user_manager.get_user(email=email)
 
 
 def get_user_by_phone_number(phone_number, app=None):
@@ -154,7 +154,7 @@ def get_user_by_phone_number(phone_number, app=None):
             phone number.
     """
     user_manager = _get_auth_service(app).user_manager
-    return user_manager.get_user_by_phone_number(phone_number)
+    return user_manager.get_user(phone_number=phone_number)
 
 
 def create_user(**kwargs):
@@ -182,7 +182,7 @@ def create_user(**kwargs):
     app = kwargs.pop('app', None)
     user_manager = _get_auth_service(app).user_manager
     uid = user_manager.create_user(**kwargs)
-    return user_manager.get_user(uid)
+    return user_manager.get_user(uid=uid)
 
 
 def update_user(uid, **kwargs): # pylint: disable=missing-param-doc
@@ -214,7 +214,7 @@ def update_user(uid, **kwargs): # pylint: disable=missing-param-doc
     app = kwargs.pop('app', None)
     user_manager = _get_auth_service(app).user_manager
     user_manager.update_user(uid, **kwargs)
-    return user_manager.get_user(uid)
+    return user_manager.get_user(uid=uid)
 
 
 def delete_user(uid, app=None):
@@ -451,8 +451,6 @@ class _Validator(object):
     signal success.
     """
 
-    EMAIL_PATTERN = re.compile('^[^@]+@[^@]+$')
-
     @classmethod
     def validate_uid(cls, uid):
         if not isinstance(uid, six.string_types) or not uid or len(uid) > 128:
@@ -465,7 +463,8 @@ class _Validator(object):
         if not isinstance(email, six.string_types) or not email:
             raise ValueError(
                 'Invalid email: "{0}". Email must be a non-empty string.'.format(email))
-        elif not cls.EMAIL_PATTERN.match(email):
+        parts = email.split('@')
+        if len(parts) != 2 or not parts[0] or not parts[1]:
             raise ValueError('Malformed email address string: "{0}".'.format(email))
 
     @classmethod
@@ -589,65 +588,38 @@ class _UserManager(object):
         session.headers.update({'X-Client-Version': version_header})
         self._session = session
 
-    def get_user(self, uid):
-        """Gets the user data corresponding to the specified user ID."""
-        _Validator.validate_uid(uid)
-        try:
-            response = self._request('post', 'getAccountInfo', json={'localId' : [uid]})
-        except requests.exceptions.RequestException as error:
-            self._handle_http_error(
-                _UserManager._INTERNAL_ERROR, 'Failed to get user: {0}.'.format(uid), error)
+    def get_user(self, **kwargs):
+        """Gets the user data corresponding to the provided key."""
+        if 'uid' in kwargs:
+            key, key_type = kwargs.pop('uid'), 'user ID'
+            _Validator.validate_uid(key)
+            payload = {'localId' : [key]}
+        elif 'email' in kwargs:
+            key, key_type = kwargs.pop('email'), 'email'
+            _Validator.validate_email(key)
+            payload = {'email' : [key]}
+        elif 'phone_number' in kwargs:
+            key, key_type = kwargs.pop('phone_number'), 'phone number'
+            _Validator.validate_phone(key)
+            payload = {'phoneNumber' : [key]}
         else:
-            if not response or not response.get('users'):
-                raise AuthError(
-                    _UserManager._USER_NOT_FOUND_ERROR,
-                    'No user record found for the provided user ID: {0}'.format(uid))
-            return UserRecord(response['users'][0])
+            raise ValueError('Unsupported keyword arguments: {0}.'.format(kwargs))
 
-    def get_user_by_email(self, email):
-        """Gets the user data corresponding to the specified user email."""
-        _Validator.validate_email(email)
         try:
-            response = self._request('post', 'getAccountInfo', json={'email' : [email]})
+            response = self._request('post', 'getAccountInfo', json=payload)
         except requests.exceptions.RequestException as error:
-            self._handle_http_error(
-                _UserManager._INTERNAL_ERROR,
-                'Failed to get user by email: {0}.'.format(email), error)
+            msg = 'Failed to get user by {0}: {1}.'.format(key_type, key)
+            self._handle_http_error(_UserManager._INTERNAL_ERROR, msg, error)
         else:
             if not response or not response.get('users'):
                 raise AuthError(
                     _UserManager._USER_NOT_FOUND_ERROR,
-                    'No user record found for the provided email: {0}'.format(email))
-            return UserRecord(response['users'][0])
-
-    def get_user_by_phone_number(self, phone_number):
-        """Gets the user data corresponding to the specified phone number."""
-        _Validator.validate_phone(phone_number)
-        try:
-            response = self._request(
-                'post', 'getAccountInfo', json={'phoneNumber' : [phone_number]})
-        except requests.exceptions.RequestException as error:
-            self._handle_http_error(
-                _UserManager._INTERNAL_ERROR,
-                'Failed to get user by phone number: {0}.'.format(phone_number), error)
-        else:
-            if not response or not response.get('users'):
-                raise AuthError(
-                    _UserManager._USER_NOT_FOUND_ERROR,
-                    'No user record found for the provided phone number: {0}'.format(phone_number))
+                    'No user record found for the provided {0}: {1}.'.format(key_type, key))
             return UserRecord(response['users'][0])
 
     def create_user(self, **kwargs):
         """Creates a new user account with the specified properties."""
-        payload = {}
-        for key, value in _UserManager._CREATE_USER_FIELDS.items():
-            if key in kwargs:
-                payload[value] = kwargs.pop(key)
-        if kwargs:
-            unexpected_keys = ', '.join(kwargs.keys())
-            raise ValueError(
-                'Unsupported arguments: "{0}" in call to create_user()'.format(unexpected_keys))
-
+        payload = self._init_payload('create_user', _UserManager._CREATE_USER_FIELDS, **kwargs)
         self._validate(payload, self._VALIDATORS, 'create user')
         try:
             response = self._request('post', 'signupNewUser', json=payload)
@@ -662,14 +634,8 @@ class _UserManager(object):
     def update_user(self, uid, **kwargs):
         """Updates an existing user account with the specified properties"""
         _Validator.validate_uid(uid)
-        payload = {'localId' : uid}
-        for key, value in _UserManager._UPDATE_USER_FIELDS.items():
-            if key in kwargs:
-                payload[value] = kwargs.pop(key)
-        if kwargs:
-            unexpected_keys = ', '.join(kwargs.keys())
-            raise ValueError(
-                'Unsupported arguments: "{0}" in call to update_user()'.format(unexpected_keys))
+        payload = self._init_payload('update_user', _UserManager._UPDATE_USER_FIELDS, **kwargs)
+        payload['localId'] = uid
 
         remove = []
         for key, value in _UserManager._REMOVABLE_FIELDS.items():
@@ -708,6 +674,17 @@ class _UserManager(object):
             if not response or not response.get('kind'):
                 raise AuthError(
                     _UserManager._USER_DELETE_ERROR, 'Failed to delete user: {0}.'.format(uid))
+
+    def _init_payload(self, operation, fields, **kwargs):
+        payload = {}
+        for key, value in fields.items():
+            if key in kwargs:
+                payload[value] = kwargs.pop(key)
+        if kwargs:
+            unexpected_keys = ', '.join(kwargs.keys())
+            raise ValueError(
+                'Unsupported arguments: "{0}" in call to {1}()'.format(unexpected_keys, operation))
+        return payload
 
     def _validate(self, properties, validators, operation):
         for key, value in properties.items():

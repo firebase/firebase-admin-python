@@ -310,6 +310,7 @@ def _check_user_record(user):
 
 class TestUserRecord(object):
 
+    # Input dict must be non-empty, and must not contain unsupported keys.
     @pytest.mark.parametrize('data', INVALID_DICTS + [{}, {'foo':'bar'}])
     def test_invalid_record(self, data):
         with pytest.raises(ValueError):
@@ -366,7 +367,7 @@ class TestGetUser(object):
     def test_get_user_non_existing(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 200, '{"users":[]}')
         with pytest.raises(auth.AuthError) as excinfo:
-            auth.get_user('testuser', user_mgt_app)
+            auth.get_user('nonexistentuser', user_mgt_app)
         assert excinfo.value.code == auth._UserManager._USER_NOT_FOUND_ERROR
 
     def test_get_user_http_error(self, user_mgt_app):
@@ -379,7 +380,7 @@ class TestGetUser(object):
     def test_get_user_by_email_http_error(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
         with pytest.raises(auth.AuthError) as excinfo:
-            auth.get_user_by_email('testuser@example.com', user_mgt_app)
+            auth.get_user_by_email('non.existent.user@example.com', user_mgt_app)
         assert excinfo.value.code == auth._UserManager._INTERNAL_ERROR
         assert '{"error":"test"}' in str(excinfo.value)
 

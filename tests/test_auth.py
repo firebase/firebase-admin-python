@@ -45,6 +45,8 @@ INVALID_STRINGS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
 INVALID_BOOLS = [None, '', 'foo', 0, 1, list(), tuple(), dict()]
 INVALID_DICTS = [None, 'foo', 0, 1, True, False, list(), tuple()]
 
+MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
+
 
 class AuthFixture(object):
     def __init__(self, name=None):
@@ -338,14 +340,18 @@ class TestUserRecord(object):
 
 class TestGetUser(object):
 
+    VALID_UID = 'testuser'
+    VALID_EMAIL = 'testuser@example.com'
+    VALID_PHONE = '+1234567890'
+
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
     def test_invalid_get_user(self, arg):
         with pytest.raises(ValueError):
             auth.get_user(arg)
 
     def test_get_user(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 200, testutils.resource('get_user.json'))
-        _check_user_record(auth.get_user('testuser', user_mgt_app))
+        _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_RESPONSE)
+        _check_user_record(auth.get_user(self.VALID_UID, user_mgt_app))
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-an-email'])
     def test_invalid_get_user_by_email(self, arg):
@@ -353,8 +359,8 @@ class TestGetUser(object):
             auth.get_user_by_email(arg)
 
     def test_get_user_by_email(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 200, testutils.resource('get_user.json'))
-        _check_user_record(auth.get_user_by_email('testuser@example.com', user_mgt_app))
+        _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_RESPONSE)
+        _check_user_record(auth.get_user_by_email(self.VALID_EMAIL, user_mgt_app))
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-a-phone'])
     def test_invalid_get_user_by_phone(self, arg):
@@ -362,8 +368,8 @@ class TestGetUser(object):
             auth.get_user_by_phone_number(arg)
 
     def test_get_user_by_phone(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 200, testutils.resource('get_user.json'))
-        _check_user_record(auth.get_user_by_phone_number('+1234567890', user_mgt_app))
+        _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_RESPONSE)
+        _check_user_record(auth.get_user_by_phone_number(self.VALID_PHONE, user_mgt_app))
 
     def test_get_user_non_existing(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 200, '{"users":[]}')
@@ -388,7 +394,7 @@ class TestGetUser(object):
     def test_get_user_by_phone_http_error(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
         with pytest.raises(auth.AuthError) as excinfo:
-            auth.get_user_by_phone_number('+1234567890', user_mgt_app)
+            auth.get_user_by_phone_number(self.VALID_PHONE, user_mgt_app)
         assert excinfo.value.code == _user_mgt.INTERNAL_ERROR
         assert '{"error":"test"}' in str(excinfo.value)
 

@@ -36,7 +36,7 @@ ID_TOOLKIT_URL = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/'
 class _Validator(object):
     """A collectoin of data validation utilities.
 
-    Method provided in this class raise ValueErrors if any validations fail. Normal returns
+    Methods provided in this class raise ValueErrors if any validations fail. Normal returns
     signal success.
     """
 
@@ -126,7 +126,6 @@ class ApiCallError(Exception):
         Exception.__init__(self, message)
         self.code = code
         self.detail = error
-
 
 
 class UserManager(object):

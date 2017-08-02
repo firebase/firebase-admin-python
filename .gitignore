@@ -7,3 +7,6 @@
 *~
 scripts/cert.json
 scripts/apikey.txt
+serviceAccountCredentials.json
+__pycache__
+*.pyc

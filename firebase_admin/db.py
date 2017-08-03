@@ -37,6 +37,7 @@ _INVALID_PATH_CHARACTERS = '[].#$'
 _RESERVED_FILTERS = ('$key', '$value', '$priority')
 _USER_AGENT = 'Firebase/HTTP/{0}/{1}.{2}/AdminPython'.format(
     firebase_admin.__version__, sys.version_info.major, sys.version_info.minor)
+_TRANSACTION_MAX_RETRIES = 25
 
 
 def reference(path='/', app=None):
@@ -126,7 +127,8 @@ class Reference(object):
     def get_with_etag(self):
         """Returns the value at the current location of the database, along with its ETag.
         Returns:
-            object: Tuple of the ETag value corresponding to the Reference, and the Decoded JSON value of the current database Reference.
+            object: Tuple of the ETag value corresponding to the Reference, and the
+            Decoded JSON value of the current database Reference.
         Raises:
             ApiCallError: If an error occurs while communicating with the remote database server.
         """
@@ -180,11 +182,15 @@ class Reference(object):
         self._client.request_oneway('patch', self._add_suffix(), json=value, params='print=silent')
 
     def update_with_etag(self, value, etag):
-        """Updates the specified child keys of this Reference to the provided values and uses ETag to make sure data is up to date.
+        """Updates the specified child keys of this Reference to the provided values
+            and uses ETag to make sure data is up to date.
         Args:
             value: A dictionary containing the child keys to update, and their new values.
             etag: ETag value for the Reference.
         Returns:
+            value: None if the update is successful, otherwise the current ETag of the reference
+            and a snapshot of the data in the database.
+        Raises:
             ValueError: If value is empty or not a dictionary, or if etag is not a string.
         """
         if not value or not isinstance(value, dict):
@@ -195,7 +201,8 @@ class Reference(object):
             raise ValueError('ETag must be a string.')
 
         try:
-            self._client.request_oneway('put', self._add_suffix(), json=value, headers={'if-match': etag})
+            self._client.request_oneway('put', self._add_suffix(), json=value,
+                                        headers={'if-match': etag})
         except ApiCallError as error:
             detail = error.detail
             snapshot = detail.response.json()
@@ -209,41 +216,28 @@ class Reference(object):
         """
         self._client.request_oneway('delete', self._add_suffix())
 
-    def transaction(self, transaction_update, on_complete=None):
+    def transaction(self, transaction_update):
         """Write to database using a transaction.
         Args:
             transaction_update: function that takes in current database data as a parameter.
-            on_complete: function that takes takes in the following parameters:
-                error: Error message, possibly null
-                committed: Whether the transaction_update function committed data to the database
-                data: The data currently in the database
+        Raises:
+            ValueError: If transaction_update is not a function.
 
         """
         if not callable(transaction_update):
             raise ValueError('transaction_update must be a function.')
-        if on_complete is not None and not callable(on_complete):
-            raise ValueError('on_complete must be a function.')
 
-        error = None
-        committed = False
-        try:
-            tries = 0
-            etag, data = self.get_with_etag()
-            val = transaction_update(data)
-            while tries < _FIREBASE_MAX_RETRIES:
-                resp = self.update_with_etag(val, etag)
-                if resp is None:
-                    committed = True
-                    data = val
-                    break
-                else:
-                    etag, data = resp
-                    tries += 1
-        except Exception as e:
-            error = e
-
-        if on_complete:
-            on_complete(error, committed, data)
+        tries = 0
+        etag, data = self.get_with_etag()
+        val = transaction_update(data)
+        while tries < _TRANSACTION_MAX_RETRIES:
+            resp = self.update_with_etag(val, etag)
+            if resp is None:
+                break
+            else:
+                etag, data = resp
+                val = transaction_update(data)
+                tries += 1
 
     def order_by_child(self, path):
         """Returns a Query that orders data by child values.
@@ -625,8 +619,10 @@ class _Client(object):
 
         Args:
           method: HTTP method name as a string (e.g. get, post).
-          urlpath: URL path of the remote endpoint. This will be appended to the server's base URL.
-          kwargs: An additional set of keyword arguments to be passed into requests (e.g. json, params).
+          urlpath: URL path of the remote endpoint. This will be appended to the server's
+          base URL.
+          kwargs: An additional set of keyword arguments to be passed into requests
+          (e.g. json, params).
 
         Returns:
           Response: An HTTP response object.

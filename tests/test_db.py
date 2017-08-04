@@ -19,9 +19,8 @@ import sys
 
 import pytest
 from requests import adapters
-from requests.structures import CaseInsensitiveDict
 from requests import models
-from requests.exceptions import RequestException
+from requests import exceptions
 from requests import Response
 import six
 
@@ -40,16 +39,15 @@ class MockAdapter(adapters.HTTPAdapter):
         self._etag = '0'
 
     def send(self, request, **kwargs):
-        if 'if-match' in request.headers and request.headers['if-match'] != self._etag:
+        if request.headers.get('if-match') is not None and \
+           request.headers.get('if-match') != self._etag:
             response = Response()
             response._content = request.body
-            response.headers = CaseInsensitiveDict({'ETag': self._etag})
-            request_exception = RequestException(response=response)
-            raise db.ApiCallError('', request_exception)
+            response.headers = {'ETag': self._etag}
+            raise exceptions.RequestException(response=response)
 
         del kwargs
         self._recorder.append(request)
-        self._etag = str(int(self._etag) + 1)
         resp = models.Response()
         resp.url = request.url
         resp.status_code = self._status
@@ -170,7 +168,7 @@ class TestReference(object):
     def test_get_with_etag(self, data):
         ref = db.reference('/test')
         recorder = self.instrument(ref, json.dumps(data))
-        assert ref.get_with_etag() == ('1', data)
+        assert ref._get_with_etag() == ('0', data)
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
@@ -257,16 +255,16 @@ class TestReference(object):
         ref = db.reference('/test')
         data = {'foo': 'bar'}
         recorder = self.instrument(ref, json.dumps(data))
-        vals = ref.update_with_etag(data, '0')
-        assert vals is None
+        vals = ref._update_with_etag(data, '0')
+        assert vals == (True, '0', data)
         assert len(recorder) == 1
         assert recorder[0].method == 'PUT'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
         assert json.loads(recorder[0].body.decode()) == data
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
-        vals = ref.update_with_etag(data, '10')
-        assert vals == ('1', data)
+        vals = ref._update_with_etag(data, '1')
+        assert vals == (False, '0', data)
         assert len(recorder) == 1
 
     def test_update_children_default(self):

@@ -39,8 +39,8 @@ class MockAdapter(adapters.HTTPAdapter):
         self._etag = '0'
 
     def send(self, request, **kwargs):
-        if request.headers.get('if-match') is not None and \
-           request.headers.get('if-match') != self._etag:
+        if_match = request.headers.get('if-match')
+        if if_match and if_match != self._etag:
             response = Response()
             response._content = request.body
             response.headers = {'ETag': self._etag}

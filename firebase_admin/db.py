@@ -208,7 +208,7 @@ class Reference(object):
             raise ValueError('Value argument must be a non-empty dictionary.')
         if None in value.keys() or None in value.values():
             raise ValueError('Dictionary must not contain None keys or values.')
-        if not isinstance(etag, str):
+        if not isinstance(etag, six.string_types):
             raise ValueError('ETag must be a string.')
 
         success = True
@@ -218,9 +218,12 @@ class Reference(object):
                                         headers={'if-match': etag})
         except ApiCallError as error:
             detail = error.detail
-            success = False
-            etag = detail.response.headers['ETag']
-            snapshot = detail.response.json()
+            if detail.response.headers and 'ETag' in detail.response.headers:
+                etag = detail.response.headers['ETag']
+                snapshot = detail.response.json()
+                return False, etag, snapshot
+            else:
+                raise error
 
         return success, etag, snapshot
 
@@ -238,6 +241,9 @@ class Reference(object):
         Args:
             transaction_update: function that takes in current database data as a parameter.
 
+        Returns:
+            bool: True if transaction is successful, otherwise False.
+
         Raises:
             ValueError: If transaction_update is not a function.
 
@@ -251,10 +257,12 @@ class Reference(object):
         while tries < _TRANSACTION_MAX_RETRIES:
             success, etag, snapshot = self._update_with_etag(val, etag)
             if success:
-                break
+                return True
             else:
                 val = transaction_update(snapshot)
                 tries += 1
+        if tries == _TRANSACTION_MAX_RETRIES:
+            return False
 
     def order_by_child(self, path):
         """Returns a Query that orders data by child values.

@@ -261,8 +261,8 @@ class Reference(object):
             else:
                 val = transaction_update(snapshot)
                 tries += 1
-        if tries == _TRANSACTION_MAX_RETRIES:
-            return False
+
+        return False
 
     def order_by_child(self, path):
         """Returns a Query that orders data by child values.

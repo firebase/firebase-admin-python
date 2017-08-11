@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Test cases for firebase_admin.auth module."""
+"""Test cases for the firebase_admin.auth module."""
+import json
 import os
 import time
 
@@ -26,6 +27,7 @@ import six
 import firebase_admin
 from firebase_admin import auth
 from firebase_admin import credentials
+from firebase_admin import _user_mgt
 from tests import testutils
 
 
@@ -38,6 +40,12 @@ MOCK_CREDENTIAL = credentials.Certificate(
 MOCK_PUBLIC_CERTS = testutils.resource('public_certs.json')
 MOCK_PRIVATE_KEY = testutils.resource('private_key.pem')
 MOCK_SERVICE_ACCOUNT_EMAIL = MOCK_CREDENTIAL.service_account_email
+
+INVALID_STRINGS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
+INVALID_BOOLS = [None, '', 'foo', 0, 1, list(), tuple(), dict()]
+INVALID_DICTS = [None, 'foo', 0, 1, True, False, list(), tuple()]
+
+MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
 
 
 class AuthFixture(object):
@@ -86,7 +94,7 @@ def non_cert_app():
     that depends on this fixture. This ensures the proper cleanup of the App instance after
     tests.
     """
-    app = firebase_admin.initialize_app(credentials.Base(), name='non-cert-app')
+    app = firebase_admin.initialize_app(testutils.MockCredential(), name='non-cert-app')
     yield app
     firebase_admin.delete_app(app)
 
@@ -256,3 +264,307 @@ class TestVerifyIdToken(object):
         auth._request = testutils.MockRequest(404, 'not found')
         with pytest.raises(exceptions.TransportError):
             authtest.verify_id_token(TEST_ID_TOKEN)
+
+
+@pytest.fixture(scope='module')
+def user_mgt_app():
+    app = firebase_admin.initialize_app(testutils.MockCredential(), name='userMgt')
+    yield app
+    firebase_admin.delete_app(app)
+
+def _instrument_user_manager(app, status, payload):
+    auth_service = auth._get_auth_service(app)
+    user_manager = auth_service.user_manager
+    recorder = []
+    user_manager._session.mount(
+        _user_mgt.ID_TOOLKIT_URL,
+        testutils.MockAdapter(payload, status, recorder))
+    return user_manager, recorder
+
+def _check_user_record(user):
+    assert user.uid == 'testuser'
+    assert user.email == 'testuser@example.com'
+    assert user.phone_number == '+1234567890'
+    assert user.display_name == 'Test User'
+    assert user.photo_url == 'http://www.example.com/testuser/photo.png'
+    assert user.disabled is False
+    assert user.email_verified is True
+    assert user.user_metadata.creation_timestamp == 1234567890
+    assert user.user_metadata.last_sign_in_timestamp is None
+    assert user.provider_id == 'firebase'
+
+    assert len(user.provider_data) == 2
+    provider = user.provider_data[0]
+    assert provider.uid == 'testuser@example.com'
+    assert provider.email == 'testuser@example.com'
+    assert provider.phone_number is None
+    assert provider.display_name == 'Test User'
+    assert provider.photo_url == 'http://www.example.com/testuser/photo.png'
+    assert provider.provider_id == 'password'
+
+    provider = user.provider_data[1]
+    assert provider.uid == '+1234567890'
+    assert provider.email is None
+    assert provider.phone_number == '+1234567890'
+    assert provider.display_name is None
+    assert provider.photo_url is None
+    assert provider.provider_id == 'phone'
+
+
+class TestUserRecord(object):
+
+    # Input dict must be non-empty, and must not contain unsupported keys.
+    @pytest.mark.parametrize('data', INVALID_DICTS + [{}, {'foo':'bar'}])
+    def test_invalid_record(self, data):
+        with pytest.raises(ValueError):
+            auth.UserRecord(data)
+
+    @pytest.mark.parametrize('data', INVALID_DICTS)
+    def test_invalid_metadata(self, data):
+        with pytest.raises(ValueError):
+            auth.UserMetadata(data)
+
+    def test_metadata(self):
+        metadata = auth.UserMetadata({'createdAt' : 10, 'lastLoginAt' : 20})
+        assert metadata.creation_timestamp == 10
+        assert metadata.last_sign_in_timestamp == 20
+        metadata = auth.UserMetadata({})
+        assert metadata.creation_timestamp is None
+        assert metadata.last_sign_in_timestamp is None
+
+    @pytest.mark.parametrize('data', INVALID_DICTS + [{}, {'foo':'bar'}])
+    def test_invalid_provider(self, data):
+        with pytest.raises(ValueError):
+            auth._ProviderUserInfo(data)
+
+
+class TestGetUser(object):
+
+    VALID_UID = 'testuser'
+    VALID_EMAIL = 'testuser@example.com'
+    VALID_PHONE = '+1234567890'
+
+    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
+    def test_invalid_get_user(self, arg):
+        with pytest.raises(ValueError):
+            auth.get_user(arg)
+
+    def test_get_user(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_RESPONSE)
+        _check_user_record(auth.get_user(self.VALID_UID, user_mgt_app))
+
+    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-an-email'])
+    def test_invalid_get_user_by_email(self, arg):
+        with pytest.raises(ValueError):
+            auth.get_user_by_email(arg)
+
+    def test_get_user_by_email(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_RESPONSE)
+        _check_user_record(auth.get_user_by_email(self.VALID_EMAIL, user_mgt_app))
+
+    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-a-phone'])
+    def test_invalid_get_user_by_phone(self, arg):
+        with pytest.raises(ValueError):
+            auth.get_user_by_phone_number(arg)
+
+    def test_get_user_by_phone(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_RESPONSE)
+        _check_user_record(auth.get_user_by_phone_number(self.VALID_PHONE, user_mgt_app))
+
+    def test_get_user_non_existing(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 200, '{"users":[]}')
+        with pytest.raises(auth.AuthError) as excinfo:
+            auth.get_user('nonexistentuser', user_mgt_app)
+        assert excinfo.value.code == _user_mgt.USER_NOT_FOUND_ERROR
+
+    def test_get_user_http_error(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
+        with pytest.raises(auth.AuthError) as excinfo:
+            auth.get_user('testuser', user_mgt_app)
+        assert excinfo.value.code == _user_mgt.INTERNAL_ERROR
+        assert '{"error":"test"}' in str(excinfo.value)
+
+    def test_get_user_by_email_http_error(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
+        with pytest.raises(auth.AuthError) as excinfo:
+            auth.get_user_by_email('non.existent.user@example.com', user_mgt_app)
+        assert excinfo.value.code == _user_mgt.INTERNAL_ERROR
+        assert '{"error":"test"}' in str(excinfo.value)
+
+    def test_get_user_by_phone_http_error(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
+        with pytest.raises(auth.AuthError) as excinfo:
+            auth.get_user_by_phone_number(self.VALID_PHONE, user_mgt_app)
+        assert excinfo.value.code == _user_mgt.INTERNAL_ERROR
+        assert '{"error":"test"}' in str(excinfo.value)
+
+
+class TestCreateUser(object):
+
+    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
+    def test_invalid_uid(self, arg):
+        with pytest.raises(ValueError):
+            auth.create_user(uid=arg)
+
+    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-an-email'])
+    def test_invalid_email(self, arg):
+        with pytest.raises(ValueError):
+            auth.create_user(email=arg)
+
+    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-a-phone', '+'])
+    def test_invalid_phone(self, arg):
+        with pytest.raises(ValueError):
+            auth.create_user(phone_number=arg)
+
+    @pytest.mark.parametrize('arg', INVALID_STRINGS)
+    def test_invalid_display_name(self, arg):
+        with pytest.raises(ValueError):
+            auth.create_user(display_name=arg)
+
+    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-a-url'])
+    def test_invalid_photo_url(self, arg):
+        with pytest.raises(ValueError):
+            auth.create_user(photo_url=arg)
+
+    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['short'])
+    def test_invalid_password(self, arg):
+        with pytest.raises(ValueError):
+            auth.create_user(password=arg)
+
+    @pytest.mark.parametrize('arg', INVALID_BOOLS)
+    def test_invalid_email_verified(self, arg):
+        with pytest.raises(ValueError):
+            auth.create_user(email_verified=arg)
+
+    @pytest.mark.parametrize('arg', INVALID_BOOLS)
+    def test_invalid_disabled(self, arg):
+        with pytest.raises(ValueError):
+            auth.create_user(disabled=arg)
+
+    def test_invalid_property(self):
+        with pytest.raises(ValueError):
+            auth.create_user(unsupported='value')
+
+    def test_create_user(self, user_mgt_app):
+        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        assert user_mgt.create_user() == 'testuser'
+        request = json.loads(recorder[0].body.decode())
+        assert request == {}
+
+    @pytest.mark.parametrize('phone', [
+        '+11234567890', '+1 123 456 7890', '+1 (123) 456-7890',
+    ])
+    def test_create_user_with_phone(self, user_mgt_app, phone):
+        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        assert user_mgt.create_user(phone_number=phone) == 'testuser'
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'phoneNumber' : phone}
+
+    def test_create_user_with_email(self, user_mgt_app):
+        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        assert user_mgt.create_user(email='test@example.com') == 'testuser'
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'email' : 'test@example.com'}
+
+    def test_create_user_with_id(self, user_mgt_app):
+        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        assert user_mgt.create_user(uid='testuser') == 'testuser'
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'localId' : 'testuser'}
+
+    def test_create_user_error(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
+        with pytest.raises(auth.AuthError) as excinfo:
+            auth.create_user(app=user_mgt_app)
+        assert excinfo.value.code == _user_mgt.USER_CREATE_ERROR
+        assert '{"error":"test"}' in str(excinfo.value)
+
+
+class TestUpdateUser(object):
+
+    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
+    def test_invalid_uid(self, arg):
+        with pytest.raises(ValueError):
+            auth.update_user(arg)
+
+    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-an-email'])
+    def test_invalid_email(self, arg):
+        with pytest.raises(ValueError):
+            auth.update_user('user', email=arg)
+
+    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['not-a-phone', '+'])
+    def test_invalid_phone(self, arg):
+        with pytest.raises(ValueError):
+            auth.update_user('user', phone_number=arg)
+
+    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:])
+    def test_invalid_display_name(self, arg):
+        with pytest.raises(ValueError):
+            auth.update_user('user', display_name=arg)
+
+    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['not-a-url'])
+    def test_invalid_photo_url(self, arg):
+        with pytest.raises(ValueError):
+            auth.update_user('user', photo_url=arg)
+
+    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['short'])
+    def test_invalid_password(self, arg):
+        with pytest.raises(ValueError):
+            auth.update_user('user', password=arg)
+
+    @pytest.mark.parametrize('arg', INVALID_BOOLS)
+    def test_invalid_email_verified(self, arg):
+        with pytest.raises(ValueError):
+            auth.update_user('user', email_verified=arg)
+
+    @pytest.mark.parametrize('arg', INVALID_BOOLS)
+    def test_invalid_disabled(self, arg):
+        with pytest.raises(ValueError):
+            auth.update_user('user', disabled=arg)
+
+    def test_invalid_property(self):
+        with pytest.raises(ValueError):
+            auth.update_user('user', unsupported='arg')
+
+    def test_update_user(self, user_mgt_app):
+        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        user_mgt.update_user('testuser')
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'localId' : 'testuser'}
+
+    def test_update_user_delete_fields(self, user_mgt_app):
+        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        user_mgt.update_user('testuser', display_name=None, photo_url=None, phone_number=None)
+        request = json.loads(recorder[0].body.decode())
+        assert request == {
+            'localId' : 'testuser',
+            'deleteAttribute' : ['DISPLAY_NAME', 'PHOTO_URL'],
+            'deleteProvider' : ['phone'],
+        }
+
+    def test_update_user_error(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
+        with pytest.raises(auth.AuthError) as excinfo:
+            auth.update_user('user', app=user_mgt_app)
+        assert excinfo.value.code == _user_mgt.USER_UPDATE_ERROR
+        assert '{"error":"test"}' in str(excinfo.value)
+
+
+class TestDeleteUser(object):
+
+    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
+    def test_invalid_delete_user(self, arg):
+        with pytest.raises(ValueError):
+            auth.get_user(arg)
+
+    def test_delete_user(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 200, '{"kind":"deleteresponse"}')
+        # should not raise
+        auth.delete_user('testuser', user_mgt_app)
+
+    def test_delete_user_error(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
+        with pytest.raises(auth.AuthError) as excinfo:
+            auth.delete_user('user', app=user_mgt_app)
+        assert excinfo.value.code == _user_mgt.USER_DELETE_ERROR
+        assert '{"error":"test"}' in str(excinfo.value)

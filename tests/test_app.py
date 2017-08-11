@@ -19,6 +19,7 @@ import pytest
 
 import firebase_admin
 from firebase_admin import credentials
+from firebase_admin import utils
 from tests import testutils
 
 
@@ -66,6 +67,11 @@ class ExplicitAppDefault(CredentialProvider):
 class ImplicitAppDefault(ExplicitAppDefault):
     def get(self):
         return None
+
+
+class AppService(object):
+    def __init__(self, app):
+        self._app = app
 
 
 @pytest.fixture(params=[Cert(), RefreshToken(), ExplicitAppDefault(), ImplicitAppDefault()],
@@ -159,3 +165,12 @@ class TestFirebaseApp(object):
             firebase_admin.get_app(init_app.name)
         with pytest.raises(ValueError):
             firebase_admin.delete_app(init_app)
+
+    def test_app_services(self, init_app):
+        service = utils.get_app_service(init_app, 'test.service', AppService)
+        assert isinstance(service, AppService)
+        service2 = utils.get_app_service(init_app, 'test.service', AppService)
+        assert service is service2
+        firebase_admin.delete_app(init_app)
+        with pytest.raises(ValueError):
+            utils.get_app_service(init_app, 'test.service', AppService)

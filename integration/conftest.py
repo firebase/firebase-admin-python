@@ -42,6 +42,11 @@ def integration_conf(request):
         raise ValueError('Failed to determine project ID from service account certificate.')
     return credentials.Certificate(cert_path), project_id
 
+@pytest.fixture(scope='session')
+def project_id(request):
+    _, project_id = integration_conf(request)
+    return project_id
+
 @pytest.fixture(autouse=True, scope='session')
 def default_app(request):
     """Initializes the default Firebase App instance used for all integration tests.
@@ -51,7 +56,10 @@ def default_app(request):
     test cases having to call it explicitly.
     """
     cred, project_id = integration_conf(request)
-    ops = {'databaseURL' : 'https://{0}.firebaseio.com'.format(project_id)}
+    ops = {
+        'databaseURL' : 'https://{0}.firebaseio.com'.format(project_id),
+        'storageBucket' : '{0}.appspot.com'.format(project_id)
+    }
     return firebase_admin.initialize_app(cred, ops)
 
 @pytest.fixture(scope='session')

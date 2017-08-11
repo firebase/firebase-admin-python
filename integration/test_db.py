@@ -17,6 +17,7 @@ import collections
 import json
 
 import pytest
+import six
 
 import firebase_admin
 from firebase_admin import db
@@ -148,6 +149,31 @@ class TestWriteOperations(object):
         python.child('users').update(delta)
         assert edward.get() == {'name' : 'Edward Cope', 'since' : 1840}
         assert jack.get() == {'name' : 'Jack Horner', 'since' : 1946}
+
+    def test_get_and_update_with_etag(self, testref):
+        python = testref.parent
+        push_data = {'name' : 'Edward Cope', 'since' : 1800}
+        edward = python.child('users').push(push_data)
+        etag, data = edward._get_with_etag()
+        assert data == push_data
+        assert isinstance(etag, six.string_types)
+
+        update_data = {'name' : 'Jack Horner', 'since' : 1940}
+        failed_update = edward._update_with_etag(update_data, 'invalid-etag')
+        assert failed_update == (False, etag, push_data)
+
+        successful_update = edward._update_with_etag(update_data, etag)
+        assert successful_update[0]
+        assert successful_update[2] == update_data
+
+    def test_transation(self, testref):
+        python = testref.parent
+        def transaction_update(snapshot):
+            snapshot['foo1'] += '_suffix'
+            return snapshot
+        ref = python.child('users').push({'foo1' : 'bar1'})
+        ref.transaction(transaction_update)
+        assert ref.get() == {'foo1': 'bar1_suffix'}
 
     def test_delete(self, testref):
         python = testref.parent

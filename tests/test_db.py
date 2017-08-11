@@ -18,10 +18,30 @@ import json
 import sys
 
 import pytest
+from requests import exceptions
+from requests import Response
 
 import firebase_admin
 from firebase_admin import db
 from tests import testutils
+
+
+class MockAdapter(testutils.MockAdapter):
+    _ETAG = '0'
+
+    def __init__(self, data, status, recorder):
+        testutils.MockAdapter.__init__(self, data, status, recorder)
+
+    def send(self, request, **kwargs):
+        if_match = request.headers.get('if-match')
+        if if_match and if_match != MockAdapter._ETAG:
+            response = Response()
+            response._content = request.body
+            response.headers = {'ETag': MockAdapter._ETAG}
+            raise exceptions.RequestException(response=response)
+        resp = super(MockAdapter, self).send(request, **kwargs)
+        resp.headers = {'ETag': MockAdapter._ETAG}
+        return resp
 
 
 class _Object(object):
@@ -107,7 +127,7 @@ class TestReference(object):
 
     def instrument(self, ref, payload, status=200):
         recorder = []
-        adapter = testutils.MockAdapter(payload, status, recorder)
+        adapter = MockAdapter(payload, status, recorder)
         ref._client._session.mount(self.test_url, adapter)
         return recorder
 
@@ -116,6 +136,17 @@ class TestReference(object):
         ref = db.reference('/test')
         recorder = self.instrument(ref, json.dumps(data))
         assert ref.get() == data
+        assert len(recorder) == 1
+        assert recorder[0].method == 'GET'
+        assert recorder[0].url == 'https://test.firebaseio.com/test.json'
+        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+        assert recorder[0].headers['User-Agent'] == db._USER_AGENT
+
+    @pytest.mark.parametrize('data', valid_values)
+    def test_get_with_etag(self, data):
+        ref = db.reference('/test')
+        recorder = self.instrument(ref, json.dumps(data))
+        assert ref._get_with_etag() == ('0', data)
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
@@ -198,6 +229,22 @@ class TestReference(object):
         assert json.loads(recorder[0].body.decode()) == data
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
+    def test_update_with_etag(self):
+        ref = db.reference('/test')
+        data = {'foo': 'bar'}
+        recorder = self.instrument(ref, json.dumps(data))
+        vals = ref._update_with_etag(data, '0')
+        assert vals == (True, '0', data)
+        assert len(recorder) == 1
+        assert recorder[0].method == 'PUT'
+        assert recorder[0].url == 'https://test.firebaseio.com/test.json'
+        assert json.loads(recorder[0].body.decode()) == data
+        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+
+        vals = ref._update_with_etag(data, '1')
+        assert vals == (False, '0', data)
+        assert len(recorder) == 1
+
     def test_update_children_default(self):
         ref = db.reference('/test')
         recorder = self.instrument(ref, '')
@@ -255,6 +302,21 @@ class TestReference(object):
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
         assert recorder[0].headers['User-Agent'] == db._USER_AGENT
 
+    def test_transaction(self):
+        ref = db.reference('/test')
+        data = {'foo1': 'bar1'}
+        recorder = self.instrument(ref, json.dumps(data))
+
+        def transaction_update(data):
+            data['foo2'] = 'bar2'
+            return data
+
+        ref.transaction(transaction_update)
+        assert len(recorder) == 2
+        assert recorder[0].method == 'GET'
+        assert recorder[1].method == 'PUT'
+        assert json.loads(recorder[1].body.decode()) == {'foo1': 'bar1', 'foo2': 'bar2'}
+
     def test_get_root_reference(self):
         ref = db.reference()
         assert ref.key is None
@@ -307,7 +369,7 @@ class TestReferenceWithAuthOverride(object):
 
     def instrument(self, ref, payload, status=200):
         recorder = []
-        adapter = testutils.MockAdapter(payload, status, recorder)
+        adapter = MockAdapter(payload, status, recorder)
         ref._client._session.mount(self.test_url, adapter)
         return recorder
 

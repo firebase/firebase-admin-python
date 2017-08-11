@@ -225,7 +225,7 @@ class Reference(object):
         return success, etag, snapshot
 
     def delete(self):
-        """Deleted this node from the database.
+        """Deletes this node from the database.
 
         Raises:
           ApiCallError: If an error occurs while communicating with the remote database server.
@@ -233,7 +233,7 @@ class Reference(object):
         self._client.request_oneway('delete', self._add_suffix())
 
     def transaction(self, transaction_update):
-        """Atomically modified the data at this location.
+        """Atomically modifies the data at this location.
 
         Unlike a normal `set()`, which just overwrites the data regardless of its previous state,
         `transaction()` is used to modify the existing value to a new value, ensuring there are

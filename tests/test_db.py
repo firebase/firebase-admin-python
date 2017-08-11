@@ -333,11 +333,33 @@ class TestReference(object):
             data['foo2'] = 'bar2'
             return data
 
-        ref.transaction(transaction_update)
+        new_value = ref.transaction(transaction_update)
+        assert new_value == {'foo1' : 'bar1', 'foo2' : 'bar2'}
         assert len(recorder) == 2
         assert recorder[0].method == 'GET'
         assert recorder[1].method == 'PUT'
         assert json.loads(recorder[1].body.decode()) == {'foo1': 'bar1', 'foo2': 'bar2'}
+
+    def test_transaction_error(self):
+        ref = db.reference('/test')
+        data = {'foo1': 'bar1'}
+        recorder = self.instrument(ref, json.dumps(data))
+
+        def transaction_update(data):
+            del data
+            raise ValueError('test error')
+
+        with pytest.raises(ValueError) as excinfo:
+            ref.transaction(transaction_update)
+        assert str(excinfo.value) == 'test error'
+        assert len(recorder) == 1
+        assert recorder[0].method == 'GET'
+
+    @pytest.mark.parametrize('func', [None, 0, 1, True, False, 'foo', dict(), list(), tuple()])
+    def test_transaction_invalid_function(self, func):
+        ref = db.reference('/test')
+        with pytest.raises(ValueError):
+            ref.transaction(func)
 
     def test_get_root_reference(self):
         ref = db.reference()

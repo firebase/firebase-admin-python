@@ -137,11 +137,9 @@ class Reference(object):
         return self._client.request('get', self._add_suffix())
 
     def _get_with_etag(self):
-        """Returns the value at the current location of the database, along with its ETag.
-        """
-        data, headers = self._client.request('get', self._add_suffix(),
-                                             headers={'X-Firebase-ETag' : 'true'},
-                                             resp_headers=True)
+        """Returns the value at the current location of the database, along with its ETag."""
+        data, headers = self._client.request(
+            'get', self._add_suffix(), headers={'X-Firebase-ETag' : 'true'}, resp_headers=True)
         etag = headers.get('ETag')
         return etag, data
 
@@ -202,8 +200,7 @@ class Reference(object):
         self._client.request_oneway('patch', self._add_suffix(), json=value, params='print=silent')
 
     def _update_with_etag(self, value, etag):
-        """Sets the data at this location to the specified value, if the etag matches.
-        """
+        """Sets the data at this location to the specified value, if the etag matches."""
         if not value or not isinstance(value, dict):
             raise ValueError('Value argument must be a non-empty dictionary.')
         if None in value.keys() or None in value.values():
@@ -214,8 +211,8 @@ class Reference(object):
         success = True
         snapshot = value
         try:
-            self._client.request_oneway('put', self._add_suffix(), json=value,
-                                        headers={'if-match': etag})
+            self._client.request_oneway(
+                'put', self._add_suffix(), json=value, headers={'if-match': etag})
         except ApiCallError as error:
             detail = error.detail
             if detail.response.headers and 'ETag' in detail.response.headers:
@@ -236,15 +233,32 @@ class Reference(object):
         self._client.request_oneway('delete', self._add_suffix())
 
     def transaction(self, transaction_update):
-        """Write to database using a transaction.
+        """Atomically modified the data at this location.
+
+        Unlike a normal `set()`, which just overwrites the data regardless of its previous state,
+        `transaction()` is used to modify the existing value to a new value, ensuring there are
+        no conflicts with other clients simultaneously writing to the same location.
+
+        This is accomplished by passing an update function which is used to transform the current
+        value of this reference into a new value. If another client writes to this location before
+        the new value is successfully saved, the update function is called again with the new
+        current value, and the write will be retried. In case of repeated failures, this method
+        will retry the transaction up to 25 times before giving up and raising a TransactionError.
+        The update function may also force an early abort by raising an exception instead of
+        returning a value.
 
         Args:
-            transaction_update: function that takes in current database data as a parameter.
+            transaction_update: A function which will be passed tbe current data stored at this
+                location. The function should return the new value it would like written. If
+                an exception is raised, the transaction will be aborted, and the data at this
+                location will not be modified. The exceptions raised by this function are
+                propagated to the caller of the transaction method.
 
         Returns:
-            bool: True if transaction is successful, otherwise False.
+            object: New value of the current database Reference (only if the transaction commits).
 
         Raises:
+            TransactionError: If the transaction aborts after exhausting all retry attempts.
             ValueError: If transaction_update is not a function.
 
         """
@@ -253,16 +267,13 @@ class Reference(object):
 
         tries = 0
         etag, data = self._get_with_etag()
-        val = transaction_update(data)
         while tries < _TRANSACTION_MAX_RETRIES:
-            success, etag, snapshot = self._update_with_etag(val, etag)
+            new_data = transaction_update(data)
+            success, etag, data = self._update_with_etag(new_data, etag)
             if success:
-                return True
-            else:
-                val = transaction_update(snapshot)
-                tries += 1
-
-        return False
+                return new_data
+            tries += 1
+        raise TransactionError('Transaction aborted after failed retries.')
 
     def order_by_child(self, path):
         """Returns a Query that orders data by child values.
@@ -475,6 +486,13 @@ class ApiCallError(Exception):
     def __init__(self, message, error):
         Exception.__init__(self, message)
         self.detail = error
+
+
+class TransactionError(Exception):
+    """Represents an Exception encountered while performing a transaction."""
+
+    def __init__(self, message):
+        Exception.__init__(self, message)
 
 
 class _Sorter(object):

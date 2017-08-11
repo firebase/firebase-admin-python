@@ -27,6 +27,7 @@ _request = requests.Request()
 _scopes = [
     'https://www.googleapis.com/auth/devstorage.read_write',
     'https://www.googleapis.com/auth/firebase',
+    'https://www.googleapis.com/auth/identitytoolkit',
     'https://www.googleapis.com/auth/userinfo.email'
 ]
 

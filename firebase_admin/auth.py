@@ -14,48 +14,48 @@
 
 """Firebase Authentication module.
 
-This module contains helper methods and utilities for minting and verifying
-JWTs used for authenticating against Firebase services.
+This module contains functions for minting and verifying JWTs used for
+authenticating against Firebase services. It also provides functions for
+creating and managing user accounts in Firebase projects.
 """
 
 import os
-import threading
 import time
 
 from google.auth import jwt
-from google.auth.transport import requests
+from google.auth import transport
 import google.oauth2.id_token
 import six
 
 from firebase_admin import credentials
 from firebase_admin import utils
+from firebase_admin import _user_mgt
 
-_auth_lock = threading.Lock()
 
-"""Provided for overriding during tests."""
-_request = requests.Request()
+# Provided for overriding during tests.
+_request = transport.requests.Request()
 
 _AUTH_ATTRIBUTE = '_auth'
 GCLOUD_PROJECT_ENV_VAR = 'GCLOUD_PROJECT'
 
 
-def _get_token_generator(app):
-    """Returns a _TokenGenerator instance for an App.
+def _get_auth_service(app):
+    """Returns an _AuthService instance for an App.
 
-    If the App already has a _TokenGenerator associated with it, simply returns
-    it. Otherwise creates a new _TokenGenerator, and adds it to the App before
+    If the App already has an _AuthService associated with it, simply returns
+    it. Otherwise creates a new _AuthService, and adds it to the App before
     returning it.
 
     Args:
       app: A Firebase App instance (or None to use the default App).
 
     Returns:
-      _TokenGenerator: A _TokenGenerator for the specified App instance.
+      _AuthService: An _AuthService for the specified App instance.
 
     Raises:
       ValueError: If the app argument is invalid.
     """
-    return utils.get_app_service(app, _AUTH_ATTRIBUTE, _TokenGenerator)
+    return utils.get_app_service(app, _AUTH_ATTRIBUTE, _AuthService)
 
 
 def create_custom_token(uid, developer_claims=None, app=None):
@@ -73,7 +73,7 @@ def create_custom_token(uid, developer_claims=None, app=None):
     Raises:
       ValueError: If input parameters are invalid.
     """
-    token_generator = _get_token_generator(app)
+    token_generator = _get_auth_service(app).token_generator
     return token_generator.create_custom_token(uid, developer_claims)
 
 
@@ -94,8 +94,380 @@ def verify_id_token(id_token, app=None):
       ValueError: If the JWT was found to be invalid, or if the App was not
           initialized with a credentials.Certificate.
     """
-    token_generator = _get_token_generator(app)
+    token_generator = _get_auth_service(app).token_generator
     return token_generator.verify_id_token(id_token)
+
+
+def get_user(uid, app=None):
+    """Gets the user data corresponding to the specified user ID.
+
+    Args:
+        uid: A user ID string.
+        app: An App instance (optional).
+
+    Returns:
+        UserRecord: A UserRecord instance.
+
+    Raises:
+        ValueError: If the user ID is None, empty or malformed.
+        AuthError: If an error occurs while retrieving the user or if the specified user ID
+            does not exist.
+    """
+    user_manager = _get_auth_service(app).user_manager
+    try:
+        response = user_manager.get_user(uid=uid)
+        return UserRecord(response)
+    except _user_mgt.ApiCallError as error:
+        raise AuthError(error.code, str(error), error.detail)
+
+def get_user_by_email(email, app=None):
+    """Gets the user data corresponding to the specified user email.
+
+    Args:
+        email: A user email address string.
+        app: An App instance (optional).
+
+    Returns:
+        UserRecord: A UserRecord instance.
+
+    Raises:
+        ValueError: If the email is None, empty or malformed.
+        AuthError: If an error occurs while retrieving the user or no user exists by the specified
+            email address.
+    """
+    user_manager = _get_auth_service(app).user_manager
+    try:
+        response = user_manager.get_user(email=email)
+        return UserRecord(response)
+    except _user_mgt.ApiCallError as error:
+        raise AuthError(error.code, str(error), error.detail)
+
+
+def get_user_by_phone_number(phone_number, app=None):
+    """Gets the user data corresponding to the specified phone number.
+
+    Args:
+        phone_number: A phone number string.
+        app: An App instance (optional).
+
+    Returns:
+        UserRecord: A UserRecord instance.
+
+    Raises:
+        ValueError: If the phone number is None, empty or malformed.
+        AuthError: If an error occurs while retrieving the user or no user exists by the specified
+            phone number.
+    """
+    user_manager = _get_auth_service(app).user_manager
+    try:
+        response = user_manager.get_user(phone_number=phone_number)
+        return UserRecord(response)
+    except _user_mgt.ApiCallError as error:
+        raise AuthError(error.code, str(error), error.detail)
+
+
+def create_user(**kwargs):
+    """Creates a new user account with the specified properties.
+
+    Keyword Args:
+        uid: User ID to assign to the newly created user (optional).
+        display_name: The user's display name (optional).
+        email: The user's primary email (optional).
+        email_verified: A boolean indicating whether or not the user's primary email is
+            verified (optional).
+        phone_number: The user's primary phone number (optional).
+        photo_url: The user's photo URL (optional).
+        password: The user's raw, unhashed password. (optional).
+        disabled: A boolean indicating whether or not the user account is disabled (optional).
+        app: An App instance (optional).
+
+    Returns:
+        UserRecord: A UserRecord instance for the newly created user.
+
+    Raises:
+        ValueError: If the specified user properties are invalid.
+        AuthError: If an error occurs while creating the user account.
+    """
+    app = kwargs.pop('app', None)
+    user_manager = _get_auth_service(app).user_manager
+    try:
+        uid = user_manager.create_user(**kwargs)
+        return UserRecord(user_manager.get_user(uid=uid))
+    except _user_mgt.ApiCallError as error:
+        raise AuthError(error.code, str(error), error.detail)
+
+
+def update_user(uid, **kwargs): # pylint: disable=missing-param-doc
+    """Updates an existing user account with the specified properties.
+
+    Args:
+        uid: A user ID string.
+
+    Keyword Args:
+        display_name: The user's display name (optional). Can be removed by explicitly passing
+            None.
+        email: The user's primary email (optional).
+        email_verified: A boolean indicating whether or not the user's primary email is
+            verified (optional).
+        phone_number: The user's primary phone number (optional). Can be removed by explicitly
+            passing None.
+        photo_url: The user's photo URL (optional). Can be removed by explicitly passing None.
+        password: The user's raw, unhashed password. (optional).
+        disabled: A boolean indicating whether or not the user account is disabled (optional).
+        app: An App instance (optional).
+
+    Returns:
+        UserRecord: An updated UserRecord instance for the user.
+
+    Raises:
+        ValueError: If the specified user ID or properties are invalid.
+        AuthError: If an error occurs while updating the user account.
+    """
+    app = kwargs.pop('app', None)
+    user_manager = _get_auth_service(app).user_manager
+    try:
+        user_manager.update_user(uid, **kwargs)
+        return UserRecord(user_manager.get_user(uid=uid))
+    except _user_mgt.ApiCallError as error:
+        raise AuthError(error.code, str(error), error.detail)
+
+
+def delete_user(uid, app=None):
+    """Deletes the user identified by the specified user ID.
+
+    Args:
+        uid: A user ID string.
+        app: An App instance (optional).
+
+    Raises:
+        ValueError: If the user ID is None, empty or malformed.
+        AuthError: If an error occurs while deleting the user account.
+    """
+    user_manager = _get_auth_service(app).user_manager
+    try:
+        user_manager.delete_user(uid)
+    except _user_mgt.ApiCallError as error:
+        raise AuthError(error.code, str(error), error.detail)
+
+
+def _handle_http_error(code, msg, error):
+    if error.response is not None:
+        msg += '\nServer response: {0}'.format(error.response.content.decode())
+    else:
+        msg += '\nReason: {0}'.format(error)
+    raise AuthError(code, msg, error)
+
+
+class UserInfo(object):
+    """A collection of standard profile information for a user.
+
+    Used to expose profile information returned by an identity provider.
+    """
+
+    @property
+    def uid(self):
+        """Returns the user ID of this user."""
+        raise NotImplementedError
+
+    @property
+    def display_name(self):
+        """Returns the display name of this user."""
+        raise NotImplementedError
+
+    @property
+    def email(self):
+        """Returns the email address associated with this user."""
+        raise NotImplementedError
+
+    @property
+    def phone_number(self):
+        """Returns the phone number associated with this user."""
+        raise NotImplementedError
+
+    @property
+    def photo_url(self):
+        """Returns the photo URL of this user."""
+        raise NotImplementedError
+
+    @property
+    def provider_id(self):
+        """Returns the ID of the identity provider.
+
+        This can be a short domain name (e.g. google.com), or the identity of an OpenID
+        identity provider.
+        """
+        raise NotImplementedError
+
+
+class UserRecord(UserInfo):
+    """Contains metadata associated with a Firebase user account."""
+
+    def __init__(self, data):
+        super(UserRecord, self).__init__()
+        if not isinstance(data, dict):
+            raise ValueError('Invalid data argument: {0}. Must be a dictionary.'.format(data))
+        if not data.get('localId'):
+            raise ValueError('User ID must not be None or empty.')
+        self._data = data
+
+    @property
+    def uid(self):
+        """Returns the user ID of this user.
+
+        Returns:
+          string: A user ID string. This value is never None or empty.
+        """
+        return self._data.get('localId')
+
+    @property
+    def display_name(self):
+        """Returns the display name of this user.
+
+        Returns:
+          string: A display name string or None.
+        """
+        return self._data.get('displayName')
+
+    @property
+    def email(self):
+        """Returns the email address associated with this user.
+
+        Returns:
+          string: An email address string or None.
+        """
+        return self._data.get('email')
+
+    @property
+    def phone_number(self):
+        """Returns the phone number associated with this user.
+
+        Returns:
+          string: A phone number string or None.
+        """
+        return self._data.get('phoneNumber')
+
+    @property
+    def photo_url(self):
+        """Returns the photo URL of this user.
+
+        Returns:
+          string: A URL string or None.
+        """
+        return self._data.get('photoUrl')
+
+    @property
+    def provider_id(self):
+        """Returns the provider ID of this user.
+
+        Returns:
+          string: A constant provider ID value.
+        """
+        return 'firebase'
+
+    @property
+    def email_verified(self):
+        """Returns whether the email address of this user has been verified.
+
+        Returns:
+          bool: True if the email has been verified, and False otherwise.
+        """
+        return bool(self._data.get('emailVerified'))
+
+    @property
+    def disabled(self):
+        """Returns whether this user account is disabled.
+
+        Returns:
+          bool: True if the user account is disabled, and False otherwise.
+        """
+        return bool(self._data.get('disabled'))
+
+    @property
+    def user_metadata(self):
+        """Returns additional metadata associated with this user.
+
+        Returns:
+          UserMetadata: A UserMetadata instance. Does not return None.
+        """
+        return UserMetadata(self._data)
+
+    @property
+    def provider_data(self):
+        """Returns a list of UserInfo instances.
+
+        Each object represents an identity from an identity provider that is linked to this user.
+
+        Returns:
+          list: A list of UserInfo objects, which may be empty.
+        """
+        providers = self._data.get('providerUserInfo', [])
+        return [_ProviderUserInfo(entry) for entry in providers]
+
+
+class UserMetadata(object):
+    """Contains additional metadata associated with a user account."""
+
+    def __init__(self, data):
+        if not isinstance(data, dict):
+            raise ValueError('Invalid data argument: {0}. Must be a dictionary.'.format(data))
+        self._data = data
+
+    @property
+    def creation_timestamp(self):
+        if 'createdAt' in self._data:
+            return int(self._data['createdAt'])
+        return None
+
+    @property
+    def last_sign_in_timestamp(self):
+        if 'lastLoginAt' in self._data:
+            return int(self._data['lastLoginAt'])
+        return None
+
+
+class _ProviderUserInfo(UserInfo):
+    """Contains metadata regarding how a user is known by a particular identity provider."""
+
+    def __init__(self, data):
+        super(_ProviderUserInfo, self).__init__()
+        if not isinstance(data, dict):
+            raise ValueError('Invalid data argument: {0}. Must be a dictionary.'.format(data))
+        if not data.get('rawId'):
+            raise ValueError('User ID must not be None or empty.')
+        self._data = data
+
+    @property
+    def uid(self):
+        return self._data.get('rawId')
+
+    @property
+    def display_name(self):
+        return self._data.get('displayName')
+
+    @property
+    def email(self):
+        return self._data.get('email')
+
+    @property
+    def phone_number(self):
+        return self._data.get('phoneNumber')
+
+    @property
+    def photo_url(self):
+        return self._data.get('photoUrl')
+
+    @property
+    def provider_id(self):
+        return self._data.get('providerId')
+
+
+class AuthError(Exception):
+    """Represents an Exception encountered while invoking the Firebase auth API."""
+
+    def __init__(self, code, message, error=None):
+        Exception.__init__(self, message)
+        self.code = code
+        self.detail = error
 
 
 class _TokenGenerator(object):
@@ -277,3 +649,18 @@ class _TokenGenerator(object):
             audience=project_id)
         verified_claims['uid'] = verified_claims['sub']
         return verified_claims
+
+
+class _AuthService(object):
+
+    def __init__(self, app):
+        self._token_generator = _TokenGenerator(app)
+        self._user_manager = _user_mgt.UserManager(app)
+
+    @property
+    def token_generator(self):
+        return self._token_generator
+
+    @property
+    def user_manager(self):
+        return self._user_manager

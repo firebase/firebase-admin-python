@@ -38,6 +38,7 @@ _INVALID_PATH_CHARACTERS = '[].#$'
 _RESERVED_FILTERS = ('$key', '$value', '$priority')
 _USER_AGENT = 'Firebase/HTTP/{0}/{1}.{2}/AdminPython'.format(
     firebase_admin.__version__, sys.version_info.major, sys.version_info.minor)
+_TRANSACTION_MAX_RETRIES = 25
 
 
 def reference(path='/', app=None):
@@ -135,6 +136,15 @@ class Reference(object):
         """
         return self._client.request('get', self._add_suffix())
 
+    def _get_with_etag(self):
+        """Returns the value at the current location of the database, along with its ETag.
+        """
+        data, headers = self._client.request('get', self._add_suffix(),
+                                             headers={'X-Firebase-ETag' : 'true'},
+                                             resp_headers=True)
+        etag = headers.get('ETag')
+        return etag, data
+
     def set(self, value):
         """Sets the data at this location to the given value.
 
@@ -191,6 +201,32 @@ class Reference(object):
             raise ValueError('Dictionary must not contain None keys or values.')
         self._client.request_oneway('patch', self._add_suffix(), json=value, params='print=silent')
 
+    def _update_with_etag(self, value, etag):
+        """Sets the data at this location to the specified value, if the etag matches.
+        """
+        if not value or not isinstance(value, dict):
+            raise ValueError('Value argument must be a non-empty dictionary.')
+        if None in value.keys() or None in value.values():
+            raise ValueError('Dictionary must not contain None keys or values.')
+        if not isinstance(etag, six.string_types):
+            raise ValueError('ETag must be a string.')
+
+        success = True
+        snapshot = value
+        try:
+            self._client.request_oneway('put', self._add_suffix(), json=value,
+                                        headers={'if-match': etag})
+        except ApiCallError as error:
+            detail = error.detail
+            if detail.response.headers and 'ETag' in detail.response.headers:
+                etag = detail.response.headers['ETag']
+                snapshot = detail.response.json()
+                return False, etag, snapshot
+            else:
+                raise error
+
+        return success, etag, snapshot
+
     def delete(self):
         """Deleted this node from the database.
 
@@ -198,6 +234,35 @@ class Reference(object):
           ApiCallError: If an error occurs while communicating with the remote database server.
         """
         self._client.request_oneway('delete', self._add_suffix())
+
+    def transaction(self, transaction_update):
+        """Write to database using a transaction.
+
+        Args:
+            transaction_update: function that takes in current database data as a parameter.
+
+        Returns:
+            bool: True if transaction is successful, otherwise False.
+
+        Raises:
+            ValueError: If transaction_update is not a function.
+
+        """
+        if not callable(transaction_update):
+            raise ValueError('transaction_update must be a function.')
+
+        tries = 0
+        etag, data = self._get_with_etag()
+        val = transaction_update(data)
+        while tries < _TRANSACTION_MAX_RETRIES:
+            success, etag, snapshot = self._update_with_etag(val, etag)
+            if success:
+                return True
+            else:
+                val = transaction_update(snapshot)
+                tries += 1
+
+        return False
 
     def order_by_child(self, path):
         """Returns a Query that orders data by child values.
@@ -597,7 +662,12 @@ class _Client(object):
                        session=session, auth_override=auth_override)
 
     def request(self, method, urlpath, **kwargs):
-        return self._do_request(method, urlpath, **kwargs).json()
+        resp_headers = kwargs.pop('resp_headers', False)
+        resp = self._do_request(method, urlpath, **kwargs)
+        if resp_headers:
+            return resp.json(), resp.headers
+        else:
+            return resp.json()
 
     def request_oneway(self, method, urlpath, **kwargs):
         self._do_request(method, urlpath, **kwargs)

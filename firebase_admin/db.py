@@ -208,21 +208,18 @@ class Reference(object):
         if not isinstance(etag, six.string_types):
             raise ValueError('ETag must be a string.')
 
-        success = True
-        snapshot = value
         try:
             self._client.request_oneway(
                 'put', self._add_suffix(), json=value, headers={'if-match': etag})
+            return True, etag, value
         except ApiCallError as error:
             detail = error.detail
-            if detail.response.headers and 'ETag' in detail.response.headers:
+            if detail.response is not None and 'ETag' in detail.response.headers:
                 etag = detail.response.headers['ETag']
                 snapshot = detail.response.json()
                 return False, etag, snapshot
             else:
                 raise error
-
-        return success, etag, snapshot
 
     def delete(self):
         """Deletes this node from the database.

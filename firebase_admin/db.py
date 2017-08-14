@@ -248,7 +248,7 @@ class Reference(object):
         returning a value.
 
         Args:
-            transaction_update: A function which will be passed tbe current data stored at this
+            transaction_update: A function which will be passed the current data stored at this
                 location. The function should return the new value it would like written. If
                 an exception is raised, the transaction will be aborted, and the data at this
                 location will not be modified. The exceptions raised by this function are

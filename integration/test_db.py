@@ -169,11 +169,14 @@ class TestWriteOperations(object):
     def test_transation(self, testref):
         python = testref.parent
         def transaction_update(snapshot):
-            snapshot['foo1'] += '_suffix'
+            snapshot['name'] += ' Owen'
+            snapshot['since'] = 1804
             return snapshot
-        ref = python.child('users').push({'foo1' : 'bar1'})
-        ref.transaction(transaction_update)
-        assert ref.get() == {'foo1': 'bar1_suffix'}
+        ref = python.child('users').push({'name' : 'Richard'})
+        new_value = ref.transaction(transaction_update)
+        expected = {'name': 'Richard Owen', 'since': 1804}
+        assert new_value == expected
+        assert ref.get() == expected
 
     def test_delete(self, testref):
         python = testref.parent

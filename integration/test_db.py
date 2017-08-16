@@ -150,7 +150,12 @@ class TestWriteOperations(object):
         assert edward.get() == {'name' : 'Edward Cope', 'since' : 1840}
         assert jack.get() == {'name' : 'Jack Horner', 'since' : 1946}
 
-    def test_get_and_update_with_etag(self, testref):
+    def test_get_etag(self, testref):
+        python = testref.parent
+        etag = python.get_etag()
+        assert isinstance(etag, six.string_types)
+
+    def test_get_and_set_with_etag(self, testref):
         python = testref.parent
         push_data = {'name' : 'Edward Cope', 'since' : 1800}
         edward = python.child('users').push(push_data)
@@ -159,14 +164,14 @@ class TestWriteOperations(object):
         assert isinstance(etag, six.string_types)
 
         update_data = {'name' : 'Jack Horner', 'since' : 1940}
-        failed_update = edward._update_with_etag(update_data, 'invalid-etag')
+        failed_update = edward._set_with_etag(update_data, 'invalid-etag')
         assert failed_update == (False, etag, push_data)
 
-        successful_update = edward._update_with_etag(update_data, etag)
+        successful_update = edward._set_with_etag(update_data, etag)
         assert successful_update[0]
         assert successful_update[2] == update_data
 
-    def test_transation(self, testref):
+    def test_transaction(self, testref):
         python = testref.parent
         def transaction_update(snapshot):
             snapshot['name'] += ' Owen'

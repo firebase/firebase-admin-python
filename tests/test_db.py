@@ -154,6 +154,14 @@ class TestReference(object):
         assert recorder[0].headers['User-Agent'] == db._USER_AGENT
 
     @pytest.mark.parametrize('data', valid_values)
+    def test_get_etag(self, data):
+        ref = db.reference('/test')
+        recorder = self.instrument(ref, json.dumps(data))
+        assert ref.get_etag() == '0'
+        assert recorder[0].method == 'GET'
+        assert recorder[0].url == 'https://test.firebaseio.com/test.json?print=silent'
+
+    @pytest.mark.parametrize('data', valid_values)
     def test_order_by_query(self, data):
         ref = db.reference('/test')
         recorder = self.instrument(ref, json.dumps(data))
@@ -229,11 +237,11 @@ class TestReference(object):
         assert json.loads(recorder[0].body.decode()) == data
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
-    def test_update_with_etag(self):
+    def test_set_with_etag(self):
         ref = db.reference('/test')
         data = {'foo': 'bar'}
         recorder = self.instrument(ref, json.dumps(data))
-        vals = ref._update_with_etag(data, '0')
+        vals = ref._set_with_etag(data, '0')
         assert vals == (True, '0', data)
         assert len(recorder) == 1
         assert recorder[0].method == 'PUT'
@@ -241,7 +249,7 @@ class TestReference(object):
         assert json.loads(recorder[0].body.decode()) == data
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
-        vals = ref._update_with_etag(data, '1')
+        vals = ref._set_with_etag(data, '1')
         assert vals == (False, '0', data)
         assert len(recorder) == 1
 

@@ -125,27 +125,16 @@ class Reference(object):
         full_path = self._pathurl + '/' + path
         return Reference(client=self._client, path=full_path)
 
-    def _get_with_etag(self):
-        """Returns the value at the current location of the database, along with its ETag.
-        """
-        data, headers = self._client.request('get', self._add_suffix(),
-                                             headers={'X-Firebase-ETag' : 'true'},
-                                             resp_headers=True)
-        etag = headers.get('ETag')
-        return etag, data
-
-    def get_etag(self):
+    def etag(self):
         """Returns the ETag at the current location of the database.
-
         Returns:
-            object: ETag of the current database Reference.
+            str: ETag of the current database Reference.
         """
         headers = self._client.request('get', self._add_suffix(),
                                        headers={'X-Firebase-ETag' : 'true'},
                                        resp_headers=True,
                                        params='print=silent')
-        etag = headers.get('ETag')
-        return etag
+        return headers.get('ETag')
 
     def get(self, etag=False):
         """Returns the value, and possibly the ETag, at the current location of the database.
@@ -158,35 +147,13 @@ class Reference(object):
           ApiCallError: If an error occurs while communicating with the remote database server.
         """
         if etag:
-            return self._get_with_etag()
+            data, headers = self._client.request('get', self._add_suffix(),
+                                                 headers={'X-Firebase-ETag' : 'true'},
+                                                 resp_headers=True)
+            etag = headers.get('ETag')
+            return data, etag
         else:
             return self._client.request('get', self._add_suffix())
-
-    def _set_with_etag(self, value, etag):
-        """Sets the data at this location to the specified value, if the etag matches.
-        """
-        if not value or not isinstance(value, dict):
-            raise ValueError('Value argument must be a non-empty dictionary.')
-        if None in value.keys() or None in value.values():
-            raise ValueError('Dictionary must not contain None keys or values.')
-        if not isinstance(etag, six.string_types):
-            raise ValueError('ETag must be a string.')
-
-        success = True
-        snapshot = value
-        try:
-            self._client.request_oneway('put', self._add_suffix(), json=value,
-                                        headers={'if-match': etag})
-        except ApiCallError as error:
-            detail = error.detail
-            if detail.response.headers and 'ETag' in detail.response.headers:
-                etag = detail.response.headers['ETag']
-                snapshot = detail.response.json()
-                return False, etag, snapshot
-            else:
-                raise error
-
-        return success, etag, snapshot
 
     def set(self, value, etag=None):
         """Sets the data at this location to the given value.
@@ -197,8 +164,12 @@ class Reference(object):
           value: JSON-serialable value to be set at this location.
           etag: Value of ETag that we want to check.
 
+        Returns:
+          object: Tuple of False, current location's etag, and snapshot of location's data
+                  if passed in etag does not match. 
+
         Raises:
-          ValueError: If the value is None.
+          ValueError: If the value is None, or if etag is not a string.
           TypeError: If the value is not JSON-serializable.
           ApiCallError: If an error occurs while communicating with the remote database server,
                         or if the ETag does not match.
@@ -206,7 +177,20 @@ class Reference(object):
         if value is None:
             raise ValueError('Value must not be None.')
         if etag is not None:
-            self._set_with_etag(value, etag)
+            if not isinstance(etag, six.string_types):
+                raise ValueError('ETag must be a string.')
+            try:
+                self._client.request_oneway(
+                    'put', self._add_suffix(), json=value, headers={'if-match': etag})
+                return True, etag, value
+            except ApiCallError as error:
+                detail = error.detail
+                if detail.response is not None and 'ETag' in detail.response.headers:
+                    etag = detail.response.headers['ETag']
+                    snapshot = detail.response.json()
+                    return False, etag, snapshot
+                else:
+                    raise error
         else:
             self._client.request_oneway('put', self._add_suffix(), json=value,
                                         params='print=silent')
@@ -252,7 +236,7 @@ class Reference(object):
                                     params='print=silent')
 
     def delete(self):
-        """Deleted this node from the database.
+        """Deletes this node from the database.
 
         Raises:
           ApiCallError: If an error occurs while communicating with the remote database server.
@@ -261,6 +245,7 @@ class Reference(object):
 
     def transaction(self, transaction_update):
         """Atomically modifies the data at this location.
+
         Unlike a normal `set()`, which just overwrites the data regardless of its previous state,
         `transaction()` is used to modify the existing value to a new value, ensuring there are
         no conflicts with other clients simultaneously writing to the same location.
@@ -287,10 +272,10 @@ class Reference(object):
             raise ValueError('transaction_update must be a function.')
 
         tries = 0
-        etag, data = self._get_with_etag()
+        data, etag = self.get(etag=True)
         while tries < _TRANSACTION_MAX_RETRIES:
             new_data = transaction_update(data)
-            success, etag, data = self._set_with_etag(new_data, etag)
+            success, etag, data = self.set(new_data, etag=etag)
             if success:
                 return new_data
             tries += 1

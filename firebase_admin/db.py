@@ -127,6 +127,7 @@ class Reference(object):
 
     def etag(self):
         """Returns the ETag at the current location of the database.
+
         Returns:
             str: ETag of the current database Reference.
         """
@@ -141,7 +142,7 @@ class Reference(object):
 
         Returns:
           object: Decoded JSON value of the current database Reference if etag=False, otherwise
-                  the decoded JSON value and the corresponding ETag.
+              the decoded JSON value and the corresponding ETag.
 
         Raises:
           ApiCallError: If an error occurs while communicating with the remote database server.
@@ -166,14 +167,15 @@ class Reference(object):
 
         Returns:
           object: Tuple of False, current location's etag, and snapshot of location's data
-                  if passed in etag does not match. 
+              if passed in etag does not match.
 
         Raises:
           ValueError: If the value is None, or if etag is not a string.
           TypeError: If the value is not JSON-serializable.
           ApiCallError: If an error occurs while communicating with the remote database server,
-                        or if the ETag does not match.
+              or if the ETag does not match.
         """
+        # pylint: disable=missing-raises-doc
         if value is None:
             raise ValueError('Value must not be None.')
         if etag is not None:
@@ -249,6 +251,7 @@ class Reference(object):
         Unlike a normal `set()`, which just overwrites the data regardless of its previous state,
         `transaction()` is used to modify the existing value to a new value, ensuring there are
         no conflicts with other clients simultaneously writing to the same location.
+
         This is accomplished by passing an update function which is used to transform the current
         value of this reference into a new value. If another client writes to this location before
         the new value is successfully saved, the update function is called again with the new
@@ -256,14 +259,17 @@ class Reference(object):
         will retry the transaction up to 25 times before giving up and raising a TransactionError.
         The update function may also force an early abort by raising an exception instead of
         returning a value.
+
         Args:
             transaction_update: A function which will be passed the current data stored at this
                 location. The function should return the new value it would like written. If
                 an exception is raised, the transaction will be aborted, and the data at this
                 location will not be modified. The exceptions raised by this function are
                 propagated to the caller of the transaction method.
+
         Returns:
             object: New value of the current database Reference (only if the transaction commits).
+
         Raises:
             TransactionError: If the transaction aborts after exhausting all retry attempts.
             ValueError: If transaction_update is not a function.

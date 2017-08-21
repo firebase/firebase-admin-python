@@ -201,10 +201,6 @@ class Reference(object):
 
     def _update_with_etag(self, value, etag):
         """Sets the data at this location to the specified value, if the etag matches."""
-        if not value or not isinstance(value, dict):
-            raise ValueError('Value argument must be a non-empty dictionary.')
-        if None in value.keys() or None in value.values():
-            raise ValueError('Dictionary must not contain None keys or values.')
         if not isinstance(etag, six.string_types):
             raise ValueError('ETag must be a string.')
 

@@ -30,8 +30,8 @@ import six
 from six.moves import urllib
 
 import firebase_admin
-from firebase_admin import utils
 from firebase_admin import _http_client
+from firebase_admin import _utils
 
 
 _DB_ATTRIBUTE = '_database'

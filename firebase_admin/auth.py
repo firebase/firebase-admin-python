@@ -19,7 +19,6 @@ authenticating against Firebase services. It also provides functions for
 creating and managing user accounts in Firebase projects.
 """
 
-import os
 import time
 
 from google.auth import jwt

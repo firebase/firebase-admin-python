@@ -33,6 +33,7 @@ from tests import testutils
 
 FIREBASE_AUDIENCE = ('https://identitytoolkit.googleapis.com/'
                      'google.identity.identitytoolkit.v1.IdentityToolkit')
+GCLOUD_PROJECT_ENV_VAR = 'GCLOUD_PROJECT'
 
 MOCK_UID = 'user1'
 MOCK_CREDENTIAL = credentials.Certificate(
@@ -95,6 +96,20 @@ def non_cert_app():
     tests.
     """
     app = firebase_admin.initialize_app(testutils.MockCredential(), name='non-cert-app')
+    yield app
+    firebase_admin.delete_app(app)
+
+@pytest.fixture
+def project_id_app():
+    """Returns an App initialized with a non-cert credential, and a project ID option.
+
+    The lines of code following the yield statement are guaranteed to run after each test case
+    that depends on this fixture. This ensures the proper cleanup of the App instance after
+    tests.
+    """
+    options = {'projectId': MOCK_CREDENTIAL.project_id}
+    app = firebase_admin.initialize_app(
+        testutils.MockCredential(), options=options, name='project-id-app')
     yield app
     firebase_admin.delete_app(app)
 
@@ -232,28 +247,34 @@ class TestVerifyIdToken(object):
         with pytest.raises(ValueError):
             authtest.verify_id_token(id_token)
 
+    def test_project_id_option(self, project_id_app):
+        claims = auth.verify_id_token(TEST_ID_TOKEN, project_id_app)
+        assert claims['admin'] is True
+        assert claims['uid'] == claims['sub']
+
     def test_project_id_env_var(self, non_cert_app):
-        gcloud_project = os.environ.get(auth.GCLOUD_PROJECT_ENV_VAR)
+        gcloud_project = os.environ.get(GCLOUD_PROJECT_ENV_VAR)
         try:
-            os.environ[auth.GCLOUD_PROJECT_ENV_VAR] = MOCK_CREDENTIAL.project_id
+            os.environ[GCLOUD_PROJECT_ENV_VAR] = MOCK_CREDENTIAL.project_id
             claims = auth.verify_id_token(TEST_ID_TOKEN, non_cert_app)
             assert claims['admin'] is True
+            assert claims['uid'] == claims['sub']
         finally:
             if gcloud_project:
-                os.environ[auth.GCLOUD_PROJECT_ENV_VAR] = gcloud_project
+                os.environ[GCLOUD_PROJECT_ENV_VAR] = gcloud_project
             else:
-                del os.environ[auth.GCLOUD_PROJECT_ENV_VAR]
+                del os.environ[GCLOUD_PROJECT_ENV_VAR]
 
     def test_no_project_id(self, non_cert_app):
-        gcloud_project = os.environ.get(auth.GCLOUD_PROJECT_ENV_VAR)
+        gcloud_project = os.environ.get(GCLOUD_PROJECT_ENV_VAR)
         if gcloud_project:
-            del os.environ[auth.GCLOUD_PROJECT_ENV_VAR]
+            del os.environ[GCLOUD_PROJECT_ENV_VAR]
         try:
             with pytest.raises(ValueError):
                 auth.verify_id_token(TEST_ID_TOKEN, non_cert_app)
         finally:
             if gcloud_project:
-                os.environ[auth.GCLOUD_PROJECT_ENV_VAR] = gcloud_project
+                os.environ[GCLOUD_PROJECT_ENV_VAR] = gcloud_project
 
     def test_custom_token(self, authtest):
         id_token = authtest.create_custom_token(MOCK_UID)

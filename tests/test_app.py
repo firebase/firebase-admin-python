@@ -19,8 +19,8 @@ import pytest
 
 import firebase_admin
 from firebase_admin import credentials
-from firebase_admin import utils
 from tests import testutils
+from firebase_admin import _utils
 
 
 CREDENTIAL = credentials.Certificate(
@@ -167,10 +167,10 @@ class TestFirebaseApp(object):
             firebase_admin.delete_app(init_app)
 
     def test_app_services(self, init_app):
-        service = utils.get_app_service(init_app, 'test.service', AppService)
+        service = _utils.get_app_service(init_app, 'test.service', AppService)
         assert isinstance(service, AppService)
-        service2 = utils.get_app_service(init_app, 'test.service', AppService)
+        service2 = _utils.get_app_service(init_app, 'test.service', AppService)
         assert service is service2
         firebase_admin.delete_app(init_app)
         with pytest.raises(ValueError):
-            utils.get_app_service(init_app, 'test.service', AppService)
+            _utils.get_app_service(init_app, 'test.service', AppService)

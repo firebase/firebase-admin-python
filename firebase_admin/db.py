@@ -31,7 +31,7 @@ import six
 from six.moves import urllib
 
 import firebase_admin
-from firebase_admin import utils
+from firebase_admin import _utils
 
 _DB_ATTRIBUTE = '_database'
 _INVALID_PATH_CHARACTERS = '[].#$'
@@ -56,7 +56,7 @@ def reference(path='/', app=None):
     Raises:
       ValueError: If the specified path or app is invalid.
     """
-    client = utils.get_app_service(app, _DB_ATTRIBUTE, _Client.from_app)
+    client = _utils.get_app_service(app, _DB_ATTRIBUTE, _Client.from_app)
     return Reference(client=client, path=path)
 
 def _parse_path(path):

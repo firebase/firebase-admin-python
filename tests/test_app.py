@@ -19,8 +19,8 @@ import pytest
 
 import firebase_admin
 from firebase_admin import credentials
-from tests import testutils
 from firebase_admin import _utils
+from tests import testutils
 
 
 CREDENTIAL = credentials.Certificate(

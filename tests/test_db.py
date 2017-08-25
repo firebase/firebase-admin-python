@@ -154,6 +154,16 @@ class TestReference(object):
         assert recorder[0].headers['User-Agent'] == db._USER_AGENT
 
     @pytest.mark.parametrize('data', valid_values)
+    def test_get_if_changed(self, data):
+        ref = db.reference('/test')
+        recorder = self.instrument(ref, json.dumps(data))
+
+        assert ref.get_if_changed('1') == (True, '0', data)
+        assert len(recorder) == 1
+        assert recorder[0].method == 'GET'
+        assert recorder[0].url == 'https://test.firebaseio.com/test.json'
+
+    @pytest.mark.parametrize('data', valid_values)
     def test_etag(self, data):
         ref = db.reference('/test')
         recorder = self.instrument(ref, json.dumps(data))

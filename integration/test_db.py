@@ -155,6 +155,14 @@ class TestWriteOperations(object):
         etag = python.etag()
         assert isinstance(etag, six.string_types)
 
+    def test_get_if_changed(self, testref):
+        python = testref.parent
+        push_data = {'name' : 'Edward Cope', 'since' : 1800}
+        edward = python.child('users').push(push_data)
+        changed_data = edward.get_if_changed('wrong_etag')
+        assert changed_data[0]
+        assert changed_data[2] == push_data
+
     def test_get_and_set_with_etag(self, testref):
         python = testref.parent
         push_data = {'name' : 'Edward Cope', 'since' : 1800}

@@ -169,19 +169,18 @@ class Reference(object):
         Raises:
           ValueError: If the ETag is not a string.
         """
-        # pylint: disable=missing-raises-doc
+        #pylint: disable=protected-access
         if not isinstance(etag, six.string_types):
             raise ValueError('ETag must be a string.')
 
-        try:
-            value, headers = self._client.request('get', self._add_suffix(),
-                                                  headers={'if-none-match': etag},
-                                                  resp_headers=True)
+        resp = self._client._do_request('get', self._add_suffix(),
+                                        headers={'if-none-match': etag})
+        if resp.status_code == 200:
+            value, headers = resp.json(), resp.headers
             new_etag = headers.get('ETag')
             return True, new_etag, value
-        except ApiCallError as error:
-            # what to do here?
-            raise error
+        elif resp.status_code == 304:
+            return False, etag, None
 
     def set(self, value):
         """Sets the data at this location to the given value.

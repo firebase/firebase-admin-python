@@ -156,46 +156,84 @@ class Reference(object):
         else:
             return self._client.request('get', self._add_suffix())
 
-    def set(self, value, etag=None):
-        """Sets the data at this location to the given value.
-        The value must be JSON-serializable and not None.
-        If etag != None, checks to make sure that the ETag value matches that of the location.
+    def get_if_changed(self, etag):
+        """Get data in this location if the ETag no longer matches.
 
         Args:
-          value: JSON-serialable value to be set at this location.
-          etag: Value of ETag that we want to check.
+          etag: The ETag value we want to check against the ETag in the current location.
 
         Returns:
-          object: Tuple of False, current location's etag, and snapshot of location's data
-              if passed in etag does not match.
+          object: Tuple of boolean of whether the request was successful, current location's etag,
+           and snapshot of location's data if passed in etag does not match.
 
         Raises:
-          ValueError: If the value is None, or if etag is not a string.
-          TypeError: If the value is not JSON-serializable.
-          ApiCallError: If an error occurs while communicating with the remote database server,
-              or if the ETag does not match.
+          ValueError: If the ETag is not a string.
         """
         # pylint: disable=missing-raises-doc
+        if not isinstance(etag, six.string_types):
+            raise ValueError('ETag must be a string.')
+
+        try:
+            value, headers = self._client.request('get', self._add_suffix(),
+                                                  headers={'if-none-match': etag},
+                                                  resp_headers=True)
+            new_etag = headers.get('ETag')
+            return True, new_etag, value
+        except ApiCallError as error:
+            # what to do here?
+            raise error
+
+    def set(self, value):
+        """Sets the data at this location to the given value.
+
+        The value must be JSON-serializable and not None.
+
+        Args:
+          value: JSON-serializable value to be set at this location.
+
+        Raises:
+          ValueError: If the value is None.
+          TypeError: If the value is not JSON-serializable.
+          ApiCallError: If an error occurs while communicating with the remote database server.
+        """
         if value is None:
             raise ValueError('Value must not be None.')
-        if etag is not None:
-            if not isinstance(etag, six.string_types):
-                raise ValueError('ETag must be a string.')
-            try:
-                self._client.request_oneway(
-                    'put', self._add_suffix(), json=value, headers={'if-match': etag})
-                return True, etag, value
-            except ApiCallError as error:
-                detail = error.detail
-                if detail.response is not None and 'ETag' in detail.response.headers:
-                    etag = detail.response.headers['ETag']
-                    snapshot = detail.response.json()
-                    return False, etag, snapshot
-                else:
-                    raise error
-        else:
-            self._client.request_oneway('put', self._add_suffix(), json=value,
-                                        params='print=silent')
+        self._client.request_oneway('put', self._add_suffix(), json=value, params='print=silent')
+
+    def set_if_unchanged(self, expected_etag, value):
+        """Sets the data at this location to the given value, if expected_etag is the same as the
+        correct ETag value.
+
+        Args:
+          expected_etag: Value of ETag we want to check.
+          value: JSON-serializable value to be set at this location.
+
+        Returns:
+          object: Tuple of boolean of whether the request was successful, current location's etag,
+           and snapshot of location's data if passed in etag does not match.
+
+        Raises:
+          ValueError: If the value is None, or if expected_etag is not a string.
+          ApiCallError: If an error occurs while communicating with the remote database server.
+        """
+        # pylint: disable=missing-raises-doc
+        if not isinstance(expected_etag, six.string_types):
+            raise ValueError('Expected ETag must be a string.')
+        if value is None:
+            raise ValueError('Value must not be none.')
+
+        try:
+            self._client.request_oneway('put', self._add_suffix(),
+                                        json=value, headers={'if-match': expected_etag})
+            return True, expected_etag, value
+        except ApiCallError as error:
+            detail = error.detail
+            if detail.response is not None and 'ETag' in detail.response.headers:
+                etag = detail.response.headers['ETag']
+                snapshot = detail.response.json()
+                return False, etag, snapshot
+            else:
+                raise error
 
     def push(self, value=''):
         """Creates a new child node.
@@ -281,7 +319,7 @@ class Reference(object):
         data, etag = self.get(etag=True)
         while tries < _TRANSACTION_MAX_RETRIES:
             new_data = transaction_update(data)
-            success, etag, data = self.set(new_data, etag=etag)
+            success, etag, data = self.set_if_unchanged(etag, new_data)
             if success:
                 return new_data
             tries += 1

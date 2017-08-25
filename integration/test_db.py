@@ -164,10 +164,10 @@ class TestWriteOperations(object):
         assert isinstance(etag, six.string_types)
 
         update_data = {'name' : 'Jack Horner', 'since' : 1940}
-        failed_update = edward.set(update_data, 'invalid-etag')
+        failed_update = edward.set_if_unchanged('invalid-etag', update_data)
         assert failed_update == (False, etag, push_data)
 
-        successful_update = edward.set(update_data, etag)
+        successful_update = edward.set_if_unchanged(etag, update_data)
         assert successful_update[0]
         assert successful_update[2] == update_data
 

@@ -241,7 +241,7 @@ class TestReference(object):
         ref = db.reference('/test')
         data = {'foo': 'bar'}
         recorder = self.instrument(ref, json.dumps(data))
-        vals = ref.set(data, '0')
+        vals = ref.set_if_unchanged('0', data)
         assert vals == (True, '0', data)
         assert len(recorder) == 1
         assert recorder[0].method == 'PUT'
@@ -249,7 +249,7 @@ class TestReference(object):
         assert json.loads(recorder[0].body.decode()) == data
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
-        vals = ref.set(data, '1')
+        vals = ref.set_if_unchanged('1', data)
         assert vals == (False, '0', data)
         assert len(recorder) == 1
 

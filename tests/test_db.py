@@ -34,13 +34,17 @@ class MockAdapter(testutils.MockAdapter):
 
     def send(self, request, **kwargs):
         if_match = request.headers.get('if-match')
+        if_none_match = request.headers.get('if-none-match')
         if if_match and if_match != MockAdapter._ETAG:
             response = Response()
             response._content = request.body
             response.headers = {'ETag': MockAdapter._ETAG}
             raise exceptions.RequestException(response=response)
+
         resp = super(MockAdapter, self).send(request, **kwargs)
         resp.headers = {'ETag': MockAdapter._ETAG}
+        if if_none_match and if_none_match == MockAdapter._ETAG:
+            resp.status_code = 304
         return resp
 
 
@@ -163,13 +167,10 @@ class TestReference(object):
         assert recorder[0].method == 'GET'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
 
-    @pytest.mark.parametrize('data', valid_values)
-    def test_etag(self, data):
-        ref = db.reference('/test')
-        recorder = self.instrument(ref, json.dumps(data))
-        assert ref.etag() == '0'
+        assert ref.get_if_changed('0') == (False, None, None)
+        assert len(recorder) == 2
         assert recorder[0].method == 'GET'
-        assert recorder[0].url == 'https://test.firebaseio.com/test.json?print=silent'
+        assert recorder[0].url == 'https://test.firebaseio.com/test.json'
 
     @pytest.mark.parametrize('data', valid_values)
     def test_order_by_query(self, data):

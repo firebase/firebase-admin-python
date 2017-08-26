@@ -150,11 +150,6 @@ class TestWriteOperations(object):
         assert edward.get() == {'name' : 'Edward Cope', 'since' : 1840}
         assert jack.get() == {'name' : 'Jack Horner', 'since' : 1946}
 
-    def test_etag(self, testref):
-        python = testref.parent
-        etag = python.etag()
-        assert isinstance(etag, six.string_types)
-
     def test_get_if_changed(self, testref):
         python = testref.parent
         push_data = {'name' : 'Edward Cope', 'since' : 1800}
@@ -162,6 +157,9 @@ class TestWriteOperations(object):
         changed_data = edward.get_if_changed('wrong_etag')
         assert changed_data[0]
         assert changed_data[2] == push_data
+
+        unchanged_data = edward.get_if_changed(changed_data[1])
+        assert unchanged_data == (False, None, None)
 
     def test_get_and_set_with_etag(self, testref):
         python = testref.parent

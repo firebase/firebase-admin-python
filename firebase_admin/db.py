@@ -125,18 +125,6 @@ class Reference(object):
         full_path = self._pathurl + '/' + path
         return Reference(client=self._client, path=full_path)
 
-    def etag(self):
-        """Returns the ETag at the current location of the database.
-
-        Returns:
-            str: ETag of the current database Reference.
-        """
-        headers = self._client.request('get', self._add_suffix(),
-                                       headers={'X-Firebase-ETag' : 'true'},
-                                       resp_headers=True,
-                                       params='print=silent')
-        return headers.get('ETag')
-
     def get(self, etag=False):
         """Returns the value, and possibly the ETag, at the current location of the database.
 
@@ -180,7 +168,7 @@ class Reference(object):
             new_etag = headers.get('ETag')
             return True, new_etag, value
         elif resp.status_code == 304:
-            return False, etag, None
+            return False, None, None
 
     def set(self, value):
         """Sets the data at this location to the given value.

@@ -140,7 +140,6 @@ class Reference(object):
         Raises:
           ApiCallError: If an error occurs while communicating with the remote database server.
         """
-        print('calling child', self.path)
         if etag:
             headers, data = self._client.headers_and_body(
                 'get', self._add_suffix(), headers={'X-Firebase-ETag' : 'true'})

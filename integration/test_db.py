@@ -150,23 +150,34 @@ class TestWriteOperations(object):
         assert edward.get() == {'name' : 'Edward Cope', 'since' : 1840}
         assert jack.get() == {'name' : 'Jack Horner', 'since' : 1946}
 
-    def test_get_and_update_with_etag(self, testref):
+    def test_get_if_changed(self, testref):
         python = testref.parent
         push_data = {'name' : 'Edward Cope', 'since' : 1800}
         edward = python.child('users').push(push_data)
-        etag, data = edward._get_with_etag()
+        changed_data = edward.get_if_changed('wrong_etag')
+        assert changed_data[0]
+        assert changed_data[2] == push_data
+
+        unchanged_data = edward.get_if_changed(changed_data[1])
+        assert unchanged_data == (False, None, None)
+
+    def test_get_and_set_with_etag(self, testref):
+        python = testref.parent
+        push_data = {'name' : 'Edward Cope', 'since' : 1800}
+        edward = python.child('users').push(push_data)
+        data, etag = edward.get(etag=True)
         assert data == push_data
         assert isinstance(etag, six.string_types)
 
         update_data = {'name' : 'Jack Horner', 'since' : 1940}
-        failed_update = edward._update_with_etag(update_data, 'invalid-etag')
+        failed_update = edward.set_if_unchanged('invalid-etag', update_data)
         assert failed_update == (False, etag, push_data)
 
-        successful_update = edward._update_with_etag(update_data, etag)
+        successful_update = edward.set_if_unchanged(etag, update_data)
         assert successful_update[0]
         assert successful_update[2] == update_data
 
-    def test_transation(self, testref):
+    def test_transaction(self, testref):
         python = testref.parent
         def transaction_update(snapshot):
             snapshot['name'] += ' Owen'

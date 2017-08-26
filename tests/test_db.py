@@ -337,6 +337,18 @@ class TestReference(object):
         assert recorder[1].method == 'PUT'
         assert json.loads(recorder[1].body.decode()) == {'foo1': 'bar1', 'foo2': 'bar2'}
 
+    def test_transaction_scalar(self):
+        ref = db.reference('/test/count')
+        data = 42
+        recorder = self.instrument(ref, json.dumps(data))
+
+        new_value = ref.transaction(lambda x: x + 1 if x else 1)
+        assert new_value == 43
+        assert len(recorder) == 2
+        assert recorder[0].method == 'GET'
+        assert recorder[1].method == 'PUT'
+        assert json.loads(recorder[1].body.decode()) == 43
+
     def test_transaction_error(self):
         ref = db.reference('/test')
         data = {'foo1': 'bar1'}

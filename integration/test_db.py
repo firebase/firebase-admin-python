@@ -189,6 +189,15 @@ class TestWriteOperations(object):
         assert new_value == expected
         assert ref.get() == expected
 
+    def test_transaction_scalar(self, testref):
+        python = testref.parent
+        ref = python.child('users/count')
+        ref.set(42)
+        new_value = ref.transaction(lambda x: x + 1 if x else 1)
+        expected = 43
+        assert new_value == expected
+        assert ref.get() == expected
+
     def test_delete(self, testref):
         python = testref.parent
         ref = python.child('users').push('foo')

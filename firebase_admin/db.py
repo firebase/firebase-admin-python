@@ -681,10 +681,11 @@ class _Client(_http_client.JsonHttpClient):
 
         Args:
           credential: A Google credential that can be used to authenticate requests.
-          base_url: A URL prefix to be added to all outgoing requests.
+          base_url: A URL prefix to be added to all outgoing requests. This is typically the
+              Firebase Realtime Database URL.
           auth_override: A dictionary representing auth variable overrides or None (optional).
-              Defaults to empty tuple, which provides admin privileges. A None value here provides
-              un-authenticated guest privileges.
+              Default value provides admin privileges. A None value here provides un-authenticated
+              guest privileges.
         """
         _http_client.JsonHttpClient.__init__(
             self, credential=credential, base_url=base_url, headers={'User-Agent': _USER_AGENT})
@@ -731,6 +732,10 @@ class _Client(_http_client.JsonHttpClient):
                              'value must be a dict or None.'.format(auth_override))
         else:
             return auth_override
+
+    @property
+    def auth_override(self):
+        return self._auth_override
 
     def request(self, method, url, **kwargs):
         """Makes an HTTP call using the Python requests library.

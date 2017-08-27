@@ -94,7 +94,8 @@ class TestReadOperations(object):
         assert success is True
         assert data == testdata
         assert isinstance(etag, six.string_types)
-        # TODO: This seems to be broken. Needs further investigation.
+        # TODO: Server API seems to be misbehaving in the following case.
+        # TODO: Re-enable once fixed.
         #assert testref.get_if_changed(etag) == (False, None, None)
 
     def test_get_child_value(self, testref, testdata):

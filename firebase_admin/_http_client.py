@@ -103,6 +103,7 @@ class HttpClient(object):
 
 
 class JsonHttpClient(HttpClient):
+    """An HTTP client that parses response messages as JSON."""
 
     def __init__(self, **kwargs):
         HttpClient.__init__(self, **kwargs)

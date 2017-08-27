@@ -286,6 +286,21 @@ class TestReference(object):
         with pytest.raises(ValueError):
             ref.set_if_unchanged(etag, 'value')
 
+    def test_set_if_unchanged_none_value(self):
+        ref = db.reference('/test')
+        self.instrument(ref, '')
+        with pytest.raises(ValueError):
+            ref.set_if_unchanged(MockAdapter.ETAG, None)
+
+    @pytest.mark.parametrize('value', [
+        _Object(), {'foo': _Object()}, [_Object()]
+    ])
+    def test_set_if_unchanged_non_json_value(self, value):
+        ref = db.reference('/test')
+        self.instrument(ref, '')
+        with pytest.raises(TypeError):
+            ref.set_if_unchanged(MockAdapter.ETAG, value)
+
     def test_update_children_default(self):
         ref = db.reference('/test')
         recorder = self.instrument(ref, '')
@@ -520,7 +535,7 @@ class TestDatabseInitialization(object):
         firebase_admin.initialize_app(testutils.MockCredential(), {'databaseURL' : url})
         ref = db.reference()
         assert ref._client.base_url == 'https://test.firebaseio.com'
-        assert ref._client._auth_override is None
+        assert ref._client.auth_override is None
 
     @pytest.mark.parametrize('url', [
         None, '', 'foo', 'http://test.firebaseio.com', 'https://google.com',
@@ -540,10 +555,10 @@ class TestDatabseInitialization(object):
         ref = db.reference()
         assert ref._client.base_url == 'https://test.firebaseio.com'
         if override == {}:
-            assert ref._client._auth_override is None
+            assert ref._client.auth_override is None
         else:
             encoded = json.dumps(override, separators=(',', ':'))
-            assert ref._client._auth_override == 'auth_variable_override={0}'.format(encoded)
+            assert ref._client.auth_override == 'auth_variable_override={0}'.format(encoded)
 
     @pytest.mark.parametrize('override', [
         '', 'foo', 0, 1, True, False, list(), tuple(), _Object()])
@@ -560,9 +575,11 @@ class TestDatabseInitialization(object):
             testutils.MockCredential(), {'databaseURL' : 'https://test.firebaseio.com'})
         ref = db.reference()
         assert ref is not None
+        assert ref._client.session is not None
         firebase_admin.delete_app(app)
         with pytest.raises(ValueError):
             db.reference()
+        assert ref._client.session is None
 
     def test_user_agent_format(self):
         expected = 'Firebase/HTTP/{0}/{1}.{2}/AdminPython'.format(

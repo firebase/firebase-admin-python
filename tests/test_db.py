@@ -128,7 +128,7 @@ class TestReference(object):
     def instrument(self, ref, payload, status=200):
         recorder = []
         adapter = MockAdapter(payload, status, recorder)
-        ref._client._session.mount(self.test_url, adapter)
+        ref._client.session.mount(self.test_url, adapter)
         return recorder
 
     @pytest.mark.parametrize('data', valid_values)
@@ -460,7 +460,7 @@ class TestReferenceWithAuthOverride(object):
     def instrument(self, ref, payload, status=200):
         recorder = []
         adapter = MockAdapter(payload, status, recorder)
-        ref._client._session.mount(self.test_url, adapter)
+        ref._client.session.mount(self.test_url, adapter)
         return recorder
 
     def test_get_value(self):

@@ -134,8 +134,8 @@ class Reference(object):
 
         Returns:
           object: If etag is False returns the decoded JSON value of the current database location.
-              If etag is True, returns a 2-tuple consisting of the decoded JSON value and the Etag
-              associated with the current database location.
+          If etag is True, returns a 2-tuple consisting of the decoded JSON value and the Etag
+          associated with the current database location.
 
         Raises:
           ApiCallError: If an error occurs while communicating with the remote database server.
@@ -193,7 +193,7 @@ class Reference(object):
     def set_if_unchanged(self, expected_etag, value):
         """Conditonally sets the data at this location to the given value.
 
-        Sets the data at this location to the given value, only if expected_etag is same as the
+        Sets the data at this location to the given value only if ``expected_etag`` is same as the
         ETag value in the database.
 
         Args:
@@ -201,9 +201,9 @@ class Reference(object):
           value: JSON-serializable value to be set at this location.
 
         Returns:
-          object: A 3-tuple consisting of a boolean, a decoded JSON value and an ETag. The boolean
-              indicates whether the set operation was successful or not. The decoded JSON and the
-              ETag corresponds to the latest value in this database location.
+          tuple: A 3-tuple consisting of a boolean, a decoded JSON value and an ETag. The boolean
+          indicates whether the set operation was successful or not. The decoded JSON and the
+          ETag corresponds to the latest value in this database location.
 
         Raises:
           ValueError: If the value is None, or if expected_etag is not a string.
@@ -291,18 +291,18 @@ class Reference(object):
         returning a value.
 
         Args:
-            transaction_update: A function which will be passed the current data stored at this
-                location. The function should return the new value it would like written. If
-                an exception is raised, the transaction will be aborted, and the data at this
-                location will not be modified. The exceptions raised by this function are
-                propagated to the caller of the transaction method.
+          transaction_update: A function which will be passed the current data stored at this
+              location. The function should return the new value it would like written. If
+              an exception is raised, the transaction will be aborted, and the data at this
+              location will not be modified. The exceptions raised by this function are
+              propagated to the caller of the transaction method.
 
         Returns:
-            object: New value of the current database Reference (only if the transaction commits).
+          object: New value of the current database Reference (only if the transaction commits).
 
         Raises:
-            TransactionError: If the transaction aborts after exhausting all retry attempts.
-            ValueError: If transaction_update is not a function.
+          TransactionError: If the transaction aborts after exhausting all retry attempts.
+          ValueError: If transaction_update is not a function.
         """
         if not callable(transaction_update):
             raise ValueError('transaction_update must be a function.')

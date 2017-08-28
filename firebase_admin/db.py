@@ -147,7 +147,7 @@ class Reference(object):
         else:
             return self._client.body('get', self._add_suffix())
 
-    def get_if_changed(self, etag):
+    def _get_if_changed(self, etag):
         """Gets data in this location only if the specified ETag does not match.
 
         Args:

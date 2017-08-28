@@ -90,7 +90,7 @@ class TestReadOperations(object):
         assert isinstance(etag, six.string_types)
 
     def test_get_if_changed(self, testref, testdata):
-        success, data, etag = testref.get_if_changed('wrong_etag')
+        success, data, etag = testref._get_if_changed('wrong_etag')
         assert success is True
         assert data == testdata
         assert isinstance(etag, six.string_types)

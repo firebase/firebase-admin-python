@@ -25,13 +25,14 @@ import json
 import numbers
 import sys
 
-from google.auth import transport
 import requests
 import six
 from six.moves import urllib
 
 import firebase_admin
 from firebase_admin import utils
+from firebase_admin import _http_client
+
 
 _DB_ATTRIBUTE = '_database'
 _INVALID_PATH_CHARACTERS = '[].#$'
@@ -126,49 +127,51 @@ class Reference(object):
         return Reference(client=self._client, path=full_path)
 
     def get(self, etag=False):
-        """Returns the value, and possibly the ETag, at the current location of the database.
+        """Returns the value, and optionally the ETag, at the current location of the database.
+
+        Args:
+          etag: A boolean indicating whether the Etag value should be returned or not (optional).
 
         Returns:
-          object: Decoded JSON value of the current database Reference if etag=False, otherwise
-              the decoded JSON value and the corresponding ETag.
+          object: If etag is False returns the decoded JSON value of the current database location.
+              If etag is True, returns a 2-tuple consisting of the decoded JSON value and the Etag
+              associated with the current database location.
 
         Raises:
           ApiCallError: If an error occurs while communicating with the remote database server.
         """
         if etag:
-            data, headers = self._client.request('get', self._add_suffix(),
-                                                 headers={'X-Firebase-ETag' : 'true'},
-                                                 resp_headers=True)
-            etag = headers.get('ETag')
-            return data, etag
+            headers, data = self._client.headers_and_body(
+                'get', self._add_suffix(), headers={'X-Firebase-ETag' : 'true'})
+            return data, headers.get('ETag')
         else:
-            return self._client.request('get', self._add_suffix())
+            return self._client.body('get', self._add_suffix())
 
     def get_if_changed(self, etag):
-        """Get data in this location if the ETag no longer matches.
+        """Gets data in this location only if the specified ETag does not match.
 
         Args:
-          etag: The ETag value we want to check against the ETag in the current location.
+          etag: The ETag value to be checked against the ETag of the current location.
 
         Returns:
-          object: Tuple of boolean of whether the request was successful, current location's etag,
-           and snapshot of location's data if passed in etag does not match.
+          tuple: A 3-tuple consisting of a boolean, a decoded JSON value and an ETag. If the ETag
+              specified by the caller did not match, the boolen value will be True and the JSON
+              and ETag values would reflect the corresponding values in the database. If the ETag
+              matched, the boolean value will be False and the other elements of the tuple will be
+              None.
 
         Raises:
           ValueError: If the ETag is not a string.
+          ApiCallError: If an error occurs while communicating with the remote database server.
         """
-        #pylint: disable=protected-access
         if not isinstance(etag, six.string_types):
             raise ValueError('ETag must be a string.')
 
-        resp = self._client._do_request('get', self._add_suffix(),
-                                        headers={'if-none-match': etag})
-        if resp.status_code == 200:
-            value, headers = resp.json(), resp.headers
-            new_etag = headers.get('ETag')
-            return True, new_etag, value
-        elif resp.status_code == 304:
+        resp = self._client.request('get', self._add_suffix(), headers={'if-none-match': etag})
+        if resp.status_code == 304:
             return False, None, None
+        else:
+            return True, resp.json(), resp.headers.get('ETag')
 
     def set(self, value):
         """Sets the data at this location to the given value.
@@ -179,25 +182,28 @@ class Reference(object):
           value: JSON-serializable value to be set at this location.
 
         Raises:
-          ValueError: If the value is None.
+          ValueError: If the provided value is None.
           TypeError: If the value is not JSON-serializable.
           ApiCallError: If an error occurs while communicating with the remote database server.
         """
         if value is None:
             raise ValueError('Value must not be None.')
-        self._client.request_oneway('put', self._add_suffix(), json=value, params='print=silent')
+        self._client.request('put', self._add_suffix(), json=value, params='print=silent')
 
     def set_if_unchanged(self, expected_etag, value):
-        """Sets the data at this location to the given value, if expected_etag is the same as the
-        correct ETag value.
+        """Conditonally sets the data at this location to the given value.
+
+        Sets the data at this location to the given value, only if expected_etag is same as the
+        ETag value in the database.
 
         Args:
           expected_etag: Value of ETag we want to check.
           value: JSON-serializable value to be set at this location.
 
         Returns:
-          object: Tuple of boolean of whether the request was successful, current location's etag,
-           and snapshot of location's data if passed in etag does not match.
+          object: A 3-tuple consisting of a boolean, a decoded JSON value and an ETag. The boolean
+              indicates whether the set operation was successful or not. The decoded JSON and the
+              ETag corresponds to the latest value in this database location.
 
         Raises:
           ValueError: If the value is None, or if expected_etag is not a string.
@@ -210,15 +216,15 @@ class Reference(object):
             raise ValueError('Value must not be none.')
 
         try:
-            self._client.request_oneway('put', self._add_suffix(),
-                                        json=value, headers={'if-match': expected_etag})
-            return True, expected_etag, value
+            headers = self._client.headers(
+                'put', self._add_suffix(), json=value, headers={'if-match': expected_etag})
+            return True, value, headers.get('ETag')
         except ApiCallError as error:
             detail = error.detail
             if detail.response is not None and 'ETag' in detail.response.headers:
                 etag = detail.response.headers['ETag']
                 snapshot = detail.response.json()
-                return False, etag, snapshot
+                return False, snapshot, etag
             else:
                 raise error
 
@@ -241,7 +247,7 @@ class Reference(object):
         """
         if value is None:
             raise ValueError('Value must not be None.')
-        output = self._client.request('post', self._add_suffix(), json=value)
+        output = self._client.body('post', self._add_suffix(), json=value)
         push_id = output.get('name')
         return self.child(push_id)
 
@@ -259,8 +265,7 @@ class Reference(object):
             raise ValueError('Value argument must be a non-empty dictionary.')
         if None in value.keys() or None in value.values():
             raise ValueError('Dictionary must not contain None keys or values.')
-        self._client.request_oneway('patch', self._add_suffix(), json=value,
-                                    params='print=silent')
+        self._client.request('patch', self._add_suffix(), json=value, params='print=silent')
 
     def delete(self):
         """Deletes this node from the database.
@@ -268,7 +273,7 @@ class Reference(object):
         Raises:
           ApiCallError: If an error occurs while communicating with the remote database server.
         """
-        self._client.request_oneway('delete', self._add_suffix())
+        self._client.request('delete', self._add_suffix())
 
     def transaction(self, transaction_update):
         """Atomically modifies the data at this location.
@@ -306,7 +311,7 @@ class Reference(object):
         data, etag = self.get(etag=True)
         while tries < _TRANSACTION_MAX_RETRIES:
             new_data = transaction_update(data)
-            success, etag, data = self.set_if_unchanged(etag, new_data)
+            success, data, etag = self.set_if_unchanged(etag, new_data)
             if success:
                 return new_data
             tries += 1
@@ -511,7 +516,7 @@ class Query(object):
         Raises:
           ApiCallError: If an error occurs while communicating with the remote database server.
         """
-        result = self._client.request('get', self._pathurl, params=self._querystr)
+        result = self._client.body('get', self._pathurl, params=self._querystr)
         if isinstance(result, (dict, list)) and self._order_by != '$priority':
             return _Sorter(result, self._order_by).get()
         return result
@@ -659,30 +664,32 @@ class _SortEntry(object):
         return self._compare(other) is 0
 
 
-class _Client(object):
+class _Client(_http_client.JsonHttpClient):
     """HTTP client used to make REST calls.
 
     _Client maintains an HTTP session, and handles authenticating HTTP requests along with
     marshalling and unmarshalling of JSON data.
     """
 
-    def __init__(self, **kwargs):
+    _DEFAULT_AUTH_OVERRIDE = '_admin_'
+
+    def __init__(self, credential, base_url, auth_override=_DEFAULT_AUTH_OVERRIDE):
         """Creates a new _Client from the given parameters.
 
         This exists primarily to enable testing. For regular use, obtain _Client instances by
         calling the from_app() class method.
 
-        Keyword Args:
-          url: Firebase Realtime Database URL.
-          session: An HTTP session created using the requests module.
+        Args:
+          credential: A Google credential that can be used to authenticate requests.
+          base_url: A URL prefix to be added to all outgoing requests. This is typically the
+              Firebase Realtime Database URL.
           auth_override: A dictionary representing auth variable overrides or None (optional).
-              Defaults to empty dict, which provides admin privileges. A None value here provides
-              un-authenticated guest privileges.
+              Default value provides admin privileges. A None value here provides un-authenticated
+              guest privileges.
         """
-        self._url = kwargs.pop('url')
-        self._session = kwargs.pop('session')
-        auth_override = kwargs.pop('auth_override', {})
-        if auth_override != {}:
+        _http_client.JsonHttpClient.__init__(
+            self, credential=credential, base_url=base_url, headers={'User-Agent': _USER_AGENT})
+        if auth_override != self._DEFAULT_AUTH_OVERRIDE and auth_override != {}:
             encoded = json.dumps(auth_override, separators=(',', ':'))
             self._auth_override = 'auth_variable_override={0}'.format(encoded)
         else:
@@ -691,11 +698,20 @@ class _Client(object):
     @classmethod
     def from_app(cls, app):
         """Creates a new _Client for a given App"""
+        db_url = cls._get_db_url(app)
+        auth_override = cls._get_auth_override(app)
+        credential = app.credential.get_credential()
+        return _Client(credential, db_url, auth_override)
+
+    @classmethod
+    def _get_db_url(cls, app):
+        """Retrieves and parses the database URL option."""
         url = app.options.get('databaseURL')
         if not url or not isinstance(url, six.string_types):
             raise ValueError(
                 'Invalid databaseURL option: "{0}". databaseURL must be a non-empty URL '
                 'string.'.format(url))
+
         parsed = urllib.parse.urlparse(url)
         if parsed.scheme != 'https':
             raise ValueError(
@@ -704,41 +720,32 @@ class _Client(object):
             raise ValueError(
                 'Invalid databaseURL option: "{0}". databaseURL must be a valid URL to a '
                 'Firebase Realtime Database instance.'.format(url))
+        return 'https://{0}'.format(parsed.netloc)
 
-        auth_override = app.options.get('databaseAuthVariableOverride', {})
-        if auth_override is not None and not isinstance(auth_override, dict):
+    @classmethod
+    def _get_auth_override(cls, app):
+        auth_override = app.options.get('databaseAuthVariableOverride', cls._DEFAULT_AUTH_OVERRIDE)
+        if auth_override == cls._DEFAULT_AUTH_OVERRIDE or auth_override is None:
+            return auth_override
+        if not isinstance(auth_override, dict):
             raise ValueError('Invalid databaseAuthVariableOverride option: "{0}". Override '
                              'value must be a dict or None.'.format(auth_override))
-
-        g_credential = app.credential.get_credential()
-        session = transport.requests.AuthorizedSession(g_credential)
-        session.headers.update({'User-Agent': _USER_AGENT})
-        return _Client(url='https://{0}'.format(parsed.netloc),
-                       session=session, auth_override=auth_override)
-
-    def request(self, method, urlpath, **kwargs):
-        resp_headers = kwargs.pop('resp_headers', False)
-        params = kwargs.get('params', None)
-        resp = self._do_request(method, urlpath, **kwargs)
-        if resp_headers and params == 'print=silent':
-            return resp.headers
-        elif resp_headers:
-            return resp.json(), resp.headers
         else:
-            return resp.json()
+            return auth_override
 
-    def request_oneway(self, method, urlpath, **kwargs):
-        self._do_request(method, urlpath, **kwargs)
+    @property
+    def auth_override(self):
+        return self._auth_override
 
-    def _do_request(self, method, urlpath, **kwargs):
+    def request(self, method, url, **kwargs):
         """Makes an HTTP call using the Python requests library.
 
-        Refer to http://docs.python-requests.org/en/master/api/ for more information on supported
-        options and features.
+        Extends the request() method of the parent JsonHttpClient class. Handles auth overrides,
+        and low-level exceptions.
 
         Args:
           method: HTTP method name as a string (e.g. get, post).
-          urlpath: URL path of the remote endpoint. This will be appended to the server's base URL.
+          url: URL path of the remote endpoint. This will be appended to the server's base URL.
           kwargs: An additional set of keyword arguments to be passed into requests API
               (e.g. json, params).
 
@@ -756,9 +763,7 @@ class _Client(object):
                 params = self._auth_override
             kwargs['params'] = params
         try:
-            resp = self._session.request(method, self._url + urlpath, **kwargs)
-            resp.raise_for_status()
-            return resp
+            return super(_Client, self).request(method, url, **kwargs)
         except requests.exceptions.RequestException as error:
             raise ApiCallError(self._extract_error_message(error), error)
 
@@ -786,8 +791,3 @@ class _Client(object):
         except ValueError:
             pass
         return '{0}\nReason: {1}'.format(error, error.response.content.decode())
-
-    def close(self):
-        self._session.close()
-        self._auth = None
-        self._url = None

@@ -24,12 +24,13 @@ from firebase_admin import db
 from integration import conftest
 from tests import testutils
 
+
 @pytest.fixture(scope='module')
 def update_rules():
     with open(testutils.resource_filename('dinosaurs_index.json')) as rules_file:
         new_rules = json.load(rules_file)
     client = db.reference()._client
-    rules = client.request('get', '/.settings/rules.json')
+    rules = client.body('get', '/.settings/rules.json')
     existing = rules.get('rules')
     if existing != new_rules:
         rules['rules'] = new_rules
@@ -82,8 +83,25 @@ class TestReadOperations(object):
         assert isinstance(value, dict)
         assert testdata == value
 
+    def test_get_value_and_etag(self, testref, testdata):
+        value, etag = testref.get(etag=True)
+        assert isinstance(value, dict)
+        assert testdata == value
+        assert isinstance(etag, six.string_types)
+
+    def test_get_if_changed(self, testref, testdata):
+        success, data, etag = testref.get_if_changed('wrong_etag')
+        assert success is True
+        assert data == testdata
+        assert isinstance(etag, six.string_types)
+        # TODO: Server API seems to be misbehaving in the following case.
+        # TODO: Re-enable once fixed.
+        #assert testref.get_if_changed(etag) == (False, None, None)
+
     def test_get_child_value(self, testref, testdata):
-        value = testref.child('dinosaurs').get()
+        child = testref.child('dinosaurs')
+        assert child is not None
+        value = child.get()
         assert isinstance(value, dict)
         assert testdata['dinosaurs'] == value
 
@@ -150,32 +168,21 @@ class TestWriteOperations(object):
         assert edward.get() == {'name' : 'Edward Cope', 'since' : 1840}
         assert jack.get() == {'name' : 'Jack Horner', 'since' : 1946}
 
-    def test_get_if_changed(self, testref):
+    def test_set_if_unchanged(self, testref):
         python = testref.parent
         push_data = {'name' : 'Edward Cope', 'since' : 1800}
         edward = python.child('users').push(push_data)
-        changed_data = edward.get_if_changed('wrong_etag')
-        assert changed_data[0]
-        assert changed_data[2] == push_data
 
-        unchanged_data = edward.get_if_changed(changed_data[1])
-        assert unchanged_data == (False, None, None)
-
-    def test_get_and_set_with_etag(self, testref):
-        python = testref.parent
-        push_data = {'name' : 'Edward Cope', 'since' : 1800}
-        edward = python.child('users').push(push_data)
-        data, etag = edward.get(etag=True)
+        update_data = {'name' : 'Jack Horner', 'since' : 1940}
+        success, data, etag = edward.set_if_unchanged('invalid-etag', update_data)
+        assert success is False
         assert data == push_data
         assert isinstance(etag, six.string_types)
 
-        update_data = {'name' : 'Jack Horner', 'since' : 1940}
-        failed_update = edward.set_if_unchanged('invalid-etag', update_data)
-        assert failed_update == (False, etag, push_data)
-
-        successful_update = edward.set_if_unchanged(etag, update_data)
-        assert successful_update[0]
-        assert successful_update[2] == update_data
+        success, data, new_etag = edward.set_if_unchanged(etag, update_data)
+        assert success is True
+        assert data == update_data
+        assert new_etag != etag
 
     def test_transaction(self, testref):
         python = testref.parent

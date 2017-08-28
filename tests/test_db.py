@@ -18,8 +18,6 @@ import json
 import sys
 
 import pytest
-from requests import exceptions
-from requests import Response
 
 import firebase_admin
 from firebase_admin import db
@@ -27,7 +25,9 @@ from tests import testutils
 
 
 class MockAdapter(testutils.MockAdapter):
-    _ETAG = '0'
+    """A mock HTTP adapter that mimics RTDB server behavior."""
+
+    ETAG = '0'
 
     def __init__(self, data, status, recorder):
         testutils.MockAdapter.__init__(self, data, status, recorder)
@@ -35,15 +35,11 @@ class MockAdapter(testutils.MockAdapter):
     def send(self, request, **kwargs):
         if_match = request.headers.get('if-match')
         if_none_match = request.headers.get('if-none-match')
-        if if_match and if_match != MockAdapter._ETAG:
-            response = Response()
-            response._content = request.body
-            response.headers = {'ETag': MockAdapter._ETAG}
-            raise exceptions.RequestException(response=response)
-
         resp = super(MockAdapter, self).send(request, **kwargs)
-        resp.headers = {'ETag': MockAdapter._ETAG}
-        if if_none_match and if_none_match == MockAdapter._ETAG:
+        resp.headers = {'ETag': MockAdapter.ETAG}
+        if if_match and if_match != MockAdapter.ETAG:
+            resp.status_code = 412
+        elif if_none_match == MockAdapter.ETAG:
             resp.status_code = 304
         return resp
 
@@ -132,7 +128,7 @@ class TestReference(object):
     def instrument(self, ref, payload, status=200):
         recorder = []
         adapter = MockAdapter(payload, status, recorder)
-        ref._client._session.mount(self.test_url, adapter)
+        ref._client.session.mount(self.test_url, adapter)
         return recorder
 
     @pytest.mark.parametrize('data', valid_values)
@@ -145,32 +141,42 @@ class TestReference(object):
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
         assert recorder[0].headers['User-Agent'] == db._USER_AGENT
+        assert 'X-Firebase-ETag' not in recorder[0].headers
 
     @pytest.mark.parametrize('data', valid_values)
     def test_get_with_etag(self, data):
         ref = db.reference('/test')
         recorder = self.instrument(ref, json.dumps(data))
-        assert ref.get(etag=True) == (data, '0')
+        assert ref.get(etag=True) == (data, MockAdapter.ETAG)
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
         assert recorder[0].headers['User-Agent'] == db._USER_AGENT
+        assert recorder[0].headers['X-Firebase-ETag'] == 'true'
 
     @pytest.mark.parametrize('data', valid_values)
     def test_get_if_changed(self, data):
         ref = db.reference('/test')
         recorder = self.instrument(ref, json.dumps(data))
 
-        assert ref.get_if_changed('1') == (True, '0', data)
+        assert ref.get_if_changed('invalid-etag') == (True, data, MockAdapter.ETAG)
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
+        assert recorder[0].headers['if-none-match'] == 'invalid-etag'
 
-        assert ref.get_if_changed('0') == (False, None, None)
+        assert ref.get_if_changed(MockAdapter.ETAG) == (False, None, None)
         assert len(recorder) == 2
-        assert recorder[0].method == 'GET'
-        assert recorder[0].url == 'https://test.firebaseio.com/test.json'
+        assert recorder[1].method == 'GET'
+        assert recorder[1].url == 'https://test.firebaseio.com/test.json'
+        assert recorder[1].headers['if-none-match'] == MockAdapter.ETAG
+
+    @pytest.mark.parametrize('etag', [0, 1, True, False, dict(), list(), tuple()])
+    def test_get_if_changed_invalid_etag(self, etag):
+        ref = db.reference('/test')
+        with pytest.raises(ValueError):
+            ref.get_if_changed(etag)
 
     @pytest.mark.parametrize('data', valid_values)
     def test_order_by_query(self, data):
@@ -248,21 +254,52 @@ class TestReference(object):
         assert json.loads(recorder[0].body.decode()) == data
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
-    def test_set_with_etag(self):
+    @pytest.mark.parametrize('data', valid_values)
+    def test_set_if_unchanged_success(self, data):
         ref = db.reference('/test')
-        data = {'foo': 'bar'}
         recorder = self.instrument(ref, json.dumps(data))
-        vals = ref.set_if_unchanged('0', data)
-        assert vals == (True, '0', data)
+        vals = ref.set_if_unchanged(MockAdapter.ETAG, data)
+        assert vals == (True, data, MockAdapter.ETAG)
         assert len(recorder) == 1
         assert recorder[0].method == 'PUT'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
         assert json.loads(recorder[0].body.decode()) == data
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+        assert recorder[0].headers['if-match'] == MockAdapter.ETAG
 
-        vals = ref.set_if_unchanged('1', data)
-        assert vals == (False, '0', data)
+    @pytest.mark.parametrize('data', valid_values)
+    def test_set_if_unchanged_failure(self, data):
+        ref = db.reference('/test')
+        recorder = self.instrument(ref, json.dumps({'foo':'bar'}))
+        vals = ref.set_if_unchanged('invalid-etag', data)
+        assert vals == (False, {'foo':'bar'}, MockAdapter.ETAG)
         assert len(recorder) == 1
+        assert recorder[0].method == 'PUT'
+        assert recorder[0].url == 'https://test.firebaseio.com/test.json'
+        assert json.loads(recorder[0].body.decode()) == data
+        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+        assert recorder[0].headers['if-match'] == 'invalid-etag'
+
+    @pytest.mark.parametrize('etag', [0, 1, True, False, dict(), list(), tuple()])
+    def test_set_if_unchanged_invalid_etag(self, etag):
+        ref = db.reference('/test')
+        with pytest.raises(ValueError):
+            ref.set_if_unchanged(etag, 'value')
+
+    def test_set_if_unchanged_none_value(self):
+        ref = db.reference('/test')
+        self.instrument(ref, '')
+        with pytest.raises(ValueError):
+            ref.set_if_unchanged(MockAdapter.ETAG, None)
+
+    @pytest.mark.parametrize('value', [
+        _Object(), {'foo': _Object()}, [_Object()]
+    ])
+    def test_set_if_unchanged_non_json_value(self, value):
+        ref = db.reference('/test')
+        self.instrument(ref, '')
+        with pytest.raises(TypeError):
+            ref.set_if_unchanged(MockAdapter.ETAG, value)
 
     def test_update_children_default(self):
         ref = db.reference('/test')
@@ -423,7 +460,7 @@ class TestReferenceWithAuthOverride(object):
     def instrument(self, ref, payload, status=200):
         recorder = []
         adapter = MockAdapter(payload, status, recorder)
-        ref._client._session.mount(self.test_url, adapter)
+        ref._client.session.mount(self.test_url, adapter)
         return recorder
 
     def test_get_value(self):
@@ -497,8 +534,8 @@ class TestDatabseInitialization(object):
     def test_valid_db_url(self, url):
         firebase_admin.initialize_app(testutils.MockCredential(), {'databaseURL' : url})
         ref = db.reference()
-        assert ref._client._url == 'https://test.firebaseio.com'
-        assert ref._client._auth_override is None
+        assert ref._client.base_url == 'https://test.firebaseio.com'
+        assert ref._client.auth_override is None
 
     @pytest.mark.parametrize('url', [
         None, '', 'foo', 'http://test.firebaseio.com', 'https://google.com',
@@ -516,12 +553,12 @@ class TestDatabseInitialization(object):
             'databaseAuthVariableOverride': override
         })
         ref = db.reference()
-        assert ref._client._url == 'https://test.firebaseio.com'
+        assert ref._client.base_url == 'https://test.firebaseio.com'
         if override == {}:
-            assert ref._client._auth_override is None
+            assert ref._client.auth_override is None
         else:
             encoded = json.dumps(override, separators=(',', ':'))
-            assert ref._client._auth_override == 'auth_variable_override={0}'.format(encoded)
+            assert ref._client.auth_override == 'auth_variable_override={0}'.format(encoded)
 
     @pytest.mark.parametrize('override', [
         '', 'foo', 0, 1, True, False, list(), tuple(), _Object()])
@@ -538,9 +575,11 @@ class TestDatabseInitialization(object):
             testutils.MockCredential(), {'databaseURL' : 'https://test.firebaseio.com'})
         ref = db.reference()
         assert ref is not None
+        assert ref._client.session is not None
         firebase_admin.delete_app(app)
         with pytest.raises(ValueError):
             db.reference()
+        assert ref._client.session is None
 
     def test_user_agent_format(self):
         expected = 'Firebase/HTTP/{0}/{1}.{2}/AdminPython'.format(

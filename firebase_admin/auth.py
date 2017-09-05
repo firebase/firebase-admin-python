@@ -19,7 +19,6 @@ authenticating against Firebase services. It also provides functions for
 creating and managing user accounts in Firebase projects.
 """
 
-import os
 import time
 
 from google.auth import jwt
@@ -28,15 +27,14 @@ import google.oauth2.id_token
 import six
 
 from firebase_admin import credentials
-from firebase_admin import utils
 from firebase_admin import _user_mgt
+from firebase_admin import _utils
 
 
 # Provided for overriding during tests.
 _request = transport.requests.Request()
 
 _AUTH_ATTRIBUTE = '_auth'
-GCLOUD_PROJECT_ENV_VAR = 'GCLOUD_PROJECT'
 
 
 def _get_auth_service(app):
@@ -55,7 +53,7 @@ def _get_auth_service(app):
     Raises:
       ValueError: If the app argument is invalid.
     """
-    return utils.get_app_service(app, _AUTH_ATTRIBUTE, _AuthService)
+    return _utils.get_app_service(app, _AUTH_ATTRIBUTE, _AuthService)
 
 
 def create_custom_token(uid, developer_claims=None, app=None):
@@ -576,18 +574,13 @@ class _TokenGenerator(object):
             raise ValueError('Illegal ID token provided: {0}. ID token must be a non-empty '
                              'string.'.format(id_token))
 
-        try:
-            project_id = self._app.credential.project_id
-            if project_id is None:
-                project_id = os.environ.get(GCLOUD_PROJECT_ENV_VAR)
-        except AttributeError:
-            project_id = os.environ.get(GCLOUD_PROJECT_ENV_VAR)
-
+        project_id = _utils.project_id(self._app)
         if not project_id:
             raise ValueError('Failed to ascertain project ID from the credential or the '
-                             'environment. Must initialize app with a credentials.Certificate or '
-                             'set your Firebase project ID as the GCLOUD_PROJECT environment '
-                             'variable to call verify_id_token().')
+                             'environment. Project ID is required to call verify_id_token(). '
+                             'Initialize the app with a credentials.Certificate or '
+                             'set your Firebase project ID as an app option. Alternatively, '
+                             'set the GCLOUD_PROJECT environment variable.')
 
         header = jwt.decode_header(id_token)
         payload = jwt.decode(id_token, verify=False)

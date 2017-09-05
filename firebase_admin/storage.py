@@ -27,7 +27,7 @@ except ImportError:
 
 import six
 
-from firebase_admin import utils
+from firebase_admin import _utils
 
 
 _STORAGE_ATTRIBUTE = '_storage'
@@ -50,7 +50,7 @@ def bucket(name=None, app=None):
       ValueError: If a bucket name is not specified either via options or method arguments,
           or if the specified bucket name is not a valid string.
     """
-    client = utils.get_app_service(app, _STORAGE_ATTRIBUTE, _StorageClient.from_app)
+    client = _utils.get_app_service(app, _STORAGE_ATTRIBUTE, _StorageClient.from_app)
     return client.bucket(name)
 
 

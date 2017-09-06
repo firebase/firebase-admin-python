@@ -14,9 +14,8 @@
 
 """Internal utilities common to all modules."""
 
-import os
-
 import firebase_admin
+
 
 def _get_initialized_app(app):
     if app is None:
@@ -34,28 +33,3 @@ def _get_initialized_app(app):
 def get_app_service(app, name, initializer):
     app = _get_initialized_app(app)
     return app._get_service(name, initializer) # pylint: disable=protected-access
-
-def project_id(app):
-    """Returns the project ID associated with the given App.
-
-    This function first attempts to find the project ID from App options. If not present,
-    it attempts to get the project ID from the authentication credential used to initialize
-    the App. Finally, it attempts to get the project ID by referencing the GCLOUD_PROJECT
-    environment variable.
-
-    Args:
-      app: A Firebase App instance.
-
-    Returns:
-      str: A project ID value or None.
-    """
-    pid = app.options.get('projectId')
-    if not pid:
-        credential = app.credential
-        try:
-            pid = credential.project_id
-        except AttributeError:
-            pass
-    if not pid:
-        pid = os.environ.get('GCLOUD_PROJECT')
-    return pid

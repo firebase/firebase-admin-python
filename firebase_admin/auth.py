@@ -574,7 +574,7 @@ class _TokenGenerator(object):
             raise ValueError('Illegal ID token provided: {0}. ID token must be a non-empty '
                              'string.'.format(id_token))
 
-        project_id = _utils.project_id(self._app)
+        project_id = self._app.project_id
         if not project_id:
             raise ValueError('Failed to ascertain project ID from the credential or the '
                              'environment. Project ID is required to call verify_id_token(). '

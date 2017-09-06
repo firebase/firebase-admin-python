@@ -14,6 +14,7 @@
 
 """Firebase Admin SDK for Python."""
 import datetime
+import os
 import threading
 
 import six
@@ -183,6 +184,15 @@ class App(object):
         self._options = _AppOptions(options)
         self._lock = threading.RLock()
         self._services = {}
+        pid = self._options.get('projectId')
+        if not pid:
+            try:
+                pid = self._credential.project_id
+            except AttributeError:
+                pass
+        if not pid:
+            pid = os.environ.get('GCLOUD_PROJECT')
+        self._project_id = pid
 
     @property
     def name(self):
@@ -195,6 +205,10 @@ class App(object):
     @property
     def options(self):
         return self._options
+
+    @property
+    def project_id(self):
+        return self._project_id
 
     def _get_service(self, name, initializer):
         """Returns the service instance identified by the given name.

@@ -100,17 +100,18 @@ def non_cert_app():
     firebase_admin.delete_app(app)
 
 @pytest.fixture
-def project_id_app():
-    """Returns an App initialized with a non-cert credential, and a project ID option.
+def env_var_app(request):
+    """Returns an App instance initialized with the given set of environment variables.
 
     The lines of code following the yield statement are guaranteed to run after each test case
-    that depends on this fixture. This ensures the proper cleanup of the App instance after
+    that depends on this fixture. This ensures that the environment is left intact after the
     tests.
     """
-    options = {'projectId': MOCK_CREDENTIAL.project_id}
-    app = firebase_admin.initialize_app(
-        testutils.MockCredential(), options=options, name='project-id-app')
+    environ = os.environ
+    os.environ = request.param
+    app = firebase_admin.initialize_app(testutils.MockCredential(), name='env-var-app')
     yield app
+    os.environ = environ
     firebase_admin.delete_app(app)
 
 def verify_custom_token(custom_token, expected_claims):
@@ -247,33 +248,25 @@ class TestVerifyIdToken(object):
         with pytest.raises(ValueError):
             authtest.verify_id_token(id_token)
 
-    def test_project_id_option(self, project_id_app):
-        claims = auth.verify_id_token(TEST_ID_TOKEN, project_id_app)
-        assert claims['admin'] is True
-        assert claims['uid'] == claims['sub']
-
-    def test_project_id_env_var(self, non_cert_app):
-        gcloud_project = os.environ.get(GCLOUD_PROJECT_ENV_VAR)
+    def test_project_id_option(self):
+        app = firebase_admin.initialize_app(
+            testutils.MockCredential(), options={'projectId': 'mock-project-id'}, name='myApp')
         try:
-            os.environ[GCLOUD_PROJECT_ENV_VAR] = MOCK_CREDENTIAL.project_id
-            claims = auth.verify_id_token(TEST_ID_TOKEN, non_cert_app)
+            claims = auth.verify_id_token(TEST_ID_TOKEN, app)
             assert claims['admin'] is True
+            assert claims['uid'] == claims['sub']
         finally:
-            if gcloud_project:
-                os.environ[GCLOUD_PROJECT_ENV_VAR] = gcloud_project
-            else:
-                del os.environ[GCLOUD_PROJECT_ENV_VAR]
+            firebase_admin.delete_app(app)
 
-    def test_no_project_id(self, non_cert_app):
-        gcloud_project = os.environ.get(GCLOUD_PROJECT_ENV_VAR)
-        if gcloud_project:
-            del os.environ[GCLOUD_PROJECT_ENV_VAR]
-        try:
-            with pytest.raises(ValueError):
-                auth.verify_id_token(TEST_ID_TOKEN, non_cert_app)
-        finally:
-            if gcloud_project:
-                os.environ[GCLOUD_PROJECT_ENV_VAR] = gcloud_project
+    @pytest.mark.parametrize('env_var_app', [{'GCLOUD_PROJECT': 'mock-project-id'}], indirect=True)
+    def test_project_id_env_var(self, env_var_app):
+        claims = auth.verify_id_token(TEST_ID_TOKEN, env_var_app)
+        assert claims['admin'] is True
+
+    @pytest.mark.parametrize('env_var_app', [{}], indirect=True)
+    def test_no_project_id(self, env_var_app):
+        with pytest.raises(ValueError):
+            auth.verify_id_token(TEST_ID_TOKEN, env_var_app)
 
     def test_custom_token(self, authtest):
         id_token = authtest.create_custom_token(MOCK_UID)

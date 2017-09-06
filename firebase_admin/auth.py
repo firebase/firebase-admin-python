@@ -248,14 +248,6 @@ def delete_user(uid, app=None):
         raise AuthError(error.code, str(error), error.detail)
 
 
-def _handle_http_error(code, msg, error):
-    if error.response is not None:
-        msg += '\nServer response: {0}'.format(error.response.content.decode())
-    else:
-        msg += '\nReason: {0}'.format(error)
-    raise AuthError(code, msg, error)
-
-
 class UserInfo(object):
     """A collection of standard profile information for a user.
 

@@ -534,8 +534,15 @@ class TestDatabseInitialization(object):
     def test_valid_db_url(self, url):
         firebase_admin.initialize_app(testutils.MockCredential(), {'databaseURL' : url})
         ref = db.reference()
+        recorder = []
+        adapter = MockAdapter('{}', 200, recorder)
+        ref._client.session.mount(url, adapter)
         assert ref._client.base_url == 'https://test.firebaseio.com'
         assert ref._client.auth_override is None
+        assert ref._client.timeout is None
+        assert ref.get() == {}
+        assert len(recorder) == 1
+        assert recorder[0]._extra_kwargs.get('timeout') is None
 
     @pytest.mark.parametrize('url', [
         None, '', 'foo', 'http://test.firebaseio.com', 'https://google.com',
@@ -554,6 +561,7 @@ class TestDatabseInitialization(object):
         })
         ref = db.reference()
         assert ref._client.base_url == 'https://test.firebaseio.com'
+        assert ref._client.timeout is None
         if override == {}:
             assert ref._client.auth_override is None
         else:
@@ -569,6 +577,22 @@ class TestDatabseInitialization(object):
         })
         with pytest.raises(ValueError):
             db.reference()
+
+    def test_http_timeout(self):
+        test_url = 'https://test.firebaseio.com'
+        firebase_admin.initialize_app(testutils.MockCredential(), {
+            'databaseURL' : test_url,
+            'httpTimeout': 60
+        })
+        ref = db.reference()
+        recorder = []
+        adapter = MockAdapter('{}', 200, recorder)
+        ref._client.session.mount(test_url, adapter)
+        assert ref._client.base_url == test_url
+        assert ref._client.timeout == 60
+        assert ref.get() == {}
+        assert len(recorder) == 1
+        assert recorder[0]._extra_kwargs['timeout'] == 60
 
     def test_app_delete(self):
         app = firebase_admin.initialize_app(

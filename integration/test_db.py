@@ -90,13 +90,11 @@ class TestReadOperations(object):
         assert isinstance(etag, six.string_types)
 
     def test_get_if_changed(self, testref, testdata):
-        success, data, etag = testref._get_if_changed('wrong_etag')
+        success, data, etag = testref.get_if_changed('wrong_etag')
         assert success is True
         assert data == testdata
         assert isinstance(etag, six.string_types)
-        # TODO: Server API seems to be misbehaving in the following case.
-        # TODO: Re-enable once fixed.
-        #assert testref.get_if_changed(etag) == (False, None, None)
+        assert testref.get_if_changed(etag) == (False, None, None)
 
     def test_get_child_value(self, testref, testdata):
         child = testref.child('dinosaurs')

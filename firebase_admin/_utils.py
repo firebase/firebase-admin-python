@@ -16,6 +16,7 @@
 
 import firebase_admin
 
+
 def _get_initialized_app(app):
     if app is None:
         return firebase_admin.get_app()

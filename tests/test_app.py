@@ -19,12 +19,13 @@ import pytest
 
 import firebase_admin
 from firebase_admin import credentials
-from firebase_admin import utils
+from firebase_admin import _utils
 from tests import testutils
 
 
 CREDENTIAL = credentials.Certificate(
     testutils.resource_filename('service_account.json'))
+GCLOUD_PROJECT = 'GCLOUD_PROJECT'
 
 class CredentialProvider(object):
     def init(self):
@@ -139,6 +140,38 @@ class TestFirebaseApp(object):
         with pytest.raises(ValueError):
             firebase_admin.initialize_app(CREDENTIAL, name=name)
 
+    def test_project_id_from_options(self, app_credential):
+        app = firebase_admin.initialize_app(
+            app_credential, options={'projectId': 'test-project'}, name='myApp')
+        assert app.project_id == 'test-project'
+
+    def test_project_id_from_credentials(self):
+        app = firebase_admin.initialize_app(CREDENTIAL, name='myApp')
+        assert app.project_id == 'mock-project-id'
+
+    def test_project_id_from_environment(self):
+        project_id = os.environ.get(GCLOUD_PROJECT)
+        os.environ[GCLOUD_PROJECT] = 'env-project'
+        try:
+            app = firebase_admin.initialize_app(testutils.MockCredential(), name='myApp')
+            assert app.project_id == 'env-project'
+        finally:
+            if project_id:
+                os.environ[GCLOUD_PROJECT] = project_id
+            else:
+                del os.environ[GCLOUD_PROJECT]
+
+    def test_no_project_id(self):
+        project_id = os.environ.get(GCLOUD_PROJECT)
+        if project_id:
+            del os.environ[GCLOUD_PROJECT]
+        try:
+            app = firebase_admin.initialize_app(testutils.MockCredential(), name='myApp')
+            assert app.project_id is None
+        finally:
+            if project_id:
+                os.environ[GCLOUD_PROJECT] = project_id
+
     def test_app_get(self, init_app):
         assert init_app is firebase_admin.get_app(init_app.name)
 
@@ -167,10 +200,10 @@ class TestFirebaseApp(object):
             firebase_admin.delete_app(init_app)
 
     def test_app_services(self, init_app):
-        service = utils.get_app_service(init_app, 'test.service', AppService)
+        service = _utils.get_app_service(init_app, 'test.service', AppService)
         assert isinstance(service, AppService)
-        service2 = utils.get_app_service(init_app, 'test.service', AppService)
+        service2 = _utils.get_app_service(init_app, 'test.service', AppService)
         assert service is service2
         firebase_admin.delete_app(init_app)
         with pytest.raises(ValueError):
-            utils.get_app_service(init_app, 'test.service', AppService)
+            _utils.get_app_service(init_app, 'test.service', AppService)

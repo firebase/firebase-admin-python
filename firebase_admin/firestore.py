@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Firebase Cloud Storage module.
+"""Cloud Firestore module.
 
-This module contains utilities for accessing Google Cloud Storage buckets associated with
-Firebase apps. This requires installing the google-cloud-storage Python module separately.
+This module contains utilities for accessing the Google Cloud Firestore databases associated with
+Firebase apps. This requires the google-cloud-firestore Python module.
 """
 
 # pylint: disable=import-error,no-name-in-module
@@ -25,6 +25,8 @@ except ImportError:
     raise ImportError('Failed to import the Cloud Storage library for Python. Make sure '
                       'to install the "google-cloud-storage" module.')
 
+import six
+
 from firebase_admin import utils
 
 
@@ -32,6 +34,18 @@ _FIRESTORE_ATTRIBUTE = '_firestore'
 
 
 def client(app=None):
+    """Returns a client that can be used to interact with Google Cloud Firestore.
+
+    Args:
+      app: An App instance (optional).
+
+    Returns:
+      google.cloud.firestore.Firestore: A Firestore database client.
+
+    Raises:
+      ValueError: If a project ID is not specified either via options, credentials or
+          environment variables, or if the specified project ID is not a valid string.
+    """
     fs_client = utils.get_app_service(app, _FIRESTORE_ATTRIBUTE, _FirestoreClient.from_app)
     return fs_client.get()
 
@@ -47,10 +61,15 @@ class _FirestoreClient(object):
 
     @classmethod
     def from_app(cls, app):
+        """Creates a new _FirestoreClient for the specified app."""
         credentials = app.credential.get_credential()
-        # TODO: Refactor when https://github.com/firebase/firebase-admin-python/pull/69 is done.
-        try:
-            project = app.credential.project_id
-        except AttributeError:
-            raise ValueError('Project ID not available.')
+        project = app.project_id
+        if not project:
+            raise ValueError(
+                'Project ID is required to access Firestore. Either set the projectId option, '
+                'or use service account credentials. Alternatively, set the GCLOUD_PROJECT '
+                'environment variable.')
+        elif not isinstance(project, six.string_types):
+            raise ValueError(
+                'Invalid project ID: "{0}". project ID must be a string.'.format(project))
         return _FirestoreClient(credentials, project)

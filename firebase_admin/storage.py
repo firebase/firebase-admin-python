@@ -15,7 +15,7 @@
 """Firebase Cloud Storage module.
 
 This module contains utilities for accessing Google Cloud Storage buckets associated with
-Firebase apps. This requires installing the google-cloud-storage Python module separately.
+Firebase apps. This requires the google-cloud-storage Python module.
 """
 
 # pylint: disable=import-error,no-name-in-module

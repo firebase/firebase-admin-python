@@ -160,13 +160,13 @@ class TestReference(object):
         ref = db.reference('/test')
         recorder = self.instrument(ref, json.dumps(data))
 
-        assert ref._get_if_changed('invalid-etag') == (True, data, MockAdapter.ETAG)
+        assert ref.get_if_changed('invalid-etag') == (True, data, MockAdapter.ETAG)
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
         assert recorder[0].headers['if-none-match'] == 'invalid-etag'
 
-        assert ref._get_if_changed(MockAdapter.ETAG) == (False, None, None)
+        assert ref.get_if_changed(MockAdapter.ETAG) == (False, None, None)
         assert len(recorder) == 2
         assert recorder[1].method == 'GET'
         assert recorder[1].url == 'https://test.firebaseio.com/test.json'
@@ -176,7 +176,7 @@ class TestReference(object):
     def test_get_if_changed_invalid_etag(self, etag):
         ref = db.reference('/test')
         with pytest.raises(ValueError):
-            ref._get_if_changed(etag)
+            ref.get_if_changed(etag)
 
     @pytest.mark.parametrize('data', valid_values)
     def test_order_by_query(self, data):

@@ -686,7 +686,8 @@ class _Client(_http_client.JsonHttpClient):
           auth_override: A dictionary representing auth variable overrides or None (optional).
               Default value provides admin privileges. A None value here provides un-authenticated
               guest privileges.
-          timeout: HTTP request timeout in seconds (optional).
+          timeout: HTTP request timeout in seconds (optional). If not set connections will never
+              timeout, which is the default behavior of the underlying requests library.
         """
         _http_client.JsonHttpClient.__init__(
             self, credential=credential, base_url=base_url, headers={'User-Agent': _USER_AGENT})

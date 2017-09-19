@@ -22,8 +22,8 @@ Firebase apps. This requires the google-cloud-firestore Python module.
 try:
     from google.cloud import firestore
 except ImportError:
-    raise ImportError('Failed to import the Cloud Storage library for Python. Make sure '
-                      'to install the "google-cloud-storage" module.')
+    raise ImportError('Failed to import the Cloud Firestore library for Python. Make sure '
+                      'to install the "google-cloud-firestore" module.')
 
 import six
 

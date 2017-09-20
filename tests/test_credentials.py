@@ -19,6 +19,7 @@ import os
 
 import google.auth
 from google.auth import crypt
+from google.auth import exceptions
 from google.oauth2 import credentials as gcredentials
 from google.oauth2 import service_account
 from firebase_admin import credentials
@@ -114,7 +115,7 @@ class TestApplicationDefault(object):
                              indirect=True)
     def test_nonexisting_path(self, app_default):
         del app_default
-        with pytest.raises(IOError):
+        with pytest.raises(exceptions.DefaultCredentialsError):
             credentials.ApplicationDefault()
 
 

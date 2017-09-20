@@ -32,7 +32,7 @@ if sys.version_info < (2, 7):
 long_description = ('The Firebase Admin Python SDK enables server-side (backend) Python developers '
                     'to integrate Firebase into their services and applications.')
 install_requires = [
-    'google-auth>=1.0.0',
+    'google-auth>=1.1.0',
     'google-cloud-storage>=1.2.0',
     'requests>=2.13.0',
     'six>=1.6.1'

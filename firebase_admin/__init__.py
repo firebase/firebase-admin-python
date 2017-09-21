@@ -47,7 +47,7 @@ def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
           Google Application Default Credentials are used.
       options: A dictionary of configuration options (optional). Supported options include
           ``databaseURL``, ``storageBucket`` and ``httpTimeout``. If ``httpTimeout`` is not set,
-          HTTP connections initiated by client modules such as ``db`` will not timeout.
+          HTTP connections initiated by client modules such as ``db`` will not time out.
       name: Name of the app (optional).
 
     Returns:

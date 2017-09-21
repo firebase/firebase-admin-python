@@ -29,7 +29,7 @@ from tests import testutils
 
 
 def check_scopes(g_credential):
-    assert isinstance(g_credential, google.auth.credentials.Scoped)
+    assert isinstance(g_credential, google.auth.credentials.ReadOnlyScoped)
     assert sorted(credentials._scopes) == sorted(g_credential.scopes)
 
 

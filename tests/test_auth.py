@@ -535,6 +535,11 @@ class TestUpdateUser(object):
         with pytest.raises(ValueError):
             auth.update_user('user', disabled=arg)
 
+    @pytest.mark.parametrize('arg', INVALID_DICTS[1:])
+    def test_invalid_custom_claims(self, arg):
+        with pytest.raises(ValueError):
+            auth.update_user('user', custom_claims=arg)
+
     def test_invalid_property(self):
         with pytest.raises(ValueError):
             auth.update_user('user', unsupported='arg')
@@ -544,6 +549,19 @@ class TestUpdateUser(object):
         user_mgt.update_user('testuser')
         request = json.loads(recorder[0].body.decode())
         assert request == {'localId' : 'testuser'}
+
+    def test_update_user_disable(self, user_mgt_app):
+        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        user_mgt.update_user('testuser', disabled=True)
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'localId' : 'testuser', 'disableUser' : True}
+
+    def test_update_user_custom_claims(self, user_mgt_app):
+        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        claims = {'admin':True, 'package':'gold'}
+        user_mgt.update_user('testuser', custom_claims=claims)
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'localId' : 'testuser', 'customAttributes' : json.dumps(claims)}
 
     def test_update_user_delete_fields(self, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
@@ -559,6 +577,46 @@ class TestUpdateUser(object):
         _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
         with pytest.raises(auth.AuthError) as excinfo:
             auth.update_user('user', app=user_mgt_app)
+        assert excinfo.value.code == _user_mgt.USER_UPDATE_ERROR
+        assert '{"error":"test"}' in str(excinfo.value)
+
+
+class TestSetCustomUserAttributes(object):
+
+    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
+    def test_invalid_uid(self, arg):
+        with pytest.raises(ValueError):
+            auth.set_custom_user_claims(arg, {'foo': 'bar'})
+
+    @pytest.mark.parametrize('arg', INVALID_DICTS[1:])
+    def test_invalid_custom_claims(self, arg):
+        with pytest.raises(ValueError):
+            auth.set_custom_user_claims('user', custom_claims=arg)
+
+    def test_set_custom_user_claims(self, user_mgt_app):
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        claims = {'admin':True, 'package':'gold'}
+        auth.set_custom_user_claims('testuser', claims, app=user_mgt_app)
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'localId' : 'testuser', 'customAttributes' : json.dumps(claims)}
+
+    def test_set_custom_user_claims_str(self, user_mgt_app):
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        claims = json.dumps({'admin':True, 'package':'gold'})
+        auth.set_custom_user_claims('testuser', claims, app=user_mgt_app)
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'localId' : 'testuser', 'customAttributes' : claims}
+
+    def test_set_custom_user_claims_none(self, user_mgt_app):
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        auth.set_custom_user_claims('testuser', None, app=user_mgt_app)
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'localId' : 'testuser', 'customAttributes' : json.dumps({})}
+
+    def test_set_custom_user_claims_error(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
+        with pytest.raises(auth.AuthError) as excinfo:
+            auth.set_custom_user_claims('user', {}, app=user_mgt_app)
         assert excinfo.value.code == _user_mgt.USER_UPDATE_ERROR
         assert '{"error":"test"}' in str(excinfo.value)
 

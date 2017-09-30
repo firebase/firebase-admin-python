@@ -195,11 +195,12 @@ def create_user(**kwargs):
         raise AuthError(error.code, str(error), error.detail)
 
 
-def update_user(uid, **kwargs): # pylint: disable=missing-param-doc
+def update_user(uid, **kwargs):
     """Updates an existing user account with the specified properties.
 
     Args:
         uid: A user ID string.
+        kwargs: A series of keyword arguments (optional).
 
     Keyword Args:
         display_name: The user's display name (optional). Can be removed by explicitly passing
@@ -212,7 +213,8 @@ def update_user(uid, **kwargs): # pylint: disable=missing-param-doc
         photo_url: The user's photo URL (optional). Can be removed by explicitly passing None.
         password: The user's raw, unhashed password. (optional).
         disabled: A boolean indicating whether or not the user account is disabled (optional).
-        app: An App instance (optional).
+        custom_claims: A dictionary or a JSON string contining the custom claims to be set on the
+            user account (optional).
 
     Returns:
         UserRecord: An updated UserRecord instance for the user.
@@ -229,6 +231,31 @@ def update_user(uid, **kwargs): # pylint: disable=missing-param-doc
     except _user_mgt.ApiCallError as error:
         raise AuthError(error.code, str(error), error.detail)
 
+def set_custom_user_claims(uid, custom_claims, app=None):
+    """Sets additional claims on an existing user account.
+
+     Custom claims set via this function can be used to define user roles and privilege levels.
+     These claims propagate to all the devices where the user is already signed in (after token
+     expiration or when token refresh is forced), and next time the user signs in. The claims
+     can be accessed via the user's ID token JWT. If a reserved OIDC claim is specified (sub, iat,
+     iss, etc), an error is thrown. Claims payload must also not be larger then 1000 characters
+     when serialized into a JSON string.
+
+     Args:
+         uid: A user ID string.
+         custom_claims: A dictionary or a JSON string of custom claims. Pass None to unset any
+             claims set previously.
+         app: An App instance (optional).
+
+    Raises:
+        ValueError: If the specified user ID or the custom claims are invalid.
+        AuthError: If an error occurs while updating the user account.
+    """
+    user_manager = _get_auth_service(app).user_manager
+    try:
+        user_manager.update_user(uid, custom_claims=custom_claims)
+    except _user_mgt.ApiCallError as error:
+        raise AuthError(error.code, str(error), error.detail)
 
 def delete_user(uid, app=None):
     """Deletes the user identified by the specified user ID.

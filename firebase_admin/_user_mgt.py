@@ -14,6 +14,7 @@
 
 """Firebase user management sub module."""
 
+import json
 import re
 
 from google.auth import transport
@@ -31,6 +32,12 @@ USER_UPDATE_ERROR = 'USER_UPDATE_ERROR'
 USER_DELETE_ERROR = 'USER_DELETE_ERROR'
 
 ID_TOOLKIT_URL = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/'
+
+MAX_CLAIMS_PAYLOAD_SIZE = 1000
+RESERVED_CLAIMS = set([
+    'acr', 'amr', 'at_hash', 'aud', 'auth_time', 'azp', 'cnf', 'c_hash', 'exp', 'iat',
+    'iss', 'jti', 'nbf', 'nonce', 'sub', 'firebase',
+])
 
 
 class _Validator(object):
@@ -118,6 +125,37 @@ class _Validator(object):
                 'Invalid delete list: "{0}". Delete list must be a '
                 'non-empty list.'.format(delete_attr))
 
+    @classmethod
+    def validate_custom_claims(cls, custom_claims):
+        """Validates the specified custom claims.
+
+        Custom claims must be specified as a JSON string.The string must not exceed 1000
+        characters, and the parsed JSON payload must not contain reserved JWT claims.
+        """
+        if not isinstance(custom_claims, six.string_types) or not custom_claims:
+            raise ValueError(
+                'Invalid custom claims: "{0}". Custom claims must be a non-empty JSON '
+                'string.'.format(custom_claims))
+
+        if len(custom_claims) > MAX_CLAIMS_PAYLOAD_SIZE:
+            raise ValueError(
+                'Custom claims payload must not exceed {0} '
+                'characters.'.format(MAX_CLAIMS_PAYLOAD_SIZE))
+        try:
+            parsed = json.loads(custom_claims)
+        except Exception:
+            raise ValueError('Failed to parse custom claims string as JSON.')
+        else:
+            if not isinstance(parsed, dict):
+                raise ValueError('Custom claims must be parseable as a JSON object.')
+            invalid_claims = RESERVED_CLAIMS.intersection(set(parsed.keys()))
+            if len(invalid_claims) > 1:
+                joined = ', '.join(invalid_claims)
+                raise ValueError('Claims "{0}" are reserved, and must not be set.'.format(joined))
+            elif len(invalid_claims) == 1:
+                raise ValueError(
+                    'Claims"{0}" is reserved, and must not be set.'.format(invalid_claims[0]))
+
 
 class ApiCallError(Exception):
     """Represents an Exception encountered while invoking the Firebase user management API."""
@@ -132,6 +170,7 @@ class UserManager(object):
     """Provides methods for interacting with the Google Identity Toolkit."""
 
     _VALIDATORS = {
+        'customAttributes' : _Validator.validate_custom_claims,
         'deleteAttribute' : _Validator.validate_delete_list,
         'deleteProvider' : _Validator.validate_delete_list,
         'disabled' : _Validator.validate_disabled,
@@ -163,7 +202,8 @@ class UserManager(object):
         'phone_number' : 'phoneNumber',
         'photo_url' : 'photoUrl',
         'password' : 'password',
-        'disabled' : 'disabled',
+        'disabled' : 'disableUser',
+        'custom_claims' : 'customAttributes',
     }
 
     _REMOVABLE_FIELDS = {
@@ -236,9 +276,12 @@ class UserManager(object):
         if 'phoneNumber' in payload and payload['phoneNumber'] is None:
             payload['deleteProvider'] = ['phone']
             del payload['phoneNumber']
-        if 'disabled' in payload:
-            payload['disableUser'] = payload['disabled']
-            del payload['disabled']
+        if 'customAttributes' in payload:
+            custom_claims = payload['customAttributes']
+            if custom_claims is None:
+                custom_claims = {}
+            if isinstance(custom_claims, dict):
+                payload['customAttributes'] = json.dumps(custom_claims)
 
         self._validate(payload, self._VALIDATORS, 'update user')
         try:

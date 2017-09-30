@@ -150,11 +150,11 @@ class _Validator(object):
                 raise ValueError('Custom claims must be parseable as a JSON object.')
             invalid_claims = RESERVED_CLAIMS.intersection(set(parsed.keys()))
             if len(invalid_claims) > 1:
-                joined = ', '.join(invalid_claims)
+                joined = ', '.join(sorted(invalid_claims))
                 raise ValueError('Claims "{0}" are reserved, and must not be set.'.format(joined))
             elif len(invalid_claims) == 1:
                 raise ValueError(
-                    'Claims"{0}" is reserved, and must not be set.'.format(invalid_claims[0]))
+                    'Claim "{0}" is reserved, and must not be set.'.format(invalid_claims.pop()))
 
 
 class ApiCallError(Exception):

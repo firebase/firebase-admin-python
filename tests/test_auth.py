@@ -306,6 +306,10 @@ def _check_user_record(user):
     assert user.user_metadata.last_sign_in_timestamp is None
     assert user.provider_id == 'firebase'
 
+    claims = user.custom_claims
+    assert claims['admin'] is True
+    assert claims['package'] == 'gold'
+
     assert len(user.provider_data) == 2
     provider = user.provider_data[0]
     assert provider.uid == 'testuser@example.com'
@@ -344,6 +348,21 @@ class TestUserRecord(object):
         metadata = auth.UserMetadata({})
         assert metadata.creation_timestamp is None
         assert metadata.last_sign_in_timestamp is None
+
+    def test_custom_claims(self):
+        user = auth.UserRecord({
+            'localId' : 'user',
+            'customAttributes': '{"admin": true, "package": "gold"}'
+        })
+        assert user.custom_claims == {'admin' : True, 'package' : 'gold'}
+
+    def test_no_custom_claims(self):
+        user = auth.UserRecord({'localId' : 'user'})
+        assert user.custom_claims is None
+
+    def test_empty_custom_claims(self):
+        user = auth.UserRecord({'localId' : 'user', 'customAttributes' : '{}'})
+        assert user.custom_claims is None
 
     @pytest.mark.parametrize('data', INVALID_DICTS + [{}, {'foo':'bar'}])
     def test_invalid_provider(self, data):
@@ -591,7 +610,28 @@ class TestSetCustomUserAttributes(object):
     @pytest.mark.parametrize('arg', INVALID_DICTS[1:])
     def test_invalid_custom_claims(self, arg):
         with pytest.raises(ValueError):
-            auth.set_custom_user_claims('user', custom_claims=arg)
+            auth.set_custom_user_claims('user', arg)
+
+    @pytest.mark.parametrize('key', _user_mgt.RESERVED_CLAIMS)
+    def test_single_reserved_claim(self, key):
+        claims = {key : 'value'}
+        with pytest.raises(ValueError) as excinfo:
+            auth.set_custom_user_claims('user', claims)
+        assert str(excinfo.value) == 'Claim "{0}" is reserved, and must not be set.'.format(key)
+
+    def test_multiple_reserved_claims(self):
+        claims = {key : 'value' for key in _user_mgt.RESERVED_CLAIMS}
+        with pytest.raises(ValueError) as excinfo:
+            auth.set_custom_user_claims('user', claims)
+        joined = ', '.join(sorted(claims.keys()))
+        assert str(excinfo.value) == ('Claims "{0}" are reserved, and must not be '
+                                      'set.'.format(joined))
+
+    def test_large_claims_payload(self):
+        claims = {'key' : 'A'*1000}
+        with pytest.raises(ValueError) as excinfo:
+            auth.set_custom_user_claims('user', claims)
+        assert str(excinfo.value) == 'Custom claims payload must not exceed 1000 characters.'
 
     def test_set_custom_user_claims(self, user_mgt_app):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')

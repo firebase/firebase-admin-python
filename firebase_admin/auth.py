@@ -19,6 +19,7 @@ authenticating against Firebase services. It also provides functions for
 creating and managing user accounts in Firebase projects.
 """
 
+import json
 import time
 
 from google.auth import jwt
@@ -419,6 +420,20 @@ class UserRecord(UserInfo):
         """
         providers = self._data.get('providerUserInfo', [])
         return [_ProviderUserInfo(entry) for entry in providers]
+
+    @property
+    def custom_claims(self):
+        """Returns any custom claims set on this user account.
+
+        Returns:
+          dict: A dictionary of claims or None.
+        """
+        claims = self._data.get('customAttributes')
+        if claims:
+            parsed = json.loads(claims)
+            if parsed != {}:
+                return parsed
+        return None
 
 
 class UserMetadata(object):

@@ -125,6 +125,7 @@ def test_create_user(new_user):
     assert user.photo_url is None
     assert user.email_verified is False
     assert user.disabled is False
+    assert user.custom_claims is None
     assert user.user_metadata.creation_timestamp > 0
     assert user.user_metadata.last_sign_in_timestamp is None
     assert len(user.provider_data) is 0
@@ -150,7 +151,35 @@ def test_update_user(new_user):
     assert user.photo_url == 'https://example.com/photo.png'
     assert user.email_verified is True
     assert user.disabled is False
+    assert user.custom_claims is None
     assert len(user.provider_data) == 2
+
+def test_set_custom_user_claims(new_user, api_key):
+    claims = {'admin' : True, 'package' : 'gold'}
+    auth.set_custom_user_claims(new_user.uid, claims)
+    user = auth.get_user(new_user.uid)
+    assert user.custom_claims == claims
+    custom_token = auth.create_custom_token(new_user.uid)
+    id_token = _sign_in(custom_token, api_key)
+    dev_claims = auth.verify_id_token(id_token)
+    for key, value in claims.items():
+        assert dev_claims[key] == value
+
+def test_update_custom_user_claims(new_user):
+    assert new_user.custom_claims is None
+    claims = {'admin' : True, 'package' : 'gold'}
+    auth.set_custom_user_claims(new_user.uid, claims)
+    user = auth.get_user(new_user.uid)
+    assert user.custom_claims == claims
+
+    claims = {'admin' : False, 'subscription' : 'guest'}
+    auth.set_custom_user_claims(new_user.uid, claims)
+    user = auth.get_user(new_user.uid)
+    assert user.custom_claims == claims
+
+    auth.set_custom_user_claims(new_user.uid, None)
+    user = auth.get_user(new_user.uid)
+    assert user.custom_claims is None
 
 def test_disable_user(new_user_with_params):
     user = auth.update_user(

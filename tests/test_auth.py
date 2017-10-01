@@ -351,6 +351,34 @@ class TestUserRecord(object):
         assert metadata.creation_timestamp is None
         assert metadata.last_sign_in_timestamp is None
 
+    def test_exported_record(self):
+        user = auth.ExportedUserRecord({
+            'localId' : 'user',
+            'passwordHash' : 'passwordHash',
+            'salt' : 'passwordSalt',
+        })
+        assert user.uid == 'user'
+        assert user.password_hash == 'passwordHash'
+        assert user.password_salt == 'passwordSalt'
+
+    def test_exported_no_password(self):
+        user = auth.ExportedUserRecord({
+            'localId' : 'user',
+        })
+        assert user.uid == 'user'
+        assert user.password_hash is None
+        assert user.password_salt is None
+
+    def test_exported_empty_password(self):
+        user = auth.ExportedUserRecord({
+            'localId' : 'user',
+            'passwordHash' : '',
+            'salt' : '',
+        })
+        assert user.uid == 'user'
+        assert user.password_hash == ''
+        assert user.password_salt == ''
+
     def test_custom_claims(self):
         user = auth.UserRecord({
             'localId' : 'user',
@@ -702,6 +730,29 @@ class TestListUsers(object):
         assert len(recorder) == 1
         request = json.loads(recorder[0].body.decode())
         assert request == {'maxResults' : 1000}
+
+    def test_list_users_paged_response(self, user_mgt_app):
+        response = {
+            'users': [
+                {'localId': 'user1'},
+                {'localId': 'user2'},
+                {'localId': 'user3'},
+            ],
+            'nextPageToken': 'token'
+        }
+        _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
+        result = auth.list_users(app=user_mgt_app)
+        assert isinstance(result, auth.ListUsersResult)
+        assert len(result.users) == 3
+        assert result.page_token == 'token'
+
+    def test_list_users_no_users_response(self, user_mgt_app):
+        response = {'users': []}
+        _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
+        result = auth.list_users(app=user_mgt_app)
+        assert isinstance(result, auth.ListUsersResult)
+        assert len(result.users) is 0
+        assert result.page_token is None
 
     def test_list_users_with_max_results(self, user_mgt_app):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_LIST_USERS_RESPONSE)

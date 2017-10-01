@@ -512,13 +512,13 @@ class ExportedUserRecord(UserRecord):
         used to create this user, as is typical when migrating from another Auth system, this will
         be an empty string. If no password is set, this will be None.
         """
-        return self._data.get('passwordSalt')
+        return self._data.get('salt')
 
 
 class ListUsersResult(object):
     """Contains a batch of users accounts returned by ``list_users()``.
 
-    The page token property can be passed to another ``list_users()`` call to retrieve another
+    The page token property can be passed to another ``list_users()`` call to retrieve the next
     batch of users. Page token will be None on the last batch of users.
     """
 

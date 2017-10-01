@@ -139,7 +139,7 @@ def test_list_users(new_user_list):
         token = batch.page_token
         if token is None:
             break
-    # Must have iterated at least twice, since we have at least N users while the batch size N-1.
+    # Must have iterated twice, since we have at least N users while the batch size is N-1.
     assert calls == 2
 
     token = None

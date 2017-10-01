@@ -361,7 +361,7 @@ class TestUserRecord(object):
         assert user.password_hash == 'passwordHash'
         assert user.password_salt == 'passwordSalt'
 
-    def test_exported_no_password(self):
+    def test_exported_record_no_password(self):
         user = auth.ExportedUserRecord({
             'localId' : 'user',
         })
@@ -369,7 +369,7 @@ class TestUserRecord(object):
         assert user.password_hash is None
         assert user.password_salt is None
 
-    def test_exported_empty_password(self):
+    def test_exported_record_empty_password(self):
         user = auth.ExportedUserRecord({
             'localId' : 'user',
             'passwordHash' : '',
@@ -584,7 +584,7 @@ class TestUpdateUser(object):
         with pytest.raises(ValueError):
             auth.update_user('user', disabled=arg)
 
-    @pytest.mark.parametrize('arg', INVALID_DICTS[1:] + ['"json'])
+    @pytest.mark.parametrize('arg', INVALID_DICTS[1:] + ['"json"'])
     def test_invalid_custom_claims(self, arg):
         with pytest.raises(ValueError):
             auth.update_user('user', custom_claims=arg)
@@ -599,7 +599,7 @@ class TestUpdateUser(object):
         request = json.loads(recorder[0].body.decode())
         assert request == {'localId' : 'testuser'}
 
-    def test_update_user_disable(self, user_mgt_app):
+    def test_disable_user(self, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
         user_mgt.update_user('testuser', disabled=True)
         request = json.loads(recorder[0].body.decode())
@@ -630,7 +630,7 @@ class TestUpdateUser(object):
         assert '{"error":"test"}' in str(excinfo.value)
 
 
-class TestSetCustomUserAttributes(object):
+class TestSetCustomUserClaims(object):
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
     def test_invalid_uid(self, arg):

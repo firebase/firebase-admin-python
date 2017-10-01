@@ -164,6 +164,36 @@ def get_user_by_phone_number(phone_number, app=None):
     except _user_mgt.ApiCallError as error:
         raise AuthError(error.code, str(error), error.detail)
 
+def list_users(max_results=_user_mgt.MAX_LIST_USERS_RESULTS, page_token=None, app=None):
+    """Retrieves a batch of users.
+
+    Batch size is determined by the max_results argument, while the starting point (offset) of the
+    batch is determined by the page_token argument. This function can be used to retrieve all user
+    accounts associated with a Firebase project by calling the function repeatedly while advancing
+    the page_token value with each call.
+
+    Args:
+        max_results: A positive integer indicating the maximum number of users to get (optional).
+            Defaults to 1000, which is also the maximum number of users that can retrieved at
+            a time.
+        page_token: A string identifier that indicates the starting point of the returned batch
+           (optional). If not specified, returns users from the begining.
+        app: An App instance (optional).
+
+    Returns:
+        ListUsersResults: A ListUsersResult instance.
+
+    Raises:
+        ValueError: If max_results or page_token are invalid.
+        AuthError: If an error occurs while retrieving the users.
+    """
+    user_manager = _get_auth_service(app).user_manager
+    try:
+        response = user_manager.list_users(max_results, page_token)
+        return ListUsersResult(response)
+    except _user_mgt.ApiCallError as error:
+        raise AuthError(error.code, str(error), error.detail)
+
 
 def create_user(**kwargs):
     """Creates a new user account with the specified properties.
@@ -455,6 +485,56 @@ class UserMetadata(object):
         if 'lastLoginAt' in self._data:
             return int(self._data['lastLoginAt'])
         return None
+
+class ExportedUserRecord(UserRecord):
+    """Contains metadata associated with a user including password hash and salt."""
+
+    def __init__(self, data):
+        super(ExportedUserRecord, self).__init__(data)
+
+    @property
+    def password_hash(self):
+        """The user's password hash as a base64-encoded string.
+
+        If the Firebase Auth hashing algorithm (SCRYPT) was used to create the user account, this
+        will be the base64-encoded password hash of the user. If a different hashing algorithm was
+        used to create this user, as is typical when migrating from another Auth system, this
+        will be an empty string. If no password is set, this will be None.
+        """
+        return self._data.get('passwordHash')
+
+    @property
+    def password_salt(self):
+        """The user's password salt as a base64-encoded string.
+
+        If the Firebase Auth hashing algorithm (SCRYPT) was used to create the user account, this
+        will be the base64-encoded password salt of the user. If a different hashing algorithm was
+        used to create this user, as is typical when migrating from another Auth system, this will
+        be an empty string. If no password is set, this will be None.
+        """
+        return self._data.get('passwordSalt')
+
+
+class ListUsersResult(object):
+    """Contains a batch of users accounts returned by ``list_users()``.
+
+    The page token property can be passed to another ``list_users()`` call to retrieve another
+    batch of users. Page token will be None on the last batch of users.
+    """
+
+    def __init__(self, data):
+        if not isinstance(data, dict):
+            raise ValueError('Invalid data argument: {0}. Must be a dictionary.'.format(data))
+        self._page_token = data.get('nextPageToken')
+        self._users = [ExportedUserRecord(user) for user in data.get('users', [])]
+
+    @property
+    def page_token(self):
+        return self._page_token
+
+    @property
+    def users(self):
+        return self._users
 
 
 class _ProviderUserInfo(UserInfo):

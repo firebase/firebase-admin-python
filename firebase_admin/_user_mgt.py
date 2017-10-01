@@ -30,9 +30,11 @@ USER_NOT_FOUND_ERROR = 'USER_NOT_FOUND_ERROR'
 USER_CREATE_ERROR = 'USER_CREATE_ERROR'
 USER_UPDATE_ERROR = 'USER_UPDATE_ERROR'
 USER_DELETE_ERROR = 'USER_DELETE_ERROR'
+USER_DOWNLOAD_ERROR = 'LIST_USERS_ERROR'
 
 ID_TOOLKIT_URL = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/'
 
+MAX_LIST_USERS_RESULTS = 1000
 MAX_CLAIMS_PAYLOAD_SIZE = 1000
 RESERVED_CLAIMS = set([
     'acr', 'amr', 'at_hash', 'aud', 'auth_time', 'azp', 'cnf', 'c_hash', 'exp', 'iat',
@@ -246,6 +248,25 @@ class UserManager(object):
                     USER_NOT_FOUND_ERROR,
                     'No user record found for the provided {0}: {1}.'.format(key_type, key))
             return response['users'][0]
+
+    def list_users(self, max_results=MAX_LIST_USERS_RESULTS, page_token=None):
+        """Retrieves a batch of users."""
+        if not isinstance(max_results, int):
+            raise ValueError('Max results must be an integer.')
+        elif max_results < 1 or max_results > MAX_LIST_USERS_RESULTS:
+            raise ValueError(
+                'Max results must be a positive non-zero integer less than '
+                '{0}.'.format(MAX_LIST_USERS_RESULTS))
+
+        payload = {'maxResults': max_results}
+        if page_token is not None:
+            if not page_token or not isinstance(page_token, six.string_types):
+                raise ValueError('Page token must be a non-empty string.')
+            payload['nextPageToken'] = page_token
+        try:
+            return self._request('post', 'downloadAccount', json=payload)
+        except requests.exceptions.RequestException as error:
+            self._handle_http_error(USER_DOWNLOAD_ERROR, 'Failed to download user accounts.', error)
 
     def create_user(self, **kwargs):
         """Creates a new user account with the specified properties."""

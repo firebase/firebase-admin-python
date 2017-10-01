@@ -47,6 +47,7 @@ INVALID_BOOLS = [None, '', 'foo', 0, 1, list(), tuple(), dict()]
 INVALID_DICTS = [None, 'foo', 0, 1, True, False, list(), tuple()]
 
 MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
+MOCK_LIST_USERS_RESPONSE = testutils.resource('list_users.json')
 
 
 class AuthFixture(object):
@@ -294,8 +295,9 @@ def _instrument_user_manager(app, status, payload):
         testutils.MockAdapter(payload, status, recorder))
     return user_manager, recorder
 
-def _check_user_record(user):
-    assert user.uid == 'testuser'
+def _check_user_record(user, expected_uid='testuser'):
+    assert isinstance(user, auth.UserRecord)
+    assert user.uid == expected_uid
     assert user.email == 'testuser@example.com'
     assert user.phone_number == '+1234567890'
     assert user.display_name == 'Test User'
@@ -554,7 +556,7 @@ class TestUpdateUser(object):
         with pytest.raises(ValueError):
             auth.update_user('user', disabled=arg)
 
-    @pytest.mark.parametrize('arg', INVALID_DICTS[1:])
+    @pytest.mark.parametrize('arg', INVALID_DICTS[1:] + ['"json'])
     def test_invalid_custom_claims(self, arg):
         with pytest.raises(ValueError):
             auth.update_user('user', custom_claims=arg)
@@ -607,7 +609,7 @@ class TestSetCustomUserAttributes(object):
         with pytest.raises(ValueError):
             auth.set_custom_user_claims(arg, {'foo': 'bar'})
 
-    @pytest.mark.parametrize('arg', INVALID_DICTS[1:])
+    @pytest.mark.parametrize('arg', INVALID_DICTS[1:] + ['"json"'])
     def test_invalid_custom_claims(self, arg):
         with pytest.raises(ValueError):
             auth.set_custom_user_claims('user', arg)
@@ -679,3 +681,66 @@ class TestDeleteUser(object):
             auth.delete_user('user', app=user_mgt_app)
         assert excinfo.value.code == _user_mgt.USER_DELETE_ERROR
         assert '{"error":"test"}' in str(excinfo.value)
+
+
+class TestListUsers(object):
+
+    @pytest.mark.parametrize('arg', [None, 'foo', list(), dict(), 0, -1, 1001, False])
+    def test_invalid_max_results(self, arg):
+        with pytest.raises(ValueError):
+            auth.list_users(max_results=arg)
+
+    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:])
+    def test_invalid_page_token(self, arg):
+        with pytest.raises(ValueError):
+            auth.list_users(page_token=arg)
+
+    def test_list_users(self, user_mgt_app):
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_LIST_USERS_RESPONSE)
+        result = auth.list_users(app=user_mgt_app)
+        self._check_result(result)
+        assert len(recorder) == 1
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'maxResults' : 1000}
+
+    def test_list_users_with_max_results(self, user_mgt_app):
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_LIST_USERS_RESPONSE)
+        result = auth.list_users(max_results=500, app=user_mgt_app)
+        self._check_result(result)
+        assert len(recorder) == 1
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'maxResults' : 500}
+
+    def test_list_users_with_page_token(self, user_mgt_app):
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_LIST_USERS_RESPONSE)
+        result = auth.list_users(page_token='token', app=user_mgt_app)
+        self._check_result(result)
+        assert len(recorder) == 1
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'maxResults' : 1000, 'nextPageToken' : 'token'}
+
+    def test_list_users_with_all_args(self, user_mgt_app):
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_LIST_USERS_RESPONSE)
+        result = auth.list_users(max_results=500, page_token='token', app=user_mgt_app)
+        self._check_result(result)
+        assert len(recorder) == 1
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'maxResults' : 500, 'nextPageToken' : 'token'}
+
+    def test_list_users_error(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
+        with pytest.raises(auth.AuthError) as excinfo:
+            auth.list_users(app=user_mgt_app)
+        assert excinfo.value.code == _user_mgt.USER_DOWNLOAD_ERROR
+        assert '{"error":"test"}' in str(excinfo.value)
+
+    def _check_result(self, result):
+        assert isinstance(result, auth.ListUsersResult)
+        assert result.page_token is None
+        assert len(result.users) == 2
+        for index in range(len(result.users)):
+            user = result.users[index]
+            assert isinstance(user, auth.ExportedUserRecord)
+            _check_user_record(result.users[index], 'testuser{0}'.format(index))
+            assert user.password_hash == 'passwordHash'
+            assert user.password_salt == 'passwordSalt'

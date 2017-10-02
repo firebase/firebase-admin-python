@@ -155,10 +155,10 @@ class Reference(object):
 
         Returns:
           tuple: A 3-tuple consisting of a boolean, a decoded JSON value and an ETag. If the ETag
-              specified by the caller did not match, the boolen value will be True and the JSON
-              and ETag values would reflect the corresponding values in the database. If the ETag
-              matched, the boolean value will be False and the other elements of the tuple will be
-              None.
+          specified by the caller did not match, the boolen value will be True and the JSON
+          and ETag values would reflect the corresponding values in the database. If the ETag
+          matched, the boolean value will be False and the other elements of the tuple will be
+          None.
 
         Raises:
           ValueError: If the ETag is not a string.

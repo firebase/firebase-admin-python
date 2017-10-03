@@ -67,3 +67,11 @@ def test_service_account_with_explicit_app():
     client = firestore.client(app=app)
     assert client is not None
     assert client.project == 'mock-project-id'
+
+def test_geo_point():
+    geo_point = firestore.GeoPoint(10, 20)
+    assert geo_point.latitude == 10
+    assert geo_point.longitude == 20
+
+def test_server_timestamp():
+    assert firestore.SERVER_TIMESTAMP is not None

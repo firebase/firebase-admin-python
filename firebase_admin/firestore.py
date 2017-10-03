@@ -21,6 +21,11 @@ Firebase apps. This requires the google-cloud-firestore Python module.
 # pylint: disable=import-error,no-name-in-module
 try:
     from google.cloud import firestore
+    existing = globals().keys()
+    for key, value in firestore.__dict__.items():
+        if not key.startswith('_') and key not in existing:
+            pass
+            #globals()[key] = value
 except ImportError:
     raise ImportError('Failed to import the Cloud Firestore library for Python. Make sure '
                       'to install the "google-cloud-firestore" module.')

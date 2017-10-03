@@ -155,10 +155,10 @@ class Reference(object):
 
         Returns:
           tuple: A 3-tuple consisting of a boolean, a decoded JSON value and an ETag. If the ETag
-              specified by the caller did not match, the boolen value will be True and the JSON
-              and ETag values would reflect the corresponding values in the database. If the ETag
-              matched, the boolean value will be False and the other elements of the tuple will be
-              None.
+          specified by the caller did not match, the boolen value will be True and the JSON
+          and ETag values would reflect the corresponding values in the database. If the ETag
+          matched, the boolean value will be False and the other elements of the tuple will be
+          None.
 
         Raises:
           ValueError: If the ETag is not a string.
@@ -673,7 +673,7 @@ class _Client(_http_client.JsonHttpClient):
 
     _DEFAULT_AUTH_OVERRIDE = '_admin_'
 
-    def __init__(self, credential, base_url, auth_override=_DEFAULT_AUTH_OVERRIDE):
+    def __init__(self, credential, base_url, auth_override=_DEFAULT_AUTH_OVERRIDE, timeout=None):
         """Creates a new _Client from the given parameters.
 
         This exists primarily to enable testing. For regular use, obtain _Client instances by
@@ -686,6 +686,8 @@ class _Client(_http_client.JsonHttpClient):
           auth_override: A dictionary representing auth variable overrides or None (optional).
               Default value provides admin privileges. A None value here provides un-authenticated
               guest privileges.
+          timeout: HTTP request timeout in seconds (optional). If not set connections will never
+              timeout, which is the default behavior of the underlying requests library.
         """
         _http_client.JsonHttpClient.__init__(
             self, credential=credential, base_url=base_url, headers={'User-Agent': _USER_AGENT})
@@ -694,14 +696,16 @@ class _Client(_http_client.JsonHttpClient):
             self._auth_override = 'auth_variable_override={0}'.format(encoded)
         else:
             self._auth_override = None
+        self._timeout = timeout
 
     @classmethod
     def from_app(cls, app):
         """Creates a new _Client for a given App"""
+        credential = app.credential.get_credential()
         db_url = cls._get_db_url(app)
         auth_override = cls._get_auth_override(app)
-        credential = app.credential.get_credential()
-        return _Client(credential, db_url, auth_override)
+        timeout = app.options.get('httpTimeout')
+        return _Client(credential, db_url, auth_override, timeout)
 
     @classmethod
     def _get_db_url(cls, app):
@@ -737,6 +741,10 @@ class _Client(_http_client.JsonHttpClient):
     def auth_override(self):
         return self._auth_override
 
+    @property
+    def timeout(self):
+        return self._timeout
+
     def request(self, method, url, **kwargs):
         """Makes an HTTP call using the Python requests library.
 
@@ -762,6 +770,8 @@ class _Client(_http_client.JsonHttpClient):
             else:
                 params = self._auth_override
             kwargs['params'] = params
+        if self._timeout:
+            kwargs['timeout'] = self._timeout
         try:
             return super(_Client, self).request(method, url, **kwargs)
         except requests.exceptions.RequestException as error:

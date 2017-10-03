@@ -24,7 +24,7 @@ from firebase_admin import credentials
 
 # Declaring module version as per https://www.python.org/dev/peps/pep-0396/#specification
 # Update this accordingly for each release.
-__version__ = '2.3.0'
+__version__ = '2.4.0'
 
 _apps = {}
 _apps_lock = threading.RLock()
@@ -45,7 +45,9 @@ def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
     Args:
       credential: A credential object used to initialize the SDK (optional). If none is provided,
           Google Application Default Credentials are used.
-      options: A dictionary of configuration options (optional).
+      options: A dictionary of configuration options (optional). Supported options include
+          ``databaseURL``, ``storageBucket`` and ``httpTimeout``. If ``httpTimeout`` is not set,
+          HTTP connections initiated by client modules such as ``db`` will not time out.
       name: Name of the app (optional).
 
     Returns:

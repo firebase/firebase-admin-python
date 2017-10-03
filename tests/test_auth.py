@@ -723,18 +723,12 @@ class TestListUsers(object):
         result = auth.list_users(app=user_mgt_app)
         assert len(recorder) is 0
         self._check_result(result)
-        assert len(recorder) == 1
-        request = json.loads(recorder[0].body.decode())
-        assert request == {'maxResults' : 1000}
+        self._check_rpc_calls(recorder)
 
     def test_list_users_paged_response(self, user_mgt_app):
         # Page 1
         response = {
-            'users': [
-                {'localId': 'user1'},
-                {'localId': 'user2'},
-                {'localId': 'user3'},
-            ],
+            'users': [{'localId': 'user1'}, {'localId': 'user2'}, {'localId': 'user3'}],
             'nextPageToken': 'token'
         }
         _, recorder = _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
@@ -745,22 +739,14 @@ class TestListUsers(object):
         for index in range(3):
             user = next(result)
             assert user.uid == 'user{0}'.format(index+1)
-        assert len(recorder) == 1
-        request = json.loads(recorder[0].body.decode())
-        assert request == {'maxResults' : 1000}
+        self._check_rpc_calls(recorder)
 
         # Page 2 (also the last page)
-        response = {
-            'users': [
-                {'localId': 'user4'},
-            ],
-        }
+        response = {'users': [{'localId': 'user4'}]}
         _, recorder = _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
         user = next(result)
         assert user.uid == 'user4'
-        assert len(recorder) == 1
-        request = json.loads(recorder[0].body.decode())
-        assert request == {'maxResults' : 1000, 'nextPageToken' : 'token'}
+        self._check_rpc_calls(recorder, {'maxResults': 1000, 'nextPageToken': 'token'})
 
         with pytest.raises(StopIteration):
             next(result)
@@ -768,11 +754,7 @@ class TestListUsers(object):
 
     def test_list_users_iterable_state(self, user_mgt_app):
         response = {
-            'users': [
-                {'localId': 'user1'},
-                {'localId': 'user2'},
-                {'localId': 'user3'},
-            ]
+            'users': [{'localId': 'user1'}, {'localId': 'user2'}, {'localId': 'user3'}]
         }
         _, recorder = _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
         result = auth.list_users(app=user_mgt_app)
@@ -792,18 +774,11 @@ class TestListUsers(object):
         assert user.uid == 'user3'
         with pytest.raises(StopIteration):
             next(result)
-
-        assert len(recorder) == 1
-        request = json.loads(recorder[0].body.decode())
-        assert request == {'maxResults' : 1000}
+        self._check_rpc_calls(recorder)
 
     def test_list_users_stop_iteration(self, user_mgt_app):
         response = {
-            'users': [
-                {'localId': 'user1'},
-                {'localId': 'user2'},
-                {'localId': 'user3'},
-            ]
+            'users': [{'localId': 'user1'}, {'localId': 'user2'}, {'localId': 'user3'}]
         }
         _, recorder = _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
         result = auth.list_users(app=user_mgt_app)
@@ -815,10 +790,7 @@ class TestListUsers(object):
             next(result)
         users = [user for user in result]
         assert users == []
-
-        assert len(recorder) == 1
-        request = json.loads(recorder[0].body.decode())
-        assert request == {'maxResults' : 1000}
+        self._check_rpc_calls(recorder)
 
     def test_list_users_no_users_response(self, user_mgt_app):
         response = {'users': []}
@@ -832,17 +804,13 @@ class TestListUsers(object):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_LIST_USERS_RESPONSE)
         result = auth.list_users(max_results=500, app=user_mgt_app)
         self._check_result(result)
-        assert len(recorder) == 1
-        request = json.loads(recorder[0].body.decode())
-        assert request == {'maxResults' : 500}
+        self._check_rpc_calls(recorder, {'maxResults' : 500})
 
     def test_list_users_with_all_args(self, user_mgt_app):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_LIST_USERS_RESPONSE)
         result = auth.list_users(max_results=500, app=user_mgt_app)
         self._check_result(result)
-        assert len(recorder) == 1
-        request = json.loads(recorder[0].body.decode())
-        assert request == {'maxResults' : 500}
+        self._check_rpc_calls(recorder, {'maxResults' : 500})
 
     def test_list_users_error(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
@@ -869,3 +837,10 @@ class TestListUsers(object):
             assert user.password_salt == 'passwordSalt'
             index += 1
         assert index == 2
+
+    def _check_rpc_calls(self, recorder, expected=None):
+        if expected is None:
+            expected = {'maxResults' : 1000}
+        assert len(recorder) == 1
+        request = json.loads(recorder[0].body.decode())
+        assert request == expected

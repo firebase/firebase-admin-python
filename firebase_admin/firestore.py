@@ -18,21 +18,19 @@ This module contains utilities for accessing the Google Cloud Firestore database
 Firebase apps. This requires the google-cloud-firestore Python module.
 """
 
-# pylint: disable=import-error,no-name-in-module
 try:
-    from google.cloud import firestore
+    from google.cloud import firestore # pylint: disable=import-error,no-name-in-module
     existing = globals().keys()
     for key, value in firestore.__dict__.items():
         if not key.startswith('_') and key not in existing:
-            pass
-            #globals()[key] = value
+            globals()[key] = value
 except ImportError:
     raise ImportError('Failed to import the Cloud Firestore library for Python. Make sure '
                       'to install the "google-cloud-firestore" module.')
 
 import six
 
-from firebase_admin import utils
+from firebase_admin import _utils
 
 
 _FIRESTORE_ATTRIBUTE = '_firestore'
@@ -51,7 +49,7 @@ def client(app=None):
       ValueError: If a project ID is not specified either via options, credentials or
           environment variables, or if the specified project ID is not a valid string.
     """
-    fs_client = utils.get_app_service(app, _FIRESTORE_ATTRIBUTE, _FirestoreClient.from_app)
+    fs_client = _utils.get_app_service(app, _FIRESTORE_ATTRIBUTE, _FirestoreClient.from_app)
     return fs_client.get()
 
 

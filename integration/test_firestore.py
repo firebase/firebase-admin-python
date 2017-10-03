@@ -13,10 +13,10 @@
 # limitations under the License.
 
 """Integration tests for firebase_admin.firestore module."""
+import datetime
 import pytest
 
-# pylint: disable=import-error,no-name-in-module
-from google.cloud import exceptions
+from google.cloud import exceptions # pylint: disable=import-error,no-name-in-module
 
 from firebase_admin import firestore
 
@@ -29,7 +29,7 @@ def test_firestore():
         'population': 77846,
         'capital': False
     }
-    doc = client.collection('cities').document('Mountain View')
+    doc = client.collection('cities').document()
     doc.set(expected)
 
     data = doc.get().to_dict()
@@ -38,3 +38,16 @@ def test_firestore():
     doc.delete()
     with pytest.raises(exceptions.NotFound):
         doc.get()
+
+def test_server_timestamp():
+    client = firestore.client()
+    expected = {
+        'name': u'Mountain View',
+        'timestamp': firestore.SERVER_TIMESTAMP # pylint: disable=no-member
+    }
+    doc = client.collection('cities').document()
+    doc.set(expected)
+
+    data = doc.get().to_dict()
+    assert isinstance(data['timestamp'], datetime.datetime)
+    doc.delete()

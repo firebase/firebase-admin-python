@@ -69,9 +69,9 @@ def test_service_account_with_explicit_app():
     assert client.project == 'mock-project-id'
 
 def test_geo_point():
-    geo_point = firestore.GeoPoint(10, 20)
+    geo_point = firestore.GeoPoint(10, 20) # pylint: disable=no-member
     assert geo_point.latitude == 10
     assert geo_point.longitude == 20
 
 def test_server_timestamp():
-    assert firestore.SERVER_TIMESTAMP is not None
+    assert firestore.SERVER_TIMESTAMP is not None # pylint: disable=no-member

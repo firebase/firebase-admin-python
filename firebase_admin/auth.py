@@ -164,35 +164,34 @@ def get_user_by_phone_number(phone_number, app=None):
     except _user_mgt.ApiCallError as error:
         raise AuthError(error.code, str(error), error.detail)
 
-def list_users(max_results=_user_mgt.MAX_LIST_USERS_RESULTS, page_token=None, app=None):
-    """Retrieves a batch of users.
+def list_users(max_results=_user_mgt.MAX_LIST_USERS_RESULTS, app=None):
+    """Lists all users in a Firebase project.
 
-    Batch size is determined by the max_results argument, while the starting point (offset) of the
-    batch is determined by the page_token argument. This function can be used to retrieve all user
-    accounts associated with a Firebase project by calling the function repeatedly while advancing
-    the page_token value with each call.
+    Returns an iterable that can be used to iterate over the user accounts. The ``max_results``
+    argument governs the maximum number of user accounts the SDK may keep in memory during
+    iteration. It also controls the number of user accounts to be retrieved in a single
+    RPC call. The returned iterable transparently pages through batches of user accounts. No RPC
+    calls are made until the returned iterable is consumed.
+
+    The iterable returned by this function is stateful. This means, if the client code stops
+    iterating user accounts mid-way (e.g. using a break statement), and starts iterating again on
+    the same instance, the iterable will resume from where it left off. To start iterating from the
+    beginning, call this function to obtain a new iterable. In case of an RPC error the iteration
+    fails by raising an ``AuthError``.
 
     Args:
-        max_results: A positive integer indicating the maximum number of users to get (optional).
-            Defaults to 1000, which is also the maximum number of users that can retrieved at
-            a time.
-        page_token: A string identifier that indicates the starting point of the returned batch
-           (optional). If not specified, returns users from the begining.
+        max_results: A positive integer indicating the maximum number of users to buffer during
+           iteration (optional). Defaults to 1000, which is also the maximum number allowed.
         app: An App instance (optional).
 
     Returns:
-        ListUsersResults: A ListUsersResult instance.
+        iterable: An iterable of ``ExportedUserRecord`` instances.
 
     Raises:
         ValueError: If max_results or page_token are invalid.
-        AuthError: If an error occurs while retrieving the users.
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        response = user_manager.list_users(max_results, page_token)
-        return ListUsersResult(response)
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    return _UserIterable(user_manager, max_results)
 
 
 def create_user(**kwargs):
@@ -515,26 +514,41 @@ class ExportedUserRecord(UserRecord):
         return self._data.get('salt')
 
 
-class ListUsersResult(object):
-    """Contains a batch of users accounts returned by ``list_users()``.
+class _UserIterable(object):
+    """An iterable that allows iterating over exported user lists.
 
-    The page token property can be passed to another ``list_users()`` call to retrieve the next
-    batch of users. Page token will be None on the last batch of users.
+    This implementation loads a batch of users into memory, and iterates on them. When the whole
+    batch has been traversed, it loads another batch. This class never keeps more than
+    ``max_results`` entries in memory.
     """
 
-    def __init__(self, data):
-        if not isinstance(data, dict):
-            raise ValueError('Invalid data argument: {0}. Must be a dictionary.'.format(data))
-        self._page_token = data.get('nextPageToken')
-        self._users = [ExportedUserRecord(user) for user in data.get('users', [])]
+    def __init__(self, user_manager, max_results):
+        self._batch_iterator = _user_mgt.BatchIterator(user_manager, max_results)
+        self._current_batch = []
+        self._index = 0
 
-    @property
-    def page_token(self):
-        return self._page_token
+    def _load_next_batch(self):
+        try:
+            batch = next(self._batch_iterator)
+            return [ExportedUserRecord(user) for user in batch]
+        except _user_mgt.ApiCallError as error:
+            raise AuthError(error.code, str(error), error.detail)
 
-    @property
-    def users(self):
-        return self._users
+    def next(self):
+        if self._index == len(self._current_batch):
+            self._current_batch = self._load_next_batch()
+            self._index = 0
+        if self._index < len(self._current_batch):
+            result = self._current_batch[self._index]
+            self._index += 1
+            return result
+        raise StopIteration
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return self.next()
 
 
 class _ProviderUserInfo(UserInfo):

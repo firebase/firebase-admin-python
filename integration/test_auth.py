@@ -128,33 +128,14 @@ def test_get_user(new_user_with_params):
     assert provider_ids == ['password', 'phone']
 
 def test_list_users(new_user_list):
-    calls = 0
-    token = None
-    batch_size = len(new_user_list) - 1
-    # Test iterating over user accounts.
-    while calls < 2:
-        batch = auth.list_users(max_results=batch_size, page_token=token)
-        assert len(batch.users) <= batch_size
-        calls += 1
-        token = batch.page_token
-        if token is None:
-            break
-    # Must have iterated twice, since we have at least N users while the batch size is N-1.
-    assert calls == 2
-
-    token = None
     fetched = []
     # Test exporting all user accounts.
-    while True:
-        batch = auth.list_users(page_token=token)
-        fetched += [user for user in batch.users if user.uid in new_user_list]
-        token = batch.page_token
-        if token is None:
-            break
+    for user in auth.list_users():
+        if user.uid in new_user_list:
+            fetched.append(user.uid)
+            assert user.password_hash is not None
+            assert user.password_salt is not None
     assert len(fetched) == len(new_user_list)
-    for user in fetched:
-        assert user.password_hash is not None
-        assert user.password_salt is not None
 
 def test_create_user(new_user):
     user = auth.get_user(new_user.uid)

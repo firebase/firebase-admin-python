@@ -718,20 +718,17 @@ class TestListUsers(object):
         with pytest.raises(ValueError):
             auth.list_users(max_results=arg)
 
-    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:])
-    def test_invalid_page_token(self, arg):
-        with pytest.raises(ValueError):
-            auth.list_users(page_token=arg)
-
     def test_list_users(self, user_mgt_app):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_LIST_USERS_RESPONSE)
         result = auth.list_users(app=user_mgt_app)
+        assert len(recorder) is 0
         self._check_result(result)
         assert len(recorder) == 1
         request = json.loads(recorder[0].body.decode())
         assert request == {'maxResults' : 1000}
 
     def test_list_users_paged_response(self, user_mgt_app):
+        # Page 1
         response = {
             'users': [
                 {'localId': 'user1'},
@@ -740,19 +737,96 @@ class TestListUsers(object):
             ],
             'nextPageToken': 'token'
         }
-        _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
         result = auth.list_users(app=user_mgt_app)
-        assert isinstance(result, auth.ListUsersResult)
-        assert len(result.users) == 3
-        assert result.page_token == 'token'
+        assert isinstance(result, auth._UserIterable)
+        assert len(recorder) is 0
+
+        for index in range(3):
+            user = next(result)
+            assert user.uid == 'user{0}'.format(index+1)
+        assert len(recorder) == 1
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'maxResults' : 1000}
+
+        # Page 2 (also the last page)
+        response = {
+            'users': [
+                {'localId': 'user4'},
+            ],
+        }
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
+        user = next(result)
+        assert user.uid == 'user4'
+        assert len(recorder) == 1
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'maxResults' : 1000, 'nextPageToken' : 'token'}
+
+        with pytest.raises(StopIteration):
+            next(result)
+        assert len(recorder) == 1
+
+    def test_list_users_iterable_state(self, user_mgt_app):
+        response = {
+            'users': [
+                {'localId': 'user1'},
+                {'localId': 'user2'},
+                {'localId': 'user3'},
+            ]
+        }
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
+        result = auth.list_users(app=user_mgt_app)
+        assert isinstance(result, auth._UserIterable)
+        assert len(recorder) is 0
+
+        # Iterate through 2 results and break.
+        index = 0
+        for user in result:
+            index += 1
+            assert user.uid == 'user{0}'.format(index)
+            if index == 2:
+                break
+
+        # Iterator should resume from where left off.
+        user = next(result)
+        assert user.uid == 'user3'
+        with pytest.raises(StopIteration):
+            next(result)
+
+        assert len(recorder) == 1
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'maxResults' : 1000}
+
+    def test_list_users_stop_iteration(self, user_mgt_app):
+        response = {
+            'users': [
+                {'localId': 'user1'},
+                {'localId': 'user2'},
+                {'localId': 'user3'},
+            ]
+        }
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
+        result = auth.list_users(app=user_mgt_app)
+        assert isinstance(result, auth._UserIterable)
+        users = [user for user in result]
+        assert len(users) == 3
+
+        with pytest.raises(StopIteration):
+            next(result)
+        users = [user for user in result]
+        assert users == []
+
+        assert len(recorder) == 1
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'maxResults' : 1000}
 
     def test_list_users_no_users_response(self, user_mgt_app):
         response = {'users': []}
         _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
         result = auth.list_users(app=user_mgt_app)
-        assert isinstance(result, auth.ListUsersResult)
-        assert len(result.users) is 0
-        assert result.page_token is None
+        assert isinstance(result, auth._UserIterable)
+        users = [user for user in result]
+        assert len(users) is 0
 
     def test_list_users_with_max_results(self, user_mgt_app):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_LIST_USERS_RESPONSE)
@@ -762,36 +836,36 @@ class TestListUsers(object):
         request = json.loads(recorder[0].body.decode())
         assert request == {'maxResults' : 500}
 
-    def test_list_users_with_page_token(self, user_mgt_app):
-        _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_LIST_USERS_RESPONSE)
-        result = auth.list_users(page_token='token', app=user_mgt_app)
-        self._check_result(result)
-        assert len(recorder) == 1
-        request = json.loads(recorder[0].body.decode())
-        assert request == {'maxResults' : 1000, 'nextPageToken' : 'token'}
-
     def test_list_users_with_all_args(self, user_mgt_app):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_LIST_USERS_RESPONSE)
-        result = auth.list_users(max_results=500, page_token='token', app=user_mgt_app)
+        result = auth.list_users(max_results=500, app=user_mgt_app)
         self._check_result(result)
         assert len(recorder) == 1
         request = json.loads(recorder[0].body.decode())
-        assert request == {'maxResults' : 500, 'nextPageToken' : 'token'}
+        assert request == {'maxResults' : 500}
 
     def test_list_users_error(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
+        result = auth.list_users(app=user_mgt_app)
         with pytest.raises(auth.AuthError) as excinfo:
-            auth.list_users(app=user_mgt_app)
+            next(result)
+        assert excinfo.value.code == _user_mgt.USER_DOWNLOAD_ERROR
+        assert '{"error":"test"}' in str(excinfo.value)
+
+        result = auth.list_users(app=user_mgt_app)
+        with pytest.raises(auth.AuthError) as excinfo:
+            for _ in result:
+                pass
         assert excinfo.value.code == _user_mgt.USER_DOWNLOAD_ERROR
         assert '{"error":"test"}' in str(excinfo.value)
 
     def _check_result(self, result):
-        assert isinstance(result, auth.ListUsersResult)
-        assert result.page_token is None
-        assert len(result.users) == 2
-        for index in range(len(result.users)):
-            user = result.users[index]
+        assert isinstance(result, auth._UserIterable)
+        index = 0
+        for user in result:
             assert isinstance(user, auth.ExportedUserRecord)
-            _check_user_record(result.users[index], 'testuser{0}'.format(index))
+            _check_user_record(user, 'testuser{0}'.format(index))
             assert user.password_hash == 'passwordHash'
             assert user.password_salt == 'passwordSalt'
+            index += 1
+        assert index == 2

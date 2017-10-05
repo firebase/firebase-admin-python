@@ -131,6 +131,7 @@ def test_list_users(new_user_list):
     fetched = []
     # Test exporting all user accounts.
     for user in auth.list_users():
+        assert isinstance(user, auth.ExportedUserRecord)
         if user.uid in new_user_list:
             fetched.append(user.uid)
             assert user.password_hash is not None

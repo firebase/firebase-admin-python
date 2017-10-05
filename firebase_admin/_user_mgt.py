@@ -414,22 +414,23 @@ class _BatchIterator(object):
         return self.next()
 
 
-class _RawUserDataIterator(object):
-    """An iterable that allows iterating over user accounts, one at a time.
+class UserIterator(object):
+    """An iterator that allows iterating over user accounts, one at a time.
 
     This implementation loads a batch of users into memory, and iterates on them. When the whole
     batch has been traversed, it loads another batch. This class never keeps more than
     ``max_results`` entries in memory.
     """
 
-    def __init__(self, user_manager, max_results):
+    def __init__(self, user_manager, max_results, load_batch):
         self._batch_iterator = _BatchIterator(user_manager, max_results)
+        self._load_batch = load_batch
         self._current_batch = []
         self._index = 0
 
     def next(self):
         if self._index == len(self._current_batch):
-            self._current_batch = next(self._batch_iterator)
+            self._current_batch = self._load_batch(self._batch_iterator)
             self._index = 0
         if self._index < len(self._current_batch):
             result = self._current_batch[self._index]
@@ -440,24 +441,6 @@ class _RawUserDataIterator(object):
     def __next__(self):
         return self.next()
 
-
-class UserIterable(object):
-    """An iterable that allows iterating over exported user lists.
-
-    This class wraps a ``RawUserDataIterator`` and applies the specified transform function over
-    it. This allows the caller to specify how to process user account data, and how to handle
-    errors.
-    """
-
-    def __init__(self, user_manager, max_results, transform):
-        self._iterator = _RawUserDataIterator(user_manager, max_results)
-        self._transform = transform
-
-    def next(self):
-        return self._transform(self._iterator)
-
     def __iter__(self):
+        """Makes it possible to use this in a foreach loop."""
         return self
-
-    def __next__(self):
-        return self.next()

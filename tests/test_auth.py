@@ -751,7 +751,7 @@ class TestListUsers(object):
             next(result)
         assert len(recorder) == 1
 
-    def test_list_users_iterable_state(self, user_mgt_app):
+    def test_list_users_iterator_state(self, user_mgt_app):
         response = {
             'users': [{'localId': 'user1'}, {'localId': 'user2'}, {'localId': 'user3'}]
         }
@@ -824,7 +824,7 @@ class TestListUsers(object):
         assert '{"error":"test"}' in str(excinfo.value)
 
     def _check_result(self, result):
-        assert isinstance(result, _user_mgt.UserIterable)
+        assert isinstance(result, _user_mgt.UserIterator)
         index = 0
         for user in result:
             assert isinstance(user, auth.ExportedUserRecord)

@@ -263,7 +263,7 @@ class UserManager(object):
         _Validator.validate_max_results(max_results)
         payload = {'maxResults': max_results}
         if page_token is not None:
-            if not isinstance(page_token, PageToken):
+            if not isinstance(page_token, _PageToken):
                 raise ValueError('Invalid page token argument.')
             payload['nextPageToken'] = page_token.token_str
         try:
@@ -375,7 +375,7 @@ class UserManager(object):
         return resp.json()
 
 
-class PageToken(object):
+class _PageToken(object):
     """Encapsulates a page token string returned by the download users API."""
 
     def __init__(self, token_str):
@@ -393,7 +393,7 @@ class PageToken(object):
         return self._token_str is None
 
 
-class BatchIterator(object):
+class _BatchIterator(object):
     """An iterator that pages through batches of user accounts."""
 
     def __init__(self, user_manager, max_results):
@@ -407,8 +407,57 @@ class BatchIterator(object):
             raise StopIteration
         data = self._user_manager.list_users(
             max_results=self._max_results, page_token=self._page_token)
-        self._page_token = PageToken(data.get('nextPageToken'))
+        self._page_token = _PageToken(data.get('nextPageToken'))
         return data.get('users', [])
+
+    def __next__(self):
+        return self.next()
+
+
+class _RawUserDataIterator(object):
+    """An iterable that allows iterating over user accounts, one at a time.
+
+    This implementation loads a batch of users into memory, and iterates on them. When the whole
+    batch has been traversed, it loads another batch. This class never keeps more than
+    ``max_results`` entries in memory.
+    """
+
+    def __init__(self, user_manager, max_results):
+        self._batch_iterator = _BatchIterator(user_manager, max_results)
+        self._current_batch = []
+        self._index = 0
+
+    def next(self):
+        if self._index == len(self._current_batch):
+            self._current_batch = next(self._batch_iterator)
+            self._index = 0
+        if self._index < len(self._current_batch):
+            result = self._current_batch[self._index]
+            self._index += 1
+            return result
+        raise StopIteration
+
+    def __next__(self):
+        return self.next()
+
+
+class UserIterable(object):
+    """An iterable that allows iterating over exported user lists.
+
+    This class wraps a ``RawUserDataIterator`` and applies the specified transform function over
+    it. This allows the caller to specify how to process user account data, and how to handle
+    errors.
+    """
+
+    def __init__(self, user_manager, max_results, transform):
+        self._iterator = _RawUserDataIterator(user_manager, max_results)
+        self._transform = transform
+
+    def next(self):
+        return self._transform(self._iterator)
+
+    def __iter__(self):
+        return self
 
     def __next__(self):
         return self.next()

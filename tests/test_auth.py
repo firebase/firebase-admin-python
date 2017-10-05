@@ -733,7 +733,6 @@ class TestListUsers(object):
         }
         _, recorder = _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
         result = auth.list_users(app=user_mgt_app)
-        assert isinstance(result, auth._UserIterable)
         assert len(recorder) is 0
 
         for index in range(3):
@@ -758,7 +757,6 @@ class TestListUsers(object):
         }
         _, recorder = _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
         result = auth.list_users(app=user_mgt_app)
-        assert isinstance(result, auth._UserIterable)
         assert len(recorder) is 0
 
         # Iterate through 2 results and break.
@@ -782,7 +780,6 @@ class TestListUsers(object):
         }
         _, recorder = _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
         result = auth.list_users(app=user_mgt_app)
-        assert isinstance(result, auth._UserIterable)
         users = [user for user in result]
         assert len(users) == 3
 
@@ -796,7 +793,6 @@ class TestListUsers(object):
         response = {'users': []}
         _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
         result = auth.list_users(app=user_mgt_app)
-        assert isinstance(result, auth._UserIterable)
         users = [user for user in result]
         assert len(users) is 0
 
@@ -828,7 +824,7 @@ class TestListUsers(object):
         assert '{"error":"test"}' in str(excinfo.value)
 
     def _check_result(self, result):
-        assert isinstance(result, auth._UserIterable)
+        assert isinstance(result, _user_mgt.UserIterable)
         index = 0
         for user in result:
             assert isinstance(user, auth.ExportedUserRecord)

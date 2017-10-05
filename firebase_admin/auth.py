@@ -170,8 +170,8 @@ def list_users(max_results=_user_mgt.MAX_LIST_USERS_RESULTS, app=None):
     Returns an iterable that can be used to iterate over the user accounts. The ``max_results``
     argument governs the maximum number of user accounts the SDK may keep in memory during
     iteration. It also controls the number of user accounts to be retrieved in a single
-    RPC call. The returned iterable transparently pages through batches of user accounts. No RPC
-    calls are made until the returned iterable is consumed.
+    RPC call. The returned iterable transparently pages through user accounts. No RPC calls are
+    made until the returned iterable is consumed.
 
     The iterable returned by this function is stateful. This means, if the client code stops
     iterating user accounts mid-way (e.g. using a break statement), and starts iterating again on
@@ -190,8 +190,13 @@ def list_users(max_results=_user_mgt.MAX_LIST_USERS_RESULTS, app=None):
     Raises:
         ValueError: If max_results or page_token are invalid.
     """
+    def _load_user_accounts(iterator):
+        try:
+            return ExportedUserRecord(next(iterator))
+        except _user_mgt.ApiCallError as error:
+            raise AuthError(error.code, str(error), error.detail)
     user_manager = _get_auth_service(app).user_manager
-    return _UserIterable(user_manager, max_results)
+    return _user_mgt.UserIterable(user_manager, max_results, _load_user_accounts)
 
 
 def create_user(**kwargs):
@@ -512,43 +517,6 @@ class ExportedUserRecord(UserRecord):
         be an empty string. If no password is set, this will be None.
         """
         return self._data.get('salt')
-
-
-class _UserIterable(object):
-    """An iterable that allows iterating over exported user lists.
-
-    This implementation loads a batch of users into memory, and iterates on them. When the whole
-    batch has been traversed, it loads another batch. This class never keeps more than
-    ``max_results`` entries in memory.
-    """
-
-    def __init__(self, user_manager, max_results):
-        self._batch_iterator = _user_mgt.BatchIterator(user_manager, max_results)
-        self._current_batch = []
-        self._index = 0
-
-    def _load_next_batch(self):
-        try:
-            batch = next(self._batch_iterator)
-            return [ExportedUserRecord(user) for user in batch]
-        except _user_mgt.ApiCallError as error:
-            raise AuthError(error.code, str(error), error.detail)
-
-    def next(self):
-        if self._index == len(self._current_batch):
-            self._current_batch = self._load_next_batch()
-            self._index = 0
-        if self._index < len(self._current_batch):
-            result = self._current_batch[self._index]
-            self._index += 1
-            return result
-        raise StopIteration
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        return self.next()
 
 
 class _ProviderUserInfo(UserInfo):

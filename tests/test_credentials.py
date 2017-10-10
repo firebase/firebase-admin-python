@@ -146,6 +146,18 @@ class TestRefreshToken(object):
         with pytest.raises(ValueError):
             credentials.RefreshToken(arg)
 
+    @pytest.mark.parametrize('key', ['client_id', 'client_secret', 'refresh_token'])
+    def test_required_field(self, key):
+        data = {
+            'client_id': 'value',
+            'client_secret': 'value',
+            'refresh_token': 'value',
+            'type': 'authorized_user'
+        }
+        del data[key]
+        with pytest.raises(ValueError):
+            credentials.RefreshToken(data)
+
     def _verify_credential(self, credential):
         assert credential.client_id == 'mock.apps.googleusercontent.com'
         assert credential.client_secret == 'mock-secret'

@@ -22,7 +22,6 @@ module uses the Firebase REST API underneath.
 
 import collections
 import json
-import numbers
 import sys
 
 import requests
@@ -361,15 +360,6 @@ class Reference(object):
     def _add_suffix(self, suffix='.json'):
         return self._pathurl + suffix
 
-    @classmethod
-    def _check_priority(cls, priority):
-        if isinstance(priority, six.string_types) and priority.isalnum():
-            return
-        if isinstance(priority, numbers.Number):
-            return
-        raise ValueError('Illegal priority value: "{0}". Priority values must be numeric or '
-                         'alphanumeric.'.format(priority))
-
 
 class Query(object):
     """Represents a complex query that can be executed on a Reference.
@@ -528,6 +518,7 @@ class ApiCallError(Exception):
     def __init__(self, message, error):
         Exception.__init__(self, message)
         self.detail = error
+
 
 class TransactionError(Exception):
     """Represents an Exception encountered while performing a transaction."""

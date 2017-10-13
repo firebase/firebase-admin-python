@@ -207,3 +207,13 @@ class TestFirebaseApp(object):
         firebase_admin.delete_app(init_app)
         with pytest.raises(ValueError):
             _utils.get_app_service(init_app, 'test.service', AppService)
+
+    @pytest.mark.parametrize('arg', [0, 1, True, False, 'str', list(), dict(), tuple()])
+    def test_app_services_invalid_arg(self, arg):
+        with pytest.raises(ValueError):
+            _utils.get_app_service(arg, 'test.service', AppService)
+
+    def test_app_services_invalid_app(self, init_app):
+        app = firebase_admin.App(init_app.name, init_app.credential, {})
+        with pytest.raises(ValueError):
+            _utils.get_app_service(app, 'test.service', AppService)

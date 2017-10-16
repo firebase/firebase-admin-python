@@ -39,6 +39,10 @@ install_requires = [
     'six>=1.6.1'
 ]
 
+extras_require = {
+    ':python_version<"3.4"': ('enum34>=1.0.4',),
+}
+
 version = firebase_admin.__version__
 
 setup(
@@ -50,6 +54,7 @@ setup(
     author='Firebase',
     license='Apache License 2.0',
     keywords='firebase cloud development',
+    extras_require=extras_require,
     install_requires=install_requires,
     packages=find_packages(exclude=['tests']),
     classifiers=[

@@ -64,14 +64,10 @@ class _StorageClient(object):
     @classmethod
     def from_app(cls, app):
         credentials = app.credential.get_credential()
+        default_bucket = app.options.get('storageBucket')
         # Specifying project ID is not required, but providing it when available
         # significantly speeds up the initialization of the storage client.
-        try:
-            project = app.credential.project_id
-        except AttributeError:
-            project = None
-        default_bucket = app.options.get('storageBucket')
-        return _StorageClient(credentials, project, default_bucket)
+        return _StorageClient(credentials, app.project_id, default_bucket)
 
     def bucket(self, name=None):
         """Returns a handle to the specified Cloud Storage Bucket."""

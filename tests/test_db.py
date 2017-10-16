@@ -730,6 +730,11 @@ class TestQuery(object):
         expected = 'endAt=3&equalTo=2&limitToFirst=10&orderBy="{0}"&startAt=1'.format(order_by)
         assert query._querystr == expected
 
+    def test_invalid_query_args(self):
+        ref = db.Reference(path='foo')
+        with pytest.raises(ValueError):
+            db.Query(order_by='$key', client=ref._client, pathurl=ref._add_suffix(), foo='bar')
+
 
 class TestSorter(object):
     """Test cases for db._Sorter class."""
@@ -740,6 +745,7 @@ class TestSorter(object):
         ({'k1' : 3, 'k2' : 1, 'k3' : 2}, ['k2', 'k3', 'k1']),
         ({'k1' : 3, 'k2' : 1, 'k3' : 1}, ['k2', 'k3', 'k1']),
         ({'k1' : 1, 'k2' : 2, 'k3' : 1}, ['k1', 'k3', 'k2']),
+        ({'k1' : 2, 'k2' : 2, 'k3' : 1}, ['k3', 'k1', 'k2']),
         ({'k1' : 'foo', 'k2' : 'bar', 'k3' : 'baz'}, ['k2', 'k3', 'k1']),
         ({'k1' : 'foo', 'k2' : 'bar', 'k3' : 10}, ['k3', 'k2', 'k1']),
         ({'k1' : 'foo', 'k2' : 'bar', 'k3' : None}, ['k3', 'k2', 'k1']),
@@ -758,6 +764,8 @@ class TestSorter(object):
         ([1, 2, 3], [1, 2, 3]),
         ([3, 2, 1], [1, 2, 3]),
         ([1, 3, 2], [1, 2, 3]),
+        ([1, 3, 3], [1, 3, 3]),
+        ([2, 3, 2], [2, 2, 3]),
         (['foo', 'bar', 'baz'], ['bar', 'baz', 'foo']),
         (['foo', 1, False, None, 0, True], [None, False, True, 0, 1, 'foo']),
     ]

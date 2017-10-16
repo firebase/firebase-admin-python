@@ -182,7 +182,8 @@ class TestCreateCustomToken(object):
         'StrClaims': (MOCK_UID, 'foo', ValueError),
         'ListClaims': (MOCK_UID, [], ValueError),
         'TupleClaims': (MOCK_UID, (1, 2), ValueError),
-        'ReservedClaims': (MOCK_UID, {'sub':'1234'}, ValueError),
+        'SingleReservedClaim': (MOCK_UID, {'sub':'1234'}, ValueError),
+        'MultipleReservedClaims': (MOCK_UID, {'sub':'1234', 'aud':'foo'}, ValueError),
     }
 
     @pytest.mark.parametrize('user,claims', valid_args.values(),

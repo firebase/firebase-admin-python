@@ -182,7 +182,7 @@ class RefreshToken(Base):
             refresh_token = json_data['refresh_token']
         except KeyError as error:
             raise ValueError('Failed to initialize a refresh token credential. '
-                             'Caused by: "{0}"'.format(error))
+                             'Missing key: {0}'.format(error))
         self._g_credential = credentials.Credentials(
             token=None, refresh_token=refresh_token,
             token_uri='https://accounts.google.com/o/oauth2/token',

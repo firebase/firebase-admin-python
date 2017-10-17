@@ -140,14 +140,15 @@ class Reference(object):
         Raises:
           ApiCallError: If an error occurs while communicating with the remote database server.
         """
+        params = {'shallow': shallow} if shallow else None
         if etag:
             headers, data = self._client.headers_and_body(
                 'get', self._add_suffix(), headers={'X-Firebase-ETag' : 'true'},
-                params={'shallow': shallow})
+                params=params)
             return data, headers.get('ETag')
         else:
             return self._client.body('get', self._add_suffix(),
-                params={'shallow': shallow})
+                params=params)
 
     def get_if_changed(self, etag):
         """Gets data in this location only if the specified ETag does not match.

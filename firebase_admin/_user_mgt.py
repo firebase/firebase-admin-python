@@ -158,15 +158,6 @@ class _Validator(object):
                 raise ValueError(
                     'Claim "{0}" is reserved, and must not be set.'.format(invalid_claims.pop()))
 
-    @classmethod
-    def validate_max_results(cls, max_results):
-        if not isinstance(max_results, int):
-            raise ValueError('Max results must be an integer.')
-        elif max_results < 1 or max_results > MAX_LIST_USERS_RESULTS:
-            raise ValueError(
-                'Max results must be a positive non-zero integer less than '
-                '{0}.'.format(MAX_LIST_USERS_RESULTS))
-
 
 class ApiCallError(Exception):
     """Represents an Exception encountered while invoking the Firebase user management API."""
@@ -258,14 +249,21 @@ class UserManager(object):
                     'No user record found for the provided {0}: {1}.'.format(key_type, key))
             return response['users'][0]
 
-    def list_users(self, max_results=MAX_LIST_USERS_RESULTS, page_token=None):
+    def list_users(self, page_token=None, max_results=MAX_LIST_USERS_RESULTS):
         """Retrieves a batch of users."""
-        _Validator.validate_max_results(max_results)
-        payload = {'maxResults': max_results}
         if page_token is not None:
-            if not isinstance(page_token, _PageToken):
-                raise ValueError('Invalid page token argument.')
-            payload['nextPageToken'] = page_token.token_str
+            if not isinstance(page_token, six.string_types) or not page_token:
+                raise ValueError('Page token must be a non-empty string.')
+        if not isinstance(max_results, int):
+            raise ValueError('Max results must be an integer.')
+        elif max_results < 1 or max_results > MAX_LIST_USERS_RESULTS:
+            raise ValueError(
+                'Max results must be a positive non-zero integer less than '
+                '{0}.'.format(MAX_LIST_USERS_RESULTS))
+
+        payload = {'maxResults': max_results}
+        if page_token:
+            payload['nextPageToken'] = page_token
         try:
             return self._request('post', 'downloadAccount', json=payload)
         except requests.exceptions.RequestException as error:
@@ -375,65 +373,27 @@ class UserManager(object):
         return resp.json()
 
 
-class _PageToken(object):
-    """Encapsulates a page token string returned by the download users API."""
-
-    def __init__(self, token_str):
-        if token_str is not None:
-            if not token_str or not isinstance(token_str, six.string_types):
-                raise ValueError('Page token must be a non-empty string.')
-        self._token_str = token_str
-
-    @property
-    def token_str(self):
-        return self._token_str
-
-    @property
-    def end_of_list(self):
-        return self._token_str is None
-
-
-class _BatchIterator(object):
-    """An iterator that pages through batches of user accounts."""
-
-    def __init__(self, user_manager, max_results):
-        _Validator.validate_max_results(max_results)
-        self._user_manager = user_manager
-        self._max_results = max_results
-        self._page_token = None
-
-    def next(self):
-        if self._page_token is not None and self._page_token.end_of_list:
-            raise StopIteration
-        data = self._user_manager.list_users(
-            max_results=self._max_results, page_token=self._page_token)
-        self._page_token = _PageToken(data.get('nextPageToken'))
-        return data.get('users', [])
-
-    def __next__(self):
-        return self.next()
-
-
 class UserIterator(object):
     """An iterator that allows iterating over user accounts, one at a time.
 
-    This implementation loads a batch of users into memory, and iterates on them. When the whole
-    batch has been traversed, it loads another batch. This class never keeps more than
-    ``max_results`` entries in memory.
+    This implementation loads a page of users into memory, and iterates on them. When the whole
+    page has been traversed, it loads another page. This class never keeps more than one page
+    of entries in memory.
     """
 
-    def __init__(self, user_manager, max_results, load_batch):
-        self._batch_iterator = _BatchIterator(user_manager, max_results)
-        self._load_batch = load_batch
-        self._current_batch = []
+    def __init__(self, current_page):
+        if not current_page:
+            raise ValueError('Current page must not be None.')
+        self._current_page = current_page
         self._index = 0
 
     def next(self):
-        if self._index == len(self._current_batch):
-            self._current_batch = self._load_batch(self._batch_iterator)
-            self._index = 0
-        if self._index < len(self._current_batch):
-            result = self._current_batch[self._index]
+        if self._index == len(self._current_page.users):
+            if self._current_page.has_next_page:
+                self._current_page = self._current_page.get_next_page()
+                self._index = 0
+        if self._index < len(self._current_page.users):
+            result = self._current_page.users[self._index]
             self._index += 1
             return result
         raise StopIteration
@@ -442,5 +402,4 @@ class UserIterator(object):
         return self.next()
 
     def __iter__(self):
-        """Makes it possible to use this in a foreach loop."""
         return self

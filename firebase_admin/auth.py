@@ -164,36 +164,35 @@ def get_user_by_phone_number(phone_number, app=None):
     except _user_mgt.ApiCallError as error:
         raise AuthError(error.code, str(error), error.detail)
 
-def list_users(max_results=_user_mgt.MAX_LIST_USERS_RESULTS, app=None):
-    """Lists all users in a Firebase project.
+def list_users(page_token=None, max_results=_user_mgt.MAX_LIST_USERS_RESULTS, app=None):
+    """Retrieves a page of user accounts from a Firebase project.
 
-    Returns an iterator that can be used to iterate over the user accounts. The ``max_results``
-    argument governs the maximum number of user accounts the SDK may keep in memory during
-    iteration. It also controls the number of user accounts to be retrieved in a single
-    RPC call. The returned iterator transparently pages through user accounts. No RPC calls are
-    made until the returned iterator is consumed. In case of an RPC error the iteration fails by
-    raising an ``AuthError``.
+    The ``page_token`` argument governs the starting point of the page. The ``max_results``
+    argument governs the maximum number of user accounts that may be included in the returned page.
+    This function never returns None. If there are no user accounts in the Firebase project, this
+    returns an empty page.
 
     Args:
-        max_results: A positive integer indicating the maximum number of users to buffer during
-            iteration (optional). Defaults to 1000, which is also the maximum number allowed.
+        page_token: A non-empty page token string, which indicates the starting point of the page
+            (optional). Defaults to ``None``, which will retrieve the first page of users.
+        max_results: A positive integer indicating the maximum number of users to include in the
+            returned page (optional). Defaults to 1000, which is also the maximum number allowed.
         app: An App instance (optional).
 
     Returns:
-        iterator: An iterator of ``ExportedUserRecord`` instances. This can be used directly as the
-            target of a foreach loop.
+        ListUsersPage: A ListUsersPage instance.
 
     Raises:
         ValueError: If max_results or page_token are invalid.
+        AuthError: If an error occurs while retrieving the user accounts.
     """
-    def _load_batch(iterator):
+    user_manager = _get_auth_service(app).user_manager
+    def download(page_token, max_results):
         try:
-            batch = next(iterator)
-            return [ExportedUserRecord(user) for user in batch]
+            return user_manager.list_users(page_token, max_results)
         except _user_mgt.ApiCallError as error:
             raise AuthError(error.code, str(error), error.detail)
-    user_manager = _get_auth_service(app).user_manager
-    return _user_mgt.UserIterator(user_manager, max_results, _load_batch)
+    return ListUsersPage(download, page_token, max_results)
 
 
 def create_user(**kwargs):
@@ -514,6 +513,57 @@ class ExportedUserRecord(UserRecord):
         be an empty string. If no password is set, this will be None.
         """
         return self._data.get('salt')
+
+
+class ListUsersPage(object):
+    """Represents a page of user records exported from a Firebase project.
+
+    Provides methods for traversing the user accounts included in this page, as well as retrieving
+    subsequent pages of users. The iterator returned by ``iterate_all()`` can be used to iterate
+    through all users in the Firebase project starting from this page.
+    """
+
+    def __init__(self, download, page_token, max_results):
+        self._download = download
+        self._max_results = max_results
+        self._current = download(page_token, max_results)
+
+    @property
+    def users(self):
+        """A list of ``ExportedUserRecord`` instances available in this page."""
+        return [ExportedUserRecord(user) for user in self._current.get('users', [])]
+
+    @property
+    def next_page_token(self):
+        """Page token string for the next page (empty string indicates no more pages)."""
+        return self._current.get('nextPageToken', '')
+
+    @property
+    def has_next_page(self):
+        """A boolean indicating whether more pages are available."""
+        return bool(self.next_page_token)
+
+    def get_next_page(self):
+        """Retrieves the next page of user accounts, if available.
+
+        Returns:
+            ListUsersPage: Next page of users, or None if this is the last page.
+        """
+        if self.has_next_page:
+            return ListUsersPage(self._download, self.next_page_token, self._max_results)
+        return None
+
+    def iterate_all(self):
+        """Retrieves an iterator for user accounts.
+
+        Returned iterator will iterate through all the user accounts in the Firebase project
+        starting from this page. The iterator will never buffer more than one page of users
+        in memory at a time.
+
+        Returns:
+            iterator: An iterator of ExportedUserRecord instances.
+        """
+        return _user_mgt.UserIterator(self)
 
 
 class _ProviderUserInfo(UserInfo):

@@ -130,7 +130,20 @@ def test_get_user(new_user_with_params):
 def test_list_users(new_user_list):
     fetched = []
     # Test exporting all user accounts.
-    for user in auth.list_users():
+    page = auth.list_users()
+    while page:
+        for user in page.users:
+            assert isinstance(user, auth.ExportedUserRecord)
+            if user.uid in new_user_list:
+                fetched.append(user.uid)
+                assert user.password_hash is not None
+                assert user.password_salt is not None
+        page = page.get_next_page()
+    assert len(fetched) == len(new_user_list)
+
+    fetched = []
+    page = auth.list_users()
+    for user in page.iterate_all():
         assert isinstance(user, auth.ExportedUserRecord)
         if user.uid in new_user_list:
             fetched.append(user.uid)

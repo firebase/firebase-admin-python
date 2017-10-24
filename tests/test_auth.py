@@ -718,60 +718,87 @@ class TestListUsers(object):
         with pytest.raises(ValueError):
             auth.list_users(max_results=arg)
 
-    def test_list_users(self, user_mgt_app):
+    def test_list_single_page(self, user_mgt_app):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_LIST_USERS_RESPONSE)
-        result = auth.list_users(app=user_mgt_app)
-        assert len(recorder) is 0
-        self._check_result(result)
+        page = auth.list_users(app=user_mgt_app)
+        self._check_page(page)
+        assert page.next_page_token == ''
+        assert page.has_next_page is False
+        assert page.get_next_page() is None
+        users = [user for user in page.iterate_all()]
+        assert len(users) == 2
         self._check_rpc_calls(recorder)
 
-    def test_list_users_paged_response(self, user_mgt_app):
+    def test_list_multiple_pages(self, user_mgt_app):
         # Page 1
         response = {
             'users': [{'localId': 'user1'}, {'localId': 'user2'}, {'localId': 'user3'}],
             'nextPageToken': 'token'
         }
         _, recorder = _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
-        result = auth.list_users(app=user_mgt_app)
-        assert len(recorder) is 0
-
-        for index in range(3):
-            user = next(result)
-            assert user.uid == 'user{0}'.format(index+1)
+        page = auth.list_users(app=user_mgt_app)
+        assert len(page.users) == 3
+        assert page.next_page_token == 'token'
+        assert page.has_next_page is True
         self._check_rpc_calls(recorder)
 
         # Page 2 (also the last page)
         response = {'users': [{'localId': 'user4'}]}
         _, recorder = _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
-        user = next(result)
-        assert user.uid == 'user4'
+        page = page.get_next_page()
+        assert len(page.users) == 1
+        assert page.next_page_token == ''
+        assert page.has_next_page is False
+        assert page.get_next_page() is None
         self._check_rpc_calls(recorder, {'maxResults': 1000, 'nextPageToken': 'token'})
 
-        with pytest.raises(StopIteration):
-            next(result)
+    def test_list_users_paged_iteration(self, user_mgt_app):
+        # Page 1
+        response = {
+            'users': [{'localId': 'user1'}, {'localId': 'user2'}, {'localId': 'user3'}],
+            'nextPageToken': 'token'
+        }
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
+        page = auth.list_users(app=user_mgt_app)
+        assert page.next_page_token == 'token'
+        assert page.has_next_page is True
+        iterator = page.iterate_all()
+        for index in range(3):
+            user = next(iterator)
+            assert user.uid == 'user{0}'.format(index+1)
         assert len(recorder) == 1
+        self._check_rpc_calls(recorder)
+
+        # Page 2 (also the last page)
+        response = {'users': [{'localId': 'user4'}]}
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
+        user = next(iterator)
+        assert user.uid == 'user4'
+        with pytest.raises(StopIteration):
+            next(iterator)
+        self._check_rpc_calls(recorder, {'maxResults': 1000, 'nextPageToken': 'token'})
 
     def test_list_users_iterator_state(self, user_mgt_app):
         response = {
             'users': [{'localId': 'user1'}, {'localId': 'user2'}, {'localId': 'user3'}]
         }
         _, recorder = _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
-        result = auth.list_users(app=user_mgt_app)
-        assert len(recorder) is 0
+        page = auth.list_users(app=user_mgt_app)
 
         # Iterate through 2 results and break.
         index = 0
-        for user in result:
+        iterator = page.iterate_all()
+        for user in iterator:
             index += 1
             assert user.uid == 'user{0}'.format(index)
             if index == 2:
                 break
 
         # Iterator should resume from where left off.
-        user = next(result)
+        user = next(iterator)
         assert user.uid == 'user3'
         with pytest.raises(StopIteration):
-            next(result)
+            next(iterator)
         self._check_rpc_calls(recorder)
 
     def test_list_users_stop_iteration(self, user_mgt_app):
@@ -779,60 +806,54 @@ class TestListUsers(object):
             'users': [{'localId': 'user1'}, {'localId': 'user2'}, {'localId': 'user3'}]
         }
         _, recorder = _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
-        result = auth.list_users(app=user_mgt_app)
-        users = [user for user in result]
-        assert len(users) == 3
+        page = auth.list_users(app=user_mgt_app)
+        assert len(page.users) == 3
 
+        iterator = page.iterate_all()
+        users = [user for user in iterator]
+        assert len(page.users) == 3
         with pytest.raises(StopIteration):
-            next(result)
-        users = [user for user in result]
-        assert users == []
+            next(iterator)
+        assert len(users) == 3
         self._check_rpc_calls(recorder)
 
     def test_list_users_no_users_response(self, user_mgt_app):
         response = {'users': []}
         _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
-        result = auth.list_users(app=user_mgt_app)
-        users = [user for user in result]
+        page = auth.list_users(app=user_mgt_app)
+        assert len(page.users) is 0
+        users = [user for user in page.iterate_all()]
         assert len(users) is 0
 
     def test_list_users_with_max_results(self, user_mgt_app):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_LIST_USERS_RESPONSE)
-        result = auth.list_users(max_results=500, app=user_mgt_app)
-        self._check_result(result)
+        page = auth.list_users(max_results=500, app=user_mgt_app)
+        self._check_page(page)
         self._check_rpc_calls(recorder, {'maxResults' : 500})
 
     def test_list_users_with_all_args(self, user_mgt_app):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_LIST_USERS_RESPONSE)
-        result = auth.list_users(max_results=500, app=user_mgt_app)
-        self._check_result(result)
-        self._check_rpc_calls(recorder, {'maxResults' : 500})
+        page = auth.list_users(page_token='foo', max_results=500, app=user_mgt_app)
+        self._check_page(page)
+        self._check_rpc_calls(recorder, {'nextPageToken' : 'foo', 'maxResults' : 500})
 
     def test_list_users_error(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
-        result = auth.list_users(app=user_mgt_app)
         with pytest.raises(auth.AuthError) as excinfo:
-            next(result)
+            auth.list_users(app=user_mgt_app)
         assert excinfo.value.code == _user_mgt.USER_DOWNLOAD_ERROR
         assert '{"error":"test"}' in str(excinfo.value)
 
-        result = auth.list_users(app=user_mgt_app)
-        with pytest.raises(auth.AuthError) as excinfo:
-            for _ in result:
-                pass
-        assert excinfo.value.code == _user_mgt.USER_DOWNLOAD_ERROR
-        assert '{"error":"test"}' in str(excinfo.value)
-
-    def _check_result(self, result):
-        assert isinstance(result, _user_mgt.UserIterator)
+    def _check_page(self, page):
+        assert isinstance(page, auth.ListUsersPage)
         index = 0
-        for user in result:
+        assert len(page.users) == 2
+        for user in page.users:
             assert isinstance(user, auth.ExportedUserRecord)
             _check_user_record(user, 'testuser{0}'.format(index))
             assert user.password_hash == 'passwordHash'
             assert user.password_salt == 'passwordSalt'
             index += 1
-        assert index == 2
 
     def _check_rpc_calls(self, recorder, expected=None):
         if expected is None:

@@ -223,10 +223,6 @@ tox
 This command will read the list of target environments from `tox.ini`, and execute tests in each of
 those environments. It will also generate a code coverage report at the end of the execution.
 
-```
-pyenv local 2.7.6 3.3.0 pypy2-5.6.0
-```
-
 ### Repo Organization
 
 Here are some highlights of the directory structure and notable source files
@@ -235,6 +231,7 @@ Here are some highlights of the directory structure and notable source files
 * `integration/` - Integration tests.
 * `tests/` - Unit tests.
   * `data/` - Provides mocks for several variables as well as mock service account keys.
+* `scripts/` - A collection of shell scripts used to create and verify releases.
 * `.github/` - Contribution instructions as well as issue and pull request templates.
 * `lint.sh` - Runs pylint to check for code quality.
 * `.pylintrc` - Default configuration for pylint.

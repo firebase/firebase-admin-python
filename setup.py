@@ -33,10 +33,15 @@ long_description = ('The Firebase Admin Python SDK enables server-side (backend)
                     'to integrate Firebase into their services and applications.')
 install_requires = [
     'google-auth>=1.1.0',
-    'google-cloud-storage>=1.2.0',
+    'google-cloud-firestore>=0.27.0',
+    'google-cloud-storage>=1.2.0',    
     'requests>=2.13.0',
     'six>=1.6.1'
 ]
+
+extras_require = {
+    ':python_version<"3.4"': ('enum34>=1.0.4',),
+}
 
 version = firebase_admin.__version__
 
@@ -49,6 +54,7 @@ setup(
     author='Firebase',
     license='Apache License 2.0',
     keywords='firebase cloud development',
+    extras_require=extras_require,
     install_requires=install_requires,
     packages=find_packages(exclude=['tests']),
     classifiers=[

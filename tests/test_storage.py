@@ -43,3 +43,10 @@ def test_valid_name():
     bucket = storage.bucket('foo')
     assert bucket is not None
     assert bucket.name == 'foo'
+
+def test_valid_name_with_explicit_app():
+    # Should not make RPC calls.
+    app = firebase_admin.get_app()
+    bucket = storage.bucket('foo', app=app)
+    assert bucket is not None
+    assert bucket.name == 'foo'

@@ -43,11 +43,14 @@ def client(app=None):
       app: An App instance (optional).
 
     Returns:
-      google.cloud.firestore.Firestore: A Firestore database client.
+      google.cloud.firestore.Firestore: A `Firestore Client`_.
 
     Raises:
       ValueError: If a project ID is not specified either via options, credentials or
           environment variables, or if the specified project ID is not a valid string.
+
+    .. _Firestore Client: https://googlecloudplatform.github.io/google-cloud-python/latest\
+          /firestore/client.html
     """
     fs_client = _utils.get_app_service(app, _FIRESTORE_ATTRIBUTE, _FirestoreClient.from_app)
     return fs_client.get()

@@ -483,7 +483,8 @@ class Query(object):
         Raises:
           ValueError: If the value is empty or None.
         """
-        if not value:
+        if value is None or not str(value).strip():
+        # if not value:
             raise ValueError('Equal to value must not be empty or None.')
         self._params['equalTo'] = json.dumps(value)
         return self

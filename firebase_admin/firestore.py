@@ -15,7 +15,7 @@
 """Cloud Firestore module.
 
 This module contains utilities for accessing the Google Cloud Firestore databases associated with
-Firebase apps. This requires the google-cloud-firestore Python module.
+Firebase apps. This requires the ``google-cloud-firestore`` Python module.
 """
 
 try:

@@ -444,7 +444,7 @@ class Query(object):
         Raises:
           ValueError: If the value is empty or None.
         """
-        if not start:
+        if start is None or not str(start).strip():
             raise ValueError('Start value must not be empty or None.')
         self._params['startAt'] = json.dumps(start)
         return self
@@ -464,7 +464,7 @@ class Query(object):
         Raises:
           ValueError: If the value is empty or None.
         """
-        if not end:
+        if end is None or not str(end).strip():
             raise ValueError('End value must not be empty or None.')
         self._params['endAt'] = json.dumps(end)
         return self
@@ -483,7 +483,7 @@ class Query(object):
         Raises:
           ValueError: If the value is empty or None.
         """
-        if not value:
+        if value is None or not str(value).strip():
             raise ValueError('Equal to value must not be empty or None.')
         self._params['equalTo'] = json.dumps(value)
         return self

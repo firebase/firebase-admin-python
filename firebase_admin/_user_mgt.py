@@ -258,7 +258,7 @@ class UserManager(object):
             raise ValueError('Max results must be an integer.')
         elif max_results < 1 or max_results > MAX_LIST_USERS_RESULTS:
             raise ValueError(
-                'Max results must be a positive non-zero integer less than '
+                'Max results must be a positive integer less than '
                 '{0}.'.format(MAX_LIST_USERS_RESULTS))
 
         payload = {'maxResults': max_results}

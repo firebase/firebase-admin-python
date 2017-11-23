@@ -694,15 +694,30 @@ class TestQuery(object):
         with pytest.raises(ValueError):
             query.start_at(None)
 
+    @pytest.mark.parametrize('arg', ['', 'foo', True, False, 0, 1, dict()])
+    def test_valid_start_at(self, arg):
+        query = self.ref.order_by_child('foo').start_at(arg)
+        assert query._querystr == 'orderBy="foo"&startAt={0}'.format(json.dumps(arg))
+
     def test_end_at_none(self):
         query = self.ref.order_by_child('foo')
         with pytest.raises(ValueError):
             query.end_at(None)
 
+    @pytest.mark.parametrize('arg', ['', 'foo', True, False, 0, 1, dict()])
+    def test_valid_end_at(self, arg):
+        query = self.ref.order_by_child('foo').end_at(arg)
+        assert query._querystr == 'endAt={0}&orderBy="foo"'.format(json.dumps(arg))
+
     def test_equal_to_none(self):
         query = self.ref.order_by_child('foo')
         with pytest.raises(ValueError):
             query.equal_to(None)
+
+    @pytest.mark.parametrize('arg', ['', 'foo', True, False, 0, 1, dict()])
+    def test_valid_equal_to(self, arg):
+        query = self.ref.order_by_child('foo').equal_to(arg)
+        assert query._querystr == 'equalTo={0}&orderBy="foo"'.format(json.dumps(arg))
 
     def test_range_query(self, initquery):
         query, order_by = initquery

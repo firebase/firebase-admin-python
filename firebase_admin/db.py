@@ -442,7 +442,7 @@ class Query(object):
           Query: The updated Query instance.
 
         Raises:
-          ValueError: If the value is empty or None.
+          ValueError: If the value is None.
         """
         if start is None:
             raise ValueError('Start value must not be None.')
@@ -462,7 +462,7 @@ class Query(object):
           Query: The updated Query instance.
 
         Raises:
-          ValueError: If the value is empty or None.
+          ValueError: If the value is None.
         """
         if end is None:
             raise ValueError('End value must not be None.')
@@ -481,7 +481,7 @@ class Query(object):
           Query: The updated Query instance.
 
         Raises:
-          ValueError: If the value is empty or None.
+          ValueError: If the value is None.
         """
         if value is None:
             raise ValueError('Equal to value must not be None.')

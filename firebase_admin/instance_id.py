@@ -81,4 +81,17 @@ class _InstanceIdService(object):
         try:
             self._client.request('delete', path)
         except requests.exceptions.RequestException as error:
-            raise ApiCallError('Error while invoking the instance ID service', error)
+            raise ApiCallError(self._extract_message(error), error)
+
+    def _extract_message(self, error):
+        if error.response is None:
+            return str(error)
+        status = error.response.status_code
+        if status == 404:
+            return 'Failed to find the specified instance ID'
+        elif status == 429:
+            return 'Request throttled out by the backend server'
+        elif status == 500:
+            return 'Internal server error'
+        else:
+            return str(error)

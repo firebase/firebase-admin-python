@@ -23,6 +23,12 @@ from firebase_admin import instance_id
 from tests import testutils
 
 
+http_errors = {
+    404: 'Failed to find the specified instance ID',
+    429: 'Request throttled out by the backend server',
+    500: 'Internal server error',
+}
+
 class TestDeleteInstanceId(object):
 
     def teardown_method(self):
@@ -70,15 +76,32 @@ class TestDeleteInstanceId(object):
         assert recorder[0].method == 'DELETE'
         assert recorder[0].url == self._get_url('explicit-project-id', 'test_iid')
 
-    def test_delete_instance_id_error(self):
+    @pytest.mark.parametrize('status', http_errors.keys())
+    def test_delete_instance_id_error(self, status):
         cred = testutils.MockCredential()
         app = firebase_admin.initialize_app(cred, {'projectId': 'explicit-project-id'})
-        _, recorder = self._instrument_iid_service(app, 500, 'some error')
-        with pytest.raises(instance_id.ApiCallError):
+        _, recorder = self._instrument_iid_service(app, status, 'some error')
+        with pytest.raises(instance_id.ApiCallError) as excinfo:
             instance_id.delete_instance_id('test_iid')
+        assert str(excinfo.value) == http_errors.get(status)
+        assert excinfo.value.detail is not None
         assert len(recorder) == 1
         assert recorder[0].method == 'DELETE'
         assert recorder[0].url == self._get_url('explicit-project-id', 'test_iid')
+
+    def test_delete_instance_id_unexpected_error(self):
+        cred = testutils.MockCredential()
+        app = firebase_admin.initialize_app(cred, {'projectId': 'explicit-project-id'})
+        _, recorder = self._instrument_iid_service(app, 501, 'some error')
+        with pytest.raises(instance_id.ApiCallError) as excinfo:
+            instance_id.delete_instance_id('test_iid')
+        url = self._get_url('explicit-project-id', 'test_iid')
+        message = '501 Server Error: None for url: {0}'.format(url)
+        assert str(excinfo.value) == message
+        assert excinfo.value.detail is not None
+        assert len(recorder) == 1
+        assert recorder[0].method == 'DELETE'
+        assert recorder[0].url == url
 
     @pytest.mark.parametrize('iid', [None, '', 0, 1, True, False, list(), dict(), tuple()])
     def test_invalid_instance_id(self, iid):

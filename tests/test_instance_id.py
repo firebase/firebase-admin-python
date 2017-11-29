@@ -24,7 +24,7 @@ from tests import testutils
 
 
 http_errors = {
-    404: 'Failed to find the specified instance ID',
+    404: 'Failed to find the instance ID: test_iid',
     429: 'Request throttled out by the backend server',
     500: 'Internal server error',
 }

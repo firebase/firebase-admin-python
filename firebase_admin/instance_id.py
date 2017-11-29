@@ -81,14 +81,14 @@ class _InstanceIdService(object):
         try:
             self._client.request('delete', path)
         except requests.exceptions.RequestException as error:
-            raise ApiCallError(self._extract_message(error), error)
+            raise ApiCallError(self._extract_message(instance_id, error), error)
 
-    def _extract_message(self, error):
+    def _extract_message(self, instance_id, error):
         if error.response is None:
             return str(error)
         status = error.response.status_code
         if status == 404:
-            return 'Failed to find the specified instance ID'
+            return 'Failed to find the instance ID: {0}'.format(instance_id)
         elif status == 429:
             return 'Request throttled out by the backend server'
         elif status == 500:

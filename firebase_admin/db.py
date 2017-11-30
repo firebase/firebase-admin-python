@@ -442,10 +442,10 @@ class Query(object):
           Query: The updated Query instance.
 
         Raises:
-          ValueError: If the value is empty or None.
+          ValueError: If the value is None.
         """
-        if not start:
-            raise ValueError('Start value must not be empty or None.')
+        if start is None:
+            raise ValueError('Start value must not be None.')
         self._params['startAt'] = json.dumps(start)
         return self
 
@@ -462,10 +462,10 @@ class Query(object):
           Query: The updated Query instance.
 
         Raises:
-          ValueError: If the value is empty or None.
+          ValueError: If the value is None.
         """
-        if not end:
-            raise ValueError('End value must not be empty or None.')
+        if end is None:
+            raise ValueError('End value must not be None.')
         self._params['endAt'] = json.dumps(end)
         return self
 
@@ -481,10 +481,10 @@ class Query(object):
           Query: The updated Query instance.
 
         Raises:
-          ValueError: If the value is empty or None.
+          ValueError: If the value is None.
         """
-        if not value:
-            raise ValueError('Equal to value must not be empty or None.')
+        if value is None:
+            raise ValueError('Equal to value must not be None.')
         self._params['equalTo'] = json.dumps(value)
         return self
 

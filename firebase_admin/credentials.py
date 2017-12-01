@@ -88,7 +88,6 @@ class Certificate(Base):
         if json_data.get('type') != self._CREDENTIAL_TYPE:
             raise ValueError('Invalid service account certificate. Certificate must contain a '
                              '"type" field set to "{0}".'.format(self._CREDENTIAL_TYPE))
-        self._project_id = json_data.get('project_id')
         try:
             self._g_credential = service_account.Credentials.from_service_account_info(
                 json_data, scopes=_scopes)
@@ -98,7 +97,7 @@ class Certificate(Base):
 
     @property
     def project_id(self):
-        return self._project_id
+        return self._g_credential.project_id
 
     @property
     def signer(self):

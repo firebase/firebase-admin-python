@@ -97,6 +97,17 @@ def new_user_with_params():
     yield user
     auth.delete_user(user.uid)
 
+@pytest.fixture
+def new_user_list():
+    users = [
+        auth.create_user(password='password').uid,
+        auth.create_user(password='password').uid,
+        auth.create_user(password='password').uid,
+    ]
+    yield users
+    for uid in users:
+        auth.delete_user(uid)
+
 def test_get_user(new_user_with_params):
     user = auth.get_user(new_user_with_params.uid)
     assert user.uid == new_user_with_params.uid
@@ -116,6 +127,30 @@ def test_get_user(new_user_with_params):
     provider_ids = sorted([provider.provider_id for provider in user.provider_data])
     assert provider_ids == ['password', 'phone']
 
+def test_list_users(new_user_list):
+    fetched = []
+    # Test exporting all user accounts.
+    page = auth.list_users()
+    while page:
+        for user in page.users:
+            assert isinstance(user, auth.ExportedUserRecord)
+            if user.uid in new_user_list:
+                fetched.append(user.uid)
+                assert user.password_hash is not None
+                assert user.password_salt is not None
+        page = page.get_next_page()
+    assert len(fetched) == len(new_user_list)
+
+    fetched = []
+    page = auth.list_users()
+    for user in page.iterate_all():
+        assert isinstance(user, auth.ExportedUserRecord)
+        if user.uid in new_user_list:
+            fetched.append(user.uid)
+            assert user.password_hash is not None
+            assert user.password_salt is not None
+    assert len(fetched) == len(new_user_list)
+
 def test_create_user(new_user):
     user = auth.get_user(new_user.uid)
     assert user.uid == new_user.uid
@@ -125,6 +160,7 @@ def test_create_user(new_user):
     assert user.photo_url is None
     assert user.email_verified is False
     assert user.disabled is False
+    assert user.custom_claims is None
     assert user.user_metadata.creation_timestamp > 0
     assert user.user_metadata.last_sign_in_timestamp is None
     assert len(user.provider_data) is 0
@@ -150,7 +186,35 @@ def test_update_user(new_user):
     assert user.photo_url == 'https://example.com/photo.png'
     assert user.email_verified is True
     assert user.disabled is False
+    assert user.custom_claims is None
     assert len(user.provider_data) == 2
+
+def test_set_custom_user_claims(new_user, api_key):
+    claims = {'admin' : True, 'package' : 'gold'}
+    auth.set_custom_user_claims(new_user.uid, claims)
+    user = auth.get_user(new_user.uid)
+    assert user.custom_claims == claims
+    custom_token = auth.create_custom_token(new_user.uid)
+    id_token = _sign_in(custom_token, api_key)
+    dev_claims = auth.verify_id_token(id_token)
+    for key, value in claims.items():
+        assert dev_claims[key] == value
+
+def test_update_custom_user_claims(new_user):
+    assert new_user.custom_claims is None
+    claims = {'admin' : True, 'package' : 'gold'}
+    auth.set_custom_user_claims(new_user.uid, claims)
+    user = auth.get_user(new_user.uid)
+    assert user.custom_claims == claims
+
+    claims = {'admin' : False, 'subscription' : 'guest'}
+    auth.set_custom_user_claims(new_user.uid, claims)
+    user = auth.get_user(new_user.uid)
+    assert user.custom_claims == claims
+
+    auth.set_custom_user_claims(new_user.uid, None)
+    user = auth.get_user(new_user.uid)
+    assert user.custom_claims is None
 
 def test_disable_user(new_user_with_params):
     user = auth.update_user(

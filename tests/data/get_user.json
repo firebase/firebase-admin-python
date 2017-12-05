@@ -23,6 +23,7 @@
     "passwordUpdatedAt" : 1.494364393E+12,
     "validSince" : "1494364393",
     "disabled" : false,
-    "createdAt" : "1234567890"
+    "createdAt" : "1234567890",
+    "customAttributes" : "{\"admin\": true, \"package\": \"gold\"}"
   } ]
 }

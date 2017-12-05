@@ -19,6 +19,7 @@ authenticating against Firebase services. It also provides functions for
 creating and managing user accounts in Firebase projects.
 """
 
+import json
 import time
 
 from google.auth import jwt
@@ -163,6 +164,36 @@ def get_user_by_phone_number(phone_number, app=None):
     except _user_mgt.ApiCallError as error:
         raise AuthError(error.code, str(error), error.detail)
 
+def list_users(page_token=None, max_results=_user_mgt.MAX_LIST_USERS_RESULTS, app=None):
+    """Retrieves a page of user accounts from a Firebase project.
+
+    The ``page_token`` argument governs the starting point of the page. The ``max_results``
+    argument governs the maximum number of user accounts that may be included in the returned page.
+    This function never returns None. If there are no user accounts in the Firebase project, this
+    returns an empty page.
+
+    Args:
+        page_token: A non-empty page token string, which indicates the starting point of the page
+            (optional). Defaults to ``None``, which will retrieve the first page of users.
+        max_results: A positive integer indicating the maximum number of users to include in the
+            returned page (optional). Defaults to 1000, which is also the maximum number allowed.
+        app: An App instance (optional).
+
+    Returns:
+        ListUsersPage: A ListUsersPage instance.
+
+    Raises:
+        ValueError: If max_results or page_token are invalid.
+        AuthError: If an error occurs while retrieving the user accounts.
+    """
+    user_manager = _get_auth_service(app).user_manager
+    def download(page_token, max_results):
+        try:
+            return user_manager.list_users(page_token, max_results)
+        except _user_mgt.ApiCallError as error:
+            raise AuthError(error.code, str(error), error.detail)
+    return ListUsersPage(download, page_token, max_results)
+
 
 def create_user(**kwargs):
     """Creates a new user account with the specified properties.
@@ -195,11 +226,12 @@ def create_user(**kwargs):
         raise AuthError(error.code, str(error), error.detail)
 
 
-def update_user(uid, **kwargs): # pylint: disable=missing-param-doc
+def update_user(uid, **kwargs):
     """Updates an existing user account with the specified properties.
 
     Args:
         uid: A user ID string.
+        kwargs: A series of keyword arguments (optional).
 
     Keyword Args:
         display_name: The user's display name (optional). Can be removed by explicitly passing
@@ -212,7 +244,8 @@ def update_user(uid, **kwargs): # pylint: disable=missing-param-doc
         photo_url: The user's photo URL (optional). Can be removed by explicitly passing None.
         password: The user's raw, unhashed password. (optional).
         disabled: A boolean indicating whether or not the user account is disabled (optional).
-        app: An App instance (optional).
+        custom_claims: A dictionary or a JSON string contining the custom claims to be set on the
+            user account (optional).
 
     Returns:
         UserRecord: An updated UserRecord instance for the user.
@@ -229,6 +262,31 @@ def update_user(uid, **kwargs): # pylint: disable=missing-param-doc
     except _user_mgt.ApiCallError as error:
         raise AuthError(error.code, str(error), error.detail)
 
+def set_custom_user_claims(uid, custom_claims, app=None):
+    """Sets additional claims on an existing user account.
+
+     Custom claims set via this function can be used to define user roles and privilege levels.
+     These claims propagate to all the devices where the user is already signed in (after token
+     expiration or when token refresh is forced), and next time the user signs in. The claims
+     can be accessed via the user's ID token JWT. If a reserved OIDC claim is specified (sub, iat,
+     iss, etc), an error is thrown. Claims payload must also not be larger then 1000 characters
+     when serialized into a JSON string.
+
+     Args:
+         uid: A user ID string.
+         custom_claims: A dictionary or a JSON string of custom claims. Pass None to unset any
+             claims set previously.
+         app: An App instance (optional).
+
+    Raises:
+        ValueError: If the specified user ID or the custom claims are invalid.
+        AuthError: If an error occurs while updating the user account.
+    """
+    user_manager = _get_auth_service(app).user_manager
+    try:
+        user_manager.update_user(uid, custom_claims=custom_claims)
+    except _user_mgt.ApiCallError as error:
+        raise AuthError(error.code, str(error), error.detail)
 
 def delete_user(uid, app=None):
     """Deletes the user identified by the specified user ID.
@@ -393,6 +451,20 @@ class UserRecord(UserInfo):
         providers = self._data.get('providerUserInfo', [])
         return [_ProviderUserInfo(entry) for entry in providers]
 
+    @property
+    def custom_claims(self):
+        """Returns any custom claims set on this user account.
+
+        Returns:
+          dict: A dictionary of claims or None.
+        """
+        claims = self._data.get('customAttributes')
+        if claims:
+            parsed = json.loads(claims)
+            if parsed != {}:
+                return parsed
+        return None
+
 
 class UserMetadata(object):
     """Contains additional metadata associated with a user account."""
@@ -413,6 +485,85 @@ class UserMetadata(object):
         if 'lastLoginAt' in self._data:
             return int(self._data['lastLoginAt'])
         return None
+
+class ExportedUserRecord(UserRecord):
+    """Contains metadata associated with a user including password hash and salt."""
+
+    def __init__(self, data):
+        super(ExportedUserRecord, self).__init__(data)
+
+    @property
+    def password_hash(self):
+        """The user's password hash as a base64-encoded string.
+
+        If the Firebase Auth hashing algorithm (SCRYPT) was used to create the user account, this
+        will be the base64-encoded password hash of the user. If a different hashing algorithm was
+        used to create this user, as is typical when migrating from another Auth system, this
+        will be an empty string. If no password is set, this will be None.
+        """
+        return self._data.get('passwordHash')
+
+    @property
+    def password_salt(self):
+        """The user's password salt as a base64-encoded string.
+
+        If the Firebase Auth hashing algorithm (SCRYPT) was used to create the user account, this
+        will be the base64-encoded password salt of the user. If a different hashing algorithm was
+        used to create this user, as is typical when migrating from another Auth system, this will
+        be an empty string. If no password is set, this will be None.
+        """
+        return self._data.get('salt')
+
+
+class ListUsersPage(object):
+    """Represents a page of user records exported from a Firebase project.
+
+    Provides methods for traversing the user accounts included in this page, as well as retrieving
+    subsequent pages of users. The iterator returned by ``iterate_all()`` can be used to iterate
+    through all users in the Firebase project starting from this page.
+    """
+
+    def __init__(self, download, page_token, max_results):
+        self._download = download
+        self._max_results = max_results
+        self._current = download(page_token, max_results)
+
+    @property
+    def users(self):
+        """A list of ``ExportedUserRecord`` instances available in this page."""
+        return [ExportedUserRecord(user) for user in self._current.get('users', [])]
+
+    @property
+    def next_page_token(self):
+        """Page token string for the next page (empty string indicates no more pages)."""
+        return self._current.get('nextPageToken', '')
+
+    @property
+    def has_next_page(self):
+        """A boolean indicating whether more pages are available."""
+        return bool(self.next_page_token)
+
+    def get_next_page(self):
+        """Retrieves the next page of user accounts, if available.
+
+        Returns:
+            ListUsersPage: Next page of users, or None if this is the last page.
+        """
+        if self.has_next_page:
+            return ListUsersPage(self._download, self.next_page_token, self._max_results)
+        return None
+
+    def iterate_all(self):
+        """Retrieves an iterator for user accounts.
+
+        Returned iterator will iterate through all the user accounts in the Firebase project
+        starting from this page. The iterator will never buffer more than one page of users
+        in memory at a time.
+
+        Returns:
+            iterator: An iterator of ExportedUserRecord instances.
+        """
+        return _user_mgt.UserIterator(self)
 
 
 class _ProviderUserInfo(UserInfo):

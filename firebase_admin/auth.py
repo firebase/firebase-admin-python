@@ -265,18 +265,18 @@ def update_user(uid, **kwargs):
 def set_custom_user_claims(uid, custom_claims, app=None):
     """Sets additional claims on an existing user account.
 
-     Custom claims set via this function can be used to define user roles and privilege levels.
-     These claims propagate to all the devices where the user is already signed in (after token
-     expiration or when token refresh is forced), and next time the user signs in. The claims
-     can be accessed via the user's ID token JWT. If a reserved OIDC claim is specified (sub, iat,
-     iss, etc), an error is thrown. Claims payload must also not be larger then 1000 characters
-     when serialized into a JSON string.
+    Custom claims set via this function can be used to define user roles and privilege levels.
+    These claims propagate to all the devices where the user is already signed in (after token
+    expiration or when token refresh is forced), and next time the user signs in. The claims
+    can be accessed via the user's ID token JWT. If a reserved OIDC claim is specified (sub, iat,
+    iss, etc), an error is thrown. Claims payload must also not be larger then 1000 characters
+    when serialized into a JSON string.
 
-     Args:
-         uid: A user ID string.
-         custom_claims: A dictionary or a JSON string of custom claims. Pass None to unset any
-             claims set previously.
-         app: An App instance (optional).
+    Args:
+        uid: A user ID string.
+        custom_claims: A dictionary or a JSON string of custom claims. Pass None to unset any
+            claims set previously.
+        app: An App instance (optional).
 
     Raises:
         ValueError: If the specified user ID or the custom claims are invalid.
@@ -497,9 +497,9 @@ class ExportedUserRecord(UserRecord):
         """The user's password hash as a base64-encoded string.
 
         If the Firebase Auth hashing algorithm (SCRYPT) was used to create the user account, this
-        will be the base64-encoded password hash of the user. If a different hashing algorithm was
+        is the base64-encoded password hash of the user. If a different hashing algorithm was
         used to create this user, as is typical when migrating from another Auth system, this
-        will be an empty string. If no password is set, this will be None.
+        is an empty string. If no password is set, this is ``None``.
         """
         return self._data.get('passwordHash')
 
@@ -508,9 +508,9 @@ class ExportedUserRecord(UserRecord):
         """The user's password salt as a base64-encoded string.
 
         If the Firebase Auth hashing algorithm (SCRYPT) was used to create the user account, this
-        will be the base64-encoded password salt of the user. If a different hashing algorithm was
-        used to create this user, as is typical when migrating from another Auth system, this will
-        be an empty string. If no password is set, this will be None.
+        is the base64-encoded password salt of the user. If a different hashing algorithm was
+        used to create this user, as is typical when migrating from another Auth system, this is
+        an empty string. If no password is set, this is ``None``.
         """
         return self._data.get('salt')
 

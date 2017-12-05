@@ -36,7 +36,7 @@ def delete_instance_id(instance_id, app=None):
     """Deletes the specified instance ID from Firebase.
 
     This can be used to delete an instance ID and associated user data from a Firebase project,
-    pursuant to the General Data protection Regulation (GDPR).
+    pursuant to the General Data Protection Regulation (GDPR).
 
     Args:
       instance_id: A non-empty instance ID string.

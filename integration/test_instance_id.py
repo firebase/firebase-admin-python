@@ -18,9 +18,7 @@ import pytest
 
 from firebase_admin import instance_id
 
-
 def test_delete_non_existing():
     with pytest.raises(instance_id.ApiCallError) as excinfo:
         instance_id.delete_instance_id('non-existing')
-    # TODO: Update once the backend server is fixed.
-    assert str(excinfo.value) == 'Request throttled out by the backend server'
+    assert str(excinfo.value) == 'Failed to find the instance ID: non-existing'

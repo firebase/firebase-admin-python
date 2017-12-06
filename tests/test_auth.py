@@ -47,6 +47,7 @@ INVALID_BOOLS = [None, '', 'foo', 0, 1, list(), tuple(), dict()]
 INVALID_DICTS = [None, 'foo', 0, 1, True, False, list(), tuple()]
 
 MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
+MOCK_LIST_USERS_RESPONSE = testutils.resource('list_users.json')
 
 
 class AuthFixture(object):
@@ -295,8 +296,9 @@ def _instrument_user_manager(app, status, payload):
         testutils.MockAdapter(payload, status, recorder))
     return user_manager, recorder
 
-def _check_user_record(user):
-    assert user.uid == 'testuser'
+def _check_user_record(user, expected_uid='testuser'):
+    assert isinstance(user, auth.UserRecord)
+    assert user.uid == expected_uid
     assert user.email == 'testuser@example.com'
     assert user.phone_number == '+1234567890'
     assert user.display_name == 'Test User'
@@ -306,6 +308,10 @@ def _check_user_record(user):
     assert user.user_metadata.creation_timestamp == 1234567890
     assert user.user_metadata.last_sign_in_timestamp is None
     assert user.provider_id == 'firebase'
+
+    claims = user.custom_claims
+    assert claims['admin'] is True
+    assert claims['package'] == 'gold'
 
     assert len(user.provider_data) == 2
     provider = user.provider_data[0]
@@ -345,6 +351,49 @@ class TestUserRecord(object):
         metadata = auth.UserMetadata({})
         assert metadata.creation_timestamp is None
         assert metadata.last_sign_in_timestamp is None
+
+    def test_exported_record(self):
+        user = auth.ExportedUserRecord({
+            'localId' : 'user',
+            'passwordHash' : 'passwordHash',
+            'salt' : 'passwordSalt',
+        })
+        assert user.uid == 'user'
+        assert user.password_hash == 'passwordHash'
+        assert user.password_salt == 'passwordSalt'
+
+    def test_exported_record_no_password(self):
+        user = auth.ExportedUserRecord({
+            'localId' : 'user',
+        })
+        assert user.uid == 'user'
+        assert user.password_hash is None
+        assert user.password_salt is None
+
+    def test_exported_record_empty_password(self):
+        user = auth.ExportedUserRecord({
+            'localId' : 'user',
+            'passwordHash' : '',
+            'salt' : '',
+        })
+        assert user.uid == 'user'
+        assert user.password_hash == ''
+        assert user.password_salt == ''
+
+    def test_custom_claims(self):
+        user = auth.UserRecord({
+            'localId' : 'user',
+            'customAttributes': '{"admin": true, "package": "gold"}'
+        })
+        assert user.custom_claims == {'admin' : True, 'package' : 'gold'}
+
+    def test_no_custom_claims(self):
+        user = auth.UserRecord({'localId' : 'user'})
+        assert user.custom_claims is None
+
+    def test_empty_custom_claims(self):
+        user = auth.UserRecord({'localId' : 'user', 'customAttributes' : '{}'})
+        assert user.custom_claims is None
 
     @pytest.mark.parametrize('data', INVALID_DICTS + [{}, {'foo':'bar'}])
     def test_invalid_provider(self, data):
@@ -536,6 +585,11 @@ class TestUpdateUser(object):
         with pytest.raises(ValueError):
             auth.update_user('user', disabled=arg)
 
+    @pytest.mark.parametrize('arg', INVALID_DICTS[1:] + ['"json"'])
+    def test_invalid_custom_claims(self, arg):
+        with pytest.raises(ValueError):
+            auth.update_user('user', custom_claims=arg)
+
     def test_invalid_property(self):
         with pytest.raises(ValueError):
             auth.update_user('user', unsupported='arg')
@@ -545,6 +599,19 @@ class TestUpdateUser(object):
         user_mgt.update_user('testuser')
         request = json.loads(recorder[0].body.decode())
         assert request == {'localId' : 'testuser'}
+
+    def test_disable_user(self, user_mgt_app):
+        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        user_mgt.update_user('testuser', disabled=True)
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'localId' : 'testuser', 'disableUser' : True}
+
+    def test_update_user_custom_claims(self, user_mgt_app):
+        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        claims = {'admin':True, 'package':'gold'}
+        user_mgt.update_user('testuser', custom_claims=claims)
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'localId' : 'testuser', 'customAttributes' : json.dumps(claims)}
 
     def test_update_user_delete_fields(self, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
@@ -560,6 +627,67 @@ class TestUpdateUser(object):
         _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
         with pytest.raises(auth.AuthError) as excinfo:
             auth.update_user('user', app=user_mgt_app)
+        assert excinfo.value.code == _user_mgt.USER_UPDATE_ERROR
+        assert '{"error":"test"}' in str(excinfo.value)
+
+
+class TestSetCustomUserClaims(object):
+
+    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
+    def test_invalid_uid(self, arg):
+        with pytest.raises(ValueError):
+            auth.set_custom_user_claims(arg, {'foo': 'bar'})
+
+    @pytest.mark.parametrize('arg', INVALID_DICTS[1:] + ['"json"'])
+    def test_invalid_custom_claims(self, arg):
+        with pytest.raises(ValueError):
+            auth.set_custom_user_claims('user', arg)
+
+    @pytest.mark.parametrize('key', _user_mgt.RESERVED_CLAIMS)
+    def test_single_reserved_claim(self, key):
+        claims = {key : 'value'}
+        with pytest.raises(ValueError) as excinfo:
+            auth.set_custom_user_claims('user', claims)
+        assert str(excinfo.value) == 'Claim "{0}" is reserved, and must not be set.'.format(key)
+
+    def test_multiple_reserved_claims(self):
+        claims = {key : 'value' for key in _user_mgt.RESERVED_CLAIMS}
+        with pytest.raises(ValueError) as excinfo:
+            auth.set_custom_user_claims('user', claims)
+        joined = ', '.join(sorted(claims.keys()))
+        assert str(excinfo.value) == ('Claims "{0}" are reserved, and must not be '
+                                      'set.'.format(joined))
+
+    def test_large_claims_payload(self):
+        claims = {'key' : 'A'*1000}
+        with pytest.raises(ValueError) as excinfo:
+            auth.set_custom_user_claims('user', claims)
+        assert str(excinfo.value) == 'Custom claims payload must not exceed 1000 characters.'
+
+    def test_set_custom_user_claims(self, user_mgt_app):
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        claims = {'admin':True, 'package':'gold'}
+        auth.set_custom_user_claims('testuser', claims, app=user_mgt_app)
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'localId' : 'testuser', 'customAttributes' : json.dumps(claims)}
+
+    def test_set_custom_user_claims_str(self, user_mgt_app):
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        claims = json.dumps({'admin':True, 'package':'gold'})
+        auth.set_custom_user_claims('testuser', claims, app=user_mgt_app)
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'localId' : 'testuser', 'customAttributes' : claims}
+
+    def test_set_custom_user_claims_none(self, user_mgt_app):
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        auth.set_custom_user_claims('testuser', None, app=user_mgt_app)
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'localId' : 'testuser', 'customAttributes' : json.dumps({})}
+
+    def test_set_custom_user_claims_error(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
+        with pytest.raises(auth.AuthError) as excinfo:
+            auth.set_custom_user_claims('user', {}, app=user_mgt_app)
         assert excinfo.value.code == _user_mgt.USER_UPDATE_ERROR
         assert '{"error":"test"}' in str(excinfo.value)
 
@@ -582,3 +710,155 @@ class TestDeleteUser(object):
             auth.delete_user('user', app=user_mgt_app)
         assert excinfo.value.code == _user_mgt.USER_DELETE_ERROR
         assert '{"error":"test"}' in str(excinfo.value)
+
+
+class TestListUsers(object):
+
+    @pytest.mark.parametrize('arg', [None, 'foo', list(), dict(), 0, -1, 1001, False])
+    def test_invalid_max_results(self, arg):
+        with pytest.raises(ValueError):
+            auth.list_users(max_results=arg)
+
+    def test_list_single_page(self, user_mgt_app):
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_LIST_USERS_RESPONSE)
+        page = auth.list_users(app=user_mgt_app)
+        self._check_page(page)
+        assert page.next_page_token == ''
+        assert page.has_next_page is False
+        assert page.get_next_page() is None
+        users = [user for user in page.iterate_all()]
+        assert len(users) == 2
+        self._check_rpc_calls(recorder)
+
+    def test_list_multiple_pages(self, user_mgt_app):
+        # Page 1
+        response = {
+            'users': [{'localId': 'user1'}, {'localId': 'user2'}, {'localId': 'user3'}],
+            'nextPageToken': 'token'
+        }
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
+        page = auth.list_users(app=user_mgt_app)
+        assert len(page.users) == 3
+        assert page.next_page_token == 'token'
+        assert page.has_next_page is True
+        self._check_rpc_calls(recorder)
+
+        # Page 2 (also the last page)
+        response = {'users': [{'localId': 'user4'}]}
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
+        page = page.get_next_page()
+        assert len(page.users) == 1
+        assert page.next_page_token == ''
+        assert page.has_next_page is False
+        assert page.get_next_page() is None
+        self._check_rpc_calls(recorder, {'maxResults': 1000, 'nextPageToken': 'token'})
+
+    def test_list_users_paged_iteration(self, user_mgt_app):
+        # Page 1
+        response = {
+            'users': [{'localId': 'user1'}, {'localId': 'user2'}, {'localId': 'user3'}],
+            'nextPageToken': 'token'
+        }
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
+        page = auth.list_users(app=user_mgt_app)
+        assert page.next_page_token == 'token'
+        assert page.has_next_page is True
+        iterator = page.iterate_all()
+        for index in range(3):
+            user = next(iterator)
+            assert user.uid == 'user{0}'.format(index+1)
+        assert len(recorder) == 1
+        self._check_rpc_calls(recorder)
+
+        # Page 2 (also the last page)
+        response = {'users': [{'localId': 'user4'}]}
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
+        user = next(iterator)
+        assert user.uid == 'user4'
+        with pytest.raises(StopIteration):
+            next(iterator)
+        self._check_rpc_calls(recorder, {'maxResults': 1000, 'nextPageToken': 'token'})
+
+    def test_list_users_iterator_state(self, user_mgt_app):
+        response = {
+            'users': [{'localId': 'user1'}, {'localId': 'user2'}, {'localId': 'user3'}]
+        }
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
+        page = auth.list_users(app=user_mgt_app)
+
+        # Iterate through 2 results and break.
+        index = 0
+        iterator = page.iterate_all()
+        for user in iterator:
+            index += 1
+            assert user.uid == 'user{0}'.format(index)
+            if index == 2:
+                break
+
+        # Iterator should resume from where left off.
+        user = next(iterator)
+        assert user.uid == 'user3'
+        with pytest.raises(StopIteration):
+            next(iterator)
+        self._check_rpc_calls(recorder)
+
+    def test_list_users_stop_iteration(self, user_mgt_app):
+        response = {
+            'users': [{'localId': 'user1'}, {'localId': 'user2'}, {'localId': 'user3'}]
+        }
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
+        page = auth.list_users(app=user_mgt_app)
+        assert len(page.users) == 3
+
+        iterator = page.iterate_all()
+        users = [user for user in iterator]
+        assert len(page.users) == 3
+        with pytest.raises(StopIteration):
+            next(iterator)
+        assert len(users) == 3
+        self._check_rpc_calls(recorder)
+
+    def test_list_users_no_users_response(self, user_mgt_app):
+        response = {'users': []}
+        _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
+        page = auth.list_users(app=user_mgt_app)
+        assert len(page.users) is 0
+        users = [user for user in page.iterate_all()]
+        assert len(users) is 0
+
+    def test_list_users_with_max_results(self, user_mgt_app):
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_LIST_USERS_RESPONSE)
+        page = auth.list_users(max_results=500, app=user_mgt_app)
+        self._check_page(page)
+        self._check_rpc_calls(recorder, {'maxResults' : 500})
+
+    def test_list_users_with_all_args(self, user_mgt_app):
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_LIST_USERS_RESPONSE)
+        page = auth.list_users(page_token='foo', max_results=500, app=user_mgt_app)
+        self._check_page(page)
+        self._check_rpc_calls(recorder, {'nextPageToken' : 'foo', 'maxResults' : 500})
+
+    def test_list_users_error(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
+        with pytest.raises(auth.AuthError) as excinfo:
+            auth.list_users(app=user_mgt_app)
+        assert excinfo.value.code == _user_mgt.USER_DOWNLOAD_ERROR
+        assert '{"error":"test"}' in str(excinfo.value)
+
+    def _check_page(self, page):
+        assert isinstance(page, auth.ListUsersPage)
+        index = 0
+        assert len(page.users) == 2
+        for user in page.users:
+            assert isinstance(user, auth.ExportedUserRecord)
+            _check_user_record(user, 'testuser{0}'.format(index))
+            assert user.password_hash == 'passwordHash'
+            assert user.password_salt == 'passwordSalt'
+            index += 1
+
+    def _check_rpc_calls(self, recorder, expected=None):
+        if expected is None:
+            expected = {'maxResults' : 1000}
+        assert len(recorder) == 1
+        request = json.loads(recorder[0].body.decode())
+        assert request == expected

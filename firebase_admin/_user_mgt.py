@@ -14,6 +14,7 @@
 
 """Firebase user management sub module."""
 
+import json
 import re
 
 from google.auth import transport
@@ -29,8 +30,16 @@ USER_NOT_FOUND_ERROR = 'USER_NOT_FOUND_ERROR'
 USER_CREATE_ERROR = 'USER_CREATE_ERROR'
 USER_UPDATE_ERROR = 'USER_UPDATE_ERROR'
 USER_DELETE_ERROR = 'USER_DELETE_ERROR'
+USER_DOWNLOAD_ERROR = 'LIST_USERS_ERROR'
 
 ID_TOOLKIT_URL = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/'
+
+MAX_LIST_USERS_RESULTS = 1000
+MAX_CLAIMS_PAYLOAD_SIZE = 1000
+RESERVED_CLAIMS = set([
+    'acr', 'amr', 'at_hash', 'aud', 'auth_time', 'azp', 'cnf', 'c_hash', 'exp', 'iat',
+    'iss', 'jti', 'nbf', 'nonce', 'sub', 'firebase',
+])
 
 
 class _Validator(object):
@@ -118,6 +127,37 @@ class _Validator(object):
                 'Invalid delete list: "{0}". Delete list must be a '
                 'non-empty list.'.format(delete_attr))
 
+    @classmethod
+    def validate_custom_claims(cls, custom_claims):
+        """Validates the specified custom claims.
+
+        Custom claims must be specified as a JSON string.The string must not exceed 1000
+        characters, and the parsed JSON payload must not contain reserved JWT claims.
+        """
+        if not isinstance(custom_claims, six.string_types) or not custom_claims:
+            raise ValueError(
+                'Invalid custom claims: "{0}". Custom claims must be a non-empty JSON '
+                'string.'.format(custom_claims))
+
+        if len(custom_claims) > MAX_CLAIMS_PAYLOAD_SIZE:
+            raise ValueError(
+                'Custom claims payload must not exceed {0} '
+                'characters.'.format(MAX_CLAIMS_PAYLOAD_SIZE))
+        try:
+            parsed = json.loads(custom_claims)
+        except Exception:
+            raise ValueError('Failed to parse custom claims string as JSON.')
+        else:
+            if not isinstance(parsed, dict):
+                raise ValueError('Custom claims must be parseable as a JSON object.')
+            invalid_claims = RESERVED_CLAIMS.intersection(set(parsed.keys()))
+            if len(invalid_claims) > 1:
+                joined = ', '.join(sorted(invalid_claims))
+                raise ValueError('Claims "{0}" are reserved, and must not be set.'.format(joined))
+            elif len(invalid_claims) == 1:
+                raise ValueError(
+                    'Claim "{0}" is reserved, and must not be set.'.format(invalid_claims.pop()))
+
 
 class ApiCallError(Exception):
     """Represents an Exception encountered while invoking the Firebase user management API."""
@@ -132,6 +172,7 @@ class UserManager(object):
     """Provides methods for interacting with the Google Identity Toolkit."""
 
     _VALIDATORS = {
+        'customAttributes' : _Validator.validate_custom_claims,
         'deleteAttribute' : _Validator.validate_delete_list,
         'deleteProvider' : _Validator.validate_delete_list,
         'disabled' : _Validator.validate_disabled,
@@ -163,7 +204,8 @@ class UserManager(object):
         'phone_number' : 'phoneNumber',
         'photo_url' : 'photoUrl',
         'password' : 'password',
-        'disabled' : 'disabled',
+        'disabled' : 'disableUser',
+        'custom_claims' : 'customAttributes',
     }
 
     _REMOVABLE_FIELDS = {
@@ -207,6 +249,26 @@ class UserManager(object):
                     'No user record found for the provided {0}: {1}.'.format(key_type, key))
             return response['users'][0]
 
+    def list_users(self, page_token=None, max_results=MAX_LIST_USERS_RESULTS):
+        """Retrieves a batch of users."""
+        if page_token is not None:
+            if not isinstance(page_token, six.string_types) or not page_token:
+                raise ValueError('Page token must be a non-empty string.')
+        if not isinstance(max_results, int):
+            raise ValueError('Max results must be an integer.')
+        elif max_results < 1 or max_results > MAX_LIST_USERS_RESULTS:
+            raise ValueError(
+                'Max results must be a positive integer less than '
+                '{0}.'.format(MAX_LIST_USERS_RESULTS))
+
+        payload = {'maxResults': max_results}
+        if page_token:
+            payload['nextPageToken'] = page_token
+        try:
+            return self._request('post', 'downloadAccount', json=payload)
+        except requests.exceptions.RequestException as error:
+            self._handle_http_error(USER_DOWNLOAD_ERROR, 'Failed to download user accounts.', error)
+
     def create_user(self, **kwargs):
         """Creates a new user account with the specified properties."""
         payload = self._init_payload('create_user', UserManager._CREATE_USER_FIELDS, **kwargs)
@@ -236,9 +298,12 @@ class UserManager(object):
         if 'phoneNumber' in payload and payload['phoneNumber'] is None:
             payload['deleteProvider'] = ['phone']
             del payload['phoneNumber']
-        if 'disabled' in payload:
-            payload['disableUser'] = payload['disabled']
-            del payload['disabled']
+        if 'customAttributes' in payload:
+            custom_claims = payload['customAttributes']
+            if custom_claims is None:
+                custom_claims = {}
+            if isinstance(custom_claims, dict):
+                payload['customAttributes'] = json.dumps(custom_claims)
 
         self._validate(payload, self._VALIDATORS, 'update user')
         try:
@@ -306,3 +371,35 @@ class UserManager(object):
         resp = self._session.request(method, ID_TOOLKIT_URL + urlpath, **kwargs)
         resp.raise_for_status()
         return resp.json()
+
+
+class UserIterator(object):
+    """An iterator that allows iterating over user accounts, one at a time.
+
+    This implementation loads a page of users into memory, and iterates on them. When the whole
+    page has been traversed, it loads another page. This class never keeps more than one page
+    of entries in memory.
+    """
+
+    def __init__(self, current_page):
+        if not current_page:
+            raise ValueError('Current page must not be None.')
+        self._current_page = current_page
+        self._index = 0
+
+    def next(self):
+        if self._index == len(self._current_page.users):
+            if self._current_page.has_next_page:
+                self._current_page = self._current_page.get_next_page()
+                self._index = 0
+        if self._index < len(self._current_page.users):
+            result = self._current_page.users[self._index]
+            self._index += 1
+            return result
+        raise StopIteration
+
+    def __next__(self):
+        return self.next()
+
+    def __iter__(self):
+        return self

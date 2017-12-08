@@ -43,7 +43,7 @@ RESERVED_CLAIMS = set([
 
 
 class _Validator(object):
-    """A collectoin of data validation utilities.
+    """A collection of data validation utilities.
 
     Methods provided in this class raise ValueErrors if any validations fail. Normal returns
     signal success.

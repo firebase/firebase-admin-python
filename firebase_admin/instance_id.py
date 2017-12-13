@@ -60,6 +60,18 @@ class ApiCallError(Exception):
 class _InstanceIdService(object):
     """Provides methods for interacting with the remote instance ID service."""
 
+    error_codes = {
+        400: 'Invalid argument. Instance ID "{0}" is malformed.',
+        401: 'Request not authorized.',
+        403: 'Permission denied. Project does not match instance ID or the client does not have '
+             'sufficient privileges.',
+        404: 'Failed to find the instance ID: "{0}".',
+        409: 'Instance ID "{0}" is already deleted.',
+        429: 'Request throttled out by the backend server.',
+        500: 'Internal server error.',
+        503: 'Backend servers are over capacity. Try again later.'
+    }
+
     def __init__(self, app):
         project_id = app.project_id
         if not project_id:
@@ -87,11 +99,8 @@ class _InstanceIdService(object):
         if error.response is None:
             return str(error)
         status = error.response.status_code
-        if status == 404:
-            return 'Failed to find the instance ID: {0}'.format(instance_id)
-        elif status == 429:
-            return 'Request throttled out by the backend server'
-        elif status == 500:
-            return 'Internal server error'
+        msg = self.error_codes.get(status)
+        if msg:
+            return msg.format(instance_id)
         else:
             return str(error)

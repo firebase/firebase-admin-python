@@ -24,9 +24,10 @@ from tests import testutils
 
 
 http_errors = {
-    404: 'Failed to find the instance ID: test_iid',
-    429: 'Request throttled out by the backend server',
-    500: 'Internal server error',
+    404: 'Failed to find the instance ID: "test_iid".',
+    409: 'Instance ID "test_iid" is already deleted.',
+    429: 'Request throttled out by the backend server.',
+    500: 'Internal server error.',
 }
 
 class TestDeleteInstanceId(object):

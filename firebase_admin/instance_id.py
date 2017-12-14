@@ -61,12 +61,12 @@ class _InstanceIdService(object):
     """Provides methods for interacting with the remote instance ID service."""
 
     error_codes = {
-        400: 'Invalid argument. Instance ID "{0}" is malformed.',
+        400: 'Malformed instance ID argument.',
         401: 'Request not authorized.',
-        403: 'Permission denied. Project does not match instance ID or the client does not have '
+        403: 'Project does not match instance ID or the client does not have '
              'sufficient privileges.',
-        404: 'Failed to find the instance ID: "{0}".',
-        409: 'Instance ID "{0}" is already deleted.',
+        404: 'Failed to find the instance ID.',
+        409: 'Already deleted.',
         429: 'Request throttled out by the backend server.',
         500: 'Internal server error.',
         503: 'Backend servers are over capacity. Try again later.'
@@ -101,6 +101,6 @@ class _InstanceIdService(object):
         status = error.response.status_code
         msg = self.error_codes.get(status)
         if msg:
-            return msg.format(instance_id)
+            return 'Instance ID "{0}": {1}'.format(instance_id, msg)
         else:
             return str(error)

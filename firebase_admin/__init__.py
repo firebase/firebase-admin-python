@@ -31,7 +31,7 @@ _apps_lock = threading.RLock()
 _clock = datetime.datetime.utcnow
 
 _DEFAULT_APP_NAME = '[DEFAULT]'
-
+_DEFAULT_CONFIG_FILE_ENV = 'FIREBASE_CONFIG'
 
 def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
     """Initializes and returns a new App instance.
@@ -150,6 +150,20 @@ class _AppOptions(object):
             raise ValueError('Illegal Firebase app options type: {0}. Options '
                              'must be a dictionary.'.format(type(options)))
         self._options = options
+        config_file = os.getenv(_DEFAULT_CONFIG_FILE_ENV)
+        if config_file is not None:
+            if self._options.get('databaseURL') is None or
+             self._options.get('projectId') is None or 
+             self._options.get('storageBucket') is None:
+             with open(config) as json_file:
+                json_data = json.load(json_file)
+             if self._options.get('databaseURL') is None:
+                 self._options['databaseURL'] = json_data.get('databaseURL')
+             if self._options.get('projectId') is None:
+                 self._options['projectId'] = json_data.get('projectId')
+             if self._options.get('storageBucket') is None:
+                 self._options['storageBucket'] = json_data.get('storageBucket')
+       
 
     def get(self, key, default=None):
         """Returns the option identified by the provided key."""

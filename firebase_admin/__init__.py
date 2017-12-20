@@ -47,9 +47,8 @@ def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
           Google Application Default Credentials are used.
       options: A dictionary of configuration options (optional). Supported options include
           ``databaseURL``, ``storageBucket`` , ``projectId`` and ``httpTimeout``. If ``httpTimeout``
-          is not set, HTTP connections initiated by client modules such as ``db`` will not time out.
-      name: Name of the app (optional).
-
+          is not set, HTTP connections initiated by client modules such as ``db`` will not time out. 
+          name: Name of the app (optional).
     Returns:
       App: A newly initialized instance of App.
 
@@ -152,17 +151,17 @@ class _AppOptions(object):
         self._options = options
         config_file = os.getenv(_DEFAULT_CONFIG_FILE_ENV)
         if config_file is not None:
-            if self._options.get('databaseURL') is None or
-             self._options.get('projectId') is None or 
-             self._options.get('storageBucket') is None:
-             with open(config) as json_file:
+            if (self._options.get('databaseURL') is None or
+                self._options.get('projectId') is None or 
+                self._options.get('storageBucket') is None):
+             with open(config_file, 'r') as json_file:
                  try:
                      json_data = json.load(json_file)
                  except:
                      raise ValueError('JSON string in {0} is not valid json.'.format(json_file))
             for conf_field in ['databaseURL', 'projectId','storageBucket']:
               if self._options.get(conf_field) is None:
-                 self._options[conf_field] = json_data.get(conf_field
+                 self._options[conf_field] = json_data.get(conf_field)
     def get(self, key, default=None):
         """Returns the option identified by the provided key."""
         return self._options.get(key, default)

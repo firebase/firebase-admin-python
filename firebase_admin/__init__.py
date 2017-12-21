@@ -33,7 +33,7 @@ _clock = datetime.datetime.utcnow
 
 _DEFAULT_APP_NAME = '[DEFAULT]'
 _CONFIG_FILE_ENV = 'FIREBASE_CONFIG'
-_FIREBASE_CONFIG_KEYS = ['databaseURL', 'projectId', 'storageBucket']
+_CONFIG_VALID_KEYS = ['databaseAuthVariableOverride', 'databaseURL', 'projectId', 'storageBucket']
 
 def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
     """Initializes and returns a new App instance.
@@ -48,10 +48,10 @@ def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
       credential: A credential object used to initialize the SDK (optional). If none is provided,
           Google Application Default Credentials are used.
       options: A dictionary of configuration options (optional). Supported options include
-          ``databaseURL``, ``storageBucket`` , ``projectId`` and ``httpTimeout``. If ``httpTimeout``
-          is not set, HTTP connections initiated by client modules such as ``db`` will not time out.
-          name: Name of the app (optional).
-      name: The app name
+          ``databaseURL``, ``storageBucket``, ``projectId``, ``databaseAuthVariableOverride`` 
+          and ``httpTimeout``. If ``httpTimeout`` is not set, HTTP connections initiated by client
+          modules such as ``db`` will not time out.
+      name: Name of the app (optional).
     Returns:
       App: A newly initialized instance of App.
 
@@ -155,15 +155,13 @@ class _AppOptions(object):
         config_file = os.getenv(_CONFIG_FILE_ENV)
         if config_file is None:
             return
-        if all(self._options.get(field) is not None for field in _FIREBASE_CONFIG_KEYS):
-            return
         with open(config_file, 'r') as json_file:
             try:
                 json_data = json.load(json_file)
             except:
                 raise ValueError('JSON string in {0} is not valid json.'.format(json_file))
-        if any(field not in _FIREBASE_CONFIG_KEYS for field in json_data):
-            raise ValueError('Bad config key in file {}.'.format(config_file))
+        if any(field not in _CONFIG_VALID_KEYS for field in json_data):
+            raise ValueError('Bad config key in JSON file {}.'.format(config_file))
         json_data.update(self._options)
         self._options = json_data
     def get(self, key, default=None):

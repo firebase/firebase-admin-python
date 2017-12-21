@@ -70,6 +70,39 @@ class ImplicitAppDefault(ExplicitAppDefault):
         return None
 
 
+class OptionsTest(object):
+    def __init__(self, config_filename, init_options=None, want_options=None):
+        self.config_filename = config_filename
+        self.init_options = init_options
+        self.want_options = want_options
+
+    def init(self):
+        self.config_file_old = os.environ.get(CONFIG_FILE)
+        if self.config_filename:
+            os.environ[CONFIG_FILE] = testutils.resource_filename(self.config_filename)
+        elif os.environ.get(CONFIG_FILE):
+            del os.environ[CONFIG_FILE]
+
+    def cleanup(self):
+        if self.config_file_old:
+            os.environ[CONFIG_FILE] = self.config_file_old
+        elif os.environ.get(CONFIG_FILE):
+            del os.environ[CONFIG_FILE]
+
+@pytest.fixture(params=[OptionsTest(None, {}, {}),
+                        OptionsTest(None, 
+                                    {'storageBucket':'bucket1'},
+                                    {'storageBucket':'bucket1'}),
+                        OptionsTest('firebase_config.json', 
+                                    {'storageBucket':'bucket1'},
+                                    {'storageBucket':'bucket1'})],
+                ids=['blank', 'blank_with_options', 'full-json'])
+def test_option(request):
+    conf = request.param
+    conf.init()
+    yield conf
+    conf.cleanup()
+
 class AppService(object):
     def __init__(self, app):
         self._app = app
@@ -90,7 +123,6 @@ def init_app(request):
     else:
         return firebase_admin.initialize_app(CREDENTIAL)
 
-
 class TestFirebaseApp(object):
     """Test cases for App initialization and life cycle."""
 
@@ -101,6 +133,11 @@ class TestFirebaseApp(object):
         None, '', 0, 1, dict(), list(), tuple(), True, False,
         firebase_admin.App('uninitialized', CREDENTIAL, {})
     ]
+
+    bad_config_file = ['firebase_config_empty.json',
+                       'firebase_config_bad.json',
+                       'firebase_config_bad_key.json',
+                       'no_such_file']
 
     def teardown_method(self):
         testutils.cleanup_apps()
@@ -114,22 +151,6 @@ class TestFirebaseApp(object):
             assert isinstance(app.credential, credentials.ApplicationDefault)
         with pytest.raises(ValueError):
             firebase_admin.initialize_app(app_credential)
-    
-    def test_default_app_init_with_config_from_env(self, app_credential):
-        conf_file = os.getenv(CONFIG_FILE)
-        os.environ[CONFIG_FILE] = 'tests/data/firebase_config.json'
-
-        app = firebase_admin.initialize_app(app_credential)
-    #    finally:
-    #         if project_id:
-    #             os.environ[GCLOUD_PROJECT] = project_id
-    #         else:
-    #             del os.environ[GCLOUD_PROJECT]
-    #     assert firebase_admin._DEFAULT_APP_NAME == app.name
-    #     if app_credential:
-    #         assert app_credential is app.credential
-    #     else:
-    #         assert isinstance(app.credential, credentials.ApplicationDefault)
 
     def test_non_default_app_init(self, app_credential):
         app = firebase_admin.initialize_app(app_credential, name='myApp')
@@ -151,13 +172,33 @@ class TestFirebaseApp(object):
         with pytest.raises(ValueError):
             firebase_admin.initialize_app(CREDENTIAL, options=options)
 
+    @pytest.mark.parametrize('bad_file_name', bad_config_file)
+    def test_default_app_init_with_bad_config_from_env(self, bad_file_name):
+        config_file_old = os.environ.get(CONFIG_FILE)
+        os.environ[CONFIG_FILE] = testutils.resource_filename(bad_file_name)
+        try:
+            with pytest.raises(ValueError):
+                firebase_admin.initialize_app()
+        except IOError:
+            assert bad_file_name == 'no_such_file'
+        finally:
+            if config_file_old:
+                os.environ[CONFIG_FILE] = config_file_old
+            else:
+                del os.environ[CONFIG_FILE]
+
     @pytest.mark.parametrize('name', invalid_names)
     def test_app_init_with_invalid_name(self, name):
         with pytest.raises(ValueError):
             firebase_admin.initialize_app(CREDENTIAL, name=name)
-    def test_app_init_with_default_config(self,name):
+
+    def test_app_init_with_default_config(self, test_option):
+        app = firebase_admin.initialize_app(options=test_option.init_options)
+        print app.options
+        return
         #_CONFIG_FILE_ENV
-        app = firebase_admin.initialize_app() 
+        app = firebase_admin.initialize_app()
+
     def test_project_id_from_options(self, app_credential):
         app = firebase_admin.initialize_app(
             app_credential, options={'projectId': 'test-project'}, name='myApp')

@@ -215,7 +215,7 @@ class TestFirebaseApp(object):
         os.environ[CONFIG_FILE] = testutils.resource_filename(bad_file_name)
         try:
             with pytest.raises(ValueError):
-                firebase_admin.initialize_app()
+                firebase_admin.initialize_app(CREDENTIAL)
         except IOError:
             assert bad_file_name == 'no_such_file'
         finally:

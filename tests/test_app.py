@@ -22,10 +22,10 @@ from firebase_admin import credentials
 from firebase_admin import _utils
 from tests import testutils
 
-
 CREDENTIAL = credentials.Certificate(
     testutils.resource_filename('service_account.json'))
 GCLOUD_PROJECT = 'GCLOUD_PROJECT'
+CONFIG_FILE = firebase_admin._CONFIG_FILE_ENV
 
 class CredentialProvider(object):
     def init(self):
@@ -114,6 +114,22 @@ class TestFirebaseApp(object):
             assert isinstance(app.credential, credentials.ApplicationDefault)
         with pytest.raises(ValueError):
             firebase_admin.initialize_app(app_credential)
+    
+    def test_default_app_init_with_config_from_env(self, app_credential):
+        conf_file = os.getenv(CONFIG_FILE)
+        os.environ[CONFIG_FILE] = 'tests/data/firebase_config.json'
+
+        app = firebase_admin.initialize_app(app_credential)
+    #    finally:
+    #         if project_id:
+    #             os.environ[GCLOUD_PROJECT] = project_id
+    #         else:
+    #             del os.environ[GCLOUD_PROJECT]
+    #     assert firebase_admin._DEFAULT_APP_NAME == app.name
+    #     if app_credential:
+    #         assert app_credential is app.credential
+    #     else:
+    #         assert isinstance(app.credential, credentials.ApplicationDefault)
 
     def test_non_default_app_init(self, app_credential):
         app = firebase_admin.initialize_app(app_credential, name='myApp')
@@ -139,7 +155,9 @@ class TestFirebaseApp(object):
     def test_app_init_with_invalid_name(self, name):
         with pytest.raises(ValueError):
             firebase_admin.initialize_app(CREDENTIAL, name=name)
-
+    def test_app_init_with_default_config(self,name):
+        #_CONFIG_FILE_ENV
+        app = firebase_admin.initialize_app() 
     def test_project_id_from_options(self, app_credential):
         app = firebase_admin.initialize_app(
             app_credential, options={'projectId': 'test-project'}, name='myApp')

@@ -14,6 +14,7 @@
 
 """Firebase Admin SDK for Python."""
 import datetime
+import json
 import os
 import threading
 
@@ -31,7 +32,8 @@ _apps_lock = threading.RLock()
 _clock = datetime.datetime.utcnow
 
 _DEFAULT_APP_NAME = '[DEFAULT]'
-_DEFAULT_CONFIG_FILE_ENV = 'FIREBASE_CONFIG'
+_CONFIG_FILE_ENV = 'FIREBASE_CONFIG'
+_FIREBASE_CONFIG_KEYS = ['databaseURL', 'projectId', 'storageBucket']
 
 def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
     """Initializes and returns a new App instance.
@@ -47,8 +49,9 @@ def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
           Google Application Default Credentials are used.
       options: A dictionary of configuration options (optional). Supported options include
           ``databaseURL``, ``storageBucket`` , ``projectId`` and ``httpTimeout``. If ``httpTimeout``
-          is not set, HTTP connections initiated by client modules such as ``db`` will not time out. 
+          is not set, HTTP connections initiated by client modules such as ``db`` will not time out.
           name: Name of the app (optional).
+      name: The app name
     Returns:
       App: A newly initialized instance of App.
 
@@ -149,19 +152,20 @@ class _AppOptions(object):
             raise ValueError('Illegal Firebase app options type: {0}. Options '
                              'must be a dictionary.'.format(type(options)))
         self._options = options
-        config_file = os.getenv(_DEFAULT_CONFIG_FILE_ENV)
-        if config_file is not None:
-            if (self._options.get('databaseURL') is None or
-                self._options.get('projectId') is None or 
-                self._options.get('storageBucket') is None):
-             with open(config_file, 'r') as json_file:
-                 try:
-                     json_data = json.load(json_file)
-                 except:
-                     raise ValueError('JSON string in {0} is not valid json.'.format(json_file))
-            for conf_field in ['databaseURL', 'projectId','storageBucket']:
-              if self._options.get(conf_field) is None:
-                 self._options[conf_field] = json_data.get(conf_field)
+        config_file = os.getenv(_CONFIG_FILE_ENV)
+        if config_file is None:
+            return
+        if all(self._options.get(field) is not None for field in _FIREBASE_CONFIG_KEYS):
+            return
+        with open(config_file, 'r') as json_file:
+            try:
+                json_data = json.load(json_file)
+            except:
+                raise ValueError('JSON string in {0} is not valid json.'.format(json_file))
+        if any(field not in _FIREBASE_CONFIG_KEYS for field in json_data):
+            raise ValueError('Bad config key in file {}.'.format(config_file))
+        json_data.update(self._options)
+        self._options = json_data
     def get(self, key, default=None):
         """Returns the option identified by the provided key."""
         return self._options.get(key, default)

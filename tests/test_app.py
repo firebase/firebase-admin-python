@@ -90,13 +90,50 @@ class OptionsTest(object):
             del os.environ[CONFIG_FILE]
 
 @pytest.fixture(params=[OptionsTest(None, {}, {}),
-                        OptionsTest(None, 
+                        OptionsTest(None,
                                     {'storageBucket':'bucket1'},
                                     {'storageBucket':'bucket1'}),
-                        OptionsTest('firebase_config.json', 
+                        OptionsTest('firebase_config.json',
                                     {'storageBucket':'bucket1'},
-                                    {'storageBucket':'bucket1'})],
-                ids=['blank', 'blank_with_options', 'full-json'])
+                                    {'databaseAuthVariableOverride': 'this#is#an#auth#string',
+                                     'databaseURL': 'https://hipster-chat.firebaseio.mock',
+                                     'projectId': 'hipster-chat-mock',
+                                     'storageBucket': 'bucket1'}),
+                        OptionsTest('firebase_config.json',
+                                    None,
+                                    {'databaseAuthVariableOverride': 'this#is#an#auth#string',
+                                     'databaseURL': 'https://hipster-chat.firebaseio.mock',
+                                     'projectId': 'hipster-chat-mock',
+                                     'storageBucket': 'hipster-chat.appspot.mock'}),
+                        OptionsTest('firebase_config.json',
+                                    {},
+                                    {'databaseAuthVariableOverride': 'this#is#an#auth#string',
+                                     'databaseURL': 'https://hipster-chat.firebaseio.mock',
+                                     'projectId': 'hipster-chat-mock',
+                                     'storageBucket': 'hipster-chat.appspot.mock'}),
+                        OptionsTest('firebase_config_partial.json',
+                                    None,
+                                    {'databaseURL': 'https://hipster-chat.firebaseio.mock',
+                                     'projectId': 'hipster-chat-mock'}),
+                        OptionsTest('firebase_config_partial.json',
+                                    {'projectId':'pid1-mock',
+                                     'storageBucket':'sb1-mock'},
+                                    {'databaseURL': 'https://hipster-chat.firebaseio.mock',
+                                     'projectId': 'pid1-mock',
+                                     'storageBucket': 'sb1-mock'}),
+                        OptionsTest('firebase_config.json',
+                                    {'databaseAuthVariableOverride': 'davy1-mock',
+                                     'databaseURL': 'https://db1-mock',
+                                     'projectId': 'pid1-mock',
+                                     'storageBucket': 'sb1-.mock'},
+                                    {'databaseAuthVariableOverride': 'davy1-mock',
+                                     'databaseURL': 'https://db1-mock',
+                                     'projectId': 'pid1-mock',
+                                     'storageBucket': 'sb1-.mock'})],
+                ids=['blank', 'blank_with_options',
+                     'full-json', 'full-json-none-options', 'full-json-empty-opts',
+                     'partial-json-no-options', 'partial-json-non-overlapping',
+                     'full-json-no-overwrite'])
 def test_option(request):
     conf = request.param
     conf.init()
@@ -194,10 +231,8 @@ class TestFirebaseApp(object):
 
     def test_app_init_with_default_config(self, test_option):
         app = firebase_admin.initialize_app(options=test_option.init_options)
-        print app.options
-        return
-        #_CONFIG_FILE_ENV
-        app = firebase_admin.initialize_app()
+        for field in firebase_admin._CONFIG_VALID_KEYS:
+            assert app.options.get(field) == test_option.want_options.get(field)
 
     def test_project_id_from_options(self, app_credential):
         app = firebase_admin.initialize_app(

@@ -230,7 +230,7 @@ class TestFirebaseApp(object):
             firebase_admin.initialize_app(CREDENTIAL, name=name)
 
     def test_app_init_with_default_config(self, test_option):
-        app = firebase_admin.initialize_app(options=test_option.init_options)
+        app = firebase_admin.initialize_app(CREDENTIAL, options=test_option.init_options)
         for field in firebase_admin._CONFIG_VALID_KEYS:
             assert app.options.get(field) == test_option.want_options.get(field)
 

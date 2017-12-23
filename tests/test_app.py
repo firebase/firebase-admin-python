@@ -25,7 +25,20 @@ from tests import testutils
 CREDENTIAL = credentials.Certificate(
     testutils.resource_filename('service_account.json'))
 GCLOUD_PROJECT = 'GCLOUD_PROJECT'
-CONFIG_FILE = firebase_admin._CONFIG_FILE_ENV
+CONFIG_FILE = firebase_admin._CONFIG_FILE_ENV  
+
+@pytest.fixture(scope="session", autouse=True)
+def ignore_config_file(request):
+    config_file_old = os.environ.get(CONFIG_FILE)
+    if config_file_old:
+        del os.environ[CONFIG_FILE]
+    def fin():
+        if config_file_old:
+            os.environ[CONFIG_FILE] = config_file_old
+        else:
+            if os.environ.get(CONFIG_FILE):
+                del os.environ[CONFIG_FILE]
+    request.addfinalizer(fin)
 
 class CredentialProvider(object):
     def init(self):

@@ -25,7 +25,7 @@ from tests import testutils
 CREDENTIAL = credentials.Certificate(
     testutils.resource_filename('service_account.json'))
 GCLOUD_PROJECT = 'GCLOUD_PROJECT'
-CONFIG_FILE = firebase_admin._CONFIG_FILE_ENV  
+CONFIG_FILE = firebase_admin._CONFIG_FILE_ENV
 
 @pytest.fixture(scope="session", autouse=True)
 def ignore_config_file(request):

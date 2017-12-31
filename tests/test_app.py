@@ -240,11 +240,7 @@ class TestFirebaseApp(object):
 
     def test_app_init_with_default_config(self, test_option):
         app = firebase_admin.initialize_app(CREDENTIAL, options=test_option.init_options)
-        print "======"
-        print test_option.init_options, test_option.want_options , app.options._options, test_option.config_filename
-        print ";;;;"
         for field in firebase_admin._CONFIG_VALID_KEYS:
-            print field
             assert app.options.get(field) == test_option.want_options.get(field)
 
     def test_project_id_from_options(self, app_credential):

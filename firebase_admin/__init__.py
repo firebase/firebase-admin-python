@@ -161,7 +161,6 @@ class _AppOptions(object):
                 json_data = json.load(json_file)
             except:
                 raise ValueError('JSON string in {0} is not valid json.'.format(json_file))
-        print json_data
         self._options = {k: v for k, v in json_data.items() if k in _CONFIG_VALID_KEYS}
 
     def get(self, key, default=None):

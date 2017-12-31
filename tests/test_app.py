@@ -141,8 +141,9 @@ class OptionsTest(object):
                                      'databaseURL': 'https://db1-mock',
                                      'projectId': 'pid1-mock',
                                      'storageBucket': 'sb1-.mock'})],
-                ids=['blank', 'blank_with_options', 'full-json', 'full-json-none-options', 
-                     'bad-key-read-the-rest', 'full-json-empty-opts', 'partial-json-no-options', 
+                ids=['blank', 'blank_with_options', 'full-json',
+                     'full-json-none-options', 'bad-key-read-the-rest',
+                     'full-json-empty-opts', 'partial-json-no-options',
                      'partial-json-non-overlapping', 'full-json-no-overwrite'])
 def test_option(request):
     conf = request.param

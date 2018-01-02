@@ -32,7 +32,7 @@ _apps_lock = threading.RLock()
 _clock = datetime.datetime.utcnow
 
 _DEFAULT_APP_NAME = '[DEFAULT]'
-_CONFIG_FILE_ENV = 'FIREBASE_CONFIG'
+_CONFIG_JSON_ENV = 'FIREBASE_CONFIG'
 _CONFIG_VALID_KEYS = ['databaseAuthVariableOverride', 'databaseURL', 'projectId', 'storageBucket']
 
 def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
@@ -152,15 +152,22 @@ class _AppOptions(object):
                                  'must be a dictionary.'.format(type(options)))
             self._options = options
             return
-        config_file = os.getenv(_CONFIG_FILE_ENV)
-        if config_file is None:
+        config_file = os.getenv(_CONFIG_JSON_ENV)
+        if config_file is None or config_file == "":
             self._options = {}
             return
-        with open(config_file, 'r') as json_file:
-            try:
-                json_data = json.load(json_file)
-            except:
-                raise ValueError('JSON string in {0} is not valid json.'.format(json_file))
+        if config_file[0] == '{':
+            json_str = config_file
+        else:
+            with open(config_file, 'r') as json_file:
+                try:
+                    json_str = json_file.read()
+                except:
+                    raise ValueError('Unable to read file {}.'.format(json_file))
+        try:
+            json_data = json.loads(json_str)
+        except Exception as err:
+            raise ValueError('JSON string "{0}" is not valid json. {1}'.format(json_str, err))
         self._options = {k: v for k, v in json_data.items() if k in _CONFIG_VALID_KEYS}
 
     def get(self, key, default=None):

@@ -25,21 +25,21 @@ from tests import testutils
 CREDENTIAL = credentials.Certificate(
     testutils.resource_filename('service_account.json'))
 GCLOUD_PROJECT = 'GCLOUD_PROJECT'
-CONFIG_FILE = firebase_admin._CONFIG_FILE_ENV
+CONFIG_JSON = firebase_admin._CONFIG_JSON_ENV
 
 # This fixture will ignore the environment variable pointing to the default
 # configuration for the duration of the tests.
 @pytest.fixture(scope="session", autouse=True)
 def ignore_config_file(request):
-    config_file_old = os.environ.get(CONFIG_FILE)
+    config_file_old = os.environ.get(CONFIG_JSON)
     if config_file_old:
-        del os.environ[CONFIG_FILE]
+        del os.environ[CONFIG_JSON]
     def fin():
         if config_file_old:
-            os.environ[CONFIG_FILE] = config_file_old
+            os.environ[CONFIG_JSON] = config_file_old
         else:
-            if os.environ.get(CONFIG_FILE):
-                del os.environ[CONFIG_FILE]
+            if os.environ.get(CONFIG_JSON):
+                del os.environ[CONFIG_JSON]
     request.addfinalizer(fin)
 
 class CredentialProvider(object):
@@ -86,65 +86,83 @@ class ImplicitAppDefault(ExplicitAppDefault):
 
 
 class OptionsTest(object):
-    def __init__(self, config_filename, init_options=None, want_options=None):
-        self.config_filename = config_filename
+    def __init__(self, config_json, init_options=None, want_options=None):
+        self.config_json = config_json
         self.init_options = init_options
         self.want_options = want_options
 
     def init(self):
-        self.config_file_old = os.environ.get(CONFIG_FILE)
-        if self.config_filename:
-            os.environ[CONFIG_FILE] = testutils.resource_filename(self.config_filename)
-        elif os.environ.get(CONFIG_FILE):
-            del os.environ[CONFIG_FILE]
+        self.config_file_old = os.environ.get(CONFIG_JSON)
+        if self.config_json:
+            os.environ[CONFIG_JSON] = testutils.resource_filename(self.config_json)
+        elif os.environ.get(CONFIG_JSON):
+            del os.environ[CONFIG_JSON]
 
     def cleanup(self):
         if self.config_file_old:
-            os.environ[CONFIG_FILE] = self.config_file_old
-        elif os.environ.get(CONFIG_FILE):
-            del os.environ[CONFIG_FILE]
+            os.environ[CONFIG_JSON] = self.config_file_old
+        elif os.environ.get(CONFIG_JSON):
+            del os.environ[CONFIG_JSON]
 
-@pytest.fixture(params=[OptionsTest(None, {}, {}),
-                        OptionsTest(None,
-                                    {'storageBucket': 'bucket1'},
-                                    {'storageBucket': 'bucket1'}),
-                        OptionsTest('firebase_config.json',
-                                    {'storageBucket': 'bucket1'},
-                                    {'storageBucket': 'bucket1'}),
-                        OptionsTest('firebase_config.json',
-                                    None,
-                                    {'databaseAuthVariableOverride': {'some_key': 'some_val'},
-                                     'databaseURL': 'https://hipster-chat.firebaseio.mock',
-                                     'projectId': 'hipster-chat-mock',
-                                     'storageBucket': 'hipster-chat.appspot.mock'}),
-                        OptionsTest('firebase_config_bad_key.json',
-                                    None,
-                                    {'projectId': 'hipster-chat-mock'}),
-                        OptionsTest('firebase_config.json',
-                                    {},
-                                    {}),
-                        OptionsTest('firebase_config_partial.json',
-                                    None,
-                                    {'databaseURL': 'https://hipster-chat.firebaseio.mock',
-                                     'projectId': 'hipster-chat-mock'}),
-                        OptionsTest('firebase_config_partial.json',
-                                    {'projectId': 'pid1-mock',
-                                     'storageBucket': 'sb1-mock'},
-                                    {'projectId': 'pid1-mock',
-                                     'storageBucket': 'sb1-mock'}),
-                        OptionsTest('firebase_config.json',
-                                    {'databaseAuthVariableOverride': 'davy1-mock',
-                                     'databaseURL': 'https://db1-mock',
-                                     'projectId': 'pid1-mock',
-                                     'storageBucket': 'sb1-.mock'},
-                                    {'databaseAuthVariableOverride': 'davy1-mock',
-                                     'databaseURL': 'https://db1-mock',
-                                     'projectId': 'pid1-mock',
-                                     'storageBucket': 'sb1-.mock'})],
-                ids=['blank', 'blank_with_options', 'full-json',
-                     'full-json-none-options', 'bad-key-read-the-rest',
-                     'full-json-empty-opts', 'partial-json-no-options',
-                     'partial-json-non-overlapping', 'full-json-no-overwrite'])
+def named_option_pairs_for_test(named_id_option_pairs):
+    return dict(zip(("ids", "params"), zip(*named_id_option_pairs)))
+@pytest.fixture(**named_option_pairs_for_test([
+    ('no env var, empty options',
+     OptionsTest(None, {}, {})),
+    ('env var empty string empty options',
+     OptionsTest('', {}, {})),
+    ('no env var, no options',
+     OptionsTest(None, None, {})),
+    ('empty string with no options',
+     OptionsTest('', None, {})),
+    ('no env var with options',
+     OptionsTest(None,
+                 {'storageBucket': 'bucket1'},
+                 {'storageBucket': 'bucket1'})),
+    ('config file ignored with options passed',
+     OptionsTest('firebase_config.json',
+                 {'storageBucket': 'bucket1'},
+                 {'storageBucket': 'bucket1'})),
+    ('asdf',
+     OptionsTest('firebase_config.json',
+                 {'storageBucket': 'bucket1'},
+                 {'storageBucket': 'bucket1'})),
+    ('adf',
+     OptionsTest('firebase_config.json',
+                 None,
+                 {'databaseAuthVariableOverride': {'some_key': 'some_val'},
+                  'databaseURL': 'https://hipster-chat.firebaseio.mock',
+                  'projectId': 'hipster-chat-mock',
+                  'storageBucket': 'hipster-chat.appspot.mock'})),
+    ('gf',
+     OptionsTest('firebase_config_bad_key.json',
+                 None,
+                 {'projectId': 'hipster-chat-mock'})),
+    ('adsfads',
+     OptionsTest('firebase_config.json',
+                 {},
+                 {})),
+    ('asdffd',
+     OptionsTest('firebase_config_partial.json',
+                 None,
+                 {'databaseURL': 'https://hipster-chat.firebaseio.mock',
+                  'projectId': 'hipster-chat-mock'})),
+    ('asdfddf',
+     OptionsTest('firebase_config_partial.json',
+                 {'projectId': 'pid1-mock',
+                  'storageBucket': 'sb1-mock'},
+                 {'projectId': 'pid1-mock',
+                  'storageBucket': 'sb1-mock'})),
+    ('sdfdf',
+     OptionsTest('firebase_config.json',
+                 {'databaseAuthVariableOverride': 'davy1-mock',
+                  'databaseURL': 'https://db1-mock',
+                  'projectId': 'pid1-mock',
+                  'storageBucket': 'sb1-.mock'},
+                 {'databaseAuthVariableOverride': 'davy1-mock',
+                  'databaseURL': 'https://db1-mock',
+                  'projectId': 'pid1-mock',
+                  'storageBucket': 'sb1-.mock'}))]))
 def test_option(request):
     conf = request.param
     conf.init()
@@ -221,8 +239,8 @@ class TestFirebaseApp(object):
 
     @pytest.mark.parametrize('bad_file_name', bad_config_file)
     def test_default_app_init_with_bad_config_from_env(self, bad_file_name):
-        config_file_old = os.environ.get(CONFIG_FILE)
-        os.environ[CONFIG_FILE] = testutils.resource_filename(bad_file_name)
+        config_file_old = os.environ.get(CONFIG_JSON)
+        os.environ[CONFIG_JSON] = testutils.resource_filename(bad_file_name)
         try:
             with pytest.raises(ValueError):
                 firebase_admin.initialize_app(CREDENTIAL)
@@ -230,9 +248,9 @@ class TestFirebaseApp(object):
             assert bad_file_name == 'no_such_file'
         finally:
             if config_file_old:
-                os.environ[CONFIG_FILE] = config_file_old
+                os.environ[CONFIG_JSON] = config_file_old
             else:
-                del os.environ[CONFIG_FILE]
+                del os.environ[CONFIG_JSON]
 
     @pytest.mark.parametrize('name', invalid_names)
     def test_app_init_with_invalid_name(self, name):

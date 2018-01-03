@@ -153,7 +153,7 @@ class _AppOptions(object):
             self._options = options
             return
         config_file = os.getenv(_CONFIG_JSON_ENV)
-        if config_file is None or config_file == "":
+        if not config_file:
             self._options = {}
             return
         if config_file[0] == '{':

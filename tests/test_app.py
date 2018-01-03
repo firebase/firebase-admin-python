@@ -308,8 +308,6 @@ class TestFirebaseApp(object):
         try:
             with pytest.raises(ValueError):
                 firebase_admin.initialize_app(CREDENTIAL)
-        except IOError:
-            assert bad_file_name == 'no_such_file'
         finally:
             if config_file_old:
                 os.environ[CONFIG_JSON] = config_file_old

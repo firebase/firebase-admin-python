@@ -159,11 +159,11 @@ class _AppOptions(object):
         if config_file[0] == '{':
             json_str = config_file
         else:
-            with open(config_file, 'r') as json_file:
-                try:
+            try:
+                with open(config_file, 'r') as json_file:
                     json_str = json_file.read()
-                except:
-                    raise ValueError('Unable to read file {}.'.format(json_file))
+            except Exception as err:
+                raise ValueError('Unable to read file {}. {}'.format(config_file, err))
         try:
             json_data = json.loads(json_str)
         except Exception as err:

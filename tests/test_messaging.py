@@ -375,7 +375,7 @@ class TestSend(object):
         try:
             app = firebase_admin.initialize_app(testutils.MockCredential(), name='no_project_id')
             with pytest.raises(ValueError):
-                messaging.send(messaging.Message(topic='foo'), app)
+                messaging.send(messaging.Message(topic='foo'), app=app)
         finally:
             if gcloud_project:
                 os.environ[env_var] = gcloud_project
@@ -394,5 +394,19 @@ class TestSend(object):
         assert len(recorder) == 1
         assert recorder[0].method == 'POST'
         assert recorder[0].url == self._get_url('explicit-project-id')
-        body = messaging._MessagingService._JSON_ENCODER.default(msg)
+        body = {'message': messaging._MessagingService._JSON_ENCODER.default(msg)}
+        assert json.loads(recorder[0].body.decode()) == body
+
+    def test_send_dry_run(self):
+        _, recorder = self._instrument_messaging_service()
+        msg = messaging.Message(topic='foo')
+        msg_id = messaging.send(msg, dry_run=True)
+        assert msg_id == 'message-id'
+        assert len(recorder) == 1
+        assert recorder[0].method == 'POST'
+        assert recorder[0].url == self._get_url('explicit-project-id')
+        body = {
+            'message': messaging._MessagingService._JSON_ENCODER.default(msg),
+            'validate_only': True,
+        }
         assert json.loads(recorder[0].body.decode()) == body

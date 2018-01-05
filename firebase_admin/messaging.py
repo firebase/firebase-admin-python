@@ -29,8 +29,8 @@ _MESSAGING_ATTRIBUTE = '_messaging'
 def _get_messaging_service(app):
     return _utils.get_app_service(app, _MESSAGING_ATTRIBUTE, _MessagingService)
 
-def send(message, app=None):
-    return _get_messaging_service(app).send(message)
+def send(message, dry_run=False, app=None):
+    return _get_messaging_service(app).send(message, dry_run)
 
 
 class _Validators(object):
@@ -269,9 +269,11 @@ class _MessagingService(object):
         self._fcm_url = _MessagingService._FCM_URL.format(project_id)
         self._client = _http_client.JsonHttpClient(credential=app.credential.get_credential())
 
-    def send(self, message):
+    def send(self, message, dry_run=False):
         if not isinstance(message, Message):
             raise ValueError('message must be an instance of Message class.')
-        data = _MessagingService._JSON_ENCODER.default(message)
+        data = {'message': _MessagingService._JSON_ENCODER.default(message)}
+        if dry_run:
+            data['validate_only'] = True
         resp = self._client.body('post', url=self._fcm_url, json=data)
         return resp['name']

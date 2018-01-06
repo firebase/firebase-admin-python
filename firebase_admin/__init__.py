@@ -32,8 +32,9 @@ _apps_lock = threading.RLock()
 _clock = datetime.datetime.utcnow
 
 _DEFAULT_APP_NAME = '[DEFAULT]'
-_CONFIG_JSON_ENV = 'FIREBASE_CONFIG'
-_CONFIG_VALID_KEYS = ['databaseAuthVariableOverride', 'databaseURL', 'projectId', 'storageBucket']
+_FIREBASE_CONFIG_ENV_VAR = 'FIREBASE_CONFIG'
+_CONFIG_VALID_KEYS = ['databaseAuthVariableOverride', 'databaseURL', 'httpTimeout', 'projectId',
+                      'storageBucket']
 
 def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
     """Initializes and returns a new App instance.
@@ -146,17 +147,31 @@ class _AppOptions(object):
     """A collection of configuration options for an App."""
 
     def __init__(self, options):
-        if options is not None:
-            if not isinstance(options, dict):
-                raise ValueError('Illegal Firebase app options type: {0}. Options '
-                                 'must be a dictionary.'.format(type(options)))
-            self._options = options
-            return
-        config_file = os.getenv(_CONFIG_JSON_ENV)
+        self._options = options
+        if options is None:
+            self._load_from_environment()
+
+        if not isinstance(self._options, dict):
+            raise ValueError('Illegal Firebase app options type: {0}. Options '
+                             'must be a dictionary.'.format(type(self._options)))
+
+
+    def get(self, key, default=None):
+        """Returns the option identified by the provided key."""
+        return self._options.get(key, default)
+
+    def _load_from_environment(self):
+        """Invoked when no options are passed to __init__, loads options from FIREBASE_CONFIG.
+
+        If the value of the FIREBASE_CONFIG environment variable starts with "{" an attempt is made
+        to parse it as a JSON object, otherwise it is assumed to be pointing to a JSON file.
+        """
+
+        config_file = os.getenv(_FIREBASE_CONFIG_ENV_VAR)
         if not config_file:
             self._options = {}
             return
-        if config_file[0] == '{':
+        if config_file.startswith('{'):
             json_str = config_file
         else:
             try:
@@ -169,10 +184,6 @@ class _AppOptions(object):
         except Exception as err:
             raise ValueError('JSON string "{0}" is not valid json. {1}'.format(json_str, err))
         self._options = {k: v for k, v in json_data.items() if k in _CONFIG_VALID_KEYS}
-
-    def get(self, key, default=None):
-        """Returns the option identified by the provided key."""
-        return self._options.get(key, default)
 
 
 class App(object):

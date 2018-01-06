@@ -169,7 +169,7 @@ class TestFirebaseApp(object):
     def test_app_init_with_invalid_config_file(self, bad_file_name):
         config_old = set_config_env(bad_file_name)
         with pytest.raises(ValueError):
-            firebase_admin.initialize_app()
+            firebase_admin.initialize_app(CREDENTIAL)
         revert_config_env(config_old)
 
 

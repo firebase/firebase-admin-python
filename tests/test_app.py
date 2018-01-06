@@ -278,7 +278,7 @@ class TestFirebaseApp(object):
     def test_app_init_with_default_config(self, test_case):
         """Set the CONFIG env var and test that options are initialized"""
         config_old = set_config_env(test_case.config_json)
-        app = firebase_admin.initialize_app(options=test_case.init_options)
+        app = firebase_admin.initialize_app(CREDENTIAL, options=test_case.init_options)
         for field in firebase_admin._CONFIG_VALID_KEYS:
             assert app.options.get(field) == test_case.want_options.get(field), test_case.name
         revert_config_env(config_old)

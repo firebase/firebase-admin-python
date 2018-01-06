@@ -441,6 +441,54 @@ class TestWebpushNotificationEncoder(object):
         check_encoding(msg, expected)
 
 
+class TestAPNSConfigEncoder(object):
+
+    @pytest.mark.parametrize('data', NON_OBJECT_ARGS)
+    def test_invalid_apns(self, data):
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(
+                topic='topic', apns=data))
+        expected = 'Message.apns must be an instance of APNSConfig class.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', NON_DICT_ARGS)
+    def test_invalid_headers(self, data):
+        with pytest.raises(ValueError):
+            check_encoding(messaging.Message(
+                topic='topic', apns=messaging.APNSConfig(headers=data)))
+
+    @pytest.mark.parametrize('data', [list(), tuple(), 1, 0, True, False, 'foo'])
+    def test_invalid_payload(self, data):
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(
+                topic='topic', apns=messaging.APNSConfig(payload=data)))
+        expected = 'APNSConfig.payload must be a dictionary.'
+        assert str(excinfo.value) == expected
+
+    def test_apns_config(self):
+        msg = messaging.Message(
+            topic='topic',
+            apns=messaging.APNSConfig(
+                headers={'h1': 'v1', 'h2': 'v2'},
+                payload={'k1': 'v1', 'k2': True}
+            )
+        )
+        expected = {
+            'topic': 'topic',
+            'apns': {
+                'headers': {
+                    'h1': 'v1',
+                    'h2': 'v2',
+                },
+                'payload': {
+                    'k1': 'v1',
+                    'k2': True,
+                },
+            },
+        }
+        check_encoding(msg, expected)
+
+
 class TestSend(object):
 
     _DEFAULT_RESPONSE = json.dumps({'name': 'message-id'})

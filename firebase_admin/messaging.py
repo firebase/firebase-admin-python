@@ -54,6 +54,15 @@ class _Validators(object):
         return value
 
     @classmethod
+    def check_dict(cls, label, value):
+        """Checks if the given value is a dictionary."""
+        if value is None or value == {}:
+            return None
+        if not isinstance(value, dict):
+            raise ValueError('{0} must be a dictionary.'.format(label))
+        return value
+
+    @classmethod
     def check_string_dict(cls, label, value):
         """Checks if the given value is a dictionary comprised only of string keys and values."""
         if value is None or value == {}:
@@ -146,6 +155,13 @@ class WebpushNotification(object):
         self.title = title
         self.body = body
         self.icon = icon
+
+
+class APNSConfig(object):
+
+    def __init__(self, headers=None, payload=None):
+        self.headers = headers
+        self.payload = payload
 
 
 class _MessageEncoder(json.JSONEncoder):
@@ -264,6 +280,21 @@ class _MessageEncoder(json.JSONEncoder):
         return cls.remove_null_values(result)
 
     @classmethod
+    def encode_apns(cls, apns):
+        """Encodes an APNSConfig instance into JSON."""
+        if apns is None:
+            return None
+        if not isinstance(apns, APNSConfig):
+            raise ValueError('Message.apns must be an instance of APNSConfig class.')
+        result = {
+            'headers': _Validators.check_string_dict(
+                'APNSConfig.headers', apns.headers),
+            'payload': _Validators.check_dict(
+                'APNSConfig.payload', apns.payload),
+        }
+        return cls.remove_null_values(result)
+
+    @classmethod
     def encode_notification(cls, notification):
         if notification is None:
             return None
@@ -280,6 +311,7 @@ class _MessageEncoder(json.JSONEncoder):
             return json.JSONEncoder.default(self, obj)
         result = {
             'android': _MessageEncoder.encode_android(obj.android),
+            'apns': _MessageEncoder.encode_apns(obj.apns),
             'condition': _Validators.check_string(
                 'Message.condition', obj.condition, non_empty=True),
             'data': _Validators.check_string_dict('Message.data', obj.data),

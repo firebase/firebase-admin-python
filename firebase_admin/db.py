@@ -130,9 +130,9 @@ class Reference(object):
 
         Args:
           etag: A boolean indicating whether the Etag value should be returned or not (optional).
-          shallow: A boolean indicating whther to execute a shallow read (optional). Shallow reads
-              does not fetch the child nodes of the current reference. Cannot be set to True
-              if ``etag`` is also set to True.
+          shallow: A boolean indicating whether to execute a shallow read (optional). Shallow
+              reads do not retrieve the child nodes of the current database location. Cannot be
+              set to True if ``etag`` is also set to True.
 
         Returns:
           object: If etag is False returns the decoded JSON value of the current database location.

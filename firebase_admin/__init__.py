@@ -149,11 +149,12 @@ class _AppOptions(object):
     def __init__(self, options):
         self._options = options
         if options is None:
-            self._load_from_environment()
+            options = self._load_from_environment()
 
-        if not isinstance(self._options, dict):
+        if not isinstance(options, dict):
             raise ValueError('Illegal Firebase app options type: {0}. Options '
                              'must be a dictionary.'.format(type(self._options)))
+        self._options = options
 
     def get(self, key, default=None):
         """Returns the option identified by the provided key."""
@@ -168,8 +169,7 @@ class _AppOptions(object):
 
         config_file = os.getenv(_FIREBASE_CONFIG_ENV_VAR)
         if not config_file:
-            self._options = {}
-            return
+            return {}
         if config_file.startswith('{'):
             json_str = config_file
         else:
@@ -182,7 +182,7 @@ class _AppOptions(object):
             json_data = json.loads(json_str)
         except Exception as err:
             raise ValueError('JSON string "{0}" is not valid json. {1}'.format(json_str, err))
-        self._options = {k: v for k, v in json_data.items() if k in _CONFIG_VALID_KEYS}
+        return {k: v for k, v in json_data.items() if k in _CONFIG_VALID_KEYS}
 
 
 class App(object):

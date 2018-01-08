@@ -273,6 +273,13 @@ class TestFirebaseApp(object):
             firebase_admin.initialize_app(CREDENTIAL)
         revert_config_env(config_old)
 
+    def test_app_init_with_invalid_config_string(self):
+        config_old = set_config_env('{,,')
+        print config_old
+        with pytest.raises(ValueError):
+            firebase_admin.initialize_app(CREDENTIAL)
+        revert_config_env(config_old)
+
 
     @pytest.mark.parametrize('env_test_case', env_options_test_cases,
                              ids=[x.name for x in env_options_test_cases],

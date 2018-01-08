@@ -125,11 +125,14 @@ class Reference(object):
         full_path = self._pathurl + '/' + path
         return Reference(client=self._client, path=full_path)
 
-    def get(self, etag=False):
+    def get(self, etag=False, shallow=False):
         """Returns the value, and optionally the ETag, at the current location of the database.
 
         Args:
           etag: A boolean indicating whether the Etag value should be returned or not (optional).
+          shallow: A boolean indicating whther to execute a shallow read (optional). Shallow reads
+              does not fetch the child nodes of the current reference. Cannot be set to True
+              if ``etag`` is also set to True.
 
         Returns:
           object: If etag is False returns the decoded JSON value of the current database location.
@@ -137,14 +140,18 @@ class Reference(object):
           associated with the current database location.
 
         Raises:
+          ValueError: If both ``etag`` and ``shallow`` are set to True.
           ApiCallError: If an error occurs while communicating with the remote database server.
         """
         if etag:
+            if shallow:
+                raise ValueError('etag and shallow cannot both be set to True.')
             headers, data = self._client.headers_and_body(
                 'get', self._add_suffix(), headers={'X-Firebase-ETag' : 'true'})
             return data, headers.get('ETag')
         else:
-            return self._client.body('get', self._add_suffix())
+            params = 'shallow=true' if shallow else None
+            return self._client.body('get', self._add_suffix(), params=params)
 
     def get_if_changed(self, etag):
         """Gets data in this location only if the specified ETag does not match.

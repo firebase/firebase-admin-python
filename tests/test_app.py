@@ -96,10 +96,8 @@ def init_app(request):
 @pytest.fixture(scope="function")
 def env_test_case(request):
     config_old = set_config_env(request.param.config_json)
-    def fin():
-        revert_config_env(config_old)
-    request.addfinalizer(fin)
-    return request.param
+    yield request.param
+    revert_config_env(config_old)
 
 
 EnvOptionsTestCase = namedtuple('EnvOptionsTestCase',
@@ -285,8 +283,7 @@ class TestFirebaseApp(object):
                              indirect=['env_test_case'])
     def test_app_init_with_default_config(self, env_test_case):
         app = firebase_admin.initialize_app(CREDENTIAL, options=env_test_case.init_options)
-        for field in firebase_admin._CONFIG_VALID_KEYS:
-            assert app.options.get(field) == env_test_case.want_options.get(field)
+        assert app.options._options == env_test_case.want_options
 
     def test_project_id_from_options(self, app_credential):
         app = firebase_admin.initialize_app(

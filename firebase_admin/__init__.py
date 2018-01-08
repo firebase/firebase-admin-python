@@ -147,13 +147,12 @@ class _AppOptions(object):
     """A collection of configuration options for an App."""
 
     def __init__(self, options):
-        self._options = options
         if options is None:
             options = self._load_from_environment()
 
         if not isinstance(options, dict):
             raise ValueError('Illegal Firebase app options type: {0}. Options '
-                             'must be a dictionary.'.format(type(self._options)))
+                             'must be a dictionary.'.format(type(options)))
         self._options = options
 
     def get(self, key, default=None):

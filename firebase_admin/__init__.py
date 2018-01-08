@@ -155,7 +155,6 @@ class _AppOptions(object):
             raise ValueError('Illegal Firebase app options type: {0}. Options '
                              'must be a dictionary.'.format(type(self._options)))
 
-
     def get(self, key, default=None):
         """Returns the option identified by the provided key."""
         return self._options.get(key, default)

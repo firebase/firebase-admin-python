@@ -275,7 +275,6 @@ class TestFirebaseApp(object):
 
     def test_app_init_with_invalid_config_string(self):
         config_old = set_config_env('{,,')
-        print config_old
         with pytest.raises(ValueError):
             firebase_admin.initialize_app(CREDENTIAL)
         revert_config_env(config_old)

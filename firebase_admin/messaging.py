@@ -32,6 +32,14 @@ def _get_messaging_service(app):
 def send(message, dry_run=False, app=None):
     return _get_messaging_service(app).send(message, dry_run)
 
+def subscribe_to_topic(tokens, topic, app=None):
+    return _get_messaging_service(app).make_topic_management_request(
+        tokens, topic, 'iid/v1:batchAdd')
+
+def unsubscribe_from_topic(tokens, topic, app=None):
+    return _get_messaging_service(app).make_topic_management_request(
+        tokens, topic, 'iid/v1:batchRemove')
+
 
 class _Validators(object):
     """A collection of data validation utilities.
@@ -74,7 +82,7 @@ class _Validators(object):
         if value is None or value == []:
             return None
         if not isinstance(value, list):
-            raise ValueError('{0} must be a list.'.format(label))
+            raise ValueError('{0} must be a list of strings.'.format(label))
         non_str = [k for k in value if not isinstance(k, six.string_types)]
         if non_str:
             raise ValueError('{0} must not contain non-string values.'.format(label))
@@ -130,6 +138,50 @@ class AndroidNotification(object):
         self.body_loc_args = body_loc_args
         self.title_loc_key = title_loc_key
         self.title_loc_args = title_loc_args
+
+
+class ErrorInfo(object):
+
+    def __init__(self, index, reason):
+        self._index = index
+        self._reason = reason
+
+    @property
+    def index(self):
+        return self._index
+
+    @property
+    def reason(self):
+        return self._reason
+
+
+class TopicManagementResponse(object):
+    """The response received from a topic management operation."""
+
+    def __init__(self, resp):
+        if not isinstance(resp, dict) or 'results' not in resp:
+            raise ValueError('Unexpected topic management response: {0}.'.format(resp))
+        self._success_count = 0
+        self._failure_count = 0
+        self._errors = []
+        for index, result in enumerate(resp['results']):
+            if 'error' in result:
+                self._failure_count += 1
+                self._errors.append(ErrorInfo(index, result['error']))
+            else:
+                self._success_count += 1
+
+    @property
+    def success_count(self):
+        return self._success_count
+
+    @property
+    def failure_count(self):
+        return self._failure_count
+
+    @property
+    def errors(self):
+        return self._errors
 
 
 class _MessageEncoder(json.JSONEncoder):
@@ -254,6 +306,8 @@ class _MessagingService(object):
     """Service class that implements Firebase Cloud Messaging (FCM) functionality."""
 
     _FCM_URL = 'https://fcm.googleapis.com/v1/projects/{0}/messages:send'
+    _IID_URL = 'https://iid.googleapis.com'
+    _IID_HEADERS = {'access_token_auth': 'true'}
     _JSON_ENCODER = _MessageEncoder()
 
     def __init__(self, app):
@@ -271,9 +325,32 @@ class _MessagingService(object):
 
     def send(self, message, dry_run=False):
         if not isinstance(message, Message):
-            raise ValueError('message must be an instance of Message class.')
+            raise ValueError('Message must be an instance of messaging.Message class.')
         data = {'message': _MessagingService._JSON_ENCODER.default(message)}
         if dry_run:
             data['validate_only'] = True
         resp = self._client.body('post', url=self._fcm_url, json=data)
         return resp['name']
+
+    def make_topic_management_request(self, tokens, topic, operation):
+        """Invokes the IID service for topic management functionality."""
+        if isinstance(tokens, six.string_types):
+            tokens = [tokens]
+        if not isinstance(tokens, list) or not tokens:
+            raise ValueError('Tokens must be a string or a non-empty list of strings.')
+        invalid_str = [t for t in tokens if not isinstance(t, six.string_types) or not t]
+        if invalid_str:
+            raise ValueError('Tokens must be non-empty strings.')
+
+        if not isinstance(topic, six.string_types) or not topic:
+            raise ValueError('Topic must be a non-empty string.')
+        if not topic.startswith('/topics/'):
+            topic = '/topics/{0}'.format(topic)
+        data = {
+            'to': topic,
+            'registration_tokens': tokens,
+        }
+        url = '{0}/{1}'.format(_MessagingService._IID_URL, operation)
+        resp = self._client.body(
+            'post', url=url, json=data, headers=_MessagingService._IID_HEADERS)
+        return TopicManagementResponse(resp)

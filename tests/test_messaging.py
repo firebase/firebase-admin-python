@@ -279,7 +279,8 @@ class TestAndroidNotificationEncoder(object):
             expected = 'AndroidNotification.title_loc_args must not contain non-string values.'
             assert str(excinfo.value) == expected
         else:
-            assert str(excinfo.value) == 'AndroidNotification.title_loc_args must be a list.'
+            expected = 'AndroidNotification.title_loc_args must be a list of strings.'
+            assert str(excinfo.value) == expected
 
     def test_no_title_loc_key(self):
         notification = messaging.AndroidNotification(title_loc_args=['foo'])
@@ -301,7 +302,8 @@ class TestAndroidNotificationEncoder(object):
             expected = 'AndroidNotification.body_loc_args must not contain non-string values.'
             assert str(excinfo.value) == expected
         else:
-            assert str(excinfo.value) == 'AndroidNotification.body_loc_args must be a list.'
+            expected = 'AndroidNotification.body_loc_args must be a list of strings.'
+            assert str(excinfo.value) == expected
 
     def test_no_body_loc_key(self):
         notification = messaging.AndroidNotification(body_loc_args=['foo'])
@@ -384,7 +386,7 @@ class TestSend(object):
     def test_invalid_send(self, msg):
         with pytest.raises(ValueError) as excinfo:
             messaging.send(msg)
-        assert str(excinfo.value) == 'message must be an instance of Message class.'
+        assert str(excinfo.value) == 'Message must be an instance of messaging.Message class.'
 
     def test_send(self):
         _, recorder = self._instrument_messaging_service()
@@ -410,3 +412,95 @@ class TestSend(object):
             'validate_only': True,
         }
         assert json.loads(recorder[0].body.decode()) == body
+
+
+class TestTopicManagement(object):
+
+    _DEFAULT_RESPONSE = json.dumps({'results': [{}, {'error': 'error_reason'}]})
+    _VALID_ARGS = [
+        # (tokens, topic, expected)
+        (
+            ['foo', 'bar'],
+            'test-topic',
+            {'to': '/topics/test-topic', 'registration_tokens': ['foo', 'bar']}
+        ),
+        (
+            'foo',
+            '/topics/test-topic',
+            {'to': '/topics/test-topic', 'registration_tokens': ['foo']}
+        ),
+    ]
+
+    @classmethod
+    def setup_class(cls):
+        cred = testutils.MockCredential()
+        firebase_admin.initialize_app(cred, {'projectId': 'explicit-project-id'})
+
+    @classmethod
+    def teardown_class(cls):
+        testutils.cleanup_apps()
+
+    def _instrument_iid_service(self, app=None, status=200, payload=_DEFAULT_RESPONSE):
+        if not app:
+            app = firebase_admin.get_app()
+        fcm_service = messaging._get_messaging_service(app)
+        recorder = []
+        fcm_service._client.session.mount(
+            'https://iid.googleapis.com',
+            testutils.MockAdapter(payload, status, recorder))
+        return fcm_service, recorder
+
+    def _get_url(self, path):
+        return '{0}/{1}'.format(messaging._MessagingService._IID_URL, path)
+
+    @pytest.mark.parametrize('tokens', [None, '', list(), dict(), tuple()])
+    def test_invalid_tokens(self, tokens):
+        expected = 'Tokens must be a string or a non-empty list of strings.'
+        if isinstance(tokens, six.string_types):
+            expected = 'Tokens must be non-empty strings.'
+
+        with pytest.raises(ValueError) as excinfo:
+            messaging.subscribe_to_topic(tokens, 'test-topic')
+        assert str(excinfo.value) == expected
+
+        with pytest.raises(ValueError) as excinfo:
+            messaging.unsubscribe_from_topic(tokens, 'test-topic')
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('topic', NON_STRING_ARGS + [None, ''])
+    def test_invalid_topic(self, topic):
+        expected = 'Topic must be a non-empty string.'
+        with pytest.raises(ValueError) as excinfo:
+            messaging.subscribe_to_topic('test-token', topic)
+        assert str(excinfo.value) == expected
+
+        with pytest.raises(ValueError) as excinfo:
+            messaging.unsubscribe_from_topic('test-tokens', topic)
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('args', _VALID_ARGS)
+    def test_subscribe_to_topic(self, args):
+        _, recorder = self._instrument_iid_service()
+        resp = messaging.subscribe_to_topic(args[0], args[1])
+        self._check_response(resp)
+        assert len(recorder) == 1
+        assert recorder[0].method == 'POST'
+        assert recorder[0].url == self._get_url('iid/v1:batchAdd')
+        assert json.loads(recorder[0].body.decode()) == args[2]
+
+    @pytest.mark.parametrize('args', _VALID_ARGS)
+    def test_unsubscribe_from_topic(self, args):
+        _, recorder = self._instrument_iid_service()
+        resp = messaging.unsubscribe_from_topic(args[0], args[1])
+        self._check_response(resp)
+        assert len(recorder) == 1
+        assert recorder[0].method == 'POST'
+        assert recorder[0].url == self._get_url('iid/v1:batchRemove')
+        assert json.loads(recorder[0].body.decode()) == args[2]
+
+    def _check_response(self, resp):
+        assert resp.success_count == 1
+        assert resp.failure_count == 1
+        assert len(resp.errors) == 1
+        assert resp.errors[0].index == 1
+        assert resp.errors[0].reason == 'error_reason'

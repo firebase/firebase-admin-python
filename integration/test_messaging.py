@@ -19,6 +19,11 @@ import six
 from firebase_admin import messaging
 
 
+_REGISTRATION_TOKEN = ('fGw0qy4TGgk:APA91bGtWGjuhp4WRhHXgbabIYp1jxEKI08ofj_v1bKhWAGJQ4e3arRCWzeTf'
+                       'HaLz83mBnDh0aPWB1AykXAVUUGl2h1wT4XI6XazWpvY7RBUSYfoxtqSWGIm2nvWh2BOP1YG50'
+                       '1SsRoE')
+
+
 def test_send():
     msg = messaging.Message(
         topic='foo-bar',
@@ -26,3 +31,11 @@ def test_send():
     )
     msg_id = messaging.send(msg, dry_run=True)
     assert isinstance(msg_id, six.string_types)
+
+def test_subscribe():
+    resp = messaging.subscribe_to_topic(_REGISTRATION_TOKEN, 'mock-topic')
+    assert resp.success_count + resp.failure_count == 1
+
+def test_unsubscribe():
+    resp = messaging.unsubscribe_from_topic(_REGISTRATION_TOKEN, 'mock-topic')
+    assert resp.success_count + resp.failure_count == 1

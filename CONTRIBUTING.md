@@ -181,7 +181,7 @@ pytest integration/ --cert path/to/service_acct.json --apikey path/to/apikey.txt
 
 To review the test coverage, run `pytest` with the `--cov` flag. To view a detailed line by line 
 coverage, use `pytest --cov --cov-report html` and point your browser to 
-`fire:///<dir>/htmlcov/index.html`.
+`file:///<dir>/htmlcov/index.html`.
 
 
 ### Testing in Different Environments

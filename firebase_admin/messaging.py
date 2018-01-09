@@ -63,6 +63,15 @@ class _Validators(object):
         return value
 
     @classmethod
+    def check_dict(cls, label, value):
+        """Checks if the given value is a dictionary."""
+        if value is None or value == {}:
+            return None
+        if not isinstance(value, dict):
+            raise ValueError('{0} must be a dictionary.'.format(label))
+        return value
+
+    @classmethod
     def check_string_dict(cls, label, value):
         """Checks if the given value is a dictionary comprised only of string keys and values."""
         if value is None or value == {}:
@@ -139,6 +148,29 @@ class AndroidNotification(object):
         self.body_loc_args = body_loc_args
         self.title_loc_key = title_loc_key
         self.title_loc_args = title_loc_args
+
+
+class WebpushConfig(object):
+
+    def __init__(self, headers=None, data=None, notification=None):
+        self.headers = headers
+        self.data = data
+        self.notification = notification
+
+
+class WebpushNotification(object):
+
+    def __init__(self, title=None, body=None, icon=None):
+        self.title = title
+        self.body = body
+        self.icon = icon
+
+
+class APNSConfig(object):
+
+    def __init__(self, headers=None, payload=None):
+        self.headers = headers
+        self.payload = payload
 
 
 class ErrorInfo(object):
@@ -275,6 +307,55 @@ class _MessageEncoder(json.JSONEncoder):
         return result
 
     @classmethod
+    def encode_webpush(cls, webpush):
+        """Encodes an WebpushConfig instance into JSON."""
+        if webpush is None:
+            return None
+        if not isinstance(webpush, WebpushConfig):
+            raise ValueError('Message.webpush must be an instance of WebpushConfig class.')
+        result = {
+            'data': _Validators.check_string_dict(
+                'WebpushConfig.data', webpush.data),
+            'headers': _Validators.check_string_dict(
+                'WebpushConfig.headers', webpush.headers),
+            'notification': cls.encode_webpush_notification(webpush.notification),
+        }
+        return cls.remove_null_values(result)
+
+    @classmethod
+    def encode_webpush_notification(cls, notification):
+        """Encodes an WebpushNotification instance into JSON."""
+        if notification is None:
+            return None
+        if not isinstance(notification, WebpushNotification):
+            raise ValueError('WebpushConfig.notification must be an instance of '
+                             'WebpushNotification class.')
+        result = {
+            'body': _Validators.check_string(
+                'WebpushNotification.body', notification.body),
+            'icon': _Validators.check_string(
+                'WebpushNotification.icon', notification.icon),
+            'title': _Validators.check_string(
+                'WebpushNotification.title', notification.title),
+        }
+        return cls.remove_null_values(result)
+
+    @classmethod
+    def encode_apns(cls, apns):
+        """Encodes an APNSConfig instance into JSON."""
+        if apns is None:
+            return None
+        if not isinstance(apns, APNSConfig):
+            raise ValueError('Message.apns must be an instance of APNSConfig class.')
+        result = {
+            'headers': _Validators.check_string_dict(
+                'APNSConfig.headers', apns.headers),
+            'payload': _Validators.check_dict(
+                'APNSConfig.payload', apns.payload),
+        }
+        return cls.remove_null_values(result)
+
+    @classmethod
     def encode_notification(cls, notification):
         if notification is None:
             return None
@@ -291,12 +372,14 @@ class _MessageEncoder(json.JSONEncoder):
             return json.JSONEncoder.default(self, obj)
         result = {
             'android': _MessageEncoder.encode_android(obj.android),
+            'apns': _MessageEncoder.encode_apns(obj.apns),
             'condition': _Validators.check_string(
                 'Message.condition', obj.condition, non_empty=True),
             'data': _Validators.check_string_dict('Message.data', obj.data),
             'notification': _MessageEncoder.encode_notification(obj.notification),
             'token': _Validators.check_string('Message.token', obj.token, non_empty=True),
             'topic': _Validators.check_string('Message.topic', obj.topic, non_empty=True),
+            'webpush': _MessageEncoder.encode_webpush(obj.webpush),
         }
         result = _MessageEncoder.remove_null_values(result)
         target_count = sum([t in result for t in ['token', 'topic', 'condition']])
@@ -342,10 +425,14 @@ class _MessagingService(object):
         self._fcm_url = _MessagingService.FCM_URL.format(project_id)
         self._client = _http_client.JsonHttpClient(credential=app.credential.get_credential())
 
-    def send(self, message, dry_run=False):
+    @classmethod
+    def encode_message(cls, message):
         if not isinstance(message, Message):
             raise ValueError('Message must be an instance of messaging.Message class.')
-        data = {'message': _MessagingService.JSON_ENCODER.default(message)}
+        return cls.JSON_ENCODER.default(message)
+
+    def send(self, message, dry_run=False):
+        data = {'message': _MessagingService.encode_message(message)}
         if dry_run:
             data['validate_only'] = True
         try:

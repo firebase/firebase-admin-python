@@ -32,7 +32,7 @@ HTTP_ERRORS = [400, 404, 500]
 
 
 def check_encoding(msg, expected=None):
-    encoded = messaging._MessagingService.JSON_ENCODER.default(msg)
+    encoded = messaging._MessagingService.encode_message(msg)
     if expected:
         assert encoded == expected
 
@@ -344,6 +344,154 @@ class TestAndroidNotificationEncoder(object):
         check_encoding(msg, expected)
 
 
+class TestWebpushConfigEncoder(object):
+
+    @pytest.mark.parametrize('data', NON_OBJECT_ARGS)
+    def test_invalid_webpush(self, data):
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(
+                topic='topic', webpush=data))
+        expected = 'Message.webpush must be an instance of WebpushConfig class.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', NON_DICT_ARGS)
+    def test_invalid_headers(self, data):
+        with pytest.raises(ValueError):
+            check_encoding(messaging.Message(
+                topic='topic', webpush=messaging.WebpushConfig(headers=data)))
+
+    @pytest.mark.parametrize('data', NON_DICT_ARGS)
+    def test_invalid_data(self, data):
+        with pytest.raises(ValueError):
+            check_encoding(messaging.Message(
+                topic='topic', webpush=messaging.WebpushConfig(data=data)))
+
+    def test_webpush_config(self):
+        msg = messaging.Message(
+            topic='topic',
+            webpush=messaging.WebpushConfig(
+                headers={'h1': 'v1', 'h2': 'v2'},
+                data={'k1': 'v1', 'k2': 'v2'}
+            )
+        )
+        expected = {
+            'topic': 'topic',
+            'webpush': {
+                'headers': {
+                    'h1': 'v1',
+                    'h2': 'v2',
+                },
+                'data': {
+                    'k1': 'v1',
+                    'k2': 'v2',
+                },
+            },
+        }
+        check_encoding(msg, expected)
+
+
+class TestWebpushNotificationEncoder(object):
+
+    def _check_notification(self, notification):
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(
+                topic='topic', webpush=messaging.WebpushConfig(notification=notification)))
+        return excinfo
+
+    @pytest.mark.parametrize('data', NON_OBJECT_ARGS)
+    def test_invalid_webpush_notification(self, data):
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(
+                topic='topic', webpush=messaging.WebpushConfig(notification=data)))
+        expected = 'WebpushConfig.notification must be an instance of WebpushNotification class.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_title(self, data):
+        notification = messaging.WebpushNotification(title=data)
+        excinfo = self._check_notification(notification)
+        assert str(excinfo.value) == 'WebpushNotification.title must be a string.'
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_body(self, data):
+        notification = messaging.WebpushNotification(body=data)
+        excinfo = self._check_notification(notification)
+        assert str(excinfo.value) == 'WebpushNotification.body must be a string.'
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_icon(self, data):
+        notification = messaging.WebpushNotification(icon=data)
+        excinfo = self._check_notification(notification)
+        assert str(excinfo.value) == 'WebpushNotification.icon must be a string.'
+
+    def test_webpush_notification(self):
+        msg = messaging.Message(
+            topic='topic',
+            webpush=messaging.WebpushConfig(
+                notification=messaging.WebpushNotification(title='t', body='b', icon='i')
+            )
+        )
+        expected = {
+            'topic': 'topic',
+            'webpush': {
+                'notification': {
+                    'title': 't',
+                    'body': 'b',
+                    'icon': 'i',
+                },
+            },
+        }
+        check_encoding(msg, expected)
+
+
+class TestAPNSConfigEncoder(object):
+
+    @pytest.mark.parametrize('data', NON_OBJECT_ARGS)
+    def test_invalid_apns(self, data):
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(
+                topic='topic', apns=data))
+        expected = 'Message.apns must be an instance of APNSConfig class.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', NON_DICT_ARGS)
+    def test_invalid_headers(self, data):
+        with pytest.raises(ValueError):
+            check_encoding(messaging.Message(
+                topic='topic', apns=messaging.APNSConfig(headers=data)))
+
+    @pytest.mark.parametrize('data', [list(), tuple(), 1, 0, True, False, 'foo'])
+    def test_invalid_payload(self, data):
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(
+                topic='topic', apns=messaging.APNSConfig(payload=data)))
+        expected = 'APNSConfig.payload must be a dictionary.'
+        assert str(excinfo.value) == expected
+
+    def test_apns_config(self):
+        msg = messaging.Message(
+            topic='topic',
+            apns=messaging.APNSConfig(
+                headers={'h1': 'v1', 'h2': 'v2'},
+                payload={'k1': 'v1', 'k2': True}
+            )
+        )
+        expected = {
+            'topic': 'topic',
+            'apns': {
+                'headers': {
+                    'h1': 'v1',
+                    'h2': 'v2',
+                },
+                'payload': {
+                    'k1': 'v1',
+                    'k2': True,
+                },
+            },
+        }
+        check_encoding(msg, expected)
+
+
 class TestSend(object):
 
     _DEFAULT_RESPONSE = json.dumps({'name': 'message-id'})
@@ -398,7 +546,7 @@ class TestSend(object):
         assert recorder[0].method == 'POST'
         assert recorder[0].url == self._get_url('explicit-project-id')
         body = {
-            'message': messaging._MessagingService.JSON_ENCODER.default(msg),
+            'message': messaging._MessagingService.encode_message(msg),
             'validate_only': True,
         }
         assert json.loads(recorder[0].body.decode()) == body
@@ -411,7 +559,7 @@ class TestSend(object):
         assert len(recorder) == 1
         assert recorder[0].method == 'POST'
         assert recorder[0].url == self._get_url('explicit-project-id')
-        body = {'message': messaging._MessagingService.JSON_ENCODER.default(msg)}
+        body = {'message': messaging._MessagingService.encode_message(msg)}
         assert json.loads(recorder[0].body.decode()) == body
 
     @pytest.mark.parametrize('status', HTTP_ERRORS)

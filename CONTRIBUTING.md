@@ -227,7 +227,7 @@ those environments. It will also generate a code coverage report at the end of t
 
 To review the test coverage, run `pytest` with the `--cov` flag. To view a detailed line by line 
 coverage, use `pytest --cov --cov-report html` and point your browser to 
-`fire:///<dir>/htmlcov/index.html`
+`fire:///<dir>/htmlcov/index.html`.
 
 ### Repo Organization
 

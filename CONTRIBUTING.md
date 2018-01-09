@@ -177,6 +177,13 @@ Now you can invoke the integration test suite as follows:
 pytest integration/ --cert path/to/service_acct.json --apikey path/to/apikey.txt
 ```
 
+### Test Coverage
+
+To review the test coverage, run `pytest` with the `--cov` flag. To view a detailed line by line 
+coverage, use `pytest --cov --cov-report html` and point your browser to 
+`fire:///<dir>/htmlcov/index.html`.
+
+
 ### Testing in Different Environments
 
 Sometimes we want to run unit tests in multiple environments (e.g. different Python versions), and
@@ -222,12 +229,6 @@ tox
 
 This command will read the list of target environments from `tox.ini`, and execute tests in each of
 those environments. It will also generate a code coverage report at the end of the execution.
-
-### Test Coverage
-
-To review the test coverage, run `pytest` with the `--cov` flag. To view a detailed line by line 
-coverage, use `pytest --cov --cov-report html` and point your browser to 
-`fire:///<dir>/htmlcov/index.html`.
 
 ### Repo Organization
 

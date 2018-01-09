@@ -185,7 +185,7 @@ coverage, use
 pytest --cov --cov-report html
 ```
 and point your browser to 
-`file:///<dir>/htmlcov/index.html` (where `dir` is the location from which the report was run).
+`file:///<dir>/htmlcov/index.html` (where `dir` is the location from which the report was created).
 
 
 ### Testing in Different Environments

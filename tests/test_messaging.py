@@ -597,9 +597,11 @@ class TestSend(object):
         body = {'message': messaging._MessagingService.JSON_ENCODER.default(msg)}
         assert json.loads(recorder[0].body.decode()) == body
 
+
 class TestTopicManagement(object):
 
     _DEFAULT_RESPONSE = json.dumps({'results': [{}, {'error': 'error_reason'}]})
+    _DEFAULT_ERROR_RESPONSE = json.dumps({'error': 'error_reason'})
     _VALID_ARGS = [
         # (tokens, topic, expected)
         (
@@ -671,6 +673,20 @@ class TestTopicManagement(object):
         assert recorder[0].url == self._get_url('iid/v1:batchAdd')
         assert json.loads(recorder[0].body.decode()) == args[2]
 
+    @pytest.mark.parametrize('status', HTTP_ERRORS)
+    def test_subscribe_to_topic_error(self, status):
+        _, recorder = self._instrument_iid_service(
+            status=status, payload=self._DEFAULT_ERROR_RESPONSE)
+        with pytest.raises(messaging.ApiCallError) as excinfo:
+            messaging.subscribe_to_topic('foo', 'test-topic')
+        assert str(excinfo.value) == 'error_reason'
+        code = messaging._MessagingService.IID_ERROR_CODES.get(
+            status, messaging._MessagingService.UNKNOWN_ERROR)
+        assert excinfo.value.code == code
+        assert len(recorder) == 1
+        assert recorder[0].method == 'POST'
+        assert recorder[0].url == self._get_url('iid/v1:batchAdd')
+
     @pytest.mark.parametrize('args', _VALID_ARGS)
     def test_unsubscribe_from_topic(self, args):
         _, recorder = self._instrument_iid_service()
@@ -680,6 +696,20 @@ class TestTopicManagement(object):
         assert recorder[0].method == 'POST'
         assert recorder[0].url == self._get_url('iid/v1:batchRemove')
         assert json.loads(recorder[0].body.decode()) == args[2]
+
+    @pytest.mark.parametrize('status', HTTP_ERRORS)
+    def test_unsubscribe_from_topic_error(self, status):
+        _, recorder = self._instrument_iid_service(
+            status=status, payload=self._DEFAULT_ERROR_RESPONSE)
+        with pytest.raises(messaging.ApiCallError) as excinfo:
+            messaging.unsubscribe_from_topic('foo', 'test-topic')
+        assert str(excinfo.value) == 'error_reason'
+        code = messaging._MessagingService.IID_ERROR_CODES.get(
+            status, messaging._MessagingService.UNKNOWN_ERROR)
+        assert excinfo.value.code == code
+        assert len(recorder) == 1
+        assert recorder[0].method == 'POST'
+        assert recorder[0].url == self._get_url('iid/v1:batchRemove')
 
     def _check_response(self, resp):
         assert resp.success_count == 1

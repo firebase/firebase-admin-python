@@ -402,6 +402,8 @@ class _MessagingService(object):
     IID_HEADERS = {'access_token_auth': 'true'}
     JSON_ENCODER = _MessageEncoder()
 
+    INTERNAL_ERROR = 'internal-error'
+    UNKNOWN_ERROR = 'unknown-error'
     FCM_ERROR_CODES = {
         'INVALID_ARGUMENT': 'invalid-argument',
         'NOT_FOUND': 'registration-token-not-registered',
@@ -410,7 +412,13 @@ class _MessagingService(object):
         'UNAUTHENTICATED': 'authentication-error',
         'UNAVAILABLE': 'server-unavailable',
     }
-    UNKNOWN_ERROR = 'unknown-error'
+    IID_ERROR_CODES = {
+        400: 'invalid-argument',
+        401: 'authentication-error',
+        403: 'authentication-error',
+        500: INTERNAL_ERROR,
+        503: 'server-unavailable',
+    }
 
     def __init__(self, app):
         project_id = app.project_id
@@ -438,7 +446,11 @@ class _MessagingService(object):
         try:
             resp = self._client.body('post', url=self._fcm_url, json=data)
         except requests.exceptions.RequestException as error:
-            self._handle_fcm_error(error)
+            if error.response is not None:
+                self._handle_fcm_error(error)
+            else:
+                msg = 'Failed to call messaging API: {0}'.format(error)
+                raise ApiCallError(self.INTERNAL_ERROR, msg, error)
         else:
             return resp['name']
 
@@ -461,12 +473,19 @@ class _MessagingService(object):
             'registration_tokens': tokens,
         }
         url = '{0}/{1}'.format(_MessagingService.IID_URL, operation)
-        resp = self._client.body(
-            'post', url=url, json=data, headers=_MessagingService.IID_HEADERS)
-        return TopicManagementResponse(resp)
+        try:
+            resp = self._client.body(
+                'post', url=url, json=data, headers=_MessagingService.IID_HEADERS)
+        except requests.exceptions.RequestException as error:
+            if error.response is not None:
+                self._handle_iid_error(error)
+            else:
+                raise ApiCallError(self.INTERNAL_ERROR, 'Failed to call instance ID API.', error)
+        else:
+            return TopicManagementResponse(resp)
 
     def _handle_fcm_error(self, error):
-        """Handles errors encountered when calling the FCM API."""
+        """Handles errors received from the FCM API."""
         data = {}
         try:
             parsed_body = error.response.json()
@@ -479,6 +498,24 @@ class _MessagingService(object):
         code = _MessagingService.FCM_ERROR_CODES.get(
             error_details.get('status'), _MessagingService.UNKNOWN_ERROR)
         msg = error_details.get('message')
+        if not msg:
+            msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(
+                error.response.status_code, error.response.content.decode())
+        raise ApiCallError(code, msg, error)
+
+    def _handle_iid_error(self, error):
+        """Handles errors received from the Instance ID API."""
+        data = {}
+        try:
+            parsed_body = error.response.json()
+            if isinstance(parsed_body, dict):
+                data = parsed_body
+        except ValueError:
+            pass
+
+        code = _MessagingService.IID_ERROR_CODES.get(
+            error.response.status_code, _MessagingService.UNKNOWN_ERROR)
+        msg = data.get('error')
         if not msg:
             msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(
                 error.response.status_code, error.response.content.decode())

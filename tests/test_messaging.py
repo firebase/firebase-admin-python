@@ -28,10 +28,11 @@ NON_STRING_ARGS = [list(), tuple(), dict(), True, False, 1, 0]
 NON_DICT_ARGS = ['', list(), tuple(), True, False, 1, 0, {1: 'foo'}, {'foo': 1}]
 NON_OBJECT_ARGS = [list(), tuple(), dict(), 'foo', 0, 1, True, False]
 NON_LIST_ARGS = ['', tuple(), dict(), True, False, 1, 0, [1], ['foo', 1]]
+HTTP_ERRORS = [400, 404, 500]
 
 
 def check_encoding(msg, expected=None):
-    encoded = messaging._MessagingService._JSON_ENCODER.default(msg)
+    encoded = messaging._MessagingService.JSON_ENCODER.default(msg)
     if expected:
         assert encoded == expected
 
@@ -367,7 +368,7 @@ class TestSend(object):
         return fcm_service, recorder
 
     def _get_url(self, project_id):
-        return messaging._MessagingService._FCM_URL.format(project_id)
+        return messaging._MessagingService.FCM_URL.format(project_id)
 
     def test_no_project_id(self):
         env_var = 'GCLOUD_PROJECT'
@@ -388,17 +389,6 @@ class TestSend(object):
             messaging.send(msg)
         assert str(excinfo.value) == 'Message must be an instance of messaging.Message class.'
 
-    def test_send(self):
-        _, recorder = self._instrument_messaging_service()
-        msg = messaging.Message(topic='foo')
-        msg_id = messaging.send(msg)
-        assert msg_id == 'message-id'
-        assert len(recorder) == 1
-        assert recorder[0].method == 'POST'
-        assert recorder[0].url == self._get_url('explicit-project-id')
-        body = {'message': messaging._MessagingService._JSON_ENCODER.default(msg)}
-        assert json.loads(recorder[0].body.decode()) == body
-
     def test_send_dry_run(self):
         _, recorder = self._instrument_messaging_service()
         msg = messaging.Message(topic='foo')
@@ -408,11 +398,56 @@ class TestSend(object):
         assert recorder[0].method == 'POST'
         assert recorder[0].url == self._get_url('explicit-project-id')
         body = {
-            'message': messaging._MessagingService._JSON_ENCODER.default(msg),
+            'message': messaging._MessagingService.JSON_ENCODER.default(msg),
             'validate_only': True,
         }
         assert json.loads(recorder[0].body.decode()) == body
 
+    def test_send(self):
+        _, recorder = self._instrument_messaging_service()
+        msg = messaging.Message(topic='foo')
+        msg_id = messaging.send(msg)
+        assert msg_id == 'message-id'
+        assert len(recorder) == 1
+        assert recorder[0].method == 'POST'
+        assert recorder[0].url == self._get_url('explicit-project-id')
+        body = {'message': messaging._MessagingService.JSON_ENCODER.default(msg)}
+        assert json.loads(recorder[0].body.decode()) == body
+
+    @pytest.mark.parametrize('status', HTTP_ERRORS)
+    def test_send_error(self, status):
+        _, recorder = self._instrument_messaging_service(status=status, payload='{}')
+        msg = messaging.Message(topic='foo')
+        with pytest.raises(messaging.ApiCallError) as excinfo:
+            messaging.send(msg)
+        expected = 'Unexpected HTTP response with status: {0}; body: {{}}'.format(status)
+        assert str(excinfo.value) == expected
+        assert str(excinfo.value.code) == messaging._MessagingService.UNKNOWN_ERROR
+        assert len(recorder) == 1
+        assert recorder[0].method == 'POST'
+        assert recorder[0].url == self._get_url('explicit-project-id')
+        body = {'message': messaging._MessagingService.JSON_ENCODER.default(msg)}
+        assert json.loads(recorder[0].body.decode()) == body
+
+    @pytest.mark.parametrize('status', HTTP_ERRORS)
+    def test_send_detailed_error(self, status):
+        payload = json.dumps({
+            'error': {
+                'status': 'INVALID_ARGUMENT',
+                'message': 'test error'
+            }
+        })
+        _, recorder = self._instrument_messaging_service(status=status, payload=payload)
+        msg = messaging.Message(topic='foo')
+        with pytest.raises(messaging.ApiCallError) as excinfo:
+            messaging.send(msg)
+        assert str(excinfo.value) == 'test error'
+        assert str(excinfo.value.code) == 'invalid-argument'
+        assert len(recorder) == 1
+        assert recorder[0].method == 'POST'
+        assert recorder[0].url == self._get_url('explicit-project-id')
+        body = {'message': messaging._MessagingService.JSON_ENCODER.default(msg)}
+        assert json.loads(recorder[0].body.decode()) == body
 
 class TestTopicManagement(object):
 
@@ -451,7 +486,7 @@ class TestTopicManagement(object):
         return fcm_service, recorder
 
     def _get_url(self, path):
-        return '{0}/{1}'.format(messaging._MessagingService._IID_URL, path)
+        return '{0}/{1}'.format(messaging._MessagingService.IID_URL, path)
 
     @pytest.mark.parametrize('tokens', [None, '', list(), dict(), tuple()])
     def test_invalid_tokens(self, tokens):

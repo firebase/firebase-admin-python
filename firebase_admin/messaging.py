@@ -17,6 +17,7 @@
 import json
 import re
 
+import requests
 import six
 
 from firebase_admin import _http_client
@@ -184,6 +185,14 @@ class TopicManagementResponse(object):
         return self._errors
 
 
+class ApiCallError(Exception):
+
+    def __init__(self, code, message, detail=None):
+        Exception.__init__(self, message)
+        self.code = code
+        self.detail = detail
+
+
 class _MessageEncoder(json.JSONEncoder):
     """A custom JSONEncoder implementation for serializing Message instances into JSON."""
 
@@ -305,10 +314,20 @@ class _MessageEncoder(json.JSONEncoder):
 class _MessagingService(object):
     """Service class that implements Firebase Cloud Messaging (FCM) functionality."""
 
-    _FCM_URL = 'https://fcm.googleapis.com/v1/projects/{0}/messages:send'
-    _IID_URL = 'https://iid.googleapis.com'
-    _IID_HEADERS = {'access_token_auth': 'true'}
-    _JSON_ENCODER = _MessageEncoder()
+    FCM_URL = 'https://fcm.googleapis.com/v1/projects/{0}/messages:send'
+    IID_URL = 'https://iid.googleapis.com'
+    IID_HEADERS = {'access_token_auth': 'true'}
+    JSON_ENCODER = _MessageEncoder()
+
+    FCM_ERROR_CODES = {
+        'INVALID_ARGUMENT': 'invalid-argument',
+        'NOT_FOUND': 'registration-token-not-registered',
+        'PERMISSION_DENIED': 'authentication-error',
+        'RESOURCE_EXHAUSTED': 'message-rate-exceeded',
+        'UNAUTHENTICATED': 'authentication-error',
+        'UNAVAILABLE': 'server-unavailable',
+    }
+    UNKNOWN_ERROR = 'unknown-error'
 
     def __init__(self, app):
         project_id = app.project_id
@@ -320,17 +339,21 @@ class _MessagingService(object):
         if not isinstance(project_id, six.string_types):
             raise ValueError(
                 'Invalid project ID: "{0}". project ID must be a string.'.format(project_id))
-        self._fcm_url = _MessagingService._FCM_URL.format(project_id)
+        self._fcm_url = _MessagingService.FCM_URL.format(project_id)
         self._client = _http_client.JsonHttpClient(credential=app.credential.get_credential())
 
     def send(self, message, dry_run=False):
         if not isinstance(message, Message):
             raise ValueError('Message must be an instance of messaging.Message class.')
-        data = {'message': _MessagingService._JSON_ENCODER.default(message)}
+        data = {'message': _MessagingService.JSON_ENCODER.default(message)}
         if dry_run:
             data['validate_only'] = True
-        resp = self._client.body('post', url=self._fcm_url, json=data)
-        return resp['name']
+        try:
+            resp = self._client.body('post', url=self._fcm_url, json=data)
+        except requests.exceptions.RequestException as error:
+            self._handle_fcm_error(error)
+        else:
+            return resp['name']
 
     def make_topic_management_request(self, tokens, topic, operation):
         """Invokes the IID service for topic management functionality."""
@@ -350,7 +373,26 @@ class _MessagingService(object):
             'to': topic,
             'registration_tokens': tokens,
         }
-        url = '{0}/{1}'.format(_MessagingService._IID_URL, operation)
+        url = '{0}/{1}'.format(_MessagingService.IID_URL, operation)
         resp = self._client.body(
-            'post', url=url, json=data, headers=_MessagingService._IID_HEADERS)
+            'post', url=url, json=data, headers=_MessagingService.IID_HEADERS)
         return TopicManagementResponse(resp)
+
+    def _handle_fcm_error(self, error):
+        """Handles errors encountered when calling the FCM API."""
+        data = {}
+        try:
+            parsed_body = error.response.json()
+            if isinstance(parsed_body, dict):
+                data = parsed_body
+        except ValueError:
+            pass
+
+        error_details = data.get('error', {})
+        code = _MessagingService.FCM_ERROR_CODES.get(
+            error_details.get('status'), _MessagingService.UNKNOWN_ERROR)
+        msg = error_details.get('message')
+        if not msg:
+            msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(
+                error.response.status_code, error.response.content.decode())
+        raise ApiCallError(code, msg, error)

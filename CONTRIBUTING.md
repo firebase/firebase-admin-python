@@ -223,6 +223,12 @@ tox
 This command will read the list of target environments from `tox.ini`, and execute tests in each of
 those environments. It will also generate a code coverage report at the end of the execution.
 
+### Test Coverage
+
+To review the test coverage, run `pytest` with the `--cov` flag. To view a detailed line by line 
+coverage, use `pytest --cov --cov-report html` and point your browser to 
+`fire:///<dir>/htmlcov/index.html`
+
 ### Repo Organization
 
 Here are some highlights of the directory structure and notable source files

@@ -156,6 +156,22 @@ class TestReference(object):
         assert recorder[0].headers['X-Firebase-ETag'] == 'true'
 
     @pytest.mark.parametrize('data', valid_values)
+    def test_get_shallow(self, data):
+        ref = db.reference('/test')
+        recorder = self.instrument(ref, json.dumps(data))
+        assert ref.get(shallow=True) == data
+        assert len(recorder) == 1
+        assert recorder[0].method == 'GET'
+        assert recorder[0].url == 'https://test.firebaseio.com/test.json?shallow=true'
+        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+        assert recorder[0].headers['User-Agent'] == db._USER_AGENT
+
+    def test_get_with_etag_and_shallow(self):
+        ref = db.reference('/test')
+        with pytest.raises(ValueError):
+            ref.get(etag=True, shallow=True)
+
+    @pytest.mark.parametrize('data', valid_values)
     def test_get_if_changed(self, data):
         ref = db.reference('/test')
         recorder = self.instrument(ref, json.dumps(data))

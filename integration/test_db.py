@@ -89,6 +89,11 @@ class TestReadOperations(object):
         assert testdata == value
         assert isinstance(etag, six.string_types)
 
+    def test_get_shallow(self, testref):
+        value = testref.get(shallow=True)
+        assert isinstance(value, dict)
+        assert value == {'dinosaurs': True, 'scores': True}
+
     def test_get_if_changed(self, testref, testdata):
         success, data, etag = testref.get_if_changed('wrong_etag')
         assert success is True

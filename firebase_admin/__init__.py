@@ -25,7 +25,7 @@ from firebase_admin import credentials
 
 # Declaring module version as per https://www.python.org/dev/peps/pep-0396/#specification
 # Update this accordingly for each release.
-__version__ = '2.7.0'
+__version__ = '2.8.0'
 
 _apps = {}
 _apps_lock = threading.RLock()
@@ -41,8 +41,12 @@ def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
 
     Creates a new App instance using the specified options
     and the app name. If an instance already exists by the same
-    app name a ValueError is raised. Use this function whenever
-    a new App instance is required. Do not directly invoke the
+    app name a ValueError is raised.
+    If options are not provided an attempt is made to load the options from the environment.
+    This is done by looking up the ``FIREBASE_CONFIG`` environment variable. If the value of
+    the variable starts with ``"{"``, it is parsed as a JSON object. Otherwise it is treated
+    as a file name and the JSON content is read from the corresponding file.
+    Use this function whenever a new App instance is required. Do not directly invoke the
     App constructor.
 
     Args:
@@ -52,10 +56,6 @@ def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
           ``databaseURL``, ``storageBucket``, ``projectId``, ``databaseAuthVariableOverride``
           and ``httpTimeout``. If ``httpTimeout`` is not set, HTTP connections initiated by client
           modules such as ``db`` will not time out.
-          If options are not provided an attempt is made to load the options from the environment.
-          This is done by looking up the ``FIREBASE_CONFIG`` environment variable. If the value of
-          the variable starts with ``"{"``, it is parsed as a JSON object. Otherwise it is treated
-          as a file name and the JSON content is read from the corresponding file.
       name: Name of the app (optional).
     Returns:
       App: A newly initialized instance of App.

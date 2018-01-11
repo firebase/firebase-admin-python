@@ -94,7 +94,7 @@ else
 fi
 
 echo "[INFO] Running unit tests"
-tox --workdir ..
+tox
 
 echo "[INFO] Running integration tests"
 pytest ../integration --cert cert.json --apikey apikey.txt

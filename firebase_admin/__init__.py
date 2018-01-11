@@ -25,7 +25,7 @@ from firebase_admin import credentials
 
 # Declaring module version as per https://www.python.org/dev/peps/pep-0396/#specification
 # Update this accordingly for each release.
-__version__ = '2.7.0'
+__version__ = '2.8.0'
 
 _apps = {}
 _apps_lock = threading.RLock()

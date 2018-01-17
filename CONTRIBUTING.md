@@ -177,6 +177,17 @@ Now you can invoke the integration test suite as follows:
 pytest integration/ --cert path/to/service_acct.json --apikey path/to/apikey.txt
 ```
 
+### Test Coverage
+
+To review the test coverage, run `pytest` with the `--cov` flag. To view a detailed line by line 
+coverage, use    
+```bash
+pytest --cov --cov-report html
+```
+and point your browser to 
+`file:///<dir>/htmlcov/index.html` (where `dir` is the location from which the report was created).
+
+
 ### Testing in Different Environments
 
 Sometimes we want to run unit tests in multiple environments (e.g. different Python versions), and

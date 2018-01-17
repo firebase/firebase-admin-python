@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Tests for firebase_admin.App."""
+from collections import namedtuple
 import os
 
 import pytest
@@ -22,10 +23,13 @@ from firebase_admin import credentials
 from firebase_admin import _utils
 from tests import testutils
 
-
 CREDENTIAL = credentials.Certificate(
     testutils.resource_filename('service_account.json'))
 GCLOUD_PROJECT = 'GCLOUD_PROJECT'
+CONFIG_JSON = firebase_admin._FIREBASE_CONFIG_ENV_VAR
+
+# This fixture will ignore the environment variable pointing to the default
+# configuration for the duration of the tests.
 
 class CredentialProvider(object):
     def init(self):
@@ -74,7 +78,6 @@ class AppService(object):
     def __init__(self, app):
         self._app = app
 
-
 @pytest.fixture(params=[Cert(), RefreshToken(), ExplicitAppDefault(), ImplicitAppDefault()],
                 ids=['cert', 'refreshtoken', 'explicit-appdefault', 'implicit-appdefault'])
 def app_credential(request):
@@ -90,6 +93,124 @@ def init_app(request):
     else:
         return firebase_admin.initialize_app(CREDENTIAL)
 
+@pytest.fixture(scope="function")
+def env_test_case(request):
+    config_old = set_config_env(request.param.config_json)
+    yield request.param
+    revert_config_env(config_old)
+
+
+EnvOptionsTestCase = namedtuple('EnvOptionsTestCase',
+                                'name, config_json, init_options, want_options')
+env_options_test_cases = [
+    EnvOptionsTestCase(name='Environment var not set, initialized with an empty options dict',
+                       config_json=None,
+                       init_options={},
+                       want_options={}),
+    EnvOptionsTestCase(name='Environment var empty, initialized with an empty options dict',
+                       config_json='',
+                       init_options={},
+                       want_options={}),
+    EnvOptionsTestCase(name='Environment var not set, initialized with no options dict',
+                       config_json=None,
+                       init_options=None,
+                       want_options={}),
+    EnvOptionsTestCase(name='Environment empty, initialized with no options dict',
+                       config_json='',
+                       init_options=None,
+                       want_options={}),
+    EnvOptionsTestCase(name='Environment var not set, initialized with options dict',
+                       config_json=None,
+                       init_options={'storageBucket': 'bucket1'},
+                       want_options={'storageBucket': 'bucket1'}),
+    EnvOptionsTestCase(name='Environment var set to file but ignored, initialized with options',
+                       config_json='firebase_config.json',
+                       init_options={'storageBucket': 'bucket1'},
+                       want_options={'storageBucket': 'bucket1'}),
+    EnvOptionsTestCase(name='Environment var set to json but ignored, initialized with options',
+                       config_json='{"storageBucket": "hipster-chat.appspot.mock"}',
+                       init_options={'storageBucket': 'bucket1'},
+                       want_options={'storageBucket': 'bucket1'}),
+    EnvOptionsTestCase(name='Environment var set to file, initialized with no options dict',
+                       config_json='firebase_config.json',
+                       init_options=None,
+                       want_options={'databaseAuthVariableOverride': {'some_key': 'some_val'},
+                                     'databaseURL': 'https://hipster-chat.firebaseio.mock',
+                                     'projectId': 'hipster-chat-mock',
+                                     'storageBucket': 'hipster-chat.appspot.mock'}),
+    EnvOptionsTestCase(name='Environment var set to json string, initialized with no options dict',
+                       config_json='{"databaseAuthVariableOverride": {"some_key": "some_val"}, ' +
+                       '"databaseURL": "https://hipster-chat.firebaseio.mock", ' +
+                       '"projectId": "hipster-chat-mock",' +
+                       '"storageBucket": "hipster-chat.appspot.mock"}',
+                       init_options=None,
+                       want_options={'databaseAuthVariableOverride': {'some_key': 'some_val'},
+                                     'databaseURL': 'https://hipster-chat.firebaseio.mock',
+                                     'projectId': 'hipster-chat-mock',
+                                     'storageBucket': 'hipster-chat.appspot.mock'}),
+    EnvOptionsTestCase(name='Invalid key in json file is ignored, the rest of the values are used',
+                       config_json='firebase_config_invalid_key.json',
+                       init_options=None,
+                       want_options={'projectId': 'hipster-chat-mock'}),
+    EnvOptionsTestCase(name='Invalid key in json file is ignored, the rest of the values are used',
+                       config_json='{"databaseUrrrrL": "https://hipster-chat.firebaseio.mock",' +
+                       '"projectId": "hipster-chat-mock"}',
+                       init_options=None,
+                       want_options={'projectId': 'hipster-chat-mock'}),
+    EnvOptionsTestCase(name='Environment var set to file but ignored, init empty options dict',
+                       config_json='firebase_config.json',
+                       init_options={},
+                       want_options={}),
+    EnvOptionsTestCase(name='Environment var set to string but ignored, init empty options dict',
+                       config_json='{"projectId": "hipster-chat-mock"}',
+                       init_options={},
+                       want_options={}),
+    EnvOptionsTestCase(name='Environment variable set to json file with some options set',
+                       config_json='firebase_config_partial.json',
+                       init_options=None,
+                       want_options={'databaseURL': 'https://hipster-chat.firebaseio.mock',
+                                     'projectId': 'hipster-chat-mock'}),
+    EnvOptionsTestCase(name='Environment variable set to json string with some options set',
+                       config_json='{"databaseURL": "https://hipster-chat.firebaseio.mock",' +
+                       '"projectId": "hipster-chat-mock"}',
+                       init_options=None,
+                       want_options={'databaseURL': 'https://hipster-chat.firebaseio.mock',
+                                     'projectId': 'hipster-chat-mock'}),
+    EnvOptionsTestCase(name='Environment var set to json file but ignored, init with options dict',
+                       config_json='firebase_config_partial.json',
+                       init_options={'projectId': 'pid1-mock',
+                                     'storageBucket': 'sb1-mock'},
+                       want_options={'projectId': 'pid1-mock',
+                                     'storageBucket': 'sb1-mock'}),
+    EnvOptionsTestCase(name='Environment var set to file but ignored, init with full options dict',
+                       config_json='firebase_config.json',
+                       init_options={'databaseAuthVariableOverride': 'davy1-mock',
+                                     'databaseURL': 'https://db1-mock',
+                                     'projectId': 'pid1-mock',
+                                     'storageBucket': 'sb1-.mock'},
+                       want_options={'databaseAuthVariableOverride': 'davy1-mock',
+                                     'databaseURL': 'https://db1-mock',
+                                     'projectId': 'pid1-mock',
+                                     'storageBucket': 'sb1-.mock'})]
+
+def set_config_env(config_json):
+    config_old = os.environ.get(CONFIG_JSON)
+    if config_json is not None:
+        if not config_json or config_json.startswith('{'):
+            os.environ[CONFIG_JSON] = config_json
+        else:
+            os.environ[CONFIG_JSON] = testutils.resource_filename(
+                config_json)
+    elif  os.environ.get(CONFIG_JSON) is not None:
+        del os.environ[CONFIG_JSON]
+    return config_old
+
+
+def revert_config_env(config_old):
+    if config_old is not None:
+        os.environ[CONFIG_JSON] = config_old
+    elif os.environ.get(CONFIG_JSON) is not None:
+        del os.environ[CONFIG_JSON]
 
 class TestFirebaseApp(object):
     """Test cases for App initialization and life cycle."""
@@ -139,6 +260,30 @@ class TestFirebaseApp(object):
     def test_app_init_with_invalid_name(self, name):
         with pytest.raises(ValueError):
             firebase_admin.initialize_app(CREDENTIAL, name=name)
+
+
+    @pytest.mark.parametrize('bad_file_name', ['firebase_config_empty.json',
+                                               'firebase_config_invalid.json',
+                                               'no_such_file'])
+    def test_app_init_with_invalid_config_file(self, bad_file_name):
+        config_old = set_config_env(bad_file_name)
+        with pytest.raises(ValueError):
+            firebase_admin.initialize_app(CREDENTIAL)
+        revert_config_env(config_old)
+
+    def test_app_init_with_invalid_config_string(self):
+        config_old = set_config_env('{,,')
+        with pytest.raises(ValueError):
+            firebase_admin.initialize_app(CREDENTIAL)
+        revert_config_env(config_old)
+
+
+    @pytest.mark.parametrize('env_test_case', env_options_test_cases,
+                             ids=[x.name for x in env_options_test_cases],
+                             indirect=['env_test_case'])
+    def test_app_init_with_default_config(self, env_test_case):
+        app = firebase_admin.initialize_app(CREDENTIAL, options=env_test_case.init_options)
+        assert app.options._options == env_test_case.want_options
 
     def test_project_id_from_options(self, app_credential):
         app = firebase_admin.initialize_app(

@@ -14,6 +14,7 @@
 
 """Firebase Admin SDK for Python."""
 import datetime
+import json
 import os
 import threading
 
@@ -24,32 +25,38 @@ from firebase_admin import credentials
 
 # Declaring module version as per https://www.python.org/dev/peps/pep-0396/#specification
 # Update this accordingly for each release.
-__version__ = '2.7.0'
+__version__ = '2.8.0'
 
 _apps = {}
 _apps_lock = threading.RLock()
 _clock = datetime.datetime.utcnow
 
 _DEFAULT_APP_NAME = '[DEFAULT]'
-
+_FIREBASE_CONFIG_ENV_VAR = 'FIREBASE_CONFIG'
+_CONFIG_VALID_KEYS = ['databaseAuthVariableOverride', 'databaseURL', 'httpTimeout', 'projectId',
+                      'storageBucket']
 
 def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
     """Initializes and returns a new App instance.
 
     Creates a new App instance using the specified options
     and the app name. If an instance already exists by the same
-    app name a ValueError is raised. Use this function whenever
-    a new App instance is required. Do not directly invoke the
+    app name a ValueError is raised.
+    If options are not provided an attempt is made to load the options from the environment.
+    This is done by looking up the ``FIREBASE_CONFIG`` environment variable. If the value of
+    the variable starts with ``"{"``, it is parsed as a JSON object. Otherwise it is treated
+    as a file name and the JSON content is read from the corresponding file.
+    Use this function whenever a new App instance is required. Do not directly invoke the
     App constructor.
 
     Args:
       credential: A credential object used to initialize the SDK (optional). If none is provided,
           Google Application Default Credentials are used.
       options: A dictionary of configuration options (optional). Supported options include
-          ``databaseURL``, ``storageBucket`` and ``httpTimeout``. If ``httpTimeout`` is not set,
-          HTTP connections initiated by client modules such as ``db`` will not time out.
+          ``databaseURL``, ``storageBucket``, ``projectId``, ``databaseAuthVariableOverride``
+          and ``httpTimeout``. If ``httpTimeout`` is not set, HTTP connections initiated by client
+          modules such as ``db`` will not time out.
       name: Name of the app (optional).
-
     Returns:
       App: A newly initialized instance of App.
 
@@ -145,7 +152,8 @@ class _AppOptions(object):
 
     def __init__(self, options):
         if options is None:
-            options = {}
+            options = self._load_from_environment()
+
         if not isinstance(options, dict):
             raise ValueError('Illegal Firebase app options type: {0}. Options '
                              'must be a dictionary.'.format(type(options)))
@@ -154,6 +162,30 @@ class _AppOptions(object):
     def get(self, key, default=None):
         """Returns the option identified by the provided key."""
         return self._options.get(key, default)
+
+    def _load_from_environment(self):
+        """Invoked when no options are passed to __init__, loads options from FIREBASE_CONFIG.
+
+        If the value of the FIREBASE_CONFIG environment variable starts with "{" an attempt is made
+        to parse it as a JSON object, otherwise it is assumed to be pointing to a JSON file.
+        """
+
+        config_file = os.getenv(_FIREBASE_CONFIG_ENV_VAR)
+        if not config_file:
+            return {}
+        if config_file.startswith('{'):
+            json_str = config_file
+        else:
+            try:
+                with open(config_file, 'r') as json_file:
+                    json_str = json_file.read()
+            except Exception as err:
+                raise ValueError('Unable to read file {}. {}'.format(config_file, err))
+        try:
+            json_data = json.loads(json_str)
+        except Exception as err:
+            raise ValueError('JSON string "{0}" is not valid json. {1}'.format(json_str, err))
+        return {k: v for k, v in json_data.items() if k in _CONFIG_VALID_KEYS}
 
 
 class App(object):

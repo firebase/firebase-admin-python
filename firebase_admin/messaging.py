@@ -31,13 +31,60 @@ def _get_messaging_service(app):
     return _utils.get_app_service(app, _MESSAGING_ATTRIBUTE, _MessagingService)
 
 def send(message, dry_run=False, app=None):
+    """Sends the given message via Firebase Cloud Messaging (FCM).
+
+    If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
+    recipients. Instead FCM performs all the usual validations, and emulates the send operation.
+
+    Args:
+        message: An instance of ``messaging.Message``.
+        dry_run: A boolean indicating whether to run the operation in dry run mode (optional).
+        app: An App instance (optional).
+
+    Returns:
+        string: A message ID string that uniquely identifies the sent the message.
+
+    Raises:
+        ApiCallError: If an error occurs while sending the message to FCM service.
+        ValueError: If the input arguments are invalid.
+    """
     return _get_messaging_service(app).send(message, dry_run)
 
 def subscribe_to_topic(tokens, topic, app=None):
+    """Subscribes a list of registration tokens to an FCM topic.
+
+    Args:
+        tokens: A non-empty list of device registration tokens. List may not have more than 1000
+            elements.
+        topic: Name of the topic to subscribe to. May contain the ``/topics/`` prefix.
+        app: An App instance (optional).
+
+    Returns:
+        TopicManagementResponse: A ``TopicManagementResponse`` instance.
+
+    Raises:
+        ApiCallError: If an error occurs while communicating with instance ID service.
+        ValueError: If the input arguments are invalid.
+    """
     return _get_messaging_service(app).make_topic_management_request(
         tokens, topic, 'iid/v1:batchAdd')
 
 def unsubscribe_from_topic(tokens, topic, app=None):
+    """Unsubscribes a list of registration tokens from an FCM topic.
+
+    Args:
+        tokens: A non-empty list of device registration tokens. List may not have more than 1000
+            elements.
+        topic: Name of the topic to unsubscribe from. May contain the ``/topics/`` prefix.
+        app: An App instance (optional).
+
+    Returns:
+        TopicManagementResponse: A ``TopicManagementResponse`` instance.
+
+    Raises:
+        ApiCallError: If an error occurs while communicating with instance ID service.
+        ValueError: If the input arguments are invalid.
+    """
     return _get_messaging_service(app).make_topic_management_request(
         tokens, topic, 'iid/v1:batchRemove')
 
@@ -100,6 +147,23 @@ class _Validators(object):
 
 
 class Message(object):
+    """A message that can be sent via Firebase Cloud Messaging.
+
+    Contains payload information as well as recipient information. In particular, the message must
+    contain exactly one of token, topic or condition fields.
+
+    Args:
+        data: A dictionary of data fields (optional). All keys and values in the dictionary must be
+            strings.
+        notification: An instance of ``messaging.Notification`` (optional).
+        android: An instance of ``messaging.AndroidConfig`` (optional).
+        webpush: An instance of ``messaging.WebpushConfig`` (optional).
+        apns: An instance of ``messaging.ApnsConfig`` (optional).
+        token: The registration token of the device to which the message should be sent (optional).
+        topic: Name of the FCM topic to which the message should be sent (optional). Topic name
+            must not contain the ``/topics/`` prefix.
+        condition: The FCM condition to which the message should be sent (optional).
+    """
 
     def __init__(self, data=None, notification=None, android=None, webpush=None, apns=None,
                  token=None, topic=None, condition=None):
@@ -114,6 +178,12 @@ class Message(object):
 
 
 class Notification(object):
+    """A notification that can be included in a message.
+
+    Args:
+        title: Title of the notification (optional).
+        body: Body of the notification (optional).
+    """
 
     def __init__(self, title=None, body=None):
         self.title = title
@@ -121,6 +191,27 @@ class Notification(object):
 
 
 class AndroidConfig(object):
+    """Android-specific options that can be included in a message.
+
+    Args:
+        collapse_key: Collapse key string for the message (optional). This is an identifier for a
+            group of messages that can be collapsed, so that only the last message is sent when
+            delivery can be resumed. A maximum of 4 different collapse keys may be active at a
+            given time.
+        priority: Priority of the message (optional). Must be one of ``high`` or ``normal``.
+        ttl: The time-to-live duration of the message in seconds (optional). This indicates how
+            long the message should be kept in FCM storage if the target device is offline. The
+            duration must be specified as a string, where the string ends in the suffix ``s``
+            (for seconds). The suffix is preceded by the number of seconds, with nanoseconds
+            expressed as fractional seconds. For example, 3 seconds with 0 nanoseconds should be
+            specified as ``3s``,, while 3 seconds and 1 nanosecond should be specified as
+            ``3.000000001s``.
+        restricted_package_name: The package name of the application where the registration tokens
+            must match in order to receive the message (optional).
+        data: A dictionary of data fields (optional). All keys and values in the dictionary must be
+            strings. When specified, overrides any data fields set via ``Message.data``.
+        notification: A ``messaging.AndroidNotification`` to be included in the message (optional).
+    """
 
     def __init__(self, collapse_key=None, priority=None, ttl=None, restricted_package_name=None,
                  data=None, notification=None):
@@ -133,6 +224,32 @@ class AndroidConfig(object):
 
 
 class AndroidNotification(object):
+    """Android-specific notification parameters.
+
+    Args:
+        title: Title of the notification (optional). If specified, overrides the title set via
+            ``messaging.Notification``.
+        body: Body of the notification (optional). If specified, overrides the body set via
+            ``messaging.Notification``.
+        icon: Icon of the notification (optional).
+        color: Color of the notification icon expressed in ``#rrggbb`` form (optional).
+        sound: Sound to be played when the device receives the notification (optional). This is
+            usually the file name of the sound resource.
+        tag: Tag of the notification (optional). This is an identifier used to replace existing
+            notifications in the notification drawer. If not specified, each request creates a new
+            notification.
+        click_action: The action associated with a user click on the notification (optional). If
+            specified, an activity with a matching intent filter is launched when a user clicks on
+            the notification.
+        body_loc_key: Key of the body string in the app's string resources to use to localize the
+            body text (optional).
+        body_loc_args: A list of resource keys that will be used in place of the format specifiers
+            in ``body_loc_key`` (optional).
+        title_loc_key: Key of the title string in the app's string resources to use to localize the
+            title text (optional).
+        title_loc_args: A list of resource keys that will be used in place of the format specifiers
+            in ``title_loc_key`` (optional).
+    """
 
     def __init__(self, title=None, body=None, icon=None, color=None, sound=None, tag=None,
                  click_action=None, body_loc_key=None, body_loc_args=None, title_loc_key=None,
@@ -151,6 +268,17 @@ class AndroidNotification(object):
 
 
 class WebpushConfig(object):
+    """Webpush-specific options that can be included in a message.
+
+    Args:
+        headers: A dictionary of headers (optional). Refer `Webpush Specification`_ for supported
+            headers.
+        data: A dictionary of data fields (optional). All keys and values in the dictionary must be
+            strings. When specified, overrides any data fields set via ``Message.data``.
+        notification: A ``messaging.WebpushNotification`` to be included in the message (optional).
+
+    .. _Webpush Specification: https://tools.ietf.org/html/rfc8030#section-5
+    """
 
     def __init__(self, headers=None, data=None, notification=None):
         self.headers = headers
@@ -159,6 +287,15 @@ class WebpushConfig(object):
 
 
 class WebpushNotification(object):
+    """Webpush-specific notification parameters.
+
+    Args:
+        title: Title of the notification (optional). If specified, overrides the title set via
+            ``messaging.Notification``.
+        body: Body of the notification (optional). If specified, overrides the body set via
+            ``messaging.Notification``.
+        icon: Icon URL of the notification (optional).
+    """
 
     def __init__(self, title=None, body=None, icon=None):
         self.title = title
@@ -167,6 +304,17 @@ class WebpushNotification(object):
 
 
 class APNSConfig(object):
+    """APNS-specific options that can be included in a message.
+
+    Refer to `APNS Documentation`_ for more information.
+
+    Args:
+        headers: A dictionary of headers (optional).
+        payload: A JSON-serializable dictionary of data fields (optional).
+
+    .. _APNS Documentation: https://developer.apple.com/library/content/documentation\
+        /NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html
+    """
 
     def __init__(self, headers=None, payload=None):
         self.headers = headers
@@ -174,6 +322,7 @@ class APNSConfig(object):
 
 
 class ErrorInfo(object):
+    """An error encountered when performing a topic management operation."""
 
     def __init__(self, index, reason):
         self._index = index
@@ -181,10 +330,12 @@ class ErrorInfo(object):
 
     @property
     def index(self):
+        """Index of the registration token to which this error is related to."""
         return self._index
 
     @property
     def reason(self):
+        """String describing the nature of the error."""
         return self._reason
 
 
@@ -206,18 +357,28 @@ class TopicManagementResponse(object):
 
     @property
     def success_count(self):
+        """Number of tokens that were successfully subscribed or unsubscribed."""
         return self._success_count
 
     @property
     def failure_count(self):
+        """Number of tokens that could not be subscribed or unsubscribed due to errors."""
         return self._failure_count
 
     @property
     def errors(self):
+        """A list of ``messaging.ErrorInfo`` objects (possibly empty)."""
         return self._errors
 
 
 class ApiCallError(Exception):
+    """Represents an Exception encountered while invoking the FCM API.
+
+    Attributes:
+        code: A string error code.
+        message: A error message string.
+        detail: Original low-level exception.
+    """
 
     def __init__(self, code, message, detail=None):
         Exception.__init__(self, message)

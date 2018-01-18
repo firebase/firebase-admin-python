@@ -175,17 +175,7 @@ class RefreshToken(Base):
         if json_data.get('type') != self._CREDENTIAL_TYPE:
             raise ValueError('Invalid refresh token configuration. JSON must contain a '
                              '"type" field set to "{0}".'.format(self._CREDENTIAL_TYPE))
-        try:
-            client_id = json_data['client_id']
-            client_secret = json_data['client_secret']
-            refresh_token = json_data['refresh_token']
-        except KeyError as error:
-            raise ValueError('Failed to initialize a refresh token credential. '
-                             'Missing key: {0}'.format(error))
-        self._g_credential = credentials.Credentials(
-            token=None, refresh_token=refresh_token,
-            token_uri='https://accounts.google.com/o/oauth2/token',
-            client_id=client_id, client_secret=client_secret, scopes=_scopes)
+        self._g_credential = credentials.Credentials.from_authorized_user_info(json_data, _scopes)
 
     @property
     def client_id(self):

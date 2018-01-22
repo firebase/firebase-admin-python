@@ -319,7 +319,7 @@ class APNSConfig(object):
 
     Args:
         headers: A dictionary of headers (optional).
-        payload: A JSON-serializable dictionary of data fields (optional).
+        payload: A ``messaging.APNSPayload`` to be included in the message (optional).
 
     .. _APNS Documentation: https://developer.apple.com/library/content/documentation\
         /NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html
@@ -331,6 +331,13 @@ class APNSConfig(object):
 
 
 class APNSPayload(object):
+    """Payload of an APNS message.
+
+    Args:
+        aps: A ``messaging.Aps`` instance to be included in the payload.
+        kwargs: Arbitrary keyword arguments to be included as custom fields in the payload
+            (optional).
+    """
 
     def __init__(self, aps, **kwargs):
         self.aps = aps
@@ -338,6 +345,17 @@ class APNSPayload(object):
 
 
 class Aps(object):
+    """Aps dictionary to be included in an APNS payload.
+
+    Args:
+        alert: A string or a ``messaging.ApsAlert`` instance (optional).
+        badge: A number representing the badge to be displayed with the message (optional).
+        sound: Name of the sound file to be played with the message (optional).
+        content_available: A boolean indicating whether to configure a background update
+            notification (optional).
+        category: String identifier representing the message type (optional).
+        thread_id: An app-specific string identifier for grouping messages (optional).
+    """
 
     def __init__(self, alert=None, badge=None, sound=None, content_available=None, category=None,
                  thread_id=None):
@@ -350,6 +368,25 @@ class Aps(object):
 
 
 class ApsAlert(object):
+    """An alert that can be included in ``messaging.Aps``.
+
+    Args:
+        title: Title of the alert (optional). If specified, overrides the title set via
+            ``messaging.Notification``.
+        body: Body of the alert (optional). If specified, overrides the body set via
+            ``messaging.Notification``.
+        loc_key: Key of the body string in the app's string resources to use to localize the
+            body text (optional).
+        loc_args: A list of resource keys that will be used in place of the format specifiers
+            in ``loc_key`` (optional).
+        title_loc_key: Key of the title string in the app's string resources to use to localize the
+            title text (optional).
+        title_loc_args: A list of resource keys that will be used in place of the format specifiers
+            in ``title_loc_key`` (optional).
+        action_loc_key: Key of the text in the app's string resources to use to localize the
+            action button text (optional).
+        launch_image: Image for the notification action (optional).
+    """
 
     def __init__(self, title=None, body=None, loc_key=None, loc_args=None, title_loc_key=None,
                  title_loc_args=None, action_loc_key=None, launch_image=None):

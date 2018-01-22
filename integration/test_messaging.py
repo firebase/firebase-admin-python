@@ -14,7 +14,7 @@
 
 """Integration tests for firebase_admin.messaging module."""
 
-import six
+import re
 
 from firebase_admin import messaging
 
@@ -27,10 +27,25 @@ _REGISTRATION_TOKEN = ('fGw0qy4TGgk:APA91bGtWGjuhp4WRhHXgbabIYp1jxEKI08ofj_v1bKh
 def test_send():
     msg = messaging.Message(
         topic='foo-bar',
-        notification=messaging.Notification('test-title', 'test-body')
+        notification=messaging.Notification('test-title', 'test-body'),
+        android=messaging.AndroidConfig(
+            restricted_package_name='com.google.firebase.demos',
+            notification=messaging.AndroidNotification(
+                title='android-title',
+                body='android-body'
+            )
+        ),
+        apns=messaging.APNSConfig(payload=messaging.APNSPayload(
+            aps=messaging.Aps(
+                alert=messaging.ApsAlert(
+                    title='apns-title',
+                    body='apns-body'
+                )
+            )
+        ))
     )
     msg_id = messaging.send(msg, dry_run=True)
-    assert isinstance(msg_id, six.string_types)
+    assert re.match('^projects/.*/messages/.*$', msg_id)
 
 def test_subscribe():
     resp = messaging.subscribe_to_topic(_REGISTRATION_TOKEN, 'mock-topic')

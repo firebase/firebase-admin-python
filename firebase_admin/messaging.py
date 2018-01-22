@@ -15,6 +15,7 @@
 """Firebase Cloud Messaging module."""
 
 import json
+import numbers
 import re
 
 import requests
@@ -107,6 +108,14 @@ class _Validators(object):
                 raise ValueError('{0} must be a string.'.format(label))
         if non_empty and not value:
             raise ValueError('{0} must be a non-empty string.'.format(label))
+        return value
+
+    @classmethod
+    def check_number(cls, label, value):
+        if value is None:
+            return None
+        if not isinstance(value, numbers.Number):
+            raise ValueError('{0} must be a number.'.format(label))
         return value
 
     @classmethod
@@ -321,6 +330,39 @@ class APNSConfig(object):
         self.payload = payload
 
 
+class APNSPayload(object):
+
+    def __init__(self, aps, **kwargs):
+        self.aps = aps
+        self.custom_data = kwargs
+
+
+class Aps(object):
+
+    def __init__(self, alert=None, badge=None, sound=None, content_available=None, category=None,
+                 thread_id=None):
+        self.alert = alert
+        self.badge = badge
+        self.sound = sound
+        self.content_available = content_available
+        self.category = category
+        self.thread_id = thread_id
+
+
+class ApsAlert(object):
+
+    def __init__(self, title=None, body=None, loc_key=None, loc_args=None, title_loc_key=None,
+                 title_loc_args=None, action_loc_key=None, launch_image=None):
+        self.title = title
+        self.body = body
+        self.loc_key = loc_key
+        self.loc_args = loc_args
+        self.title_loc_key = title_loc_key
+        self.title_loc_args = title_loc_args
+        self.action_loc_key = action_loc_key
+        self.launch_image = launch_image
+
+
 class ErrorInfo(object):
     """An error encountered when performing a topic management operation."""
 
@@ -391,7 +433,7 @@ class _MessageEncoder(json.JSONEncoder):
 
     @classmethod
     def remove_null_values(cls, dict_value):
-        return {k: v for k, v in dict_value.items() if v not in [None, {}]}
+        return {k: v for k, v in dict_value.items() if v not in [None, [], {}]}
 
     @classmethod
     def encode_android(cls, android):
@@ -461,10 +503,10 @@ class _MessageEncoder(json.JSONEncoder):
             raise ValueError('AndroidNotification.color must be in the form #RRGGBB.')
         if result.get('body_loc_args') and not result.get('body_loc_key'):
             raise ValueError(
-                'AndroidNotification.body_loc_key is required when specofying body_loc_args.')
+                'AndroidNotification.body_loc_key is required when specifying body_loc_args.')
         if result.get('title_loc_args') and not result.get('title_loc_key'):
             raise ValueError(
-                'AndroidNotification.title_loc_key is required when specofying title_loc_args.')
+                'AndroidNotification.title_loc_key is required when specifying title_loc_args.')
         return result
 
     @classmethod
@@ -511,9 +553,71 @@ class _MessageEncoder(json.JSONEncoder):
         result = {
             'headers': _Validators.check_string_dict(
                 'APNSConfig.headers', apns.headers),
-            'payload': _Validators.check_dict(
-                'APNSConfig.payload', apns.payload),
+            'payload': cls.encode_apns_payload(apns.payload),
         }
+        return cls.remove_null_values(result)
+
+    @classmethod
+    def encode_apns_payload(cls, payload):
+        """Encodes an APNSPayload instance into JSON."""
+        if payload is None:
+            return None
+        if not isinstance(payload, APNSPayload):
+            raise ValueError('APNSConfig.payload must be an instance of APNSPayload class.')
+        result = {
+            'aps': cls.encode_aps(payload.aps)
+        }
+        for key, value in payload.custom_data.items():
+            result[key] = value
+        return cls.remove_null_values(result)
+
+    @classmethod
+    def encode_aps(cls, aps):
+        """Encodes an Aps instance into JSON."""
+        if not isinstance(aps, Aps):
+            raise ValueError('APNSPayload.aps must be an instance of Aps class.')
+        result = {
+            'alert': cls.encode_aps_alert(aps.alert),
+            'badge': _Validators.check_number('Aps.badge', aps.badge),
+            'sound': _Validators.check_string('Aps.sound', aps.sound),
+            'category': _Validators.check_string('Aps.category', aps.category),
+            'thread-id': _Validators.check_string('Aps.thread_id', aps.thread_id),
+        }
+        if aps.content_available is True:
+            result['content-available'] = 1
+        return cls.remove_null_values(result)
+
+    @classmethod
+    def encode_aps_alert(cls, alert):
+        """Encodes an ApsAlert instance into JSON."""
+        if alert is None:
+            return None
+        if isinstance(alert, six.string_types):
+            return alert
+        if not isinstance(alert, ApsAlert):
+            raise ValueError('Aps.alert must be a string or an instance of ApsAlert class.')
+        result = {
+            'title': _Validators.check_string('ApsAlert.title', alert.title),
+            'body': _Validators.check_string('ApsAlert.body', alert.body),
+            'title-loc-key': _Validators.check_string(
+                'ApsAlert.title_loc_key', alert.title_loc_key),
+            'title-loc-args': _Validators.check_string_list(
+                'ApsAlert.title_loc_args', alert.title_loc_args),
+            'loc-key': _Validators.check_string(
+                'ApsAlert.loc_key', alert.loc_key),
+            'loc-args': _Validators.check_string_list(
+                'ApsAlert.loc_args', alert.loc_args),
+            'action-loc-key': _Validators.check_string(
+                'ApsAlert.action_loc_key', alert.action_loc_key),
+            'launch-image': _Validators.check_string(
+                'ApsAlert.launch_image', alert.launch_image),
+        }
+        if result.get('loc-args') and not result.get('loc-key'):
+            raise ValueError(
+                'ApsAlert.loc_key is required when specifying loc_args.')
+        if result.get('title-loc-args') and not result.get('title-loc-key'):
+            raise ValueError(
+                'ApsAlert.title_loc_key is required when specifying title_loc_args.')
         return cls.remove_null_values(result)
 
     @classmethod

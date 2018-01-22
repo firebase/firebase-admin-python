@@ -286,7 +286,7 @@ class TestAndroidNotificationEncoder(object):
     def test_no_title_loc_key(self):
         notification = messaging.AndroidNotification(title_loc_args=['foo'])
         excinfo = self._check_notification(notification)
-        expected = 'AndroidNotification.title_loc_key is required when specofying title_loc_args.'
+        expected = 'AndroidNotification.title_loc_key is required when specifying title_loc_args.'
         assert str(excinfo.value) == expected
 
     @pytest.mark.parametrize('data', NON_STRING_ARGS)
@@ -309,7 +309,7 @@ class TestAndroidNotificationEncoder(object):
     def test_no_body_loc_key(self):
         notification = messaging.AndroidNotification(body_loc_args=['foo'])
         excinfo = self._check_notification(notification)
-        expected = 'AndroidNotification.body_loc_key is required when specofying body_loc_args.'
+        expected = 'AndroidNotification.body_loc_key is required when specifying body_loc_args.'
         assert str(excinfo.value) == expected
 
     def test_android_notification(self):
@@ -460,21 +460,10 @@ class TestAPNSConfigEncoder(object):
             check_encoding(messaging.Message(
                 topic='topic', apns=messaging.APNSConfig(headers=data)))
 
-    @pytest.mark.parametrize('data', [list(), tuple(), 1, 0, True, False, 'foo'])
-    def test_invalid_payload(self, data):
-        with pytest.raises(ValueError) as excinfo:
-            check_encoding(messaging.Message(
-                topic='topic', apns=messaging.APNSConfig(payload=data)))
-        expected = 'APNSConfig.payload must be a dictionary.'
-        assert str(excinfo.value) == expected
-
     def test_apns_config(self):
         msg = messaging.Message(
             topic='topic',
-            apns=messaging.APNSConfig(
-                headers={'h1': 'v1', 'h2': 'v2'},
-                payload={'k1': 'v1', 'k2': True}
-            )
+            apns=messaging.APNSConfig(headers={'h1': 'v1', 'h2': 'v2'})
         )
         expected = {
             'topic': 'topic',
@@ -483,10 +472,255 @@ class TestAPNSConfigEncoder(object):
                     'h1': 'v1',
                     'h2': 'v2',
                 },
+            },
+        }
+        check_encoding(msg, expected)
+
+
+class TestAPNSPayloadEncoder(object):
+
+    @pytest.mark.parametrize('data', NON_OBJECT_ARGS)
+    def test_invalid_payload(self, data):
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(
+                topic='topic', apns=messaging.APNSConfig(payload=data)))
+        expected = 'APNSConfig.payload must be an instance of APNSPayload class.'
+        assert str(excinfo.value) == expected
+
+    def test_apns_payload(self):
+        msg = messaging.Message(
+            topic='topic',
+            apns=messaging.APNSConfig(payload=messaging.APNSPayload(
+                aps=messaging.Aps(alert='alert text'),
+                k1='v1',
+                k2=True
+            ))
+        )
+        expected = {
+            'topic': 'topic',
+            'apns': {
                 'payload': {
+                    'aps': {
+                        'alert': 'alert text',
+                    },
                     'k1': 'v1',
                     'k2': True,
                 },
+            },
+        }
+        check_encoding(msg, expected)
+
+
+class TestApsEncoder(object):
+
+    def _check_aps(self, aps):
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(
+                topic='topic', apns=messaging.APNSConfig(payload=messaging.APNSPayload(aps=aps))))
+        return excinfo
+
+    @pytest.mark.parametrize('data', NON_OBJECT_ARGS)
+    def test_invalid_aps(self, data):
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(
+                topic='topic',
+                apns=messaging.APNSConfig(payload=messaging.APNSPayload(aps=data))))
+        expected = 'APNSPayload.aps must be an instance of Aps class.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_alert(self, data):
+        aps = messaging.Aps(alert=data)
+        excinfo = self._check_aps(aps)
+        expected = 'Aps.alert must be a string or an instance of ApsAlert class.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', [list(), tuple(), dict(), 'foo'])
+    def test_invalid_badge(self, data):
+        aps = messaging.Aps(badge=data)
+        excinfo = self._check_aps(aps)
+        expected = 'Aps.badge must be a number.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_sound(self, data):
+        aps = messaging.Aps(sound=data)
+        excinfo = self._check_aps(aps)
+        expected = 'Aps.sound must be a string.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_category(self, data):
+        aps = messaging.Aps(category=data)
+        excinfo = self._check_aps(aps)
+        expected = 'Aps.category must be a string.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_thread_id(self, data):
+        aps = messaging.Aps(thread_id=data)
+        excinfo = self._check_aps(aps)
+        expected = 'Aps.thread_id must be a string.'
+        assert str(excinfo.value) == expected
+
+    def test_aps(self):
+        msg = messaging.Message(
+            topic='topic',
+            apns=messaging.APNSConfig(
+                payload=messaging.APNSPayload(
+                    aps=messaging.Aps(
+                        alert='alert text',
+                        badge=42,
+                        sound='s',
+                        content_available=True,
+                        category='c',
+                        thread_id='t'
+                    ),
+                )
+            )
+        )
+        expected = {
+            'topic': 'topic',
+            'apns': {
+                'payload': {
+                    'aps': {
+                        'alert': 'alert text',
+                        'badge': 42,
+                        'sound': 's',
+                        'content-available': 1,
+                        'category': 'c',
+                        'thread-id': 't',
+                    },
+                }
+            },
+        }
+        check_encoding(msg, expected)
+
+
+class TestApsAlertEncoder(object):
+
+    def _check_alert(self, alert):
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(
+                topic='topic', apns=messaging.APNSConfig(
+                    payload=messaging.APNSPayload(aps=messaging.Aps(alert=alert))
+                )
+            ))
+        return excinfo
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_title(self, data):
+        alert = messaging.ApsAlert(title=data)
+        excinfo = self._check_alert(alert)
+        expected = 'ApsAlert.title must be a string.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_body(self, data):
+        alert = messaging.ApsAlert(body=data)
+        excinfo = self._check_alert(alert)
+        expected = 'ApsAlert.body must be a string.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_title_loc_key(self, data):
+        alert = messaging.ApsAlert(title_loc_key=data)
+        excinfo = self._check_alert(alert)
+        expected = 'ApsAlert.title_loc_key must be a string.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_loc_key(self, data):
+        alert = messaging.ApsAlert(loc_key=data)
+        excinfo = self._check_alert(alert)
+        expected = 'ApsAlert.loc_key must be a string.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_action_loc_key(self, data):
+        alert = messaging.ApsAlert(action_loc_key=data)
+        excinfo = self._check_alert(alert)
+        expected = 'ApsAlert.action_loc_key must be a string.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_launch_image(self, data):
+        alert = messaging.ApsAlert(launch_image=data)
+        excinfo = self._check_alert(alert)
+        expected = 'ApsAlert.launch_image must be a string.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', NON_LIST_ARGS)
+    def test_invalid_title_loc_args(self, data):
+        alert = messaging.ApsAlert(title_loc_key='foo', title_loc_args=data)
+        excinfo = self._check_alert(alert)
+        if isinstance(data, list):
+            expected = 'ApsAlert.title_loc_args must not contain non-string values.'
+            assert str(excinfo.value) == expected
+        else:
+            expected = 'ApsAlert.title_loc_args must be a list of strings.'
+            assert str(excinfo.value) == expected
+
+    def test_no_title_loc_key(self):
+        alert = messaging.ApsAlert(title_loc_args=['foo'])
+        excinfo = self._check_alert(alert)
+        expected = 'ApsAlert.title_loc_key is required when specifying title_loc_args.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', NON_LIST_ARGS)
+    def test_invalid_loc_args(self, data):
+        alert = messaging.ApsAlert(loc_key='foo', loc_args=data)
+        excinfo = self._check_alert(alert)
+        if isinstance(data, list):
+            expected = 'ApsAlert.loc_args must not contain non-string values.'
+            assert str(excinfo.value) == expected
+        else:
+            expected = 'ApsAlert.loc_args must be a list of strings.'
+            assert str(excinfo.value) == expected
+
+    def test_no_loc_key(self):
+        alert = messaging.ApsAlert(loc_args=['foo'])
+        excinfo = self._check_alert(alert)
+        expected = 'ApsAlert.loc_key is required when specifying loc_args.'
+        assert str(excinfo.value) == expected
+
+    def test_aps_alert(self):
+        msg = messaging.Message(
+            topic='topic',
+            apns=messaging.APNSConfig(
+                payload=messaging.APNSPayload(
+                    aps=messaging.Aps(
+                        alert=messaging.ApsAlert(
+                            title='t',
+                            body='b',
+                            title_loc_key='tlk',
+                            title_loc_args=['t1', 't2'],
+                            loc_key='lk',
+                            loc_args=['l1', 'l2'],
+                            action_loc_key='alk',
+                            launch_image='li'
+                        )
+                    ),
+                )
+            )
+        )
+        expected = {
+            'topic': 'topic',
+            'apns': {
+                'payload': {
+                    'aps': {
+                        'alert': {
+                            'title': 't',
+                            'body': 'b',
+                            'title-loc-key': 'tlk',
+                            'title-loc-args': ['t1', 't2'],
+                            'loc-key': 'lk',
+                            'loc-args': ['l1', 'l2'],
+                            'action-loc-key': 'alk',
+                            'launch-image': 'li',
+                        },
+                    },
+                }
             },
         }
         check_encoding(msg, expected)

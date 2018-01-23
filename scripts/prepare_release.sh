@@ -86,12 +86,17 @@ if [[ ! -e "apikey.txt" ]]; then
 fi
 
 HOST=$(uname)
-echo "[INFO] Updating version number in firebase_admin/__init__.py"
+echo "[INFO] Updating __init__.py and CHANGELOG.md"
 if [ $HOST == "Darwin" ]; then
     sed -i "" -e "s/__version__ = '$CUR_VERSION'/__version__ = '$VERSION'/" "../firebase_admin/__init__.py"
+    sed -i '' -e "s/# Unreleased/# v${VERSION}/" "../CHANGELOG.md"
 else
     sed --in-place -e "s/__version__ = '$CUR_VERSION'/__version__ = '$VERSION'/" "../firebase_admin/__init__.py"
+    sed --in-place -e "s/# Unreleased/# v${VERSION}/" "../CHANGELOG.md"
 fi
+
+echo -e "# Unrelased\n\n-\n" | cat - ../CHANGELOG.md > TEMP_CHANGELOG.md
+mv TEMP_CHANGELOG.md ../CHANGELOG.md
 
 echo "[INFO] Running unit tests"
 tox

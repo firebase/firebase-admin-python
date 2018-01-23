@@ -44,6 +44,11 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
+
+#############################
+#  VALIDATE VERSION NUMBER  #
+#############################
+
 VERSION="$1"
 if ! parseVersion "$VERSION"; then
     echo "[ERROR] Illegal version number provided. Version number must match semver."
@@ -65,15 +70,10 @@ if ! isNewerVersion "$VERSION" "$CUR_VERSION"; then
     exit 1
 fi
 
-CHECKED_OUT_BRANCH="$(git branch | grep "*" | awk -F ' ' '{print $2}')"
-if [[ $CHECKED_OUT_BRANCH != "master" ]]; then
-    echo "[ERROR] You are on the '${CHECKED_OUT_BRANCH}' branch. Release must be prepared from the 'master' branch."
-    exit 1
-fi
-if [[ `git status --porcelain` ]]; then
-    echo "[ERROR] Local changes exist in the repo. Resolve local changes before release."
-    exit 1
-fi
+
+#############################
+#  VALIDATE TEST RESOURCES  #
+#############################
 
 if [[ ! -e "cert.json" ]]; then
     echo "[ERROR] cert.json file is required to run integration tests."
@@ -85,18 +85,56 @@ if [[ ! -e "apikey.txt" ]]; then
     exit 1
 fi
 
+
+###################
+#  VALIDATE REPO  #
+###################
+
+# Ensure the checked out branch is master
+CHECKED_OUT_BRANCH="$(git branch | grep "*" | awk -F ' ' '{print $2}')"
+if [[ $CHECKED_OUT_BRANCH != "master" ]]; then
+    read -p "[WARN] You are on the '${CHECKED_OUT_BRANCH}' branch, not 'master'. Continue? (Y/n) " CONTINUE
+    echo
+
+    if ! [[ $CONTINUE == "Y" ]]; then
+        echo "[INFO] You chose not to continue."
+        exit 1
+    fi
+fi
+
+# Ensure the branch does not have local changes
+if [[ `git status --porcelain` ]]; then
+    read -p "[WATN] Local changes exist in the repo. Continue? (Y/n) " CONTINUE
+    echo
+
+    if ! [[ $CONTINUE == "Y" ]]; then
+        echo "[INFO] You chose not to continue."
+        exit 1
+    fi
+fi
+
+
+##################################
+#  UPDATE VERSION AND CHANGELOG  #
+##################################
+
 HOST=$(uname)
 echo "[INFO] Updating __init__.py and CHANGELOG.md"
 if [ $HOST == "Darwin" ]; then
     sed -i "" -e "s/__version__ = '$CUR_VERSION'/__version__ = '$VERSION'/" "../firebase_admin/__init__.py"
-    sed -i '' -e "s/# Unreleased/# v${VERSION}/" "../CHANGELOG.md"
+    sed -i "" -e "1 s/# Unreleased//" "../CHANGELOG.md"
 else
     sed --in-place -e "s/__version__ = '$CUR_VERSION'/__version__ = '$VERSION'/" "../firebase_admin/__init__.py"
-    sed --in-place -e "s/# Unreleased/# v${VERSION}/" "../CHANGELOG.md"
+    sed --in-place -e "1 s/# Unreleased//" "../CHANGELOG.md"
 fi
 
-echo -e "# Unrelased\n\n-\n" | cat - ../CHANGELOG.md > TEMP_CHANGELOG.md
+echo -e "# Unreleased\n\n-\n\n# v${VERSION}" | cat - ../CHANGELOG.md > TEMP_CHANGELOG.md
 mv TEMP_CHANGELOG.md ../CHANGELOG.md
+
+
+##################
+#  LAUNCH TESTS  #
+##################
 
 echo "[INFO] Running unit tests"
 tox

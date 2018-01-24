@@ -55,7 +55,7 @@ if ! parseVersion "$VERSION"; then
     exit 1
 fi
 
-CUR_VERSION=`grep "^__version__ =" ../firebase_admin/__init__.py | awk '{print $3}' | sed "s/'//g"`
+CUR_VERSION=$(grep "^__version__ =" ../firebase_admin/__init__.py | awk '{print $3}' | sed "s/'//g")
 if [ -z "$CUR_VERSION" ]; then
     echo "[ERROR] Failed to find the current version. Check firebase_admin/__init__.py for version declaration."
     exit 1
@@ -103,7 +103,7 @@ if [[ $CHECKED_OUT_BRANCH != "master" ]]; then
 fi
 
 # Ensure the branch does not have local changes
-if [[ `git status --porcelain` ]]; then
+if [[ $(git status --porcelain) ]]; then
     read -p "[WATN] Local changes exist in the repo. Continue? (Y/n) " CONTINUE
     echo
 
@@ -124,8 +124,8 @@ if [ $HOST == "Darwin" ]; then
     sed -i "" -e "s/__version__ = '$CUR_VERSION'/__version__ = '$VERSION'/" "../firebase_admin/__init__.py"
     sed -i "" -e "1 s/# Unreleased//" "../CHANGELOG.md"
 else
-    sed --in-place -e "s/__version__ = '$CUR_VERSION'/__version__ = '$VERSION'/" "../firebase_admin/__init__.py"
-    sed --in-place -e "1 s/# Unreleased//" "../CHANGELOG.md"
+    sed -i -e "s/__version__ = '$CUR_VERSION'/__version__ = '$VERSION'/" "../firebase_admin/__init__.py"
+    sed -i -e "1 s/# Unreleased//" "../CHANGELOG.md"
 fi
 
 echo -e "# Unreleased\n\n-\n\n# v${VERSION}" | cat - ../CHANGELOG.md > TEMP_CHANGELOG.md

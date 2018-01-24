@@ -104,7 +104,7 @@ fi
 
 # Ensure the branch does not have local changes
 if [[ $(git status --porcelain) ]]; then
-    read -p "[WATN] Local changes exist in the repo. Continue? (Y/n) " CONTINUE
+    read -p "[WARN] Local changes exist in the repo. Continue? (Y/n) " CONTINUE
     echo
 
     if ! [[ $CONTINUE == "Y" ]]; then

@@ -329,7 +329,6 @@ class UserManager(object):
                 USER_UPDATE_ERROR, 'Failed to update user: {0}.'.format(uid), error)
         else:
             if not response or not response.get('localId'):
-                print "response response _ _---==-= _", response
                 raise ApiCallError(USER_UPDATE_ERROR, 'Failed to update user: {0}.'.format(uid))
             return response.get('localId')
 

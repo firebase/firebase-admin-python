@@ -271,4 +271,3 @@ def test_verify_id_token_revoked(new_user, api_key):
     id_token = _sign_in(custom_token, api_key)
     claims = auth.verify_id_token(id_token, check_revoked=True)
     assert claims['iat'] >= new_user.tokens_valid_after_time
-    

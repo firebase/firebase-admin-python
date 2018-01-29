@@ -5,7 +5,7 @@
   method can now take an additional parameter `check_revoked`, when `True`, 
   a further check will be performed to see if the token has been revoked. 
 - [added] A new method ['auth.revoke_refresh_tokens(uid)'](https://firebase.google.com/docs/reference/admin/python/firebase_admin.auth#revoke_refresh_tokens)
-  has been added to invalidate all tokens issued before the current second
+  has been added to invalidate all tokens issued before the current second.
 - [added] A new property `tokens_valid_after_time` has been added to the ['UserRecord'](https://firebase.google.com/docs/reference/admin/python/firebase_admin.auth#userrecord)
 
 # v2.8.0

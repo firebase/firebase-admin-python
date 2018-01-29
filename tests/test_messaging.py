@@ -13,7 +13,9 @@
 # limitations under the License.
 
 """Test cases for the firebase_admin.messaging module."""
+import datetime
 import json
+import numbers
 import os
 
 import pytest
@@ -154,16 +156,16 @@ class TestAndroidConfigEncoder(object):
         else:
             assert str(excinfo.value) == 'AndroidConfig.priority must be a non-empty string.'
 
-    @pytest.mark.parametrize('data', NON_STRING_ARGS + ['foos', '1.23', '-5s', '1.2.3s'])
+    @pytest.mark.parametrize('data', ['1.23s', list(), tuple(), dict(), -1.23])
     def test_invalid_ttl(self, data):
         with pytest.raises(ValueError) as excinfo:
             check_encoding(messaging.Message(
                 topic='topic', android=messaging.AndroidConfig(ttl=data)))
-        if isinstance(data, six.string_types):
-            assert str(excinfo.value) == ('AndroidConfig.ttl must contain a non-negative numeric '
-                                          'value followed by the "s" suffix.')
+        if isinstance(data, numbers.Number):
+            assert str(excinfo.value) == ('AndroidConfig.ttl must not be negative.')
         else:
-            assert str(excinfo.value) == 'AndroidConfig.ttl must be a non-empty string.'
+            assert str(excinfo.value) == ('AndroidConfig.ttl must be a duration in seconds or '
+                                          'an instance of datetime.timedelta.')
 
     @pytest.mark.parametrize('data', NON_STRING_ARGS)
     def test_invalid_package_name(self, data):
@@ -185,7 +187,7 @@ class TestAndroidConfigEncoder(object):
                 collapse_key='key',
                 restricted_package_name='package',
                 priority='high',
-                ttl='1.23s',
+                ttl=123,
                 data={'k1': 'v1', 'k2': 'v2'}
             )
         )
@@ -195,11 +197,30 @@ class TestAndroidConfigEncoder(object):
                 'collapse_key': 'key',
                 'restricted_package_name': 'package',
                 'priority': 'high',
-                'ttl': '1.23s',
+                'ttl': '123s',
                 'data': {
                     'k1': 'v1',
                     'k2': 'v2',
                 },
+            },
+        }
+        check_encoding(msg, expected)
+
+    @pytest.mark.parametrize('ttl', [
+        (0.5, '0.500000000s'),
+        (123, '123s'),
+        (123.45, '123.450000000s'),
+        (datetime.timedelta(days=1, seconds=100), '86500s'),
+    ])
+    def test_android_ttl(self, ttl):
+        msg = messaging.Message(
+            topic='topic',
+            android=messaging.AndroidConfig(ttl=ttl[0])
+        )
+        expected = {
+            'topic': 'topic',
+            'android': {
+                'ttl': ttl[1],
             },
         }
         check_encoding(msg, expected)
@@ -921,6 +942,20 @@ class TestTopicManagement(object):
         assert recorder[0].method == 'POST'
         assert recorder[0].url == self._get_url('iid/v1:batchAdd')
 
+    @pytest.mark.parametrize('status', HTTP_ERRORS)
+    def test_subscribe_to_topic_non_json_error(self, status):
+        _, recorder = self._instrument_iid_service(status=status, payload='not json')
+        with pytest.raises(messaging.ApiCallError) as excinfo:
+            messaging.subscribe_to_topic('foo', 'test-topic')
+        reason = 'Unexpected HTTP response with status: {0}; body: not json'.format(status)
+        code = messaging._MessagingService.IID_ERROR_CODES.get(
+            status, messaging._MessagingService.UNKNOWN_ERROR)
+        assert str(excinfo.value) == reason
+        assert excinfo.value.code == code
+        assert len(recorder) == 1
+        assert recorder[0].method == 'POST'
+        assert recorder[0].url == self._get_url('iid/v1:batchAdd')
+
     @pytest.mark.parametrize('args', _VALID_ARGS)
     def test_unsubscribe_from_topic(self, args):
         _, recorder = self._instrument_iid_service()
@@ -940,6 +975,20 @@ class TestTopicManagement(object):
         assert str(excinfo.value) == 'error_reason'
         code = messaging._MessagingService.IID_ERROR_CODES.get(
             status, messaging._MessagingService.UNKNOWN_ERROR)
+        assert excinfo.value.code == code
+        assert len(recorder) == 1
+        assert recorder[0].method == 'POST'
+        assert recorder[0].url == self._get_url('iid/v1:batchRemove')
+
+    @pytest.mark.parametrize('status', HTTP_ERRORS)
+    def test_unsubscribe_from_topic_non_json_error(self, status):
+        _, recorder = self._instrument_iid_service(status=status, payload='not json')
+        with pytest.raises(messaging.ApiCallError) as excinfo:
+            messaging.unsubscribe_from_topic('foo', 'test-topic')
+        reason = 'Unexpected HTTP response with status: {0}; body: not json'.format(status)
+        code = messaging._MessagingService.IID_ERROR_CODES.get(
+            status, messaging._MessagingService.UNKNOWN_ERROR)
+        assert str(excinfo.value) == reason
         assert excinfo.value.code == code
         assert len(recorder) == 1
         assert recorder[0].method == 'POST'

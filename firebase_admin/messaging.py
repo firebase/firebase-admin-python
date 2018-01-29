@@ -14,7 +14,9 @@
 
 """Firebase Cloud Messaging module."""
 
+import datetime
 import json
+import math
 import numbers
 import re
 
@@ -119,15 +121,6 @@ class _Validators(object):
         return value
 
     @classmethod
-    def check_dict(cls, label, value):
-        """Checks if the given value is a dictionary."""
-        if value is None or value == {}:
-            return None
-        if not isinstance(value, dict):
-            raise ValueError('{0} must be a dictionary.'.format(label))
-        return value
-
-    @classmethod
     def check_string_dict(cls, label, value):
         """Checks if the given value is a dictionary comprised only of string keys and values."""
         if value is None or value == {}:
@@ -208,13 +201,8 @@ class AndroidConfig(object):
             delivery can be resumed. A maximum of 4 different collapse keys may be active at a
             given time.
         priority: Priority of the message (optional). Must be one of ``high`` or ``normal``.
-        ttl: The time-to-live duration of the message in seconds (optional). This indicates how
-            long the message should be kept in FCM storage if the target device is offline. The
-            duration must be specified as a string, where the string ends in the suffix ``s``
-            (for seconds). The suffix is preceded by the number of seconds, with nanoseconds
-            expressed as fractional seconds. For example, 3 seconds with 0 nanoseconds should be
-            specified as ``3s``,, while 3 seconds and 1 nanosecond should be specified as
-            ``3.000000001s``.
+        ttl: The time-to-live duration of the message (optional). This can be specified
+            as a numeric seconds value or a ``datetime.timedelta`` instance.
         restricted_package_name: The package name of the application where the registration tokens
             must match in order to receive the message (optional).
         data: A dictionary of data fields (optional). All keys and values in the dictionary must be
@@ -489,18 +477,32 @@ class _MessageEncoder(json.JSONEncoder):
                 'AndroidConfig.priority', android.priority, non_empty=True),
             'restricted_package_name': _Validators.check_string(
                 'AndroidConfig.restricted_package_name', android.restricted_package_name),
-            'ttl': _Validators.check_string(
-                'AndroidConfig.ttl', android.ttl, non_empty=True),
+            'ttl': cls.encode_ttl(android.ttl),
         }
         result = cls.remove_null_values(result)
         priority = result.get('priority')
         if priority and priority not in ('high', 'normal'):
             raise ValueError('AndroidConfig.priority must be "high" or "normal".')
-        ttl = result.get('ttl')
-        if ttl and not re.match(r'^\d+(\.\d+)?s$', ttl):
-            raise ValueError('AndroidConfig.ttl must contain a non-negative numeric value '
-                             'followed by the "s" suffix.')
         return result
+
+    @classmethod
+    def encode_ttl(cls, ttl):
+        """Encodes a AndroidConfig TTL duration into a string."""
+        if ttl is None:
+            return None
+        if isinstance(ttl, numbers.Number):
+            ttl = datetime.timedelta(seconds=ttl)
+        if not isinstance(ttl, datetime.timedelta):
+            raise ValueError('AndroidConfig.ttl must be a duration in seconds or an instance of '
+                             'datetime.timedelta.')
+        total_seconds = ttl.total_seconds()
+        if total_seconds < 0:
+            raise ValueError('AndroidConfig.ttl must not be negative.')
+        seconds = int(math.floor(total_seconds))
+        nanos = int((total_seconds - seconds) * 1e9)
+        if nanos:
+            return '{0}.{1}s'.format(seconds, str(nanos).zfill(9))
+        return '{0}s'.format(seconds)
 
     @classmethod
     def encode_android_notification(cls, notification):
@@ -729,9 +731,6 @@ class _MessagingService(object):
                 'Project ID is required to access Cloud Messaging service. Either set the'
                 ' projectId option, or use service account credentials. Alternatively, set the '
                 'GCLOUD_PROJECT environment variable.')
-        if not isinstance(project_id, six.string_types):
-            raise ValueError(
-                'Invalid project ID: "{0}". project ID must be a string.'.format(project_id))
         self._fcm_url = _MessagingService.FCM_URL.format(project_id)
         self._client = _http_client.JsonHttpClient(credential=app.credential.get_credential())
 

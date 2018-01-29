@@ -263,7 +263,7 @@ class TestVerifyIdToken(object):
 
         assert revoked.value.code == 'ID_TOKEN_REVOKED'
         assert revoked.value.message == 'The Firebase ID token has been revoked.'
-     
+
     @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
     def test_revoked_token_do_not_check_revoked(self, user_mgt_app_for_verify_token, id_token):
         _instrument_user_manager(user_mgt_app_for_verify_token, 200,

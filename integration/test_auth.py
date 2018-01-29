@@ -265,7 +265,7 @@ def test_verify_id_token_revoked(new_user, api_key):
     with pytest.raises(auth.AuthError) as excinfo:
         claims = auth.verify_id_token(id_token, check_revoked=True)
     assert excinfo.value.code == 'ID_TOKEN_REVOKED'
-    assert excinfo.value.message == 'The Firebase ID token has been revoked.'
+    assert str(excinfo.value) == 'The Firebase ID token has been revoked.'
 
     # Sign in again, verify works.
     id_token = _sign_in(custom_token, api_key)

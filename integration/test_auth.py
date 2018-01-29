@@ -259,9 +259,16 @@ def test_verify_id_token_revoked(new_user, api_key):
     auth.revoke_refresh_tokens(new_user.uid)
     claims = auth.verify_id_token(id_token, check_revoked=False)
     user = auth.get_user(new_user.uid)
+    # verify_id_token succeeded because it didn't check revoked.
     assert claims['iat'] < user.tokens_valid_after_time
 
     with pytest.raises(auth.AuthError) as excinfo:
         claims = auth.verify_id_token(id_token, check_revoked=True)
     assert excinfo.value.code == 'ID_TOKEN_REVOKED'
     assert excinfo.value.message == 'The Firebase ID token has been revoked.'
+
+    # Sign in again, verify works.
+    id_token = _sign_in(custom_token, api_key)
+    claims = auth.verify_id_token(id_token, check_revoked=True)
+    assert claims['iat'] >= new_user.tokens_valid_after_time
+    

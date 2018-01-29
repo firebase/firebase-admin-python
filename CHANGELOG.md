@@ -1,0 +1,146 @@
+# Unreleased
+- 
+
+# v2.8.0
+
+### Initialization
+
+- [added] The [`initialize_app()`](https://firebase.google.com/docs/reference/admin/node/admin#.initializeApp)
+  method can now be invoked without any arguments. This initializes an app
+  using Google Application Default Credentials, and other
+  options loaded from the `FIREBASE_CONFIG` environment variable.
+
+### Realtime Database
+
+- [added] The [`db.Reference.get()`](https://firebase.google.com/docs/reference/admin/python/firebase_admin.db#reference)
+  method now accepts an optional `shallow`
+  argument. If set to `True` this causes the SDK to execute a shallow read,
+  which does not retrieve the child node values of the current reference.
+
+# v2.7.0
+
+- [added] A new [`instance_id`](https://firebase.google.com/docs/reference/admin/python/firebase_admin.instance_id)
+  API that facilitates deleting instance IDs and associated user data from
+  Firebase projects.
+
+# v2.6.0
+
+### Authentication
+- [added] Added the
+  [`list_users()`](https://firebase.google.com/docs/reference/admin/python/firebase_admin.auth#list_users)
+  function to the `firebase_admin.auth` module. This function enables listing
+  or iterating over all user accounts in a Firebase project.
+- [added] Added the
+  [`set_custom_user_claims()`](https://firebase.google.com/docs/reference/admin/python/firebase_admin.auth#set_custom_user_claims)
+  function to the `firebase_admin.auth` module. This function enables setting
+  custom claims on a Firebase user. The custom claims can be accessed via that
+  user's ID token.
+
+### Realtime Database
+- [changed] Updated the `start_at()`, `end_at()` and `equal_to()` methods of
+  the [`db.Query`](https://firebase.google.com/docs/reference/admin/python/firebase_admin.db#query) class
+  so they can accept empty string arguments.
+
+# v2.5.0
+
+- [added] A new [`Firestore` API](https://firebase.google.com/docs/reference/admin/python/firebase_admin.firestore)
+  that enables access to [Cloud Firestore](https://firebase.google.com/docs/firestore) databases.
+
+# v2.4.0
+
+### Realtime Database
+
+- [added] The [`db.Reference`](https://firebase.google.com/docs/reference/admin/python/firebase_admin.db#reference)
+  class now has a `get_if_changed()` method, which retrieves a
+  database value only if the value has changed since last read.
+- [added] The options dictionary passed to
+  [`initialize_app()`](https://firebase.google.com/docs/reference/admin/python/firebase_admin#initialize_app)
+  function can now contain an `httpTimeout` option, which sets
+  the timeout (in seconds) for outbound HTTP connections started by the SDK.
+
+# v2.3.0
+
+### Realtime Database
+
+- [added] You can now get the ETag value of a database reference by passing
+  `etag=True` to the `get()` method of a
+  [`db.Reference`](https://firebase.google.com/docs/reference/admin/python/firebase_admin.db#reference)
+  object.
+- [added] The [`db.Reference`](https://firebase.google.com/docs/reference/admin/python/firebase_admin.db#reference)
+  class now has a `set_if_unchanged()` method, which you can use to write to a
+  database location only when the location has the ETag value you specify.
+- [changed] Fixed an issue with the `transaction()` method that prevented you
+  from updating scalar values in a transaction.
+
+# v2.2.0
+
+- [added] A new [Cloud Storage API](https://firebase.google.com/docs/reference/admin/python/firebase_admin.storage)
+  that facilitates accessing Google Cloud Storage buckets using the
+  [`google-cloud-storage`](https://googlecloudplatform.github.io/google-cloud-python/stable/storage/client.html)
+  library.
+
+### Authentication
+- [added] A new user management API that allows provisioning and managing
+  Firebase users from Python applications. This API adds `get_user()`,
+  `get_user_by_email()`, `get_user_by_phone_number()`, `create_user()`,
+  `update_user()` and `delete_dser()` methods
+  to the [`firebase_admin.auth`](https://firebase.google.com/docs/reference/admin/python/firebase_admin.auth)
+  module.
+
+### Realtime Database
+- [added] The [`db.Reference`](https://firebase.google.com/docs/reference/admin/python/firebase_admin.db#reference)
+  class now exposes a `transaction()` method, which can be used to execute atomic updates
+  on database references.
+
+# v2.1.1
+
+- [changed] Constructors of
+  [`Certificate`](https://firebase.google.com/docs/reference/admin/python/firebase_admin.credentials#certificate) and
+  [`RefreshToken`](https://firebase.google.com/docs/reference/admin/python/firebase_admin.credentials#refreshtoken)
+  credential types can now be invoked with either a file path or a parsed JSON object.
+  This facilitates the consumption of service account credentials and refresh token
+  credentials from sources other than the local file system.
+- [changed] Better integration with the `google-auth` library for making authenticated
+  HTTP requests from the SDK.
+
+# v2.1.0
+
+- [added] A new [database API](https://firebase.google.com/docs/reference/admin/python/firebase_admin.db)
+  that facilitates basic data manipulation
+  operations (create, read, update and delete), and advanced queries. Currently,
+  this API does not support realtime event listeners. See
+  [Add the Firebase Admin SDK to your Server](/docs/admin/setup/)
+  to get started.
+
+# v2.0.0
+
+- [changed] This SDK has been migrated from `oauth2client` to the new
+  `google-auth` library.
+
+### Authentication
+- [changed] This SDK now supports verifying ID tokens when initialized with
+  application default credentials.
+
+
+# v1.0.0
+
+- [added] Initial release of the Admin Python SDK. See
+  [Add the Firebase Admin SDK to your Server](https://firebase.google.com/docs/admin/setup/)
+  to get started.
+
+### Initialization
+- [added] Implemented the
+  [`firebase_admin`](https://firebase.google.com/docs/reference/admin/python/firebase_admin)
+  module, which provides the `initialize_app()` function for initializing the
+  SDK with a credential.
+- [added] Implemented the
+  [`firebase_admin.credentials`](https://firebase.google.com/docs/reference/admin/python/firebase_admin.credentials)
+  module, which contains constructors for `Certificate`, `ApplicationDefault`
+  and `RefreshToken` credential types.
+
+### Authentication
+- [added] Implemented the
+  [`firebase_admin.auth`](https://firebase.google.com/docs/reference/admin/python/firebase_admin.auth)
+  module, which provides `create_custom_token()` and `verify_id_token()`
+  functions for minting custom authentication tokens and verifying Firebase ID
+  tokens.

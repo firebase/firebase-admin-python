@@ -218,15 +218,38 @@ class App(object):
         self._options = _AppOptions(options)
         self._lock = threading.RLock()
         self._services = {}
-        pid = self._options.get('projectId')
+        self._project_id = App._lookup_project_id(self._credential, self._options)
+
+    @classmethod
+    def _lookup_project_id(cls, credential, options):
+        """Looks up the Firebase project ID associated with an App.
+
+        This method first inspects the app options for a ``projectId`` entry. Then it attempts to
+        get the project ID from the credential used to initialize the app. If that also fails,
+        attempts to look up the ``GCLOUD_PROJECT`` environment variable.
+
+        Args:
+            credential: A Firebase credential instance.
+            options: A Firebase AppOptions instance.
+
+        Returns:
+            str: A project ID string or None.
+
+        Raises:
+            ValueError: If a non-string project ID value is specified.
+        """
+        pid = options.get('projectId')
         if not pid:
             try:
-                pid = self._credential.project_id
+                pid = credential.project_id
             except AttributeError:
                 pass
         if not pid:
             pid = os.environ.get('GCLOUD_PROJECT')
-        self._project_id = pid
+        if pid is not None and not isinstance(pid, six.string_types):
+            raise ValueError(
+                'Invalid project ID: "{0}". project ID must be a string.'.format(pid))
+        return pid
 
     @property
     def name(self):

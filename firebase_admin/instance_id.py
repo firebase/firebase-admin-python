@@ -79,9 +79,6 @@ class _InstanceIdService(object):
                 'Project ID is required to access Instance ID service. Either set the projectId '
                 'option, or use service account credentials. Alternatively, set the '
                 'GCLOUD_PROJECT environment variable.')
-        elif not isinstance(project_id, six.string_types):
-            raise ValueError(
-                'Invalid project ID: "{0}". project ID must be a string.'.format(project_id))
         self._project_id = project_id
         self._client = _http_client.JsonHttpClient(
             credential=app.credential.get_credential(), base_url=_IID_SERVICE_URL)

@@ -48,6 +48,9 @@ INVALID_DICTS = [None, 'foo', 0, 1, True, False, list(), tuple()]
 
 MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
 MOCK_LIST_USERS_RESPONSE = testutils.resource('list_users.json')
+_REVOKED_TOKENS_USER = json.loads(MOCK_GET_USER_RESPONSE)
+_REVOKED_TOKENS_USER['users'][0]['validSince'] = str(int(time.time())+1)
+MOCK_GET_USER_REVOKED_TOKENS_RESPONSE = json.dumps(_REVOKED_TOKENS_USER)
 
 
 class AuthFixture(object):
@@ -60,14 +63,12 @@ class AuthFixture(object):
     def create_custom_token(self, *args):
         if self.app:
             return auth.create_custom_token(*args, app=self.app)
-        else:
-            return auth.create_custom_token(*args)
+        return auth.create_custom_token(*args)
 
-    def verify_id_token(self, *args):
+    def verify_id_token(self, *args, **kwargs):
         if self.app:
-            return auth.verify_id_token(*args, app=self.app)
-        else:
-            return auth.verify_id_token(*args)
+            return auth.verify_id_token(*args, app=self.app, **kwargs)
+        return auth.verify_id_token(*args, **kwargs)
 
 def setup_module():
     firebase_admin.initialize_app(MOCK_CREDENTIAL)
@@ -160,7 +161,6 @@ def get_id_token(payload_overrides=None, header_overrides=None):
 
 TEST_ID_TOKEN = get_id_token()
 
-
 class TestCreateCustomToken(object):
 
     valid_args = {
@@ -244,8 +244,47 @@ class TestVerifyIdToken(object):
         assert claims['admin'] is True
         assert claims['uid'] == claims['sub']
 
-    @pytest.mark.parametrize('id_token', invalid_tokens.values(),
-                             ids=list(invalid_tokens))
+    @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
+    def test_valid_token_check_revoked(self, user_mgt_app_for_verify_token, id_token):
+        _instrument_user_manager(user_mgt_app_for_verify_token, 200, MOCK_GET_USER_RESPONSE)
+        claims = auth.verify_id_token(id_token, app=user_mgt_app_for_verify_token,
+                                      check_revoked=True)
+        assert claims['admin'] is True
+        assert claims['uid'] == claims['sub']
+
+    @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
+    def test_revoked_token_check_revoked(self, user_mgt_app_for_verify_token, id_token):
+        _instrument_user_manager(user_mgt_app_for_verify_token, 200,
+                                 MOCK_GET_USER_REVOKED_TOKENS_RESPONSE)
+
+        with pytest.raises(auth.AuthError) as revoked:
+            auth.verify_id_token(id_token, app=user_mgt_app_for_verify_token,
+                                 check_revoked=True)
+
+        assert revoked.value.code == 'ID_TOKEN_REVOKED'
+        assert revoked.value.message == 'The Firebase ID token has been revoked.'
+     
+    @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
+    def test_revoked_token_do_not_check_revoked(self, user_mgt_app_for_verify_token, id_token):
+        _instrument_user_manager(user_mgt_app_for_verify_token, 200,
+                                 MOCK_GET_USER_REVOKED_TOKENS_RESPONSE)
+        claims = auth.verify_id_token(id_token, app=user_mgt_app_for_verify_token,
+                                      check_revoked=False)
+        assert claims['admin'] is True
+        assert claims['uid'] == claims['sub']
+
+    def test_revoke_refresh_token(self, user_mgt_app):
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        before_time = time.time()
+        auth.revoke_refresh_tokens('testuser', app=user_mgt_app)
+        after_time = time.time()
+
+        request = json.loads(recorder[0].body.decode())
+        assert request['localId'] == 'testuser'
+        assert int(request['validSince']) >= int(before_time)
+        assert int(request['validSince']) <= int(after_time)
+
+    @pytest.mark.parametrize('id_token', invalid_tokens.values(), ids=list(invalid_tokens))
     def test_invalid_token(self, authtest, id_token):
         with pytest.raises(ValueError):
             authtest.verify_id_token(id_token)
@@ -284,6 +323,13 @@ class TestVerifyIdToken(object):
 @pytest.fixture(scope='module')
 def user_mgt_app():
     app = firebase_admin.initialize_app(testutils.MockCredential(), name='userMgt')
+    yield app
+    firebase_admin.delete_app(app)
+
+@pytest.fixture(scope='module')
+def user_mgt_app_for_verify_token():
+    app = firebase_admin.initialize_app(testutils.MockCredential(), name='userMgtVer',
+                                        options={'projectId': 'mock-project-id'})
     yield app
     firebase_admin.delete_app(app)
 

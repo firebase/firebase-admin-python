@@ -1,5 +1,9 @@
 # Unreleased
-- 
+
+### Cloud Messaging
+
+- [feature] Added the `firebase_admin.messaging` module for sending
+  Firebase notifications and managing topic subscriptions. 
 
 # v2.8.0
 

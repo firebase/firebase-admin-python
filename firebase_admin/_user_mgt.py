@@ -114,18 +114,22 @@ class _Validator(object):
             raise ValueError('Malformed photo URL: "{0}".'.format(photo_url))
 
     @classmethod
-    def validate_tokens_valid_after_time(cls, valid_since):
+    def validate_valid_since(cls, valid_since):
         if not isinstance(valid_since, six.string_types) or not valid_since:
             raise ValueError(
                 'Invalid time string for: "{0}". Tokens Valid After Time must be a non-empty '
                 'string.'.format(valid_since))
         try:
-            int(valid_since)
+            time = int(valid_since)
+            if time > 1e12:
+                raise ValueError('Suspect value for Valid Since: "{0}" '
+                                'must be an in epoch seconds.'.format(valid_since))
+    
         except ValueError:
-            raise ValueError('Malformed Tokens Valid After Time: "{0}" '
+            raise ValueError('Malformed Valid Since: "{0}" '
                              'must be an interger.'.format(valid_since))
         except Exception:
-            raise ValueError('Malformed Tokens Valid After Time: "{0}".'.format(valid_since))
+            raise ValueError('Malformed Valid Since "{0}".'.format(valid_since))
 
     @classmethod
     def validate_disabled(cls, disabled):
@@ -198,7 +202,7 @@ class UserManager(object):
         'password' : _Validator.validate_password,
         'phoneNumber' : _Validator.validate_phone,
         'photoUrl' : _Validator.validate_photo_url,
-        'validSince' : _Validator.validate_tokens_valid_after_time,
+        'validSince' : _Validator.validate_valid_since,
     }
 
     _CREATE_USER_FIELDS = {
@@ -221,7 +225,7 @@ class UserManager(object):
         'password' : 'password',
         'disabled' : 'disableUser',
         'custom_claims' : 'customAttributes',
-        'tokens_valid_after_time' : 'validSince',
+        'valid_since' : 'validSince',
     }
 
     _REMOVABLE_FIELDS = {

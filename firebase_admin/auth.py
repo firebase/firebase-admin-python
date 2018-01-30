@@ -99,13 +99,13 @@ def verify_id_token(id_token, app=None, check_revoked=False):
     verified_claims = token_generator.verify_id_token(id_token)
     if check_revoked:
         user = get_user(verified_claims.get('uid'), app)
-        if  verified_claims.get('iat') < user.tokens_valid_after_time:
+        if  verified_claims.get('iat') * 1000 < user.tokens_valid_after_time:
             raise AuthError('ID_TOKEN_REVOKED', 'The Firebase ID token has been revoked.')
     return verified_claims
 
 def revoke_refresh_tokens(uid, app=None):
     user_manager = _get_auth_service(app).user_manager
-    user_manager.update_user(uid, tokens_valid_after_time=str(int(time.time())))
+    user_manager.update_user(uid, valid_since=str(int(time.time())))
 
 def get_user(uid, app=None):
     """Gets the user data corresponding to the specified user ID.
@@ -442,13 +442,13 @@ class UserRecord(UserInfo):
 
     @property
     def tokens_valid_after_time(self):
-        """Returns the time before which tokens are invalid.
+        """Returns the time, in epoch milliseconds, before which tokens are invalid.
 
         Returns:
-            int: Timestap in seconds since the epoch. All tokens issued before that time
-                 are considered revoked.
+            int: Timestamp in milliseconds since the epoch, truncated to the second.
+                 All tokens issued before that time are considered revoked.
         """
-        return int(self._data.get('validSince', 0))
+        return int(self._data.get('validSince', 0)) * 1000
 
     @property
     def user_metadata(self):
@@ -496,12 +496,16 @@ class UserMetadata(object):
 
     @property
     def creation_timestamp(self):
+        """ Creation timestamp in epoch milliseconds.
+        """
         if 'createdAt' in self._data:
             return int(self._data['createdAt'])
         return None
 
     @property
     def last_sign_in_timestamp(self):
+        """ Last sign in timestamp in epoch milliseconds.
+        """
         if 'lastLoginAt' in self._data:
             return int(self._data['lastLoginAt'])
         return None

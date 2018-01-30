@@ -242,25 +242,25 @@ def test_delete_user():
 
 def test_revoke_refresh_tokens(new_user):
     user = auth.get_user(new_user.uid)
-    old_valid_since = user.tokens_valid_after_time
+    old_valid_after = user.tokens_valid_after_time
     time.sleep(1)
     auth.revoke_refresh_tokens(new_user.uid)
     user = auth.get_user(new_user.uid)
-    new_valid_since = user.tokens_valid_after_time
-    assert new_valid_since > old_valid_since
+    new_valid_after = user.tokens_valid_after_time
+    assert new_valid_after > old_valid_after
 
 def test_verify_id_token_revoked(new_user, api_key):
     custom_token = auth.create_custom_token(new_user.uid)
     id_token = _sign_in(custom_token, api_key)
     claims = auth.verify_id_token(id_token)
-    assert claims['iat'] >= new_user.tokens_valid_after_time
+    assert claims['iat'] * 1000 >= new_user.tokens_valid_after_time
 
     time.sleep(1)
     auth.revoke_refresh_tokens(new_user.uid)
     claims = auth.verify_id_token(id_token, check_revoked=False)
     user = auth.get_user(new_user.uid)
     # verify_id_token succeeded because it didn't check revoked.
-    assert claims['iat'] < user.tokens_valid_after_time
+    assert claims['iat'] * 1000 < user.tokens_valid_after_time
 
     with pytest.raises(auth.AuthError) as excinfo:
         claims = auth.verify_id_token(id_token, check_revoked=True)
@@ -270,4 +270,4 @@ def test_verify_id_token_revoked(new_user, api_key):
     # Sign in again, verify works.
     id_token = _sign_in(custom_token, api_key)
     claims = auth.verify_id_token(id_token, check_revoked=True)
-    assert claims['iat'] >= new_user.tokens_valid_after_time
+    assert claims['iat'] * 1000 >= user.tokens_valid_after_time

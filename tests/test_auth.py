@@ -276,7 +276,7 @@ class TestVerifyIdToken(object):
         before_time = time.time()
         auth.revoke_refresh_tokens('testuser', app=user_mgt_app)
         after_time = time.time()
-        
+
         request = json.loads(recorder[0].body.decode())
         assert request['localId'] == 'testuser'
         assert int(request['validSince']) >= int(before_time)

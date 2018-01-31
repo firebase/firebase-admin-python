@@ -48,10 +48,13 @@ INVALID_DICTS = [None, 'foo', 0, 1, True, False, list(), tuple()]
 
 MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
 MOCK_LIST_USERS_RESPONSE = testutils.resource('list_users.json')
-_REVOKED_TOKENS_USER = json.loads(MOCK_GET_USER_RESPONSE)
-_REVOKED_TOKENS_USER['users'][0]['validSince'] = str(int(time.time())+1)
-MOCK_GET_USER_REVOKED_TOKENS_RESPONSE = json.dumps(_REVOKED_TOKENS_USER)
 
+def _revoked_tokens_response():
+    mock_user = json.loads(testutils.resource('get_user.json'))
+    mock_user['users'][0]['validSince'] = str(int(time.time())+100)
+    return json.dumps(mock_user)
+
+MOCK_GET_USER_REVOKED_TOKENS_RESPONSE = _revoked_tokens_response()
 
 class AuthFixture(object):
     def __init__(self, name=None):
@@ -245,31 +248,26 @@ class TestVerifyIdToken(object):
         assert claims['uid'] == claims['sub']
 
     @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
-    def test_valid_token_check_revoked(self, user_mgt_app_for_verify_token, id_token):
-        _instrument_user_manager(user_mgt_app_for_verify_token, 200, MOCK_GET_USER_RESPONSE)
-        claims = auth.verify_id_token(id_token, app=user_mgt_app_for_verify_token,
-                                      check_revoked=True)
+    def test_valid_token_check_revoked(self, user_mgt_app, id_token):
+        _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_RESPONSE)
+        claims = auth.verify_id_token(id_token, app=user_mgt_app, check_revoked=True)
         assert claims['admin'] is True
         assert claims['uid'] == claims['sub']
 
     @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
-    def test_revoked_token_check_revoked(self, user_mgt_app_for_verify_token, id_token):
-        _instrument_user_manager(user_mgt_app_for_verify_token, 200,
-                                 MOCK_GET_USER_REVOKED_TOKENS_RESPONSE)
+    def test_revoked_token_check_revoked(self, user_mgt_app, id_token):
+        _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_REVOKED_TOKENS_RESPONSE)
 
         with pytest.raises(auth.AuthError) as excinfo:
-            auth.verify_id_token(id_token, app=user_mgt_app_for_verify_token,
-                                 check_revoked=True)
+            auth.verify_id_token(id_token, app=user_mgt_app, check_revoked=True)
 
         assert excinfo.value.code == 'ID_TOKEN_REVOKED'
         assert str(excinfo.value) == 'The Firebase ID token has been revoked.'
 
     @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
-    def test_revoked_token_do_not_check_revoked(self, user_mgt_app_for_verify_token, id_token):
-        _instrument_user_manager(user_mgt_app_for_verify_token, 200,
-                                 MOCK_GET_USER_REVOKED_TOKENS_RESPONSE)
-        claims = auth.verify_id_token(id_token, app=user_mgt_app_for_verify_token,
-                                      check_revoked=False)
+    def test_revoked_token_do_not_check_revoked(self, user_mgt_app, id_token):
+        _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_REVOKED_TOKENS_RESPONSE)
+        claims = auth.verify_id_token(id_token, app=user_mgt_app, check_revoked=False)
         assert claims['admin'] is True
         assert claims['uid'] == claims['sub']
 
@@ -278,7 +276,7 @@ class TestVerifyIdToken(object):
         before_time = time.time()
         auth.revoke_refresh_tokens('testuser', app=user_mgt_app)
         after_time = time.time()
-
+        
         request = json.loads(recorder[0].body.decode())
         assert request['localId'] == 'testuser'
         assert int(request['validSince']) >= int(before_time)
@@ -322,13 +320,7 @@ class TestVerifyIdToken(object):
 
 @pytest.fixture(scope='module')
 def user_mgt_app():
-    app = firebase_admin.initialize_app(testutils.MockCredential(), name='userMgt')
-    yield app
-    firebase_admin.delete_app(app)
-
-@pytest.fixture(scope='module')
-def user_mgt_app_for_verify_token():
-    app = firebase_admin.initialize_app(testutils.MockCredential(), name='userMgtVer',
+    app = firebase_admin.initialize_app(testutils.MockCredential(), name='userMgt',
                                         options={'projectId': 'mock-project-id'})
     yield app
     firebase_admin.delete_app(app)

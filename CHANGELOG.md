@@ -2,8 +2,8 @@
 - 
 ### Token revokaction
 - [added] The ['verify_id_token(...)'](https://firebase.google.com/docs/reference/admin/python/firebase_admin.auth#verify_id_token)
-  method can now take an additional parameter `check_revoked`, when `True`, 
-  a further check will be performed to see if the token has been revoked. 
+  method now accepts an optional `check_revoked` parameter, when `True`, an 
+  additional check is performed to see if the token has been revoked. 
 - [added] A new method ['auth.revoke_refresh_tokens(uid)'](https://firebase.google.com/docs/reference/admin/python/firebase_admin.auth#revoke_refresh_tokens)
   has been added to invalidate all tokens issued before the current second.
 - [added] A new property `tokens_valid_after_time` has been added to the ['UserRecord'](https://firebase.google.com/docs/reference/admin/python/firebase_admin.auth#userrecord),

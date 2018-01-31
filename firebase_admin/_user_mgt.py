@@ -122,8 +122,7 @@ class _Validator(object):
         try:
             time = int(valid_since)
             if time > 1e12:
-                raise ValueError('Suspect value for Valid Since: "{0}" '
-                                 'must be an in epoch seconds.'.format(valid_since))
+                raise ValueError('Invalid tokens_valid_after_time value: {0}'.format(valid_since))
 
         except ValueError:
             raise ValueError('Malformed Valid Since: "{0}" '

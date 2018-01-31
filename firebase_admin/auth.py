@@ -36,6 +36,7 @@ from firebase_admin import _utils
 _request = transport.requests.Request()
 
 _AUTH_ATTRIBUTE = '_auth'
+_ID_TOKEN_REVOKED = 'ID_TOKEN_REVOKED'
 
 
 def _get_auth_service(app):
@@ -85,7 +86,7 @@ def verify_id_token(id_token, app=None, check_revoked=False):
     Args:
       id_token: A string of the encoded JWT.
       app: An App instance (optional).
-      check_revoked: check whether the token was revoked(optional).
+      check_revoked: A boolean indicating whether the token has been revoked (optional).
 
     Returns:
       dict: A dictionary of key-value pairs parsed from the decoded JWT.
@@ -93,14 +94,14 @@ def verify_id_token(id_token, app=None, check_revoked=False):
     Raises:
       ValueError: If the JWT was found to be invalid, or if the App was not
           initialized with a credentials.Certificate.
-      AuthError: If check_token is requested and the token was revoked.
+      AuthError: If check_revoked is requested and the token was revoked.
     """
     token_generator = _get_auth_service(app).token_generator
     verified_claims = token_generator.verify_id_token(id_token)
     if check_revoked:
         user = get_user(verified_claims.get('uid'), app)
         if  verified_claims.get('iat') * 1000 < user.tokens_valid_after_time:
-            raise AuthError('ID_TOKEN_REVOKED', 'The Firebase ID token has been revoked.')
+            raise AuthError(_ID_TOKEN_REVOKED, 'The Firebase ID token has been revoked.')
     return verified_claims
 
 def revoke_refresh_tokens(uid, app=None):

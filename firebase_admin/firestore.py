@@ -28,8 +28,6 @@ except ImportError:
     raise ImportError('Failed to import the Cloud Firestore library for Python. Make sure '
                       'to install the "google-cloud-firestore" module.')
 
-import six
-
 from firebase_admin import _utils
 
 
@@ -75,7 +73,4 @@ class _FirestoreClient(object):
                 'Project ID is required to access Firestore. Either set the projectId option, '
                 'or use service account credentials. Alternatively, set the GCLOUD_PROJECT '
                 'environment variable.')
-        elif not isinstance(project, six.string_types):
-            raise ValueError(
-                'Invalid project ID: "{0}". project ID must be a string.'.format(project))
         return _FirestoreClient(credentials, project)

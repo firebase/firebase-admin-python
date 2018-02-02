@@ -336,7 +336,7 @@ class UserManager(object):
         """Deletes the user identified by the specified user ID."""
         _Validator.validate_uid(uid)
         try:
-            response = self._request('post', 'deleteAccount', json={'localId' : [uid]})
+            response = self._request('post', 'deleteAccount', json={'localId' : uid})
         except requests.exceptions.RequestException as error:
             self._handle_http_error(
                 USER_DELETE_ERROR, 'Failed to delete user: {0}.'.format(uid), error)

@@ -121,9 +121,7 @@ class _Validator(object):
                 'string.'.format(valid_since))
         try:
             time = int(valid_since)
-            if time > 1e12:
-                raise ValueError('Invalid tokens_valid_after_time value: {0}'.format(valid_since))
-
+        
         except ValueError:
             raise ValueError('Malformed Valid Since: "{0}" '
                              'must be an interger.'.format(valid_since))

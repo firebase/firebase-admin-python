@@ -67,7 +67,8 @@ class AuthFixture(object):
         if self.app:
             return auth.create_custom_token(*args, app=self.app)
         return auth.create_custom_token(*args)
-
+    
+    # Using **kwargs to pass along the check_revoked if passed.
     def verify_id_token(self, *args, **kwargs):
         if self.app:
             return auth.verify_id_token(*args, app=self.app, **kwargs)

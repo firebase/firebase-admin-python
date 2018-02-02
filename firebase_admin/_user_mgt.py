@@ -120,8 +120,7 @@ class _Validator(object):
                 'Invalid time string for: "{0}". Tokens Valid After Time must be a non-empty '
                 'string.'.format(valid_since))
         try:
-            time = int(valid_since)
-        
+            int(valid_since)
         except ValueError:
             raise ValueError('Malformed Valid Since: "{0}" '
                              'must be an interger.'.format(valid_since))

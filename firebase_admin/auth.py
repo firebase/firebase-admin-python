@@ -100,7 +100,7 @@ def verify_id_token(id_token, app=None, check_revoked=False):
     verified_claims = token_generator.verify_id_token(id_token)
     if check_revoked:
         user = get_user(verified_claims.get('uid'), app)
-        if  verified_claims.get('iat') * 1000 < user.tokens_valid_after_time:
+        if  verified_claims.get('iat') * 1000 < user.tokens_valid_after_timestamp:
             raise AuthError(_ID_TOKEN_REVOKED, 'The Firebase ID token has been revoked.')
     return verified_claims
 
@@ -442,7 +442,7 @@ class UserRecord(UserInfo):
         return bool(self._data.get('disabled'))
 
     @property
-    def tokens_valid_after_time(self):
+    def tokens_valid_after_timestamp(self):
         """Returns the time, in epoch milliseconds, before which tokens are invalid.
 
         Returns:

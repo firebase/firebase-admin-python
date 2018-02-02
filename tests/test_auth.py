@@ -344,7 +344,7 @@ def _check_user_record(user, expected_uid='testuser'):
     assert user.photo_url == 'http://www.example.com/testuser/photo.png'
     assert user.disabled is False
     assert user.email_verified is True
-    assert user.user_metadata.creation_timestamp == 1234567890
+    assert user.user_metadata.creation_timestamp == 1234567890000
     assert user.user_metadata.last_sign_in_timestamp is None
     assert user.provider_id == 'firebase'
 

@@ -105,6 +105,17 @@ def verify_id_token(id_token, app=None, check_revoked=False):
     return verified_claims
 
 def revoke_refresh_tokens(uid, app=None):
+    """Revokes all refresh tokens for an existing user.
+
+    revoke_refresh_tokens updates the user's tokens_valid_after_timestamp to the current UTC
+    in seconds since the epoch. It is important that the server on which this is called has its
+    clock set correctly and synchronized.
+    
+    While this revokes all sessions for a specified user and disables any new ID tokens for
+    existing sessions from getting minted, existing ID tokens may remain active until their
+    natural expiration (one hour). To verify that ID tokens are revoked, use
+    `verify_id_token(idToken, check_revoked=true)`.
+    """
     user_manager = _get_auth_service(app).user_manager
     user_manager.update_user(uid, valid_since=str(int(time.time())))
 
@@ -257,6 +268,8 @@ def update_user(uid, **kwargs):
         disabled: A boolean indicating whether or not the user account is disabled (optional).
         custom_claims: A dictionary or a JSON string contining the custom claims to be set on the
             user account (optional).
+        valid_since: An integer signifying the seconds since the epoch. This field is set by
+            `revoke_refresh_tokens` and it is discouraged to set this field directly.
 
     Returns:
         UserRecord: An updated UserRecord instance for the user.
@@ -443,13 +456,18 @@ class UserRecord(UserInfo):
 
     @property
     def tokens_valid_after_timestamp(self):
-        """Returns the time, in epoch milliseconds, before which tokens are invalid.
+        """Returns the time, in milliseconds since the epoch, before which tokens are invalid.
+
+        Note: this is truncated to 1 second accuracy.
 
         Returns:
             int: Timestamp in milliseconds since the epoch, truncated to the second.
                  All tokens issued before that time are considered revoked.
         """
-        return int(self._data.get('validSince', 0)) * 1000
+        valid_since = self._data.get('validSince')
+        if valid_since is not None:
+            return 1000 * int(valid_since)
+        return None
 
     @property
     def user_metadata(self):

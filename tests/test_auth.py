@@ -633,6 +633,11 @@ class TestUpdateUser(object):
         with pytest.raises(ValueError):
             auth.update_user('user', unsupported='arg')
 
+    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['-1', '0'])
+    def test_invalid_valid_since(self, arg):
+        with pytest.raises(ValueError):
+            auth.update_user('user', valid_since=arg)
+
     def test_update_user(self, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
         user_mgt.update_user('testuser')
@@ -668,6 +673,14 @@ class TestUpdateUser(object):
             auth.update_user('user', app=user_mgt_app)
         assert excinfo.value.code == _user_mgt.USER_UPDATE_ERROR
         assert '{"error":"test"}' in str(excinfo.value)
+
+    def test_update_user_valid_since(self, user_mgt_app):
+        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        user_mgt.update_user('testuser',  valid_since = '1')
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'localId' : 'testuser', 'validSince': '1'}
+
+
 
 
 class TestSetCustomUserClaims(object):

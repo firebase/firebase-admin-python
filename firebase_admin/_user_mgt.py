@@ -359,7 +359,6 @@ class UserManager(object):
 
     def _validate(self, properties, validators, operation):
         for key, value in properties.items():
-            print key, value
             validator = validators.get(key)
             if not validator:
                 raise ValueError('Unsupported property: "{0}" in {1} call.'.format(key, operation))

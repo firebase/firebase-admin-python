@@ -120,7 +120,8 @@ class _Validator(object):
             raise ValueError(
                 'Invalid time string for: "{0}". Valid Since must be an int'.format(valid_since))
         if int(valid_since) <= 0:
-            raise ValueError('Invalid valid_since: must be a positive interger. {0}'.format(valid_since))
+            raise ValueError(
+                'Invalid valid_since: must be a positive interger. {0}'.format(valid_since))
 
     @classmethod
     def validate_disabled(cls, disabled):

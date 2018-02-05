@@ -7,8 +7,8 @@
 - [added] A new method ['auth.revoke_refresh_tokens(uid)'](https://firebase.google.com/docs/reference/admin/python/firebase_admin.auth#revoke_refresh_tokens)
   has been added to invalidate all tokens issued to a user before the current second.
 - [added] A new property `tokens_valid_after_timestamp` has been added to the   
-['UserRecord'](https://firebase.google.com/docs/reference/admin/python/firebase_admin.auth#userrecord),
-  it denotes the time in epoch milliseconds before which tokens are not valid.
+  ['UserRecord'](https://firebase.google.com/docs/reference/admin/python/firebase_admin.auth#userrecord),
+  which denotes the time in epoch milliseconds before which tokens are not valid.
 
 # v2.8.0
 

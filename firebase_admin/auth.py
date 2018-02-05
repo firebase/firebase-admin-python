@@ -114,7 +114,7 @@ def revoke_refresh_tokens(uid, app=None):
     While this revokes all sessions for a specified user and disables any new ID tokens for
     existing sessions from getting minted, existing ID tokens may remain active until their
     natural expiration (one hour). To verify that ID tokens are revoked, use
-    `verify_id_token(idToken, check_revoked=true)`.
+    `verify_id_token(idToken, check_revoked=True)`.
     """
     user_manager = _get_auth_service(app).user_manager
     user_manager.update_user(uid, valid_since=int(time.time()))

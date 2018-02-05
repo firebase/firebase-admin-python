@@ -117,7 +117,7 @@ def revoke_refresh_tokens(uid, app=None):
     `verify_id_token(idToken, check_revoked=true)`.
     """
     user_manager = _get_auth_service(app).user_manager
-    user_manager.update_user(uid, valid_since=str(int(time.time())))
+    user_manager.update_user(uid, valid_since=int(time.time()))
 
 def get_user(uid, app=None):
     """Gets the user data corresponding to the specified user ID.

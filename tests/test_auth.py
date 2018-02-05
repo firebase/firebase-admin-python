@@ -45,6 +45,8 @@ MOCK_SERVICE_ACCOUNT_EMAIL = MOCK_CREDENTIAL.service_account_email
 INVALID_STRINGS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
 INVALID_BOOLS = [None, '', 'foo', 0, 1, list(), tuple(), dict()]
 INVALID_DICTS = [None, 'foo', 0, 1, True, False, list(), tuple()]
+INVALID_POSITIVE_NUMS = [None, 'foo', 0, -1, True, False, list(), tuple(), dict()]
+
 
 MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
 MOCK_LIST_USERS_RESPONSE = testutils.resource('list_users.json')
@@ -272,7 +274,7 @@ class TestVerifyIdToken(object):
         assert claims['admin'] is True
         assert claims['uid'] == claims['sub']
 
-    def test_revoke_refresh_token(self, user_mgt_app):
+    def test_revoke_refresh_tokens(self, user_mgt_app):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
         before_time = time.time()
         auth.revoke_refresh_tokens('testuser', app=user_mgt_app)
@@ -633,7 +635,7 @@ class TestUpdateUser(object):
         with pytest.raises(ValueError):
             auth.update_user('user', unsupported='arg')
 
-    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['-1', '0'])
+    @pytest.mark.parametrize('arg', INVALID_POSITIVE_NUMS)
     def test_invalid_valid_since(self, arg):
         with pytest.raises(ValueError):
             auth.update_user('user', valid_since=arg)
@@ -676,9 +678,9 @@ class TestUpdateUser(object):
 
     def test_update_user_valid_since(self, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
-        user_mgt.update_user('testuser', valid_since='1')
+        user_mgt.update_user('testuser', valid_since=1)
         request = json.loads(recorder[0].body.decode())
-        assert request == {'localId': 'testuser', 'validSince': '1'}
+        assert request == {'localId': 'testuser', 'validSince': 1}
 
 
 class TestSetCustomUserClaims(object):

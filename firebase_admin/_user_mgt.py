@@ -115,18 +115,12 @@ class _Validator(object):
 
     @classmethod
     def validate_valid_since(cls, valid_since):
-        if not isinstance(valid_since, six.string_types) or not valid_since:
+        # isinstance(True, int) is True hence the extra check
+        if valid_since is None or isinstance(valid_since, bool) or not isinstance(valid_since, int):
             raise ValueError(
-                'Invalid time string for: "{0}". Tokens Valid After Time must be a non-empty '
-                'string.'.format(valid_since))
-        try:
-            if int(valid_since) <= 0:
-                raise ValueError()
-        except ValueError:
-            raise ValueError('Malformed Valid Since: "{0}" '
-                             'must be a positive interger.'.format(valid_since))
-        except Exception:
-            raise ValueError('Malformed Valid Since "{0}".'.format(valid_since))
+                'Invalid time string for: "{0}". Valid Since must be an int'.format(valid_since))
+        if int(valid_since) <= 0:
+            raise ValueError('Valid Since: must be a positive interger. {0}'.format(valid_since))
 
     @classmethod
     def validate_disabled(cls, disabled):
@@ -365,6 +359,7 @@ class UserManager(object):
 
     def _validate(self, properties, validators, operation):
         for key, value in properties.items():
+            print key, value
             validator = validators.get(key)
             if not validator:
                 raise ValueError('Unsupported property: "{0}" in {1} call.'.format(key, operation))

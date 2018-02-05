@@ -681,8 +681,6 @@ class TestUpdateUser(object):
         assert request == {'localId': 'testuser', 'validSince': '1'}
 
 
-
-
 class TestSetCustomUserClaims(object):
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])

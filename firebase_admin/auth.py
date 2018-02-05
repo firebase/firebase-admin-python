@@ -86,7 +86,7 @@ def verify_id_token(id_token, app=None, check_revoked=False):
     Args:
       id_token: A string of the encoded JWT.
       app: An App instance (optional).
-      check_revoked: A boolean indicating whether the token has been revoked (optional).
+      check_revoked: Boolean, If true, checks whether the token has been revoked (optional).
 
     Returns:
       dict: A dictionary of key-value pairs parsed from the decoded JWT.
@@ -515,7 +515,10 @@ class UserMetadata(object):
 
     @property
     def creation_timestamp(self):
-        """ Creation timestamp in epoch milliseconds.
+        """ Creation timestamp in milliseconds since the epoch.
+
+        Returns:
+          integer: The user creation timestamp in milliseconds since the epoch.
         """
         if 'createdAt' in self._data:
             return int(self._data['createdAt'])
@@ -523,7 +526,10 @@ class UserMetadata(object):
 
     @property
     def last_sign_in_timestamp(self):
-        """ Last sign in timestamp in epoch milliseconds.
+        """ Last sign in timestamp in milliseconds since the epoch.
+
+        Returns:
+          integer: The last sign in timestamp in milliseconds since the epoch.
         """
         if 'lastLoginAt' in self._data:
             return int(self._data['lastLoginAt'])

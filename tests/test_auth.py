@@ -676,9 +676,9 @@ class TestUpdateUser(object):
 
     def test_update_user_valid_since(self, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
-        user_mgt.update_user('testuser',  valid_since = '1')
+        user_mgt.update_user('testuser', valid_since='1')
         request = json.loads(recorder[0].body.decode())
-        assert request == {'localId' : 'testuser', 'validSince': '1'}
+        assert request == {'localId': 'testuser', 'validSince': '1'}
 
 
 

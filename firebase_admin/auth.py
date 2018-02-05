@@ -110,7 +110,7 @@ def revoke_refresh_tokens(uid, app=None):
     revoke_refresh_tokens updates the user's tokens_valid_after_timestamp to the current UTC
     in seconds since the epoch. It is important that the server on which this is called has its
     clock set correctly and synchronized.
-    
+
     While this revokes all sessions for a specified user and disables any new ID tokens for
     existing sessions from getting minted, existing ID tokens may remain active until their
     natural expiration (one hour). To verify that ID tokens are revoked, use

@@ -671,6 +671,18 @@ class _MessageEncoder(json.JSONEncoder):
         }
         return cls.remove_null_values(result)
 
+    @classmethod
+    def sanitize_topic_name(cls, topic):
+        if not topic:
+            return None
+        prefix = '/topics/'
+        if topic.startswith(prefix):
+            topic = topic[len(prefix):]
+        # Checks for illegal characters and empty string.
+        if not re.match(r'^[a-zA-Z0-9-_\.~%]+$', topic):
+            raise ValueError('Malformed topic name.')
+        return topic
+
     def default(self, obj): # pylint: disable=method-hidden
         if not isinstance(obj, Message):
             return json.JSONEncoder.default(self, obj)
@@ -685,15 +697,8 @@ class _MessageEncoder(json.JSONEncoder):
             'topic': _Validators.check_string('Message.topic', obj.topic, non_empty=True),
             'webpush': _MessageEncoder.encode_webpush(obj.webpush),
         }
+        result['topic'] = _MessageEncoder.sanitize_topic_name(result.get('topic'))
         result = _MessageEncoder.remove_null_values(result)
-        topic = result.get('topic')
-        if topic:
-            prefix = '/topics/'
-            if topic.startswith(prefix):
-                topic = topic[len(prefix):]
-                result['topic'] = topic
-            if not re.match(r'^[a-zA-Z0-9-_\.~%]+$', topic):
-                raise ValueError('Malformed topic name.')
         target_count = sum([t in result for t in ['token', 'topic', 'condition']])
         if target_count != 1:
             raise ValueError('Exactly one of token, topic or condition must be specified.')

@@ -163,7 +163,7 @@ class Message(object):
         apns: An instance of ``messaging.ApnsConfig`` (optional).
         token: The registration token of the device to which the message should be sent (optional).
         topic: Name of the FCM topic to which the message should be sent (optional). Topic name
-            must not contain the ``/topics/`` prefix.
+            may contain the ``/topics/`` prefix.
         condition: The FCM condition to which the message should be sent (optional).
     """
 
@@ -686,15 +686,17 @@ class _MessageEncoder(json.JSONEncoder):
             'webpush': _MessageEncoder.encode_webpush(obj.webpush),
         }
         result = _MessageEncoder.remove_null_values(result)
+        topic = result.get('topic')
+        if topic:
+            prefix = '/topics/'
+            if topic.startswith(prefix):
+                topic = topic[len(prefix):]
+                result['topic'] = topic
+            if not re.match(r'^[a-zA-Z0-9-_\.~%]+$', topic):
+                raise ValueError('Malformed topic name.')
         target_count = sum([t in result for t in ['token', 'topic', 'condition']])
         if target_count != 1:
             raise ValueError('Exactly one of token, topic or condition must be specified.')
-        topic = result.get('topic')
-        if topic:
-            if topic.startswith('/topics/'):
-                raise ValueError('Topic name must not contain the /topics/ prefix.')
-            if not re.match(r'^[a-zA-Z0-9-_\.~%]+$', topic):
-                raise ValueError('Illegal characters in topic name.')
         return result
 
 

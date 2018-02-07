@@ -163,7 +163,7 @@ class Message(object):
         apns: An instance of ``messaging.ApnsConfig`` (optional).
         token: The registration token of the device to which the message should be sent (optional).
         topic: Name of the FCM topic to which the message should be sent (optional). Topic name
-            must not contain the ``/topics/`` prefix.
+            may contain the ``/topics/`` prefix.
         condition: The FCM condition to which the message should be sent (optional).
     """
 
@@ -671,6 +671,18 @@ class _MessageEncoder(json.JSONEncoder):
         }
         return cls.remove_null_values(result)
 
+    @classmethod
+    def sanitize_topic_name(cls, topic):
+        if not topic:
+            return None
+        prefix = '/topics/'
+        if topic.startswith(prefix):
+            topic = topic[len(prefix):]
+        # Checks for illegal characters and empty string.
+        if not re.match(r'^[a-zA-Z0-9-_\.~%]+$', topic):
+            raise ValueError('Malformed topic name.')
+        return topic
+
     def default(self, obj): # pylint: disable=method-hidden
         if not isinstance(obj, Message):
             return json.JSONEncoder.default(self, obj)
@@ -685,16 +697,11 @@ class _MessageEncoder(json.JSONEncoder):
             'topic': _Validators.check_string('Message.topic', obj.topic, non_empty=True),
             'webpush': _MessageEncoder.encode_webpush(obj.webpush),
         }
+        result['topic'] = _MessageEncoder.sanitize_topic_name(result.get('topic'))
         result = _MessageEncoder.remove_null_values(result)
         target_count = sum([t in result for t in ['token', 'topic', 'condition']])
         if target_count != 1:
             raise ValueError('Exactly one of token, topic or condition must be specified.')
-        topic = result.get('topic')
-        if topic:
-            if topic.startswith('/topics/'):
-                raise ValueError('Topic name must not contain the /topics/ prefix.')
-            if not re.match(r'^[a-zA-Z0-9-_\.~%]+$', topic):
-                raise ValueError('Illegal characters in topic name.')
         return result
 
 

@@ -71,8 +71,8 @@ class TestMessageEncoder(object):
             check_encoding(messaging.Message(condition=target))
         assert str(excinfo.value) == 'Message.condition must be a non-empty string.'
 
-    @pytest.mark.parametrize('topic', ['/topics/foo', '/foo/bar', 'foo bar'])
-    def test_topic_name_prefix(self, topic):
+    @pytest.mark.parametrize('topic', ['/topics/', '/foo/bar', 'foo bar'])
+    def test_malformed_topic_name(self, topic):
         with pytest.raises(ValueError):
             check_encoding(messaging.Message(topic=topic))
 
@@ -91,6 +91,9 @@ class TestMessageEncoder(object):
         check_encoding(
             messaging.Message(topic='topic', data={'k1': 'v1', 'k2': 'v2'}),
             {'topic': 'topic', 'data': {'k1': 'v1', 'k2': 'v2'}})
+
+    def test_prefixed_topic(self):
+        check_encoding(messaging.Message(topic='/topics/topic'), {'topic': 'topic'})
 
 
 class TestNotificationEncoder(object):

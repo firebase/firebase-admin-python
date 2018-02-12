@@ -716,12 +716,13 @@ class _MessagingService(object):
     INTERNAL_ERROR = 'internal-error'
     UNKNOWN_ERROR = 'unknown-error'
     FCM_ERROR_CODES = {
+        'APNS_AUTH_ERROR': 'authentication-error',
+        'INTERNAL': INTERNAL_ERROR,
         'INVALID_ARGUMENT': 'invalid-argument',
-        'NOT_FOUND': 'registration-token-not-registered',
-        'PERMISSION_DENIED': 'authentication-error',
-        'RESOURCE_EXHAUSTED': 'message-rate-exceeded',
-        'UNAUTHENTICATED': 'authentication-error',
+        'QUOTA_EXCEEDED': 'message-rate-exceeded',
+        'SENDER_ID_MISMATCH': 'authentication-error',
         'UNAVAILABLE': 'server-unavailable',
+        'UNREGISTERED': 'registration-token-not-registered',
     }
     IID_ERROR_CODES = {
         400: 'invalid-argument',

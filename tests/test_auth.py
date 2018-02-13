@@ -270,7 +270,7 @@ class TestVerifyIdToken(object):
     @pytest.mark.parametrize('arg', INVALID_BOOLS)
     def test_invalid_check_revoked(self, arg):
         with pytest.raises(ValueError):
-            claims = auth.verify_id_token("id_token", check_revoked=arg)
+            auth.verify_id_token("id_token", check_revoked=arg)
 
 
     @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))

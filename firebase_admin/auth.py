@@ -36,6 +36,7 @@ from firebase_admin import _utils
 _request = transport.requests.Request()
 
 _AUTH_ATTRIBUTE = '_auth'
+_ID_TOKEN_REVOKED = 'ID_TOKEN_REVOKED'
 
 
 def _get_auth_service(app):
@@ -76,7 +77,7 @@ def create_custom_token(uid, developer_claims=None, app=None):
     return token_generator.create_custom_token(uid, developer_claims)
 
 
-def verify_id_token(id_token, app=None):
+def verify_id_token(id_token, app=None, check_revoked=False):
     """Verifies the signature and data for the provided JWT.
 
     Accepts a signed token string, verifies that it is current, and issued
@@ -85,6 +86,7 @@ def verify_id_token(id_token, app=None):
     Args:
       id_token: A string of the encoded JWT.
       app: An App instance (optional).
+      check_revoked: Boolean, If true, checks whether the token has been revoked (optional).
 
     Returns:
       dict: A dictionary of key-value pairs parsed from the decoded JWT.
@@ -92,10 +94,30 @@ def verify_id_token(id_token, app=None):
     Raises:
       ValueError: If the JWT was found to be invalid, or if the App was not
           initialized with a credentials.Certificate.
+      AuthError: If check_revoked is requested and the token was revoked.
     """
     token_generator = _get_auth_service(app).token_generator
-    return token_generator.verify_id_token(id_token)
+    verified_claims = token_generator.verify_id_token(id_token)
+    if check_revoked:
+        user = get_user(verified_claims.get('uid'), app)
+        if  verified_claims.get('iat') * 1000 < user.tokens_valid_after_timestamp:
+            raise AuthError(_ID_TOKEN_REVOKED, 'The Firebase ID token has been revoked.')
+    return verified_claims
 
+def revoke_refresh_tokens(uid, app=None):
+    """Revokes all refresh tokens for an existing user.
+
+    revoke_refresh_tokens updates the user's tokens_valid_after_timestamp to the current UTC
+    in seconds since the epoch. It is important that the server on which this is called has its
+    clock set correctly and synchronized.
+
+    While this revokes all sessions for a specified user and disables any new ID tokens for
+    existing sessions from getting minted, existing ID tokens may remain active until their
+    natural expiration (one hour). To verify that ID tokens are revoked, use
+    `verify_id_token(idToken, check_revoked=True)`.
+    """
+    user_manager = _get_auth_service(app).user_manager
+    user_manager.update_user(uid, valid_since=int(time.time()))
 
 def get_user(uid, app=None):
     """Gets the user data corresponding to the specified user ID.
@@ -246,6 +268,8 @@ def update_user(uid, **kwargs):
         disabled: A boolean indicating whether or not the user account is disabled (optional).
         custom_claims: A dictionary or a JSON string contining the custom claims to be set on the
             user account (optional).
+        valid_since: An integer signifying the seconds since the epoch. This field is set by
+            `revoke_refresh_tokens` and it is discouraged to set this field directly.
 
     Returns:
         UserRecord: An updated UserRecord instance for the user.
@@ -431,6 +455,21 @@ class UserRecord(UserInfo):
         return bool(self._data.get('disabled'))
 
     @property
+    def tokens_valid_after_timestamp(self):
+        """Returns the time, in milliseconds since the epoch, before which tokens are invalid.
+
+        Note: this is truncated to 1 second accuracy.
+
+        Returns:
+            int: Timestamp in milliseconds since the epoch, truncated to the second.
+                 All tokens issued before that time are considered revoked.
+        """
+        valid_since = self._data.get('validSince')
+        if valid_since is not None:
+            return 1000 * int(valid_since)
+        return None
+
+    @property
     def user_metadata(self):
         """Returns additional metadata associated with this user.
 
@@ -476,12 +515,22 @@ class UserMetadata(object):
 
     @property
     def creation_timestamp(self):
+        """ Creation timestamp in milliseconds since the epoch.
+
+        Returns:
+          integer: The user creation timestamp in milliseconds since the epoch.
+        """
         if 'createdAt' in self._data:
             return int(self._data['createdAt'])
         return None
 
     @property
     def last_sign_in_timestamp(self):
+        """ Last sign in timestamp in milliseconds since the epoch.
+
+        Returns:
+          integer: The last sign in timestamp in milliseconds since the epoch.
+        """
         if 'lastLoginAt' in self._data:
             return int(self._data['lastLoginAt'])
         return None

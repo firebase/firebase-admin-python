@@ -114,6 +114,16 @@ class _Validator(object):
             raise ValueError('Malformed photo URL: "{0}".'.format(photo_url))
 
     @classmethod
+    def validate_valid_since(cls, valid_since):
+        # isinstance(True, int) is True hence the extra check
+        if valid_since is None or isinstance(valid_since, bool) or not isinstance(valid_since, int):
+            raise ValueError(
+                'Invalid time string for: "{0}". Valid Since must be an int'.format(valid_since))
+        if int(valid_since) <= 0:
+            raise ValueError(
+                'Invalid valid_since: must be a positive interger. {0}'.format(valid_since))
+
+    @classmethod
     def validate_disabled(cls, disabled):
         if not isinstance(disabled, bool):
             raise ValueError(
@@ -184,6 +194,7 @@ class UserManager(object):
         'password' : _Validator.validate_password,
         'phoneNumber' : _Validator.validate_phone,
         'photoUrl' : _Validator.validate_photo_url,
+        'validSince' : _Validator.validate_valid_since,
     }
 
     _CREATE_USER_FIELDS = {
@@ -206,6 +217,7 @@ class UserManager(object):
         'password' : 'password',
         'disabled' : 'disableUser',
         'custom_claims' : 'customAttributes',
+        'valid_since' : 'validSince',
     }
 
     _REMOVABLE_FIELDS = {

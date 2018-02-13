@@ -45,10 +45,18 @@ MOCK_SERVICE_ACCOUNT_EMAIL = MOCK_CREDENTIAL.service_account_email
 INVALID_STRINGS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
 INVALID_BOOLS = [None, '', 'foo', 0, 1, list(), tuple(), dict()]
 INVALID_DICTS = [None, 'foo', 0, 1, True, False, list(), tuple()]
+INVALID_POSITIVE_NUMS = [None, 'foo', 0, -1, True, False, list(), tuple(), dict()]
+
 
 MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
 MOCK_LIST_USERS_RESPONSE = testutils.resource('list_users.json')
 
+def _revoked_tokens_response():
+    mock_user = json.loads(testutils.resource('get_user.json'))
+    mock_user['users'][0]['validSince'] = str(int(time.time())+100)
+    return json.dumps(mock_user)
+
+MOCK_GET_USER_REVOKED_TOKENS_RESPONSE = _revoked_tokens_response()
 
 class AuthFixture(object):
     def __init__(self, name=None):
@@ -60,14 +68,13 @@ class AuthFixture(object):
     def create_custom_token(self, *args):
         if self.app:
             return auth.create_custom_token(*args, app=self.app)
-        else:
-            return auth.create_custom_token(*args)
+        return auth.create_custom_token(*args)
 
-    def verify_id_token(self, *args):
+    # Using **kwargs to pass along the check_revoked if passed.
+    def verify_id_token(self, *args, **kwargs):
         if self.app:
-            return auth.verify_id_token(*args, app=self.app)
-        else:
-            return auth.verify_id_token(*args)
+            return auth.verify_id_token(*args, app=self.app, **kwargs)
+        return auth.verify_id_token(*args, **kwargs)
 
 def setup_module():
     firebase_admin.initialize_app(MOCK_CREDENTIAL)
@@ -160,7 +167,6 @@ def get_id_token(payload_overrides=None, header_overrides=None):
 
 TEST_ID_TOKEN = get_id_token()
 
-
 class TestCreateCustomToken(object):
 
     valid_args = {
@@ -244,8 +250,42 @@ class TestVerifyIdToken(object):
         assert claims['admin'] is True
         assert claims['uid'] == claims['sub']
 
-    @pytest.mark.parametrize('id_token', invalid_tokens.values(),
-                             ids=list(invalid_tokens))
+    @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
+    def test_valid_token_check_revoked(self, user_mgt_app, id_token):
+        _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_RESPONSE)
+        claims = auth.verify_id_token(id_token, app=user_mgt_app, check_revoked=True)
+        assert claims['admin'] is True
+        assert claims['uid'] == claims['sub']
+
+    @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
+    def test_revoked_token_check_revoked(self, user_mgt_app, id_token):
+        _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_REVOKED_TOKENS_RESPONSE)
+
+        with pytest.raises(auth.AuthError) as excinfo:
+            auth.verify_id_token(id_token, app=user_mgt_app, check_revoked=True)
+
+        assert excinfo.value.code == 'ID_TOKEN_REVOKED'
+        assert str(excinfo.value) == 'The Firebase ID token has been revoked.'
+
+    @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
+    def test_revoked_token_do_not_check_revoked(self, user_mgt_app, id_token):
+        _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_REVOKED_TOKENS_RESPONSE)
+        claims = auth.verify_id_token(id_token, app=user_mgt_app, check_revoked=False)
+        assert claims['admin'] is True
+        assert claims['uid'] == claims['sub']
+
+    def test_revoke_refresh_tokens(self, user_mgt_app):
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        before_time = time.time()
+        auth.revoke_refresh_tokens('testuser', app=user_mgt_app)
+        after_time = time.time()
+
+        request = json.loads(recorder[0].body.decode())
+        assert request['localId'] == 'testuser'
+        assert int(request['validSince']) >= int(before_time)
+        assert int(request['validSince']) <= int(after_time)
+
+    @pytest.mark.parametrize('id_token', invalid_tokens.values(), ids=list(invalid_tokens))
     def test_invalid_token(self, authtest, id_token):
         with pytest.raises(ValueError):
             authtest.verify_id_token(id_token)
@@ -283,7 +323,8 @@ class TestVerifyIdToken(object):
 
 @pytest.fixture(scope='module')
 def user_mgt_app():
-    app = firebase_admin.initialize_app(testutils.MockCredential(), name='userMgt')
+    app = firebase_admin.initialize_app(testutils.MockCredential(), name='userMgt',
+                                        options={'projectId': 'mock-project-id'})
     yield app
     firebase_admin.delete_app(app)
 
@@ -305,7 +346,7 @@ def _check_user_record(user, expected_uid='testuser'):
     assert user.photo_url == 'http://www.example.com/testuser/photo.png'
     assert user.disabled is False
     assert user.email_verified is True
-    assert user.user_metadata.creation_timestamp == 1234567890
+    assert user.user_metadata.creation_timestamp == 1234567890000
     assert user.user_metadata.last_sign_in_timestamp is None
     assert user.provider_id == 'firebase'
 
@@ -594,6 +635,11 @@ class TestUpdateUser(object):
         with pytest.raises(ValueError):
             auth.update_user('user', unsupported='arg')
 
+    @pytest.mark.parametrize('arg', INVALID_POSITIVE_NUMS)
+    def test_invalid_valid_since(self, arg):
+        with pytest.raises(ValueError):
+            auth.update_user('user', valid_since=arg)
+
     def test_update_user(self, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
         user_mgt.update_user('testuser')
@@ -629,6 +675,12 @@ class TestUpdateUser(object):
             auth.update_user('user', app=user_mgt_app)
         assert excinfo.value.code == _user_mgt.USER_UPDATE_ERROR
         assert '{"error":"test"}' in str(excinfo.value)
+
+    def test_update_user_valid_since(self, user_mgt_app):
+        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        user_mgt.update_user('testuser', valid_since=1)
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'localId': 'testuser', 'validSince': 1}
 
 
 class TestSetCustomUserClaims(object):

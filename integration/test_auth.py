@@ -14,6 +14,7 @@
 
 """Integration tests for firebase_admin.auth module."""
 import random
+import time
 import uuid
 
 import pytest
@@ -238,3 +239,35 @@ def test_delete_user():
     with pytest.raises(auth.AuthError) as excinfo:
         auth.get_user(user.uid)
     assert excinfo.value.code == 'USER_NOT_FOUND_ERROR'
+
+def test_revoke_refresh_tokens(new_user):
+    user = auth.get_user(new_user.uid)
+    old_valid_after = user.tokens_valid_after_timestamp
+    time.sleep(1)
+    auth.revoke_refresh_tokens(new_user.uid)
+    user = auth.get_user(new_user.uid)
+    new_valid_after = user.tokens_valid_after_timestamp
+    assert new_valid_after > old_valid_after
+
+def test_verify_id_token_revoked(new_user, api_key):
+    custom_token = auth.create_custom_token(new_user.uid)
+    id_token = _sign_in(custom_token, api_key)
+    claims = auth.verify_id_token(id_token)
+    assert claims['iat'] * 1000 >= new_user.tokens_valid_after_timestamp
+
+    time.sleep(1)
+    auth.revoke_refresh_tokens(new_user.uid)
+    claims = auth.verify_id_token(id_token, check_revoked=False)
+    user = auth.get_user(new_user.uid)
+    # verify_id_token succeeded because it didn't check revoked.
+    assert claims['iat'] * 1000 < user.tokens_valid_after_timestamp
+
+    with pytest.raises(auth.AuthError) as excinfo:
+        claims = auth.verify_id_token(id_token, check_revoked=True)
+    assert excinfo.value.code == auth._ID_TOKEN_REVOKED
+    assert str(excinfo.value) == 'The Firebase ID token has been revoked.'
+
+    # Sign in again, verify works.
+    id_token = _sign_in(custom_token, api_key)
+    claims = auth.verify_id_token(id_token, check_revoked=True)
+    assert claims['iat'] * 1000 >= user.tokens_valid_after_timestamp

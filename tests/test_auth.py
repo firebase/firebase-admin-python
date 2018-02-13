@@ -267,6 +267,11 @@ class TestVerifyIdToken(object):
         assert excinfo.value.code == 'ID_TOKEN_REVOKED'
         assert str(excinfo.value) == 'The Firebase ID token has been revoked.'
 
+    @pytest.mark.parametrize('arg', INVALID_BOOLS)
+    def test_invalid_check_revoked(self, arg):
+        with pytest.raises(ValueError):
+            auth.verify_id_token("id_token", check_revoked=arg)
+
     @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
     def test_revoked_token_do_not_check_revoked(self, user_mgt_app, id_token):
         _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_REVOKED_TOKENS_RESPONSE)

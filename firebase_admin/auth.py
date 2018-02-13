@@ -96,6 +96,10 @@ def verify_id_token(id_token, app=None, check_revoked=False):
           initialized with a credentials.Certificate.
       AuthError: If check_revoked is requested and the token was revoked.
     """
+    if not isinstance(check_revoked, bool):
+        # guard against accidental wrong assignment.
+        raise ValueError('Illegal check_revoked argument. Argument must be of type '
+                         ' bool, but given "{0}".'.format(type(app)))
     token_generator = _get_auth_service(app).token_generator
     verified_claims = token_generator.verify_id_token(id_token)
     if check_revoked:

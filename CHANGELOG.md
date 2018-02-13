@@ -1,14 +1,21 @@
 # Unreleased
-- 
-### Token revokaction
-- [added] The ['verify_id_token(...)'](https://firebase.google.com/docs/reference/admin/python/firebase_admin.auth#verify_id_token)
-  method now accepts an optional `check_revoked` parameter. When `True`, an 
+
+### Cloud Messaging
+
+- [feature] Added the `firebase_admin.messaging` module for sending
+  Firebase notifications and managing topic subscriptions. 
+
+### Authentication
+
+- [added] The ['verify_id_token()'](https://firebase.google.com/docs/reference/admin/python/firebase_admin.auth#verify_id_token)
+  function now accepts an optional `check_revoked` parameter. When `True`, an 
   additional check is performed to see whether the token has been revoked. 
-- [added] A new method ['auth.revoke_refresh_tokens(uid)'](https://firebase.google.com/docs/reference/admin/python/firebase_admin.auth#revoke_refresh_tokens)
-  has been added to invalidate all tokens issued to a user before the current second.
-- [added] A new property `tokens_valid_after_timestamp` has been added to the   
+- [added] A new
+  ['auth.revoke_refresh_tokens(uid)'](https://firebase.google.com/docs/reference/admin/python/firebase_admin.auth#revoke_refresh_tokens)
+  function has been added to invalidate all tokens issued to a user.
+- [added] A new `tokens_valid_after_timestamp` property has been added to the   
   ['UserRecord'](https://firebase.google.com/docs/reference/admin/python/firebase_admin.auth#userrecord),
-  which denotes the time in epoch milliseconds before which tokens are not valid.
+  class indicating the time before which tokens are not valid.
 
 # v2.8.0
 
@@ -35,6 +42,7 @@
 # v2.6.0
 
 ### Authentication
+
 - [added] Added the
   [`list_users()`](https://firebase.google.com/docs/reference/admin/python/firebase_admin.auth#list_users)
   function to the `firebase_admin.auth` module. This function enables listing
@@ -46,6 +54,7 @@
   user's ID token.
 
 ### Realtime Database
+
 - [changed] Updated the `start_at()`, `end_at()` and `equal_to()` methods of
   the [`db.Query`](https://firebase.google.com/docs/reference/admin/python/firebase_admin.db#query) class
   so they can accept empty string arguments.

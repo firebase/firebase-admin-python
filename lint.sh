@@ -50,10 +50,10 @@ then
   lintAllFiles "firebase_admin" ""
   lintAllFiles "tests" "$SKIP_FOR_TESTS"
   lintAllFiles "integration" "$SKIP_FOR_TESTS"
-  lintAllFiles "snippets" "$SKIP_FOR_TESTS"
+  lintAllFiles "snippets" "$SKIP_FOR_SNIPPETS"
 else
   lintChangedFiles "firebase_admin" ""
   lintChangedFiles "tests" "$SKIP_FOR_TESTS"
   lintChangedFiles "integration" "$SKIP_FOR_TESTS"
-  lintChangedFiles "snippets" "$SKIP_FOR_TESTS"
+  lintChangedFiles "snippets" "$SKIP_FOR_SNIPPETS"
 fi

@@ -1,11 +1,11 @@
 import sys
-sys.path.append("lib")
-
 # [START import_sdk]
 import firebase_admin
 # [END import_sdk]
 from firebase_admin import credentials
 from firebase_admin import auth
+
+sys.path.append("lib")
 
 def initialize_sdk_with_service_account():
     # [START initialize_sdk_with_service_account]
@@ -38,7 +38,7 @@ def access_services_default():
 
     # Initialize the default app
     default_app = firebase_admin.initialize_app(cred)
-    print(default_app.name);  # "[DEFAULT]"
+    print default_app.name  # "[DEFAULT]"
 
     # Retrieve services via the auth package...
     # auth.create_custom_token(...)
@@ -47,7 +47,7 @@ def access_services_default():
 
 def access_services_nondefault():
     cred = credentials.Certificate('path/to/service.json')
-    otherCred = credentials.Certificate('path/to/service.json')
+    other_cred = credentials.Certificate('path/to/other_service.json')
 
     # [START access_services_nondefault]
     # Initialize the default app
@@ -56,8 +56,8 @@ def access_services_nondefault():
     #  Initialize another app with a different config
     other_app = firebase_admin.initialize_app(cred, name='other')
 
-    print(default_app.name);    # "[DEFAULT]"
-    print(other_app.name);      # "other"
+    print default_app.name    # "[DEFAULT]"
+    print other_app.name      # "other"
 
     # Retrieve default services via the auth package...
     # auth.create_custom_token(...)
@@ -85,7 +85,7 @@ def create_token_with_claims():
     # [START create_token_with_claims]
     uid = 'some-uid'
     additional_claims = {
-      'premiumAccount': True
+        'premiumAccount': True
     }
 
     custom_token = auth.create_custom_token(uid, additional_claims)
@@ -102,7 +102,7 @@ def verify_token_uid(id_token):
     decoded_token = auth.verify_id_token(id_token)
     uid = decoded_token['uid']
     # [END verify_token_uid]
-    print(uid)
+    print uid
     firebase_admin.delete_app(default_app)
 
 def verify_token_uid_check_revoke(id_token):
@@ -126,7 +126,7 @@ def verify_token_uid_check_revoke(id_token):
     firebase_admin.delete_app(default_app)
     return uid
 
-def revoke_refresh_token_uid(id_token):
+def revoke_refresh_token_uid():
     cred = credentials.Certificate('path/to/service.json')
     default_app = firebase_admin.initialize_app(cred)
     # [START revoke_tokens]
@@ -141,7 +141,7 @@ def revoke_refresh_token_uid(id_token):
     metadata_ref = firebase_admin.db.reference("metadata/" + uid)
     metadata_ref.set({'revokeTime': revocation_second})
     # [END save_revocation_in_db]
-    print(uid)
+    print uid
     firebase_admin.delete_app(default_app)
 
 def get_user(uid):

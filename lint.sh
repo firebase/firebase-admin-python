@@ -32,10 +32,11 @@ set -o errexit
 set -o nounset
 
 SKIP_FOR_TESTS="redefined-outer-name,protected-access,missing-docstring,too-many-lines"
+SKIP_FOR_SNIPPETS="${SKIP_FOR_TESTS},reimported,unused-variable"
 
 if [[ "$#" -eq 1 && "$1" = "all" ]]
 then
-  CHECK_ALL=true  
+  CHECK_ALL=true
 elif [[ "$#" -eq  0 ]]
 then
   CHECK_ALL=false
@@ -49,8 +50,10 @@ then
   lintAllFiles "firebase_admin" ""
   lintAllFiles "tests" "$SKIP_FOR_TESTS"
   lintAllFiles "integration" "$SKIP_FOR_TESTS"
+  lintAllFiles "snippets" "$SKIP_FOR_SNIPPETS"
 else
   lintChangedFiles "firebase_admin" ""
   lintChangedFiles "tests" "$SKIP_FOR_TESTS"
   lintChangedFiles "integration" "$SKIP_FOR_TESTS"
+  lintChangedFiles "snippets" "$SKIP_FOR_SNIPPETS"
 fi

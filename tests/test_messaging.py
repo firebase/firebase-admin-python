@@ -855,6 +855,26 @@ class TestSend(object):
         body = {'message': messaging._MessagingService.JSON_ENCODER.default(msg)}
         assert json.loads(recorder[0].body.decode()) == body
 
+    @pytest.mark.parametrize('status', HTTP_ERRORS)
+    def test_send_canonical_error_code(self, status):
+        payload = json.dumps({
+            'error': {
+                'status': 'NOT_FOUND',
+                'message': 'test error'
+            }
+        })
+        _, recorder = self._instrument_messaging_service(status=status, payload=payload)
+        msg = messaging.Message(topic='foo')
+        with pytest.raises(messaging.ApiCallError) as excinfo:
+            messaging.send(msg)
+        assert str(excinfo.value) == 'test error'
+        assert str(excinfo.value.code) == 'registration-token-not-registered'
+        assert len(recorder) == 1
+        assert recorder[0].method == 'POST'
+        assert recorder[0].url == self._get_url('explicit-project-id')
+        body = {'message': messaging._MessagingService.JSON_ENCODER.default(msg)}
+        assert json.loads(recorder[0].body.decode()) == body
+
 
 class TestTopicManagement(object):
 

@@ -748,6 +748,7 @@ class _MessagingService(object):
                 'GCLOUD_PROJECT environment variable.')
         self._fcm_url = _MessagingService.FCM_URL.format(project_id)
         self._client = _http_client.JsonHttpClient(credential=app.credential.get_credential())
+        self._timeout = app.options.get('httpTimeout')
 
     @classmethod
     def encode_message(cls, message):
@@ -760,7 +761,7 @@ class _MessagingService(object):
         if dry_run:
             data['validate_only'] = True
         try:
-            resp = self._client.body('post', url=self._fcm_url, json=data)
+            resp = self._client.body('post', url=self._fcm_url, json=data, timeout=self._timeout)
         except requests.exceptions.RequestException as error:
             if error.response is not None:
                 self._handle_fcm_error(error)
@@ -791,7 +792,12 @@ class _MessagingService(object):
         url = '{0}/{1}'.format(_MessagingService.IID_URL, operation)
         try:
             resp = self._client.body(
-                'post', url=url, json=data, headers=_MessagingService.IID_HEADERS)
+                'post',
+                url=url,
+                json=data,
+                headers=_MessagingService.IID_HEADERS,
+                timeout=self._timeout
+            )
         except requests.exceptions.RequestException as error:
             if error.response is not None:
                 self._handle_iid_error(error)

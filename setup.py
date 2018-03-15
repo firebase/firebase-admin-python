@@ -21,12 +21,17 @@ import sys
 from setuptools import find_packages
 from setuptools import setup
 
-import firebase_admin
-
 
 if sys.version_info < (2, 7):
     print('firebase_admin requires python2 version >= 2.7 or python3.', file=sys.stderr)
     sys.exit(1)
+
+# Read in the package meta data per recommendations from:
+# https://packaging.python.org/guides/single-sourcing-package-version/
+about_path = path.join(path.dirname(path.abspath(__file__)), 'firebase_admin', '__about__.py')
+about = {}
+with open(about_path) as fp:
+    exec(fp.read(), about)  # pylint: disable=exec-used
 
 
 long_description = ('The Firebase Admin Python SDK enables server-side (backend) Python developers '
@@ -43,16 +48,14 @@ extras_require = {
     ':python_version<"3.4"': ('enum34>=1.0.4',),
 }
 
-version = firebase_admin.__version__
-
 setup(
-    name='firebase_admin',
-    version=version,
+    name=about['__title__'],
+    version=about['__version__'],
     description='Firebase Admin Python SDK',
     long_description=long_description,
-    url='https://firebase.google.com/docs/admin/setup/',
-    author='Firebase',
-    license='Apache License 2.0',
+    url=about['__url__'],
+    author=about['__author__'],
+    license=about['__license__'],
     keywords='firebase cloud development',
     extras_require=extras_require,
     install_requires=install_requires,

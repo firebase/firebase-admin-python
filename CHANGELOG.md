@@ -7,7 +7,7 @@
 ### Cloud Messaging
 
 - [changed] Improved error handling in FCM by mapping more server-side
-  errors to client-side error codes. See [documentation](/docs/cloud-messaging/admin/errors).
+  errors to client-side error codes. See [documentation](https://firebase.google.com/docs/cloud-messaging/admin/errors).
 - [changed] The `messaging` module now supports specifying an HTTP timeout
   for all egress requests. Pass the `httpTimeout` option
   to `firebase_admin.initialize_app()` before invoking any functions in

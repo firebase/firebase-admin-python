@@ -19,6 +19,10 @@ import requests
 
 from firebase_admin import dynamic_links
 
+from tests import testutils
+
+DYNAMIC_LINKS_E2E_URL = testutils.resource('dynamic_links_e2e_url.json')
+
 def test_get_stats():
     link_stats = dynamic_links.get_link_stats(
         'https://ds47s.app.goo.gl/uQWc',
@@ -30,7 +34,7 @@ def test_get_stats():
 def test_unautherized():
     with pytest.raises(requests.exceptions.HTTPError) as excinfo:
         dynamic_links.get_link_stats(
-            'https://ds48s.app.goo.gl/uQWc',
+            'https://fake1.app.goo.gl/uQWc',
             dynamic_links.StatOptions(duration_days=4000))
     assert excinfo.value.response.status_code == 403
         

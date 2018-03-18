@@ -24,6 +24,8 @@ from six.moves import urllib_parse
 from firebase_admin import _http_client
 from firebase_admin import _utils
 
+import six
+
 
 _LINKS_ATTRIBUTE = '_links'
 _LINKS_BASE_URL = 'https://firebasedynamiclinks.googleapis.com/v1/'
@@ -44,14 +46,19 @@ def get_link_stats(short_link, stat_options, app=None):
     """ Returns a LinkStats object with the event stats for the given short link
 
     Args:
-      short_link: The string of the designated short link. e.g. https://abc12.app.goo.gl/link
-                  The link must belong to the project associated with the service account
-                  used to call this API.
-      stat_options: an object containing a single field "duration_days" for which the
-      app: a firebase_app instance or None, for default.
+        short_link: The string of the designated short link. e.g. https://abc12.app.goo.gl/link
+                    The link must belong to the project associated with the service account
+                    used to call this API.
+        stat_options: an object containing a single field "duration_days" for which the
+        app: a firebase_app instance or None, for default.
 
     Returns:
-      LinkStats: an LinkStats object. (containing an array of EventStats)
+        LinkStats: an LinkStats object. (containing an array of EventStats)
+
+    Raises:
+        ValueError: If any of the arguments are invalid.
+                    url must be encoded and start with "http"
+                    stat_options should have a field with duration_days > 0
     """
     return _get_link_service(app).get_stats(short_link, stat_options)
 
@@ -63,13 +70,13 @@ def _get_link_service(app):
     returning it.
 
     Args:
-      app: A Firebase App instance (or None to use the default App).
+        app: A Firebase App instance (or None to use the default App).
 
     Returns:
-      _LinksService: An _LinksService for the specified App instance.
+        _LinksService: An _LinksService for the specified App instance.
 
     Raises:
-      ValueError: If the app argument is invalid.
+        ValueError: If the app argument is invalid.
     """
     return _utils.get_app_service(app, _LINKS_ATTRIBUTE, _LinksService)
 
@@ -108,10 +115,11 @@ class _LinksService(object):
         return self._links_request.format(url_quoted, days)
 
     def get_stats(self, url, options):
+        _validate_url(url)
+        _validate_stat_options(options)
         url_p = self._populated_request(url, options)
         resp = self._client.request('get', url_p)
         link_event_stats = resp.json().get('linkEventStats', [])
-        #        print link_event_stats, ":::::::::::::::"
         event_stats = [EventStats.from_json(**es) for es in link_event_stats]
 
         return LinkStats(event_stats)
@@ -138,6 +146,10 @@ class EventStats(object):
         self.event = event
         self.count = count
 
+    def __repr__(self):
+        return"EventStats(platform: '{}', event: '{}', count: '{}')".format(
+            self.platform, self.event, self.count)
+
     @classmethod
     def from_json(cls, platform, event, count):
         return EventStats(cls._platforms[platform],
@@ -150,8 +162,10 @@ class EventStats(object):
 
     @platform.setter
     def platform(self, platform):
+        if platform in self._platforms.keys():
+            raise ValueError(('Raw string {} detected. Use one of the dynamic_links.PLATFORM_...' +
+                              ' constants, or the from_json() method.').format(platform))
         if platform not in self._platforms.values():
-            print platform, self._platforms.values(), "::::::'';';';';'"
             raise ValueError('platform {}, not recognized'.format(platform))
         self._platform = platform
 
@@ -161,6 +175,9 @@ class EventStats(object):
 
     @event.setter
     def event(self, event):
+        if event in self._event_types.keys():
+            raise ValueError(('Raw string {} detected. Use one of the dynamic_links.EVENT_TYPES_' +
+                              ' constants, or the from_json() method.').format(event))
         if event not in self._event_types.values():
             raise ValueError('event_type {}, not recognized'.format(event))
         self._event = event
@@ -171,7 +188,19 @@ class EventStats(object):
 
     @count.setter
     def count(self, count):
-        if not isinstance(count, int):
-            raise ValueError('Count must be int', count)
+        if not isinstance(count, int) or isinstance(count, bool) or count < 0:
+            raise ValueError('Count: {} must be a non negative int'.format(count))
         self._count = count
-        
+
+
+def _validate_url(url):
+    if not isinstance(url, six.string_types) or not url.startswith('https://'):
+        raise ValueError('Url must be a string and begin with "https://".')
+
+def _validate_stat_options(options):
+    if not isinstance(options, StatOptions):
+        raise ValueError('Options must be of type StatOptions.')
+    if (isinstance(options.duration_days, bool)
+            or not isinstance(options.duration_days, int)
+            or options.duration_days < 1):
+        raise ValueError('duration_days: {} must be positive int'.format(options.duration_days))

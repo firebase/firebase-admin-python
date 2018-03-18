@@ -19,8 +19,6 @@ This module lets admins get the stats for a dynamic link.
 
 from collections import namedtuple
 
-from google.auth import transport
-import six
 from six.moves import urllib_parse
 
 from firebase_admin import _http_client
@@ -30,17 +28,16 @@ from firebase_admin import _utils
 _LINKS_ATTRIBUTE = '_links'
 _LINKS_BASE_URL = 'https://firebasedynamiclinks.googleapis.com/v1/'
 
-PLATFORM_WEB = 'web'
+PLATFORM_DESKTOP = 'desktop'
 PLATFORM_IOS = 'ios'
 PLATFORM_ANDROID = 'android'
 
 EVENT_TYPE_CLICK = 'click'
 EVENT_TYPE_REDIRECT = 'redirect'
-EVENT_TYPE_INSTALL = 'install'
-EVENT_TYPE_APP_FIRST_OPEN = 'first open'
-EVENT_TYPE_APP_RE_OPEN = 'reopen'
+EVENT_TYPE_APP_INSTALL = 'app_install'
+EVENT_TYPE_APP_FIRST_OPEN = 'app_first_open'
+EVENT_TYPE_APP_RE_OPEN = 'app_re_open'
 
-EventStats = namedtuple('EventStats', ['platform', 'event', 'count'])
 StatOptions = namedtuple('StatOptions', ['duration_days'])
 
 def get_link_stats(short_link, stat_options, app=None):
@@ -50,8 +47,11 @@ def get_link_stats(short_link, stat_options, app=None):
       short_link: The string of the designated short link. e.g. https://abc12.app.goo.gl/link
                   The link must belong to the project associated with the service account
                   used to call this API.
-      stat_options: an object containing a single field "duration_days" for which the 
+      stat_options: an object containing a single field "duration_days" for which the
+      app: a firebase_app instance or None, for default.
 
+    Returns:
+      LinkStats: an LinkStats object. (containing an array of EventStats)
     """
     return _get_link_service(app).get_stats(short_link, stat_options)
 
@@ -79,10 +79,9 @@ class LinkStats(object):
         if not isinstance(event_stats, list):
             raise ValueError('Invalid data argument: {0}. Must be a list.'.format(event_stats))
         if len(event_stats) > 0 and not isinstance(event_stats[0], EventStats):
-            raise ValueError('Invalid data argument: elements of event stats must be "EventStats", found'
-                             .format(type(event_stats[0])))
+            raise ValueError('Invalid data argument: elements of event stats must be' +
+                             ' "EventStats", found{}'.format(type(event_stats[0])))
         self._stats = event_stats
-
 
     @property
     def event_stats(self):
@@ -112,6 +111,67 @@ class _LinksService(object):
         url_p = self._populated_request(url, options)
         resp = self._client.request('get', url_p)
         link_event_stats = resp.json().get('linkEventStats', [])
-        event_stats = [EventStats(**es) for es in link_event_stats]
+        #        print link_event_stats, ":::::::::::::::"
+        event_stats = [EventStats.from_json(**es) for es in link_event_stats]
 
         return LinkStats(event_stats)
+
+class EventStats(object):
+    """EventStats is a single stat item containing (platform, event, count)"""
+    _platforms = {
+        'DESKTOP': PLATFORM_DESKTOP,
+        'IOS': PLATFORM_IOS,
+        'ANDROID': PLATFORM_ANDROID
+    }
+
+    _event_types = {
+        'CLICK': EVENT_TYPE_CLICK,
+        'REDIRECT': EVENT_TYPE_REDIRECT,
+        'APP_INSTALL': EVENT_TYPE_APP_INSTALL,
+        'APP_FIRST_OPEN': EVENT_TYPE_APP_FIRST_OPEN,
+        'APP_RE_OPEN': EVENT_TYPE_APP_RE_OPEN
+    }
+
+    def __init__(self, platform, event, count):
+        """Create new instance of EventStats(platform, event, count)"""
+        self.platform = platform
+        self.event = event
+        self.count = count
+
+    @classmethod
+    def from_json(cls, platform, event, count):
+        return EventStats(cls._platforms[platform],
+                          cls._event_types[event],
+                          count)
+
+    @property
+    def platform(self):
+        return self._platform
+
+    @platform.setter
+    def platform(self, platform):
+        if platform not in self._platforms.values():
+            print platform, self._platforms.values(), "::::::'';';';';'"
+            raise ValueError('platform {}, not recognized'.format(platform))
+        self._platform = platform
+
+    @property
+    def event(self):
+        return self._event
+
+    @event.setter
+    def event(self, event):
+        if event not in self._event_types.values():
+            raise ValueError('event_type {}, not recognized'.format(event))
+        self._event = event
+
+    @property
+    def count(self):
+        return self._count
+
+    @count.setter
+    def count(self, count):
+        if not isinstance(count, int):
+            raise ValueError('Count must be int', count)
+        self._count = count
+        

@@ -102,21 +102,21 @@ class TestGetStats(object):
         options = dynamic_links.StatOptions(duration_days=9)
         with pytest.raises(ValueError) as excinfo:
             dynamic_links.get_link_stats(invalid_url, options, app=dltest.app)
-        assert 'Url must be a string and begin with "https://".' in excinfo.value.message
+        assert 'Url must be a string and begin with "https://".' in str(excinfo.value)
 
     @pytest.mark.parametrize('invalid_options', INVALID_STRINGS)
     def test_get_stats_invalid_options(self, dltest, invalid_options):
         with pytest.raises(ValueError) as excinfo:
             dynamic_links.get_link_stats(_MOCK_SHORT_URL, invalid_options, app=dltest.app)
-        assert 'Options must be of type StatOptions.' in excinfo.value.message
+        assert 'Options must be of type StatOptions.' in str(excinfo.value)
 
     @pytest.mark.parametrize('invalid_duration', [0] + INVALID_NON_NEGATIVE_NUMS)
     def test_get_stats_invalid_duration_days(self, dltest, invalid_duration):
         options = dynamic_links.StatOptions(duration_days=invalid_duration)
         with pytest.raises(ValueError) as excinfo:
             dynamic_links.get_link_stats(_MOCK_SHORT_URL, options, app=dltest.app)
-        assert 'duration_days' in excinfo.value.message
-        assert 'must be positive int' in excinfo.value.message
+        assert 'duration_days' in str(excinfo.value)
+        assert 'must be positive int' in str(excinfo.value)
 
 
 class TestEventStats(object):
@@ -135,7 +135,7 @@ class TestEventStats(object):
                 platform=arg,
                 event=dynamic_links.EVENT_TYPE_CLICK,
                 count=1)
-        assert 'not recognized' in excinfo.value.message
+        assert 'not recognized' in str(excinfo.value)
 
     @pytest.mark.parametrize('arg', dynamic_links.EventStats._platforms.keys())
     def test_raw_platform_values_invalid(self, arg):
@@ -144,7 +144,7 @@ class TestEventStats(object):
                 platform=arg,
                 event=dynamic_links.EVENT_TYPE_CLICK,
                 count=1)
-        assert 'Raw string' in excinfo.value.message
+        assert 'Raw string' in str(excinfo.value)
 
     @pytest.mark.parametrize('event', dynamic_links.EventStats._event_types.keys())
     def test_valid_event_values(self, event):
@@ -161,7 +161,7 @@ class TestEventStats(object):
                 platform=dynamic_links.PLATFORM_ANDROID,
                 event=arg,
                 count=1)
-        assert 'not recognized' in excinfo.value.message
+        assert 'not recognized' in str(excinfo.value)
 
     @pytest.mark.parametrize('arg', dynamic_links.EventStats._event_types.keys())
     def test_raw_event_values_invalid(self, arg):
@@ -170,7 +170,7 @@ class TestEventStats(object):
                 platform=dynamic_links.PLATFORM_ANDROID,
                 event=arg,
                 count=1)
-        assert 'Raw string' in excinfo.value.message
+        assert 'Raw string' in str(excinfo.value)
 
     @pytest.mark.parametrize('count', [1, 123, 1234])
     def test_valid_count_values(self, count):
@@ -187,7 +187,7 @@ class TestEventStats(object):
                 platform=dynamic_links.PLATFORM_ANDROID,
                 event=dynamic_links.EVENT_TYPE_CLICK,
                 count=arg)
-        assert 'must be a non negative int' in excinfo.value.message
+        assert 'must be a non negative int' in str(excinfo.value)
 
 
 class TestLinkStatsCreation(object):
@@ -195,13 +195,13 @@ class TestLinkStatsCreation(object):
     def test_invalid_event_stats_list(self, arg):
         with pytest.raises(ValueError) as excinfo:
             dynamic_links.LinkStats(arg)
-        assert'Must be a list or tuple' in excinfo.value.message
+        assert'Must be a list or tuple' in str(excinfo.value)
     
     @pytest.mark.parametrize('arg', [list([1,2]), list('asdf'), tuple([1,2])])
     def test_empty_event_stats_list(self, arg):
         with pytest.raises(ValueError) as excinfo:
             dynamic_links.LinkStats(arg)
-        assert'elements of event stats must be "EventStats"' in excinfo.value.message
+        assert'elements of event stats must be "EventStats"' in str(excinfo.value)
         
 
 class TestQuoting(object):

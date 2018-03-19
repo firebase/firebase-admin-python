@@ -165,10 +165,10 @@ class EventStats(object):
 
     @platform.setter
     def platform(self, platform):
-        if platform in self._platforms.keys():
+        if isinstance(platform, str) and platform in self._platforms.keys():
             raise ValueError(('Raw string {} detected. Use one of the dynamic_links.PLATFORM_...' +
                               ' constants, or the from_json() method.').format(platform))
-        if platform not in self._platforms.values():
+        if not isinstance(platform, str) or platform not in self._platforms.values():
             raise ValueError('platform {}, not recognized'.format(platform))
         self._platform = platform
 
@@ -178,10 +178,10 @@ class EventStats(object):
 
     @event.setter
     def event(self, event):
-        if event in self._event_types.keys():
+        if isinstance(event, str) and event in self._event_types.keys():
             raise ValueError(('Raw string {} detected. Use one of the dynamic_links.EVENT_TYPES_' +
                               ' constants, or the from_json() method.').format(event))
-        if event not in self._event_types.values():
+        if not isinstance(event, str) or event not in self._event_types.values():
             raise ValueError('event_type {}, not recognized'.format(event))
         self._event = event
 

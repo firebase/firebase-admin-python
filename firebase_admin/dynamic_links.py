@@ -114,7 +114,10 @@ class _LinksService(object):
 
     def _populated_request(self, url, options):
         days = options.duration_days
+        #pylint: disable-msg=too-many-arguments
+        #this is due to six.urllib_parse incompatibility 
         url_quoted = urllib_parse.quote(url, "")
+        #pylint: enable-msg=too-many-arguments
         return self._links_request.format(url_quoted, days)
 
     def get_stats(self, url, options):

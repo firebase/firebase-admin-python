@@ -11,4 +11,4 @@ scripts/cert.json
 scripts/apikey.txt
 htmlcov/
 .pytest_cache/
-tests/data/dynamic_links_e2e_url.json
+tests/data/dynamic_links_e2e_url.txt

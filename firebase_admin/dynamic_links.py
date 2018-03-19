@@ -20,11 +20,12 @@ This module lets admins get the stats for a dynamic link.
 from collections import namedtuple
 
 from six.moves import urllib_parse
+import six
 
 from firebase_admin import _http_client
 from firebase_admin import _utils
 
-import six
+
 
 
 _LINKS_ATTRIBUTE = '_links'
@@ -154,7 +155,7 @@ class EventStats(object):
     def from_json(cls, platform, event, count):
         return EventStats(cls._platforms[platform],
                           cls._event_types[event],
-                          count)
+                          int(count))
 
     @property
     def platform(self):

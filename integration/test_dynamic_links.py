@@ -13,28 +13,40 @@
 # limitations under the License.
 
 """Integration tests for firebase_admin.auth module."""
+import sys
 
 import pytest
 import requests
+
 
 from firebase_admin import dynamic_links
 
 from tests import testutils
 
-DYNAMIC_LINKS_E2E_URL = testutils.resource('dynamic_links_e2e_url.json')
-
-def test_get_stats():
-    link_stats = dynamic_links.get_link_stats(
-        'https://ds47s.app.goo.gl/uQWc',
-        dynamic_links.StatOptions(duration_days=4000))
-    assert isinstance(link_stats, dynamic_links.LinkStats)
-    assert len(link_stats.event_stats)
-    print link_stats.event_stats
-
-def test_unautherized():
-    with pytest.raises(requests.exceptions.HTTPError) as excinfo:
-        dynamic_links.get_link_stats(
-            'https://fake1.app.goo.gl/uQWc',
+class TestEndToEnd(object):
+    def test_get_stats(self):
+        try:
+            dynamic_links_e2e_url = testutils.resource('dynamic_links_e2e_url.txt').strip()
+        except IOError:
+            sys.stderr.write("""
+==============================================================================================
+    To run end to end tests you must do the following:
+        1. From the firebase console, create a short link under dynamic links.
+        2. Create a file named dynamic_links_e2e_url.txt under tests/data/.
+        3. Populate that file with the quoted link you created in 1 on the first and only line 
+           e.g. $ echo "https://your1.app.goo.gl/suff" > tests/data/dynamic_links_e2e_url.txt
+===============================================================================================
+""")
+        link_stats = dynamic_links.get_link_stats(
+            dynamic_links_e2e_url
             dynamic_links.StatOptions(duration_days=4000))
-    assert excinfo.value.response.status_code == 403
-        
+        assert isinstance(link_stats, dynamic_links.LinkStats)
+        assert len(link_stats.event_stats) > 0
+
+class TestServerErrors(object):
+    def test_unautherized(self):
+        with pytest.raises(requests.exceptions.HTTPError) as excinfo:
+            dynamic_links.get_link_stats(
+                'https://fake1.app.goo.gl/uQWc',
+                dynamic_links.StatOptions(duration_days=4000))
+        assert excinfo.value.response.status_code == 403

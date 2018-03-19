@@ -31,8 +31,10 @@ except IOError:
 ==============================================================================================
     To run end to end tests you must do the following:
         1. From the firebase console, create a short link under dynamic links.
-        2. Create a file named dynamic_links_e2e_url.txt under tests/data/.
-        3. Populate that file with the quoted link you created in 1 on the first and only line 
+    	2. From your broser or phone, go to that short link and see that it redirects.
+		3. Wait up to 36 hours.
+        4. Create a file named dynamic_links_e2e_url.txt under tests/data/.
+        5. Populate that file with the quoted link you created in 1 on the first and only line 
            e.g. $ echo "https://your1.app.goo.gl/suff" > tests/data/dynamic_links_e2e_url.txt
 ===============================================================================================
 """)

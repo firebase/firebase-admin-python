@@ -114,8 +114,9 @@ class _LinksService(object):
 
     def _populated_request(self, url, options):
         days = options.duration_days
+        # This is due to six.urllib_parse mistaken error for python 2
         #pylint: disable=too-many-function-args
-        # This is due to six.urllib_parse incompatibility
+        # Complaints about the named second argument needed to replace "/"
         #pylint: disable=redundant-keyword-arg
         url_quoted = urllib_parse.quote(url, safe="")
         #pylint: enable=redundant-keyword-arg

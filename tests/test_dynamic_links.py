@@ -196,13 +196,13 @@ class TestLinkStatsCreation(object):
         with pytest.raises(ValueError) as excinfo:
             dynamic_links.LinkStats(arg)
         assert'Must be a list or tuple' in str(excinfo.value)
-    
-    @pytest.mark.parametrize('arg', [list([1,2]), list('asdf'), tuple([1,2])])
+
+    @pytest.mark.parametrize('arg', [list([1, 2]), list('asdf'), tuple([1, 2])])
     def test_empty_event_stats_list(self, arg):
         with pytest.raises(ValueError) as excinfo:
             dynamic_links.LinkStats(arg)
         assert'elements of event stats must be "EventStats"' in str(excinfo.value)
-        
+
 
 class TestQuoting(object):
     def test_quote(self):

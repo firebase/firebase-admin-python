@@ -88,7 +88,7 @@ class LinkStats(object):
         if not isinstance(event_stats, (list, tuple)):
             raise ValueError('Invalid data argument: {0}. Must be a list or tuple'
                              .format(event_stats))
-        if len(event_stats) > 0 and not isinstance(event_stats[0], EventStats):
+        if event_stats and not isinstance(event_stats[0], EventStats):
             raise ValueError('Invalid data argument: elements of event stats must be' +
                              ' "EventStats", found{}'.format(type(event_stats[0])))
         self._stats = event_stats
@@ -114,10 +114,12 @@ class _LinksService(object):
 
     def _populated_request(self, url, options):
         days = options.duration_days
-        #pylint: disable-msg=too-many-arguments
-        #this is due to six.urllib_parse incompatibility 
-        url_quoted = urllib_parse.quote(url, "")
-        #pylint: enable-msg=too-many-arguments
+        #pylint: disable=too-many-function-args
+        # This is due to six.urllib_parse incompatibility
+        #pylint: disable=redundant-keyword-arg
+        url_quoted = urllib_parse.quote(url, safe="")
+        #pylint: enable=redundant-keyword-arg
+        #pylint: enable=too-many-function-args
         return self._links_request.format(url_quoted, days)
 
     def get_stats(self, url, options):

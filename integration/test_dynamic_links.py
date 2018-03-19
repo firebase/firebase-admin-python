@@ -23,12 +23,11 @@ from firebase_admin import dynamic_links
 
 from tests import testutils
 
-class TestEndToEnd(object):
-    def test_get_stats(self):
-        try:
-            dynamic_links_e2e_url = testutils.resource('dynamic_links_e2e_url.txt').strip()
-        except IOError:
-            sys.stderr.write("""
+dynamic_links_e2e_url = ''
+try:
+    dynamic_links_e2e_url = testutils.resource('dynamic_links_e2e_url.txt').strip()
+except IOError:
+    sys.stderr.write("""
 ==============================================================================================
     To run end to end tests you must do the following:
         1. From the firebase console, create a short link under dynamic links.
@@ -37,11 +36,27 @@ class TestEndToEnd(object):
            e.g. $ echo "https://your1.app.goo.gl/suff" > tests/data/dynamic_links_e2e_url.txt
 ===============================================================================================
 """)
+
+class TestEndToEnd(object):
+    """Runs an end to end test, see comment string for setup."""
+
+    def test_get_stats(self):
+        if(dynamic_links_e2e_url) == 0:
+            return
         link_stats = dynamic_links.get_link_stats(
-            dynamic_links_e2e_url
+            dynamic_links_e2e_url,
             dynamic_links.StatOptions(duration_days=4000))
         assert isinstance(link_stats, dynamic_links.LinkStats)
         assert len(link_stats.event_stats) > 0
+
+    def test_get_stats_nonexistant_link(self):
+        if(dynamic_links_e2e_url) == 0:
+            return
+        link_stats = dynamic_links.get_link_stats(
+            dynamic_links_e2e_url + 'some_arbitary_unlikely_string_ZXCzxcASDasdQWEqwe',
+            dynamic_links.StatOptions(duration_days=4000))
+        assert isinstance(link_stats, dynamic_links.LinkStats)
+        assert len(link_stats.event_stats) == 0
 
 class TestServerErrors(object):
     def test_unautherized(self):

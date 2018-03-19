@@ -32,6 +32,8 @@ MOCK_CREDENTIAL = credentials.Certificate(
 
 INVALID_STRINGS = [None, '', 0, 1, True, False, list(), tuple(), dict(), object()]
 INVALID_NON_NEGATIVE_NUMS = [None, '', 'foo', -1, True, False, list(), tuple(), dict(), object()]
+INVALID_LISTS = [None, 'foo', 0, 1, True, False, dict(), object()]
+
 
 class DLFixture(object):
     def __init__(self, name=None):
@@ -42,7 +44,6 @@ class DLFixture(object):
         self.links_service = dynamic_links._get_link_service(self.app)
 
     def _instrument_dynamic_links(self, payload, status=200):
-        
         request_url = dynamic_links._LINKS_BASE_URL
         recorder = []
         self.links_service._client.session.mount(request_url,
@@ -68,7 +69,6 @@ def setup_module():
 def teardown_module():
     firebase_admin.delete_app(firebase_admin.get_app())
     firebase_admin.delete_app(firebase_admin.get_app('testDLApp'))
-
 
 
 class TestGetStats(object):
@@ -103,13 +103,13 @@ class TestGetStats(object):
         with pytest.raises(ValueError) as excinfo:
             dynamic_links.get_link_stats(invalid_url, options, app=dltest.app)
         assert 'Url must be a string and begin with "https://".' in excinfo.value.message
-        
+
     @pytest.mark.parametrize('invalid_options', INVALID_STRINGS)
     def test_get_stats_invalid_options(self, dltest, invalid_options):
         with pytest.raises(ValueError) as excinfo:
             dynamic_links.get_link_stats(_MOCK_SHORT_URL, invalid_options, app=dltest.app)
         assert 'Options must be of type StatOptions.' in excinfo.value.message
-        
+
     @pytest.mark.parametrize('invalid_duration', [0] + INVALID_NON_NEGATIVE_NUMS)
     def test_get_stats_invalid_duration_days(self, dltest, invalid_duration):
         options = dynamic_links.StatOptions(duration_days=invalid_duration)
@@ -117,9 +117,8 @@ class TestGetStats(object):
             dynamic_links.get_link_stats(_MOCK_SHORT_URL, options, app=dltest.app)
         assert 'duration_days' in excinfo.value.message
         assert 'must be positive int' in excinfo.value.message
-        
 
-        
+
 class TestEventStats(object):
     @pytest.mark.parametrize('platform', dynamic_links.EventStats._platforms.keys())
     def test_valid_platform_values(self, platform):
@@ -189,3 +188,17 @@ class TestEventStats(object):
                 event=dynamic_links.EVENT_TYPE_CLICK,
                 count=arg)
         assert 'must be a non negative int' in excinfo.value.message
+
+
+class TestLinkStatsCreation(object):
+    @pytest.mark.parametrize('arg', INVALID_LISTS)
+    def test_invalid_event_stats_list(self, arg):
+        with pytest.raises(ValueError) as excinfo:
+            dynamic_links.LinkStats(arg)
+        assert'Must be a list or tuple' in excinfo.value.message
+    
+    @pytest.mark.parametrize('arg', [list([1,2]), list('asdf'), tuple([1,2])])
+    def test_empty_event_stats_list(self, arg):
+        with pytest.raises(ValueError) as excinfo:
+            dynamic_links.LinkStats(arg)
+        assert 'elements of event stats must be "EventStats"' in excinfo.value.message

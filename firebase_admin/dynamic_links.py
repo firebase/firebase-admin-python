@@ -83,9 +83,11 @@ def _get_link_service(app):
 
 
 class LinkStats(object):
+    """The LinkStats object is returned by get_link_stats, it contains a list of EventStats"""
     def __init__(self, event_stats):
-        if not isinstance(event_stats, list):
-            raise ValueError('Invalid data argument: {0}. Must be a list.'.format(event_stats))
+        if not isinstance(event_stats, (list, tuple)):
+            raise ValueError('Invalid data argument: {0}. Must be a list or tuple'
+                             .format(event_stats))
         if len(event_stats) > 0 and not isinstance(event_stats[0], EventStats):
             raise ValueError('Invalid data argument: elements of event stats must be' +
                              ' "EventStats", found{}'.format(type(event_stats[0])))

@@ -201,4 +201,12 @@ class TestLinkStatsCreation(object):
     def test_empty_event_stats_list(self, arg):
         with pytest.raises(ValueError) as excinfo:
             dynamic_links.LinkStats(arg)
-        assert 'elements of event stats must be "EventStats"' in excinfo.value.message
+        assert'elements of event stats must be "EventStats"' in excinfo.value.message
+        
+
+class TestQuoting(object):
+    def test_quote(self):
+        links_service = dynamic_links._get_link_service(None)
+        link = links_service._populated_request("https://sample.com",
+                                                dynamic_links.StatOptions(duration_days=1))
+        assert link == 'https%3A%2F%2Fsample.com/linkStats?durationDays=1'

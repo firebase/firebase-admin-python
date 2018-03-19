@@ -114,7 +114,7 @@ class _LinksService(object):
 
     def _populated_request(self, url, options):
         days = options.duration_days
-        url_quoted = urllib_parse.quote(url, safe="")
+        url_quoted = urllib_parse.quote(url, "")
         return self._links_request.format(url_quoted, days)
 
     def get_stats(self, url, options):

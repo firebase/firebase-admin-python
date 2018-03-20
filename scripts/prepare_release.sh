@@ -55,9 +55,9 @@ if ! parseVersion "$VERSION"; then
     exit 1
 fi
 
-CUR_VERSION=$(grep "^__version__ =" ../firebase_admin/__init__.py | awk '{print $3}' | sed "s/'//g")
+CUR_VERSION=$(grep "^__version__ =" ../firebase_admin/__about__.py | awk '{print $3}' | sed "s/'//g")
 if [ -z "$CUR_VERSION" ]; then
-    echo "[ERROR] Failed to find the current version. Check firebase_admin/__init__.py for version declaration."
+    echo "[ERROR] Failed to find the current version. Check firebase_admin/__about__.py for version declaration."
     exit 1
 fi
 if ! parseVersion "$CUR_VERSION"; then
@@ -119,12 +119,12 @@ fi
 ##################################
 
 HOST=$(uname)
-echo "[INFO] Updating __init__.py and CHANGELOG.md"
+echo "[INFO] Updating __about__.py and CHANGELOG.md"
 if [ $HOST == "Darwin" ]; then
-    sed -i "" -e "s/__version__ = '$CUR_VERSION'/__version__ = '$VERSION'/" "../firebase_admin/__init__.py"
+    sed -i "" -e "s/__version__ = '$CUR_VERSION'/__version__ = '$VERSION'/" "../firebase_admin/__about__.py"
     sed -i "" -e "1 s/# Unreleased//" "../CHANGELOG.md"
 else
-    sed -i -e "s/__version__ = '$CUR_VERSION'/__version__ = '$VERSION'/" "../firebase_admin/__init__.py"
+    sed -i -e "s/__version__ = '$CUR_VERSION'/__version__ = '$VERSION'/" "../firebase_admin/__about__.py"
     sed -i -e "1 s/# Unreleased//" "../CHANGELOG.md"
 fi
 

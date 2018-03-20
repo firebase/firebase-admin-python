@@ -1,27 +1,36 @@
 # Unreleased
 
+-
+
+# v2.9.1
+
+### Cloud Messaging
+
 - [changed] Improved error handling in FCM by mapping more server-side
-  errors to client-side error codes.
+  errors to client-side error codes. See [documentation](https://firebase.google.com/docs/cloud-messaging/admin/errors).
+- [changed] The `messaging` module now supports specifying an HTTP timeout
+  for all egress requests. Pass the `httpTimeout` option
+  to `firebase_admin.initialize_app()` before invoking any functions in
+  `messaging`.
 
 - [added] The Firebase dynamic links module with the `get_link_stats` API.
 
 # v2.9.0
 
-
 ### Cloud Messaging
 
 - [feature] Added the `firebase_admin.messaging` module for sending
-  Firebase notifications and managing topic subscriptions. 
+  Firebase notifications and managing topic subscriptions.
 
 ### Authentication
 
 - [added] The ['verify_id_token()'](https://firebase.google.com/docs/reference/admin/python/firebase_admin.auth#verify_id_token)
-  function now accepts an optional `check_revoked` parameter. When `True`, an 
-  additional check is performed to see whether the token has been revoked. 
+  function now accepts an optional `check_revoked` parameter. When `True`, an
+  additional check is performed to see whether the token has been revoked.
 - [added] A new
   ['auth.revoke_refresh_tokens(uid)'](https://firebase.google.com/docs/reference/admin/python/firebase_admin.auth#revoke_refresh_tokens)
   function has been added to invalidate all tokens issued to a user.
-- [added] A new `tokens_valid_after_timestamp` property has been added to the   
+- [added] A new `tokens_valid_after_timestamp` property has been added to the
   ['UserRecord'](https://firebase.google.com/docs/reference/admin/python/firebase_admin.auth#userrecord),
   class indicating the time before which tokens are not valid.
 

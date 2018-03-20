@@ -21,11 +21,8 @@ import threading
 import six
 
 from firebase_admin import credentials
+from firebase_admin.__about__ import __version__
 
-
-# Declaring module version as per https://www.python.org/dev/peps/pep-0396/#specification
-# Update this accordingly for each release.
-__version__ = '2.9.0'
 
 _apps = {}
 _apps_lock = threading.RLock()

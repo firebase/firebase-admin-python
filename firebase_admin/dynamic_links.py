@@ -116,9 +116,23 @@ class EventStats(object):
 
     def __init__(self, platform, event, count):
         """Create new instance of EventStats(platform, event, count)"""
-        self.platform = platform
-        self.event = event
-        self.count = count
+        if isinstance(platform, six.string_types) and platform in self._platforms.keys():
+            raise ValueError(('Raw string "{}" detected. Use a dynamic_links.PLATFORM_* constant' +
+                              ' or the make_event_stat() method.').format(platform))
+        if not isinstance(platform, six.string_types) or platform not in self._platforms.values():
+            raise ValueError('platform {}, not recognized'.format(platform))
+        self._platform = platform
+
+        if isinstance(event, six.string_types) and event in self._event_types.keys():
+            raise ValueError(('Raw string {} detected. Use one of the dynamic_links.EVENT_TYPES_' +
+                              ' constants, or the make_event_stat() method.').format(event))
+        if not isinstance(event, six.string_types) or event not in self._event_types.values():
+            raise ValueError('event_type {}, not recognized'.format(event))
+        self._event = event
+
+        if not isinstance(count, int) or isinstance(count, bool) or count < 0:
+            raise ValueError('Count: {} must be a non negative int'.format(count))
+        self._count = count
 
     def __repr__(self):
         return"EventStats(platform: '{}', event: '{}', count: '{}')".format(
@@ -136,37 +150,13 @@ class EventStats(object):
     def platform(self):
         return self._platform
 
-    @platform.setter
-    def platform(self, platform):
-        if isinstance(platform, six.string_types) and platform in self._platforms.keys():
-            raise ValueError(('Raw string {} detected. Use one of the dynamic_links.PLATFORM_...' +
-                              ' constants, or the make_event_stat() method.').format(platform))
-        if not isinstance(platform, six.string_types) or platform not in self._platforms.values():
-            raise ValueError('platform {}, not recognized'.format(platform))
-        self._platform = platform
-
     @property
     def event(self):
         return self._event
 
-    @event.setter
-    def event(self, event):
-        if isinstance(event, six.string_types) and event in self._event_types.keys():
-            raise ValueError(('Raw string {} detected. Use one of the dynamic_links.EVENT_TYPES_' +
-                              ' constants, or the make_event_stat() method.').format(event))
-        if not isinstance(event, six.string_types) or event not in self._event_types.values():
-            raise ValueError('event_type {}, not recognized'.format(event))
-        self._event = event
-
     @property
     def count(self):
         return self._count
-
-    @count.setter
-    def count(self, count):
-        if not isinstance(count, int) or isinstance(count, bool) or count < 0:
-            raise ValueError('Count: {} must be a non negative int'.format(count))
-        self._count = count
 
 
 class StatOptions(object):

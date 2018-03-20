@@ -15,9 +15,8 @@
 """Integration tests for firebase_admin.auth module."""
 import sys
 
-import pytest
 import requests
-
+import pytest
 
 from firebase_admin import dynamic_links
 
@@ -27,17 +26,7 @@ dynamic_links_e2e_url = ''
 try:
     dynamic_links_e2e_url = testutils.resource('dynamic_links_e2e_url.txt').strip()
 except IOError:
-    sys.stderr.write("""
-==============================================================================================
-    To run end to end tests you must do the following:
-        1. From the firebase console, create a short link under "Grow > Dynamic Links".
-        2. From your broser or phone, go to that short link and see that it redirects.
-        3. Wait up to 36 hours.
-        4. Create a file named dynamic_links_e2e_url.txt under tests/data/.
-        5. Populate that file with the quoted link you created in 1 on the first and only line 
-           e.g. $ echo "https://your1.app.goo.gl/suff" > tests/data/dynamic_links_e2e_url.txt
-===============================================================================================
-""")
+    sys.stderr.write("End to end tests not set up, see CONTRIBTING.md file.")
 
 class TestEndToEnd(object):
     """Runs an end to end test, see comment string for setup."""
@@ -52,7 +41,7 @@ class TestEndToEnd(object):
         assert len(link_stats.event_stats) > 0
 
     def test_get_stats_nonexistant_link(self):
-        if(dynamic_links_e2e_url) == 0:
+        if not dynamic_links_e2e_url:
             return
         link_stats = dynamic_links.get_link_stats(
             dynamic_links_e2e_url + 'some_arbitary_unlikely_string_ZXCzxcASDasdQWEqwe',

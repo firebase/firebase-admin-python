@@ -194,7 +194,7 @@ class TestEventStats(object):
         assert 'must be a non negative int' in str(excinfo.value)
 
 
-class TestLinkStatsCreation(object):
+class TestLinkStats(object):
     @pytest.mark.parametrize('arg', INVALID_LISTS)
     def test_invalid_event_stats_list(self, arg):
         with pytest.raises(ValueError) as excinfo:

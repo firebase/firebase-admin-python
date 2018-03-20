@@ -17,7 +17,6 @@
 
 import json
 import pytest
-import requests
 
 import firebase_admin
 from firebase_admin import dynamic_links
@@ -105,7 +104,6 @@ class TestGetStats(object):
         with pytest.raises(dynamic_links.ApiCallError) as excinfo:
             dynamic_links.get_link_stats(MOCK_SHORT_URL, options, app=dynamic_links_test.app)
         assert excinfo.value.code == 500
-        assert excinfo.value.message == 'test_error'
 
     @pytest.mark.parametrize('invalid_url', ['google.com'] + INVALID_STRINGS)
     def test_get_stats_invalid_url(self, dynamic_links_test, invalid_url):

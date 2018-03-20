@@ -213,6 +213,7 @@ class _LinksService(object):
             return LinkStats(event_stats)
 
     def _handle_error(self, error):
+        """Error handler for dynamic links request errors"""
         if error.response is None:
             msg = 'Failed to call dynamic links API: {0}'.format(error)
             raise ApiCallError(self.INTERNAL_ERROR, msg, error)

@@ -284,8 +284,8 @@ class Reference(object):
     def transaction(self, transaction_update):
         """Atomically modifies the data at this location.
 
-        Unlike a normal `set()`, which just overwrites the data regardless of its previous state,
-        `transaction()` is used to modify the existing value to a new value, ensuring there are
+        Unlike a normal ``set()``, which just overwrites the data regardless of its previous state,
+        ``transaction()`` is used to modify the existing value to a new value, ensuring there are
         no conflicts with other clients simultaneously writing to the same location.
 
         This is accomplished by passing an update function which is used to transform the current

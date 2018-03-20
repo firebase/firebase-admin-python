@@ -30,7 +30,7 @@ except IOError:
     sys.stderr.write("""
 ==============================================================================================
     To run end to end tests you must do the following:
-        1. From the firebase console, create a short link under dynamic links.
+        1. From the firebase console, create a short link under "Grow > Dynamic Links".
         2. From your broser or phone, go to that short link and see that it redirects.
         3. Wait up to 36 hours.
         4. Create a file named dynamic_links_e2e_url.txt under tests/data/.
@@ -43,7 +43,7 @@ class TestEndToEnd(object):
     """Runs an end to end test, see comment string for setup."""
 
     def test_get_stats(self):
-        if(dynamic_links_e2e_url) == 0:
+        if not dynamic_links_e2e_url:
             return
         link_stats = dynamic_links.get_link_stats(
             dynamic_links_e2e_url,
@@ -61,7 +61,7 @@ class TestEndToEnd(object):
         assert len(link_stats.event_stats) == 0
 
 class TestServerErrors(object):
-    def test_unautherized(self):
+    def test_unauthorized(self):
         with pytest.raises(requests.exceptions.HTTPError) as excinfo:
             dynamic_links.get_link_stats(
                 'https://fake1.app.goo.gl/uQWc',

@@ -14,21 +14,17 @@
 
 """Firebase Dynamic Links module.
 
-This module lets admins get the stats for a dynamic link.
+This module lets admins get statistics for a Firebase dynamic link.
 """
 
-from collections import namedtuple
-
-from six.moves import urllib_parse
+from six.moves import urllib
 import six
 
 from firebase_admin import _http_client
 from firebase_admin import _utils
 
 
-
-
-_LINKS_ATTRIBUTE = '_links'
+_LINKS_ATTRIBUTE = '_dynamic_links'
 _LINKS_BASE_URL = 'https://firebasedynamiclinks.googleapis.com/v1/'
 
 PLATFORM_DESKTOP = 'desktop'
@@ -41,32 +37,31 @@ EVENT_TYPE_APP_INSTALL = 'app_install'
 EVENT_TYPE_APP_FIRST_OPEN = 'app_first_open'
 EVENT_TYPE_APP_RE_OPEN = 'app_re_open'
 
-StatOptions = namedtuple('StatOptions', ['duration_days'])
-
 def get_link_stats(short_link, stat_options, app=None):
-    """ Returns a LinkStats object with the event stats for the given short link
+    """ Returns a `LinkStats` object with the event statistics for the given short link
 
     Args:
         short_link: The string of the designated short link. e.g. https://abc12.app.goo.gl/link
                     The link must belong to the project associated with the service account
                     used to call this API.
-        stat_options: an object containing a single field "duration_days" for which the
-        app: a firebase_app instance or None, for default.
+        stat_options: An object containing a single field "duration_days" for which the statistics
+                      are retrieved.
+        app: (optional) `firebase_app` instance. (If missing uses default app.)
 
     Returns:
-        LinkStats: an LinkStats object. (containing an array of EventStats)
+        LinkStats: An `LinkStats` object. (containing an array of `EventStats`)
 
     Raises:
         ValueError: If any of the arguments are invalid.
-                    url must be encoded and start with "http"
+                    url must start with the protocol "http"
                     stat_options should have a field with duration_days > 0
     """
-    return _get_link_service(app).get_stats(short_link, stat_options)
+    return _get_link_service(app)._get_stats(short_link, stat_options)
 
 def _get_link_service(app):
     """Returns an _LinksService instance for an App.
 
-    If the App already has an _LinksService associated with it, simply returns
+    If the App already has a _LinksService associated with it, simply returns
     it. Otherwise creates a new _LinksService, and adds it to the App before
     returning it.
 
@@ -74,7 +69,7 @@ def _get_link_service(app):
         app: A Firebase App instance (or None to use the default App).
 
     Returns:
-        _LinksService: An _LinksService for the specified App instance.
+        _LinksService: An `_LinksService` for the specified App instance.
 
     Raises:
         ValueError: If the app argument is invalid.
@@ -83,7 +78,7 @@ def _get_link_service(app):
 
 
 class LinkStats(object):
-    """The LinkStats object is returned by get_link_stats, it contains a list of EventStats"""
+    """The `LinkStats` object is returned by get_link_stats, it contains a list of `EventStats`"""
     def __init__(self, event_stats):
         if not isinstance(event_stats, (list, tuple)):
             raise ValueError('Invalid data argument: {0}. Must be a list or tuple'
@@ -95,46 +90,16 @@ class LinkStats(object):
 
     @property
     def event_stats(self):
-        """Returns the event_stats for this link.
+        """Returns the event statistics for this link, for the requested period.
 
         Returns:
-          event_stats: A list of EventStats.
+          event_stats: A list of `EventStats`.
         """
         return self._stats
 
-
-class _LinksService(object):
-    """Provides methods for the Firebase Dynamic Links interaction"""
-    def __init__(self, app):
-        self._client = _http_client.JsonHttpClient(
-            credential=app.credential.get_credential(),
-            base_url=_LINKS_BASE_URL)
-        self._timeout = app.options.get('httpTimeout')
-        self._links_request = '{0}/linkStats?durationDays={1}'
-
-    def _populated_request(self, url, options):
-        days = options.duration_days
-        # This is due to six.urllib_parse mistaken error for python 2
-        #pylint: disable=too-many-function-args
-        # Complaints about the named second argument needed to replace "/"
-        #pylint: disable=redundant-keyword-arg
-        url_quoted = urllib_parse.quote(url, safe="")
-        #pylint: enable=redundant-keyword-arg
-        #pylint: enable=too-many-function-args
-        return self._links_request.format(url_quoted, days)
-
-    def get_stats(self, url, options):
-        _validate_url(url)
-        _validate_stat_options(options)
-        url_p = self._populated_request(url, options)
-        resp = self._client.request('get', url_p)
-        link_event_stats = resp.json().get('linkEventStats', [])
-        event_stats = [EventStats.from_json(**es) for es in link_event_stats]
-
-        return LinkStats(event_stats)
-
 class EventStats(object):
-    """EventStats is a single stat item containing (platform, event, count)"""
+    """`EventStats` is a single stat item containing (platform, event, count)"""
+
     _platforms = {
         'DESKTOP': PLATFORM_DESKTOP,
         'IOS': PLATFORM_IOS,
@@ -160,7 +125,9 @@ class EventStats(object):
             self.platform, self.event, self.count)
 
     @classmethod
-    def from_json(cls, platform, event, count):
+    def make_event_stat(cls, platform, event, count):
+        """make_event_stat creates an EventStat object given the appropriate constants. e.g:
+        make_event_stat(platform=PLATFORM_DESKTOP, event=EVENT_TYPE_REDIRECT, count=4)"""
         return EventStats(cls._platforms[platform],
                           cls._event_types[event],
                           int(count))
@@ -171,10 +138,10 @@ class EventStats(object):
 
     @platform.setter
     def platform(self, platform):
-        if isinstance(platform, str) and platform in self._platforms.keys():
+        if isinstance(platform, six.string_types) and platform in self._platforms.keys():
             raise ValueError(('Raw string {} detected. Use one of the dynamic_links.PLATFORM_...' +
-                              ' constants, or the from_json() method.').format(platform))
-        if not isinstance(platform, str) or platform not in self._platforms.values():
+                              ' constants, or the make_event_stat() method.').format(platform))
+        if not isinstance(platform, six.string_types) or platform not in self._platforms.values():
             raise ValueError('platform {}, not recognized'.format(platform))
         self._platform = platform
 
@@ -184,10 +151,10 @@ class EventStats(object):
 
     @event.setter
     def event(self, event):
-        if isinstance(event, str) and event in self._event_types.keys():
+        if isinstance(event, six.string_types) and event in self._event_types.keys():
             raise ValueError(('Raw string {} detected. Use one of the dynamic_links.EVENT_TYPES_' +
-                              ' constants, or the from_json() method.').format(event))
-        if not isinstance(event, str) or event not in self._event_types.values():
+                              ' constants, or the make_event_stat() method.').format(event))
+        if not isinstance(event, six.string_types) or event not in self._event_types.values():
             raise ValueError('event_type {}, not recognized'.format(event))
         self._event = event
 
@@ -202,14 +169,49 @@ class EventStats(object):
         self._count = count
 
 
-def _validate_url(url):
-    if not isinstance(url, six.string_types) or not url.startswith('https://'):
-        raise ValueError('Url must be a string and begin with "https://".')
+class StatOptions(object):
+    def __init__(self, duration_days):
+        self.duration_days = duration_days
 
-def _validate_stat_options(options):
-    if not isinstance(options, StatOptions):
-        raise ValueError('Options must be of type StatOptions.')
-    if (isinstance(options.duration_days, bool)
-            or not isinstance(options.duration_days, int)
-            or options.duration_days < 1):
-        raise ValueError('duration_days: {} must be positive int'.format(options.duration_days))
+    @property
+    def duration_days(self):
+        return self._duration_days
+
+    @duration_days.setter
+    def duration_days(self, duration_days):
+        if (isinstance(duration_days, bool)
+                or not isinstance(duration_days, int)
+                or duration_days < 1):
+            raise ValueError('duration_days must be positive integer (got {})'
+                             .format(duration_days))
+        self._duration_days = duration_days
+
+class _LinksService(object):
+    """Provides methods for the Firebase dynamic links interaction"""
+    def __init__(self, app):
+        self._client = _http_client.JsonHttpClient(
+            credential=app.credential.get_credential(),
+            base_url=_LINKS_BASE_URL)
+        self._timeout = app.options.get('httpTimeout')
+        self._request_string = '{0}/linkStats?durationDays={1}'
+
+    def _format_request_string(self, short_link, options):
+        days = options.duration_days
+        # Complaints about the named second argument needed to replace "/"
+        #pylint: disable=redundant-keyword-arg
+        url_quoted = urllib.parse.quote(short_link, safe='')
+        #pylint: enable=redundant-keyword-arg
+        return self._request_string.format(url_quoted, days)
+
+    def _get_stats(self, short_link, stat_options):
+        if(not isinstance(short_link, six.string_types)
+           or not short_link.startswith('https://')):
+            raise ValueError('short_link must be a string and begin with "https://".')
+        if not isinstance(stat_options, StatOptions):
+            raise ValueError('stat_options must be of type StatOptions.')
+
+        request_string = self._format_request_string(short_link, stat_options)
+        resp = self._client.body('get', request_string)
+        link_event_stats_dict = resp.get('linkEventStats', [])
+        event_stats = [EventStats.make_event_stat(**es) for es in link_event_stats_dict]
+        return LinkStats(event_stats)

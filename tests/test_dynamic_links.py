@@ -23,8 +23,9 @@ from firebase_admin import dynamic_links
 from firebase_admin import credentials
 
 from tests import testutils
+from tests import get_link_stats_vals
 
-_MOCK_SHORT_URL = 'https://fake1.app.goo.gl/uQWc'
+MOCK_SHORT_URL = 'https://fake1.app.goo.gl/uQWc'
 MOCK_GET_STATS_RESPONSE = testutils.resource('get_link_stats.json')
 
 MOCK_CREDENTIAL = credentials.Certificate(
@@ -35,7 +36,7 @@ INVALID_NON_NEGATIVE_NUMS = [None, '', 'foo', -1, True, False, list(), tuple(), 
 INVALID_LISTS = [None, 'foo', 0, 1, True, False, dict(), object()]
 
 
-class DLFixture(object):
+class DynamicLinksFixture(object):
     def __init__(self, name=None):
         if name:
             self.app = firebase_admin.get_app(name)
@@ -52,15 +53,15 @@ class DLFixture(object):
 
 
 @pytest.fixture(params=[None, 'testDLApp'], ids=['DefaultApp', 'CustomApp'])
-def dltest(request):
-    """Returns a DLFixture instance.
+def dynamic_links_test(request):
+    """Returns a DynamicLinksFixture instance.
 
     Instances returned by this fixture are parameterized to use either the defult App instance,
     or a custom App instance named 'testDLApp'. Due to this parameterization, each test case that
     depends on this fixture will get executed twice (as two test cases); once with the default
     App, and once with the custom App.
     """
-    return DLFixture(request.param)
+    return DynamicLinksFixture(request.param)
 
 def setup_module():
     firebase_admin.initialize_app(testutils.MockCredential())
@@ -72,49 +73,52 @@ def teardown_module():
 
 
 class TestGetStats(object):
-    def test_get_stats(self, dltest):
-        dltest._instrument_dynamic_links(payload=MOCK_GET_STATS_RESPONSE)
+    def test_get_stats(self, dynamic_links_test):
+        _, recorder = dynamic_links_test._instrument_dynamic_links(
+            payload=MOCK_GET_STATS_RESPONSE)
         options = dynamic_links.StatOptions(duration_days=9)
-        link_stats = dynamic_links.get_link_stats(_MOCK_SHORT_URL, options, app=dltest.app)
+        link_stats = dynamic_links.get_link_stats(
+            MOCK_SHORT_URL, options, app=dynamic_links_test.app)
+        assert recorder[0].url.startswith("https://firebasedynamiclinks.googleapis.com")
+        assert (recorder[0].path_url ==
+                "/v1/https%3A%2F%2Ffake1.app.goo.gl%2FuQWc/linkStats?durationDays=9")
         assert isinstance(link_stats, dynamic_links.LinkStats)
-        assert isinstance(link_stats.event_stats[0], dynamic_links.EventStats)
-        assert link_stats.event_stats[0].platform == dynamic_links.PLATFORM_ANDROID
-        assert link_stats.event_stats[0].event == dynamic_links.EVENT_TYPE_CLICK
-        assert link_stats.event_stats[0].count == 123
-        assert len(link_stats.event_stats) == 7
-        assert repr(link_stats.event_stats[6]) == repr(
-            dynamic_links.EventStats(
-                platform=dynamic_links.PLATFORM_IOS,
-                event=dynamic_links.EVENT_TYPE_REDIRECT,
-                count=124))
+        for event_stat in link_stats.event_stats:
+            assert isinstance(event_stat, dynamic_links.EventStats)
 
+        compared_event_stats = get_link_stats_vals.comparison
+        assert len(compared_event_stats) == len(link_stats.event_stats)
+        for (direct, returned) in zip(compared_event_stats, link_stats.event_stats):
+            assert returned.platform == direct['platform']
+            assert returned.event == direct['event']
+            assert returned.count == direct['count']
 
-    def test_get_stats_error(self, dltest):
-        dltest._instrument_dynamic_links(payload=MOCK_GET_STATS_RESPONSE,
-                                         status=500)
+    def test_get_stats_error(self, dynamic_links_test):
+        dynamic_links_test._instrument_dynamic_links(payload=MOCK_GET_STATS_RESPONSE,
+                                                     status=500)
         options = dynamic_links.StatOptions(duration_days=9)
         with pytest.raises(requests.exceptions.HTTPError) as excinfo:
-            dynamic_links.get_link_stats(_MOCK_SHORT_URL, options, app=dltest.app)
+            dynamic_links.get_link_stats(MOCK_SHORT_URL, options, app=dynamic_links_test.app)
         assert excinfo.value.response.status_code == 500
 
     @pytest.mark.parametrize('invalid_url', ['google.com'] + INVALID_STRINGS)
-    def test_get_stats_invalid_url(self, dltest, invalid_url):
+    def test_get_stats_invalid_url(self, dynamic_links_test, invalid_url):
         options = dynamic_links.StatOptions(duration_days=9)
         with pytest.raises(ValueError) as excinfo:
-            dynamic_links.get_link_stats(invalid_url, options, app=dltest.app)
-        assert 'Url must be a string and begin with "https://".' in str(excinfo.value)
+            dynamic_links.get_link_stats(invalid_url, options, app=dynamic_links_test.app)
+        assert 'short_link must be a string and begin with "https://".' in str(excinfo.value)
 
     @pytest.mark.parametrize('invalid_options', INVALID_STRINGS)
-    def test_get_stats_invalid_options(self, dltest, invalid_options):
+    def test_get_stats_invalid_options(self, dynamic_links_test, invalid_options):
         with pytest.raises(ValueError) as excinfo:
-            dynamic_links.get_link_stats(_MOCK_SHORT_URL, invalid_options, app=dltest.app)
-        assert 'Options must be of type StatOptions.' in str(excinfo.value)
+            dynamic_links.get_link_stats(
+                MOCK_SHORT_URL, invalid_options, app=dynamic_links_test.app)
+        assert 'stat_options must be of type StatOptions.' in str(excinfo.value)
 
     @pytest.mark.parametrize('invalid_duration', [0] + INVALID_NON_NEGATIVE_NUMS)
-    def test_get_stats_invalid_duration_days(self, dltest, invalid_duration):
-        options = dynamic_links.StatOptions(duration_days=invalid_duration)
+    def test_get_stats_invalid_duration_days(self, invalid_duration):
         with pytest.raises(ValueError) as excinfo:
-            dynamic_links.get_link_stats(_MOCK_SHORT_URL, options, app=dltest.app)
+            dynamic_links.StatOptions(duration_days=invalid_duration)
         assert 'duration_days' in str(excinfo.value)
         assert 'must be positive int' in str(excinfo.value)
 
@@ -122,11 +126,11 @@ class TestGetStats(object):
 class TestEventStats(object):
     @pytest.mark.parametrize('platform', dynamic_links.EventStats._platforms.keys())
     def test_valid_platform_values(self, platform):
-        e_s = dynamic_links.EventStats(
+        event_stats = dynamic_links.EventStats(
             platform=dynamic_links.EventStats._platforms[platform],
             event=dynamic_links.EVENT_TYPE_CLICK,
             count=1)
-        assert e_s.platform == dynamic_links.EventStats._platforms[platform]
+        assert event_stats.platform == dynamic_links.EventStats._platforms[platform]
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['unrecognized'])
     def test_invalid_platform_values(self, arg):
@@ -148,11 +152,11 @@ class TestEventStats(object):
 
     @pytest.mark.parametrize('event', dynamic_links.EventStats._event_types.keys())
     def test_valid_event_values(self, event):
-        e_s = dynamic_links.EventStats(
+        event_stats = dynamic_links.EventStats(
             platform=dynamic_links.PLATFORM_ANDROID,
             event=dynamic_links.EventStats._event_types[event],
             count=1)
-        assert e_s.event == dynamic_links.EventStats._event_types[event]
+        assert event_stats.event == dynamic_links.EventStats._event_types[event]
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['unrecognized'])
     def test_invalid_event_values(self, arg):
@@ -174,11 +178,11 @@ class TestEventStats(object):
 
     @pytest.mark.parametrize('count', [1, 123, 1234])
     def test_valid_count_values(self, count):
-        e_s = dynamic_links.EventStats(
+        event_stats = dynamic_links.EventStats(
             platform=dynamic_links.PLATFORM_ANDROID,
             event=dynamic_links.EVENT_TYPE_CLICK,
             count=count)
-        assert e_s.count == count
+        assert event_stats.count == count
 
     @pytest.mark.parametrize('arg', INVALID_NON_NEGATIVE_NUMS)
     def test_invalid_count_values(self, arg):
@@ -201,12 +205,4 @@ class TestLinkStatsCreation(object):
     def test_empty_event_stats_list(self, arg):
         with pytest.raises(ValueError) as excinfo:
             dynamic_links.LinkStats(arg)
-        assert'elements of event stats must be "EventStats"' in str(excinfo.value)
-
-
-class TestQuoting(object):
-    def test_quote(self):
-        links_service = dynamic_links._get_link_service(None)
-        link = links_service._populated_request("https://sample.com",
-                                                dynamic_links.StatOptions(duration_days=1))
-        assert link == 'https%3A%2F%2Fsample.com/linkStats?durationDays=1'
+        assert 'elements of event stats must be "EventStats"' in str(excinfo.value)

@@ -17,6 +17,7 @@
 This module lets admins get statistics for a Firebase dynamic link.
 """
 
+import requests
 from six.moves import urllib
 import six
 
@@ -118,14 +119,14 @@ class EventStats(object):
         """Create new instance of EventStats(platform, event, count)"""
         if isinstance(platform, six.string_types) and platform in self._platforms.keys():
             raise ValueError(('Raw string "{}" detected. Use a dynamic_links.PLATFORM_* constant' +
-                              ' or the make_event_stat() method.').format(platform))
+                              ' or the make_from_strings() method.').format(platform))
         if not isinstance(platform, six.string_types) or platform not in self._platforms.values():
             raise ValueError('platform {}, not recognized'.format(platform))
         self._platform = platform
 
         if isinstance(event, six.string_types) and event in self._event_types.keys():
             raise ValueError(('Raw string {} detected. Use one of the dynamic_links.EVENT_TYPES_' +
-                              ' constants, or the make_event_stat() method.').format(event))
+                              ' constants, or the make_from_strings() method.').format(event))
         if not isinstance(event, six.string_types) or event not in self._event_types.values():
             raise ValueError('event_type {}, not recognized'.format(event))
         self._event = event
@@ -134,14 +135,10 @@ class EventStats(object):
             raise ValueError('Count: {} must be a non negative int'.format(count))
         self._count = count
 
-    def __repr__(self):
-        return"EventStats(platform: '{}', event: '{}', count: '{}')".format(
-            self.platform, self.event, self.count)
-
     @classmethod
-    def make_event_stat(cls, platform, event, count):
-        """make_event_stat creates an EventStat object given the appropriate constants. e.g:
-        make_event_stat(platform=PLATFORM_DESKTOP, event=EVENT_TYPE_REDIRECT, count=4)"""
+    def make_from_strings(cls, platform, event, count):
+        """make_from_strings creates an EventStat object given the appropriate constants. e.g:
+        make_from_strings(platform=PLATFORM_DESKTOP, event=EVENT_TYPE_REDIRECT, count=4)"""
         return EventStats(cls._platforms[platform],
                           cls._event_types[event],
                           int(count))
@@ -178,6 +175,9 @@ class StatOptions(object):
 
 class _LinksService(object):
     """Provides methods for the Firebase dynamic links interaction"""
+
+    INTERNAL_ERROR = 'internal-error'
+
     def __init__(self, app):
         self._client = _http_client.JsonHttpClient(
             credential=app.credential.get_credential(),
@@ -202,7 +202,20 @@ class _LinksService(object):
             raise ValueError('stat_options must be of type StatOptions.')
 
         request_string = self._format_request_string(short_link, stat_options)
-        resp = self._client.body('get', request_string)
-        link_event_stats_dict = resp.get('linkEventStats', [])
-        event_stats = [EventStats.make_event_stat(**es) for es in link_event_stats_dict]
+        try:
+            resp = self._client.body('get', request_string)
+            link_event_stats_dict = resp.get('linkEventStats', [])
+        except requests.exceptions.RequestException as error:
+            msg = 'Failed to call dynamic links API: {0}'.format(error)
+            raise ApiCallError(self.INTERNAL_ERROR, msg, error)
+        event_stats = [EventStats.make_from_strings(**es) for es in link_event_stats_dict]
         return LinkStats(event_stats)
+
+
+class ApiCallError(Exception):
+    """Represents an Exception encountered while invoking the Firebase dynamic links API."""
+
+    def __init__(self, code, message, error=None):
+        Exception.__init__(self, message)
+        self.code = code
+        self.detail = error

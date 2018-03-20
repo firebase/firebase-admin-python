@@ -97,9 +97,9 @@ class TestGetStats(object):
         dynamic_links_test._instrument_dynamic_links(payload=MOCK_GET_STATS_RESPONSE,
                                                      status=500)
         options = dynamic_links.StatOptions(duration_days=9)
-        with pytest.raises(requests.exceptions.HTTPError) as excinfo:
+        with pytest.raises(dynamic_links.ApiCallError) as excinfo:
             dynamic_links.get_link_stats(MOCK_SHORT_URL, options, app=dynamic_links_test.app)
-        assert excinfo.value.response.status_code == 500
+        assert excinfo.value.code == 500
 
     @pytest.mark.parametrize('invalid_url', ['google.com'] + INVALID_STRINGS)
     def test_get_stats_invalid_url(self, dynamic_links_test, invalid_url):

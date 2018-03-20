@@ -15,6 +15,7 @@
 
 """Test cases for the firebase_admin.dynamic_links module."""
 
+import json
 import pytest
 import requests
 
@@ -94,12 +95,17 @@ class TestGetStats(object):
             assert returned.count == direct['count']
 
     def test_get_stats_error(self, dynamic_links_test):
-        dynamic_links_test._instrument_dynamic_links(payload=MOCK_GET_STATS_RESPONSE,
+        err_body = json.dumps({'error': {
+            'status': 'INTERNAL_ERROR',
+            'message': 'test_error',
+            'code': 500}})
+        dynamic_links_test._instrument_dynamic_links(payload=err_body,
                                                      status=500)
         options = dynamic_links.StatOptions(duration_days=9)
         with pytest.raises(dynamic_links.ApiCallError) as excinfo:
             dynamic_links.get_link_stats(MOCK_SHORT_URL, options, app=dynamic_links_test.app)
         assert excinfo.value.code == 500
+        assert excinfo.value.message == 'test_error'
 
     @pytest.mark.parametrize('invalid_url', ['google.com'] + INVALID_STRINGS)
     def test_get_stats_invalid_url(self, dynamic_links_test, invalid_url):

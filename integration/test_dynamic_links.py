@@ -15,7 +15,6 @@
 """Integration tests for firebase_admin.auth module."""
 import sys
 
-import requests
 import pytest
 
 from firebase_admin import dynamic_links
@@ -53,8 +52,8 @@ class TestEndToEnd(object):
 
 class TestServerErrors(object):
     def test_unauthorized(self):
-        with pytest.raises(requests.exceptions.HTTPError) as excinfo:
+        with pytest.raises(dynamic_links.ApiCallError) as excinfo:
             dynamic_links.get_link_stats(
                 'https://fake1.app.goo.gl/uQWc',
                 dynamic_links.StatOptions(duration_days=4000))
-        assert excinfo.value.response.status_code == 403
+        assert excinfo.value.code == 403

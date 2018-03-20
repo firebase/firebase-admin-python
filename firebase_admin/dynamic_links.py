@@ -204,12 +204,32 @@ class _LinksService(object):
         request_string = self._format_request_string(short_link, stat_options)
         try:
             resp = self._client.body('get', request_string)
-            link_event_stats_dict = resp.get('linkEventStats', [])
         except requests.exceptions.RequestException as error:
+
+            self._handle_error(error)
+        else:
+            link_event_stats_dict = resp.get('linkEventStats', [])
+            event_stats = [EventStats.make_from_strings(**es) for es in link_event_stats_dict]
+            return LinkStats(event_stats)
+
+    def _handle_error(self, error):
+        if error.response is None:
             msg = 'Failed to call dynamic links API: {0}'.format(error)
             raise ApiCallError(self.INTERNAL_ERROR, msg, error)
-        event_stats = [EventStats.make_from_strings(**es) for es in link_event_stats_dict]
-        return LinkStats(event_stats)
+        data = {}
+        try:
+            parsed_body = error.response.json()
+            if isinstance(parsed_body, dict):
+                data = parsed_body
+        except ValueError:
+            pass
+        error_details = data.get('error', {})
+        code = error_details.get('code', 'undefined error code')
+        msg = error_details.get('message')
+        if not msg:
+            msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(
+                error.response.status_code, error.response.content.decode())
+        raise ApiCallError(code, msg, error)
 
 
 class ApiCallError(Exception):

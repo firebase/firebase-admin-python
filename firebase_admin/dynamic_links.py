@@ -39,7 +39,7 @@ EVENT_TYPE_APP_FIRST_OPEN = 'app_first_open'
 EVENT_TYPE_APP_RE_OPEN = 'app_re_open'
 
 def get_link_stats(short_link, stat_options, app=None):
-    """ Returns a `LinkStats` object with the event statistics for the given short link
+    """ Returns a ``LinkStats`` object with the event statistics for the given short link
 
     Args:
         short_link: The string of the designated short link. e.g. https://abc12.app.goo.gl/link
@@ -47,10 +47,10 @@ def get_link_stats(short_link, stat_options, app=None):
                     used to call this API.
         stat_options: An object containing a single field "duration_days" for which the statistics
                       are retrieved.
-        app: (optional) `firebase_app` instance. (If missing uses default app.)
+        app: A Firebase ``App instance`` (optional). (If missing uses default app.)
 
     Returns:
-        LinkStats: An `LinkStats` object. (containing an array of `EventStats`)
+        LinkStats: An ``LinkStats`` object. (containing an array of ``EventStats``)
 
     Raises:
         ValueError: If any of the arguments are invalid.
@@ -79,7 +79,7 @@ def _get_link_service(app):
 
 
 class LinkStats(object):
-    """The `LinkStats` object is returned by get_link_stats, it contains a list of `EventStats`"""
+    """The ``LinkStats`` object is returned by get_link_stats, it contains a list of ``EventStats``"""
     def __init__(self, event_stats):
         if not isinstance(event_stats, (list, tuple)):
             raise ValueError('Invalid data argument: {0}. Must be a list or tuple'
@@ -94,12 +94,12 @@ class LinkStats(object):
         """Returns the event statistics for this link, for the requested period.
 
         Returns:
-          event_stats: A list of `EventStats`.
+          event_stats: A list of ``EventStats``.
         """
         return self._stats
 
 class EventStats(object):
-    """`EventStats` is a single stat item containing (platform, event, count)"""
+    """``EventStat`` is a single stat item containing (platform, event, count)"""
 
     _platforms = {
         'DESKTOP': PLATFORM_DESKTOP,

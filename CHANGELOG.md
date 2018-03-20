@@ -12,7 +12,6 @@
   for all egress requests. Pass the `httpTimeout` option
   to `firebase_admin.initialize_app()` before invoking any functions in
   `messaging`.
-
 - [added] The Firebase dynamic links module with the `get_link_stats` API.
 
 # v2.9.0

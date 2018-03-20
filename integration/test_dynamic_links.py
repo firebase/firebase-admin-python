@@ -25,12 +25,12 @@ dynamic_links_e2e_url = ''
 try:
     dynamic_links_e2e_url = testutils.resource('dynamic_links_e2e_url.txt').strip()
 except IOError:
-    sys.stderr.write("\nEnd to end tests not set up, see CONTRIBUTING.md file.\n")
+    sys.stderr.write("\nEnd-to-end tests not set up, see CONTRIBUTING.md file.\n")
 
 @pytest.mark.skipif(not dynamic_links_e2e_url,
-                    reason="End to end tests not set up, see CONTRIBTING.md file.")
+                    reason="End-to-end tests not set up, see CONTRIBTING.md file.")
 class TestEndToEnd(object):
-    """Runs an end to end test, see comment string for setup."""
+    """Runs an end-to-end test, see comment string for setup."""
 
     def test_get_stats(self):
         if not dynamic_links_e2e_url:

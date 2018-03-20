@@ -56,7 +56,7 @@ def get_link_stats(short_link, stat_options, app=None):
                     url must start with the protocol "http"
                     stat_options should have a field with duration_days > 0
     """
-    return _get_link_service(app)._get_stats(short_link, stat_options)
+    return _get_link_service(app).get_stats(short_link, stat_options)
 
 def _get_link_service(app):
     """Returns an _LinksService instance for an App.
@@ -193,7 +193,8 @@ class _LinksService(object):
         #pylint: enable=redundant-keyword-arg
         return self._request_string.format(url_quoted, days)
 
-    def _get_stats(self, short_link, stat_options):
+    def get_stats(self, short_link, stat_options):
+        """Returns the LinkStats of the requested short_link for the duration set in options"""
         if(not isinstance(short_link, six.string_types)
            or not short_link.startswith('https://')):
             raise ValueError('short_link must be a string and begin with "https://".')

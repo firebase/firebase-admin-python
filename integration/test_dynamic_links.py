@@ -53,3 +53,13 @@ class TestServerErrors(object):
                 'https://fake1.app.goo.gl/uQWc',
                 dynamic_links.StatOptions(duration_days=4000))
         assert excinfo.value.code == 403
+
+    @pytest.mark.skipif(not dynamic_links_e2e_url,
+                        reason="End-to-end tests not set up, see CONTRIBTING.md file.")
+    def test_bad_unauthorized(self):
+        with pytest.raises(dynamic_links.ApiCallError) as excinfo:
+            dynamic_links.get_link_stats(
+                dynamic_links_e2e_url+"/too/many/slashes/in/shortlink",
+                dynamic_links.StatOptions(duration_days=4000))
+        assert excinfo.value.code == 400
+        assert 'Request contains an invalid argument' in str(excinfo.value)

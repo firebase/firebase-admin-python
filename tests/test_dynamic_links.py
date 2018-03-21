@@ -106,6 +106,42 @@ class TestGetStats(object):
             dynamic_links.get_link_stats(MOCK_SHORT_URL, options, app=dynamic_links_test.app)
         assert excinfo.value.code == 500
 
+    @pytest.mark.parametrize('error_code', [400, 401, 500])
+    def test_server_error(self, dynamic_links_test, error_code):
+        options = dynamic_links.StatOptions(duration_days=9)
+        dynamic_links_test._instrument_dynamic_links(
+            payload=json.dumps({'error':  {
+                'status': 'INTERNAL_ERROR',
+                'message': 'json_test_error',
+                'code': error_code}}),
+            status=error_code)
+        with pytest.raises(dynamic_links.ApiCallError) as excinfo:
+            dynamic_links.get_link_stats(
+                MOCK_SHORT_URL, options, app=dynamic_links_test.app)
+        assert 'json_test_error' in str(excinfo.value)
+
+    @pytest.mark.parametrize('error_code', [400, 401, 500])
+    def test_server_unformatted_error(self, dynamic_links_test, error_code):
+        options = dynamic_links.StatOptions(duration_days=9)
+        dynamic_links_test._instrument_dynamic_links(
+            payload='custom error message',
+            status=error_code)
+        with pytest.raises(dynamic_links.ApiCallError) as excinfo:
+            dynamic_links.get_link_stats(
+                MOCK_SHORT_URL, options, app=dynamic_links_test.app)
+        assert 'custom error message' in str(excinfo.value)
+
+    def test_server_none_error(self, dynamic_links_test):
+        options = dynamic_links.StatOptions(duration_days=9)
+        dynamic_links_test._instrument_dynamic_links(
+            payload='',
+            status=400)
+        with pytest.raises(dynamic_links.ApiCallError) as excinfo:
+            dynamic_links.get_link_stats(
+                MOCK_SHORT_URL, options, app=dynamic_links_test.app)
+        assert 'Unexpected HTTP response' in str(excinfo.value)
+
+
     @pytest.mark.parametrize('invalid_url', ['google.com'] + INVALID_STRINGS)
     def test_get_stats_invalid_url(self, dynamic_links_test, invalid_url):
         options = dynamic_links.StatOptions(duration_days=9)

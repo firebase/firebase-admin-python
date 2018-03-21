@@ -151,7 +151,6 @@ class EventStats(object):
             raise ValueError('Invalid Count, must be a non negative int, "{}".'.format(count))
         self._count = int(count)
 
-
     @property
     def platform(self):
         return self._platform

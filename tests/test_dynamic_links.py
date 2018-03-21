@@ -23,10 +23,10 @@ from firebase_admin import dynamic_links
 from firebase_admin import credentials
 
 from tests import testutils
-from tests import get_link_stats_vals
 
 MOCK_SHORT_URL = 'https://fake1.app.goo.gl/uQWc'
 MOCK_GET_STATS_RESPONSE = testutils.resource('get_link_stats.json')
+COMPARE_GET_STATS_VALS = testutils.resource('get_link_stats_vals.json')
 
 MOCK_CREDENTIAL = credentials.Certificate(
     testutils.resource_filename('service_account.json'))
@@ -86,9 +86,8 @@ class TestGetStats(object):
         for event_stat in link_stats.event_stats:
             assert isinstance(event_stat, dynamic_links.EventStats)
 
-        compared_event_stats = get_link_stats_vals.comparison
-        assert len(compared_event_stats) == len(link_stats.event_stats)
-        for (direct, returned) in zip(compared_event_stats, link_stats.event_stats):
+        assert len(COMPARE_GET_STATS_VALS) == len(link_stats.event_stats)
+        for (direct, returned) in zip(COMPARE_GET_STATS_VALS, link_stats.event_stats):
             assert returned.platform == direct['platform']
             assert returned.event == direct['event']
             assert returned.count == direct['count']

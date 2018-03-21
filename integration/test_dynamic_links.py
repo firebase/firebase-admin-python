@@ -33,8 +33,6 @@ class TestEndToEnd(object):
     """Runs an end-to-end test, see comment string for setup."""
 
     def test_get_stats(self):
-        if not dynamic_links_e2e_url:
-            return
         link_stats = dynamic_links.get_link_stats(
             dynamic_links_e2e_url,
             dynamic_links.StatOptions(duration_days=4000))
@@ -42,8 +40,6 @@ class TestEndToEnd(object):
         assert len(link_stats.event_stats) > 0
 
     def test_get_stats_nonexistant_link(self):
-        if not dynamic_links_e2e_url:
-            return
         link_stats = dynamic_links.get_link_stats(
             dynamic_links_e2e_url + 'some_arbitary_unlikely_string_ZXCzxcASDasdQWEqwe',
             dynamic_links.StatOptions(duration_days=4000))

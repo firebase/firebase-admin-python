@@ -28,6 +28,8 @@ from firebase_admin import _utils
 _LINKS_ATTRIBUTE = '_dynamic_links'
 _LINKS_BASE_URL = 'https://firebasedynamiclinks.googleapis.com/v1/'
 
+_UNKNOWN_ERROR = 'unknown-error'
+
 PLATFORM_DESKTOP = 'desktop'
 PLATFORM_IOS = 'ios'
 PLATFORM_ANDROID = 'android'
@@ -50,41 +52,42 @@ def get_link_stats(short_link, stat_options, app=None):
         app: A Firebase ``App instance`` (optional). (If missing uses default app.)
 
     Returns:
-        LinkStats: An ``LinkStats`` object. (containing an array of ``EventStats``)
+        LinkStats: A ``LinkStats`` object. (containing an array of ``EventStats``)
 
     Raises:
         ValueError: If any of the arguments are invalid.
-                    url must start with the protocol "http"
-                    stat_options should have a field with duration_days > 0
+            short_link must start with the "https" protocol.
+            stat_options should have duration_days > 0.
     """
     return _get_link_service(app).get_stats(short_link, stat_options)
 
 def _get_link_service(app):
-    """Returns an _LinksService instance for an App.
+    """Returns an _DynamicLinksService instance for an App.
 
-    If the App already has a _LinksService associated with it, simply returns
-    it. Otherwise creates a new _LinksService, and adds it to the App before
+    If the App already has a _DynamicLinksService associated with it, simply returns
+    it. Otherwise creates a new _DynamicLinksService, and adds it to the App before
     returning it.
 
     Args:
         app: A Firebase App instance (or None to use the default App).
 
     Returns:
-        _LinksService: An `_LinksService` for the specified App instance.
+        _DynamicLinksService: An `_DynamicLinksService` for the specified App instance.
 
     Raises:
         ValueError: If the app argument is invalid.
     """
-    return _utils.get_app_service(app, _LINKS_ATTRIBUTE, _LinksService)
+    return _utils.get_app_service(app, _LINKS_ATTRIBUTE, _DynamicLinksService)
 
 
 class LinkStats(object):
-    """The ``LinkStats`` object is returned by get_link_stats, it contains a list of ``EventStats``"""
+    """The ``LinkStats`` object is returned by get_link_stats, it contains a list of
+       ``EventStats``"""
     def __init__(self, event_stats):
         if not isinstance(event_stats, (list, tuple)):
             raise ValueError('Invalid data argument: {0}. Must be a list or tuple'
                              .format(event_stats))
-        if event_stats and not isinstance(event_stats[0], EventStats):
+        if not all(isinstance(es, EventStats) for es in event_stats):
             raise ValueError('Invalid data argument: elements of event stats must be' +
                              ' "EventStats", found{}'.format(type(event_stats[0])))
         self._stats = event_stats
@@ -117,18 +120,12 @@ class EventStats(object):
 
     def __init__(self, platform, event, count):
         """Create new instance of EventStats(platform, event, count)"""
-        if isinstance(platform, six.string_types) and platform in self._platforms.keys():
-            raise ValueError(('Raw string "{}" detected. Use a dynamic_links.PLATFORM_* constant' +
-                              ' or the make_from_strings() method.').format(platform))
         if not isinstance(platform, six.string_types) or platform not in self._platforms.values():
-            raise ValueError('platform {}, not recognized'.format(platform))
+            raise ValueError('Invalid Platform value "{}".'.format(platform))
         self._platform = platform
 
-        if isinstance(event, six.string_types) and event in self._event_types.keys():
-            raise ValueError(('Raw string {} detected. Use one of the dynamic_links.EVENT_TYPES_' +
-                              ' constants, or the make_from_strings() method.').format(event))
         if not isinstance(event, six.string_types) or event not in self._event_types.values():
-            raise ValueError('event_type {}, not recognized'.format(event))
+            raise ValueError('Invalid Event Type value "{}".'.format(event))
         self._event = event
 
         if not isinstance(count, int) or isinstance(count, bool) or count < 0:
@@ -136,9 +133,9 @@ class EventStats(object):
         self._count = count
 
     @classmethod
-    def make_from_strings(cls, platform, event, count):
-        """make_from_strings creates an EventStat object given the appropriate constants. e.g:
-        make_from_strings(platform=PLATFORM_DESKTOP, event=EVENT_TYPE_REDIRECT, count=4)"""
+    def _make_from_strings(cls, platform, event, count):
+        """_make_from_strings creates an EventStat object given the appropriate constants. e.g:
+        _make_from_strings(platform=PLATFORM_DESKTOP, event=EVENT_TYPE_REDIRECT, count=4)"""
         return EventStats(cls._platforms[platform],
                           cls._event_types[event],
                           int(count))
@@ -158,14 +155,6 @@ class EventStats(object):
 
 class StatOptions(object):
     def __init__(self, duration_days):
-        self.duration_days = duration_days
-
-    @property
-    def duration_days(self):
-        return self._duration_days
-
-    @duration_days.setter
-    def duration_days(self, duration_days):
         if (isinstance(duration_days, bool)
                 or not isinstance(duration_days, int)
                 or duration_days < 1):
@@ -173,7 +162,12 @@ class StatOptions(object):
                              .format(duration_days))
         self._duration_days = duration_days
 
-class _LinksService(object):
+    @property
+    def duration_days(self):
+        return self._duration_days
+
+
+class _DynamicLinksService(object):
     """Provides methods for the Firebase dynamic links interaction"""
 
     INTERNAL_ERROR = 'internal-error'
@@ -188,9 +182,7 @@ class _LinksService(object):
     def _format_request_string(self, short_link, options):
         days = options.duration_days
         # Complaints about the named second argument needed to replace "/"
-        #pylint: disable=redundant-keyword-arg
-        url_quoted = urllib.parse.quote(short_link, safe='')
-        #pylint: enable=redundant-keyword-arg
+        url_quoted = urllib.parse.quote(short_link, safe='') #pylint: disable=redundant-keyword-arg
         return self._request_string.format(url_quoted, days)
 
     def get_stats(self, short_link, stat_options):
@@ -203,13 +195,12 @@ class _LinksService(object):
 
         request_string = self._format_request_string(short_link, stat_options)
         try:
-            resp = self._client.body('get', request_string)
+            resp = self._client.body('get', request_string, timeout=self._timeout)
         except requests.exceptions.RequestException as error:
-
             self._handle_error(error)
         else:
-            link_event_stats_dict = resp.get('linkEventStats', [])
-            event_stats = [EventStats.make_from_strings(**es) for es in link_event_stats_dict]
+            link_event_stats = resp.get('linkEventStats', [])
+            event_stats = [EventStats._make_from_strings(**es) for es in link_event_stats]
             return LinkStats(event_stats)
 
     def _handle_error(self, error):
@@ -225,7 +216,7 @@ class _LinksService(object):
         except ValueError:
             pass
         error_details = data.get('error', {})
-        code = error_details.get('code', 'undefined error code')
+        code = error_details.get('code', _UNKNOWN_ERROR)
         msg = error_details.get('message')
         if not msg:
             msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(

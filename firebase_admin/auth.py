@@ -118,7 +118,7 @@ def revoke_refresh_tokens(uid, app=None):
     While this revokes all sessions for a specified user and disables any new ID tokens for
     existing sessions from getting minted, existing ID tokens may remain active until their
     natural expiration (one hour). To verify that ID tokens are revoked, use
-    `verify_id_token(idToken, check_revoked=True)`.
+    ``verify_id_token(idToken, check_revoked=True)``.
     """
     user_manager = _get_auth_service(app).user_manager
     user_manager.update_user(uid, valid_since=int(time.time()))
@@ -273,7 +273,7 @@ def update_user(uid, **kwargs):
         custom_claims: A dictionary or a JSON string contining the custom claims to be set on the
             user account (optional).
         valid_since: An integer signifying the seconds since the epoch. This field is set by
-            `revoke_refresh_tokens` and it is discouraged to set this field directly.
+            ``revoke_refresh_tokens`` and it is discouraged to set this field directly.
 
     Returns:
         UserRecord: An updated UserRecord instance for the user.

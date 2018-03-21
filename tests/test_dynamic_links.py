@@ -16,17 +16,19 @@
 """Test cases for the firebase_admin.dynamic_links module."""
 
 import json
+from itertools import product
 import pytest
+
+from tests import testutils
 
 import firebase_admin
 from firebase_admin import dynamic_links
 from firebase_admin import credentials
 
-from tests import testutils
 
 MOCK_SHORT_URL = 'https://fake1.app.goo.gl/uQWc'
 MOCK_GET_STATS_RESPONSE = testutils.resource('get_link_stats.json')
-COMPARE_GET_STATS_VALS = testutils.resource('get_link_stats_vals.json')
+COMPARE_GET_STATS_JSON = json.loads(testutils.resource('get_link_stats_vals.json'))
 
 MOCK_CREDENTIAL = credentials.Certificate(
     testutils.resource_filename('service_account.json'))
@@ -86,8 +88,8 @@ class TestGetStats(object):
         for event_stat in link_stats.event_stats:
             assert isinstance(event_stat, dynamic_links.EventStats)
 
-        assert len(COMPARE_GET_STATS_VALS) == len(link_stats.event_stats)
-        for (direct, returned) in zip(COMPARE_GET_STATS_VALS, link_stats.event_stats):
+        assert len(COMPARE_GET_STATS_JSON) == len(link_stats.event_stats)
+        for (direct, returned) in zip(COMPARE_GET_STATS_JSON, link_stats.event_stats):
             assert returned.platform == direct['platform']
             assert returned.event == direct['event']
             assert returned.count == direct['count']
@@ -127,63 +129,49 @@ class TestGetStats(object):
 
 
 class TestEventStats(object):
-    @pytest.mark.parametrize('platform', dynamic_links.EventStats._platforms.keys())
-    def test_valid_platform_values(self, platform):
+    @pytest.mark.parametrize('platform, event',
+                             product(dynamic_links._platforms.keys(),
+                                     dynamic_links._event_types.keys()))
+    def test_valid_platform_values(self, platform, event):
         event_stats = dynamic_links.EventStats(
-            platform=dynamic_links.EventStats._platforms[platform],
-            event=dynamic_links.EVENT_TYPE_CLICK,
-            count=1)
-        assert event_stats.platform == dynamic_links.EventStats._platforms[platform]
+            platform=platform,
+            event=event,
+            count='1')
+        assert event_stats.platform == dynamic_links._platforms[platform]
+        assert event_stats.event == dynamic_links._event_types[event]
+        assert event_stats.count == 1
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['unrecognized'])
     def test_invalid_platform_values(self, arg):
         with pytest.raises(ValueError) as excinfo:
             dynamic_links.EventStats(
                 platform=arg,
-                event=dynamic_links.EVENT_TYPE_CLICK,
-                count=1)
-        assert 'not recognized' in str(excinfo.value)
+                event='CLICK',
+                count='1')
+        assert 'Invalid Platform value' in str(excinfo.value)
 
-    @pytest.mark.parametrize('arg', dynamic_links.EventStats._platforms.keys())
-    def test_raw_platform_values_invalid(self, arg):
-        with pytest.raises(ValueError) as excinfo:
-            dynamic_links.EventStats(
-                platform=arg,
-                event=dynamic_links.EVENT_TYPE_CLICK,
-                count=1)
-        assert 'Raw string' in str(excinfo.value)
-
-    @pytest.mark.parametrize('event', dynamic_links.EventStats._event_types.keys())
+    @pytest.mark.parametrize('event', dynamic_links._event_types.keys())
     def test_valid_event_values(self, event):
         event_stats = dynamic_links.EventStats(
-            platform=dynamic_links.PLATFORM_ANDROID,
-            event=dynamic_links.EventStats._event_types[event],
-            count=1)
-        assert event_stats.event == dynamic_links.EventStats._event_types[event]
+            platform='ANDROID',
+            event=event,
+            count='1')
+        assert event_stats.event == dynamic_links._event_types[event]
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['unrecognized'])
     def test_invalid_event_values(self, arg):
         with pytest.raises(ValueError) as excinfo:
             dynamic_links.EventStats(
-                platform=dynamic_links.PLATFORM_ANDROID,
+                platform='ANDROID',
                 event=arg,
-                count=1)
-        assert 'not recognized' in str(excinfo.value)
-
-    @pytest.mark.parametrize('arg', dynamic_links.EventStats._event_types.keys())
-    def test_raw_event_values_invalid(self, arg):
-        with pytest.raises(ValueError) as excinfo:
-            dynamic_links.EventStats(
-                platform=dynamic_links.PLATFORM_ANDROID,
-                event=arg,
-                count=1)
-        assert 'Raw string' in str(excinfo.value)
+                count='1')
+        assert 'Invalid Event Type value' in str(excinfo.value)
 
     @pytest.mark.parametrize('count', [1, 123, 1234])
     def test_valid_count_values(self, count):
         event_stats = dynamic_links.EventStats(
-            platform=dynamic_links.PLATFORM_ANDROID,
-            event=dynamic_links.EVENT_TYPE_CLICK,
+            platform='ANDROID',
+            event='CLICK',
             count=count)
         assert event_stats.count == count
 
@@ -191,8 +179,8 @@ class TestEventStats(object):
     def test_invalid_count_values(self, arg):
         with pytest.raises(ValueError) as excinfo:
             dynamic_links.EventStats(
-                platform=dynamic_links.PLATFORM_ANDROID,
-                event=dynamic_links.EVENT_TYPE_CLICK,
+                platform='ANDROID',
+                event='CLICK',
                 count=arg)
         assert 'must be a non negative int' in str(excinfo.value)
 

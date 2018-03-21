@@ -25,10 +25,6 @@ from firebase_admin import _http_client
 from firebase_admin import _utils
 
 
-_LINKS_ATTRIBUTE = '_dynamic_links'
-_LINKS_BASE_URL = 'https://firebasedynamiclinks.googleapis.com/v1/'
-
-_UNKNOWN_ERROR = 'unknown-error'
 
 PLATFORM_DESKTOP = 'desktop'
 PLATFORM_IOS = 'ios'
@@ -40,6 +36,24 @@ EVENT_TYPE_APP_INSTALL = 'app_install'
 EVENT_TYPE_APP_FIRST_OPEN = 'app_first_open'
 EVENT_TYPE_APP_RE_OPEN = 'app_re_open'
 
+_platforms = {
+    'DESKTOP': PLATFORM_DESKTOP,
+    'IOS': PLATFORM_IOS,
+    'ANDROID': PLATFORM_ANDROID
+}
+
+_event_types = {
+    'CLICK': EVENT_TYPE_CLICK,
+    'REDIRECT': EVENT_TYPE_REDIRECT,
+    'APP_INSTALL': EVENT_TYPE_APP_INSTALL,
+    'APP_FIRST_OPEN': EVENT_TYPE_APP_FIRST_OPEN,
+    'APP_RE_OPEN': EVENT_TYPE_APP_RE_OPEN
+}
+
+_LINKS_ATTRIBUTE = '_dynamic_links'
+_LINKS_BASE_URL = 'https://firebasedynamiclinks.googleapis.com/v1/'
+
+_UNKNOWN_ERROR = 'unknown-error'
 def get_link_stats(short_link, stat_options, app=None):
     """ Returns a ``LinkStats`` object with the event statistics for the given short link
 
@@ -104,41 +118,39 @@ class LinkStats(object):
 class EventStats(object):
     """``EventStat`` is a single stat item containing (platform, event, count)"""
 
-    _platforms = {
-        'DESKTOP': PLATFORM_DESKTOP,
-        'IOS': PLATFORM_IOS,
-        'ANDROID': PLATFORM_ANDROID
-    }
+    def __init__(self, **kwargs):
+        """Create new instance of EventStats(platform, event, count)
+           The input values are the strings returned by the REST call.
+           The internal values stored in the ``EventStats`` object are
+           the package constants named at the start of this package."""
+        required = {'platform', 'event', 'count'}
+        params = set(kwargs.keys())
+        missing = required - params
+        unexpected = params - required
+        if missing:
+            raise ValueError('Missing arguments for EventStats: {}'.format(missing))
+        if unexpected:
+            raise ValueError('Unexpected arguments for EventStats: {}'.format(unexpected))
 
-    _event_types = {
-        'CLICK': EVENT_TYPE_CLICK,
-        'REDIRECT': EVENT_TYPE_REDIRECT,
-        'APP_INSTALL': EVENT_TYPE_APP_INSTALL,
-        'APP_FIRST_OPEN': EVENT_TYPE_APP_FIRST_OPEN,
-        'APP_RE_OPEN': EVENT_TYPE_APP_RE_OPEN
-    }
-
-    def __init__(self, platform, event, count):
-        """Create new instance of EventStats(platform, event, count)"""
-        if not isinstance(platform, six.string_types) or platform not in self._platforms.values():
+        platform = kwargs['platform']
+        if not isinstance(platform, six.string_types) or platform not in _platforms.keys():
             raise ValueError('Invalid Platform value "{}".'.format(platform))
-        self._platform = platform
+        self._platform = _platforms[platform]
 
-        if not isinstance(event, six.string_types) or event not in self._event_types.values():
+        event = kwargs['event']
+        if not isinstance(event, six.string_types) or event not in _event_types.keys():
             raise ValueError('Invalid Event Type value "{}".'.format(event))
-        self._event = event
+        self._event = _event_types[event]
 
-        if not isinstance(count, int) or isinstance(count, bool) or count < 0:
-            raise ValueError('Count: {} must be a non negative int'.format(count))
-        self._count = count
+        count = kwargs['count']
+        if(not ((isinstance(count, six.string_types)    # a string
+                 and count.isdigit())                   # ... that is made of digits(non negative)
+                or (not isinstance(count, bool)         # bool is confused as an instance of int
+                    and isinstance(count, (int, float)) # number
+                    and count >= 0))):                  # non negative
+            raise ValueError('Invalid Count, must be a non negative int, "{}".'.format(count))
+        self._count = int(count)
 
-    @classmethod
-    def _make_from_strings(cls, platform, event, count):
-        """_make_from_strings creates an EventStat object given the appropriate constants. e.g:
-        _make_from_strings(platform=PLATFORM_DESKTOP, event=EVENT_TYPE_REDIRECT, count=4)"""
-        return EventStats(cls._platforms[platform],
-                          cls._event_types[event],
-                          int(count))
 
     @property
     def platform(self):
@@ -200,7 +212,7 @@ class _DynamicLinksService(object):
             self._handle_error(error)
         else:
             link_event_stats = resp.get('linkEventStats', [])
-            event_stats = [EventStats._make_from_strings(**es) for es in link_event_stats]
+            event_stats = [EventStats(**es) for es in link_event_stats]
             return LinkStats(event_stats)
 
     def _handle_error(self, error):

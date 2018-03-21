@@ -56,7 +56,7 @@ class TestServerErrors(object):
 
     @pytest.mark.skipif(not dynamic_links_e2e_url,
                         reason="End-to-end tests not set up, see CONTRIBTING.md file.")
-    def test_bad_unauthorized(self):
+    def test_bad_request(self):
         with pytest.raises(dynamic_links.ApiCallError) as excinfo:
             dynamic_links.get_link_stats(
                 dynamic_links_e2e_url+"/too/many/slashes/in/shortlink",

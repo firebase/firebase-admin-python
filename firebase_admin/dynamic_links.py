@@ -72,7 +72,7 @@ def get_link_stats(short_link, stat_options, app=None):
         short_link: The string of the designated short link. e.g. https://abc12.app.goo.gl/link
                     The credential with which the firebase.App is initialized must be associated
                     with the project that the requested link belongs to.
-        stat_options: An object containing a single field "duration_days" for which the statistics
+        stat_options: An object containing a single field "last_n_days" for which the statistics
                       are retrieved.
         app: A Firebase ``App instance`` (optional). (If missing uses default app.)
 
@@ -82,7 +82,7 @@ def get_link_stats(short_link, stat_options, app=None):
     Raises:
         ValueError: If any of the arguments are invalid.
             ``short_link`` must start with the "https" protocol.
-            ``stat_options`` must have duration_days > 0.
+            ``stat_options`` must have last_n_days > 0.
     """
     return _get_link_service(app).get_stats(short_link, stat_options)
 
@@ -179,17 +179,17 @@ class EventStats(object):
 
 
 class StatOptions(object):
-    def __init__(self, duration_days):
-        if (isinstance(duration_days, bool)
-                or not isinstance(duration_days, int)
-                or duration_days < 1):
-            raise ValueError('duration_days must be positive integer (got {})'
-                             .format(duration_days))
-        self._duration_days = duration_days
+    def __init__(self, last_n_days):
+        if (isinstance(last_n_days, bool)
+                or not isinstance(last_n_days, int)
+                or last_n_days < 1):
+            raise ValueError('last_n_days must be positive integer (got {})'
+                             .format(last_n_days))
+        self._last_n_days = last_n_days
 
     @property
-    def duration_days(self):
-        return self._duration_days
+    def last_n_days(self):
+        return self._last_n_days
 
 
 class _DynamicLinksService(object):
@@ -203,7 +203,7 @@ class _DynamicLinksService(object):
         self._request_string = '{0}/linkStats?durationDays={1}'
 
     def _format_request_string(self, short_link, options):
-        days = options.duration_days
+        days = options.last_n_days
         # Complaints about the named second argument needed to replace "/"
         url_quoted = urllib.parse.quote(short_link, safe='')  # pylint: disable=redundant-keyword-arg
         return self._request_string.format(url_quoted, days)

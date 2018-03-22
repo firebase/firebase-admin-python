@@ -34,14 +34,14 @@ class TestEndToEnd(object):
     def test_get_stats(self):
         link_stats = dynamic_links.get_link_stats(
             dynamic_links_e2e_url,
-            dynamic_links.StatOptions(duration_days=4000))
+            dynamic_links.StatOptions(last_n_days=4000))
         assert isinstance(link_stats, dynamic_links.LinkStats)
         assert len(link_stats.event_stats) > 0
 
     def test_get_stats_nonexistant_link(self):
         link_stats = dynamic_links.get_link_stats(
             dynamic_links_e2e_url + 'some_arbitary_unlikely_string_ZXCzxcASDasdQWEqwe',
-            dynamic_links.StatOptions(duration_days=4000))
+            dynamic_links.StatOptions(last_n_days=4000))
         assert isinstance(link_stats, dynamic_links.LinkStats)
         assert len(link_stats.event_stats) == 0
 
@@ -50,7 +50,7 @@ class TestServerErrors(object):
         with pytest.raises(dynamic_links.ApiCallError) as excinfo:
             dynamic_links.get_link_stats(
                 'https://fake1.app.goo.gl/uQWc',
-                dynamic_links.StatOptions(duration_days=4000))
+                dynamic_links.StatOptions(last_n_days=4000))
         assert excinfo.value.code == 'authentication-error'
 
     @pytest.mark.skipif(not dynamic_links_e2e_url,
@@ -59,6 +59,6 @@ class TestServerErrors(object):
         with pytest.raises(dynamic_links.ApiCallError) as excinfo:
             dynamic_links.get_link_stats(
                 dynamic_links_e2e_url + '/too/many/slashes/in/shortlink',
-                dynamic_links.StatOptions(duration_days=4000))
+                dynamic_links.StatOptions(last_n_days=4000))
         assert excinfo.value.code == 'invalid-argument'
         assert 'Request contains an invalid argument' in str(excinfo.value)

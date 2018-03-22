@@ -78,7 +78,7 @@ class TestGetStats(object):
     def test_get_stats(self, dynamic_links_test):
         _, recorder = dynamic_links_test._instrument_dynamic_links(
             payload=MOCK_GET_STATS_RESPONSE)
-        options = dynamic_links.StatOptions(duration_days=9)
+        options = dynamic_links.StatOptions(last_n_days=9)
         link_stats = dynamic_links.get_link_stats(
             MOCK_SHORT_URL, options, app=dynamic_links_test.app)
         assert recorder[0].url.startswith('https://firebasedynamiclinks.googleapis.com')
@@ -96,7 +96,7 @@ class TestGetStats(object):
 
     @pytest.mark.parametrize('error_code', [400, 401, 500])
     def test_server_error(self, dynamic_links_test, error_code):
-        options = dynamic_links.StatOptions(duration_days=9)
+        options = dynamic_links.StatOptions(last_n_days=9)
         dynamic_links_test._instrument_dynamic_links(
             payload=json.dumps({'error':  {
                 'status': 'INTERNAL_ERROR',
@@ -111,7 +111,7 @@ class TestGetStats(object):
 
     @pytest.mark.parametrize('error_code', [400, 401, 500])
     def test_server_unformatted_error(self, dynamic_links_test, error_code):
-        options = dynamic_links.StatOptions(duration_days=9)
+        options = dynamic_links.StatOptions(last_n_days=9)
         dynamic_links_test._instrument_dynamic_links(
             payload='custom error message',
             status=error_code)
@@ -122,7 +122,7 @@ class TestGetStats(object):
         assert excinfo.value.code == dynamic_links._UNKNOWN_ERROR
 
     def test_server_non_payload_error(self, dynamic_links_test):
-        options = dynamic_links.StatOptions(duration_days=9)
+        options = dynamic_links.StatOptions(last_n_days=9)
         dynamic_links_test._instrument_dynamic_links(
             payload='',
             status=400)
@@ -135,30 +135,30 @@ class TestGetStats(object):
 
     @pytest.mark.parametrize('invalid_url', ['google.com'] + INVALID_STRINGS)
     def test_get_stats_invalid_url(self, dynamic_links_test, invalid_url):
-        options = dynamic_links.StatOptions(duration_days=9)
+        options = dynamic_links.StatOptions(last_n_days=9)
         with pytest.raises(ValueError) as excinfo:
             dynamic_links.get_link_stats(invalid_url, options, app=dynamic_links_test.app)
         assert 'short_link must be a string and begin with "https://".' in str(excinfo.value)
-        
+
     @pytest.mark.parametrize('invalid_options', INVALID_STRINGS)
     def test_get_stats_invalid_options(self, dynamic_links_test, invalid_options):
         with pytest.raises(ValueError) as excinfo:
             dynamic_links.get_link_stats(
                 MOCK_SHORT_URL, invalid_options, app=dynamic_links_test.app)
         assert 'stat_options must be of type StatOptions.' in str(excinfo.value)
-        
+
     @pytest.mark.parametrize('invalid_duration', [0] + INVALID_NON_NEGATIVE_NUMS)
-    def test_get_stats_invalid_duration_days(self, invalid_duration):
+    def test_get_stats_invalid_last_n_days(self, invalid_duration):
         with pytest.raises(ValueError) as excinfo:
-            dynamic_links.StatOptions(duration_days=invalid_duration)
-        assert 'duration_days' in str(excinfo.value)
+            dynamic_links.StatOptions(last_n_days=invalid_duration)
+        assert 'last_n_days' in str(excinfo.value)
         assert 'must be positive int' in str(excinfo.value)
 
 
 class TestEventStats(object):
     @pytest.mark.parametrize('platform, event',
-        itertools.product(dynamic_links._platforms.keys(),
-                          dynamic_links._event_types.keys()))
+                             itertools.product(dynamic_links._platforms.keys(),
+                                               dynamic_links._event_types.keys()))
     def test_valid_platform_values(self, platform, event):
         event_stats = dynamic_links.EventStats(
             platform=platform,

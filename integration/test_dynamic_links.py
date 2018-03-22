@@ -18,17 +18,16 @@ import sys
 import pytest
 
 from firebase_admin import dynamic_links
-
 from tests import testutils
 
 dynamic_links_e2e_url = ''
 try:
     dynamic_links_e2e_url = testutils.resource('dynamic_links_e2e_url.txt').strip()
 except IOError:
-    sys.stderr.write("\nEnd-to-end tests not set up, see CONTRIBUTING.md file.\n")
+    sys.stderr.write('\nEnd-to-end tests not set up, see CONTRIBUTING.md file.\n')
 
 @pytest.mark.skipif(not dynamic_links_e2e_url,
-                    reason="End-to-end tests not set up, see CONTRIBTING.md file.")
+                    reason='End-to-end tests not set up, see CONTRIBTING.md file.')
 class TestEndToEnd(object):
     """Runs an end-to-end test, see comment string for setup."""
 
@@ -52,14 +51,26 @@ class TestServerErrors(object):
             dynamic_links.get_link_stats(
                 'https://fake1.app.goo.gl/uQWc',
                 dynamic_links.StatOptions(duration_days=4000))
-        assert excinfo.value.code == 403
+        assert excinfo.value.code == 'authentication-error'
+        print(excinfo.value, dir(excinfo.value))
+        
+        print(excinfo.value, dir(excinfo.value), "\nARGS: ", excinfo.value.args,
+        "\nCODE : ", excinfo.value.code,
+        "\nDETAIL",
+         excinfo.value.detail, "\n\nh:",dir(excinfo.value.detail))
 
     @pytest.mark.skipif(not dynamic_links_e2e_url,
-                        reason="End-to-end tests not set up, see CONTRIBTING.md file.")
+                        reason='End-to-end tests not set up, see CONTRIBTING.md file.')
     def test_bad_request(self):
         with pytest.raises(dynamic_links.ApiCallError) as excinfo:
             dynamic_links.get_link_stats(
-                dynamic_links_e2e_url+"/too/many/slashes/in/shortlink",
+                dynamic_links_e2e_url + '/too/many/slashes/in/shortlink',
                 dynamic_links.StatOptions(duration_days=4000))
-        assert excinfo.value.code == 400
+        assert excinfo.value.code == 'invalid-argument'
         assert 'Request contains an invalid argument' in str(excinfo.value)
+        
+        print(excinfo.value, dir(excinfo.value), "\nARGS: ", excinfo.value.args,
+        "\nCODE : ", excinfo.value.code,
+        "\nDETAIL",
+         excinfo.value.detail, "\n\nh:",dir(excinfo.value.detail))
+

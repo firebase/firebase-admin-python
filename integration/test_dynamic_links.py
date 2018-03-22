@@ -52,12 +52,6 @@ class TestServerErrors(object):
                 'https://fake1.app.goo.gl/uQWc',
                 dynamic_links.StatOptions(duration_days=4000))
         assert excinfo.value.code == 'authentication-error'
-        print(excinfo.value, dir(excinfo.value))
-        
-        print(excinfo.value, dir(excinfo.value), "\nARGS: ", excinfo.value.args,
-        "\nCODE : ", excinfo.value.code,
-        "\nDETAIL",
-         excinfo.value.detail, "\n\nh:",dir(excinfo.value.detail))
 
     @pytest.mark.skipif(not dynamic_links_e2e_url,
                         reason='End-to-end tests not set up, see CONTRIBTING.md file.')
@@ -68,9 +62,3 @@ class TestServerErrors(object):
                 dynamic_links.StatOptions(duration_days=4000))
         assert excinfo.value.code == 'invalid-argument'
         assert 'Request contains an invalid argument' in str(excinfo.value)
-        
-        print(excinfo.value, dir(excinfo.value), "\nARGS: ", excinfo.value.args,
-        "\nCODE : ", excinfo.value.code,
-        "\nDETAIL",
-         excinfo.value.detail, "\n\nh:",dir(excinfo.value.detail))
-

@@ -70,8 +70,8 @@ def get_link_stats(short_link, stat_options, app=None):
 
     Args:
         short_link: The string of the designated short link. e.g. https://abc12.app.goo.gl/link
-                    The link must belong to the project associated with the service account
-                    used to call this API.
+                    The credential with which the firebase.App is initialized must be associated
+                    with the requested link.
         stat_options: An object containing a single field "duration_days" for which the statistics
                       are retrieved.
         app: A Firebase ``App instance`` (optional). (If missing uses default app.)

@@ -22,11 +22,10 @@ def get_link_stats():
     # arrange the list results in a dict
     results = dict()
     for stat in stats.event_stats:
-        results[(stat.platform, stat.event_type)] = stat.count
+        results[(stat.platform, stat.event)] = stat.count
+    andoid_click = results.get((dynamic_links.PLATFORM_ANDROID,
+                                dynamic_links.EVENT_TYPE_CLICK))
 
-    ios_first_installs = results.get([(dynamic_links.PLATFORM_IOS,
-                                       dynamic_links.EVENT_TYPE_APP_FIRST_OPEN)])
-
-    if ios_first_installs:
-        print('There were {} first install on IOS in the last 7 days'.format(ios_first_installs))
+    if andoid_click:
+        print('There were {} clicks on ANDROID in the last 7 days'.format(andoid_click))
     # [END get_link_stats]

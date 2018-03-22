@@ -619,7 +619,7 @@ class TestApsEncoder(object):
                         badge=42,
                         sound='s',
                         content_available=True,
-                        content_mutable=True,
+                        mutable_content=True,
                         category='c',
                         thread_id='t'
                     ),
@@ -635,7 +635,7 @@ class TestApsEncoder(object):
                         'badge': 42,
                         'sound': 's',
                         'content-available': 1,
-                        'content-mutable': 1,
+                        'mutable-content': 1,
                         'category': 'c',
                         'thread-id': 't',
                     },

@@ -484,7 +484,7 @@ class UserRecord(UserInfo):
 
     @property
     def provider_data(self):
-        """Returns a list of UserInfo instances.
+        """List of UserInfo instances.
 
         Each object represents an identity from an identity provider that is linked to this user.
 

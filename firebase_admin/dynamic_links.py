@@ -107,8 +107,7 @@ def _get_link_service(app):
 
 
 class LinkStats(object):
-    """The ``LinkStats`` object is returned by get_link_stats, it contains a list of
-       ``EventStats``"""
+    """The ``LinkStats`` object contains a list of ``EventStats``"""
 
     def __init__(self, event_stats):
         if not isinstance(event_stats, (list, tuple)):
@@ -130,7 +129,7 @@ class LinkStats(object):
 
 
 class EventStats(object):
-    """``EventStat`` is a single stat item containing (platform, event, count)
+    """``EventStat`` is a single stats item containing (platform, event, count)
 
        The constructor input values are the strings returned by the REST call.
        e.g. "ANDROID", or "APP_RE_OPEN". See the Dynamic Links `API docs`_ .

@@ -587,6 +587,28 @@ class TestApsEncoder(object):
         expected = 'Aps.thread_id must be a string.'
         assert str(excinfo.value) == expected
 
+    @pytest.mark.parametrize('data', ['', list(), tuple(), True, False, 1, 0, ])
+    def test_invalid_custom_field_dict(self, data):
+        if isinstance(data, dict):
+            return
+        aps = messaging.Aps(custom_fields=data)
+        excinfo = self._check_aps(aps)
+        expected = 'Aps.custom_fields must be a dict.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', [True, False, 1, 0])
+    def test_invalid_custom_field_name(self, data):
+        aps = messaging.Aps(custom_fields={data: 'foo'})
+        excinfo = self._check_aps(aps)
+        expected = 'Aps.custom_fields key must be a string.'
+        assert str(excinfo.value) == expected
+
+    def test_multiple_field_specifications(self):
+        aps = messaging.Aps(thread_id='foo', custom_fields={'thread-id': 'foo'})
+        excinfo = self._check_aps(aps)
+        expected = 'Multiple specifications for thread-id in Aps.'
+        assert str(excinfo.value) == expected
+
     def test_aps(self):
         msg = messaging.Message(
             topic='topic',
@@ -597,6 +619,7 @@ class TestApsEncoder(object):
                         badge=42,
                         sound='s',
                         content_available=True,
+                        content_mutable=True,
                         category='c',
                         thread_id='t'
                     ),
@@ -612,8 +635,35 @@ class TestApsEncoder(object):
                         'badge': 42,
                         'sound': 's',
                         'content-available': 1,
+                        'content-mutable': 1,
                         'category': 'c',
                         'thread-id': 't',
+                    },
+                }
+            },
+        }
+        check_encoding(msg, expected)
+
+    def test_aps_custom_fields(self):
+        msg = messaging.Message(
+            topic='topic',
+            apns=messaging.APNSConfig(
+                payload=messaging.APNSPayload(
+                    aps=messaging.Aps(
+                        alert='alert text',
+                        custom_fields={'k1': 'v1', 'k2': 1},
+                    ),
+                )
+            )
+        )
+        expected = {
+            'topic': 'topic',
+            'apns': {
+                'payload': {
+                    'aps': {
+                        'alert': 'alert text',
+                        'k1': 'v1',
+                        'k2': 1,
                     },
                 }
             },

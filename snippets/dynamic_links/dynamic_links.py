@@ -27,5 +27,5 @@ def get_link_stats():
                                 dynamic_links.EVENT_TYPE_CLICK))
 
     if andoid_click:
-        print('There were {} clicks on ANDROID in the last 7 days'.format(andoid_click))
+        print 'There were {} clicks on ANDROID in the last 7 days'.format(andoid_click)
     # [END get_link_stats]

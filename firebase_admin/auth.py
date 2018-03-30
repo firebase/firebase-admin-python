@@ -22,6 +22,9 @@ creating and managing user accounts in Firebase projects.
 import json
 import time
 
+from google.auth import transport
+
+import firebase_admin
 from firebase_admin import _token_gen
 from firebase_admin import _user_mgt
 from firebase_admin import _utils
@@ -39,13 +42,13 @@ def _get_auth_service(app):
     returning it.
 
     Args:
-      app: A Firebase App instance (or None to use the default App).
+        app: A Firebase App instance (or None to use the default App).
 
     Returns:
-      _AuthService: An _AuthService for the specified App instance.
+        _AuthService: An _AuthService for the specified App instance.
 
     Raises:
-      ValueError: If the app argument is invalid.
+        ValueError: If the app argument is invalid.
     """
     return _utils.get_app_service(app, _AUTH_ATTRIBUTE, _AuthService)
 
@@ -54,16 +57,16 @@ def create_custom_token(uid, developer_claims=None, app=None):
     """Builds and signs a Firebase custom auth token.
 
     Args:
-      uid: ID of the user for whom the token is created.
-      developer_claims: A dictionary of claims to be included in the token
-          (optional).
-      app: An App instance (optional).
+        uid: ID of the user for whom the token is created.
+        developer_claims: A dictionary of claims to be included in the token
+            (optional).
+        app: An App instance (optional).
 
     Returns:
-      bytes: A token minted from the input parameters.
+        bytes: A token minted from the input parameters.
 
     Raises:
-      ValueError: If input parameters are invalid.
+        ValueError: If input parameters are invalid.
     """
     token_generator = _get_auth_service(app).token_generator
     return token_generator.create_custom_token(uid, developer_claims)
@@ -76,17 +79,17 @@ def verify_id_token(id_token, app=None, check_revoked=False):
     to this project, and that it was correctly signed by Google.
 
     Args:
-      id_token: A string of the encoded JWT.
-      app: An App instance (optional).
-      check_revoked: Boolean, If true, checks whether the token has been revoked (optional).
+        id_token: A string of the encoded JWT.
+        app: An App instance (optional).
+        check_revoked: Boolean, If true, checks whether the token has been revoked (optional).
 
     Returns:
-      dict: A dictionary of key-value pairs parsed from the decoded JWT.
+        dict: A dictionary of key-value pairs parsed from the decoded JWT.
 
     Raises:
-      ValueError: If the JWT was found to be invalid, or if the App was not
-          initialized with a credentials.Certificate.
-      AuthError: If check_revoked is requested and the token was revoked.
+        ValueError: If the JWT was found to be invalid, or if the App was not
+            initialized with a credentials.Certificate.
+        AuthError: If check_revoked is requested and the token was revoked.
     """
     if not isinstance(check_revoked, bool):
         # guard against accidental wrong assignment.
@@ -99,6 +102,30 @@ def verify_id_token(id_token, app=None, check_revoked=False):
         if  verified_claims.get('iat') * 1000 < user.tokens_valid_after_timestamp:
             raise AuthError(_ID_TOKEN_REVOKED, 'The Firebase ID token has been revoked.')
     return verified_claims
+
+def create_session_cookie(id_token, expires_in, app=None):
+    """Creates a new Firebase session cookie from the given ID token and options.
+
+    The returned JWT can be set as a server-side session cookie with a custom cookie policy.
+
+    Args:
+        id_token: The Firebase ID token to exchange for a session cookie.
+        expires_in: Duration until the cookie is expired. This can be specified
+            as a numeric seconds value or a ``datetime.timedelta`` instance.
+        app: An App instance (optional).
+
+    Returns:
+        bytes: A session cookie generated from the input parameters.
+
+    Raises:
+        ValueError: If input parameters are invalid.
+        AuthError: If an error occurs while creating the cookie.
+    """
+    token_generator = _get_auth_service(app).token_generator
+    try:
+        return token_generator.create_session_cookie(id_token, expires_in)
+    except _token_gen.ApiCallError as error:
+        raise AuthError(error.code, str(error), error.detail)
 
 def revoke_refresh_tokens(uid, app=None):
     """Revokes all refresh tokens for an existing user.
@@ -657,10 +684,12 @@ class AuthError(Exception):
 
 
 class _AuthService(object):
+    """Firebase Authentication service."""
 
     def __init__(self, app):
-        self._token_generator = _token_gen.TokenGenerator(app)
-        self._user_manager = _user_mgt.UserManager(app)
+        client = _AuthHTTPClient(app)
+        self._token_generator = _token_gen.TokenGenerator(app, client)
+        self._user_manager = _user_mgt.UserManager(client)
 
     @property
     def token_generator(self):
@@ -669,3 +698,32 @@ class _AuthService(object):
     @property
     def user_manager(self):
         return self._user_manager
+
+
+class _AuthHTTPClient(object):
+    """An HTTP client for making REST calls to the identity toolkit service."""
+
+    ID_TOOLKIT_URL = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/'
+
+    def __init__(self, app):
+        g_credential = app.credential.get_credential()
+        session = transport.requests.AuthorizedSession(g_credential)
+        version_header = 'Python/Admin/{0}'.format(firebase_admin.__version__)
+        session.headers.update({'X-Client-Version': version_header})
+        self.session = session
+
+    def request(self, method, urlpath, **kwargs):
+        """Makes an HTTP call using the Python requests library.
+
+        Args:
+            method: HTTP method name as a string (e.g. get, post).
+            urlpath: URL path of the endpoint. This will be appended to the server's base URL.
+            kwargs: An additional set of keyword arguments to be passed into requests API
+              (e.g. json, params).
+
+        Returns:
+            dict: The parsed JSON response.
+        """
+        resp = self.session.request(method, self.ID_TOOLKIT_URL + urlpath, **kwargs)
+        resp.raise_for_status()
+        return resp.json()

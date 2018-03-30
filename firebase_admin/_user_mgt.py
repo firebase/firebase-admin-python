@@ -17,7 +17,6 @@
 import json
 import re
 
-from google.auth import transport
 import requests
 import six
 from six.moves import urllib
@@ -225,12 +224,8 @@ class UserManager(object):
         'photoUrl' : 'PHOTO_URL'
     }
 
-    def __init__(self, app):
-        g_credential = app.credential.get_credential()
-        session = transport.requests.AuthorizedSession(g_credential)
-        version_header = 'Python/Admin/{0}'.format(firebase_admin.__version__)
-        session.headers.update({'X-Client-Version': version_header})
-        self._session = session
+    def __init__(self, client):
+        self._client = client
 
     def get_user(self, **kwargs):
         """Gets the user data corresponding to the provided key."""
@@ -250,7 +245,7 @@ class UserManager(object):
             raise ValueError('Unsupported keyword arguments: {0}.'.format(kwargs))
 
         try:
-            response = self._request('post', 'getAccountInfo', json=payload)
+            response = self._client.request('post', 'getAccountInfo', json=payload)
         except requests.exceptions.RequestException as error:
             msg = 'Failed to get user by {0}: {1}.'.format(key_type, key)
             self._handle_http_error(INTERNAL_ERROR, msg, error)
@@ -277,7 +272,7 @@ class UserManager(object):
         if page_token:
             payload['nextPageToken'] = page_token
         try:
-            return self._request('post', 'downloadAccount', json=payload)
+            return self._client.request('post', 'downloadAccount', json=payload)
         except requests.exceptions.RequestException as error:
             self._handle_http_error(USER_DOWNLOAD_ERROR, 'Failed to download user accounts.', error)
 
@@ -286,7 +281,7 @@ class UserManager(object):
         payload = self._init_payload('create_user', UserManager._CREATE_USER_FIELDS, **kwargs)
         self._validate(payload, self._VALIDATORS, 'create user')
         try:
-            response = self._request('post', 'signupNewUser', json=payload)
+            response = self._client.request('post', 'signupNewUser', json=payload)
         except requests.exceptions.RequestException as error:
             self._handle_http_error(USER_CREATE_ERROR, 'Failed to create new user.', error)
         else:
@@ -319,7 +314,7 @@ class UserManager(object):
 
         self._validate(payload, self._VALIDATORS, 'update user')
         try:
-            response = self._request('post', 'setAccountInfo', json=payload)
+            response = self._client.request('post', 'setAccountInfo', json=payload)
         except requests.exceptions.RequestException as error:
             self._handle_http_error(
                 USER_UPDATE_ERROR, 'Failed to update user: {0}.'.format(uid), error)
@@ -332,7 +327,7 @@ class UserManager(object):
         """Deletes the user identified by the specified user ID."""
         _Validator.validate_uid(uid)
         try:
-            response = self._request('post', 'deleteAccount', json={'localId' : uid})
+            response = self._client.request('post', 'deleteAccount', json={'localId' : uid})
         except requests.exceptions.RequestException as error:
             self._handle_http_error(
                 USER_DELETE_ERROR, 'Failed to delete user: {0}.'.format(uid), error)
@@ -364,25 +359,6 @@ class UserManager(object):
             if not validator:
                 raise ValueError('Unsupported property: "{0}" in {1} call.'.format(key, operation))
             validator(value)
-
-    def _request(self, method, urlpath, **kwargs):
-        """Makes an HTTP call using the Python requests library.
-
-        Refer to http://docs.python-requests.org/en/master/api/ for more information on supported
-        options and features.
-
-        Args:
-          method: HTTP method name as a string (e.g. get, post).
-          urlpath: URL path of the remote endpoint. This will be appended to the server's base URL.
-          kwargs: An additional set of keyword arguments to be passed into requests API
-              (e.g. json, params).
-
-        Returns:
-          dict: The parsed JSON response.
-        """
-        resp = self._session.request(method, ID_TOOLKIT_URL + urlpath, **kwargs)
-        resp.raise_for_status()
-        return resp.json()
 
 
 class UserIterator(object):

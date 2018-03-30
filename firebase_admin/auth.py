@@ -32,6 +32,7 @@ from firebase_admin import _utils
 
 _AUTH_ATTRIBUTE = '_auth'
 _ID_TOKEN_REVOKED = 'ID_TOKEN_REVOKED'
+_SESSION_COOKIE_REVOKED = 'SESSION_COOKIE_REVOKED'
 
 
 def _get_auth_service(app):
@@ -87,8 +88,8 @@ def verify_id_token(id_token, app=None, check_revoked=False):
         dict: A dictionary of key-value pairs parsed from the decoded JWT.
 
     Raises:
-        ValueError: If the JWT was found to be invalid, or if the App was not
-            initialized with a credentials.Certificate.
+        ValueError: If the JWT was found to be invalid, or if the App's project ID cannot
+            be determined.
         AuthError: If check_revoked is requested and the token was revoked.
     """
     if not isinstance(check_revoked, bool):
@@ -98,9 +99,7 @@ def verify_id_token(id_token, app=None, check_revoked=False):
     token_verifier = _get_auth_service(app).token_verifier
     verified_claims = token_verifier.verify_id_token(id_token)
     if check_revoked:
-        user = get_user(verified_claims.get('uid'), app)
-        if  verified_claims.get('iat') * 1000 < user.tokens_valid_after_timestamp:
-            raise AuthError(_ID_TOKEN_REVOKED, 'The Firebase ID token has been revoked.')
+        _check_jwt_revoked(verified_claims, _ID_TOKEN_REVOKED, 'ID token', app)
     return verified_claims
 
 def create_session_cookie(id_token, expires_in, app=None):
@@ -126,6 +125,31 @@ def create_session_cookie(id_token, expires_in, app=None):
         return token_generator.create_session_cookie(id_token, expires_in)
     except _token_gen.ApiCallError as error:
         raise AuthError(error.code, str(error), error.detail)
+
+def verify_session_cookie(session_cookie, check_revoked=False, app=None):
+    """Verifies a Firebase session cookie.
+
+    Accepts a session cookie string, verifies that it is current, and issued
+    to this project, and that it was correctly signed by Google.
+
+    Args:
+        session_cookie: A session cookie string to verify.
+        check_revoked: Boolean, if true, checks whether the cookie has been revoked (optional).
+        app: An App instance (optional).
+
+    Returns:
+        dict: A dictionary of key-value pairs parsed from the decoded JWT.
+
+    Raises:
+        ValueError: If the cookie was found to be invalid, or if the App's project ID cannot
+            be determined.
+        AuthError: If check_revoked is requested and the cookie was revoked.
+    """
+    token_verifier = _get_auth_service(app).token_verifier
+    verified_claims = token_verifier.verify_session_cookie(session_cookie)
+    if check_revoked:
+        _check_jwt_revoked(verified_claims, _SESSION_COOKIE_REVOKED, 'session cookie', app)
+    return verified_claims
 
 def revoke_refresh_tokens(uid, app=None):
     """Revokes all refresh tokens for an existing user.
@@ -351,6 +375,11 @@ def delete_user(uid, app=None):
         user_manager.delete_user(uid)
     except _user_mgt.ApiCallError as error:
         raise AuthError(error.code, str(error), error.detail)
+
+def _check_jwt_revoked(verified_claims, error_code, label, app):
+    user = get_user(verified_claims.get('uid'), app=app)
+    if verified_claims.get('iat') * 1000 < user.tokens_valid_after_timestamp:
+        raise AuthError(error_code, 'The Firebase {0} has been revoked.'.format(label))
 
 
 class UserInfo(object):

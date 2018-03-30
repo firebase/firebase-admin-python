@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Test cases for the firebase_admin.auth module."""
+import datetime
 import json
 import os
 import time
@@ -76,6 +77,11 @@ class AuthFixture(object):
         if self.app:
             return auth.verify_id_token(*args, app=self.app, **kwargs)
         return auth.verify_id_token(*args, **kwargs)
+
+    def verify_session_cookie(self, *args, **kwargs):
+        if self.app:
+            return auth.verify_session_cookie(*args, app=self.app, **kwargs)
+        return auth.verify_session_cookie(*args, **kwargs)
 
 def setup_module():
     firebase_admin.initialize_app(MOCK_CREDENTIAL)
@@ -165,8 +171,16 @@ def get_id_token(payload_overrides=None, header_overrides=None):
         payload = _merge_jwt_claims(payload, payload_overrides)
     return jwt.encode(signer, payload, header=headers)
 
+def get_session_cookie(payload_overrides=None, header_overrides=None):
+    payload_overrides = payload_overrides or {}
+    if 'iss' not in payload_overrides:
+        payload_overrides['iss'] = 'https://session.firebase.google.com/{0}'.format(
+            MOCK_CREDENTIAL.project_id)
+    return get_id_token(payload_overrides, header_overrides)
+
 
 TEST_ID_TOKEN = get_id_token()
+TEST_SESSION_COOKIE = get_session_cookie()
 
 class TestCreateCustomToken(object):
 
@@ -208,6 +222,47 @@ class TestCreateCustomToken(object):
     def test_noncert_credential(self, non_cert_app):
         with pytest.raises(ValueError):
             auth.create_custom_token(MOCK_UID, app=non_cert_app)
+
+
+class TestCreateSessionCookie(object):
+
+    @pytest.mark.parametrize('id_token', [None, '', 0, 1, True, False, list(), dict(), tuple()])
+    def test_invalid_id_token(self, user_mgt_app, id_token):
+        with pytest.raises(ValueError):
+            auth.create_session_cookie(id_token, expires_in=3600)
+
+    @pytest.mark.parametrize('expires_in', [
+        None, '', True, False, list(), dict(), tuple(),
+        _token_gen.MIN_SESSION_COOKIE_DURATION_SECONDS - 1,
+        _token_gen.MAX_SESSION_COOKIE_DURATION_SECONDS + 1,
+    ])
+    def test_invalid_expires_in(self, user_mgt_app, expires_in):
+        with pytest.raises(ValueError):
+            auth.create_session_cookie('id_token', expires_in=expires_in)
+
+    @pytest.mark.parametrize('expires_in', [
+        3600, datetime.timedelta(hours=1), datetime.timedelta(milliseconds=3600500)
+    ])
+    def test_valid_args(self, user_mgt_app, expires_in):
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"sessionCookie": "cookie"}')
+        cookie = auth.create_session_cookie('id_token', expires_in=expires_in, app=user_mgt_app)
+        assert cookie == 'cookie'
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'idToken' : 'id_token', 'validDuration': 3600}
+
+    def test_error(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
+        with pytest.raises(auth.AuthError) as excinfo:
+            auth.create_session_cookie('id_token', expires_in=3600, app=user_mgt_app)
+        assert excinfo.value.code == _token_gen.COOKIE_CREATE_ERROR
+        assert '{"error":"test"}' in str(excinfo.value)
+
+    def test_unexpected_response(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 200, '{}')
+        with pytest.raises(auth.AuthError) as excinfo:
+            auth.create_session_cookie('id_token', expires_in=3600, app=user_mgt_app)
+        assert excinfo.value.code == _token_gen.COOKIE_CREATE_ERROR
+        assert 'Failed to create session cookie' in str(excinfo.value)
 
 
 class TestVerifyIdToken(object):
@@ -271,7 +326,7 @@ class TestVerifyIdToken(object):
     @pytest.mark.parametrize('arg', INVALID_BOOLS)
     def test_invalid_check_revoked(self, arg):
         with pytest.raises(ValueError):
-            auth.verify_id_token("id_token", check_revoked=arg)
+            auth.verify_id_token('id_token', check_revoked=arg)
 
     @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
     def test_revoked_token_do_not_check_revoked(self, user_mgt_app, id_token):
@@ -327,6 +382,107 @@ class TestVerifyIdToken(object):
             authtest.verify_id_token(TEST_ID_TOKEN)
 
 
+class TestVerifySessionCookie(object):
+
+    valid_cookies = {
+        'BinaryCookie': TEST_SESSION_COOKIE,
+        'TextCookie': TEST_SESSION_COOKIE.decode('utf-8'),
+    }
+
+    invalid_cookies = {
+        'NoKid': get_session_cookie(header_overrides={'kid': None}),
+        'WrongKid': get_session_cookie(header_overrides={'kid': 'foo'}),
+        'BadAudience': get_session_cookie({'aud': 'bad-audience'}),
+        'BadIssuer': get_session_cookie({
+            'iss': 'https://session.firebase.google.com/wrong-issuer'
+        }),
+        'EmptySubject': get_session_cookie({'sub': ''}),
+        'IntSubject': get_session_cookie({'sub': 10}),
+        'LongStrSubject': get_session_cookie({'sub': 'a' * 129}),
+        'FutureCookie': get_session_cookie({'iat': int(time.time()) + 1000}),
+        'ExpiredCookie': get_session_cookie({
+            'iat': int(time.time()) - 10000,
+            'exp': int(time.time()) - 3600
+        }),
+        'NoneCookie': None,
+        'EmptyCookie': '',
+        'BoolCookie': True,
+        'IntCookie': 1,
+        'ListCookie': [],
+        'EmptyDictCookie': {},
+        'NonEmptyDictCookie': {'a': 1},
+        'BadFormatCookie': 'foobar'
+    }
+
+    def setup_method(self):
+        _token_gen._request = testutils.MockRequest(200, MOCK_PUBLIC_CERTS)
+
+    @pytest.mark.parametrize('cookie', valid_cookies.values(), ids=list(valid_cookies))
+    def test_valid_cookie(self, authtest, cookie):
+        claims = authtest.verify_session_cookie(cookie)
+        assert claims['admin'] is True
+        assert claims['uid'] == claims['sub']
+
+    @pytest.mark.parametrize('cookie', valid_cookies.values(), ids=list(valid_cookies))
+    def test_valid_cookie_check_revoked(self, user_mgt_app, cookie):
+        _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_RESPONSE)
+        claims = auth.verify_session_cookie(cookie, app=user_mgt_app, check_revoked=True)
+        assert claims['admin'] is True
+        assert claims['uid'] == claims['sub']
+
+    @pytest.mark.parametrize('cookie', valid_cookies.values(), ids=list(valid_cookies))
+    def test_revoked_cookie_check_revoked(self, user_mgt_app, cookie):
+        _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_REVOKED_TOKENS_RESPONSE)
+
+        with pytest.raises(auth.AuthError) as excinfo:
+            auth.verify_session_cookie(cookie, app=user_mgt_app, check_revoked=True)
+
+        assert excinfo.value.code == 'SESSION_COOKIE_REVOKED'
+        assert str(excinfo.value) == 'The Firebase session cookie has been revoked.'
+
+    @pytest.mark.parametrize('cookie', valid_cookies.values(), ids=list(valid_cookies))
+    def test_revoked_cookie_does_not_check_revoked(self, user_mgt_app, cookie):
+        _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_REVOKED_TOKENS_RESPONSE)
+        claims = auth.verify_session_cookie(cookie, app=user_mgt_app, check_revoked=False)
+        assert claims['admin'] is True
+        assert claims['uid'] == claims['sub']
+
+    @pytest.mark.parametrize('cookie', invalid_cookies.values(), ids=list(invalid_cookies))
+    def test_invalid_cookie(self, authtest, cookie):
+        with pytest.raises(ValueError):
+            authtest.verify_session_cookie(cookie)
+
+    def test_project_id_option(self):
+        app = firebase_admin.initialize_app(
+            testutils.MockCredential(), options={'projectId': 'mock-project-id'}, name='myApp')
+        try:
+            claims = auth.verify_session_cookie(TEST_SESSION_COOKIE, app=app)
+            assert claims['admin'] is True
+            assert claims['uid'] == claims['sub']
+        finally:
+            firebase_admin.delete_app(app)
+
+    @pytest.mark.parametrize('env_var_app', [{'GCLOUD_PROJECT': 'mock-project-id'}], indirect=True)
+    def test_project_id_env_var(self, env_var_app):
+        claims = auth.verify_session_cookie(TEST_SESSION_COOKIE, app=env_var_app)
+        assert claims['admin'] is True
+
+    @pytest.mark.parametrize('env_var_app', [{}], indirect=True)
+    def test_no_project_id(self, env_var_app):
+        with pytest.raises(ValueError):
+            auth.verify_session_cookie(TEST_SESSION_COOKIE, app=env_var_app)
+
+    def test_custom_token(self, authtest):
+        custom_token = authtest.create_custom_token(MOCK_UID)
+        with pytest.raises(ValueError):
+            authtest.verify_session_cookie(custom_token)
+
+    def test_certificate_request_failure(self, authtest):
+        _token_gen._request = testutils.MockRequest(404, 'not found')
+        with pytest.raises(exceptions.TransportError):
+            authtest.verify_session_cookie(TEST_SESSION_COOKIE)
+
+
 @pytest.fixture(scope='module')
 def user_mgt_app():
     app = firebase_admin.initialize_app(testutils.MockCredential(), name='userMgt',
@@ -339,7 +495,7 @@ def _instrument_user_manager(app, status, payload):
     user_manager = auth_service.user_manager
     recorder = []
     user_manager._client.session.mount(
-        _user_mgt.ID_TOOLKIT_URL,
+        auth._AuthHTTPClient.ID_TOOLKIT_URL,
         testutils.MockAdapter(payload, status, recorder))
     return user_manager, recorder
 

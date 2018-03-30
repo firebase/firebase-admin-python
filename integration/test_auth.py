@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Integration tests for firebase_admin.auth module."""
+import datetime
 import random
 import time
 import uuid
@@ -55,6 +56,20 @@ def test_custom_token_with_claims(api_key):
     assert claims['uid'] == 'user2'
     assert claims['premium'] is True
     assert claims['subscription'] == 'silver'
+
+def test_session_cookies(api_key):
+    dev_claims = {'premium' : True, 'subscription' : 'silver'}
+    custom_token = auth.create_custom_token('user3', dev_claims)
+    id_token = _sign_in(custom_token, api_key)
+    expires_in = datetime.timedelta(days=1)
+    session_cookie = auth.create_session_cookie(id_token, expires_in=expires_in)
+    claims = auth.verify_session_cookie(session_cookie)
+    assert claims['uid'] == 'user3'
+    assert claims['premium'] is True
+    assert claims['subscription'] == 'silver'
+    assert claims['iss'].startswith('https://session.firebase.google.com')
+    estimated_exp = int(time.time() + expires_in.total_seconds())
+    assert abs(claims['exp'] - estimated_exp) < 5
 
 def test_get_non_existing_user():
     with pytest.raises(auth.AuthError) as excinfo:
@@ -270,4 +285,27 @@ def test_verify_id_token_revoked(new_user, api_key):
     # Sign in again, verify works.
     id_token = _sign_in(custom_token, api_key)
     claims = auth.verify_id_token(id_token, check_revoked=True)
+    assert claims['iat'] * 1000 >= user.tokens_valid_after_timestamp
+
+def test_verify_session_cookie_revoked(new_user, api_key):
+    custom_token = auth.create_custom_token(new_user.uid)
+    id_token = _sign_in(custom_token, api_key)
+    session_cookie = auth.create_session_cookie(id_token, expires_in=datetime.timedelta(days=1))
+
+    time.sleep(1)
+    auth.revoke_refresh_tokens(new_user.uid)
+    claims = auth.verify_session_cookie(session_cookie, check_revoked=False)
+    user = auth.get_user(new_user.uid)
+    # verify_session_cookie succeeded because it didn't check revoked.
+    assert claims['iat'] * 1000 < user.tokens_valid_after_timestamp
+
+    with pytest.raises(auth.AuthError) as excinfo:
+        claims = auth.verify_session_cookie(session_cookie, check_revoked=True)
+    assert excinfo.value.code == auth._SESSION_COOKIE_REVOKED
+    assert str(excinfo.value) == 'The Firebase session cookie has been revoked.'
+
+    # Sign in again, verify works.
+    id_token = _sign_in(custom_token, api_key)
+    session_cookie = auth.create_session_cookie(id_token, expires_in=datetime.timedelta(days=1))
+    claims = auth.verify_session_cookie(session_cookie, check_revoked=True)
     assert claims['iat'] * 1000 >= user.tokens_valid_after_timestamp

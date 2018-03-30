@@ -413,7 +413,8 @@ class TestVerifySessionCookie(object):
         'ListCookie': [],
         'EmptyDictCookie': {},
         'NonEmptyDictCookie': {'a': 1},
-        'BadFormatCookie': 'foobar'
+        'BadFormatCookie': 'foobar',
+        'IDToken': TEST_ID_TOKEN,
     }
 
     def setup_method(self):

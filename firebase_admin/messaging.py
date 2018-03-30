@@ -816,10 +816,17 @@ class _MessagingService(object):
         except ValueError:
             pass
 
-        error_details = data.get('error', {})
-        code = _MessagingService.FCM_ERROR_CODES.get(
-            error_details.get('status'), _MessagingService.UNKNOWN_ERROR)
-        msg = error_details.get('message')
+        error_dict = data.get('error', {})
+        server_code = None
+        for detail in error_dict.get('details', []):
+            if detail.get('@type') == 'type.googleapis.com/google.firebase.fcm.v1.FcmErrorCode':
+                server_code = detail.get('errorCode')
+                break
+        if not server_code:
+            server_code = error_dict.get('status')
+        code = _MessagingService.FCM_ERROR_CODES.get(server_code, _MessagingService.UNKNOWN_ERROR)
+
+        msg = error_dict.get('message')
         if not msg:
             msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(
                 error.response.status_code, error.response.content.decode())

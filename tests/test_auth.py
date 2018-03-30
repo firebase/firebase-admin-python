@@ -228,6 +228,7 @@ class TestCreateSessionCookie(object):
 
     @pytest.mark.parametrize('id_token', [None, '', 0, 1, True, False, list(), dict(), tuple()])
     def test_invalid_id_token(self, user_mgt_app, id_token):
+        del user_mgt_app
         with pytest.raises(ValueError):
             auth.create_session_cookie(id_token, expires_in=3600)
 
@@ -237,6 +238,7 @@ class TestCreateSessionCookie(object):
         _token_gen.MAX_SESSION_COOKIE_DURATION_SECONDS + 1,
     ])
     def test_invalid_expires_in(self, user_mgt_app, expires_in):
+        del user_mgt_app
         with pytest.raises(ValueError):
             auth.create_session_cookie('id_token', expires_in=expires_in)
 

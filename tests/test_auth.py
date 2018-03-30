@@ -27,6 +27,7 @@ import six
 import firebase_admin
 from firebase_admin import auth
 from firebase_admin import credentials
+from firebase_admin import _token_gen
 from firebase_admin import _user_mgt
 from tests import testutils
 
@@ -242,7 +243,7 @@ class TestVerifyIdToken(object):
     }
 
     def setup_method(self):
-        auth._request = testutils.MockRequest(200, MOCK_PUBLIC_CERTS)
+        _token_gen._request = testutils.MockRequest(200, MOCK_PUBLIC_CERTS)
 
     @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
     def test_valid_token(self, authtest, id_token):
@@ -321,7 +322,7 @@ class TestVerifyIdToken(object):
             authtest.verify_id_token(id_token)
 
     def test_certificate_request_failure(self, authtest):
-        auth._request = testutils.MockRequest(404, 'not found')
+        _token_gen._request = testutils.MockRequest(404, 'not found')
         with pytest.raises(exceptions.TransportError):
             authtest.verify_id_token(TEST_ID_TOKEN)
 

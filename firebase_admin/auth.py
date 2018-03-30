@@ -95,8 +95,8 @@ def verify_id_token(id_token, app=None, check_revoked=False):
         # guard against accidental wrong assignment.
         raise ValueError('Illegal check_revoked argument. Argument must be of type '
                          ' bool, but given "{0}".'.format(type(app)))
-    token_generator = _get_auth_service(app).token_generator
-    verified_claims = token_generator.verify_id_token(id_token)
+    token_verifier = _get_auth_service(app).token_verifier
+    verified_claims = token_verifier.verify_id_token(id_token)
     if check_revoked:
         user = get_user(verified_claims.get('uid'), app)
         if  verified_claims.get('iat') * 1000 < user.tokens_valid_after_timestamp:
@@ -689,11 +689,16 @@ class _AuthService(object):
     def __init__(self, app):
         client = _AuthHTTPClient(app)
         self._token_generator = _token_gen.TokenGenerator(app, client)
+        self._token_verifier = _token_gen.TokenVerifier(app)
         self._user_manager = _user_mgt.UserManager(client)
 
     @property
     def token_generator(self):
         return self._token_generator
+
+    @property
+    def token_verifier(self):
+        return self._token_verifier
 
     @property
     def user_manager(self):

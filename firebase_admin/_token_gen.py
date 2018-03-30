@@ -1,4 +1,19 @@
+# Copyright 2018 Google Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Firebase token minting and validation sub module."""
+
 import datetime
 import time
 
@@ -13,26 +28,27 @@ from firebase_admin import credentials
 # Provided for overriding during tests.
 _request = transport.requests.Request()
 
+# ID token constants
+ID_TOKEN_ISSUER_PREFIX = 'https://securetoken.google.com/'
+ID_TOKEN_CERT_URI = ('https://www.googleapis.com/robot/v1/metadata/x509/'
+                     'securetoken@system.gserviceaccount.com')
 
-ID_TOOLKIT_URL = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/'
-FIREBASE_ID_TOKEN_CERT_URI = ('https://www.googleapis.com/robot/v1/metadata/x509/'
-                              'securetoken@system.gserviceaccount.com')
-FIREBASE_COOKIE_CERT_URI = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/publicKeys'
-ISSUER_PREFIX = 'https://securetoken.google.com/'
+# Session cookie constants
+COOKIE_ISSUER_PREFIX = 'https://session.firebase.google.com/'
+COOKIE_CERT_URI = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/publicKeys'
+MIN_SESSION_COOKIE_DURATION_SECONDS = datetime.timedelta(minutes=5).total_seconds()
+MAX_SESSION_COOKIE_DURATION_SECONDS = datetime.timedelta(days=14).total_seconds()
 
+# Custom token constants
 MAX_TOKEN_LIFETIME_SECONDS = datetime.timedelta(hours=1).total_seconds()
 FIREBASE_AUDIENCE = ('https://identitytoolkit.googleapis.com/google.'
                      'identity.identitytoolkit.v1.IdentityToolkit')
-
-# Key names we don't allow to appear in the developer_claims.
 RESERVED_CLAIMS = set([
     'acr', 'amr', 'at_hash', 'aud', 'auth_time', 'azp', 'cnf', 'c_hash',
     'exp', 'firebase', 'iat', 'iss', 'jti', 'nbf', 'nonce', 'sub'
 ])
 
-MIN_SESSION_COOKIE_DURATION_SECONDS = datetime.timedelta(minutes=5).total_seconds()
-MAX_SESSION_COOKIE_DURATION_SECONDS = datetime.timedelta(days=14).total_seconds()
-
+# Error codes
 COOKIE_CREATE_ERROR = 'COOKIE_CREATE_ERROR'
 
 
@@ -46,35 +62,14 @@ class ApiCallError(Exception):
 
 
 class TokenGenerator(object):
-    """Generates custom tokens, and validates ID tokens."""
+    """Generates custom tokens and session cookies."""
 
     def __init__(self, app, client):
         self._app = app
         self._client = client
-        self._id_token_verifier = JWTVerifier(
-            project_id=app.project_id, short_name='ID token',
-            operation='verify_id_token()',
-            doc_url='https://firebase.google.com/docs/auth/admin/verify-id-tokens',
-            cert_url=FIREBASE_ID_TOKEN_CERT_URI)
-        self._cookie_verifier = JWTVerifier(
-            project_id=app.project_id, short_name='session cookie',
-            operation='verify_session_cookie()',
-            doc_url='https://firebase.google.com/docs/auth/admin/verify-id-tokens',
-            cert_url=FIREBASE_COOKIE_CERT_URI)
 
     def create_custom_token(self, uid, developer_claims=None):
-        """Builds and signs a FirebaseCustomAuthToken.
-
-        Args:
-          uid: ID of the user for whom the token is created.
-          developer_claims: A dictionary of claims to be included in the token.
-
-        Returns:
-          string: A token minted from the input parameters as a byte string.
-
-        Raises:
-          ValueError: If input parameters are invalid.
-        """
+        """Builds and signs a Firebase custom auth token."""
         if not isinstance(self._app.credential, credentials.Certificate):
             raise ValueError(
                 'Must initialize Firebase App with a certificate credential '
@@ -113,24 +108,16 @@ class TokenGenerator(object):
             payload['claims'] = developer_claims
         return jwt.encode(self._app.credential.signer, payload)
 
-    def verify_id_token(self, id_token):
-        return self._id_token_verifier.verify(id_token)
-
-    def verify_session_cookie(self, cookie):
-        return self._cookie_verifier.verify(cookie)
-
     def create_session_cookie(self, id_token, expires_in):
-        if not id_token:
-            raise ValueError('Illegal ID token provided: {0}. ID token must be a non-empty '
-                             'string.'.format(id_token))
-        if isinstance(id_token, six.text_type):
-            id_token = id_token.encode('ascii')
-        if not isinstance(id_token, six.binary_type):
-            raise ValueError('Illegal ID token provided: {0}. ID token must be a non-empty '
-                             'string.'.format(id_token))
+        """Creates a session cookie from the provided ID token."""
+        id_token = id_token.decode('utf-8') if isinstance(id_token, six.binary_type) else id_token
+        if not isinstance(id_token, six.text_type) or not id_token:
+            raise ValueError(
+                'Illegal ID token provided: {0}. ID token must be a non-empty '
+                'string.'.format(id_token))
 
         if isinstance(expires_in, datetime.timedelta):
-            expires_in = expires_in.total_seconds()
+            expires_in = int(expires_in.total_seconds())
         if isinstance(expires_in, bool) or not isinstance(expires_in, int):
             raise ValueError('Illegal expiry duration: {0}.'.format(expires_in))
         if expires_in < MIN_SESSION_COOKIE_DURATION_SECONDS:
@@ -161,7 +148,29 @@ class TokenGenerator(object):
         raise ApiCallError(code, msg, error)
 
 
-class JWTVerifier(object):
+class TokenVerifier(object):
+    """Verifies ID tokens and session cookies."""
+
+    def __init__(self, app):
+        self._id_token_verifier = _JWTVerifier(
+            project_id=app.project_id, short_name='ID token',
+            operation='verify_id_token()',
+            doc_url='https://firebase.google.com/docs/auth/admin/verify-id-tokens',
+            cert_url=ID_TOKEN_CERT_URI, issuer=ID_TOKEN_ISSUER_PREFIX)
+        self._cookie_verifier = _JWTVerifier(
+            project_id=app.project_id, short_name='session cookie',
+            operation='verify_session_cookie()',
+            doc_url='https://firebase.google.com/docs/auth/admin/verify-id-tokens',
+            cert_url=COOKIE_CERT_URI, issuer=COOKIE_ISSUER_PREFIX)
+
+    def verify_id_token(self, id_token):
+        return self._id_token_verifier.verify(id_token)
+
+    def verify_session_cookie(self, cookie):
+        return self._cookie_verifier.verify(cookie)
+
+
+class _JWTVerifier(object):
 
     def __init__(self, **kwargs):
         self.project_id = kwargs.pop('project_id')
@@ -169,30 +178,12 @@ class JWTVerifier(object):
         self.operation = kwargs.pop('operation')
         self.url = kwargs.pop('doc_url')
         self.cert_url = kwargs.pop('cert_url')
+        self.issuer = kwargs.pop('issuer')
 
     def verify(self, token):
-        """Verifies the signature and data for the provided JWT.
-
-        Accepts a signed token string, verifies that is the current, and issued
-        to this project, and that it was correctly signed by Google.
-
-        Args:
-          token: A string of the encoded JWT.
-
-        Returns:
-          dict: A dictionary of key-value pairs parsed from the decoded JWT.
-
-        Raises:
-          ValueError: The JWT was found to be invalid, or the app was not initialized with a
-              credentials.Certificate instance.
-        """
-        if not token:
-            raise ValueError(
-                'Illegal {0} provided: {1}. {0} must be a non-empty '
-                'string.'.format(self.short_name, token))
-        if isinstance(token, six.text_type):
-            token = token.encode('ascii')
-        if not isinstance(token, six.binary_type):
+        """Verifies the signature and data for the provided JWT."""
+        token = token.encode('utf-8') if isinstance(token, six.text_type) else token
+        if not isinstance(token, six.binary_type) or not token:
             raise ValueError(
                 'Illegal {0} provided: {1}. {0} must be a non-empty '
                 'string.'.format(self.short_name, token))
@@ -209,24 +200,25 @@ class JWTVerifier(object):
         issuer = payload.get('iss')
         audience = payload.get('aud')
         subject = payload.get('sub')
-        expected_issuer = ISSUER_PREFIX + self.project_id
+        expected_issuer = self.issuer + self.project_id
 
         project_id_match_msg = (
             'Make sure the {0} comes from the same Firebase project as the service account used '
             'to authenticate this SDK.'.format(self.short_name))
         verify_id_token_msg = (
-            'See {0} for details on how to retrieve an {1}.'.format(self.url, self.short_name))
+            'See {0} for details on how to retrieve {1}.'.format(self.url, self.short_name))
 
         error_message = None
         if not header.get('kid'):
             if audience == FIREBASE_AUDIENCE:
                 error_message = (
-                    '{0} expects an ID token, but was given a custom token.'.format(self.operation))
+                    '{0} expects {1}, but was given a custom '
+                    'token.'.format(self.operation, self.short_name))
             elif header.get('alg') == 'HS256' and payload.get(
                     'v') is 0 and 'uid' in payload.get('d', {}):
                 error_message = (
-                    '{0} expects an ID token, but was given a legacy custom '
-                    'token.'.format(self.operation))
+                    '{0} expects {1}, but was given a legacy custom '
+                    'token.'.format(self.operation, self.short_name))
             else:
                 error_message = 'Firebase {0} has no "kid" claim.'.format(self.short_name)
         elif header.get('alg') != 'RS256':

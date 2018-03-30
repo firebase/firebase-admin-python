@@ -21,8 +21,6 @@ import requests
 import six
 from six.moves import urllib
 
-import firebase_admin
-
 
 INTERNAL_ERROR = 'INTERNAL_ERROR'
 USER_NOT_FOUND_ERROR = 'USER_NOT_FOUND_ERROR'

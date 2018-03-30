@@ -171,6 +171,7 @@ class TokenVerifier(object):
 
 
 class _JWTVerifier(object):
+    """Verifies Firebase JWTs (ID tokens or session cookies)."""
 
     def __init__(self, **kwargs):
         self.project_id = kwargs.pop('project_id')

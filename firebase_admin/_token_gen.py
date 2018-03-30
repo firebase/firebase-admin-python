@@ -179,6 +179,10 @@ class _JWTVerifier(object):
         self.url = kwargs.pop('doc_url')
         self.cert_url = kwargs.pop('cert_url')
         self.issuer = kwargs.pop('issuer')
+        if self.short_name[0].lower() in 'aeiou':
+            self.articled_short_name = 'an {0}'.format(self.short_name)
+        else:
+            self.articled_short_name = 'a {0}'.format(self.short_name)
 
     def verify(self, token):
         """Verifies the signature and data for the provided JWT."""
@@ -213,12 +217,12 @@ class _JWTVerifier(object):
             if audience == FIREBASE_AUDIENCE:
                 error_message = (
                     '{0} expects {1}, but was given a custom '
-                    'token.'.format(self.operation, self.short_name))
+                    'token.'.format(self.operation, self.articled_short_name))
             elif header.get('alg') == 'HS256' and payload.get(
                     'v') is 0 and 'uid' in payload.get('d', {}):
                 error_message = (
                     '{0} expects {1}, but was given a legacy custom '
-                    'token.'.format(self.operation, self.short_name))
+                    'token.'.format(self.operation, self.articled_short_name))
             else:
                 error_message = 'Firebase {0} has no "kid" claim.'.format(self.short_name)
         elif header.get('alg') != 'RS256':

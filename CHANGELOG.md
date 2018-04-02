@@ -1,6 +1,9 @@
 # Unreleased
 
--
+- [added] Added the `mutable_content` optional field to the `messaging.Aps`
+  type.
+- [added] Added support for specifying arbitrary custom key-value
+  fields in the `messaging.Aps` type.
 
 # v2.9.1
 

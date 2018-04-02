@@ -588,23 +588,23 @@ class TestApsEncoder(object):
         assert str(excinfo.value) == expected
 
     @pytest.mark.parametrize('data', ['', list(), tuple(), True, False, 1, 0, ])
-    def test_invalid_custom_field_dict(self, data):
+    def test_invalid_custom_data_dict(self, data):
         if isinstance(data, dict):
             return
-        aps = messaging.Aps(custom_fields=data)
+        aps = messaging.Aps(custom_data=data)
         excinfo = self._check_aps(aps)
-        expected = 'Aps.custom_fields must be a dict.'
+        expected = 'Aps.custom_data must be a dict.'
         assert str(excinfo.value) == expected
 
     @pytest.mark.parametrize('data', [True, False, 1, 0])
     def test_invalid_custom_field_name(self, data):
-        aps = messaging.Aps(custom_fields={data: 'foo'})
+        aps = messaging.Aps(custom_data={data: 'foo'})
         excinfo = self._check_aps(aps)
-        expected = 'Aps.custom_fields key must be a string.'
+        expected = 'Aps.custom_data key must be a string.'
         assert str(excinfo.value) == expected
 
     def test_multiple_field_specifications(self):
-        aps = messaging.Aps(thread_id='foo', custom_fields={'thread-id': 'foo'})
+        aps = messaging.Aps(thread_id='foo', custom_data={'thread-id': 'foo'})
         excinfo = self._check_aps(aps)
         expected = 'Multiple specifications for thread-id in Aps.'
         assert str(excinfo.value) == expected
@@ -644,14 +644,14 @@ class TestApsEncoder(object):
         }
         check_encoding(msg, expected)
 
-    def test_aps_custom_fields(self):
+    def test_aps_custom_data(self):
         msg = messaging.Message(
             topic='topic',
             apns=messaging.APNSConfig(
                 payload=messaging.APNSPayload(
                     aps=messaging.Aps(
                         alert='alert text',
-                        custom_fields={'k1': 'v1', 'k2': 1},
+                        custom_data={'k1': 'v1', 'k2': 1},
                     ),
                 )
             )

@@ -341,16 +341,19 @@ class Aps(object):
         sound: Name of the sound file to be played with the message (optional).
         content_available: A boolean indicating whether to configure a background update
             notification (optional).
+        mutable_content: A boolean indicating whether to have the message be mutable
+            on device before final delivery (optional).
         category: String identifier representing the message type (optional).
         thread_id: An app-specific string identifier for grouping messages (optional).
     """
 
-    def __init__(self, alert=None, badge=None, sound=None, content_available=None, category=None,
-                 thread_id=None):
+    def __init__(self, alert=None, badge=None, sound=None, content_available=None,
+                 mutable_content=None, category=None, thread_id=None):
         self.alert = alert
         self.badge = badge
         self.sound = sound
         self.content_available = content_available
+        self.mutable_content = mutable_content
         self.category = category
         self.thread_id = thread_id
 
@@ -624,6 +627,8 @@ class _MessageEncoder(json.JSONEncoder):
         }
         if aps.content_available is True:
             result['content-available'] = 1
+        if aps.mutable_content is True:
+            result['mutable-content'] = 1
         return cls.remove_null_values(result)
 
     @classmethod

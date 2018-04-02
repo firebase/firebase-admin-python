@@ -68,7 +68,7 @@ def create_custom_token(uid, developer_claims=None, app=None):
       app: An App instance (optional).
 
     Returns:
-      string: A token minted from the input parameters.
+      bytes: A token minted from the input parameters.
 
     Raises:
       ValueError: If input parameters are invalid.

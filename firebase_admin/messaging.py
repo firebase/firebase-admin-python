@@ -343,16 +343,22 @@ class Aps(object):
             notification (optional).
         category: String identifier representing the message type (optional).
         thread_id: An app-specific string identifier for grouping messages (optional).
+        mutable_content: A boolean indicating whether to support mutating notifications at
+            the client using app extensions (optional).
+        custom_data: A dict of custom key-value pairs to be included in the Aps dictionary
+            (optional).
     """
 
     def __init__(self, alert=None, badge=None, sound=None, content_available=None, category=None,
-                 thread_id=None):
+                 thread_id=None, mutable_content=None, custom_data=None):
         self.alert = alert
         self.badge = badge
         self.sound = sound
         self.content_available = content_available
         self.category = category
         self.thread_id = thread_id
+        self.mutable_content = mutable_content
+        self.custom_data = custom_data
 
 
 class ApsAlert(object):
@@ -624,6 +630,16 @@ class _MessageEncoder(json.JSONEncoder):
         }
         if aps.content_available is True:
             result['content-available'] = 1
+        if aps.mutable_content is True:
+            result['mutable-content'] = 1
+        if aps.custom_data is not None:
+            if not isinstance(aps.custom_data, dict):
+                raise ValueError('Aps.custom_data must be a dict.')
+            for key, val in aps.custom_data.items():
+                _Validators.check_string('Aps.custom_data key', key)
+                if key in result:
+                    raise ValueError('Multiple specifications for {0} in Aps.'.format(key))
+                result[key] = val
         return cls.remove_null_values(result)
 
     @classmethod

@@ -537,11 +537,9 @@ class TestAPNSPayloadEncoder(object):
 
 class TestApsEncoder(object):
 
-    def _check_aps(self, aps):
-        with pytest.raises(ValueError) as excinfo:
-            check_encoding(messaging.Message(
-                topic='topic', apns=messaging.APNSConfig(payload=messaging.APNSPayload(aps=aps))))
-        return excinfo
+    def _encode_aps(self, aps):
+        return check_encoding(messaging.Message(
+            topic='topic', apns=messaging.APNSConfig(payload=messaging.APNSPayload(aps=aps))))
 
     @pytest.mark.parametrize('data', NON_OBJECT_ARGS)
     def test_invalid_aps(self, data):
@@ -555,36 +553,66 @@ class TestApsEncoder(object):
     @pytest.mark.parametrize('data', NON_STRING_ARGS)
     def test_invalid_alert(self, data):
         aps = messaging.Aps(alert=data)
-        excinfo = self._check_aps(aps)
+        with pytest.raises(ValueError) as excinfo:
+            self._encode_aps(aps)
         expected = 'Aps.alert must be a string or an instance of ApsAlert class.'
         assert str(excinfo.value) == expected
 
     @pytest.mark.parametrize('data', [list(), tuple(), dict(), 'foo'])
     def test_invalid_badge(self, data):
         aps = messaging.Aps(badge=data)
-        excinfo = self._check_aps(aps)
+        with pytest.raises(ValueError) as excinfo:
+            self._encode_aps(aps)
         expected = 'Aps.badge must be a number.'
         assert str(excinfo.value) == expected
 
     @pytest.mark.parametrize('data', NON_STRING_ARGS)
     def test_invalid_sound(self, data):
         aps = messaging.Aps(sound=data)
-        excinfo = self._check_aps(aps)
+        with pytest.raises(ValueError) as excinfo:
+            self._encode_aps(aps)
         expected = 'Aps.sound must be a string.'
         assert str(excinfo.value) == expected
 
     @pytest.mark.parametrize('data', NON_STRING_ARGS)
     def test_invalid_category(self, data):
         aps = messaging.Aps(category=data)
-        excinfo = self._check_aps(aps)
+        with pytest.raises(ValueError) as excinfo:
+            self._encode_aps(aps)
         expected = 'Aps.category must be a string.'
         assert str(excinfo.value) == expected
 
     @pytest.mark.parametrize('data', NON_STRING_ARGS)
     def test_invalid_thread_id(self, data):
         aps = messaging.Aps(thread_id=data)
-        excinfo = self._check_aps(aps)
+        with pytest.raises(ValueError) as excinfo:
+            self._encode_aps(aps)
         expected = 'Aps.thread_id must be a string.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', ['', list(), tuple(), True, False, 1, 0, ])
+    def test_invalid_custom_data_dict(self, data):
+        if isinstance(data, dict):
+            return
+        aps = messaging.Aps(custom_data=data)
+        with pytest.raises(ValueError) as excinfo:
+            self._encode_aps(aps)
+        expected = 'Aps.custom_data must be a dict.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', [True, False, 1, 0])
+    def test_invalid_custom_field_name(self, data):
+        aps = messaging.Aps(custom_data={data: 'foo'})
+        with pytest.raises(ValueError) as excinfo:
+            self._encode_aps(aps)
+        expected = 'Aps.custom_data key must be a string.'
+        assert str(excinfo.value) == expected
+
+    def test_multiple_field_specifications(self):
+        aps = messaging.Aps(thread_id='foo', custom_data={'thread-id': 'foo'})
+        with pytest.raises(ValueError) as excinfo:
+            self._encode_aps(aps)
+        expected = 'Multiple specifications for thread-id in Aps.'
         assert str(excinfo.value) == expected
 
     def test_aps(self):
@@ -597,6 +625,7 @@ class TestApsEncoder(object):
                         badge=42,
                         sound='s',
                         content_available=True,
+                        mutable_content=True,
                         category='c',
                         thread_id='t'
                     ),
@@ -612,8 +641,35 @@ class TestApsEncoder(object):
                         'badge': 42,
                         'sound': 's',
                         'content-available': 1,
+                        'mutable-content': 1,
                         'category': 'c',
                         'thread-id': 't',
+                    },
+                }
+            },
+        }
+        check_encoding(msg, expected)
+
+    def test_aps_custom_data(self):
+        msg = messaging.Message(
+            topic='topic',
+            apns=messaging.APNSConfig(
+                payload=messaging.APNSPayload(
+                    aps=messaging.Aps(
+                        alert='alert text',
+                        custom_data={'k1': 'v1', 'k2': 1},
+                    ),
+                )
+            )
+        )
+        expected = {
+            'topic': 'topic',
+            'apns': {
+                'payload': {
+                    'aps': {
+                        'alert': 'alert text',
+                        'k1': 'v1',
+                        'k2': 1,
                     },
                 }
             },

@@ -326,10 +326,9 @@ def check_auth_time(id_token, flask):
             response.set_cookie(
                 'session', session_cookie, expires=expires, httponly=True, secure=True)
             return response
-        else:
-            # User did not sign in recently. To guard against ID token theft, require
-            # re-authentication.
-            return flask.abort(401, 'Recent sign in required')
+        # User did not sign in recently. To guard against ID token theft, require
+        # re-authentication.
+        return flask.abort(401, 'Recent sign in required')
     except ValueError:
         return flask.abort(401, 'Invalid ID token')
     except auth.AuthError:
@@ -354,10 +353,10 @@ def verfy_session_cookie(app, flask):
             return flask.redirect('/login')
     # [END session_verify]
 
-def check_permissions(id_token, flask):
+def check_permissions(session_cookie, flask):
     # [START session_verify_with_permission_check]
     try:
-        decoded_claims = auth.verify_session_cookie(id_token, check_revoked=True)
+        decoded_claims = auth.verify_session_cookie(session_cookie, check_revoked=True)
         if decoded_claims.get('admin') is True:
             print 'Logged in as admin'
             # Serve content for user

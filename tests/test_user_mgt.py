@@ -162,9 +162,9 @@ class TestGetUser(object):
     VALID_PHONE = '+1234567890'
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
-    def test_invalid_get_user(self, arg):
+    def test_invalid_get_user(self, arg, user_mgt_app):
         with pytest.raises(ValueError):
-            auth.get_user(arg)
+            auth.get_user(arg, app=user_mgt_app)
 
     def test_get_user(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_RESPONSE)
@@ -219,48 +219,48 @@ class TestGetUser(object):
 class TestCreateUser(object):
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
-    def test_invalid_uid(self, arg):
+    def test_invalid_uid(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.create_user(uid=arg)
+            auth.create_user(uid=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-an-email'])
-    def test_invalid_email(self, arg):
+    def test_invalid_email(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.create_user(email=arg)
+            auth.create_user(email=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-a-phone', '+'])
-    def test_invalid_phone(self, arg):
+    def test_invalid_phone(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.create_user(phone_number=arg)
+            auth.create_user(phone_number=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS)
-    def test_invalid_display_name(self, arg):
+    def test_invalid_display_name(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.create_user(display_name=arg)
+            auth.create_user(display_name=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-a-url'])
-    def test_invalid_photo_url(self, arg):
+    def test_invalid_photo_url(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.create_user(photo_url=arg)
+            auth.create_user(photo_url=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['short'])
-    def test_invalid_password(self, arg):
+    def test_invalid_password(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.create_user(password=arg)
+            auth.create_user(password=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_BOOLS)
-    def test_invalid_email_verified(self, arg):
+    def test_invalid_email_verified(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.create_user(email_verified=arg)
+            auth.create_user(email_verified=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_BOOLS)
-    def test_invalid_disabled(self, arg):
+    def test_invalid_disabled(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.create_user(disabled=arg)
+            auth.create_user(disabled=arg, app=user_mgt_app)
 
-    def test_invalid_property(self):
+    def test_invalid_property(self, user_mgt_app):
         with pytest.raises(ValueError):
-            auth.create_user(unsupported='value')
+            auth.create_user(unsupported='value', app=user_mgt_app)
 
     def test_create_user(self, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
@@ -300,58 +300,58 @@ class TestCreateUser(object):
 class TestUpdateUser(object):
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
-    def test_invalid_uid(self, arg):
+    def test_invalid_uid(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.update_user(arg)
+            auth.update_user(arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-an-email'])
-    def test_invalid_email(self, arg):
+    def test_invalid_email(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.update_user('user', email=arg)
+            auth.update_user('user', email=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['not-a-phone', '+'])
-    def test_invalid_phone(self, arg):
+    def test_invalid_phone(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.update_user('user', phone_number=arg)
+            auth.update_user('user', phone_number=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS[1:])
-    def test_invalid_display_name(self, arg):
+    def test_invalid_display_name(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.update_user('user', display_name=arg)
+            auth.update_user('user', display_name=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['not-a-url'])
-    def test_invalid_photo_url(self, arg):
+    def test_invalid_photo_url(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.update_user('user', photo_url=arg)
+            auth.update_user('user', photo_url=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['short'])
-    def test_invalid_password(self, arg):
+    def test_invalid_password(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.update_user('user', password=arg)
+            auth.update_user('user', password=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_BOOLS)
-    def test_invalid_email_verified(self, arg):
+    def test_invalid_email_verified(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.update_user('user', email_verified=arg)
+            auth.update_user('user', email_verified=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_BOOLS)
-    def test_invalid_disabled(self, arg):
+    def test_invalid_disabled(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.update_user('user', disabled=arg)
+            auth.update_user('user', disabled=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_DICTS[1:] + ['"json"'])
-    def test_invalid_custom_claims(self, arg):
+    def test_invalid_custom_claims(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.update_user('user', custom_claims=arg)
+            auth.update_user('user', custom_claims=arg, app=user_mgt_app)
 
-    def test_invalid_property(self):
+    def test_invalid_property(self, user_mgt_app):
         with pytest.raises(ValueError):
-            auth.update_user('user', unsupported='arg')
+            auth.update_user('user', unsupported='arg', app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_POSITIVE_NUMS)
-    def test_invalid_valid_since(self, arg):
+    def test_invalid_valid_since(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.update_user('user', valid_since=arg)
+            auth.update_user('user', valid_since=arg, app=user_mgt_app)
 
     def test_update_user(self, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
@@ -460,9 +460,9 @@ class TestSetCustomUserClaims(object):
 class TestDeleteUser(object):
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
-    def test_invalid_delete_user(self, arg):
+    def test_invalid_delete_user(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.get_user(arg)
+            auth.get_user(arg, app=user_mgt_app)
 
     def test_delete_user(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 200, '{"kind":"deleteresponse"}')
@@ -480,9 +480,14 @@ class TestDeleteUser(object):
 class TestListUsers(object):
 
     @pytest.mark.parametrize('arg', [None, 'foo', list(), dict(), 0, -1, 1001, False])
-    def test_invalid_max_results(self, arg):
+    def test_invalid_max_results(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.list_users(max_results=arg)
+            auth.list_users(max_results=arg, app=user_mgt_app)
+
+    @pytest.mark.parametrize('arg', ['', list(), dict(), 0, -1, 1001, False])
+    def test_invalid_page_token(self, user_mgt_app, arg):
+        with pytest.raises(ValueError):
+            auth.list_users(page_token=arg, app=user_mgt_app)
 
     def test_list_single_page(self, user_mgt_app):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_LIST_USERS_RESPONSE)

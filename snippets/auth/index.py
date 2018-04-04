@@ -296,15 +296,17 @@ def create_session_cookie(flask, app):
     # [START session_login]
     @app.route('/sessionLogin', methods=['POST'])
     def session_login():
+        # Get the ID token sent by the client
+        id_token = flask.request.json['idToken']
         # Set session expiration to 5 days.
         expires_in = datetime.timedelta(days=5)
         expires = datetime.datetime.now() + expires_in
-        id_token = flask.request.json['idToken']
         try:
             # Create the session cookie. This will also verify the ID token in the process.
             # The session cookie will have the same claims as the ID token.
             session_cookie = auth.create_session_cookie(id_token, expires_in=expires_in)
             response = flask.jsonify({'status': 'success'})
+            # Set cookie policy for session cookie.
             response.set_cookie(
                 'session', session_cookie, expires=expires, httponly=True, secure=True)
             return response
@@ -344,12 +346,16 @@ def verfy_session_cookie(app, flask):
     @app.route('/profile', methods=['POST'])
     def access_restricted_content():
         session_cookie = flask.request.cookies.get('session')
+        # Verify the session cookie. In this case an additional check is added to detect
+        # if the user's Firebase session was revoked, user deleted/disabled, etc.
         try:
             decoded_claims = auth.verify_session_cookie(session_cookie, check_revoked=True)
             return serve_content_for_user(decoded_claims)
         except ValueError:
+            # Session cookie is unavailable or invalid. Force user to login.
             return flask.redirect('/login')
         except auth.AuthError:
+            # Session revoked. Force user to login.
             return flask.redirect('/login')
     # [END session_verify]
 
@@ -357,15 +363,18 @@ def check_permissions(session_cookie, flask):
     # [START session_verify_with_permission_check]
     try:
         decoded_claims = auth.verify_session_cookie(session_cookie, check_revoked=True)
+        # Check custom claims to confirm user is an admin.
         if decoded_claims.get('admin') is True:
             print 'Logged in as admin'
             # Serve content for user
         else:
             return flask.abort(401, 'Insufficient permissions')
     except ValueError:
-        return flask.abort(401, 'Invalid session cookie')
+        # Session cookie is unavailable or invalid. Force user to login.
+        return flask.redirect('/login')
     except auth.AuthError:
-        return flask.abort(401, 'Session revoked')
+        # Session revoked. Force user to login.
+        return flask.redirect('/login')
     # [END session_verify_with_permission_check]
 
 def clear_session_cookie(app, flask):

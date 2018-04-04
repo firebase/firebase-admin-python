@@ -37,6 +37,7 @@ with open(about_path) as fp:
 long_description = ('The Firebase Admin Python SDK enables server-side (backend) Python developers '
                     'to integrate Firebase into their services and applications.')
 install_requires = [
+    'cachecontrol>=0.12.4',
     'google-auth>=1.3.0',
     'google-cloud-firestore>=0.27.0',
     'google-cloud-storage>=1.2.0',

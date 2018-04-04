@@ -1,5 +1,9 @@
 # Unreleased
 
+- [added] A new `create_session_cookie()` method for creating a long-lived
+  session cookie given a valid ID token.
+- [added] A new `verify_session_cookie()` method for verifying a given
+  cookie string is valid.
 - [added] Added the `mutable_content` optional field to the `messaging.Aps`
   type.
 - [added] Added support for specifying arbitrary custom key-value

@@ -22,21 +22,17 @@ creating and managing user accounts in Firebase projects.
 import json
 import time
 
-from google.auth import jwt
 from google.auth import transport
-import google.oauth2.id_token
-import six
 
-from firebase_admin import credentials
+import firebase_admin
+from firebase_admin import _token_gen
 from firebase_admin import _user_mgt
 from firebase_admin import _utils
 
 
-# Provided for overriding during tests.
-_request = transport.requests.Request()
-
 _AUTH_ATTRIBUTE = '_auth'
 _ID_TOKEN_REVOKED = 'ID_TOKEN_REVOKED'
+_SESSION_COOKIE_REVOKED = 'SESSION_COOKIE_REVOKED'
 
 
 def _get_auth_service(app):
@@ -47,13 +43,13 @@ def _get_auth_service(app):
     returning it.
 
     Args:
-      app: A Firebase App instance (or None to use the default App).
+        app: A Firebase App instance (or None to use the default App).
 
     Returns:
-      _AuthService: An _AuthService for the specified App instance.
+        _AuthService: An _AuthService for the specified App instance.
 
     Raises:
-      ValueError: If the app argument is invalid.
+        ValueError: If the app argument is invalid.
     """
     return _utils.get_app_service(app, _AUTH_ATTRIBUTE, _AuthService)
 
@@ -62,16 +58,16 @@ def create_custom_token(uid, developer_claims=None, app=None):
     """Builds and signs a Firebase custom auth token.
 
     Args:
-      uid: ID of the user for whom the token is created.
-      developer_claims: A dictionary of claims to be included in the token
-          (optional).
-      app: An App instance (optional).
+        uid: ID of the user for whom the token is created.
+        developer_claims: A dictionary of claims to be included in the token
+            (optional).
+        app: An App instance (optional).
 
     Returns:
-      bytes: A token minted from the input parameters.
+        bytes: A token minted from the input parameters.
 
     Raises:
-      ValueError: If input parameters are invalid.
+        ValueError: If input parameters are invalid.
     """
     token_generator = _get_auth_service(app).token_generator
     return token_generator.create_custom_token(uid, developer_claims)
@@ -84,28 +80,75 @@ def verify_id_token(id_token, app=None, check_revoked=False):
     to this project, and that it was correctly signed by Google.
 
     Args:
-      id_token: A string of the encoded JWT.
-      app: An App instance (optional).
-      check_revoked: Boolean, If true, checks whether the token has been revoked (optional).
+        id_token: A string of the encoded JWT.
+        app: An App instance (optional).
+        check_revoked: Boolean, If true, checks whether the token has been revoked (optional).
 
     Returns:
-      dict: A dictionary of key-value pairs parsed from the decoded JWT.
+        dict: A dictionary of key-value pairs parsed from the decoded JWT.
 
     Raises:
-      ValueError: If the JWT was found to be invalid, or if the App was not
-          initialized with a credentials.Certificate.
-      AuthError: If check_revoked is requested and the token was revoked.
+        ValueError: If the JWT was found to be invalid, or if the App's project ID cannot
+            be determined.
+        AuthError: If check_revoked is requested and the token was revoked.
     """
     if not isinstance(check_revoked, bool):
         # guard against accidental wrong assignment.
         raise ValueError('Illegal check_revoked argument. Argument must be of type '
                          ' bool, but given "{0}".'.format(type(app)))
-    token_generator = _get_auth_service(app).token_generator
-    verified_claims = token_generator.verify_id_token(id_token)
+    token_verifier = _get_auth_service(app).token_verifier
+    verified_claims = token_verifier.verify_id_token(id_token)
     if check_revoked:
-        user = get_user(verified_claims.get('uid'), app)
-        if  verified_claims.get('iat') * 1000 < user.tokens_valid_after_timestamp:
-            raise AuthError(_ID_TOKEN_REVOKED, 'The Firebase ID token has been revoked.')
+        _check_jwt_revoked(verified_claims, _ID_TOKEN_REVOKED, 'ID token', app)
+    return verified_claims
+
+def create_session_cookie(id_token, expires_in, app=None):
+    """Creates a new Firebase session cookie from the given ID token and options.
+
+    The returned JWT can be set as a server-side session cookie with a custom cookie policy.
+
+    Args:
+        id_token: The Firebase ID token to exchange for a session cookie.
+        expires_in: Duration until the cookie is expired. This can be specified
+            as a numeric seconds value or a ``datetime.timedelta`` instance.
+        app: An App instance (optional).
+
+    Returns:
+        bytes: A session cookie generated from the input parameters.
+
+    Raises:
+        ValueError: If input parameters are invalid.
+        AuthError: If an error occurs while creating the cookie.
+    """
+    token_generator = _get_auth_service(app).token_generator
+    try:
+        return token_generator.create_session_cookie(id_token, expires_in)
+    except _token_gen.ApiCallError as error:
+        raise AuthError(error.code, str(error), error.detail)
+
+def verify_session_cookie(session_cookie, check_revoked=False, app=None):
+    """Verifies a Firebase session cookie.
+
+    Accepts a session cookie string, verifies that it is current, and issued
+    to this project, and that it was correctly signed by Google.
+
+    Args:
+        session_cookie: A session cookie string to verify.
+        check_revoked: Boolean, if true, checks whether the cookie has been revoked (optional).
+        app: An App instance (optional).
+
+    Returns:
+        dict: A dictionary of key-value pairs parsed from the decoded JWT.
+
+    Raises:
+        ValueError: If the cookie was found to be invalid, or if the App's project ID cannot
+            be determined.
+        AuthError: If check_revoked is requested and the cookie was revoked.
+    """
+    token_verifier = _get_auth_service(app).token_verifier
+    verified_claims = token_verifier.verify_session_cookie(session_cookie)
+    if check_revoked:
+        _check_jwt_revoked(verified_claims, _SESSION_COOKIE_REVOKED, 'session cookie', app)
     return verified_claims
 
 def revoke_refresh_tokens(uid, app=None):
@@ -332,6 +375,11 @@ def delete_user(uid, app=None):
         user_manager.delete_user(uid)
     except _user_mgt.ApiCallError as error:
         raise AuthError(error.code, str(error), error.detail)
+
+def _check_jwt_revoked(verified_claims, error_code, label, app):
+    user = get_user(verified_claims.get('uid'), app=app)
+    if verified_claims.get('iat') * 1000 < user.tokens_valid_after_timestamp:
+        raise AuthError(error_code, 'The Firebase {0} has been revoked.'.format(label))
 
 
 class UserInfo(object):
@@ -664,192 +712,52 @@ class AuthError(Exception):
         self.detail = error
 
 
-class _TokenGenerator(object):
-    """Generates custom tokens, and validates ID tokens."""
-
-    FIREBASE_CERT_URI = ('https://www.googleapis.com/robot/v1/metadata/x509/'
-                         'securetoken@system.gserviceaccount.com')
-
-    ISSUER_PREFIX = 'https://securetoken.google.com/'
-
-    MAX_TOKEN_LIFETIME_SECONDS = 3600  # One Hour, in Seconds
-    FIREBASE_AUDIENCE = ('https://identitytoolkit.googleapis.com/google.'
-                         'identity.identitytoolkit.v1.IdentityToolkit')
-
-    # Key names we don't allow to appear in the developer_claims.
-    _RESERVED_CLAIMS_ = set([
-        'acr', 'amr', 'at_hash', 'aud', 'auth_time', 'azp', 'cnf', 'c_hash',
-        'exp', 'firebase', 'iat', 'iss', 'jti', 'nbf', 'nonce', 'sub'
-    ])
-
-
-    def __init__(self, app):
-        """Initializes FirebaseAuth from a FirebaseApp instance.
-
-        Args:
-          app: A FirebaseApp instance.
-        """
-        self._app = app
-
-    def create_custom_token(self, uid, developer_claims=None):
-        """Builds and signs a FirebaseCustomAuthToken.
-
-        Args:
-          uid: ID of the user for whom the token is created.
-          developer_claims: A dictionary of claims to be included in the token.
-
-        Returns:
-          string: A token minted from the input parameters as a byte string.
-
-        Raises:
-          ValueError: If input parameters are invalid.
-        """
-        if not isinstance(self._app.credential, credentials.Certificate):
-            raise ValueError(
-                'Must initialize Firebase App with a certificate credential '
-                'to call create_custom_token().')
-
-        if developer_claims is not None:
-            if not isinstance(developer_claims, dict):
-                raise ValueError('developer_claims must be a dictionary')
-
-            disallowed_keys = set(developer_claims.keys()
-                                 ) & self._RESERVED_CLAIMS_
-            if disallowed_keys:
-                if len(disallowed_keys) > 1:
-                    error_message = ('Developer claims {0} are reserved and '
-                                     'cannot be specified.'.format(
-                                         ', '.join(disallowed_keys)))
-                else:
-                    error_message = ('Developer claim {0} is reserved and '
-                                     'cannot be specified.'.format(
-                                         ', '.join(disallowed_keys)))
-                raise ValueError(error_message)
-
-        if not uid or not isinstance(uid, six.string_types) or len(uid) > 128:
-            raise ValueError('uid must be a string between 1 and 128 characters.')
-
-        now = int(time.time())
-        payload = {
-            'iss': self._app.credential.service_account_email,
-            'sub': self._app.credential.service_account_email,
-            'aud': self.FIREBASE_AUDIENCE,
-            'uid': uid,
-            'iat': now,
-            'exp': now + self.MAX_TOKEN_LIFETIME_SECONDS,
-        }
-
-        if developer_claims is not None:
-            payload['claims'] = developer_claims
-
-        return jwt.encode(self._app.credential.signer, payload)
-
-    def verify_id_token(self, id_token):
-        """Verifies the signature and data for the provided JWT.
-
-        Accepts a signed token string, verifies that is the current, and issued
-        to this project, and that it was correctly signed by Google.
-
-        Args:
-          id_token: A string of the encoded JWT.
-
-        Returns:
-          dict: A dictionary of key-value pairs parsed from the decoded JWT.
-
-        Raises:
-          ValueError: The JWT was found to be invalid, or the app was not initialized with a
-              credentials.Certificate instance.
-        """
-        if not id_token:
-            raise ValueError('Illegal ID token provided: {0}. ID token must be a non-empty '
-                             'string.'.format(id_token))
-
-        if isinstance(id_token, six.text_type):
-            id_token = id_token.encode('ascii')
-        if not isinstance(id_token, six.binary_type):
-            raise ValueError('Illegal ID token provided: {0}. ID token must be a non-empty '
-                             'string.'.format(id_token))
-
-        project_id = self._app.project_id
-        if not project_id:
-            raise ValueError('Failed to ascertain project ID from the credential or the '
-                             'environment. Project ID is required to call verify_id_token(). '
-                             'Initialize the app with a credentials.Certificate or set '
-                             'your Firebase project ID as an app option. Alternatively '
-                             'set the GCLOUD_PROJECT environment variable.')
-
-        header = jwt.decode_header(id_token)
-        payload = jwt.decode(id_token, verify=False)
-        issuer = payload.get('iss')
-        audience = payload.get('aud')
-        subject = payload.get('sub')
-        expected_issuer = self.ISSUER_PREFIX + project_id
-
-        project_id_match_msg = ('Make sure the ID token comes from the same'
-                                ' Firebase project as the service account used'
-                                ' to authenticate this SDK.')
-        verify_id_token_msg = (
-            'See https://firebase.google.com/docs/auth/admin/verify-id-tokens'
-            ' for details on how to retrieve an ID token.')
-        error_message = None
-        if not header.get('kid'):
-            if audience == self.FIREBASE_AUDIENCE:
-                error_message = ('verify_id_token() expects an ID token, but '
-                                 'was given a custom token.')
-            elif header.get('alg') == 'HS256' and payload.get(
-                    'v') is 0 and 'uid' in payload.get('d', {}):
-                error_message = ('verify_id_token() expects an ID token, but '
-                                 'was given a legacy custom token.')
-            else:
-                error_message = 'Firebase ID token has no "kid" claim.'
-        elif header.get('alg') != 'RS256':
-            error_message = ('Firebase ID token has incorrect algorithm. '
-                             'Expected "RS256" but got "{0}". {1}'.format(
-                                 header.get('alg'), verify_id_token_msg))
-        elif audience != project_id:
-            error_message = (
-                'Firebase ID token has incorrect "aud" (audience) claim. '
-                'Expected "{0}" but got "{1}". {2} {3}'.format(
-                    project_id, audience, project_id_match_msg,
-                    verify_id_token_msg))
-        elif issuer != expected_issuer:
-            error_message = ('Firebase ID token has incorrect "iss" (issuer) '
-                             'claim. Expected "{0}" but got "{1}". {2} {3}'
-                             .format(expected_issuer, issuer,
-                                     project_id_match_msg,
-                                     verify_id_token_msg))
-        elif subject is None or not isinstance(subject, six.string_types):
-            error_message = ('Firebase ID token has no "sub" (subject) '
-                             'claim. ') + verify_id_token_msg
-        elif not subject:
-            error_message = ('Firebase ID token has an empty string "sub" '
-                             '(subject) claim. ') + verify_id_token_msg
-        elif len(subject) > 128:
-            error_message = ('Firebase ID token has a "sub" (subject) '
-                             'claim longer than 128 '
-                             'characters. ') + verify_id_token_msg
-
-        if error_message:
-            raise ValueError(error_message)
-
-        verified_claims = google.oauth2.id_token.verify_firebase_token(
-            id_token,
-            request=_request,
-            audience=project_id)
-        verified_claims['uid'] = verified_claims['sub']
-        return verified_claims
-
-
 class _AuthService(object):
+    """Firebase Authentication service."""
 
     def __init__(self, app):
-        self._token_generator = _TokenGenerator(app)
-        self._user_manager = _user_mgt.UserManager(app)
+        client = _AuthHTTPClient(app)
+        self._token_generator = _token_gen.TokenGenerator(app, client)
+        self._token_verifier = _token_gen.TokenVerifier(app)
+        self._user_manager = _user_mgt.UserManager(client)
 
     @property
     def token_generator(self):
         return self._token_generator
 
     @property
+    def token_verifier(self):
+        return self._token_verifier
+
+    @property
     def user_manager(self):
         return self._user_manager
+
+
+class _AuthHTTPClient(object):
+    """An HTTP client for making REST calls to the identity toolkit service."""
+
+    ID_TOOLKIT_URL = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/'
+
+    def __init__(self, app):
+        g_credential = app.credential.get_credential()
+        session = transport.requests.AuthorizedSession(g_credential)
+        version_header = 'Python/Admin/{0}'.format(firebase_admin.__version__)
+        session.headers.update({'X-Client-Version': version_header})
+        self.session = session
+
+    def request(self, method, urlpath, **kwargs):
+        """Makes an HTTP call using the Python requests library.
+
+        Args:
+            method: HTTP method name as a string (e.g. get, post).
+            urlpath: URL path of the endpoint. This will be appended to the server's base URL.
+            kwargs: An additional set of keyword arguments to be passed into requests API
+              (e.g. json, params).
+
+        Returns:
+            dict: The parsed JSON response.
+        """
+        resp = self.session.request(method, self.ID_TOOLKIT_URL + urlpath, **kwargs)
+        resp.raise_for_status()
+        return resp.json()

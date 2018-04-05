@@ -25,8 +25,6 @@ import google.oauth2.id_token
 
 from firebase_admin import credentials
 
-# Provided for overriding during tests.
-_request = transport.requests.Request()
 
 # ID token constants
 ID_TOKEN_ISSUER_PREFIX = 'https://securetoken.google.com/'
@@ -36,11 +34,11 @@ ID_TOKEN_CERT_URI = ('https://www.googleapis.com/robot/v1/metadata/x509/'
 # Session cookie constants
 COOKIE_ISSUER_PREFIX = 'https://session.firebase.google.com/'
 COOKIE_CERT_URI = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/publicKeys'
-MIN_SESSION_COOKIE_DURATION_SECONDS = datetime.timedelta(minutes=5).total_seconds()
-MAX_SESSION_COOKIE_DURATION_SECONDS = datetime.timedelta(days=14).total_seconds()
+MIN_SESSION_COOKIE_DURATION_SECONDS = int(datetime.timedelta(minutes=5).total_seconds())
+MAX_SESSION_COOKIE_DURATION_SECONDS = int(datetime.timedelta(days=14).total_seconds())
 
 # Custom token constants
-MAX_TOKEN_LIFETIME_SECONDS = datetime.timedelta(hours=1).total_seconds()
+MAX_TOKEN_LIFETIME_SECONDS = int(datetime.timedelta(hours=1).total_seconds())
 FIREBASE_AUDIENCE = ('https://identitytoolkit.googleapis.com/google.'
                      'identity.identitytoolkit.v1.IdentityToolkit')
 RESERVED_CLAIMS = set([
@@ -152,6 +150,7 @@ class TokenVerifier(object):
     """Verifies ID tokens and session cookies."""
 
     def __init__(self, app):
+        self.request = transport.requests.Request()
         self._id_token_verifier = _JWTVerifier(
             project_id=app.project_id, short_name='ID token',
             operation='verify_id_token()',
@@ -164,10 +163,10 @@ class TokenVerifier(object):
             cert_url=COOKIE_CERT_URI, issuer=COOKIE_ISSUER_PREFIX)
 
     def verify_id_token(self, id_token):
-        return self._id_token_verifier.verify(id_token)
+        return self._id_token_verifier.verify(id_token, self.request)
 
     def verify_session_cookie(self, cookie):
-        return self._cookie_verifier.verify(cookie)
+        return self._cookie_verifier.verify(cookie, self.request)
 
 
 class _JWTVerifier(object):
@@ -185,7 +184,7 @@ class _JWTVerifier(object):
         else:
             self.articled_short_name = 'a {0}'.format(self.short_name)
 
-    def verify(self, token):
+    def verify(self, token, request):
         """Verifies the signature and data for the provided JWT."""
         token = token.encode('utf-8') if isinstance(token, six.text_type) else token
         if not isinstance(token, six.binary_type) or not token:
@@ -258,7 +257,7 @@ class _JWTVerifier(object):
 
         verified_claims = google.oauth2.id_token.verify_token(
             token,
-            request=_request,
+            request=request,
             audience=self.project_id,
             certs_url=self.cert_url)
         verified_claims['uid'] = verified_claims['sub']

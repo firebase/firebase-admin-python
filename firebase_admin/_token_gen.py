@@ -17,6 +17,7 @@
 import datetime
 import time
 
+import cachecontrol
 import requests
 import six
 from google.auth import jwt
@@ -150,23 +151,24 @@ class TokenVerifier(object):
     """Verifies ID tokens and session cookies."""
 
     def __init__(self, app):
-        self.request = transport.requests.Request()
-        self._id_token_verifier = _JWTVerifier(
+        session = cachecontrol.CacheControl(requests.Session())
+        self.request = transport.requests.Request(session=session)
+        self.id_token_verifier = _JWTVerifier(
             project_id=app.project_id, short_name='ID token',
             operation='verify_id_token()',
             doc_url='https://firebase.google.com/docs/auth/admin/verify-id-tokens',
             cert_url=ID_TOKEN_CERT_URI, issuer=ID_TOKEN_ISSUER_PREFIX)
-        self._cookie_verifier = _JWTVerifier(
+        self.cookie_verifier = _JWTVerifier(
             project_id=app.project_id, short_name='session cookie',
             operation='verify_session_cookie()',
             doc_url='https://firebase.google.com/docs/auth/admin/verify-id-tokens',
             cert_url=COOKIE_CERT_URI, issuer=COOKIE_ISSUER_PREFIX)
 
     def verify_id_token(self, id_token):
-        return self._id_token_verifier.verify(id_token, self.request)
+        return self.id_token_verifier.verify(id_token, self.request)
 
     def verify_session_cookie(self, cookie):
-        return self._cookie_verifier.verify(cookie, self.request)
+        return self.cookie_verifier.verify(cookie, self.request)
 
 
 class _JWTVerifier(object):

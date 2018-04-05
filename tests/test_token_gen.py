@@ -24,6 +24,7 @@ from google.auth import exceptions
 from google.auth import jwt
 import google.oauth2.id_token
 import pytest
+from pytest_localserver import plugin
 import six
 
 import firebase_admin
@@ -43,6 +44,9 @@ MOCK_REQUEST = testutils.MockRequest(200, MOCK_PUBLIC_CERTS)
 
 INVALID_STRINGS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
 INVALID_BOOLS = [None, '', 'foo', 0, 1, list(), tuple(), dict()]
+
+# Fixture for mocking a HTTP server
+httpserver = plugin.httpserver
 
 
 def _merge_jwt_claims(defaults, overrides):
@@ -452,3 +456,19 @@ class TestVerifySessionCookie(object):
         _overwrite_cert_request(user_mgt_app, testutils.MockRequest(404, 'not found'))
         with pytest.raises(exceptions.TransportError):
             auth.verify_session_cookie(TEST_SESSION_COOKIE, app=user_mgt_app)
+
+
+class TestCertificateCaching(object):
+
+    def test_certificate_caching(self, user_mgt_app, httpserver):
+        httpserver.serve_content(MOCK_PUBLIC_CERTS, 200, headers={'Cache-Control': 'max-age=3600'})
+        verifier = _token_gen.TokenVerifier(user_mgt_app)
+        verifier.cookie_verifier.cert_url = httpserver.url
+        verifier.id_token_verifier.cert_url = httpserver.url
+        verifier.verify_session_cookie(TEST_SESSION_COOKIE)
+        assert len(httpserver.requests) == 1
+        # Subsequent requests should not fetch certs from the server
+        verifier.verify_session_cookie(TEST_SESSION_COOKIE)
+        assert len(httpserver.requests) == 1
+        verifier.verify_id_token(TEST_ID_TOKEN)
+        assert len(httpserver.requests) == 1

@@ -12,478 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Test cases for the firebase_admin.auth module."""
-import datetime
+"""Test cases for the firebase_admin._user_mgt module."""
+
 import json
-import os
 import time
 
-from google.auth import crypt
-from google.auth import exceptions
-from google.auth import jwt
-import google.oauth2.id_token
 import pytest
-import six
 
 import firebase_admin
 from firebase_admin import auth
-from firebase_admin import credentials
-from firebase_admin import _token_gen
 from firebase_admin import _user_mgt
 from tests import testutils
 
-
-FIREBASE_AUDIENCE = ('https://identitytoolkit.googleapis.com/'
-                     'google.identity.identitytoolkit.v1.IdentityToolkit')
-GCLOUD_PROJECT_ENV_VAR = 'GCLOUD_PROJECT'
-
-MOCK_UID = 'user1'
-MOCK_CREDENTIAL = credentials.Certificate(
-    testutils.resource_filename('service_account.json'))
-MOCK_PUBLIC_CERTS = testutils.resource('public_certs.json')
-MOCK_PRIVATE_KEY = testutils.resource('private_key.pem')
-MOCK_SERVICE_ACCOUNT_EMAIL = MOCK_CREDENTIAL.service_account_email
 
 INVALID_STRINGS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
 INVALID_BOOLS = [None, '', 'foo', 0, 1, list(), tuple(), dict()]
 INVALID_DICTS = [None, 'foo', 0, 1, True, False, list(), tuple()]
 INVALID_POSITIVE_NUMS = [None, 'foo', 0, -1, True, False, list(), tuple(), dict()]
 
-
 MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
 MOCK_LIST_USERS_RESPONSE = testutils.resource('list_users.json')
-
-def _revoked_tokens_response():
-    mock_user = json.loads(testutils.resource('get_user.json'))
-    mock_user['users'][0]['validSince'] = str(int(time.time())+100)
-    return json.dumps(mock_user)
-
-MOCK_GET_USER_REVOKED_TOKENS_RESPONSE = _revoked_tokens_response()
-
-class AuthFixture(object):
-    def __init__(self, name=None):
-        if name:
-            self.app = firebase_admin.get_app(name)
-        else:
-            self.app = None
-
-    def create_custom_token(self, *args):
-        if self.app:
-            return auth.create_custom_token(*args, app=self.app)
-        return auth.create_custom_token(*args)
-
-    # Using **kwargs to pass along the check_revoked if passed.
-    def verify_id_token(self, *args, **kwargs):
-        if self.app:
-            return auth.verify_id_token(*args, app=self.app, **kwargs)
-        return auth.verify_id_token(*args, **kwargs)
-
-    def verify_session_cookie(self, *args, **kwargs):
-        if self.app:
-            return auth.verify_session_cookie(*args, app=self.app, **kwargs)
-        return auth.verify_session_cookie(*args, **kwargs)
-
-def setup_module():
-    firebase_admin.initialize_app(MOCK_CREDENTIAL)
-    firebase_admin.initialize_app(MOCK_CREDENTIAL, name='testApp')
-
-def teardown_module():
-    firebase_admin.delete_app(firebase_admin.get_app())
-    firebase_admin.delete_app(firebase_admin.get_app('testApp'))
-
-@pytest.fixture(params=[None, 'testApp'], ids=['DefaultApp', 'CustomApp'])
-def authtest(request):
-    """Returns an AuthFixture instance.
-
-    Instances returned by this fixture are parameterized to use either the defult App instance,
-    or a custom App instance named 'testApp'. Due to this parameterization, each test case that
-    depends on this fixture will get executed twice (as two test cases); once with the default
-    App, and once with the custom App.
-    """
-    return AuthFixture(request.param)
-
-@pytest.fixture
-def non_cert_app():
-    """Returns an App instance initialized with a mock non-cert credential.
-
-    The lines of code following the yield statement are guaranteed to run after each test case
-    that depends on this fixture. This ensures the proper cleanup of the App instance after
-    tests.
-    """
-    app = firebase_admin.initialize_app(testutils.MockCredential(), name='non-cert-app')
-    yield app
-    firebase_admin.delete_app(app)
-
-@pytest.fixture
-def env_var_app(request):
-    """Returns an App instance initialized with the given set of environment variables.
-
-    The lines of code following the yield statement are guaranteed to run after each test case
-    that depends on this fixture. This ensures that the environment is left intact after the
-    tests.
-    """
-    environ = os.environ
-    os.environ = request.param
-    app = firebase_admin.initialize_app(testutils.MockCredential(), name='env-var-app')
-    yield app
-    os.environ = environ
-    firebase_admin.delete_app(app)
-
-def verify_custom_token(custom_token, expected_claims):
-    assert isinstance(custom_token, six.binary_type)
-    token = google.oauth2.id_token.verify_token(
-        custom_token,
-        testutils.MockRequest(200, MOCK_PUBLIC_CERTS),
-        FIREBASE_AUDIENCE)
-    assert token['uid'] == MOCK_UID
-    assert token['iss'] == MOCK_SERVICE_ACCOUNT_EMAIL
-    assert token['sub'] == MOCK_SERVICE_ACCOUNT_EMAIL
-    header = jwt.decode_header(custom_token)
-    assert header.get('typ') == 'JWT'
-    assert header.get('alg') == 'RS256'
-    if expected_claims:
-        for key, value in expected_claims.items():
-            assert value == token['claims'][key]
-
-def _merge_jwt_claims(defaults, overrides):
-    defaults.update(overrides)
-    for key, value in overrides.items():
-        if value is None:
-            del defaults[key]
-    return defaults
-
-def get_id_token(payload_overrides=None, header_overrides=None):
-    signer = crypt.RSASigner.from_string(MOCK_PRIVATE_KEY)
-    headers = {
-        'kid': 'mock-key-id-1'
-    }
-    payload = {
-        'aud': MOCK_CREDENTIAL.project_id,
-        'iss': 'https://securetoken.google.com/' + MOCK_CREDENTIAL.project_id,
-        'iat': int(time.time()) - 100,
-        'exp': int(time.time()) + 3600,
-        'sub': '1234567890',
-        'admin': True,
-    }
-    if header_overrides:
-        headers = _merge_jwt_claims(headers, header_overrides)
-    if payload_overrides:
-        payload = _merge_jwt_claims(payload, payload_overrides)
-    return jwt.encode(signer, payload, header=headers)
-
-def get_session_cookie(payload_overrides=None, header_overrides=None):
-    payload_overrides = payload_overrides or {}
-    if 'iss' not in payload_overrides:
-        payload_overrides['iss'] = 'https://session.firebase.google.com/{0}'.format(
-            MOCK_CREDENTIAL.project_id)
-    return get_id_token(payload_overrides, header_overrides)
-
-
-TEST_ID_TOKEN = get_id_token()
-TEST_SESSION_COOKIE = get_session_cookie()
-
-class TestCreateCustomToken(object):
-
-    valid_args = {
-        'Basic': (MOCK_UID, {'one': 2, 'three': 'four'}),
-        'NoDevClaims': (MOCK_UID, None),
-        'EmptyDevClaims': (MOCK_UID, {}),
-    }
-
-    invalid_args = {
-        'NoUid': (None, None, ValueError),
-        'EmptyUid': ('', None, ValueError),
-        'LongUid': ('x'*129, None, ValueError),
-        'BoolUid': (True, None, ValueError),
-        'IntUid': (1, None, ValueError),
-        'ListUid': ([], None, ValueError),
-        'EmptyDictUid': ({}, None, ValueError),
-        'NonEmptyDictUid': ({'a':1}, None, ValueError),
-        'BoolClaims': (MOCK_UID, True, ValueError),
-        'IntClaims': (MOCK_UID, 1, ValueError),
-        'StrClaims': (MOCK_UID, 'foo', ValueError),
-        'ListClaims': (MOCK_UID, [], ValueError),
-        'TupleClaims': (MOCK_UID, (1, 2), ValueError),
-        'SingleReservedClaim': (MOCK_UID, {'sub':'1234'}, ValueError),
-        'MultipleReservedClaims': (MOCK_UID, {'sub':'1234', 'aud':'foo'}, ValueError),
-    }
-
-    @pytest.mark.parametrize('user,claims', valid_args.values(),
-                             ids=list(valid_args))
-    def test_valid_params(self, authtest, user, claims):
-        verify_custom_token(authtest.create_custom_token(user, claims), claims)
-
-    @pytest.mark.parametrize('user,claims,error', invalid_args.values(),
-                             ids=list(invalid_args))
-    def test_invalid_params(self, authtest, user, claims, error):
-        with pytest.raises(error):
-            authtest.create_custom_token(user, claims)
-
-    def test_noncert_credential(self, non_cert_app):
-        with pytest.raises(ValueError):
-            auth.create_custom_token(MOCK_UID, app=non_cert_app)
-
-
-class TestCreateSessionCookie(object):
-
-    @pytest.mark.parametrize('id_token', [None, '', 0, 1, True, False, list(), dict(), tuple()])
-    def test_invalid_id_token(self, user_mgt_app, id_token):
-        del user_mgt_app
-        with pytest.raises(ValueError):
-            auth.create_session_cookie(id_token, expires_in=3600)
-
-    @pytest.mark.parametrize('expires_in', [
-        None, '', True, False, list(), dict(), tuple(),
-        _token_gen.MIN_SESSION_COOKIE_DURATION_SECONDS - 1,
-        _token_gen.MAX_SESSION_COOKIE_DURATION_SECONDS + 1,
-    ])
-    def test_invalid_expires_in(self, user_mgt_app, expires_in):
-        del user_mgt_app
-        with pytest.raises(ValueError):
-            auth.create_session_cookie('id_token', expires_in=expires_in)
-
-    @pytest.mark.parametrize('expires_in', [
-        3600, datetime.timedelta(hours=1), datetime.timedelta(milliseconds=3600500)
-    ])
-    def test_valid_args(self, user_mgt_app, expires_in):
-        _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"sessionCookie": "cookie"}')
-        cookie = auth.create_session_cookie('id_token', expires_in=expires_in, app=user_mgt_app)
-        assert cookie == 'cookie'
-        request = json.loads(recorder[0].body.decode())
-        assert request == {'idToken' : 'id_token', 'validDuration': 3600}
-
-    def test_error(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
-        with pytest.raises(auth.AuthError) as excinfo:
-            auth.create_session_cookie('id_token', expires_in=3600, app=user_mgt_app)
-        assert excinfo.value.code == _token_gen.COOKIE_CREATE_ERROR
-        assert '{"error":"test"}' in str(excinfo.value)
-
-    def test_unexpected_response(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 200, '{}')
-        with pytest.raises(auth.AuthError) as excinfo:
-            auth.create_session_cookie('id_token', expires_in=3600, app=user_mgt_app)
-        assert excinfo.value.code == _token_gen.COOKIE_CREATE_ERROR
-        assert 'Failed to create session cookie' in str(excinfo.value)
-
-
-class TestVerifyIdToken(object):
-
-    valid_tokens = {
-        'BinaryToken': TEST_ID_TOKEN,
-        'TextToken': TEST_ID_TOKEN.decode('utf-8'),
-    }
-
-    invalid_tokens = {
-        'NoKid': get_id_token(header_overrides={'kid': None}),
-        'WrongKid': get_id_token(header_overrides={'kid': 'foo'}),
-        'BadAudience': get_id_token({'aud': 'bad-audience'}),
-        'BadIssuer': get_id_token({
-            'iss': 'https://securetoken.google.com/wrong-issuer'
-        }),
-        'EmptySubject': get_id_token({'sub': ''}),
-        'IntSubject': get_id_token({'sub': 10}),
-        'LongStrSubject': get_id_token({'sub': 'a' * 129}),
-        'FutureToken': get_id_token({'iat': int(time.time()) + 1000}),
-        'ExpiredToken': get_id_token({
-            'iat': int(time.time()) - 10000,
-            'exp': int(time.time()) - 3600
-        }),
-        'NoneToken': None,
-        'EmptyToken': '',
-        'BoolToken': True,
-        'IntToken': 1,
-        'ListToken': [],
-        'EmptyDictToken': {},
-        'NonEmptyDictToken': {'a': 1},
-        'BadFormatToken': 'foobar'
-    }
-
-    def setup_method(self):
-        _token_gen._request = testutils.MockRequest(200, MOCK_PUBLIC_CERTS)
-
-    @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
-    def test_valid_token(self, authtest, id_token):
-        claims = authtest.verify_id_token(id_token)
-        assert claims['admin'] is True
-        assert claims['uid'] == claims['sub']
-
-    @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
-    def test_valid_token_check_revoked(self, user_mgt_app, id_token):
-        _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_RESPONSE)
-        claims = auth.verify_id_token(id_token, app=user_mgt_app, check_revoked=True)
-        assert claims['admin'] is True
-        assert claims['uid'] == claims['sub']
-
-    @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
-    def test_revoked_token_check_revoked(self, user_mgt_app, id_token):
-        _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_REVOKED_TOKENS_RESPONSE)
-
-        with pytest.raises(auth.AuthError) as excinfo:
-            auth.verify_id_token(id_token, app=user_mgt_app, check_revoked=True)
-
-        assert excinfo.value.code == 'ID_TOKEN_REVOKED'
-        assert str(excinfo.value) == 'The Firebase ID token has been revoked.'
-
-    @pytest.mark.parametrize('arg', INVALID_BOOLS)
-    def test_invalid_check_revoked(self, arg):
-        with pytest.raises(ValueError):
-            auth.verify_id_token('id_token', check_revoked=arg)
-
-    @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
-    def test_revoked_token_do_not_check_revoked(self, user_mgt_app, id_token):
-        _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_REVOKED_TOKENS_RESPONSE)
-        claims = auth.verify_id_token(id_token, app=user_mgt_app, check_revoked=False)
-        assert claims['admin'] is True
-        assert claims['uid'] == claims['sub']
-
-    def test_revoke_refresh_tokens(self, user_mgt_app):
-        _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
-        before_time = time.time()
-        auth.revoke_refresh_tokens('testuser', app=user_mgt_app)
-        after_time = time.time()
-
-        request = json.loads(recorder[0].body.decode())
-        assert request['localId'] == 'testuser'
-        assert int(request['validSince']) >= int(before_time)
-        assert int(request['validSince']) <= int(after_time)
-
-    @pytest.mark.parametrize('id_token', invalid_tokens.values(), ids=list(invalid_tokens))
-    def test_invalid_token(self, authtest, id_token):
-        with pytest.raises(ValueError):
-            authtest.verify_id_token(id_token)
-
-    def test_project_id_option(self):
-        app = firebase_admin.initialize_app(
-            testutils.MockCredential(), options={'projectId': 'mock-project-id'}, name='myApp')
-        try:
-            claims = auth.verify_id_token(TEST_ID_TOKEN, app)
-            assert claims['admin'] is True
-            assert claims['uid'] == claims['sub']
-        finally:
-            firebase_admin.delete_app(app)
-
-    @pytest.mark.parametrize('env_var_app', [{'GCLOUD_PROJECT': 'mock-project-id'}], indirect=True)
-    def test_project_id_env_var(self, env_var_app):
-        claims = auth.verify_id_token(TEST_ID_TOKEN, env_var_app)
-        assert claims['admin'] is True
-
-    @pytest.mark.parametrize('env_var_app', [{}], indirect=True)
-    def test_no_project_id(self, env_var_app):
-        with pytest.raises(ValueError):
-            auth.verify_id_token(TEST_ID_TOKEN, env_var_app)
-
-    def test_custom_token(self, authtest):
-        id_token = authtest.create_custom_token(MOCK_UID)
-        with pytest.raises(ValueError):
-            authtest.verify_id_token(id_token)
-
-    def test_certificate_request_failure(self, authtest):
-        _token_gen._request = testutils.MockRequest(404, 'not found')
-        with pytest.raises(exceptions.TransportError):
-            authtest.verify_id_token(TEST_ID_TOKEN)
-
-
-class TestVerifySessionCookie(object):
-
-    valid_cookies = {
-        'BinaryCookie': TEST_SESSION_COOKIE,
-        'TextCookie': TEST_SESSION_COOKIE.decode('utf-8'),
-    }
-
-    invalid_cookies = {
-        'NoKid': get_session_cookie(header_overrides={'kid': None}),
-        'WrongKid': get_session_cookie(header_overrides={'kid': 'foo'}),
-        'BadAudience': get_session_cookie({'aud': 'bad-audience'}),
-        'BadIssuer': get_session_cookie({
-            'iss': 'https://session.firebase.google.com/wrong-issuer'
-        }),
-        'EmptySubject': get_session_cookie({'sub': ''}),
-        'IntSubject': get_session_cookie({'sub': 10}),
-        'LongStrSubject': get_session_cookie({'sub': 'a' * 129}),
-        'FutureCookie': get_session_cookie({'iat': int(time.time()) + 1000}),
-        'ExpiredCookie': get_session_cookie({
-            'iat': int(time.time()) - 10000,
-            'exp': int(time.time()) - 3600
-        }),
-        'NoneCookie': None,
-        'EmptyCookie': '',
-        'BoolCookie': True,
-        'IntCookie': 1,
-        'ListCookie': [],
-        'EmptyDictCookie': {},
-        'NonEmptyDictCookie': {'a': 1},
-        'BadFormatCookie': 'foobar',
-        'IDToken': TEST_ID_TOKEN,
-    }
-
-    def setup_method(self):
-        _token_gen._request = testutils.MockRequest(200, MOCK_PUBLIC_CERTS)
-
-    @pytest.mark.parametrize('cookie', valid_cookies.values(), ids=list(valid_cookies))
-    def test_valid_cookie(self, authtest, cookie):
-        claims = authtest.verify_session_cookie(cookie)
-        assert claims['admin'] is True
-        assert claims['uid'] == claims['sub']
-
-    @pytest.mark.parametrize('cookie', valid_cookies.values(), ids=list(valid_cookies))
-    def test_valid_cookie_check_revoked(self, user_mgt_app, cookie):
-        _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_RESPONSE)
-        claims = auth.verify_session_cookie(cookie, app=user_mgt_app, check_revoked=True)
-        assert claims['admin'] is True
-        assert claims['uid'] == claims['sub']
-
-    @pytest.mark.parametrize('cookie', valid_cookies.values(), ids=list(valid_cookies))
-    def test_revoked_cookie_check_revoked(self, user_mgt_app, cookie):
-        _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_REVOKED_TOKENS_RESPONSE)
-
-        with pytest.raises(auth.AuthError) as excinfo:
-            auth.verify_session_cookie(cookie, app=user_mgt_app, check_revoked=True)
-
-        assert excinfo.value.code == 'SESSION_COOKIE_REVOKED'
-        assert str(excinfo.value) == 'The Firebase session cookie has been revoked.'
-
-    @pytest.mark.parametrize('cookie', valid_cookies.values(), ids=list(valid_cookies))
-    def test_revoked_cookie_does_not_check_revoked(self, user_mgt_app, cookie):
-        _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_REVOKED_TOKENS_RESPONSE)
-        claims = auth.verify_session_cookie(cookie, app=user_mgt_app, check_revoked=False)
-        assert claims['admin'] is True
-        assert claims['uid'] == claims['sub']
-
-    @pytest.mark.parametrize('cookie', invalid_cookies.values(), ids=list(invalid_cookies))
-    def test_invalid_cookie(self, authtest, cookie):
-        with pytest.raises(ValueError):
-            authtest.verify_session_cookie(cookie)
-
-    def test_project_id_option(self):
-        app = firebase_admin.initialize_app(
-            testutils.MockCredential(), options={'projectId': 'mock-project-id'}, name='myApp')
-        try:
-            claims = auth.verify_session_cookie(TEST_SESSION_COOKIE, app=app)
-            assert claims['admin'] is True
-            assert claims['uid'] == claims['sub']
-        finally:
-            firebase_admin.delete_app(app)
-
-    @pytest.mark.parametrize('env_var_app', [{'GCLOUD_PROJECT': 'mock-project-id'}], indirect=True)
-    def test_project_id_env_var(self, env_var_app):
-        claims = auth.verify_session_cookie(TEST_SESSION_COOKIE, app=env_var_app)
-        assert claims['admin'] is True
-
-    @pytest.mark.parametrize('env_var_app', [{}], indirect=True)
-    def test_no_project_id(self, env_var_app):
-        with pytest.raises(ValueError):
-            auth.verify_session_cookie(TEST_SESSION_COOKIE, app=env_var_app)
-
-    def test_custom_token(self, authtest):
-        custom_token = authtest.create_custom_token(MOCK_UID)
-        with pytest.raises(ValueError):
-            authtest.verify_session_cookie(custom_token)
-
-    def test_certificate_request_failure(self, authtest):
-        _token_gen._request = testutils.MockRequest(404, 'not found')
-        with pytest.raises(exceptions.TransportError):
-            authtest.verify_session_cookie(TEST_SESSION_COOKIE)
 
 
 @pytest.fixture(scope='module')
@@ -614,9 +162,9 @@ class TestGetUser(object):
     VALID_PHONE = '+1234567890'
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
-    def test_invalid_get_user(self, arg):
+    def test_invalid_get_user(self, arg, user_mgt_app):
         with pytest.raises(ValueError):
-            auth.get_user(arg)
+            auth.get_user(arg, app=user_mgt_app)
 
     def test_get_user(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_RESPONSE)
@@ -671,48 +219,48 @@ class TestGetUser(object):
 class TestCreateUser(object):
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
-    def test_invalid_uid(self, arg):
+    def test_invalid_uid(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.create_user(uid=arg)
+            auth.create_user(uid=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-an-email'])
-    def test_invalid_email(self, arg):
+    def test_invalid_email(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.create_user(email=arg)
+            auth.create_user(email=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-a-phone', '+'])
-    def test_invalid_phone(self, arg):
+    def test_invalid_phone(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.create_user(phone_number=arg)
+            auth.create_user(phone_number=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS)
-    def test_invalid_display_name(self, arg):
+    def test_invalid_display_name(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.create_user(display_name=arg)
+            auth.create_user(display_name=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-a-url'])
-    def test_invalid_photo_url(self, arg):
+    def test_invalid_photo_url(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.create_user(photo_url=arg)
+            auth.create_user(photo_url=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['short'])
-    def test_invalid_password(self, arg):
+    def test_invalid_password(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.create_user(password=arg)
+            auth.create_user(password=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_BOOLS)
-    def test_invalid_email_verified(self, arg):
+    def test_invalid_email_verified(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.create_user(email_verified=arg)
+            auth.create_user(email_verified=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_BOOLS)
-    def test_invalid_disabled(self, arg):
+    def test_invalid_disabled(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.create_user(disabled=arg)
+            auth.create_user(disabled=arg, app=user_mgt_app)
 
-    def test_invalid_property(self):
+    def test_invalid_property(self, user_mgt_app):
         with pytest.raises(ValueError):
-            auth.create_user(unsupported='value')
+            auth.create_user(unsupported='value', app=user_mgt_app)
 
     def test_create_user(self, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
@@ -752,58 +300,58 @@ class TestCreateUser(object):
 class TestUpdateUser(object):
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
-    def test_invalid_uid(self, arg):
+    def test_invalid_uid(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.update_user(arg)
+            auth.update_user(arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-an-email'])
-    def test_invalid_email(self, arg):
+    def test_invalid_email(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.update_user('user', email=arg)
+            auth.update_user('user', email=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['not-a-phone', '+'])
-    def test_invalid_phone(self, arg):
+    def test_invalid_phone(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.update_user('user', phone_number=arg)
+            auth.update_user('user', phone_number=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS[1:])
-    def test_invalid_display_name(self, arg):
+    def test_invalid_display_name(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.update_user('user', display_name=arg)
+            auth.update_user('user', display_name=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['not-a-url'])
-    def test_invalid_photo_url(self, arg):
+    def test_invalid_photo_url(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.update_user('user', photo_url=arg)
+            auth.update_user('user', photo_url=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['short'])
-    def test_invalid_password(self, arg):
+    def test_invalid_password(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.update_user('user', password=arg)
+            auth.update_user('user', password=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_BOOLS)
-    def test_invalid_email_verified(self, arg):
+    def test_invalid_email_verified(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.update_user('user', email_verified=arg)
+            auth.update_user('user', email_verified=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_BOOLS)
-    def test_invalid_disabled(self, arg):
+    def test_invalid_disabled(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.update_user('user', disabled=arg)
+            auth.update_user('user', disabled=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_DICTS[1:] + ['"json"'])
-    def test_invalid_custom_claims(self, arg):
+    def test_invalid_custom_claims(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.update_user('user', custom_claims=arg)
+            auth.update_user('user', custom_claims=arg, app=user_mgt_app)
 
-    def test_invalid_property(self):
+    def test_invalid_property(self, user_mgt_app):
         with pytest.raises(ValueError):
-            auth.update_user('user', unsupported='arg')
+            auth.update_user('user', unsupported='arg', app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_POSITIVE_NUMS)
-    def test_invalid_valid_since(self, arg):
+    def test_invalid_valid_since(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.update_user('user', valid_since=arg)
+            auth.update_user('user', valid_since=arg, app=user_mgt_app)
 
     def test_update_user(self, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
@@ -851,34 +399,34 @@ class TestUpdateUser(object):
 class TestSetCustomUserClaims(object):
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
-    def test_invalid_uid(self, arg):
+    def test_invalid_uid(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.set_custom_user_claims(arg, {'foo': 'bar'})
+            auth.set_custom_user_claims(arg, {'foo': 'bar'}, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_DICTS[1:] + ['"json"'])
-    def test_invalid_custom_claims(self, arg):
+    def test_invalid_custom_claims(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.set_custom_user_claims('user', arg)
+            auth.set_custom_user_claims('user', arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('key', _user_mgt.RESERVED_CLAIMS)
-    def test_single_reserved_claim(self, key):
+    def test_single_reserved_claim(self, user_mgt_app, key):
         claims = {key : 'value'}
         with pytest.raises(ValueError) as excinfo:
-            auth.set_custom_user_claims('user', claims)
+            auth.set_custom_user_claims('user', claims, app=user_mgt_app)
         assert str(excinfo.value) == 'Claim "{0}" is reserved, and must not be set.'.format(key)
 
-    def test_multiple_reserved_claims(self):
+    def test_multiple_reserved_claims(self, user_mgt_app):
         claims = {key : 'value' for key in _user_mgt.RESERVED_CLAIMS}
         with pytest.raises(ValueError) as excinfo:
-            auth.set_custom_user_claims('user', claims)
+            auth.set_custom_user_claims('user', claims, app=user_mgt_app)
         joined = ', '.join(sorted(claims.keys()))
         assert str(excinfo.value) == ('Claims "{0}" are reserved, and must not be '
                                       'set.'.format(joined))
 
-    def test_large_claims_payload(self):
+    def test_large_claims_payload(self, user_mgt_app):
         claims = {'key' : 'A'*1000}
         with pytest.raises(ValueError) as excinfo:
-            auth.set_custom_user_claims('user', claims)
+            auth.set_custom_user_claims('user', claims, app=user_mgt_app)
         assert str(excinfo.value) == 'Custom claims payload must not exceed 1000 characters.'
 
     def test_set_custom_user_claims(self, user_mgt_app):
@@ -912,9 +460,9 @@ class TestSetCustomUserClaims(object):
 class TestDeleteUser(object):
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
-    def test_invalid_delete_user(self, arg):
+    def test_invalid_delete_user(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.get_user(arg)
+            auth.get_user(arg, app=user_mgt_app)
 
     def test_delete_user(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 200, '{"kind":"deleteresponse"}')
@@ -932,9 +480,14 @@ class TestDeleteUser(object):
 class TestListUsers(object):
 
     @pytest.mark.parametrize('arg', [None, 'foo', list(), dict(), 0, -1, 1001, False])
-    def test_invalid_max_results(self, arg):
+    def test_invalid_max_results(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
-            auth.list_users(max_results=arg)
+            auth.list_users(max_results=arg, app=user_mgt_app)
+
+    @pytest.mark.parametrize('arg', ['', list(), dict(), 0, -1, 1001, False])
+    def test_invalid_page_token(self, user_mgt_app, arg):
+        with pytest.raises(ValueError):
+            auth.list_users(page_token=arg, app=user_mgt_app)
 
     def test_list_single_page(self, user_mgt_app):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_LIST_USERS_RESPONSE)
@@ -1079,3 +632,17 @@ class TestListUsers(object):
         assert len(recorder) == 1
         request = json.loads(recorder[0].body.decode())
         assert request == expected
+
+
+class TestRevokeRefreshTokkens(object):
+
+    def test_revoke_refresh_tokens(self, user_mgt_app):
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        before_time = time.time()
+        auth.revoke_refresh_tokens('testuser', app=user_mgt_app)
+        after_time = time.time()
+
+        request = json.loads(recorder[0].body.decode())
+        assert request['localId'] == 'testuser'
+        assert int(request['validSince']) >= int(before_time)
+        assert int(request['validSince']) <= int(after_time)

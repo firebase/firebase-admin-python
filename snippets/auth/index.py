@@ -300,13 +300,13 @@ def create_session_cookie(flask, app):
         id_token = flask.request.json['idToken']
         # Set session expiration to 5 days.
         expires_in = datetime.timedelta(days=5)
-        expires = datetime.datetime.now() + expires_in
         try:
             # Create the session cookie. This will also verify the ID token in the process.
             # The session cookie will have the same claims as the ID token.
             session_cookie = auth.create_session_cookie(id_token, expires_in=expires_in)
             response = flask.jsonify({'status': 'success'})
             # Set cookie policy for session cookie.
+            expires = datetime.datetime.now() + expires_in
             response.set_cookie(
                 'session', session_cookie, expires=expires, httponly=True, secure=True)
             return response
@@ -320,6 +320,7 @@ def check_auth_time(id_token, flask):
     # ID token before creating a cookie.
     try:
         decoded_claims = auth.verify_id_token(id_token)
+        # Only process if the user signed in within the last 5 minutes.
         if time.time() - decoded_claims['auth_time'] < 5 * 60:
             expires_in = datetime.timedelta(days=5)
             expires = datetime.datetime.now() + expires_in
@@ -360,13 +361,16 @@ def verfy_session_cookie(app, flask):
     # [END session_verify]
 
 def check_permissions(session_cookie, flask):
+    def serve_content_for_admin(decoded_claims):
+        print 'Serving content with claims:', decoded_claims
+        return flask.jsonify({'status': 'success'})
+
     # [START session_verify_with_permission_check]
     try:
         decoded_claims = auth.verify_session_cookie(session_cookie, check_revoked=True)
         # Check custom claims to confirm user is an admin.
         if decoded_claims.get('admin') is True:
-            print 'Logged in as admin'
-            # Serve content for user
+            return serve_content_for_admin(decoded_claims)
         else:
             return flask.abort(401, 'Insufficient permissions')
     except ValueError:

@@ -4,6 +4,9 @@
   session cookie given a valid ID token.
 - [added] A new `verify_session_cookie()` method for verifying a given
   cookie string is valid.
+- [added] `auth` module now caches the public key certificates used to
+  verify ID tokens and sessions cookies. This enables the SDK to avoid
+  making a network call everytime a credential needs to be verified.
 - [added] Added the `mutable_content` optional field to the `messaging.Aps`
   type.
 - [added] Added support for specifying arbitrary custom key-value

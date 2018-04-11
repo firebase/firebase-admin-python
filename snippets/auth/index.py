@@ -12,7 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import datetime
 import sys
+import time
+
 # [START import_sdk]
 import firebase_admin
 # [END import_sdk]
@@ -288,6 +291,120 @@ def list_all_users():
     for user in auth.list_users().iterate_all():
         print 'User: ' + user.uid
     # [END list_all_users]
+
+def create_session_cookie(flask, app):
+    # [START session_login]
+    @app.route('/sessionLogin', methods=['POST'])
+    def session_login():
+        # Get the ID token sent by the client
+        id_token = flask.request.json['idToken']
+        # Set session expiration to 5 days.
+        expires_in = datetime.timedelta(days=5)
+        try:
+            # Create the session cookie. This will also verify the ID token in the process.
+            # The session cookie will have the same claims as the ID token.
+            session_cookie = auth.create_session_cookie(id_token, expires_in=expires_in)
+            response = flask.jsonify({'status': 'success'})
+            # Set cookie policy for session cookie.
+            expires = datetime.datetime.now() + expires_in
+            response.set_cookie(
+                'session', session_cookie, expires=expires, httponly=True, secure=True)
+            return response
+        except auth.AuthError:
+            return flask.abort(401, 'Failed to create a session cookie')
+    # [END session_login]
+
+def check_auth_time(id_token, flask):
+    # [START check_auth_time]
+    # To ensure that cookies are set only on recently signed in users, check auth_time in
+    # ID token before creating a cookie.
+    try:
+        decoded_claims = auth.verify_id_token(id_token)
+        # Only process if the user signed in within the last 5 minutes.
+        if time.time() - decoded_claims['auth_time'] < 5 * 60:
+            expires_in = datetime.timedelta(days=5)
+            expires = datetime.datetime.now() + expires_in
+            session_cookie = auth.create_session_cookie(id_token, expires_in=expires_in)
+            response = flask.jsonify({'status': 'success'})
+            response.set_cookie(
+                'session', session_cookie, expires=expires, httponly=True, secure=True)
+            return response
+        # User did not sign in recently. To guard against ID token theft, require
+        # re-authentication.
+        return flask.abort(401, 'Recent sign in required')
+    except ValueError:
+        return flask.abort(401, 'Invalid ID token')
+    except auth.AuthError:
+        return flask.abort(401, 'Failed to create a session cookie')
+    # [END check_auth_time]
+
+def verfy_session_cookie(app, flask):
+    def serve_content_for_user(decoded_claims):
+        print 'Serving content with claims:', decoded_claims
+        return flask.jsonify({'status': 'success'})
+
+    # [START session_verify]
+    @app.route('/profile', methods=['POST'])
+    def access_restricted_content():
+        session_cookie = flask.request.cookies.get('session')
+        # Verify the session cookie. In this case an additional check is added to detect
+        # if the user's Firebase session was revoked, user deleted/disabled, etc.
+        try:
+            decoded_claims = auth.verify_session_cookie(session_cookie, check_revoked=True)
+            return serve_content_for_user(decoded_claims)
+        except ValueError:
+            # Session cookie is unavailable or invalid. Force user to login.
+            return flask.redirect('/login')
+        except auth.AuthError:
+            # Session revoked. Force user to login.
+            return flask.redirect('/login')
+    # [END session_verify]
+
+def check_permissions(session_cookie, flask):
+    def serve_content_for_admin(decoded_claims):
+        print 'Serving content with claims:', decoded_claims
+        return flask.jsonify({'status': 'success'})
+
+    # [START session_verify_with_permission_check]
+    try:
+        decoded_claims = auth.verify_session_cookie(session_cookie, check_revoked=True)
+        # Check custom claims to confirm user is an admin.
+        if decoded_claims.get('admin') is True:
+            return serve_content_for_admin(decoded_claims)
+        else:
+            return flask.abort(401, 'Insufficient permissions')
+    except ValueError:
+        # Session cookie is unavailable or invalid. Force user to login.
+        return flask.redirect('/login')
+    except auth.AuthError:
+        # Session revoked. Force user to login.
+        return flask.redirect('/login')
+    # [END session_verify_with_permission_check]
+
+def clear_session_cookie(app, flask):
+    # [START session_clear]
+    @app.route('/sessionLogout', methods=['POST'])
+    def session_logout():
+        response = flask.make_response(flask.redirect('/login'))
+        response.set_cookie('session', expires=0)
+        return response
+    # [END session_clear]
+
+def clear_session_cookie_and_revoke(app, flask):
+    # [START session_clear_and_revoke]
+    @app.route('/sessionLogout', methods=['POST'])
+    def session_logout():
+        session_cookie = flask.request.cookies.get('session')
+        try:
+            decoded_claims = auth.verify_session_cookie(session_cookie)
+            auth.revoke_refresh_tokens(decoded_claims['sub'])
+            response = flask.make_response(flask.redirect('/login'))
+            response.set_cookie('session', expires=0)
+            return response
+        except ValueError:
+            return flask.redirect('/login')
+    # [END session_clear_and_revoke]
+
 
 initialize_sdk_with_service_account()
 initialize_sdk_with_application_default()

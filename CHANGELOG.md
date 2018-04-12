@@ -1,5 +1,9 @@
 # Unreleased
 
+-
+
+# v2.10.0
+
 - [added] A new `create_session_cookie()` method for creating a long-lived
   session cookie given a valid ID token.
 - [added] A new `verify_session_cookie()` method for verifying a given

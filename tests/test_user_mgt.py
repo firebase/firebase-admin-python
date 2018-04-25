@@ -278,9 +278,9 @@ class TestCreateUser(object):
 
     def test_create_user_with_email(self, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
-        assert user_mgt.create_user(email='test@example.com') == 'testuser'
+        assert user_mgt.create_user(email='test@example.com', email_verified=True) == 'testuser'
         request = json.loads(recorder[0].body.decode())
-        assert request == {'email' : 'test@example.com'}
+        assert request == {'email' : 'test@example.com', 'emailVerified' : True}
 
     def test_create_user_with_id(self, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
@@ -363,6 +363,12 @@ class TestUpdateUser(object):
         user_mgt.update_user('testuser', disabled=True)
         request = json.loads(recorder[0].body.decode())
         assert request == {'localId' : 'testuser', 'disableUser' : True}
+
+    def test_set_email_verified(self, user_mgt_app):
+        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        user_mgt.update_user('testuser', email_verified=True)
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'localId' : 'testuser', 'emailVerified' : True}
 
     def test_update_user_custom_claims(self, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')

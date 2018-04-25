@@ -247,7 +247,7 @@ class UserManager(object):
                 'display_name', _UNSPECIFIED)),
             'email': _Validator.validate_email(kwargs.pop('email', _UNSPECIFIED)),
             'emailVerified': _Validator.validate_boolean(kwargs.pop(
-                'emailVerified', _UNSPECIFIED), 'email_verified'),
+                'email_verified', _UNSPECIFIED), 'email_verified'),
             'phoneNumber': _Validator.validate_phone(kwargs.pop('phone_number', _UNSPECIFIED)),
             'photoUrl': _Validator.validate_photo_url(kwargs.pop('photo_url', _UNSPECIFIED)),
             'password': _Validator.validate_password(kwargs.pop('password', _UNSPECIFIED)),
@@ -274,7 +274,7 @@ class UserManager(object):
             'localId': _Validator.validate_uid(uid),
             'email': _Validator.validate_email(kwargs.pop('email', _UNSPECIFIED)),
             'emailVerified': _Validator.validate_boolean(kwargs.pop(
-                'emailVerified', _UNSPECIFIED), 'email_verified'),
+                'email_verified', _UNSPECIFIED), 'email_verified'),
             'password': _Validator.validate_password(kwargs.pop('password', _UNSPECIFIED)),
             'disableUser': _Validator.validate_boolean(kwargs.pop(
                 'disabled', _UNSPECIFIED), 'disabled'),
@@ -310,7 +310,7 @@ class UserManager(object):
             if custom_claims is None:
                 custom_claims = {}
             if isinstance(custom_claims, dict):
-                custom_claims = json.dumps(custom_claims)
+                custom_claims = json.dumps(custom_claims) # pylint: disable=redefined-variable-type
             payload['customAttributes'] = _Validator.validate_custom_claims(custom_claims)
 
         if kwargs:

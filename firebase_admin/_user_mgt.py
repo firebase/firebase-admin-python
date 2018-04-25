@@ -14,6 +14,7 @@
 
 """Firebase user management sub module."""
 
+import base64
 import json
 import re
 
@@ -27,6 +28,7 @@ USER_NOT_FOUND_ERROR = 'USER_NOT_FOUND_ERROR'
 USER_CREATE_ERROR = 'USER_CREATE_ERROR'
 USER_UPDATE_ERROR = 'USER_UPDATE_ERROR'
 USER_DELETE_ERROR = 'USER_DELETE_ERROR'
+USER_IMPORT_ERROR = 'USER_IMPORT_ERROR'
 USER_DOWNLOAD_ERROR = 'LIST_USERS_ERROR'
 
 MAX_LIST_USERS_RESULTS = 1000
@@ -96,6 +98,14 @@ class _Validator(object):
         return password
 
     @classmethod
+    def validate_bytes(cls, value, label):
+        if value is _UNSPECIFIED:
+            return _UNSPECIFIED
+        if not isinstance(value, six.binary_type) or not value:
+            raise ValueError('{0} must be a non-empty byte sequence.'.format(label))
+        return value
+
+    @classmethod
     def validate_boolean(cls, value, label):
         if value is _UNSPECIFIED:
             return _UNSPECIFIED
@@ -130,17 +140,17 @@ class _Validator(object):
             raise ValueError('Malformed photo URL: "{0}".'.format(photo_url))
 
     @classmethod
-    def validate_valid_since(cls, valid_since):
-        # isinstance(True, int) is True hence the extra check
-        if valid_since is _UNSPECIFIED:
+    def validate_timestamp(cls, timestamp, label):
+        if timestamp is _UNSPECIFIED:
             return _UNSPECIFIED
-        if valid_since is None or isinstance(valid_since, bool) or not isinstance(valid_since, int):
+        if timestamp is None or isinstance(timestamp, bool) or not isinstance(timestamp, int):
             raise ValueError(
-                'Invalid time string for: "{0}". Valid Since must be an int'.format(valid_since))
-        if int(valid_since) <= 0:
+                'Invalid timestamp. {0} must be an int'.format(label))
+        if int(timestamp) <= 0:
             raise ValueError(
-                'Invalid valid_since: must be a positive interger. {0}'.format(valid_since))
-        return valid_since
+                'Invalid timestamp. {0} must be a positive interger.'.format(label))
+        return timestamp
+
 
     @classmethod
     def validate_custom_claims(cls, custom_claims):
@@ -182,6 +192,154 @@ class ApiCallError(Exception):
         Exception.__init__(self, message)
         self.code = code
         self.detail = error
+
+
+def _none_to_unspecified(value):
+    if value is None:
+        return _UNSPECIFIED
+    else:
+        return value
+
+
+class UserMetadata(object):
+    """Contains additional metadata associated with a user account."""
+
+    def __init__(self, creation_timestamp=None, last_sign_in_timestamp=None):
+        self._creation_timestamp = creation_timestamp
+        self._last_sign_in_timestamp = last_sign_in_timestamp
+
+    @property
+    def creation_timestamp(self):
+        """ Creation timestamp in milliseconds since the epoch.
+
+        Returns:
+          integer: The user creation timestamp in milliseconds since the epoch.
+        """
+        return self._creation_timestamp
+
+    @property
+    def last_sign_in_timestamp(self):
+        """ Last sign in timestamp in milliseconds since the epoch.
+
+        Returns:
+          integer: The last sign in timestamp in milliseconds since the epoch.
+        """
+        return self._last_sign_in_timestamp
+
+
+class UserProvider(object):
+
+    def __init__(self, uid, provider_id, email=None, display_name=None, photo_url=None):
+        self.uid = uid
+        self.provider_id = provider_id
+        self.email = _none_to_unspecified(email)
+        self.display_name = _none_to_unspecified(display_name)
+        self.photo_url = _none_to_unspecified(photo_url)
+
+
+class UserImportRecord(object):
+
+    def __init__(self, uid, email=None, email_verified=None, display_name=None, phone_number=None,
+                 photo_url=None, disabled=None, metadata=None, provider_data=None,
+                 custom_claims=None, password_hash=None, password_salt=None):
+        self.uid = uid
+        self.email = _none_to_unspecified(email)
+        self.email_verified = _none_to_unspecified(email_verified)
+        self.display_name = _none_to_unspecified(display_name)
+        self.phone_number = _none_to_unspecified(phone_number)
+        self.photo_url = _none_to_unspecified(photo_url)
+        self.disabled = _none_to_unspecified(disabled)
+        self.metadata = _none_to_unspecified(metadata)
+        self.provider_data = _none_to_unspecified(provider_data)
+        self.custom_claims = _none_to_unspecified(custom_claims)
+        self.password_hash = _none_to_unspecified(password_hash)
+        self.password_salt = _none_to_unspecified(password_salt)
+
+
+class ErrorInfo(object):
+
+    def __init__(self, error):
+        self._index = error['index']
+        self._reason = error['message']
+
+    @property
+    def index(self):
+        return self._index
+
+    @property
+    def reason(self):
+        return self._reason
+
+
+class UserImportResult(object):
+
+    def __init__(self, result, total):
+        errors = result.get('error', [])
+        self._success_count = total - len(errors)
+        self._failure_count = len(errors)
+        self._errors = [ErrorInfo(err) for err in errors]
+
+    @property
+    def success_count(self):
+        return self._success_count
+
+    @property
+    def failure_count(self):
+        return self._failure_count
+
+    @property
+    def errors(self):
+        return self._errors
+
+
+def encode_user_provider(provider):
+    if not isinstance(provider, UserProvider):
+        raise ValueError('Invalid user provider: {0}.'.format(provider))
+    payload = {
+        'rawId': _Validator.validate_uid(provider.uid),
+        'providerId': _Validator.validate_uid(provider.provider_id),
+        'displayName': _Validator.validate_display_name(provider.display_name),
+        'email': _Validator.validate_email(provider.email),
+        'photoUrl': _Validator.validate_photo_url(provider.photo_url),
+    }
+    return {k: v for k, v in payload.items() if v is not _UNSPECIFIED}
+
+def encode_user_import_record(user):
+    if not isinstance(user, UserImportRecord):
+        raise ValueError('Invalid user import record: {0}.'.format(user))
+    payload = {
+        'localId': _Validator.validate_uid(user.uid),
+        'email': _Validator.validate_email(user.email),
+        'emailVerified': _Validator.validate_boolean(user.email_verified, 'email_verified'),
+        'displayName': _Validator.validate_display_name(user.display_name),
+        'phoneNumber': _Validator.validate_phone(user.phone_number),
+        'photoUrl': _Validator.validate_photo_url(user.photo_url),
+        'disabled': _Validator.validate_boolean(user.disabled, 'disabled'),
+    }
+    if user.password_hash is not _UNSPECIFIED:
+        password_hash = _Validator.validate_bytes(user.password_hash, 'password_hash')
+        payload['passwordHash'] = base64.urlsafe_b64encode(password_hash)
+    if user.password_salt is not _UNSPECIFIED:
+        password_salt = _Validator.validate_bytes(user.password_salt, 'password_salt')
+        payload['salt'] = base64.urlsafe_b64encode(password_salt)
+    if user.metadata is not _UNSPECIFIED:
+        if not isinstance(user.metadata, UserMetadata):
+            raise ValueError('Invalid user metadata instance: {0}.'.format(user.metadata))
+        payload['createdAt'] = _Validator.validate_timestamp(_none_to_unspecified(
+            user.metadata.creation_timestamp), 'creation_timestamp')
+        payload['lastLoginAt'] = _Validator.validate_timestamp(_none_to_unspecified(
+            user.metadata.last_sign_in_timestamp), 'last_sign_in_timestamp')
+    if user.custom_claims is not _UNSPECIFIED:
+        if isinstance(user.custom_claims, dict):
+            custom_claims = json.dumps(user.custom_claims)
+        else:
+            custom_claims = user.custom_claimns
+        payload['customAttributes'] = _Validator.validate_custom_claims(custom_claims)
+    if user.provider_data is not _UNSPECIFIED:
+        if not isinstance(user.provider_data, list):
+            raise ValueError('Provider data must be a list.')
+        payload['providerUserInfo'] = [encode_user_provider(p) for p in user.provider_data]
+    return {k: v for k, v in payload.items() if v is not _UNSPECIFIED}
 
 
 class UserManager(object):
@@ -278,7 +436,8 @@ class UserManager(object):
             'password': _Validator.validate_password(kwargs.pop('password', _UNSPECIFIED)),
             'disableUser': _Validator.validate_boolean(kwargs.pop(
                 'disabled', _UNSPECIFIED), 'disabled'),
-            'validSince': _Validator.validate_valid_since(kwargs.pop('valid_since', _UNSPECIFIED)),
+            'validSince': _Validator.validate_timestamp(kwargs.pop(
+                'valid_since', _UNSPECIFIED), 'valid_since'),
         }
 
         remove = []
@@ -340,6 +499,29 @@ class UserManager(object):
         else:
             if not response or not response.get('kind'):
                 raise ApiCallError(USER_DELETE_ERROR, 'Failed to delete user: {0}.'.format(uid))
+
+    def import_users(self, users, hash_alg=None):
+        """Imports the given list of users to Firebase Auth."""
+        if not isinstance(users, list) or not users:
+            raise ValueError('Users must be a non-empty list.')
+        if len(users) > 1000:
+            raise ValueError('Users list must not have more than 1000 elements.')
+        payload = {
+            'users': [encode_user_import_record(u) for u in users]
+        }
+        if any(['passwordHash' in u for u in payload['users']]):
+            if not hash_alg:
+                raise ValueError('Hash is required when at least one user has a password.')
+            payload.update(hash_alg.to_dict())
+        try:
+            response = self._client.request('post', 'uploadAccount', json=payload)
+        except requests.exceptions.RequestException as error:
+            self._handle_http_error(
+                USER_IMPORT_ERROR, 'Failed to import users.', error)
+        else:
+            if not isinstance(response, dict):
+                raise ApiCallError(USER_IMPORT_ERROR, 'Failed to import users.')
+            return response
 
     def _handle_http_error(self, code, msg, error):
         if error.response is not None:

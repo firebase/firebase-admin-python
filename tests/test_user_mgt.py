@@ -14,6 +14,7 @@
 
 """Test cases for the firebase_admin._user_mgt module."""
 
+import base64
 import json
 import time
 
@@ -92,16 +93,11 @@ class TestUserRecord(object):
         with pytest.raises(ValueError):
             auth.UserRecord(data)
 
-    @pytest.mark.parametrize('data', INVALID_DICTS)
-    def test_invalid_metadata(self, data):
-        with pytest.raises(ValueError):
-            auth.UserMetadata(data)
-
     def test_metadata(self):
-        metadata = auth.UserMetadata({'createdAt' : 10, 'lastLoginAt' : 20})
+        metadata = auth.UserMetadata(10, 20)
         assert metadata.creation_timestamp == 10
         assert metadata.last_sign_in_timestamp == 20
-        metadata = auth.UserMetadata({})
+        metadata = auth.UserMetadata()
         assert metadata.creation_timestamp is None
         assert metadata.last_sign_in_timestamp is None
 
@@ -634,6 +630,117 @@ class TestListUsers(object):
     def _check_rpc_calls(self, recorder, expected=None):
         if expected is None:
             expected = {'maxResults' : 1000}
+        assert len(recorder) == 1
+        request = json.loads(recorder[0].body.decode())
+        assert request == expected
+
+
+class TestUserImportRecord(object):
+
+    def test_uid(self):
+        user = auth.UserImportRecord(uid='test')
+        self._check_encoding(user, {'localId': 'test'})
+
+    def test_display_name(self):
+        user = auth.UserImportRecord(uid='test', display_name='name')
+        self._check_encoding(user, {'localId': 'test', 'displayName': 'name'})
+
+    def test_email(self):
+        user = auth.UserImportRecord(uid='test', email='test@example.com')
+        self._check_encoding(user, {'localId': 'test', 'email': 'test@example.com'})
+
+    def test_photo_url(self):
+        user = auth.UserImportRecord(uid='test', photo_url='https://test.com/user.png')
+        self._check_encoding(user, {'localId': 'test', 'photoUrl': 'https://test.com/user.png'})
+
+    def test_phone_number(self):
+        user = auth.UserImportRecord(uid='test', phone_number='+1234567890')
+        self._check_encoding(user, {'localId': 'test', 'phoneNumber': '+1234567890'})
+
+    def test_user_metadata(self):
+        user = auth.UserImportRecord(uid='test', metadata=auth.UserMetadata(100, 150))
+        self._check_encoding(user, {'localId': 'test', 'createdAt': 100, 'lastLoginAt': 150})
+
+    def test_password_hash(self):
+        user = auth.UserImportRecord(uid='test', password_hash=b'password')
+        expected = {'localId': 'test', 'passwordHash': base64.urlsafe_b64encode(b'password')}
+        self._check_encoding(user, expected)
+
+    def test_password_salt(self):
+        user = auth.UserImportRecord(uid='test', password_salt=b'NaCl')
+        expected = {'localId': 'test', 'salt': base64.urlsafe_b64encode(b'NaCl')}
+        self._check_encoding(user, expected)
+
+    @pytest.mark.parametrize('claims', [{}, {'admin': True}])
+    def test_custom_claims(self, claims):
+        user = auth.UserImportRecord(uid='test', custom_claims=claims)
+        expected = {'localId': 'test', 'customAttributes': json.dumps(claims)}
+        self._check_encoding(user, expected)
+
+    @pytest.mark.parametrize('email_verified', [True, False])
+    def test_email_verified(self, email_verified):
+        user = auth.UserImportRecord(uid='test', email_verified=email_verified)
+        self._check_encoding(user, {'localId': 'test', 'emailVerified': email_verified})
+
+    @pytest.mark.parametrize('disabled', [True, False])
+    def test_disabled(self, disabled):
+        user = auth.UserImportRecord(uid='test', disabled=disabled)
+        self._check_encoding(user, {'localId': 'test', 'disabled': disabled})
+
+    def _check_encoding(self, user, expected):
+        encoded = _user_mgt.encode_user_import_record(user)
+        assert encoded == expected
+
+
+class TestImportUsers(object):
+
+    @pytest.mark.parametrize('arg', [None, list(), tuple(), dict(), 0, 1, 'foo'])
+    def test_invalid_users(self, user_mgt_app, arg):
+        with pytest.raises(ValueError):
+            auth.import_users(arg, app=user_mgt_app)
+
+    def test_too_many_users(self, user_mgt_app):
+        users = [auth.UserImportRecord(uid='test{0}'.format(i)) for i in range(1001)]
+        with pytest.raises(ValueError):
+            auth.import_users(users, app=user_mgt_app)
+
+    def test_import_users(self, user_mgt_app):
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, '{}')
+        users = [
+            auth.UserImportRecord(uid='user1'),
+            auth.UserImportRecord(uid='user2'),
+        ]
+        result = auth.import_users(users, app=user_mgt_app)
+        assert result.success_count == 2
+        assert result.failure_count is 0
+        assert result.errors == []
+        expected = {'users': [{'localId': 'user1'}, {'localId': 'user2'}]}
+        self._check_rpc_calls(recorder, expected)
+
+    def test_import_users_error(self, user_mgt_app):
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, """{"error": [
+            {"index": 0, "message": "Some error occured in user1"},
+            {"index": 2, "message": "Another error occured in user3"}
+        ]}""")
+        users = [
+            auth.UserImportRecord(uid='user1'),
+            auth.UserImportRecord(uid='user2'),
+            auth.UserImportRecord(uid='user3'),
+        ]
+        result = auth.import_users(users, app=user_mgt_app)
+        assert result.success_count == 1
+        assert result.failure_count == 2
+        assert len(result.errors) == 2
+        err = result.errors[0]
+        assert err.index == 0
+        assert err.reason == 'Some error occured in user1'
+        err = result.errors[1]
+        assert err.index == 2
+        assert err.reason == 'Another error occured in user3'
+        expected = {'users': [{'localId': 'user1'}, {'localId': 'user2'}, {'localId': 'user3'}]}
+        self._check_rpc_calls(recorder, expected)
+
+    def _check_rpc_calls(self, recorder, expected):
         assert len(recorder) == 1
         request = json.loads(recorder[0].body.decode())
         assert request == expected

@@ -35,6 +35,40 @@ _ID_TOKEN_REVOKED = 'ID_TOKEN_REVOKED'
 _SESSION_COOKIE_REVOKED = 'SESSION_COOKIE_REVOKED'
 
 
+__all__ = [
+    'AuthError',
+    'ErrorInfo',
+    'ExportedUserRecord',
+    'ListUsersPage',
+    'UserImportRecord',
+    'UserImportResult',
+    'UserInfo',
+    'UserMetadata',
+    'UserProvider',
+    'UserRecord',
+
+    'create_custom_token',
+    'create_session_cookie',
+    'create_user',
+    'delete_user',
+    'get_user',
+    'get_user_by_email',
+    'get_user_by_phone_number',
+    'list_users',
+    'revoke_refresh_tokens',
+    'set_custom_user_claims',
+    'update_user',
+    'verify_id_token',
+    'verify_session_cookie',
+]
+
+UserMetadata = _user_mgt.UserMetadata
+UserProvider = _user_mgt.UserProvider
+UserImportRecord = _user_mgt.UserImportRecord
+ErrorInfo = _user_mgt.ErrorInfo
+UserImportResult = _user_mgt.UserImportResult
+
+
 def _get_auth_service(app):
     """Returns an _AuthService instance for an App.
 
@@ -376,6 +410,14 @@ def delete_user(uid, app=None):
     except _user_mgt.ApiCallError as error:
         raise AuthError(error.code, str(error), error.detail)
 
+def import_users(users, hash_alg=None, app=None):
+    user_manager = _get_auth_service(app).user_manager
+    try:
+        result = user_manager.import_users(users, hash_alg)
+        return UserImportResult(result, len(users))
+    except _user_mgt.ApiCallError as error:
+        raise AuthError(error.code, str(error), error.detail)
+
 def _check_jwt_revoked(verified_claims, error_code, label, app):
     user = get_user(verified_claims.get('uid'), app=app)
     if verified_claims.get('iat') * 1000 < user.tokens_valid_after_timestamp:
@@ -528,7 +570,12 @@ class UserRecord(UserInfo):
         Returns:
           UserMetadata: A UserMetadata instance. Does not return None.
         """
-        return UserMetadata(self._data)
+        created_at, last_login_at = None, None
+        if 'createdAt' in self._data:
+            created_at = int(self._data['createdAt'])
+        if 'lastLoginAt' in self._data:
+            last_login_at = int(self._data['lastLoginAt'])
+        return UserMetadata(created_at, last_login_at)
 
     @property
     def provider_data(self):
@@ -556,36 +603,6 @@ class UserRecord(UserInfo):
                 return parsed
         return None
 
-
-class UserMetadata(object):
-    """Contains additional metadata associated with a user account."""
-
-    def __init__(self, data):
-        if not isinstance(data, dict):
-            raise ValueError('Invalid data argument: {0}. Must be a dictionary.'.format(data))
-        self._data = data
-
-    @property
-    def creation_timestamp(self):
-        """ Creation timestamp in milliseconds since the epoch.
-
-        Returns:
-          integer: The user creation timestamp in milliseconds since the epoch.
-        """
-        if 'createdAt' in self._data:
-            return int(self._data['createdAt'])
-        return None
-
-    @property
-    def last_sign_in_timestamp(self):
-        """ Last sign in timestamp in milliseconds since the epoch.
-
-        Returns:
-          integer: The last sign in timestamp in milliseconds since the epoch.
-        """
-        if 'lastLoginAt' in self._data:
-            return int(self._data['lastLoginAt'])
-        return None
 
 class ExportedUserRecord(UserRecord):
     """Contains metadata associated with a user including password hash and salt."""

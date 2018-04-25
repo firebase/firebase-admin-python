@@ -228,6 +228,19 @@ class UserMetadata(object):
 
 
 class UserProvider(object):
+    """Represents a user identity provider that can be associated with a Firebase user.
+
+    One or more providers can be specified in a ``UserImportRecord`` when importing users via
+    ``auth.import_users()``.
+
+    Args:
+        uid: User's unique ID assigned by the identity provider.
+        provider_id: ID of the identity provider. This can be a short domain name or the identifier
+            of an OpenID identity provider.
+        email: User's email address (optional).
+        display_name: User's display name (optional).
+        photo_url: User's photo URL (optional).
+    """
 
     def __init__(self, uid, provider_id, email=None, display_name=None, photo_url=None):
         self.uid = uid
@@ -238,6 +251,27 @@ class UserProvider(object):
 
 
 class UserImportRecord(object):
+    """Represents a user account to be imported to Firebase Auth.
+
+    Must specify the ``uid`` field at a minimum. A sequence of ``UserImportRecord`` objects can be
+    passed to the ``auth.import_users()`` function, in order to import those users into Firebase
+    Auth in bulk. If the ``password_hash`` field is set on a user, a hash configuration must be
+    specified when calling ``import_users()``.
+
+    Args:
+        uid: User's unique ID. Must be a non-empty string not longer than 128 characters.
+        email: User's email address (optional).
+        email_verified: A boolean indicating whether the user's email has been verified (optional).
+        display_name: User's display name (optional).
+        phone_number: User's phone number (optional).
+        photo_url: User's photo URL (optional).
+        disabled: A boolean indicating whether this user account has been disabled (optional).
+        metadata: An ``auth.UserMetadata`` instance with additional user metadata (optional).
+        provider_data: A list of ``auth.UserProvider`` instances (optional).
+        custom_claims: A ``dict`` of custom claims to be set on the user account (optional).
+        password_hash: User's password hash as a ``bytes`` sequence (optional).
+        password_salt: User's password salt as a ``bytes`` sequence (optional).
+    """
 
     def __init__(self, uid, email=None, email_verified=None, display_name=None, phone_number=None,
                  photo_url=None, disabled=None, metadata=None, provider_data=None,
@@ -257,6 +291,7 @@ class UserImportRecord(object):
 
 
 class ErrorInfo(object):
+    """Represents an error encountered while importing a ``UserImportRecord``."""
 
     def __init__(self, error):
         self._index = error['index']
@@ -272,6 +307,10 @@ class ErrorInfo(object):
 
 
 class UserImportResult(object):
+    """Represents the result of a bulk user import operation.
+
+    See ``auth.import_users()`` API for more details.
+    """
 
     def __init__(self, result, total):
         errors = result.get('error', [])
@@ -281,18 +320,22 @@ class UserImportResult(object):
 
     @property
     def success_count(self):
+        """Returns the number of users successfully imported."""
         return self._success_count
 
     @property
     def failure_count(self):
+        """Returns the number of users that failed to be imported."""
         return self._failure_count
 
     @property
     def errors(self):
+        """Returns a list of ``auth.ErrorInfo`` instances describing the errors encountered."""
         return self._errors
 
 
 def encode_user_provider(provider):
+    """Encodes a UserProvider into a dict."""
     if not isinstance(provider, UserProvider):
         raise ValueError('Invalid user provider: {0}.'.format(provider))
     payload = {
@@ -305,6 +348,7 @@ def encode_user_provider(provider):
     return {k: v for k, v in payload.items() if v is not _UNSPECIFIED}
 
 def encode_user_import_record(user):
+    """Encodes a UserImportRecord into a dict."""
     if not isinstance(user, UserImportRecord):
         raise ValueError('Invalid user import record: {0}.'.format(user))
     payload = {
@@ -333,12 +377,13 @@ def encode_user_import_record(user):
         if isinstance(user.custom_claims, dict):
             custom_claims = json.dumps(user.custom_claims)
         else:
-            custom_claims = user.custom_claimns
+            custom_claims = user.custom_claims
         payload['customAttributes'] = _Validator.validate_custom_claims(custom_claims)
     if user.provider_data is not _UNSPECIFIED:
         if not isinstance(user.provider_data, list):
             raise ValueError('Provider data must be a list.')
-        payload['providerUserInfo'] = [encode_user_provider(p) for p in user.provider_data]
+        if user.provider_data:
+            payload['providerUserInfo'] = [encode_user_provider(p) for p in user.provider_data]
     return {k: v for k, v in payload.items() if v is not _UNSPECIFIED}
 
 

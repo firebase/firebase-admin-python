@@ -28,7 +28,6 @@ from tests import testutils
 INVALID_STRINGS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
 INVALID_BOOLS = [None, '', 'foo', 0, 1, list(), tuple(), dict()]
 INVALID_DICTS = [None, 'foo', 0, 1, True, False, list(), tuple()]
-INVALID_POSITIVE_NUMS = [None, 'foo', 0, -1, True, False, list(), tuple(), dict()]
 
 MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
 MOCK_LIST_USERS_RESPONSE = testutils.resource('list_users.json')
@@ -348,7 +347,7 @@ class TestUpdateUser(object):
         with pytest.raises(ValueError):
             auth.update_user('user', unsupported='arg', app=user_mgt_app)
 
-    @pytest.mark.parametrize('arg', INVALID_POSITIVE_NUMS)
+    @pytest.mark.parametrize('arg', [None, 'foo', 0, -1, True, False, list(), tuple(), dict()])
     def test_invalid_valid_since(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
             auth.update_user('user', valid_since=arg, app=user_mgt_app)

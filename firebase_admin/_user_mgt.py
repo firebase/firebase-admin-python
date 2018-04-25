@@ -37,28 +37,36 @@ RESERVED_CLAIMS = set([
 ])
 
 
-class _Validator(object):
-    """A collection of data validation utilities.
+class _UnspecifiedSentinel(object):
+    pass
 
-    Methods provided in this class raise ValueErrors if any validations fail. Normal returns
-    signal success.
-    """
+_UNSPECIFIED = _UnspecifiedSentinel()
+
+
+class _Validator(object):
+    """A collection of data validation utilities."""
 
     @classmethod
-    def validate_uid(cls, uid):
+    def validate_uid(cls, uid, required=True):
+        if uid is _UNSPECIFIED and not required:
+            return _UNSPECIFIED
         if not isinstance(uid, six.string_types) or not uid or len(uid) > 128:
             raise ValueError(
                 'Invalid uid: "{0}". The uid must be a non-empty string with no more than 128 '
                 'characters.'.format(uid))
+        return uid
 
     @classmethod
     def validate_email(cls, email):
+        if email is _UNSPECIFIED:
+            return _UNSPECIFIED
         if not isinstance(email, six.string_types) or not email:
             raise ValueError(
                 'Invalid email: "{0}". Email must be a non-empty string.'.format(email))
         parts = email.split('@')
         if len(parts) != 2 or not parts[0] or not parts[1]:
             raise ValueError('Malformed email address string: "{0}".'.format(email))
+        return email
 
     @classmethod
     def validate_phone(cls, phone):
@@ -68,35 +76,47 @@ class _Validator(object):
         normalize accordingly. Here we check if the number starts with + sign, and contains at
         least one alphanumeric character.
         """
+        if phone is _UNSPECIFIED:
+            return _UNSPECIFIED
         if not isinstance(phone, six.string_types) or not phone:
             raise ValueError('Invalid phone number: "{0}". Phone number must be a non-empty '
                              'string.'.format(phone))
         if not phone.startswith('+') or not re.search('[a-zA-Z0-9]', phone):
             raise ValueError('Invalid phone number: "{0}". Phone number must be a valid, E.164 '
                              'compliant identifier.'.format(phone))
+        return phone
 
     @classmethod
     def validate_password(cls, password):
+        if password is _UNSPECIFIED:
+            return _UNSPECIFIED
         if not isinstance(password, six.string_types) or len(password) < 6:
             raise ValueError(
                 'Invalid password string. Password must be a string at least 6 characters long.')
+        return password
 
     @classmethod
-    def validate_email_verified(cls, email_verified):
-        if not isinstance(email_verified, bool):
-            raise ValueError(
-                'Invalid email verified status: "{0}". Email verified status must be '
-                'boolean.'.format(email_verified))
+    def validate_boolean(cls, value, label):
+        if value is _UNSPECIFIED:
+            return _UNSPECIFIED
+        if not isinstance(value, bool):
+            raise ValueError('{0} must be boolean.'.format(label))
+        return value
 
     @classmethod
     def validate_display_name(cls, display_name):
+        if display_name is _UNSPECIFIED:
+            return _UNSPECIFIED
         if not isinstance(display_name, six.string_types) or not display_name:
             raise ValueError(
                 'Invalid display name: "{0}". Display name must be a non-empty '
                 'string.'.format(display_name))
+        return display_name
 
     @classmethod
     def validate_photo_url(cls, photo_url):
+        if photo_url is _UNSPECIFIED:
+            return _UNSPECIFIED
         if not isinstance(photo_url, six.string_types) or not photo_url:
             raise ValueError(
                 'Invalid photo URL: "{0}". Photo URL must be a non-empty '
@@ -105,38 +125,28 @@ class _Validator(object):
             parsed = urllib.parse.urlparse(photo_url)
             if not parsed.netloc:
                 raise ValueError('Malformed photo URL: "{0}".'.format(photo_url))
+            return photo_url
         except Exception:
             raise ValueError('Malformed photo URL: "{0}".'.format(photo_url))
 
     @classmethod
     def validate_valid_since(cls, valid_since):
         # isinstance(True, int) is True hence the extra check
+        if valid_since is _UNSPECIFIED:
+            return _UNSPECIFIED
         if valid_since is None or isinstance(valid_since, bool) or not isinstance(valid_since, int):
             raise ValueError(
                 'Invalid time string for: "{0}". Valid Since must be an int'.format(valid_since))
         if int(valid_since) <= 0:
             raise ValueError(
                 'Invalid valid_since: must be a positive interger. {0}'.format(valid_since))
-
-    @classmethod
-    def validate_disabled(cls, disabled):
-        if not isinstance(disabled, bool):
-            raise ValueError(
-                'Invalid disabled status: "{0}". Disabled status must be '
-                'boolean.'.format(disabled))
-
-    @classmethod
-    def validate_delete_list(cls, delete_attr):
-        if not isinstance(delete_attr, list) or not delete_attr:
-            raise ValueError(
-                'Invalid delete list: "{0}". Delete list must be a '
-                'non-empty list.'.format(delete_attr))
+        return valid_since
 
     @classmethod
     def validate_custom_claims(cls, custom_claims):
         """Validates the specified custom claims.
 
-        Custom claims must be specified as a JSON string.The string must not exceed 1000
+        Custom claims must be specified as a JSON string. The string must not exceed 1000
         characters, and the parsed JSON payload must not contain reserved JWT claims.
         """
         if not isinstance(custom_claims, six.string_types) or not custom_claims:
@@ -162,6 +172,7 @@ class _Validator(object):
             elif len(invalid_claims) == 1:
                 raise ValueError(
                     'Claim "{0}" is reserved, and must not be set.'.format(invalid_claims.pop()))
+        return custom_claims
 
 
 class ApiCallError(Exception):
@@ -175,50 +186,6 @@ class ApiCallError(Exception):
 
 class UserManager(object):
     """Provides methods for interacting with the Google Identity Toolkit."""
-
-    _VALIDATORS = {
-        'customAttributes' : _Validator.validate_custom_claims,
-        'deleteAttribute' : _Validator.validate_delete_list,
-        'deleteProvider' : _Validator.validate_delete_list,
-        'disabled' : _Validator.validate_disabled,
-        'disableUser' : _Validator.validate_disabled,
-        'displayName' : _Validator.validate_display_name,
-        'email' : _Validator.validate_email,
-        'emailVerified' : _Validator.validate_email_verified,
-        'localId' : _Validator.validate_uid,
-        'password' : _Validator.validate_password,
-        'phoneNumber' : _Validator.validate_phone,
-        'photoUrl' : _Validator.validate_photo_url,
-        'validSince' : _Validator.validate_valid_since,
-    }
-
-    _CREATE_USER_FIELDS = {
-        'uid' : 'localId',
-        'display_name' : 'displayName',
-        'email' : 'email',
-        'email_verified' : 'emailVerified',
-        'phone_number' : 'phoneNumber',
-        'photo_url' : 'photoUrl',
-        'password' : 'password',
-        'disabled' : 'disabled',
-    }
-
-    _UPDATE_USER_FIELDS = {
-        'display_name' : 'displayName',
-        'email' : 'email',
-        'email_verified' : 'emailVerified',
-        'phone_number' : 'phoneNumber',
-        'photo_url' : 'photoUrl',
-        'password' : 'password',
-        'disabled' : 'disableUser',
-        'custom_claims' : 'customAttributes',
-        'valid_since' : 'validSince',
-    }
-
-    _REMOVABLE_FIELDS = {
-        'displayName' : 'DISPLAY_NAME',
-        'photoUrl' : 'PHOTO_URL'
-    }
 
     def __init__(self, client):
         self._client = client
@@ -274,8 +241,24 @@ class UserManager(object):
 
     def create_user(self, **kwargs):
         """Creates a new user account with the specified properties."""
-        payload = self._init_payload('create_user', UserManager._CREATE_USER_FIELDS, **kwargs)
-        self._validate(payload, self._VALIDATORS, 'create user')
+        payload = {
+            'localId': _Validator.validate_uid(kwargs.pop('uid', _UNSPECIFIED), required=False),
+            'displayName': _Validator.validate_display_name(kwargs.pop(
+                'display_name', _UNSPECIFIED)),
+            'email': _Validator.validate_email(kwargs.pop('email', _UNSPECIFIED)),
+            'emailVerified': _Validator.validate_boolean(kwargs.pop(
+                'emailVerified', _UNSPECIFIED), 'email_verified'),
+            'phoneNumber': _Validator.validate_phone(kwargs.pop('phone_number', _UNSPECIFIED)),
+            'photoUrl': _Validator.validate_photo_url(kwargs.pop('photo_url', _UNSPECIFIED)),
+            'password': _Validator.validate_password(kwargs.pop('password', _UNSPECIFIED)),
+            'disabled': _Validator.validate_boolean(kwargs.pop(
+                'disabled', _UNSPECIFIED), 'disabled'),
+        }
+        if kwargs:
+            unexpected_keys = ', '.join(kwargs.keys())
+            raise ValueError(
+                'Unsupported arguments: "{0}" in call to create_user()'.format(unexpected_keys))
+        payload = {k: v for k, v in payload.items() if v is not _UNSPECIFIED}
         try:
             response = self._client.request('post', 'signupNewUser', json=payload)
         except requests.exceptions.RequestException as error:
@@ -287,28 +270,55 @@ class UserManager(object):
 
     def update_user(self, uid, **kwargs):
         """Updates an existing user account with the specified properties"""
-        _Validator.validate_uid(uid)
-        payload = self._init_payload('update_user', UserManager._UPDATE_USER_FIELDS, **kwargs)
-        payload['localId'] = uid
+        payload = {
+            'localId': _Validator.validate_uid(uid),
+            'email': _Validator.validate_email(kwargs.pop('email', _UNSPECIFIED)),
+            'emailVerified': _Validator.validate_boolean(kwargs.pop(
+                'emailVerified', _UNSPECIFIED), 'email_verified'),
+            'password': _Validator.validate_password(kwargs.pop('password', _UNSPECIFIED)),
+            'disableUser': _Validator.validate_boolean(kwargs.pop(
+                'disabled', _UNSPECIFIED), 'disabled'),
+            'validSince': _Validator.validate_valid_since(kwargs.pop('valid_since', _UNSPECIFIED)),
+        }
 
         remove = []
-        for key, value in UserManager._REMOVABLE_FIELDS.items():
-            if key in payload and payload[key] is None:
-                remove.append(value)
-                del payload[key]
+        if 'display_name' in kwargs:
+            display_name = kwargs.pop('display_name')
+            if display_name is None:
+                remove.append('DISPLAY_NAME')
+            else:
+                payload['displayName'] = _Validator.validate_display_name(display_name)
+
+        if 'photo_url' in kwargs:
+            photo_url = kwargs.pop('photo_url')
+            if photo_url is None:
+                remove.append('PHOTO_URL')
+            else:
+                payload['photoUrl'] = _Validator.validate_photo_url(photo_url)
+
         if remove:
-            payload['deleteAttribute'] = sorted(remove)
-        if 'phoneNumber' in payload and payload['phoneNumber'] is None:
-            payload['deleteProvider'] = ['phone']
-            del payload['phoneNumber']
-        if 'customAttributes' in payload:
-            custom_claims = payload['customAttributes']
+            payload['deleteAttribute'] = remove
+        if 'phone_number' in kwargs:
+            phone_number = kwargs.pop('phone_number')
+            if phone_number is None:
+                payload['deleteProvider'] = ['phone']
+            else:
+                payload['phoneNumber'] = _Validator.validate_phone(phone_number)
+
+        if 'custom_claims' in kwargs:
+            custom_claims = kwargs.pop('custom_claims')
             if custom_claims is None:
                 custom_claims = {}
             if isinstance(custom_claims, dict):
-                payload['customAttributes'] = json.dumps(custom_claims)
+                custom_claims = json.dumps(custom_claims)
+            payload['customAttributes'] = _Validator.validate_custom_claims(custom_claims)
 
-        self._validate(payload, self._VALIDATORS, 'update user')
+        if kwargs:
+            unexpected_keys = ', '.join(kwargs.keys())
+            raise ValueError(
+                'Unsupported arguments: "{0}" in call to update_user()'.format(unexpected_keys))
+        payload = {k: v for k, v in payload.items() if v is not _UNSPECIFIED}
+
         try:
             response = self._client.request('post', 'setAccountInfo', json=payload)
         except requests.exceptions.RequestException as error:
@@ -337,24 +347,6 @@ class UserManager(object):
         else:
             msg += '\nReason: {0}'.format(error)
         raise ApiCallError(code, msg, error)
-
-    def _init_payload(self, operation, fields, **kwargs):
-        payload = {}
-        for key, value in fields.items():
-            if key in kwargs:
-                payload[value] = kwargs.pop(key)
-        if kwargs:
-            unexpected_keys = ', '.join(kwargs.keys())
-            raise ValueError(
-                'Unsupported arguments: "{0}" in call to {1}()'.format(unexpected_keys, operation))
-        return payload
-
-    def _validate(self, properties, validators, operation):
-        for key, value in properties.items():
-            validator = validators.get(key)
-            if not validator:
-                raise ValueError('Unsupported property: "{0}" in {1} call.'.format(key, operation))
-            validator(value)
 
 
 class UserIterator(object):

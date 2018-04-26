@@ -52,6 +52,9 @@ def _none_to_unspecified(value):
     else:
         return value
 
+def _b64_encode(bytes_value):
+    return base64.urlsafe_b64encode(bytes_value).decode()
+
 
 class _Validator(object):
     """A collection of data validation utilities."""
@@ -624,7 +627,9 @@ class UserImportHash(object):
 
     @classmethod
     def _hmac(cls, name, key):
-        data = {'signerKey': base64.urlsafe_b64encode(_Validator.validate_bytes(key, 'key'))}
+        data = {
+            'signerKey': _b64_encode(_Validator.validate_bytes(key, 'key'))
+        }
         return UserImportHash(name, data)
 
     @classmethod
@@ -638,12 +643,12 @@ class UserImportHash(object):
     @classmethod
     def scrypt(cls, key, rounds, memory_cost, salt_separator=None):
         data = {
-            'signerKey': base64.urlsafe_b64encode(_Validator.validate_bytes(key, 'key')),
+            'signerKey': _b64_encode(_Validator.validate_bytes(key, 'key')),
             'rounds': _Validator.validate_int(rounds, 'rounds', 1, 8),
             'memoryCost': _Validator.validate_int(memory_cost, 'memory_cost', 1, 14),
         }
         if salt_separator:
-            data['saltSeparator'] = base64.urlsafe_b64encode(_Validator.validate_bytes(
+            data['saltSeparator'] = _b64_encode(_Validator.validate_bytes(
                 salt_separator, 'salt_separator'))
         return UserImportHash('SCRYPT', data)
 
@@ -720,10 +725,10 @@ def encode_user_import_record(user):
     }
     if user.password_hash is not _UNSPECIFIED:
         password_hash = _Validator.validate_bytes(user.password_hash, 'password_hash')
-        payload['passwordHash'] = base64.urlsafe_b64encode(password_hash)
+        payload['passwordHash'] = _b64_encode(password_hash)
     if user.password_salt is not _UNSPECIFIED:
         password_salt = _Validator.validate_bytes(user.password_salt, 'password_salt')
-        payload['salt'] = base64.urlsafe_b64encode(password_salt)
+        payload['salt'] = _b64_encode(password_salt)
     if user.metadata is not _UNSPECIFIED:
         if not isinstance(user.metadata, UserMetadata):
             raise ValueError('Invalid user metadata instance: {0}.'.format(user.metadata))

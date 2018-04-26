@@ -14,7 +14,6 @@
 
 """Test cases for the firebase_admin._user_mgt module."""
 
-import base64
 import json
 import time
 
@@ -718,8 +717,8 @@ class TestUserImportRecord(object):
             'displayName': 'name',
             'createdAt': 100,
             'lastLoginAt': 150,
-            'passwordHash': base64.urlsafe_b64encode(b'password'),
-            'salt': base64.urlsafe_b64encode(b'NaCl'),
+            'passwordHash': _user_mgt._b64_encode(b'password'),
+            'salt': _user_mgt._b64_encode(b'NaCl'),
             'customAttributes': json.dumps({'admin': True}),
             'emailVerified': True,
             'disabled': False,
@@ -770,7 +769,7 @@ class TestUserImportHash(object):
         hmac = func(key=b'key')
         expected = {
             'hashAlgorithm': name,
-            'signerKey': base64.urlsafe_b64encode(b'key')
+            'signerKey': _user_mgt._b64_encode(b'key')
         }
         assert hmac.to_dict() == expected
 
@@ -787,10 +786,10 @@ class TestUserImportHash(object):
             key=b'key', salt_separator=b'sep', rounds=8, memory_cost=14)
         expected = {
             'hashAlgorithm': 'SCRYPT',
-            'signerKey': base64.urlsafe_b64encode(b'key'),
+            'signerKey': _user_mgt._b64_encode(b'key'),
             'rounds': 8,
             'memoryCost': 14,
-            'saltSeparator': base64.urlsafe_b64encode(b'sep'),
+            'saltSeparator': _user_mgt._b64_encode(b'sep'),
         }
         assert scrypt.to_dict() == expected
 
@@ -877,14 +876,14 @@ class TestImportUsers(object):
         assert result.errors == []
         expected = {
             'users': [
-                {'localId': 'user1', 'passwordHash': base64.urlsafe_b64encode(b'password')},
+                {'localId': 'user1', 'passwordHash': _user_mgt._b64_encode(b'password')},
                 {'localId': 'user2'}
             ],
             'hashAlgorithm': 'SCRYPT',
-            'signerKey': base64.urlsafe_b64encode(b'key'),
+            'signerKey': _user_mgt._b64_encode(b'key'),
             'rounds': 8,
             'memoryCost': 14,
-            'saltSeparator': base64.urlsafe_b64encode(b'sep'),
+            'saltSeparator': _user_mgt._b64_encode(b'sep'),
         }
         self._check_rpc_calls(recorder, expected)
 

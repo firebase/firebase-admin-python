@@ -638,6 +638,12 @@ class TestListUsers(object):
 
 class TestUserProvider(object):
 
+    _INVALID_PROVIDERS = (
+        [{'display_name': arg} for arg in INVALID_STRINGS[1:]] +
+        [{'email': arg} for arg in INVALID_STRINGS[1:] + ['not-an-email']] +
+        [{'photo_url': arg} for arg in INVALID_STRINGS[1:] + ['not-a-url']]
+    )
+
     def test_uid_and_provider_id(self):
         provider = auth.UserProvider(uid='test', provider_id='google.com')
         expected = {'rawId': 'test', 'providerId': 'google.com'}
@@ -668,26 +674,30 @@ class TestUserProvider(object):
         with pytest.raises(ValueError):
             _user_mgt.encode_user_provider(provider)
 
-    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:])
-    def test_invalid_display_name(self, arg):
-        provider = auth.UserProvider(uid='test', provider_id='google.com', display_name=arg)
-        with pytest.raises(ValueError):
-            _user_mgt.encode_user_provider(provider)
-
-    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['not-an-email'])
-    def test_invalid_email(self, arg):
-        provider = auth.UserProvider(uid='test', provider_id='google.com', email=arg)
-        with pytest.raises(ValueError):
-            _user_mgt.encode_user_provider(provider)
-
-    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['not-a-url'])
-    def test_invalid_photo_url(self, arg):
-        provider = auth.UserProvider(uid='test', provider_id='google.com', photo_url=arg)
+    @pytest.mark.parametrize('arg', _INVALID_PROVIDERS)
+    def test_invalid_arg(self, arg):
+        provider = auth.UserProvider(uid='test', provider_id='google.com', **arg)
         with pytest.raises(ValueError):
             _user_mgt.encode_user_provider(provider)
 
 
 class TestUserImportRecord(object):
+
+    _INVALID_USERS = (
+        [{'display_name': arg} for arg in INVALID_STRINGS[1:]] +
+        [{'email': arg} for arg in INVALID_STRINGS[1:] + ['not-an-email']] +
+        [{'photo_url': arg} for arg in INVALID_STRINGS[1:] + ['not-a-url']] +
+        [{'phone_number': arg} for arg in INVALID_STRINGS[1:] + ['not-a-phone']] +
+        [{'metadata': arg} for arg in [0, 1, True, False, 'foo', list(), tuple(), dict()]] +
+        [{'metadata': auth.UserMetadata(creation_timestamp=arg)} for arg in INVALID_INTS[1:]] +
+        [{'metadata': auth.UserMetadata(last_sign_in_timestamp=arg)} for arg in INVALID_INTS[1:]] +
+        [{'password_hash': arg} for arg in INVALID_STRINGS[1:] + [u'test']] +
+        [{'password_salt': arg} for arg in INVALID_STRINGS[1:] + [u'test']] +
+        [{'custom_claims': arg} for arg in INVALID_DICTS[1:] + ['"json"', {'key': 'a'*1000}]] +
+        [{'email_verified': arg} for arg in INVALID_BOOLS[1:]] +
+        [{'disabled': arg} for arg in INVALID_BOOLS[1:]] +
+        [{'provider_data': arg} for arg in ['foo', 0, 1, True, False, dict()]]
+    )
 
     def test_uid(self):
         user = auth.UserImportRecord(uid='test')
@@ -723,59 +733,9 @@ class TestUserImportRecord(object):
         with pytest.raises(ValueError):
             _user_mgt.encode_user_import_record(user)
 
-    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:])
-    def test_invalid_display_name(self, arg):
-        user = auth.UserImportRecord(uid='test', display_name=arg)
-        with pytest.raises(ValueError):
-            _user_mgt.encode_user_import_record(user)
-
-    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['not-an-email'])
-    def test_invalid_email(self, arg):
-        user = auth.UserImportRecord(uid='test', email=arg)
-        with pytest.raises(ValueError):
-            _user_mgt.encode_user_import_record(user)
-
-    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['not-a-url'])
-    def test_invalid_photo_url(self, arg):
-        user = auth.UserImportRecord(uid='test', photo_url=arg)
-        with pytest.raises(ValueError):
-            _user_mgt.encode_user_import_record(user)
-
-    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['not-a-phone'])
-    def test_invalid_phone_number(self, arg):
-        user = auth.UserImportRecord(uid='test', phone_number=arg)
-        with pytest.raises(ValueError):
-            _user_mgt.encode_user_import_record(user)
-
-    @pytest.mark.parametrize('arg', [0, 1, True, False, 'foo', list(), tuple(), dict()])
-    def test_invalid_user_metadata(self, arg):
-        user = auth.UserImportRecord(uid='test', metadata=arg)
-        with pytest.raises(ValueError):
-            _user_mgt.encode_user_import_record(user)
-
-    @pytest.mark.parametrize('arg', INVALID_INTS[1:])
-    def test_invalid_creation_timestamp(self, arg):
-        user = auth.UserImportRecord(
-            uid='test', metadata=auth.UserMetadata(creation_timestamp=arg))
-        with pytest.raises(ValueError):
-            _user_mgt.encode_user_import_record(user)
-
-    @pytest.mark.parametrize('arg', INVALID_INTS[1:])
-    def test_invalid_last_sign_in_timestamp(self, arg):
-        user = auth.UserImportRecord(
-            uid='test', metadata=auth.UserMetadata(last_sign_in_timestamp=arg))
-        with pytest.raises(ValueError):
-            _user_mgt.encode_user_import_record(user)
-
-    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + [u'test'])
-    def test_invalid_password_hash(self, arg):
-        user = auth.UserImportRecord(uid='test', password_hash=arg)
-        with pytest.raises(ValueError):
-            _user_mgt.encode_user_import_record(user)
-
-    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + [u'test'])
-    def test_invalid_password_salt(self, arg):
-        user = auth.UserImportRecord(uid='test', password_salt=arg)
+    @pytest.mark.parametrize('args', _INVALID_USERS)
+    def test_invalid_args(self, args):
+        user = auth.UserImportRecord(uid='test', **args)
         with pytest.raises(ValueError):
             _user_mgt.encode_user_import_record(user)
 
@@ -785,43 +745,66 @@ class TestUserImportRecord(object):
         expected = {'localId': 'test', 'customAttributes': json.dumps(claims)}
         self._check_encoding(user, expected)
 
-    @pytest.mark.parametrize('arg', INVALID_DICTS[1:] + ['"json"', {'key': 'a'*1000}])
-    def test_invalid_custom_claims(self, arg):
-        user = auth.UserImportRecord(uid='test', custom_claims=arg)
-        with pytest.raises(ValueError):
-            _user_mgt.encode_user_import_record(user)
-
     @pytest.mark.parametrize('email_verified', [True, False])
     def test_email_verified(self, email_verified):
         user = auth.UserImportRecord(uid='test', email_verified=email_verified)
         self._check_encoding(user, {'localId': 'test', 'emailVerified': email_verified})
-
-    @pytest.mark.parametrize('arg', INVALID_BOOLS[1:])
-    def test_invalid_email_verified(self, arg):
-        user = auth.UserImportRecord(uid='test', email_verified=arg)
-        with pytest.raises(ValueError):
-            _user_mgt.encode_user_import_record(user)
 
     @pytest.mark.parametrize('disabled', [True, False])
     def test_disabled(self, disabled):
         user = auth.UserImportRecord(uid='test', disabled=disabled)
         self._check_encoding(user, {'localId': 'test', 'disabled': disabled})
 
-    @pytest.mark.parametrize('arg', INVALID_BOOLS[1:])
-    def test_invalid_disabled(self, arg):
-        user = auth.UserImportRecord(uid='test', disabled=arg)
-        with pytest.raises(ValueError):
-            _user_mgt.encode_user_import_record(user)
-
-    @pytest.mark.parametrize('arg', ['foo', 0, 1, True, False, dict()])
-    def test_invalid_provider_data(self, arg):
-        user = auth.UserImportRecord(uid='test', provider_data=arg)
-        with pytest.raises(ValueError):
-            _user_mgt.encode_user_import_record(user)
-
     def _check_encoding(self, user, expected):
         encoded = _user_mgt.encode_user_import_record(user)
         assert encoded == expected
+
+
+class TestUserImportHash(object):
+
+    @pytest.mark.parametrize('func,name', [
+        (auth.UserImportHash.hmac_sha512, 'HMAC_SHA512'),
+        (auth.UserImportHash.hmac_sha256, 'HMAC_SHA256')
+    ])
+    def test_hmac(self, func, name):
+        hmac = func(key=b'key')
+        expected = {
+            'hashAlgorithm': name,
+            'signerKey': base64.urlsafe_b64encode(b'key')
+        }
+        assert hmac.to_dict() == expected
+
+    @pytest.mark.parametrize('func', [
+        auth.UserImportHash.hmac_sha512, auth.UserImportHash.hmac_sha256,
+    ])
+    @pytest.mark.parametrize('key', INVALID_STRINGS)
+    def test_invalid_hmac(self, func, key):
+        with pytest.raises(ValueError):
+            func(key=key)
+
+    def test_scrypt(self):
+        scrypt = auth.UserImportHash.scrypt(
+            key=b'key', salt_separator=b'sep', rounds=8, memory_cost=14)
+        expected = {
+            'hashAlgorithm': 'SCRYPT',
+            'signerKey': base64.urlsafe_b64encode(b'key'),
+            'rounds': 8,
+            'memoryCost': 14,
+            'saltSeparator': base64.urlsafe_b64encode(b'sep'),
+        }
+        assert scrypt.to_dict() == expected
+
+    @pytest.mark.parametrize('arg', (
+        [{'key': arg} for arg in INVALID_STRINGS] +
+        [{'rounds': arg} for arg in INVALID_INTS + [9]] +
+        [{'memory_cost': arg} for arg in INVALID_INTS + [15]] +
+        [{'salt_separator': arg} for arg in INVALID_STRINGS]
+    ))
+    def test_invalid_scrypt(self, arg):
+        params = {'key': 'key', 'rounds': 0, 'memory_cost': 14}
+        params.update(arg)
+        with pytest.raises(ValueError):
+            auth.UserImportHash.scrypt(**params)
 
 
 class TestImportUsers(object):
@@ -871,6 +854,40 @@ class TestImportUsers(object):
         assert err.reason == 'Another error occured in user3'
         expected = {'users': [{'localId': 'user1'}, {'localId': 'user2'}, {'localId': 'user3'}]}
         self._check_rpc_calls(recorder, expected)
+
+    def test_import_users_missing_required_hash(self, user_mgt_app):
+        users = [
+            auth.UserImportRecord(uid='user1', password_hash=b'password'),
+            auth.UserImportRecord(uid='user2'),
+        ]
+        with pytest.raises(ValueError):
+            auth.import_users(users, app=user_mgt_app)
+
+    def test_import_users_with_hash(self, user_mgt_app):
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, '{}')
+        users = [
+            auth.UserImportRecord(uid='user1', password_hash=b'password'),
+            auth.UserImportRecord(uid='user2'),
+        ]
+        hash_alg = auth.UserImportHash.scrypt(
+            b'key', rounds=8, memory_cost=14, salt_separator=b'sep')
+        result = auth.import_users(users, hash_alg=hash_alg, app=user_mgt_app)
+        assert result.success_count == 2
+        assert result.failure_count is 0
+        assert result.errors == []
+        expected = {
+            'users': [
+                {'localId': 'user1', 'passwordHash': base64.urlsafe_b64encode(b'password')},
+                {'localId': 'user2'}
+            ],
+            'hashAlgorithm': 'SCRYPT',
+            'signerKey': base64.urlsafe_b64encode(b'key'),
+            'rounds': 8,
+            'memoryCost': 14,
+            'saltSeparator': base64.urlsafe_b64encode(b'sep'),
+        }
+        self._check_rpc_calls(recorder, expected)
+
 
     def _check_rpc_calls(self, recorder, expected):
         assert len(recorder) == 1

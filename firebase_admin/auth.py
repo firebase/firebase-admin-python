@@ -39,6 +39,7 @@ __all__ = [
     'ErrorInfo',
     'ExportedUserRecord',
     'ListUsersPage',
+    'UserImportHash',
     'UserImportRecord',
     'UserImportResult',
     'UserInfo',
@@ -65,12 +66,13 @@ __all__ = [
 ErrorInfo = _user_mgt.ErrorInfo
 ExportedUserRecord = _user_mgt.ExportedUserRecord
 ListUsersPage = _user_mgt.ListUsersPage
+UserImportHash = _user_mgt.UserImportHash
+UserImportRecord = _user_mgt.UserImportRecord
+UserImportResult = _user_mgt.UserImportResult
 UserInfo = _user_mgt.UserInfo
 UserMetadata = _user_mgt.UserMetadata
 UserProvider = _user_mgt.UserProvider
 UserRecord = _user_mgt.UserRecord
-UserImportRecord = _user_mgt.UserImportRecord
-UserImportResult = _user_mgt.UserImportResult
 
 
 def _get_auth_service(app):

@@ -33,6 +33,7 @@ USER_DOWNLOAD_ERROR = 'LIST_USERS_ERROR'
 
 MAX_LIST_USERS_RESULTS = 1000
 MAX_CLAIMS_PAYLOAD_SIZE = 1000
+MAX_IMPORT_USERS_SIZE = 1000
 RESERVED_CLAIMS = set([
     'acr', 'amr', 'at_hash', 'aud', 'auth_time', 'azp', 'cnf', 'c_hash', 'exp', 'iat',
     'iss', 'jti', 'nbf', 'nonce', 'sub', 'firebase',
@@ -162,12 +163,21 @@ class _Validator(object):
             return _UNSPECIFIED
         if timestamp is None or isinstance(timestamp, bool) or not isinstance(timestamp, int):
             raise ValueError(
-                'Invalid timestamp. {0} must be an int'.format(label))
+                'Invalid timestamp. {0} must be an int.'.format(label))
         if int(timestamp) <= 0:
             raise ValueError(
                 'Invalid timestamp. {0} must be a positive interger.'.format(label))
         return timestamp
 
+    @classmethod
+    def validate_int(cls, value, label, low=None, high=None):
+        if value is None or isinstance(value, bool) or not isinstance(value, int):
+            raise ValueError('{0} must be an int.'.format(value))
+        if low is not None and value < low:
+            raise ValueError('{0} must not be smaller than {1}.'.format(label, low))
+        if high is not None and value > high:
+            raise ValueError('{0} must not be larger than {1}.'.format(label, high))
+        return value
 
     @classmethod
     def validate_custom_claims(cls, custom_claims):
@@ -595,6 +605,49 @@ class UserImportRecord(object):
         self.password_salt = _none_to_unspecified(password_salt)
 
 
+class UserImportHash(object):
+    """Represents a hash algorithm used to hash user passwords.
+
+    An instance of this class must be specified when importing users with passwords via the
+    ``auth.import_users()`` API.
+    """
+
+    def __init__(self, name, data=None):
+        self._name = name
+        self._data = data
+
+    def to_dict(self):
+        payload = {'hashAlgorithm': self._name}
+        if self._data:
+            payload.update(self._data)
+        return payload
+
+    @classmethod
+    def _hmac(cls, name, key):
+        data = {'signerKey': base64.urlsafe_b64encode(_Validator.validate_bytes(key, 'key'))}
+        return UserImportHash(name, data)
+
+    @classmethod
+    def hmac_sha512(cls, key):
+        return cls._hmac('HMAC_SHA512', key)
+
+    @classmethod
+    def hmac_sha256(cls, key):
+        return cls._hmac('HMAC_SHA256', key)
+
+    @classmethod
+    def scrypt(cls, key, rounds, memory_cost, salt_separator=None):
+        data = {
+            'signerKey': base64.urlsafe_b64encode(_Validator.validate_bytes(key, 'key')),
+            'rounds': _Validator.validate_int(rounds, 'rounds', 1, 8),
+            'memoryCost': _Validator.validate_int(memory_cost, 'memory_cost', 1, 14),
+        }
+        if salt_separator:
+            data['saltSeparator'] = base64.urlsafe_b64encode(_Validator.validate_bytes(
+                salt_separator, 'salt_separator'))
+        return UserImportHash('SCRYPT', data)
+
+
 class ErrorInfo(object):
     """Represents an error encountered while importing a ``UserImportRecord``."""
 
@@ -854,14 +907,15 @@ class UserManager(object):
         """Imports the given list of users to Firebase Auth."""
         if not isinstance(users, list) or not users:
             raise ValueError('Users must be a non-empty list.')
-        if len(users) > 1000:
-            raise ValueError('Users list must not have more than 1000 elements.')
-        payload = {
-            'users': [encode_user_import_record(u) for u in users]
-        }
+        if len(users) > MAX_IMPORT_USERS_SIZE:
+            raise ValueError(
+                'Users list must not have more than {0} elements.'.format(MAX_IMPORT_USERS_SIZE))
+        payload = {'users': [encode_user_import_record(u) for u in users]}
         if any(['passwordHash' in u for u in payload['users']]):
             if not hash_alg:
                 raise ValueError('Hash is required when at least one user has a password.')
+            if not isinstance(hash_alg, UserImportHash):
+                raise ValueError('Hash must be an instance of UserImportHash.')
             payload.update(hash_alg.to_dict())
         try:
             response = self._client.request('post', 'uploadAccount', json=payload)

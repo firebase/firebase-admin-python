@@ -45,6 +45,13 @@ class _UnspecifiedSentinel(object):
 _UNSPECIFIED = _UnspecifiedSentinel()
 
 
+def _none_to_unspecified(value):
+    if value is None:
+        return _UNSPECIFIED
+    else:
+        return value
+
+
 class _Validator(object):
     """A collection of data validation utilities."""
 
@@ -124,6 +131,16 @@ class _Validator(object):
         return display_name
 
     @classmethod
+    def validate_provider_id(cls, provider_id):
+        if provider_id is _UNSPECIFIED:
+            return _UNSPECIFIED
+        if not isinstance(provider_id, six.string_types) or not provider_id:
+            raise ValueError(
+                'Invalid provider ID: "{0}". Provider ID must be a non-empty '
+                'string.'.format(provider_id))
+        return provider_id
+
+    @classmethod
     def validate_photo_url(cls, photo_url):
         if photo_url is _UNSPECIFIED:
             return _UNSPECIFIED
@@ -194,13 +211,6 @@ class ApiCallError(Exception):
         self.detail = error
 
 
-def _none_to_unspecified(value):
-    if value is None:
-        return _UNSPECIFIED
-    else:
-        return value
-
-
 class UserMetadata(object):
     """Contains additional metadata associated with a user account."""
 
@@ -225,6 +235,301 @@ class UserMetadata(object):
           integer: The last sign in timestamp in milliseconds since the epoch.
         """
         return self._last_sign_in_timestamp
+
+
+class UserInfo(object):
+    """A collection of standard profile information for a user.
+
+    Used to expose profile information returned by an identity provider.
+    """
+
+    @property
+    def uid(self):
+        """Returns the user ID of this user."""
+        raise NotImplementedError
+
+    @property
+    def display_name(self):
+        """Returns the display name of this user."""
+        raise NotImplementedError
+
+    @property
+    def email(self):
+        """Returns the email address associated with this user."""
+        raise NotImplementedError
+
+    @property
+    def phone_number(self):
+        """Returns the phone number associated with this user."""
+        raise NotImplementedError
+
+    @property
+    def photo_url(self):
+        """Returns the photo URL of this user."""
+        raise NotImplementedError
+
+    @property
+    def provider_id(self):
+        """Returns the ID of the identity provider.
+
+        This can be a short domain name (e.g. google.com), or the identity of an OpenID
+        identity provider.
+        """
+        raise NotImplementedError
+
+
+class UserRecord(UserInfo):
+    """Contains metadata associated with a Firebase user account."""
+
+    def __init__(self, data):
+        super(UserRecord, self).__init__()
+        if not isinstance(data, dict):
+            raise ValueError('Invalid data argument: {0}. Must be a dictionary.'.format(data))
+        if not data.get('localId'):
+            raise ValueError('User ID must not be None or empty.')
+        self._data = data
+
+    @property
+    def uid(self):
+        """Returns the user ID of this user.
+
+        Returns:
+          string: A user ID string. This value is never None or empty.
+        """
+        return self._data.get('localId')
+
+    @property
+    def display_name(self):
+        """Returns the display name of this user.
+
+        Returns:
+          string: A display name string or None.
+        """
+        return self._data.get('displayName')
+
+    @property
+    def email(self):
+        """Returns the email address associated with this user.
+
+        Returns:
+          string: An email address string or None.
+        """
+        return self._data.get('email')
+
+    @property
+    def phone_number(self):
+        """Returns the phone number associated with this user.
+
+        Returns:
+          string: A phone number string or None.
+        """
+        return self._data.get('phoneNumber')
+
+    @property
+    def photo_url(self):
+        """Returns the photo URL of this user.
+
+        Returns:
+          string: A URL string or None.
+        """
+        return self._data.get('photoUrl')
+
+    @property
+    def provider_id(self):
+        """Returns the provider ID of this user.
+
+        Returns:
+          string: A constant provider ID value.
+        """
+        return 'firebase'
+
+    @property
+    def email_verified(self):
+        """Returns whether the email address of this user has been verified.
+
+        Returns:
+          bool: True if the email has been verified, and False otherwise.
+        """
+        return bool(self._data.get('emailVerified'))
+
+    @property
+    def disabled(self):
+        """Returns whether this user account is disabled.
+
+        Returns:
+          bool: True if the user account is disabled, and False otherwise.
+        """
+        return bool(self._data.get('disabled'))
+
+    @property
+    def tokens_valid_after_timestamp(self):
+        """Returns the time, in milliseconds since the epoch, before which tokens are invalid.
+
+        Note: this is truncated to 1 second accuracy.
+
+        Returns:
+            int: Timestamp in milliseconds since the epoch, truncated to the second.
+                 All tokens issued before that time are considered revoked.
+        """
+        valid_since = self._data.get('validSince')
+        if valid_since is not None:
+            return 1000 * int(valid_since)
+        return None
+
+    @property
+    def user_metadata(self):
+        """Returns additional metadata associated with this user.
+
+        Returns:
+          UserMetadata: A UserMetadata instance. Does not return None.
+        """
+        def _int_or_none(key):
+            if key in self._data:
+                return int(self._data[key])
+            return None
+        return UserMetadata(_int_or_none('createdAt'), _int_or_none('lastLoginAt'))
+
+    @property
+    def provider_data(self):
+        """Returns a list of UserInfo instances.
+
+        Each object represents an identity from an identity provider that is linked to this user.
+
+        Returns:
+          list: A list of UserInfo objects, which may be empty.
+        """
+        providers = self._data.get('providerUserInfo', [])
+        return [ProviderUserInfo(entry) for entry in providers]
+
+    @property
+    def custom_claims(self):
+        """Returns any custom claims set on this user account.
+
+        Returns:
+          dict: A dictionary of claims or None.
+        """
+        claims = self._data.get('customAttributes')
+        if claims:
+            parsed = json.loads(claims)
+            if parsed != {}:
+                return parsed
+        return None
+
+
+class ExportedUserRecord(UserRecord):
+    """Contains metadata associated with a user including password hash and salt."""
+
+    def __init__(self, data):
+        super(ExportedUserRecord, self).__init__(data)
+
+    @property
+    def password_hash(self):
+        """The user's password hash as a base64-encoded string.
+
+        If the Firebase Auth hashing algorithm (SCRYPT) was used to create the user account, this
+        is the base64-encoded password hash of the user. If a different hashing algorithm was
+        used to create this user, as is typical when migrating from another Auth system, this
+        is an empty string. If no password is set, this is ``None``.
+        """
+        return self._data.get('passwordHash')
+
+    @property
+    def password_salt(self):
+        """The user's password salt as a base64-encoded string.
+
+        If the Firebase Auth hashing algorithm (SCRYPT) was used to create the user account, this
+        is the base64-encoded password salt of the user. If a different hashing algorithm was
+        used to create this user, as is typical when migrating from another Auth system, this is
+        an empty string. If no password is set, this is ``None``.
+        """
+        return self._data.get('salt')
+
+
+class ListUsersPage(object):
+    """Represents a page of user records exported from a Firebase project.
+
+    Provides methods for traversing the user accounts included in this page, as well as retrieving
+    subsequent pages of users. The iterator returned by ``iterate_all()`` can be used to iterate
+    through all users in the Firebase project starting from this page.
+    """
+
+    def __init__(self, download, page_token, max_results):
+        self._download = download
+        self._max_results = max_results
+        self._current = download(page_token, max_results)
+
+    @property
+    def users(self):
+        """A list of ``ExportedUserRecord`` instances available in this page."""
+        return [ExportedUserRecord(user) for user in self._current.get('users', [])]
+
+    @property
+    def next_page_token(self):
+        """Page token string for the next page (empty string indicates no more pages)."""
+        return self._current.get('nextPageToken', '')
+
+    @property
+    def has_next_page(self):
+        """A boolean indicating whether more pages are available."""
+        return bool(self.next_page_token)
+
+    def get_next_page(self):
+        """Retrieves the next page of user accounts, if available.
+
+        Returns:
+            ListUsersPage: Next page of users, or None if this is the last page.
+        """
+        if self.has_next_page:
+            return ListUsersPage(self._download, self.next_page_token, self._max_results)
+        return None
+
+    def iterate_all(self):
+        """Retrieves an iterator for user accounts.
+
+        Returned iterator will iterate through all the user accounts in the Firebase project
+        starting from this page. The iterator will never buffer more than one page of users
+        in memory at a time.
+
+        Returns:
+            iterator: An iterator of ExportedUserRecord instances.
+        """
+        return _UserIterator(self)
+
+
+class ProviderUserInfo(UserInfo):
+    """Contains metadata regarding how a user is known by a particular identity provider."""
+
+    def __init__(self, data):
+        super(ProviderUserInfo, self).__init__()
+        if not isinstance(data, dict):
+            raise ValueError('Invalid data argument: {0}. Must be a dictionary.'.format(data))
+        if not data.get('rawId'):
+            raise ValueError('User ID must not be None or empty.')
+        self._data = data
+
+    @property
+    def uid(self):
+        return self._data.get('rawId')
+
+    @property
+    def display_name(self):
+        return self._data.get('displayName')
+
+    @property
+    def email(self):
+        return self._data.get('email')
+
+    @property
+    def phone_number(self):
+        return self._data.get('phoneNumber')
+
+    @property
+    def photo_url(self):
+        return self._data.get('photoUrl')
+
+    @property
+    def provider_id(self):
+        return self._data.get('providerId')
 
 
 class UserProvider(object):
@@ -340,7 +645,7 @@ def encode_user_provider(provider):
         raise ValueError('Invalid user provider: {0}.'.format(provider))
     payload = {
         'rawId': _Validator.validate_uid(provider.uid),
-        'providerId': _Validator.validate_uid(provider.provider_id),
+        'providerId': _Validator.validate_provider_id(provider.provider_id),
         'displayName': _Validator.validate_display_name(provider.display_name),
         'email': _Validator.validate_email(provider.email),
         'photoUrl': _Validator.validate_photo_url(provider.photo_url),
@@ -576,7 +881,7 @@ class UserManager(object):
         raise ApiCallError(code, msg, error)
 
 
-class UserIterator(object):
+class _UserIterator(object):
     """An iterator that allows iterating over user accounts, one at a time.
 
     This implementation loads a page of users into memory, and iterates on them. When the whole

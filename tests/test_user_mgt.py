@@ -148,7 +148,7 @@ class TestUserRecord(object):
     @pytest.mark.parametrize('data', INVALID_DICTS + [{}, {'foo':'bar'}])
     def test_invalid_provider(self, data):
         with pytest.raises(ValueError):
-            auth._ProviderUserInfo(data)
+            _user_mgt.ProviderUserInfo(data)
 
 
 class TestGetUser(object):
@@ -636,11 +636,86 @@ class TestListUsers(object):
         assert request == expected
 
 
+class TestUserProvider(object):
+
+    def test_uid_and_provider_id(self):
+        provider = auth.UserProvider(uid='test', provider_id='google.com')
+        expected = {'rawId': 'test', 'providerId': 'google.com'}
+        assert _user_mgt.encode_user_provider(provider) == expected
+
+    def test_all_params(self):
+        provider = auth.UserProvider(
+            uid='test', provider_id='google.com', email='test@example.com',
+            display_name='Test Name', photo_url='https://test.com/user.png')
+        expected = {
+            'rawId': 'test',
+            'providerId': 'google.com',
+            'email': 'test@example.com',
+            'displayName': 'Test Name',
+            'photoUrl': 'https://test.com/user.png'
+        }
+        assert _user_mgt.encode_user_provider(provider) == expected
+
+    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
+    def test_invalid_uid(self, arg):
+        provider = auth.UserProvider(uid=arg, provider_id='google.com')
+        with pytest.raises(ValueError):
+            _user_mgt.encode_user_provider(provider)
+
+    @pytest.mark.parametrize('arg', INVALID_STRINGS)
+    def test_invalid_provider_id(self, arg):
+        provider = auth.UserProvider(uid='test', provider_id=arg)
+        with pytest.raises(ValueError):
+            _user_mgt.encode_user_provider(provider)
+
+    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:])
+    def test_invalid_display_name(self, arg):
+        provider = auth.UserProvider(uid='test', provider_id='google.com', display_name=arg)
+        with pytest.raises(ValueError):
+            _user_mgt.encode_user_provider(provider)
+
+    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['not-an-email'])
+    def test_invalid_email(self, arg):
+        provider = auth.UserProvider(uid='test', provider_id='google.com', email=arg)
+        with pytest.raises(ValueError):
+            _user_mgt.encode_user_provider(provider)
+
+    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['not-a-url'])
+    def test_invalid_photo_url(self, arg):
+        provider = auth.UserProvider(uid='test', provider_id='google.com', photo_url=arg)
+        with pytest.raises(ValueError):
+            _user_mgt.encode_user_provider(provider)
+
+
 class TestUserImportRecord(object):
 
     def test_uid(self):
         user = auth.UserImportRecord(uid='test')
         self._check_encoding(user, {'localId': 'test'})
+
+    def test_all_params(self):
+        providers = [auth.UserProvider(uid='test', provider_id='google.com')]
+        user = auth.UserImportRecord(
+            uid='test', email='test@example.com', photo_url='https://test.com/user.png',
+            phone_number='+1234567890', display_name='name', metadata=auth.UserMetadata(100, 150),
+            password_hash=b'password', password_salt=b'NaCl', custom_claims={'admin': True},
+            email_verified=True, disabled=False, provider_data=providers)
+        expected = {
+            'localId': 'test',
+            'email': 'test@example.com',
+            'photoUrl': 'https://test.com/user.png',
+            'phoneNumber': '+1234567890',
+            'displayName': 'name',
+            'createdAt': 100,
+            'lastLoginAt': 150,
+            'passwordHash': base64.urlsafe_b64encode(b'password'),
+            'salt': base64.urlsafe_b64encode(b'NaCl'),
+            'customAttributes': json.dumps({'admin': True}),
+            'emailVerified': True,
+            'disabled': False,
+            'providerUserInfo': [{'rawId': 'test', 'providerId': 'google.com'}],
+        }
+        self._check_encoding(user, expected)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
     def test_invalid_uid(self, arg):
@@ -648,19 +723,11 @@ class TestUserImportRecord(object):
         with pytest.raises(ValueError):
             _user_mgt.encode_user_import_record(user)
 
-    def test_display_name(self):
-        user = auth.UserImportRecord(uid='test', display_name='name')
-        self._check_encoding(user, {'localId': 'test', 'displayName': 'name'})
-
     @pytest.mark.parametrize('arg', INVALID_STRINGS[1:])
     def test_invalid_display_name(self, arg):
         user = auth.UserImportRecord(uid='test', display_name=arg)
         with pytest.raises(ValueError):
             _user_mgt.encode_user_import_record(user)
-
-    def test_email(self):
-        user = auth.UserImportRecord(uid='test', email='test@example.com')
-        self._check_encoding(user, {'localId': 'test', 'email': 'test@example.com'})
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['not-an-email'])
     def test_invalid_email(self, arg):
@@ -668,29 +735,17 @@ class TestUserImportRecord(object):
         with pytest.raises(ValueError):
             _user_mgt.encode_user_import_record(user)
 
-    def test_photo_url(self):
-        user = auth.UserImportRecord(uid='test', photo_url='https://test.com/user.png')
-        self._check_encoding(user, {'localId': 'test', 'photoUrl': 'https://test.com/user.png'})
-
     @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['not-a-url'])
     def test_invalid_photo_url(self, arg):
         user = auth.UserImportRecord(uid='test', photo_url=arg)
         with pytest.raises(ValueError):
             _user_mgt.encode_user_import_record(user)
 
-    def test_phone_number(self):
-        user = auth.UserImportRecord(uid='test', phone_number='+1234567890')
-        self._check_encoding(user, {'localId': 'test', 'phoneNumber': '+1234567890'})
-
     @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['not-a-phone'])
     def test_invalid_phone_number(self, arg):
         user = auth.UserImportRecord(uid='test', phone_number=arg)
         with pytest.raises(ValueError):
             _user_mgt.encode_user_import_record(user)
-
-    def test_user_metadata(self):
-        user = auth.UserImportRecord(uid='test', metadata=auth.UserMetadata(100, 150))
-        self._check_encoding(user, {'localId': 'test', 'createdAt': 100, 'lastLoginAt': 150})
 
     @pytest.mark.parametrize('arg', [0, 1, True, False, 'foo', list(), tuple(), dict()])
     def test_invalid_user_metadata(self, arg):
@@ -712,21 +767,11 @@ class TestUserImportRecord(object):
         with pytest.raises(ValueError):
             _user_mgt.encode_user_import_record(user)
 
-    def test_password_hash(self):
-        user = auth.UserImportRecord(uid='test', password_hash=b'password')
-        expected = {'localId': 'test', 'passwordHash': base64.urlsafe_b64encode(b'password')}
-        self._check_encoding(user, expected)
-
     @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + [u'test'])
     def test_invalid_password_hash(self, arg):
         user = auth.UserImportRecord(uid='test', password_hash=arg)
         with pytest.raises(ValueError):
             _user_mgt.encode_user_import_record(user)
-
-    def test_password_salt(self):
-        user = auth.UserImportRecord(uid='test', password_salt=b'NaCl')
-        expected = {'localId': 'test', 'salt': base64.urlsafe_b64encode(b'NaCl')}
-        self._check_encoding(user, expected)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + [u'test'])
     def test_invalid_password_salt(self, arg):
@@ -767,15 +812,6 @@ class TestUserImportRecord(object):
         user = auth.UserImportRecord(uid='test', disabled=arg)
         with pytest.raises(ValueError):
             _user_mgt.encode_user_import_record(user)
-
-    def test_provider_data(self):
-        providers = [auth.UserProvider(uid='test', provider_id='google.com')]
-        user = auth.UserImportRecord(uid='test', provider_data=providers)
-        expected = {
-            'localId': 'test',
-            'providerUserInfo': [{'rawId': 'test', 'providerId': 'google.com'}]
-        }
-        self._check_encoding(user, expected)
 
     @pytest.mark.parametrize('arg', ['foo', 0, 1, True, False, dict()])
     def test_invalid_provider_data(self, arg):

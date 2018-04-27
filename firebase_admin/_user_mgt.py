@@ -573,7 +573,7 @@ class UserImportRecord(object):
 
     Must specify the ``uid`` field at a minimum. A sequence of ``UserImportRecord`` objects can be
     passed to the ``auth.import_users()`` function, in order to import those users into Firebase
-    Auth in bulk. If the ``password_hash`` field is set on a user, a hash configuration must be
+    Auth in bulk. If the ``password_hash`` is set on a user, a hash configuration must be
     specified when calling ``import_users()``.
 
     Args:
@@ -594,18 +594,54 @@ class UserImportRecord(object):
     def __init__(self, uid, email=None, email_verified=None, display_name=None, phone_number=None,
                  photo_url=None, disabled=None, metadata=None, provider_data=None,
                  custom_claims=None, password_hash=None, password_salt=None):
-        self.uid = uid
-        self.email = _none_to_unspecified(email)
-        self.email_verified = _none_to_unspecified(email_verified)
-        self.display_name = _none_to_unspecified(display_name)
-        self.phone_number = _none_to_unspecified(phone_number)
-        self.photo_url = _none_to_unspecified(photo_url)
-        self.disabled = _none_to_unspecified(disabled)
-        self.metadata = _none_to_unspecified(metadata)
-        self.provider_data = _none_to_unspecified(provider_data)
-        self.custom_claims = _none_to_unspecified(custom_claims)
-        self.password_hash = _none_to_unspecified(password_hash)
-        self.password_salt = _none_to_unspecified(password_salt)
+        self._uid = uid
+        self._email = _none_to_unspecified(email)
+        self._email_verified = _none_to_unspecified(email_verified)
+        self._display_name = _none_to_unspecified(display_name)
+        self._phone_number = _none_to_unspecified(phone_number)
+        self._photo_url = _none_to_unspecified(photo_url)
+        self._disabled = _none_to_unspecified(disabled)
+        self._metadata = _none_to_unspecified(metadata)
+        self._provider_data = _none_to_unspecified(provider_data)
+        self._custom_claims = _none_to_unspecified(custom_claims)
+        self._password_hash = _none_to_unspecified(password_hash)
+        self._password_salt = _none_to_unspecified(password_salt)
+
+    def to_dict(self):
+        """Returns a dict representation of the user. For internal use only."""
+        payload = {
+            'localId': _Validator.validate_uid(self._uid),
+            'email': _Validator.validate_email(self._email),
+            'emailVerified': _Validator.validate_boolean(self._email_verified, 'email_verified'),
+            'displayName': _Validator.validate_display_name(self._display_name),
+            'phoneNumber': _Validator.validate_phone(self._phone_number),
+            'photoUrl': _Validator.validate_photo_url(self._photo_url),
+            'disabled': _Validator.validate_boolean(self._disabled, 'disabled'),
+        }
+        if self._password_hash is not _UNSPECIFIED:
+            password_hash = _Validator.validate_bytes(self._password_hash, 'password_hash')
+            payload['passwordHash'] = _b64_encode(password_hash)
+        if self._password_salt is not _UNSPECIFIED:
+            password_salt = _Validator.validate_bytes(self._password_salt, 'password_salt')
+            payload['salt'] = _b64_encode(password_salt)
+        if self._metadata is not _UNSPECIFIED:
+            if not isinstance(self._metadata, UserMetadata):
+                raise ValueError('Invalid user metadata instance: {0}.'.format(self._metadata))
+            payload['createdAt'] = _Validator.validate_timestamp(_none_to_unspecified(
+                self._metadata.creation_timestamp), 'creation_timestamp')
+            payload['lastLoginAt'] = _Validator.validate_timestamp(_none_to_unspecified(
+                self._metadata.last_sign_in_timestamp), 'last_sign_in_timestamp')
+        if self._custom_claims is not _UNSPECIFIED:
+            if isinstance(self._custom_claims, dict):
+                custom_claims = json.dumps(self._custom_claims)
+            else:
+                custom_claims = self._custom_claims
+            payload['customAttributes'] = _Validator.validate_custom_claims(custom_claims)
+        if self._provider_data and self._provider_data is not _UNSPECIFIED:
+            if not isinstance(self._provider_data, list):
+                raise ValueError('Provider data must be a list.')
+            payload['providerUserInfo'] = [encode_user_provider(p) for p in self._provider_data]
+        return {k: v for k, v in payload.items() if v is not _UNSPECIFIED}
 
 
 class UserImportHash(object):
@@ -708,45 +744,6 @@ def encode_user_provider(provider):
         'email': _Validator.validate_email(provider.email),
         'photoUrl': _Validator.validate_photo_url(provider.photo_url),
     }
-    return {k: v for k, v in payload.items() if v is not _UNSPECIFIED}
-
-def encode_user_import_record(user):
-    """Encodes a UserImportRecord into a dict."""
-    if not isinstance(user, UserImportRecord):
-        raise ValueError('Invalid user import record: {0}.'.format(user))
-    payload = {
-        'localId': _Validator.validate_uid(user.uid),
-        'email': _Validator.validate_email(user.email),
-        'emailVerified': _Validator.validate_boolean(user.email_verified, 'email_verified'),
-        'displayName': _Validator.validate_display_name(user.display_name),
-        'phoneNumber': _Validator.validate_phone(user.phone_number),
-        'photoUrl': _Validator.validate_photo_url(user.photo_url),
-        'disabled': _Validator.validate_boolean(user.disabled, 'disabled'),
-    }
-    if user.password_hash is not _UNSPECIFIED:
-        password_hash = _Validator.validate_bytes(user.password_hash, 'password_hash')
-        payload['passwordHash'] = _b64_encode(password_hash)
-    if user.password_salt is not _UNSPECIFIED:
-        password_salt = _Validator.validate_bytes(user.password_salt, 'password_salt')
-        payload['salt'] = _b64_encode(password_salt)
-    if user.metadata is not _UNSPECIFIED:
-        if not isinstance(user.metadata, UserMetadata):
-            raise ValueError('Invalid user metadata instance: {0}.'.format(user.metadata))
-        payload['createdAt'] = _Validator.validate_timestamp(_none_to_unspecified(
-            user.metadata.creation_timestamp), 'creation_timestamp')
-        payload['lastLoginAt'] = _Validator.validate_timestamp(_none_to_unspecified(
-            user.metadata.last_sign_in_timestamp), 'last_sign_in_timestamp')
-    if user.custom_claims is not _UNSPECIFIED:
-        if isinstance(user.custom_claims, dict):
-            custom_claims = json.dumps(user.custom_claims)
-        else:
-            custom_claims = user.custom_claims
-        payload['customAttributes'] = _Validator.validate_custom_claims(custom_claims)
-    if user.provider_data is not _UNSPECIFIED:
-        if not isinstance(user.provider_data, list):
-            raise ValueError('Provider data must be a list.')
-        if user.provider_data:
-            payload['providerUserInfo'] = [encode_user_provider(p) for p in user.provider_data]
     return {k: v for k, v in payload.items() if v is not _UNSPECIFIED}
 
 
@@ -915,7 +912,7 @@ class UserManager(object):
         if len(users) > MAX_IMPORT_USERS_SIZE:
             raise ValueError(
                 'Users list must not have more than {0} elements.'.format(MAX_IMPORT_USERS_SIZE))
-        payload = {'users': [encode_user_import_record(u) for u in users]}
+        payload = {'users': [u.to_dict() for u in users]}
         if any(['passwordHash' in u for u in payload['users']]):
             if not hash_alg:
                 raise ValueError('Hash is required when at least one user has a password.')

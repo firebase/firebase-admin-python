@@ -695,12 +695,12 @@ class TestUserImportRecord(object):
         [{'custom_claims': arg} for arg in INVALID_DICTS[1:] + ['"json"', {'key': 'a'*1000}]] +
         [{'email_verified': arg} for arg in INVALID_BOOLS[1:]] +
         [{'disabled': arg} for arg in INVALID_BOOLS[1:]] +
-        [{'provider_data': arg} for arg in ['foo', 0, 1, True, False, dict()]]
+        [{'provider_data': arg} for arg in ['foo', 1, True]]
     )
 
     def test_uid(self):
         user = auth.UserImportRecord(uid='test')
-        self._check_encoding(user, {'localId': 'test'})
+        assert user.to_dict() == {'localId': 'test'}
 
     def test_all_params(self):
         providers = [auth.UserProvider(uid='test', provider_id='google.com')]
@@ -724,39 +724,35 @@ class TestUserImportRecord(object):
             'disabled': False,
             'providerUserInfo': [{'rawId': 'test', 'providerId': 'google.com'}],
         }
-        self._check_encoding(user, expected)
+        assert user.to_dict() == expected
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
     def test_invalid_uid(self, arg):
         user = auth.UserImportRecord(uid=arg)
         with pytest.raises(ValueError):
-            _user_mgt.encode_user_import_record(user)
+            user.to_dict()
 
     @pytest.mark.parametrize('args', _INVALID_USERS)
     def test_invalid_args(self, args):
         user = auth.UserImportRecord(uid='test', **args)
         with pytest.raises(ValueError):
-            _user_mgt.encode_user_import_record(user)
+            user.to_dict()
 
     @pytest.mark.parametrize('claims', [{}, {'admin': True}])
     def test_custom_claims(self, claims):
         user = auth.UserImportRecord(uid='test', custom_claims=claims)
         expected = {'localId': 'test', 'customAttributes': json.dumps(claims)}
-        self._check_encoding(user, expected)
+        assert user.to_dict() == expected
 
     @pytest.mark.parametrize('email_verified', [True, False])
     def test_email_verified(self, email_verified):
         user = auth.UserImportRecord(uid='test', email_verified=email_verified)
-        self._check_encoding(user, {'localId': 'test', 'emailVerified': email_verified})
+        assert user.to_dict() == {'localId': 'test', 'emailVerified': email_verified}
 
     @pytest.mark.parametrize('disabled', [True, False])
     def test_disabled(self, disabled):
         user = auth.UserImportRecord(uid='test', disabled=disabled)
-        self._check_encoding(user, {'localId': 'test', 'disabled': disabled})
-
-    def _check_encoding(self, user, expected):
-        encoded = _user_mgt.encode_user_import_record(user)
-        assert encoded == expected
+        assert user.to_dict() == {'localId': 'test', 'disabled': disabled}
 
 
 class TestUserImportHash(object):

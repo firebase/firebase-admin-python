@@ -26,7 +26,6 @@ from tests import testutils
 
 
 INVALID_STRINGS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
-INVALID_BOOLS = [None, '', 'foo', 0, 1, list(), tuple(), dict()]
 INVALID_DICTS = [None, 'foo', 0, 1, True, False, list(), tuple()]
 
 MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
@@ -217,48 +216,38 @@ class TestGetUser(object):
 
 class TestCreateUser(object):
 
-    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
+    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['a'*129])
     def test_invalid_uid(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
             auth.create_user(uid=arg, app=user_mgt_app)
 
-    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-an-email'])
+    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['not-an-email'])
     def test_invalid_email(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
             auth.create_user(email=arg, app=user_mgt_app)
 
-    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-a-phone', '+'])
+    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['not-a-phone', '+'])
     def test_invalid_phone(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
             auth.create_user(phone_number=arg, app=user_mgt_app)
 
-    @pytest.mark.parametrize('arg', INVALID_STRINGS)
+    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:])
     def test_invalid_display_name(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
             auth.create_user(display_name=arg, app=user_mgt_app)
 
-    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-a-url'])
+    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['not-a-url'])
     def test_invalid_photo_url(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
             auth.create_user(photo_url=arg, app=user_mgt_app)
 
-    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['short'])
+    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['short'])
     def test_invalid_password(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
             auth.create_user(password=arg, app=user_mgt_app)
 
-    @pytest.mark.parametrize('arg', INVALID_BOOLS)
-    def test_invalid_email_verified(self, user_mgt_app, arg):
-        with pytest.raises(ValueError):
-            auth.create_user(email_verified=arg, app=user_mgt_app)
-
-    @pytest.mark.parametrize('arg', INVALID_BOOLS)
-    def test_invalid_disabled(self, user_mgt_app, arg):
-        with pytest.raises(ValueError):
-            auth.create_user(disabled=arg, app=user_mgt_app)
-
     def test_invalid_property(self, user_mgt_app):
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             auth.create_user(unsupported='value', app=user_mgt_app)
 
     def test_create_user(self, user_mgt_app):
@@ -303,7 +292,7 @@ class TestUpdateUser(object):
         with pytest.raises(ValueError):
             auth.update_user(arg, app=user_mgt_app)
 
-    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-an-email'])
+    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['not-an-email'])
     def test_invalid_email(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
             auth.update_user('user', email=arg, app=user_mgt_app)
@@ -323,20 +312,10 @@ class TestUpdateUser(object):
         with pytest.raises(ValueError):
             auth.update_user('user', photo_url=arg, app=user_mgt_app)
 
-    @pytest.mark.parametrize('arg', INVALID_STRINGS + ['short'])
+    @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['short'])
     def test_invalid_password(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
             auth.update_user('user', password=arg, app=user_mgt_app)
-
-    @pytest.mark.parametrize('arg', INVALID_BOOLS)
-    def test_invalid_email_verified(self, user_mgt_app, arg):
-        with pytest.raises(ValueError):
-            auth.update_user('user', email_verified=arg, app=user_mgt_app)
-
-    @pytest.mark.parametrize('arg', INVALID_BOOLS)
-    def test_invalid_disabled(self, user_mgt_app, arg):
-        with pytest.raises(ValueError):
-            auth.update_user('user', disabled=arg, app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_DICTS[1:] + ['"json"'])
     def test_invalid_custom_claims(self, user_mgt_app, arg):
@@ -344,10 +323,10 @@ class TestUpdateUser(object):
             auth.update_user('user', custom_claims=arg, app=user_mgt_app)
 
     def test_invalid_property(self, user_mgt_app):
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             auth.update_user('user', unsupported='arg', app=user_mgt_app)
 
-    @pytest.mark.parametrize('arg', [None, 'foo', 0, -1, True, False, list(), tuple(), dict()])
+    @pytest.mark.parametrize('arg', ['foo', 0, -1, True, False, list(), tuple(), dict()])
     def test_invalid_valid_since(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
             auth.update_user('user', valid_since=arg, app=user_mgt_app)
@@ -358,17 +337,19 @@ class TestUpdateUser(object):
         request = json.loads(recorder[0].body.decode())
         assert request == {'localId' : 'testuser'}
 
-    def test_disable_user(self, user_mgt_app):
+    @pytest.mark.parametrize('arg', [True, False, 1, 0, 'foo'])
+    def test_disable_user(self, arg, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
-        user_mgt.update_user('testuser', disabled=True)
+        user_mgt.update_user('testuser', disabled=arg)
         request = json.loads(recorder[0].body.decode())
-        assert request == {'localId' : 'testuser', 'disableUser' : True}
+        assert request == {'localId' : 'testuser', 'disableUser' : bool(arg)}
 
-    def test_set_email_verified(self, user_mgt_app):
+    @pytest.mark.parametrize('arg', [True, False, 1, 0, 'foo'])
+    def test_set_email_verified(self, arg, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
-        user_mgt.update_user('testuser', email_verified=True)
+        user_mgt.update_user('testuser', email_verified=arg)
         request = json.loads(recorder[0].body.decode())
-        assert request == {'localId' : 'testuser', 'emailVerified' : True}
+        assert request == {'localId' : 'testuser', 'emailVerified' : bool(arg)}
 
     def test_update_user_custom_claims(self, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')

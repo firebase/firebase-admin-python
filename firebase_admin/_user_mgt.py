@@ -37,19 +37,20 @@ RESERVED_CLAIMS = set([
 ])
 
 
-class _UnspecifiedSentinel(object):
+class _Unspecified(object):
     pass
 
-_UNSPECIFIED = _UnspecifiedSentinel()
+# Use this internally, until sentinels are available in the public API.
+_UNSPECIFIED = _Unspecified()
 
 
 class _Validator(object):
     """A collection of data validation utilities."""
 
     @classmethod
-    def validate_uid(cls, uid, required=True):
-        if uid is _UNSPECIFIED and not required:
-            return _UNSPECIFIED
+    def validate_uid(cls, uid, required=False):
+        if uid is None and not required:
+            return None
         if not isinstance(uid, six.string_types) or not uid or len(uid) > 128:
             raise ValueError(
                 'Invalid uid: "{0}". The uid must be a non-empty string with no more than 128 '
@@ -57,10 +58,10 @@ class _Validator(object):
         return uid
 
     @classmethod
-    def validate_email(cls, email):
-        if email is _UNSPECIFIED:
-            return _UNSPECIFIED
-        if not isinstance(email, six.string_types) or not email:
+    def validate_email(cls, email, required=False):
+        if email is None and not required:
+            return None
+        if not isinstance(email, six.string_types):
             raise ValueError(
                 'Invalid email: "{0}". Email must be a non-empty string.'.format(email))
         parts = email.split('@')
@@ -69,16 +70,16 @@ class _Validator(object):
         return email
 
     @classmethod
-    def validate_phone(cls, phone):
+    def validate_phone(cls, phone, required=False):
         """Validates the specified phone number.
 
         Phone number vlidation is very lax here. Backend will enforce E.164 spec compliance, and
         normalize accordingly. Here we check if the number starts with + sign, and contains at
         least one alphanumeric character.
         """
-        if phone is _UNSPECIFIED:
-            return _UNSPECIFIED
-        if not isinstance(phone, six.string_types) or not phone:
+        if phone is None and not required:
+            return None
+        if not isinstance(phone, six.string_types):
             raise ValueError('Invalid phone number: "{0}". Phone number must be a non-empty '
                              'string.'.format(phone))
         if not phone.startswith('+') or not re.search('[a-zA-Z0-9]', phone):
@@ -87,26 +88,18 @@ class _Validator(object):
         return phone
 
     @classmethod
-    def validate_password(cls, password):
-        if password is _UNSPECIFIED:
-            return _UNSPECIFIED
+    def validate_password(cls, password, required=False):
+        if password is None and not required:
+            return None
         if not isinstance(password, six.string_types) or len(password) < 6:
             raise ValueError(
                 'Invalid password string. Password must be a string at least 6 characters long.')
         return password
 
     @classmethod
-    def validate_boolean(cls, value, label):
-        if value is _UNSPECIFIED:
-            return _UNSPECIFIED
-        if not isinstance(value, bool):
-            raise ValueError('{0} must be boolean.'.format(label))
-        return value
-
-    @classmethod
-    def validate_display_name(cls, display_name):
-        if display_name is _UNSPECIFIED:
-            return _UNSPECIFIED
+    def validate_display_name(cls, display_name, required=False):
+        if display_name is None and not required:
+            return None
         if not isinstance(display_name, six.string_types) or not display_name:
             raise ValueError(
                 'Invalid display name: "{0}". Display name must be a non-empty '
@@ -114,9 +107,9 @@ class _Validator(object):
         return display_name
 
     @classmethod
-    def validate_photo_url(cls, photo_url):
-        if photo_url is _UNSPECIFIED:
-            return _UNSPECIFIED
+    def validate_photo_url(cls, photo_url, required=False):
+        if photo_url is None and not required:
+            return None
         if not isinstance(photo_url, six.string_types) or not photo_url:
             raise ValueError(
                 'Invalid photo URL: "{0}". Photo URL must be a non-empty '
@@ -130,49 +123,48 @@ class _Validator(object):
             raise ValueError('Malformed photo URL: "{0}".'.format(photo_url))
 
     @classmethod
-    def validate_valid_since(cls, valid_since):
-        # isinstance(True, int) is True hence the extra check
-        if valid_since is _UNSPECIFIED:
-            return _UNSPECIFIED
-        if valid_since is None or isinstance(valid_since, bool) or not isinstance(valid_since, int):
-            raise ValueError(
-                'Invalid time string for: "{0}". Valid Since must be an int'.format(valid_since))
-        if int(valid_since) <= 0:
-            raise ValueError(
-                'Invalid valid_since: must be a positive interger. {0}'.format(valid_since))
-        return valid_since
+    def validate_timestamp(cls, timestamp, label, required=False):
+        if timestamp is None and not required:
+            return None
+        if isinstance(timestamp, bool):
+            raise ValueError('Boolean value specified as timestamp.')
+        try:
+            timestamp_int = int(timestamp)
+            if timestamp_int <= 0:
+                raise ValueError('{0} timestamp must be a positive interger.'.format(label))
+            return timestamp_int
+        except TypeError:
+            raise ValueError('Invalid type for timestamp value: {0}.'.format(timestamp))
 
     @classmethod
-    def validate_custom_claims(cls, custom_claims):
+    def validate_custom_claims(cls, custom_claims, required=False):
         """Validates the specified custom claims.
 
         Custom claims must be specified as a JSON string. The string must not exceed 1000
         characters, and the parsed JSON payload must not contain reserved JWT claims.
         """
-        if not isinstance(custom_claims, six.string_types) or not custom_claims:
-            raise ValueError(
-                'Invalid custom claims: "{0}". Custom claims must be a non-empty JSON '
-                'string.'.format(custom_claims))
-
-        if len(custom_claims) > MAX_CLAIMS_PAYLOAD_SIZE:
+        if custom_claims is None and not required:
+            return None
+        claims_str = str(custom_claims)
+        if len(claims_str) > MAX_CLAIMS_PAYLOAD_SIZE:
             raise ValueError(
                 'Custom claims payload must not exceed {0} '
                 'characters.'.format(MAX_CLAIMS_PAYLOAD_SIZE))
         try:
-            parsed = json.loads(custom_claims)
+            parsed = json.loads(claims_str)
         except Exception:
             raise ValueError('Failed to parse custom claims string as JSON.')
-        else:
-            if not isinstance(parsed, dict):
-                raise ValueError('Custom claims must be parseable as a JSON object.')
-            invalid_claims = RESERVED_CLAIMS.intersection(set(parsed.keys()))
-            if len(invalid_claims) > 1:
-                joined = ', '.join(sorted(invalid_claims))
-                raise ValueError('Claims "{0}" are reserved, and must not be set.'.format(joined))
-            elif len(invalid_claims) == 1:
-                raise ValueError(
-                    'Claim "{0}" is reserved, and must not be set.'.format(invalid_claims.pop()))
-        return custom_claims
+
+        if not isinstance(parsed, dict):
+            raise ValueError('Custom claims must be parseable as a JSON object.')
+        invalid_claims = RESERVED_CLAIMS.intersection(set(parsed.keys()))
+        if len(invalid_claims) > 1:
+            joined = ', '.join(sorted(invalid_claims))
+            raise ValueError('Claims "{0}" are reserved, and must not be set.'.format(joined))
+        elif len(invalid_claims) == 1:
+            raise ValueError(
+                'Claim "{0}" is reserved, and must not be set.'.format(invalid_claims.pop()))
+        return claims_str
 
 
 class ApiCallError(Exception):
@@ -194,16 +186,13 @@ class UserManager(object):
         """Gets the user data corresponding to the provided key."""
         if 'uid' in kwargs:
             key, key_type = kwargs.pop('uid'), 'user ID'
-            _Validator.validate_uid(key)
-            payload = {'localId' : [key]}
+            payload = {'localId' : [_Validator.validate_uid(key, required=True)]}
         elif 'email' in kwargs:
             key, key_type = kwargs.pop('email'), 'email'
-            _Validator.validate_email(key)
-            payload = {'email' : [key]}
+            payload = {'email' : [_Validator.validate_email(key, required=True)]}
         elif 'phone_number' in kwargs:
             key, key_type = kwargs.pop('phone_number'), 'phone number'
-            _Validator.validate_phone(key)
-            payload = {'phoneNumber' : [key]}
+            payload = {'phoneNumber' : [_Validator.validate_phone(key, required=True)]}
         else:
             raise ValueError('Unsupported keyword arguments: {0}.'.format(kwargs))
 
@@ -239,26 +228,20 @@ class UserManager(object):
         except requests.exceptions.RequestException as error:
             self._handle_http_error(USER_DOWNLOAD_ERROR, 'Failed to download user accounts.', error)
 
-    def create_user(self, **kwargs):
+    def create_user(self, uid=None, display_name=None, email=None, phone_number=None,
+                    photo_url=None, password=None, disabled=None, email_verified=None):
         """Creates a new user account with the specified properties."""
         payload = {
-            'localId': _Validator.validate_uid(kwargs.pop('uid', _UNSPECIFIED), required=False),
-            'displayName': _Validator.validate_display_name(kwargs.pop(
-                'display_name', _UNSPECIFIED)),
-            'email': _Validator.validate_email(kwargs.pop('email', _UNSPECIFIED)),
-            'emailVerified': _Validator.validate_boolean(kwargs.pop(
-                'email_verified', _UNSPECIFIED), 'email_verified'),
-            'phoneNumber': _Validator.validate_phone(kwargs.pop('phone_number', _UNSPECIFIED)),
-            'photoUrl': _Validator.validate_photo_url(kwargs.pop('photo_url', _UNSPECIFIED)),
-            'password': _Validator.validate_password(kwargs.pop('password', _UNSPECIFIED)),
-            'disabled': _Validator.validate_boolean(kwargs.pop(
-                'disabled', _UNSPECIFIED), 'disabled'),
+            'localId': _Validator.validate_uid(uid),
+            'displayName': _Validator.validate_display_name(display_name),
+            'email': _Validator.validate_email(email),
+            'phoneNumber': _Validator.validate_phone(phone_number),
+            'photoUrl': _Validator.validate_photo_url(photo_url),
+            'password': _Validator.validate_password(password),
+            'emailVerified': bool(email_verified) if email_verified is not None else None,
+            'disabled': bool(disabled) if disabled is not None else None,
         }
-        if kwargs:
-            unexpected_keys = ', '.join(kwargs.keys())
-            raise ValueError(
-                'Unsupported arguments: "{0}" in call to create_user()'.format(unexpected_keys))
-        payload = {k: v for k, v in payload.items() if v is not _UNSPECIFIED}
+        payload = {k: v for k, v in payload.items() if v is not None}
         try:
             response = self._client.request('post', 'signupNewUser', json=payload)
         except requests.exceptions.RequestException as error:
@@ -268,57 +251,47 @@ class UserManager(object):
                 raise ApiCallError(USER_CREATE_ERROR, 'Failed to create new user.')
             return response.get('localId')
 
-    def update_user(self, uid, **kwargs):
+    def update_user(self, uid, display_name=_UNSPECIFIED, email=None, phone_number=_UNSPECIFIED,
+                    photo_url=_UNSPECIFIED, password=None, disabled=None, email_verified=None,
+                    valid_since=None, custom_claims=_UNSPECIFIED):
         """Updates an existing user account with the specified properties"""
         payload = {
-            'localId': _Validator.validate_uid(uid),
-            'email': _Validator.validate_email(kwargs.pop('email', _UNSPECIFIED)),
-            'emailVerified': _Validator.validate_boolean(kwargs.pop(
-                'email_verified', _UNSPECIFIED), 'email_verified'),
-            'password': _Validator.validate_password(kwargs.pop('password', _UNSPECIFIED)),
-            'disableUser': _Validator.validate_boolean(kwargs.pop(
-                'disabled', _UNSPECIFIED), 'disabled'),
-            'validSince': _Validator.validate_valid_since(kwargs.pop('valid_since', _UNSPECIFIED)),
+            'localId': _Validator.validate_uid(uid, required=True),
+            'email': _Validator.validate_email(email),
+            'password': _Validator.validate_password(password),
+            'validSince': _Validator.validate_timestamp(valid_since, 'valid_since'),
+            'emailVerified': bool(email_verified) if email_verified is not None else None,
+            'disableUser': bool(disabled) if disabled is not None else None,
         }
 
         remove = []
-        if 'display_name' in kwargs:
-            display_name = kwargs.pop('display_name')
+        if display_name is not _UNSPECIFIED:
             if display_name is None:
                 remove.append('DISPLAY_NAME')
             else:
                 payload['displayName'] = _Validator.validate_display_name(display_name)
-
-        if 'photo_url' in kwargs:
-            photo_url = kwargs.pop('photo_url')
+        if photo_url is not _UNSPECIFIED:
             if photo_url is None:
                 remove.append('PHOTO_URL')
             else:
                 payload['photoUrl'] = _Validator.validate_photo_url(photo_url)
-
         if remove:
             payload['deleteAttribute'] = remove
-        if 'phone_number' in kwargs:
-            phone_number = kwargs.pop('phone_number')
+
+        if phone_number is not _UNSPECIFIED:
             if phone_number is None:
                 payload['deleteProvider'] = ['phone']
             else:
                 payload['phoneNumber'] = _Validator.validate_phone(phone_number)
 
-        if 'custom_claims' in kwargs:
-            custom_claims = kwargs.pop('custom_claims')
+        if custom_claims is not _UNSPECIFIED:
             if custom_claims is None:
                 custom_claims = {}
-            if isinstance(custom_claims, dict):
-                custom_claims = json.dumps(custom_claims) # pylint: disable=redefined-variable-type
-            payload['customAttributes'] = _Validator.validate_custom_claims(custom_claims)
+            json_claims = json.dumps(custom_claims) if isinstance(
+                custom_claims, dict) else custom_claims
+            payload['customAttributes'] = _Validator.validate_custom_claims(json_claims)
 
-        if kwargs:
-            unexpected_keys = ', '.join(kwargs.keys())
-            raise ValueError(
-                'Unsupported arguments: "{0}" in call to update_user()'.format(unexpected_keys))
-        payload = {k: v for k, v in payload.items() if v is not _UNSPECIFIED}
-
+        payload = {k: v for k, v in payload.items() if v is not None}
         try:
             response = self._client.request('post', 'setAccountInfo', json=payload)
         except requests.exceptions.RequestException as error:
@@ -331,7 +304,7 @@ class UserManager(object):
 
     def delete_user(self, uid):
         """Deletes the user identified by the specified user ID."""
-        _Validator.validate_uid(uid)
+        _Validator.validate_uid(uid, required=True)
         try:
             response = self._client.request('post', 'deleteAccount', json={'localId' : uid})
         except requests.exceptions.RequestException as error:

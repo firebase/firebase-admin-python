@@ -25,6 +25,7 @@ from google.auth import transport
 
 import firebase_admin
 from firebase_admin import _token_gen
+from firebase_admin import _user_import
 from firebase_admin import _user_mgt
 from firebase_admin import _utils
 
@@ -63,15 +64,15 @@ __all__ = [
     'verify_session_cookie',
 ]
 
-ErrorInfo = _user_mgt.ErrorInfo
+ErrorInfo = _user_import.ErrorInfo
 ExportedUserRecord = _user_mgt.ExportedUserRecord
 ListUsersPage = _user_mgt.ListUsersPage
-UserImportHash = _user_mgt.UserImportHash
-UserImportRecord = _user_mgt.UserImportRecord
-UserImportResult = _user_mgt.UserImportResult
+UserImportHash = _user_import.UserImportHash
+UserImportRecord = _user_import.UserImportRecord
+UserImportResult = _user_import.UserImportResult
 UserInfo = _user_mgt.UserInfo
 UserMetadata = _user_mgt.UserMetadata
-UserProvider = _user_mgt.UserProvider
+UserProvider = _user_import.UserProvider
 UserRecord = _user_mgt.UserRecord
 
 

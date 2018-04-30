@@ -14,13 +14,13 @@
 
 """Firebase user management sub module."""
 
-import base64
 import json
-import re
 
 import requests
 import six
-from six.moves import urllib
+
+from firebase_admin import _auth_utils
+from firebase_admin import _user_import
 
 
 INTERNAL_ERROR = 'INTERNAL_ERROR'
@@ -32,167 +32,7 @@ USER_IMPORT_ERROR = 'USER_IMPORT_ERROR'
 USER_DOWNLOAD_ERROR = 'LIST_USERS_ERROR'
 
 MAX_LIST_USERS_RESULTS = 1000
-MAX_CLAIMS_PAYLOAD_SIZE = 1000
 MAX_IMPORT_USERS_SIZE = 1000
-RESERVED_CLAIMS = set([
-    'acr', 'amr', 'at_hash', 'aud', 'auth_time', 'azp', 'cnf', 'c_hash', 'exp', 'iat',
-    'iss', 'jti', 'nbf', 'nonce', 'sub', 'firebase',
-])
-
-
-def _b64_encode(bytes_value):
-    return base64.urlsafe_b64encode(bytes_value).decode()
-
-
-class _Validator(object):
-    """A collection of data validation utilities."""
-
-    @classmethod
-    def validate_uid(cls, uid, required=False):
-        if uid is None and not required:
-            return None
-        if not isinstance(uid, six.string_types) or not uid or len(uid) > 128:
-            raise ValueError(
-                'Invalid uid: "{0}". The uid must be a non-empty string with no more than 128 '
-                'characters.'.format(uid))
-        return uid
-
-    @classmethod
-    def validate_email(cls, email, required=False):
-        if email is None and not required:
-            return None
-        if not isinstance(email, six.string_types) or not email:
-            raise ValueError(
-                'Invalid email: "{0}". Email must be a non-empty string.'.format(email))
-        parts = email.split('@')
-        if len(parts) != 2 or not parts[0] or not parts[1]:
-            raise ValueError('Malformed email address string: "{0}".'.format(email))
-        return email
-
-    @classmethod
-    def validate_phone(cls, phone, required=False):
-        """Validates the specified phone number.
-
-        Phone number vlidation is very lax here. Backend will enforce E.164 spec compliance, and
-        normalize accordingly. Here we check if the number starts with + sign, and contains at
-        least one alphanumeric character.
-        """
-        if phone is None and not required:
-            return None
-        if not isinstance(phone, six.string_types) or not phone:
-            raise ValueError('Invalid phone number: "{0}". Phone number must be a non-empty '
-                             'string.'.format(phone))
-        if not phone.startswith('+') or not re.search('[a-zA-Z0-9]', phone):
-            raise ValueError('Invalid phone number: "{0}". Phone number must be a valid, E.164 '
-                             'compliant identifier.'.format(phone))
-        return phone
-
-    @classmethod
-    def validate_password(cls, password, required=False):
-        if password is None and not required:
-            return None
-        if not isinstance(password, six.string_types) or len(password) < 6:
-            raise ValueError(
-                'Invalid password string. Password must be a string at least 6 characters long.')
-        return password
-
-    @classmethod
-    def validate_bytes(cls, value, label, required=False):
-        if value is None and not required:
-            return None
-        if not isinstance(value, six.binary_type) or not value:
-            raise ValueError('{0} must be a non-empty byte sequence.'.format(label))
-        return value
-
-    @classmethod
-    def validate_display_name(cls, display_name, required=False):
-        if display_name is None and not required:
-            return None
-        if not isinstance(display_name, six.string_types) or not display_name:
-            raise ValueError(
-                'Invalid display name: "{0}". Display name must be a non-empty '
-                'string.'.format(display_name))
-        return display_name
-
-    @classmethod
-    def validate_provider_id(cls, provider_id, required=True):
-        if provider_id is None and not required:
-            return None
-        if not isinstance(provider_id, six.string_types) or not provider_id:
-            raise ValueError(
-                'Invalid provider ID: "{0}". Provider ID must be a non-empty '
-                'string.'.format(provider_id))
-        return provider_id
-
-    @classmethod
-    def validate_photo_url(cls, photo_url, required=False):
-        if photo_url is None and not required:
-            return None
-        if not isinstance(photo_url, six.string_types) or not photo_url:
-            raise ValueError(
-                'Invalid photo URL: "{0}". Photo URL must be a non-empty '
-                'string.'.format(photo_url))
-        try:
-            parsed = urllib.parse.urlparse(photo_url)
-            if not parsed.netloc:
-                raise ValueError('Malformed photo URL: "{0}".'.format(photo_url))
-            return photo_url
-        except Exception:
-            raise ValueError('Malformed photo URL: "{0}".'.format(photo_url))
-
-    @classmethod
-    def validate_timestamp(cls, timestamp, label, required=False):
-        if timestamp is None and not required:
-            return None
-        if isinstance(timestamp, bool):
-            raise ValueError('Boolean value specified as timestamp.')
-        try:
-            timestamp_int = int(timestamp)
-            if timestamp_int <= 0:
-                raise ValueError('{0} timestamp must be a positive interger.'.format(label))
-            return timestamp_int
-        except TypeError:
-            raise ValueError('Invalid type for timestamp value: {0}.'.format(timestamp))
-
-    @classmethod
-    def validate_int(cls, value, label, low=None, high=None):
-        if value is None or isinstance(value, bool) or not isinstance(value, int):
-            raise ValueError('{0} must be an int.'.format(value))
-        if low is not None and value < low:
-            raise ValueError('{0} must not be smaller than {1}.'.format(label, low))
-        if high is not None and value > high:
-            raise ValueError('{0} must not be larger than {1}.'.format(label, high))
-        return value
-
-    @classmethod
-    def validate_custom_claims(cls, custom_claims, required=False):
-        """Validates the specified custom claims.
-
-        Custom claims must be specified as a JSON string. The string must not exceed 1000
-        characters, and the parsed JSON payload must not contain reserved JWT claims.
-        """
-        if custom_claims is None and not required:
-            return None
-        claims_str = str(custom_claims)
-        if len(claims_str) > MAX_CLAIMS_PAYLOAD_SIZE:
-            raise ValueError(
-                'Custom claims payload must not exceed {0} characters.'.format(
-                    MAX_CLAIMS_PAYLOAD_SIZE))
-        try:
-            parsed = json.loads(claims_str)
-        except Exception:
-            raise ValueError('Failed to parse custom claims string as JSON.')
-
-        if not isinstance(parsed, dict):
-            raise ValueError('Custom claims must be parseable as a JSON object.')
-        invalid_claims = RESERVED_CLAIMS.intersection(set(parsed.keys()))
-        if len(invalid_claims) > 1:
-            joined = ', '.join(sorted(invalid_claims))
-            raise ValueError('Claims "{0}" are reserved, and must not be set.'.format(joined))
-        elif len(invalid_claims) == 1:
-            raise ValueError(
-                'Claim "{0}" is reserved, and must not be set.'.format(invalid_claims.pop()))
-        return claims_str
 
 
 class ApiCallError(Exception):
@@ -208,9 +48,9 @@ class UserMetadata(object):
     """Contains additional metadata associated with a user account."""
 
     def __init__(self, creation_timestamp=None, last_sign_in_timestamp=None):
-        self._creation_timestamp = _Validator.validate_timestamp(
+        self._creation_timestamp = _auth_utils.validate_timestamp(
             creation_timestamp, 'creation_timestamp')
-        self._last_sign_in_timestamp = _Validator.validate_timestamp(
+        self._last_sign_in_timestamp = _auth_utils.validate_timestamp(
             last_sign_in_timestamp, 'last_sign_in_timestamp')
 
     @property
@@ -527,208 +367,6 @@ class ProviderUserInfo(UserInfo):
         return self._data.get('providerId')
 
 
-class UserProvider(object):
-    """Represents a user identity provider that can be associated with a Firebase user.
-
-    One or more providers can be specified in a ``UserImportRecord`` when importing users via
-    ``auth.import_users()``.
-
-    Args:
-        uid: User's unique ID assigned by the identity provider.
-        provider_id: ID of the identity provider. This can be a short domain name or the identifier
-            of an OpenID identity provider.
-        email: User's email address (optional).
-        display_name: User's display name (optional).
-        photo_url: User's photo URL (optional).
-    """
-
-    def __init__(self, uid, provider_id, email=None, display_name=None, photo_url=None):
-        self._uid = _Validator.validate_uid(uid, required=True)
-        self._provider_id = _Validator.validate_provider_id(provider_id, required=True)
-        self._email = _Validator.validate_email(email)
-        self._display_name = _Validator.validate_display_name(display_name)
-        self._photo_url = _Validator.validate_photo_url(photo_url)
-
-    def to_dict(self):
-        payload = {
-            'rawId': self._uid,
-            'providerId': self._provider_id,
-            'displayName': self._display_name,
-            'email': self._email,
-            'photoUrl': self._photo_url,
-        }
-        return {k: v for k, v in payload.items() if v is not None}
-
-
-class UserImportRecord(object):
-    """Represents a user account to be imported to Firebase Auth.
-
-    Must specify the ``uid`` field at a minimum. A sequence of ``UserImportRecord`` objects can be
-    passed to the ``auth.import_users()`` function, in order to import those users into Firebase
-    Auth in bulk. If the ``password_hash`` is set on a user, a hash configuration must be
-    specified when calling ``import_users()``.
-
-    Args:
-        uid: User's unique ID. Must be a non-empty string not longer than 128 characters.
-        email: User's email address (optional).
-        email_verified: A boolean indicating whether the user's email has been verified (optional).
-        display_name: User's display name (optional).
-        phone_number: User's phone number (optional).
-        photo_url: User's photo URL (optional).
-        disabled: A boolean indicating whether this user account has been disabled (optional).
-        metadata: An ``auth.UserMetadata`` instance with additional user metadata (optional).
-        provider_data: A list of ``auth.UserProvider`` instances (optional).
-        custom_claims: A ``dict`` of custom claims to be set on the user account (optional).
-        password_hash: User's password hash as a ``bytes`` sequence (optional).
-        password_salt: User's password salt as a ``bytes`` sequence (optional).
-
-    Raises:
-        ValueError: If provided arguments are invalid.
-    """
-
-    def __init__(self, uid, email=None, email_verified=None, display_name=None, phone_number=None,
-                 photo_url=None, disabled=None, metadata=None, provider_data=None,
-                 custom_claims=None, password_hash=None, password_salt=None):
-        self._uid = _Validator.validate_uid(uid, required=True)
-        self._email = _Validator.validate_email(email)
-        self._display_name = _Validator.validate_display_name(display_name)
-        self._phone_number = _Validator.validate_phone(phone_number)
-        self._photo_url = _Validator.validate_photo_url(photo_url)
-        self._password_hash = _Validator.validate_bytes(password_hash, 'password_hash')
-        self._password_salt = _Validator.validate_bytes(password_salt, 'password_salt')
-        self._email_verified = bool(email_verified) if email_verified is not None else None
-        self._disabled = bool(disabled) if disabled is not None else None
-
-        created_at, last_login_at = None, None
-        if metadata:
-            created_at = _Validator.validate_timestamp(
-                metadata.creation_timestamp, 'creation_timestamp')
-            last_login_at = _Validator.validate_timestamp(
-                metadata.last_sign_in_timestamp, 'last_sign_in_timestamp')
-        self._created_at = created_at
-        self._last_login_at = last_login_at
-
-        if provider_data is not None:
-            if not isinstance(provider_data, list):
-                raise ValueError('provider_data must be a list of UserProvider instances.')
-            if any([not isinstance(p, UserProvider) for p in provider_data]):
-                raise ValueError('One or more provider data instances are invalid.')
-        self._provider_data = provider_data
-
-        json_claims = json.dumps(custom_claims) if isinstance(
-            custom_claims, dict) else custom_claims
-        self._custom_claims = _Validator.validate_custom_claims(json_claims)
-
-    def to_dict(self):
-        """Returns a dict representation of the user. For internal use only."""
-        payload = {
-            'localId': self._uid,
-            'email': self._email,
-            'emailVerified': self._email_verified,
-            'displayName': self._display_name,
-            'phoneNumber': self._phone_number,
-            'photoUrl': self._photo_url,
-            'disabled': self._disabled,
-            'customAttributes': self._custom_claims,
-            'createdAt': self._created_at,
-            'lastLoginAt': self._last_login_at,
-            'passwordHash': _b64_encode(self._password_hash) if self._password_hash else None,
-            'salt': _b64_encode(self._password_salt) if self._password_salt else None,
-        }
-        if self._provider_data:
-            payload['providerUserInfo'] = [p.to_dict() for p in self._provider_data]
-        return {k: v for k, v in payload.items() if v is not None}
-
-
-class UserImportHash(object):
-    """Represents a hash algorithm used to hash user passwords.
-
-    An instance of this class must be specified when importing users with passwords via the
-    ``auth.import_users()`` API.
-    """
-
-    def __init__(self, name, data=None):
-        self._name = name
-        self._data = data
-
-    def to_dict(self):
-        payload = {'hashAlgorithm': self._name}
-        if self._data:
-            payload.update(self._data)
-        return payload
-
-    @classmethod
-    def _hmac(cls, name, key):
-        data = {
-            'signerKey': _b64_encode(_Validator.validate_bytes(key, 'key', required=True))
-        }
-        return UserImportHash(name, data)
-
-    @classmethod
-    def hmac_sha512(cls, key):
-        return cls._hmac('HMAC_SHA512', key)
-
-    @classmethod
-    def hmac_sha256(cls, key):
-        return cls._hmac('HMAC_SHA256', key)
-
-    @classmethod
-    def scrypt(cls, key, rounds, memory_cost, salt_separator=None):
-        data = {
-            'signerKey': _b64_encode(_Validator.validate_bytes(key, 'key', required=True)),
-            'rounds': _Validator.validate_int(rounds, 'rounds', 1, 8),
-            'memoryCost': _Validator.validate_int(memory_cost, 'memory_cost', 1, 14),
-        }
-        if salt_separator:
-            data['saltSeparator'] = _b64_encode(_Validator.validate_bytes(
-                salt_separator, 'salt_separator'))
-        return UserImportHash('SCRYPT', data)
-
-
-class ErrorInfo(object):
-    """Represents an error encountered while importing a ``UserImportRecord``."""
-
-    def __init__(self, error):
-        self._index = error['index']
-        self._reason = error['message']
-
-    @property
-    def index(self):
-        return self._index
-
-    @property
-    def reason(self):
-        return self._reason
-
-
-class UserImportResult(object):
-    """Represents the result of a bulk user import operation.
-
-    See ``auth.import_users()`` API for more details.
-    """
-
-    def __init__(self, result, total):
-        errors = result.get('error', [])
-        self._success_count = total - len(errors)
-        self._failure_count = len(errors)
-        self._errors = [ErrorInfo(err) for err in errors]
-
-    @property
-    def success_count(self):
-        """Returns the number of users successfully imported."""
-        return self._success_count
-
-    @property
-    def failure_count(self):
-        """Returns the number of users that failed to be imported."""
-        return self._failure_count
-
-    @property
-    def errors(self):
-        """Returns a list of ``auth.ErrorInfo`` instances describing the errors encountered."""
-        return self._errors
-
-
 class UserManager(object):
     """Provides methods for interacting with the Google Identity Toolkit."""
 
@@ -739,15 +377,15 @@ class UserManager(object):
         """Gets the user data corresponding to the provided key."""
         if 'uid' in kwargs:
             key, key_type = kwargs.pop('uid'), 'user ID'
-            payload = {'localId' : [_Validator.validate_uid(key, required=True)]}
+            payload = {'localId' : [_auth_utils.validate_uid(key, required=True)]}
         elif 'email' in kwargs:
             key, key_type = kwargs.pop('email'), 'email'
-            payload = {'email' : [_Validator.validate_email(key, required=True)]}
+            payload = {'email' : [_auth_utils.validate_email(key, required=True)]}
         elif 'phone_number' in kwargs:
             key, key_type = kwargs.pop('phone_number'), 'phone number'
-            payload = {'phoneNumber' : [_Validator.validate_phone(key, required=True)]}
+            payload = {'phoneNumber' : [_auth_utils.validate_phone(key, required=True)]}
         else:
-            raise ValueError('Unsupported keyword arguments: {0}.'.format(kwargs))
+            raise TypeError('Unsupported keyword arguments: {0}.'.format(kwargs))
 
         try:
             response = self._client.request('post', 'getAccountInfo', json=payload)
@@ -784,12 +422,12 @@ class UserManager(object):
     def create_user(self, **kwargs):
         """Creates a new user account with the specified properties."""
         payload = {
-            'localId': _Validator.validate_uid(kwargs.pop('uid', None)),
-            'displayName': _Validator.validate_display_name(kwargs.pop('display_name', None)),
-            'email': _Validator.validate_email(kwargs.pop('email', None)),
-            'phoneNumber': _Validator.validate_phone(kwargs.pop('phone_number', None)),
-            'photoUrl': _Validator.validate_photo_url(kwargs.pop('photo_url', None)),
-            'password': _Validator.validate_password(kwargs.pop('password', None)),
+            'localId': _auth_utils.validate_uid(kwargs.pop('uid', None)),
+            'displayName': _auth_utils.validate_display_name(kwargs.pop('display_name', None)),
+            'email': _auth_utils.validate_email(kwargs.pop('email', None)),
+            'phoneNumber': _auth_utils.validate_phone(kwargs.pop('phone_number', None)),
+            'photoUrl': _auth_utils.validate_photo_url(kwargs.pop('photo_url', None)),
+            'password': _auth_utils.validate_password(kwargs.pop('password', None)),
             'emailVerified': bool(kwargs.pop('email_verified'))
                              if 'email_verified' in kwargs else None,
             'disabled': bool(kwargs.pop('disabled'))
@@ -812,10 +450,10 @@ class UserManager(object):
     def update_user(self, uid, **kwargs):
         """Updates an existing user account with the specified properties"""
         payload = {
-            'localId': _Validator.validate_uid(uid, required=True),
-            'email': _Validator.validate_email(kwargs.pop('email', None)),
-            'password': _Validator.validate_password(kwargs.pop('password', None)),
-            'validSince': _Validator.validate_timestamp(kwargs.pop(
+            'localId': _auth_utils.validate_uid(uid, required=True),
+            'email': _auth_utils.validate_email(kwargs.pop('email', None)),
+            'password': _auth_utils.validate_password(kwargs.pop('password', None)),
+            'validSince': _auth_utils.validate_timestamp(kwargs.pop(
                 'valid_since', None), 'valid_since'),
             'emailVerified': bool(kwargs.pop('email_verified'))
                              if 'email_verified' in kwargs else None,
@@ -828,13 +466,13 @@ class UserManager(object):
             if display_name is None:
                 remove.append('DISPLAY_NAME')
             else:
-                payload['displayName'] = _Validator.validate_display_name(display_name)
+                payload['displayName'] = _auth_utils.validate_display_name(display_name)
         if 'photo_url' in kwargs:
             photo_url = kwargs.pop('photo_url')
             if photo_url is None:
                 remove.append('PHOTO_URL')
             else:
-                payload['photoUrl'] = _Validator.validate_photo_url(photo_url)
+                payload['photoUrl'] = _auth_utils.validate_photo_url(photo_url)
         if remove:
             payload['deleteAttribute'] = remove
 
@@ -843,14 +481,14 @@ class UserManager(object):
             if phone_number is None:
                 payload['deleteProvider'] = ['phone']
             else:
-                payload['phoneNumber'] = _Validator.validate_phone(phone_number)
+                payload['phoneNumber'] = _auth_utils.validate_phone(phone_number)
         if 'custom_claims' in kwargs:
             custom_claims = kwargs.pop('custom_claims')
             if custom_claims is None: # User may be trying to explicitly clear claims.
                 custom_claims = '{}'
             json_claims = json.dumps(custom_claims) if isinstance(
                 custom_claims, dict) else custom_claims
-            payload['customAttributes'] = _Validator.validate_custom_claims(json_claims)
+            payload['customAttributes'] = _auth_utils.validate_custom_claims(json_claims)
 
         if kwargs:
             unexpected_keys = ', '.join(kwargs.keys())
@@ -869,7 +507,7 @@ class UserManager(object):
 
     def delete_user(self, uid):
         """Deletes the user identified by the specified user ID."""
-        _Validator.validate_uid(uid, required=True)
+        _auth_utils.validate_uid(uid, required=True)
         try:
             response = self._client.request('post', 'deleteAccount', json={'localId' : uid})
         except requests.exceptions.RequestException as error:
@@ -881,17 +519,20 @@ class UserManager(object):
 
     def import_users(self, users, hash_alg=None):
         """Imports the given list of users to Firebase Auth."""
-        if not isinstance(users, list) or not users:
-            raise ValueError('Users must be a non-empty list.')
-        if len(users) > MAX_IMPORT_USERS_SIZE:
-            raise ValueError(
-                'Users list must not have more than {0} elements.'.format(MAX_IMPORT_USERS_SIZE))
+        try:
+            if not users or len(users) > MAX_IMPORT_USERS_SIZE:
+                raise ValueError(
+                    'Users must be a non-empty list with no more than {0} elements.'.format(
+                        MAX_IMPORT_USERS_SIZE))
+            if any([not isinstance(u, _user_import.UserImportRecord) for u in users]):
+                raise ValueError('One or more user objects are invalid.')
+        except TypeError:
+            raise ValueError('users must be iterable')
+
         payload = {'users': [u.to_dict() for u in users]}
         if any(['passwordHash' in u for u in payload['users']]):
-            if not hash_alg:
-                raise ValueError('Hash is required when at least one user has a password.')
-            if not isinstance(hash_alg, UserImportHash):
-                raise ValueError('Hash must be an instance of UserImportHash.')
+            if not isinstance(hash_alg, _user_import.UserImportHash):
+                raise ValueError('A UserImportHash is required to import users with passwords.')
             payload.update(hash_alg.to_dict())
         try:
             response = self._client.request('post', 'uploadAccount', json=payload)

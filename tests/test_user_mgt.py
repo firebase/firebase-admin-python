@@ -21,6 +21,8 @@ import pytest
 
 import firebase_admin
 from firebase_admin import auth
+from firebase_admin import _auth_utils
+from firebase_admin import _user_import
 from firebase_admin import _user_mgt
 from tests import testutils
 
@@ -385,7 +387,7 @@ class TestSetCustomUserClaims(object):
         with pytest.raises(ValueError):
             auth.set_custom_user_claims('user', arg, app=user_mgt_app)
 
-    @pytest.mark.parametrize('key', _user_mgt.RESERVED_CLAIMS)
+    @pytest.mark.parametrize('key', _auth_utils.RESERVED_CLAIMS)
     def test_single_reserved_claim(self, user_mgt_app, key):
         claims = {key : 'value'}
         with pytest.raises(ValueError) as excinfo:
@@ -393,7 +395,7 @@ class TestSetCustomUserClaims(object):
         assert str(excinfo.value) == 'Claim "{0}" is reserved, and must not be set.'.format(key)
 
     def test_multiple_reserved_claims(self, user_mgt_app):
-        claims = {key : 'value' for key in _user_mgt.RESERVED_CLAIMS}
+        claims = {key : 'value' for key in _auth_utils.RESERVED_CLAIMS}
         with pytest.raises(ValueError) as excinfo:
             auth.set_custom_user_claims('user', claims, app=user_mgt_app)
         joined = ', '.join(sorted(claims.keys()))
@@ -680,13 +682,17 @@ class TestUserImportRecord(object):
 
     def test_uid(self):
         user = auth.UserImportRecord(uid='test')
+        assert user.uid == 'test'
+        assert user.custom_claims is None
+        assert user.user_metadata is None
         assert user.to_dict() == {'localId': 'test'}
 
     def test_all_params(self):
         providers = [auth.UserProvider(uid='test', provider_id='google.com')]
+        metadata = auth.UserMetadata(100, 150)
         user = auth.UserImportRecord(
             uid='test', email='test@example.com', photo_url='https://test.com/user.png',
-            phone_number='+1234567890', display_name='name', metadata=auth.UserMetadata(100, 150),
+            phone_number='+1234567890', display_name='name', user_metadata=metadata,
             password_hash=b'password', password_salt=b'NaCl', custom_claims={'admin': True},
             email_verified=True, disabled=False, provider_data=providers)
         expected = {
@@ -697,8 +703,8 @@ class TestUserImportRecord(object):
             'displayName': 'name',
             'createdAt': 100,
             'lastLoginAt': 150,
-            'passwordHash': _user_mgt._b64_encode(b'password'),
-            'salt': _user_mgt._b64_encode(b'NaCl'),
+            'passwordHash': _user_import.b64_encode(b'password'),
+            'salt': _user_import.b64_encode(b'NaCl'),
             'customAttributes': json.dumps({'admin': True}),
             'emailVerified': True,
             'disabled': False,
@@ -716,20 +722,24 @@ class TestUserImportRecord(object):
         with pytest.raises(ValueError):
             auth.UserImportRecord(uid='test', **args)
 
-    @pytest.mark.parametrize('claims', [{}, {'admin': True}])
+    @pytest.mark.parametrize('claims', [{}, {'admin': True}, '{"admin": true}'])
     def test_custom_claims(self, claims):
         user = auth.UserImportRecord(uid='test', custom_claims=claims)
-        expected = {'localId': 'test', 'customAttributes': json.dumps(claims)}
+        assert user.custom_claims == claims
+        json_claims = json.dumps(claims) if isinstance(claims, dict) else claims
+        expected = {'localId': 'test', 'customAttributes': json_claims}
         assert user.to_dict() == expected
 
     @pytest.mark.parametrize('email_verified', [True, False])
     def test_email_verified(self, email_verified):
         user = auth.UserImportRecord(uid='test', email_verified=email_verified)
+        assert user.email_verified == email_verified
         assert user.to_dict() == {'localId': 'test', 'emailVerified': email_verified}
 
     @pytest.mark.parametrize('disabled', [True, False])
     def test_disabled(self, disabled):
         user = auth.UserImportRecord(uid='test', disabled=disabled)
+        assert user.disabled == disabled
         assert user.to_dict() == {'localId': 'test', 'disabled': disabled}
 
 
@@ -743,7 +753,7 @@ class TestUserImportHash(object):
         hmac = func(key=b'key')
         expected = {
             'hashAlgorithm': name,
-            'signerKey': _user_mgt._b64_encode(b'key')
+            'signerKey': _user_import.b64_encode(b'key')
         }
         assert hmac.to_dict() == expected
 
@@ -760,10 +770,10 @@ class TestUserImportHash(object):
             key=b'key', salt_separator=b'sep', rounds=8, memory_cost=14)
         expected = {
             'hashAlgorithm': 'SCRYPT',
-            'signerKey': _user_mgt._b64_encode(b'key'),
+            'signerKey': _user_import.b64_encode(b'key'),
             'rounds': 8,
             'memoryCost': 14,
-            'saltSeparator': _user_mgt._b64_encode(b'sep'),
+            'saltSeparator': _user_import.b64_encode(b'sep'),
         }
         assert scrypt.to_dict() == expected
 
@@ -850,14 +860,14 @@ class TestImportUsers(object):
         assert result.errors == []
         expected = {
             'users': [
-                {'localId': 'user1', 'passwordHash': _user_mgt._b64_encode(b'password')},
+                {'localId': 'user1', 'passwordHash': _user_import.b64_encode(b'password')},
                 {'localId': 'user2'}
             ],
             'hashAlgorithm': 'SCRYPT',
-            'signerKey': _user_mgt._b64_encode(b'key'),
+            'signerKey': _user_import.b64_encode(b'key'),
             'rounds': 8,
             'memoryCost': 14,
-            'saltSeparator': _user_mgt._b64_encode(b'sep'),
+            'saltSeparator': _user_import.b64_encode(b'sep'),
         }
         self._check_rpc_calls(recorder, expected)
 

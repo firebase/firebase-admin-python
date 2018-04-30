@@ -242,7 +242,7 @@ class TestCreateUser(object):
             auth.create_user(password=arg, app=user_mgt_app)
 
     def test_invalid_property(self, user_mgt_app):
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             auth.create_user(unsupported='value', app=user_mgt_app)
 
     def test_create_user(self, user_mgt_app):
@@ -318,7 +318,7 @@ class TestUpdateUser(object):
             auth.update_user('user', custom_claims=arg, app=user_mgt_app)
 
     def test_invalid_property(self, user_mgt_app):
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             auth.update_user('user', unsupported='arg', app=user_mgt_app)
 
     @pytest.mark.parametrize('arg', INVALID_TIMESTAMPS)
@@ -332,17 +332,19 @@ class TestUpdateUser(object):
         request = json.loads(recorder[0].body.decode())
         assert request == {'localId' : 'testuser'}
 
-    def test_disable_user(self, user_mgt_app):
+    @pytest.mark.parametrize('arg', [True, False, 1, 0, 'foo'])
+    def test_disable_user(self, arg, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
-        user_mgt.update_user('testuser', disabled=True)
+        user_mgt.update_user('testuser', disabled=arg)
         request = json.loads(recorder[0].body.decode())
-        assert request == {'localId' : 'testuser', 'disableUser' : True}
+        assert request == {'localId' : 'testuser', 'disableUser' : bool(arg)}
 
-    def test_set_email_verified(self, user_mgt_app):
+    @pytest.mark.parametrize('arg', [True, False, 1, 0, 'foo'])
+    def test_set_email_verified(self, arg, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
-        user_mgt.update_user('testuser', email_verified=True)
+        user_mgt.update_user('testuser', email_verified=arg)
         request = json.loads(recorder[0].body.decode())
-        assert request == {'localId' : 'testuser', 'emailVerified' : True}
+        assert request == {'localId' : 'testuser', 'emailVerified' : bool(arg)}
 
     def test_update_user_custom_claims(self, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
@@ -794,7 +796,7 @@ class TestImportUsers(object):
 
     @pytest.mark.parametrize('arg', [None, list(), tuple(), dict(), 0, 1, 'foo'])
     def test_invalid_users(self, user_mgt_app, arg):
-        with pytest.raises(ValueError):
+        with pytest.raises(Exception):
             auth.import_users(arg, app=user_mgt_app)
 
     def test_too_many_users(self, user_mgt_app):

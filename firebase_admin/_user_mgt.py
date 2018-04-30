@@ -34,6 +34,12 @@ USER_DOWNLOAD_ERROR = 'LIST_USERS_ERROR'
 MAX_LIST_USERS_RESULTS = 1000
 MAX_IMPORT_USERS_SIZE = 1000
 
+class _Unspecified(object):
+    pass
+
+# Use this internally, until sentinels are available in the public API.
+_UNSPECIFIED = _Unspecified()
+
 
 class ApiCallError(Exception):
     """Represents an Exception encountered while invoking the Firebase user management API."""
@@ -419,24 +425,19 @@ class UserManager(object):
         except requests.exceptions.RequestException as error:
             self._handle_http_error(USER_DOWNLOAD_ERROR, 'Failed to download user accounts.', error)
 
-    def create_user(self, **kwargs):
+    def create_user(self, uid=None, display_name=None, email=None, phone_number=None,
+                    photo_url=None, password=None, disabled=None, email_verified=None):
         """Creates a new user account with the specified properties."""
         payload = {
-            'localId': _auth_utils.validate_uid(kwargs.pop('uid', None)),
-            'displayName': _auth_utils.validate_display_name(kwargs.pop('display_name', None)),
-            'email': _auth_utils.validate_email(kwargs.pop('email', None)),
-            'phoneNumber': _auth_utils.validate_phone(kwargs.pop('phone_number', None)),
-            'photoUrl': _auth_utils.validate_photo_url(kwargs.pop('photo_url', None)),
-            'password': _auth_utils.validate_password(kwargs.pop('password', None)),
-            'emailVerified': bool(kwargs.pop('email_verified'))
-                             if 'email_verified' in kwargs else None,
-            'disabled': bool(kwargs.pop('disabled'))
-                        if 'disabled' in kwargs else None,
+            'localId': _auth_utils.validate_uid(uid),
+            'displayName': _auth_utils.validate_display_name(display_name),
+            'email': _auth_utils.validate_email(email),
+            'phoneNumber': _auth_utils.validate_phone(phone_number),
+            'photoUrl': _auth_utils.validate_photo_url(photo_url),
+            'password': _auth_utils.validate_password(password),
+            'emailVerified': bool(email_verified) if email_verified is not None else None,
+            'disabled': bool(disabled) if disabled is not None else None,
         }
-        if kwargs:
-            unexpected_keys = ', '.join(kwargs.keys())
-            raise ValueError(
-                'Unsupported arguments: "{0}" in call to create_user()'.format(unexpected_keys))
         payload = {k: v for k, v in payload.items() if v is not None}
         try:
             response = self._client.request('post', 'signupNewUser', json=payload)
@@ -447,28 +448,26 @@ class UserManager(object):
                 raise ApiCallError(USER_CREATE_ERROR, 'Failed to create new user.')
             return response.get('localId')
 
-    def update_user(self, uid, **kwargs):
+    def update_user(self, uid, display_name=_UNSPECIFIED, email=None, phone_number=_UNSPECIFIED,
+                    photo_url=_UNSPECIFIED, password=None, disabled=None, email_verified=None,
+                    valid_since=None, custom_claims=_UNSPECIFIED):
         """Updates an existing user account with the specified properties"""
         payload = {
             'localId': _auth_utils.validate_uid(uid, required=True),
-            'email': _auth_utils.validate_email(kwargs.pop('email', None)),
-            'password': _auth_utils.validate_password(kwargs.pop('password', None)),
-            'validSince': _auth_utils.validate_timestamp(kwargs.pop(
-                'valid_since', None), 'valid_since'),
-            'emailVerified': bool(kwargs.pop('email_verified'))
-                             if 'email_verified' in kwargs else None,
-            'disableUser': bool(kwargs.pop('disabled')) if 'disabled' in kwargs else None,
+            'email': _auth_utils.validate_email(email),
+            'password': _auth_utils.validate_password(password),
+            'validSince': _auth_utils.validate_timestamp(valid_since, 'valid_since'),
+            'emailVerified': bool(email_verified) if email_verified is not None else None,
+            'disableUser': bool(disabled) if disabled is not None else None,
         }
 
         remove = []
-        if 'display_name' in kwargs:
-            display_name = kwargs.pop('display_name')
+        if display_name is not _UNSPECIFIED:
             if display_name is None:
                 remove.append('DISPLAY_NAME')
             else:
                 payload['displayName'] = _auth_utils.validate_display_name(display_name)
-        if 'photo_url' in kwargs:
-            photo_url = kwargs.pop('photo_url')
+        if photo_url is not _UNSPECIFIED:
             if photo_url is None:
                 remove.append('PHOTO_URL')
             else:
@@ -476,24 +475,19 @@ class UserManager(object):
         if remove:
             payload['deleteAttribute'] = remove
 
-        if 'phone_number' in kwargs:
-            phone_number = kwargs.pop('phone_number')
+        if phone_number is not _UNSPECIFIED:
             if phone_number is None:
                 payload['deleteProvider'] = ['phone']
             else:
                 payload['phoneNumber'] = _auth_utils.validate_phone(phone_number)
-        if 'custom_claims' in kwargs:
-            custom_claims = kwargs.pop('custom_claims')
-            if custom_claims is None: # User may be trying to explicitly clear claims.
-                custom_claims = '{}'
+
+        if custom_claims is not _UNSPECIFIED:
+            if custom_claims is None:
+                custom_claims = {}
             json_claims = json.dumps(custom_claims) if isinstance(
                 custom_claims, dict) else custom_claims
             payload['customAttributes'] = _auth_utils.validate_custom_claims(json_claims)
 
-        if kwargs:
-            unexpected_keys = ', '.join(kwargs.keys())
-            raise ValueError(
-                'Unsupported arguments: "{0}" in call to update_user()'.format(unexpected_keys))
         payload = {k: v for k, v in payload.items() if v is not None}
         try:
             response = self._client.request('post', 'setAccountInfo', json=payload)
@@ -537,8 +531,7 @@ class UserManager(object):
         try:
             response = self._client.request('post', 'uploadAccount', json=payload)
         except requests.exceptions.RequestException as error:
-            self._handle_http_error(
-                USER_IMPORT_ERROR, 'Failed to import users.', error)
+            self._handle_http_error(USER_IMPORT_ERROR, 'Failed to import users.', error)
         else:
             if not isinstance(response, dict):
                 raise ApiCallError(USER_IMPORT_ERROR, 'Failed to import users.')

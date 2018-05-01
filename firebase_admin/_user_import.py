@@ -40,19 +40,59 @@ class UserProvider(object):
     """
 
     def __init__(self, uid, provider_id, email=None, display_name=None, photo_url=None):
+        self.uid = uid
+        self.provider_id = provider_id
+        self.email = email
+        self.display_name = display_name
+        self.photo_url = photo_url
+
+    @property
+    def uid(self):
+        return self._uid
+
+    @uid.setter
+    def uid(self, uid):
         self._uid = _auth_utils.validate_uid(uid, required=True)
+
+    @property
+    def provider_id(self):
+        return self._provider_id
+
+    @provider_id.setter
+    def provider_id(self, provider_id):
         self._provider_id = _auth_utils.validate_provider_id(provider_id, required=True)
+
+    @property
+    def email(self):
+        return self._email
+
+    @email.setter
+    def email(self, email):
         self._email = _auth_utils.validate_email(email)
+
+    @property
+    def display_name(self):
+        return self._display_name
+
+    @display_name.setter
+    def display_name(self, display_name):
         self._display_name = _auth_utils.validate_display_name(display_name)
+
+    @property
+    def photo_url(self):
+        return self._photo_url
+
+    @photo_url.setter
+    def photo_url(self, photo_url):
         self._photo_url = _auth_utils.validate_photo_url(photo_url)
 
     def to_dict(self):
         payload = {
-            'rawId': self._uid,
-            'providerId': self._provider_id,
-            'displayName': self._display_name,
-            'email': self._email,
-            'photoUrl': self._photo_url,
+            'rawId': self.uid,
+            'providerId': self.provider_id,
+            'displayName': self.display_name,
+            'email': self.email,
+            'photoUrl': self.photo_url,
         }
         return {k: v for k, v in payload.items() if v is not None}
 

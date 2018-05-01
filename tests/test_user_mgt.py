@@ -29,7 +29,7 @@ from tests import testutils
 
 INVALID_STRINGS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
 INVALID_DICTS = [None, 'foo', 0, 1, True, False, list(), tuple()]
-INVALID_INTS = [None, 'foo', 0, -1, True, False, list(), tuple(), dict()]
+INVALID_INTS = [None, 'foo', -1, True, False, list(), tuple(), dict()]
 INVALID_TIMESTAMPS = ['foo', 0, -1, True, False, list(), tuple(), dict()]
 
 MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
@@ -749,23 +749,49 @@ class TestUserImportHash(object):
 
     @pytest.mark.parametrize('func,name', [
         (auth.UserImportHash.hmac_sha512, 'HMAC_SHA512'),
-        (auth.UserImportHash.hmac_sha256, 'HMAC_SHA256')
+        (auth.UserImportHash.hmac_sha256, 'HMAC_SHA256'),
+        (auth.UserImportHash.hmac_sha1, 'HMAC_SHA1'),
+        (auth.UserImportHash.hmac_md5, 'HMAC_MD5'),
     ])
     def test_hmac(self, func, name):
         hmac = func(key=b'key')
         expected = {
             'hashAlgorithm': name,
-            'signerKey': _user_import.b64_encode(b'key')
+            'signerKey': _user_import.b64_encode(b'key'),
         }
         assert hmac.to_dict() == expected
 
     @pytest.mark.parametrize('func', [
         auth.UserImportHash.hmac_sha512, auth.UserImportHash.hmac_sha256,
+        auth.UserImportHash.hmac_sha1, auth.UserImportHash.hmac_md5,
     ])
     @pytest.mark.parametrize('key', INVALID_STRINGS)
     def test_invalid_hmac(self, func, key):
         with pytest.raises(ValueError):
             func(key=key)
+
+    @pytest.mark.parametrize('func,name', [
+        (auth.UserImportHash.sha512, 'SHA512'),
+        (auth.UserImportHash.sha256, 'SHA256'),
+        (auth.UserImportHash.sha1, 'SHA1'),
+        (auth.UserImportHash.md5, 'MD5'),
+    ])
+    def test_basic(self, func, name):
+        basic = func(rounds=10)
+        expected = {
+            'hashAlgorithm': name,
+            'rounds': 10,
+        }
+        assert basic.to_dict() == expected
+
+    @pytest.mark.parametrize('func', [
+        auth.UserImportHash.sha512, auth.UserImportHash.sha256,
+        auth.UserImportHash.sha1, auth.UserImportHash.md5,
+    ])
+    @pytest.mark.parametrize('rounds', INVALID_INTS + [120001])
+    def test_invalid_basic(self, func, rounds):
+        with pytest.raises(ValueError):
+            func(rounds=rounds)
 
     def test_scrypt(self):
         scrypt = auth.UserImportHash.scrypt(
@@ -781,8 +807,8 @@ class TestUserImportHash(object):
 
     @pytest.mark.parametrize('arg', (
         [{'key': arg} for arg in INVALID_STRINGS] +
-        [{'rounds': arg} for arg in INVALID_INTS + [9]] +
-        [{'memory_cost': arg} for arg in INVALID_INTS + [15]] +
+        [{'rounds': arg} for arg in INVALID_INTS + [0, 9]] +
+        [{'memory_cost': arg} for arg in INVALID_INTS + [0, 15]] +
         [{'salt_separator': arg} for arg in INVALID_STRINGS]
     ))
     def test_invalid_scrypt(self, arg):
@@ -790,6 +816,39 @@ class TestUserImportHash(object):
         params.update(arg)
         with pytest.raises(ValueError):
             auth.UserImportHash.scrypt(**params)
+
+    def test_bcrypt(self):
+        bcrypt = auth.UserImportHash.bcrypt()
+        assert bcrypt.to_dict() == {'hashAlgorithm': 'BCRYPT'}
+
+    def test_standard_scrypt(self):
+        scrypt = auth.UserImportHash.standard_scrypt(
+            memory_cost=14, parallelization=2, block_size=10, derived_key_length=128)
+        expected = {
+            'hashAlgorithm': 'STANDARD_SCRYPT',
+            'memoryCost': 14,
+            'parallelization': 2,
+            'blockSize': 10,
+            'dkLen': 128,
+        }
+        assert scrypt.to_dict() == expected
+
+    @pytest.mark.parametrize('arg', (
+        [{'memory_cost': arg} for arg in INVALID_INTS] +
+        [{'parallelization': arg} for arg in INVALID_INTS] +
+        [{'block_size': arg} for arg in INVALID_INTS] +
+        [{'derived_key_length': arg} for arg in INVALID_INTS]
+    ))
+    def test_invalid_standard_scrypt(self, arg):
+        params = {
+            'memory_cost': 14,
+            'parallelization': 2,
+            'block_size': 10,
+            'derived_key_length': 128,
+        }
+        params.update(arg)
+        with pytest.raises(ValueError):
+            auth.UserImportHash.standard_scrypt(**params)
 
 
 class TestImportUsers(object):

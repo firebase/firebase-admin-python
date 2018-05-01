@@ -127,13 +127,17 @@ def validate_timestamp(timestamp, label, required=False):
         raise ValueError('Invalid type for timestamp value: {0}.'.format(timestamp))
 
 def validate_int(value, label, low=None, high=None):
-    if value is None or isinstance(value, bool) or not isinstance(value, int):
+    if value is None or isinstance(value, bool):
         raise ValueError('{0} must be an int.'.format(value))
-    if low is not None and value < low:
-        raise ValueError('{0} must not be smaller than {1}.'.format(label, low))
-    if high is not None and value > high:
-        raise ValueError('{0} must not be larger than {1}.'.format(label, high))
-    return value
+    try:
+        val_int = int(value)
+        if low is not None and val_int < low:
+            raise ValueError('{0} must not be smaller than {1}.'.format(label, low))
+        if high is not None and val_int > high:
+            raise ValueError('{0} must not be larger than {1}.'.format(label, high))
+        return val_int
+    except TypeError:
+        raise ValueError('Invalid type for integer value: {0}.'.format(value))
 
 def validate_custom_claims(custom_claims, required=False):
     """Validates the specified custom claims.

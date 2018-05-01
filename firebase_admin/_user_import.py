@@ -196,22 +196,6 @@ class UserImportRecord(object):
         self._password_salt = _auth_utils.validate_bytes(password_salt, 'password_salt')
 
     @property
-    def email_verified(self):
-        return self._email_verified
-
-    @email_verified.setter
-    def email_verified(self, email_verified):
-        self._email_verified = email_verified
-
-    @property
-    def disabled(self):
-        return self._disabled
-
-    @disabled.setter
-    def disabled(self, disabled):
-        self._disabled = disabled
-
-    @property
     def user_metadata(self):
         return self._user_metadata
 
@@ -296,12 +280,49 @@ class UserImportHash(object):
         return UserImportHash(name, data)
 
     @classmethod
+    def _basic_hash(cls, name, rounds):
+        data = {'rounds': _auth_utils.validate_int(rounds, 'rounds', 0, 120000)}
+        return UserImportHash(name, data)
+
+    @classmethod
     def hmac_sha512(cls, key):
         return cls._hmac('HMAC_SHA512', key)
 
     @classmethod
     def hmac_sha256(cls, key):
         return cls._hmac('HMAC_SHA256', key)
+
+    @classmethod
+    def hmac_sha1(cls, key):
+        return cls._hmac('HMAC_SHA1', key)
+
+    @classmethod
+    def hmac_md5(cls, key):
+        return cls._hmac('HMAC_MD5', key)
+
+    @classmethod
+    def md5(cls, rounds):
+        return cls._basic_hash('MD5', rounds)
+
+    @classmethod
+    def sha1(cls, rounds):
+        return cls._basic_hash('SHA1', rounds)
+
+    @classmethod
+    def sha256(cls, rounds):
+        return cls._basic_hash('SHA256', rounds)
+
+    @classmethod
+    def sha512(cls, rounds):
+        return cls._basic_hash('SHA512', rounds)
+
+    @classmethod
+    def pbkdf_sha1(cls, rounds):
+        return cls._basic_hash('PBKDF_SHA1', rounds)
+
+    @classmethod
+    def pbkdf_sha256(cls, rounds):
+        return cls._basic_hash('PBKDF2_SHA256', rounds)
 
     @classmethod
     def scrypt(cls, key, rounds, memory_cost, salt_separator=None):
@@ -314,6 +335,20 @@ class UserImportHash(object):
             data['saltSeparator'] = b64_encode(_auth_utils.validate_bytes(
                 salt_separator, 'salt_separator'))
         return UserImportHash('SCRYPT', data)
+
+    @classmethod
+    def bcrypt(cls):
+        return UserImportHash('BCRYPT')
+
+    @classmethod
+    def standard_scrypt(cls, memory_cost, parallelization, block_size, derived_key_length):
+        data = {
+            'memoryCost': _auth_utils.validate_int(memory_cost, 'memory_cost', low=0),
+            'parallelization': _auth_utils.validate_int(parallelization, 'parallelization', low=0),
+            'blockSize': _auth_utils.validate_int(block_size, 'block_size', low=0),
+            'dkLen': _auth_utils.validate_int(derived_key_length, 'derived_key_length', low=0),
+        }
+        return UserImportHash('STANDARD_SCRYPT', data)
 
 
 class ErrorInfo(object):

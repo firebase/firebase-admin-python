@@ -29,8 +29,8 @@ from tests import testutils
 
 INVALID_STRINGS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
 INVALID_DICTS = [None, 'foo', 0, 1, True, False, list(), tuple()]
-INVALID_INTS = [None, 'foo', -1, True, False, list(), tuple(), dict()]
-INVALID_TIMESTAMPS = ['foo', 0, -1, True, False, list(), tuple(), dict()]
+INVALID_INTS = [None, 'foo', '1', -1, 1.1, True, False, list(), tuple(), dict()]
+INVALID_TIMESTAMPS = ['foo', '1', 0, -1, 1.1, True, False, list(), tuple(), dict()]
 
 MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
 MOCK_LIST_USERS_RESPONSE = testutils.resource('list_users.json')
@@ -370,11 +370,12 @@ class TestUpdateUser(object):
         assert excinfo.value.code == _user_mgt.USER_UPDATE_ERROR
         assert '{"error":"test"}' in str(excinfo.value)
 
-    def test_update_user_valid_since(self, user_mgt_app):
+    @pytest.mark.parametrize('arg', [1, 1.0])
+    def test_update_user_valid_since(self, user_mgt_app, arg):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
-        user_mgt.update_user('testuser', valid_since=1)
+        user_mgt.update_user('testuser', valid_since=arg)
         request = json.loads(recorder[0].body.decode())
-        assert request == {'localId': 'testuser', 'validSince': 1}
+        assert request == {'localId': 'testuser', 'validSince': int(arg)}
 
 
 class TestSetCustomUserClaims(object):

@@ -286,6 +286,14 @@ class UserImportHash(object):
 
     @classmethod
     def hmac_sha512(cls, key):
+        """Creates a new HMAC SHA512 algorithm instance.
+
+        Args:
+            key: Signer key as a byte sequence.
+
+        Returns:
+            UserImportHash: A new ``UserImportHash``.
+        """
         return cls._hmac('HMAC_SHA512', key)
 
     @classmethod

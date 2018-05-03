@@ -120,24 +120,38 @@ def validate_timestamp(timestamp, label, required=False):
         raise ValueError('Boolean value specified as timestamp.')
     try:
         timestamp_int = int(timestamp)
+    except TypeError:
+        raise ValueError('Invalid type for timestamp value: {0}.'.format(timestamp))
+    else:
+        if timestamp_int != timestamp:
+            raise ValueError('{0} must be a numeric value and a whole number.'.format(label))
         if timestamp_int <= 0:
             raise ValueError('{0} timestamp must be a positive interger.'.format(label))
         return timestamp_int
-    except TypeError:
-        raise ValueError('Invalid type for timestamp value: {0}.'.format(timestamp))
 
 def validate_int(value, label, low=None, high=None):
+    """Validates that the given value represents an integer.
+
+    There are several ways to represent an integer in Python (e.g. 2, 2L, 2.0). This method allows
+    for all such representations except for booleans. Booleans also behave like integers, but
+    always translate to 1 and 0. Passing a boolean to an API that expects integers is most likely
+    a developer error.
+    """
     if value is None or isinstance(value, bool):
-        raise ValueError('{0} must be an int.'.format(value))
+        raise ValueError('Invalid type for integer value: {0}.'.format(value))
     try:
         val_int = int(value)
+    except TypeError:
+        raise ValueError('Invalid type for integer value: {0}.'.format(value))
+    else:
+        if val_int != value:
+            # This will be True for non-numeric values like '2' and non-whole numbers like 2.5.
+            raise ValueError('{0} must be a numeric value and a whole number.'.format(label))
         if low is not None and val_int < low:
             raise ValueError('{0} must not be smaller than {1}.'.format(label, low))
         if high is not None and val_int > high:
             raise ValueError('{0} must not be larger than {1}.'.format(label, high))
         return val_int
-    except TypeError:
-        raise ValueError('Invalid type for integer value: {0}.'.format(value))
 
 def validate_custom_claims(custom_claims, required=False):
     """Validates the specified custom claims.

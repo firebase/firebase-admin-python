@@ -60,6 +60,8 @@ setup(
     keywords='firebase cloud development',
     extras_require=extras_require,
     install_requires=install_requires,
+    setup_requires=['pytest-runner'],
+    tests_require=['pytest'],
     packages=find_packages(exclude=['tests']),
     classifiers=[
         'Development Status :: 5 - Production/Stable',

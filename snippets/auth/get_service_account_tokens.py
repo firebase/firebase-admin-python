@@ -24,4 +24,4 @@ expiration_time = access_token_info.expiry
 # After expiration_time, you must generate a new access token
 # [END get_service_account_tokens]
 
-print 'The access token {} expires at {}'.format(access_token, expiration_time)
+print('The access token {} expires at {}'.format(access_token, expiration_time))

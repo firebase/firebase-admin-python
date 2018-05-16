@@ -37,7 +37,7 @@ def send_to_token():
     # registration token.
     response = messaging.send(message)
     # Response is a message ID string.
-    print(('Successfully sent message:', response))
+    print('Successfully sent message:', response)
     # [END send_to_token]
 
 
@@ -58,7 +58,7 @@ def send_to_topic():
     # Send a message to the devices subscribed to the provided topic.
     response = messaging.send(message)
     # Response is a message ID string.
-    print(('Successfully sent message:', response))
+    print('Successfully sent message:', response)
     # [END send_to_topic]
 
 
@@ -81,7 +81,7 @@ def send_to_condition():
     # specified by the provided condition.
     response = messaging.send(message)
     # Response is a message ID string.
-    print(('Successfully sent message:', response))
+    print('Successfully sent message:', response)
     # [END send_to_condition]
 
 
@@ -98,7 +98,7 @@ def send_dry_run():
     # Send a message in the dry run mode.
     response = messaging.send(message, dry_run=True)
     # Response is a message ID string.
-    print(('Dry run successful:', response))
+    print('Dry run successful:', response)
     # [END send_dry_run]
 
 
@@ -199,7 +199,7 @@ def subscribe_to_topic():
     response = messaging.subscribe_to_topic(registration_tokens, topic)
     # See the TopicManagementResponse reference documentation
     # for the contents of response.
-    print((response.success_count, 'tokens were subscribed successfully'))
+    print(response.success_count, 'tokens were subscribed successfully')
     # [END subscribe]
 
 
@@ -218,5 +218,5 @@ def unsubscribe_from_topic():
     response = messaging.unsubscribe_from_topic(registration_tokens, topic)
     # See the TopicManagementResponse reference documentation
     # for the contents of response.
-    print((response.success_count, 'tokens were unsubscribed successfully'))
+    print(response.success_count, 'tokens were unsubscribed successfully')
     # [END unsubscribe]

@@ -155,9 +155,14 @@ class TestWriteOperations(object):
 
     def test_update_children_with_existing_values(self, testref):
         python = testref.parent
-        ref = python.child('users').push({'name' : 'Edwin Colbert', 'since' : 1900})
+        value = {'name' : 'Edwin Colbert', 'since' : 1900, 'temp': True}
+        ref = python.child('users').push(value)
         ref.update({'since' : 1905})
-        assert ref.get() == {'name' : 'Edwin Colbert', 'since' : 1905}
+        value['since'] = 1905
+        assert ref.get() == value
+        ref.update({'temp': None})
+        del value['temp']
+        assert ref.get() == value
 
     def test_update_nested_children(self, testref):
         python = testref.parent

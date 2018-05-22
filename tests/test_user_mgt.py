@@ -933,7 +933,6 @@ class TestImportUsers(object):
         }
         self._check_rpc_calls(recorder, expected)
 
-
     def _check_rpc_calls(self, recorder, expected):
         assert len(recorder) == 1
         request = json.loads(recorder[0].body.decode())

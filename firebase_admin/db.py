@@ -269,8 +269,8 @@ class Reference(object):
         """
         if not value or not isinstance(value, dict):
             raise ValueError('Value argument must be a non-empty dictionary.')
-        if None in value.keys() or None in value.values():
-            raise ValueError('Dictionary must not contain None keys or values.')
+        if None in value.keys():
+            raise ValueError('Dictionary must not contain None keys.')
         self._client.request('patch', self._add_suffix(), json=value, params='print=silent')
 
     def delete(self):

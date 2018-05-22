@@ -21,8 +21,11 @@ import uuid
 import pytest
 import requests
 
+import firebase_admin
 from firebase_admin import auth
-
+from firebase_admin import credentials
+import google.oauth2.credentials
+from google.auth import transport
 
 _id_toolkit_url = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyCustomToken'
 
@@ -47,6 +50,20 @@ def test_custom_token(api_key):
     id_token = _sign_in(custom_token, api_key)
     claims = auth.verify_id_token(id_token)
     assert claims['uid'] == 'user1'
+
+def test_custom_token_without_service_account(api_key):
+    google_cred = firebase_admin.get_app().credential.get_credential()
+    cred = CredentialWrapper.from_existing_credential(google_cred)
+    custom_app = firebase_admin.initialize_app(cred, {
+        'service_account': google_cred.service_account_email,
+    }, 'temp-app')
+    try:
+        custom_token = auth.create_custom_token('user1', app=custom_app)
+        id_token = _sign_in(custom_token, api_key)
+        claims = auth.verify_id_token(id_token)
+        assert claims['uid'] == 'user1'
+    finally:
+        firebase_admin.delete_app(custom_app)
 
 def test_custom_token_with_claims(api_key):
     dev_claims = {'premium' : True, 'subscription' : 'silver'}
@@ -309,3 +326,20 @@ def test_verify_session_cookie_revoked(new_user, api_key):
     session_cookie = auth.create_session_cookie(id_token, expires_in=datetime.timedelta(days=1))
     claims = auth.verify_session_cookie(session_cookie, check_revoked=True)
     assert claims['iat'] * 1000 >= user.tokens_valid_after_timestamp
+
+
+class CredentialWrapper(credentials.Base):
+    """A custom Firebase credential that wraps an OAuth2 token."""
+
+    def __init__(self, token):
+        self._delegate = google.oauth2.credentials.Credentials(token)
+
+    def get_credential(self):
+        return self._delegate
+
+    @classmethod
+    def from_existing_credential(cls, google_cred):
+        if not google_cred.token:
+            request = transport.requests.Request()
+            google_cred.refresh(request)
+        return CredentialWrapper(google_cred.token)

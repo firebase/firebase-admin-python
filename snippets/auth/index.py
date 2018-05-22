@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import print_function
+
 import datetime
 import sys
 import time
@@ -55,7 +57,7 @@ def access_services_default():
 
     # Initialize the default app
     default_app = firebase_admin.initialize_app(cred)
-    print default_app.name  # "[DEFAULT]"
+    print(default_app.name)  # "[DEFAULT]"
 
     # Retrieve services via the auth package...
     # auth.create_custom_token(...)
@@ -73,8 +75,8 @@ def access_services_nondefault():
     #  Initialize another app with a different config
     other_app = firebase_admin.initialize_app(cred, name='other')
 
-    print default_app.name    # "[DEFAULT]"
-    print other_app.name      # "other"
+    print(default_app.name)    # "[DEFAULT]"
+    print(other_app.name)      # "other"
 
     # Retrieve default services via the auth package...
     # auth.create_custom_token(...)
@@ -119,7 +121,7 @@ def verify_token_uid(id_token):
     decoded_token = auth.verify_id_token(id_token)
     uid = decoded_token['uid']
     # [END verify_token_uid]
-    print uid
+    print(uid)
     firebase_admin.delete_app(default_app)
 
 def verify_token_uid_check_revoke(id_token):
@@ -152,13 +154,13 @@ def revoke_refresh_token_uid():
     user = auth.get_user(uid)
     # Convert to seconds as the auth_time in the token claims is in seconds.
     revocation_second = user.tokens_valid_after_timestamp / 1000
-    print 'Tokens revoked at: {0}'.format(revocation_second)
+    print('Tokens revoked at: {0}'.format(revocation_second))
     # [END revoke_tokens]
     # [START save_revocation_in_db]
     metadata_ref = firebase_admin.db.reference("metadata/" + uid)
     metadata_ref.set({'revokeTime': revocation_second})
     # [END save_revocation_in_db]
-    print uid
+    print(uid)
     firebase_admin.delete_app(default_app)
 
 def get_user(uid):
@@ -166,7 +168,7 @@ def get_user(uid):
     from firebase_admin import auth
 
     user = auth.get_user(uid)
-    print 'Successfully fetched user data: {0}'.format(user.uid)
+    print('Successfully fetched user data: {0}'.format(user.uid))
     # [END get_user]
 
 def get_user_by_email():
@@ -175,7 +177,7 @@ def get_user_by_email():
     from firebase_admin import auth
 
     user = auth.get_user_by_email(email)
-    print 'Successfully fetched user data: {0}'.format(user.uid)
+    print('Successfully fetched user data: {0}'.format(user.uid))
     # [END get_user_by_email]
 
 def get_user_by_phone_number():
@@ -184,7 +186,7 @@ def get_user_by_phone_number():
     from firebase_admin import auth
 
     user = auth.get_user_by_phone_number(phone)
-    print 'Successfully fetched user data: {0}'.format(user.uid)
+    print('Successfully fetched user data: {0}'.format(user.uid))
     # [END get_user_by_phone]
 
 def create_user():
@@ -197,7 +199,7 @@ def create_user():
         display_name='John Doe',
         photo_url='http://www.example.com/12345678/photo.png',
         disabled=False)
-    print 'Sucessfully created new user: {0}'.format(user.uid)
+    print('Sucessfully created new user: {0}'.format(user.uid))
     # [END create_user]
     return user.uid
 
@@ -205,7 +207,7 @@ def create_user_with_id():
     # [START create_user_with_id]
     user = auth.create_user(
         uid='some-uid', email='user@example.com', phone_number='+15555550100')
-    print 'Sucessfully created new user: {0}'.format(user.uid)
+    print('Sucessfully created new user: {0}'.format(user.uid))
     # [END create_user_with_id]
 
 def update_user(uid):
@@ -219,13 +221,13 @@ def update_user(uid):
         display_name='John Doe',
         photo_url='http://www.example.com/12345678/photo.png',
         disabled=True)
-    print 'Sucessfully updated user: {0}'.format(user.uid)
+    print('Sucessfully updated user: {0}'.format(user.uid))
     # [END update_user]
 
 def delete_user(uid):
     # [START delete_user]
     auth.delete_user(uid)
-    print 'Successfully deleted user'
+    print('Successfully deleted user')
     # [END delete_user]
 
 def set_custom_user_claims(uid):
@@ -249,7 +251,7 @@ def set_custom_user_claims(uid):
     # Lookup the user associated with the specified uid.
     user = auth.get_user(uid)
     # The claims can be accessed on the user record.
-    print user.custom_claims.get('admin')
+    print(user.custom_claims.get('admin'))
     # [END read_custom_user_claims]
 
 def set_custom_user_claims_script():
@@ -282,14 +284,14 @@ def list_all_users():
     page = auth.list_users()
     while page:
         for user in page.users:
-            print 'User: ' + user.uid
+            print('User: ' + user.uid)
         # Get next batch of users.
         page = page.get_next_page()
 
     # Iterate through all users. This will still retrieve users in batches,
     # buffering no more than 1000 users in memory at a time.
     for user in auth.list_users().iterate_all():
-        print 'User: ' + user.uid
+        print('User: ' + user.uid)
     # [END list_all_users]
 
 def create_session_cookie(flask, app):
@@ -340,7 +342,7 @@ def check_auth_time(id_token, flask):
 
 def verfy_session_cookie(app, flask):
     def serve_content_for_user(decoded_claims):
-        print 'Serving content with claims:', decoded_claims
+        print('Serving content with claims:', decoded_claims)
         return flask.jsonify({'status': 'success'})
 
     # [START session_verify]
@@ -362,7 +364,7 @@ def verfy_session_cookie(app, flask):
 
 def check_permissions(session_cookie, flask):
     def serve_content_for_admin(decoded_claims):
-        print 'Serving content with claims:', decoded_claims
+        print('Serving content with claims:', decoded_claims)
         return flask.jsonify({'status': 'success'})
 
     # [START session_verify_with_permission_check]

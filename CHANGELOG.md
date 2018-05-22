@@ -1,6 +1,7 @@
 # Unreleased
 
--
+- [fixed] The `db.Reference.update()` function now accepts dictionaries with
+  `None` values. This can be used to delete child keys from a reference.
 
 # v2.10.0
 

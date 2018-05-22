@@ -247,7 +247,7 @@ class TestCreateCustomToken(object):
     def _verify_signer(self, token, signer):
         segments = token.split('.')
         assert len(segments) == 3
-        body = json.loads(base64.b64decode(segments[1]))
+        body = json.loads(base64.b64decode(segments[1]).decode())
         assert body['iss'] == signer
         assert body['sub'] == signer
 

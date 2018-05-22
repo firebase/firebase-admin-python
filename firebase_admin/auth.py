@@ -90,7 +90,7 @@ def verify_id_token(id_token, app=None, check_revoked=False):
     Raises:
         ValueError: If the JWT was found to be invalid, or if the App's project ID cannot
             be determined.
-        AuthError: If check_revoked is requested and the token was revoked.
+        AuthError: If ``check_revoked`` is requested and the token was revoked.
     """
     if not isinstance(check_revoked, bool):
         # guard against accidental wrong assignment.
@@ -143,7 +143,7 @@ def verify_session_cookie(session_cookie, check_revoked=False, app=None):
     Raises:
         ValueError: If the cookie was found to be invalid, or if the App's project ID cannot
             be determined.
-        AuthError: If check_revoked is requested and the cookie was revoked.
+        AuthError: If ``check_revoked`` is requested and the cookie was revoked.
     """
     token_verifier = _get_auth_service(app).token_verifier
     verified_claims = token_verifier.verify_session_cookie(session_cookie)

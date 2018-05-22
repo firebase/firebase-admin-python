@@ -259,9 +259,9 @@ class TestReference(object):
         with pytest.raises(TypeError):
             ref.set(value)
 
-    def test_update_children(self):
+    @pytest.mark.parametrize('data', [{'foo': 'bar'}, {'foo': None}])
+    def test_update_children(self, data):
         ref = db.reference('/test')
-        data = {'foo' : 'bar'}
         recorder = self.instrument(ref, json.dumps(data))
         ref.update(data)
         assert len(recorder) == 1
@@ -317,21 +317,15 @@ class TestReference(object):
         with pytest.raises(TypeError):
             ref.set_if_unchanged(MockAdapter.ETAG, value)
 
-    def test_update_children_default(self):
-        ref = db.reference('/test')
-        recorder = self.instrument(ref, '')
-        with pytest.raises(ValueError):
-            ref.update({})
-        assert len(recorder) is 0
-
     @pytest.mark.parametrize('update', [
-        None, {}, {None:'foo'}, {'foo': None}, '', 'foo', 0, 1, list(), tuple(), _Object()
+        None, {}, {None:'foo'}, '', 'foo', 0, 1, list(), tuple(), _Object()
     ])
     def test_set_invalid_update(self, update):
         ref = db.reference('/test')
-        self.instrument(ref, '')
+        recorder = self.instrument(ref, '')
         with pytest.raises(ValueError):
             ref.update(update)
+        assert len(recorder) is 0
 
     @pytest.mark.parametrize('data', valid_values)
     def test_push(self, data):

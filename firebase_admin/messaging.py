@@ -382,9 +382,10 @@ class ApsAlert(object):
         launch_image: Image for the notification action (optional).
     """
 
-    def __init__(self, title=None, body=None, loc_key=None, loc_args=None, title_loc_key=None,
+    def __init__(self, title=None, subtitle=None, body=None, loc_key=None, loc_args=None, title_loc_key=None,
                  title_loc_args=None, action_loc_key=None, launch_image=None):
         self.title = title
+        self.subtitle = subtitle
         self.body = body
         self.loc_key = loc_key
         self.loc_args = loc_args
@@ -653,6 +654,7 @@ class _MessageEncoder(json.JSONEncoder):
             raise ValueError('Aps.alert must be a string or an instance of ApsAlert class.')
         result = {
             'title': _Validators.check_string('ApsAlert.title', alert.title),
+            'subtitle': _Validators.check_string('ApsAlert.subtitle', alert.subtitle),
             'body': _Validators.check_string('ApsAlert.body', alert.body),
             'title-loc-key': _Validators.check_string(
                 'ApsAlert.title_loc_key', alert.title_loc_key),

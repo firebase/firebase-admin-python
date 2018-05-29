@@ -321,7 +321,7 @@ def test_verify_session_cookie_revoked(new_user, api_key):
 
 def test_import_users():
     uid, email = _random_id()
-    user = auth.UserImportRecord(uid=uid, email=email)
+    user = auth.ImportUserRecord(uid=uid, email=email)
     result = auth.import_users([user])
     try:
         assert result.success_count == 1
@@ -335,7 +335,7 @@ def test_import_users_with_password(api_key):
     uid, email = _random_id()
     password_hash = base64.b64decode(
         'V358E8LdWJXAO7muq0CufVpEOXaj8aFiC7T/rcaGieN04q/ZPJ08WhJEHGjj9lz/2TT+/86N5VjVoc5DdBhBiw==')
-    user = auth.UserImportRecord(
+    user = auth.ImportUserRecord(
         uid=uid, email=email, password_hash=password_hash, password_salt=b'NaCl')
 
     scrypt_key = base64.b64decode(

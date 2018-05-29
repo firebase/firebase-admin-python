@@ -670,7 +670,7 @@ class TestUserMetadata(object):
         with pytest.raises(ValueError):
             auth.UserMetadata(**arg)
 
-class TestUserImportRecord(object):
+class TestImportUserRecord(object):
 
     _INVALID_USERS = (
         [{'display_name': arg} for arg in INVALID_STRINGS[1:]] +
@@ -684,7 +684,7 @@ class TestUserImportRecord(object):
     )
 
     def test_uid(self):
-        user = auth.UserImportRecord(uid='test')
+        user = auth.ImportUserRecord(uid='test')
         assert user.uid == 'test'
         assert user.custom_claims is None
         assert user.user_metadata is None
@@ -693,7 +693,7 @@ class TestUserImportRecord(object):
     def test_all_params(self):
         providers = [auth.UserProvider(uid='test', provider_id='google.com')]
         metadata = auth.UserMetadata(100, 150)
-        user = auth.UserImportRecord(
+        user = auth.ImportUserRecord(
             uid='test', email='test@example.com', photo_url='https://test.com/user.png',
             phone_number='+1234567890', display_name='name', user_metadata=metadata,
             password_hash=b'password', password_salt=b'NaCl', custom_claims={'admin': True},
@@ -718,16 +718,16 @@ class TestUserImportRecord(object):
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
     def test_invalid_uid(self, arg):
         with pytest.raises(ValueError):
-            auth.UserImportRecord(uid=arg)
+            auth.ImportUserRecord(uid=arg)
 
     @pytest.mark.parametrize('args', _INVALID_USERS)
     def test_invalid_args(self, args):
         with pytest.raises(ValueError):
-            auth.UserImportRecord(uid='test', **args)
+            auth.ImportUserRecord(uid='test', **args)
 
     @pytest.mark.parametrize('claims', [{}, {'admin': True}, '{"admin": true}'])
     def test_custom_claims(self, claims):
-        user = auth.UserImportRecord(uid='test', custom_claims=claims)
+        user = auth.ImportUserRecord(uid='test', custom_claims=claims)
         assert user.custom_claims == claims
         json_claims = json.dumps(claims) if isinstance(claims, dict) else claims
         expected = {'localId': 'test', 'customAttributes': json_claims}
@@ -735,13 +735,13 @@ class TestUserImportRecord(object):
 
     @pytest.mark.parametrize('email_verified', [True, False])
     def test_email_verified(self, email_verified):
-        user = auth.UserImportRecord(uid='test', email_verified=email_verified)
+        user = auth.ImportUserRecord(uid='test', email_verified=email_verified)
         assert user.email_verified == email_verified
         assert user.to_dict() == {'localId': 'test', 'emailVerified': email_verified}
 
     @pytest.mark.parametrize('disabled', [True, False])
     def test_disabled(self, disabled):
-        user = auth.UserImportRecord(uid='test', disabled=disabled)
+        user = auth.ImportUserRecord(uid='test', disabled=disabled)
         assert user.disabled == disabled
         assert user.to_dict() == {'localId': 'test', 'disabled': disabled}
 
@@ -860,15 +860,15 @@ class TestImportUsers(object):
             auth.import_users(arg, app=user_mgt_app)
 
     def test_too_many_users(self, user_mgt_app):
-        users = [auth.UserImportRecord(uid='test{0}'.format(i)) for i in range(1001)]
+        users = [auth.ImportUserRecord(uid='test{0}'.format(i)) for i in range(1001)]
         with pytest.raises(ValueError):
             auth.import_users(users, app=user_mgt_app)
 
     def test_import_users(self, user_mgt_app):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, '{}')
         users = [
-            auth.UserImportRecord(uid='user1'),
-            auth.UserImportRecord(uid='user2'),
+            auth.ImportUserRecord(uid='user1'),
+            auth.ImportUserRecord(uid='user2'),
         ]
         result = auth.import_users(users, app=user_mgt_app)
         assert result.success_count == 2
@@ -883,9 +883,9 @@ class TestImportUsers(object):
             {"index": 2, "message": "Another error occured in user3"}
         ]}""")
         users = [
-            auth.UserImportRecord(uid='user1'),
-            auth.UserImportRecord(uid='user2'),
-            auth.UserImportRecord(uid='user3'),
+            auth.ImportUserRecord(uid='user1'),
+            auth.ImportUserRecord(uid='user2'),
+            auth.ImportUserRecord(uid='user3'),
         ]
         result = auth.import_users(users, app=user_mgt_app)
         assert result.success_count == 1
@@ -902,8 +902,8 @@ class TestImportUsers(object):
 
     def test_import_users_missing_required_hash(self, user_mgt_app):
         users = [
-            auth.UserImportRecord(uid='user1', password_hash=b'password'),
-            auth.UserImportRecord(uid='user2'),
+            auth.ImportUserRecord(uid='user1', password_hash=b'password'),
+            auth.ImportUserRecord(uid='user2'),
         ]
         with pytest.raises(ValueError):
             auth.import_users(users, app=user_mgt_app)
@@ -911,8 +911,8 @@ class TestImportUsers(object):
     def test_import_users_with_hash(self, user_mgt_app):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, '{}')
         users = [
-            auth.UserImportRecord(uid='user1', password_hash=b'password'),
-            auth.UserImportRecord(uid='user2'),
+            auth.ImportUserRecord(uid='user1', password_hash=b'password'),
+            auth.ImportUserRecord(uid='user2'),
         ]
         hash_alg = auth.UserImportHash.scrypt(
             b'key', rounds=8, memory_cost=14, salt_separator=b'sep')

@@ -259,7 +259,10 @@ class UserImportHash(object):
     """Represents a hash algorithm used to hash user passwords.
 
     An instance of this class must be specified when importing users with passwords via the
-    ``auth.import_users()`` API.
+    ``auth.import_users()`` API. Use one of the provided class methods to obtain new
+    instances when required. Refer to `documentation`_ for more details.
+
+    .. _documentation: https://firebase.google.com/docs/auth/admin/import-users
     """
 
     def __init__(self, name, data=None):
@@ -298,42 +301,128 @@ class UserImportHash(object):
 
     @classmethod
     def hmac_sha256(cls, key):
+        """Creates a new HMAC SHA256 algorithm instance.
+
+        Args:
+            key: Signer key as a byte sequence.
+
+        Returns:
+            UserImportHash: A new ``UserImportHash``.
+        """
         return cls._hmac('HMAC_SHA256', key)
 
     @classmethod
     def hmac_sha1(cls, key):
+        """Creates a new HMAC SHA1 algorithm instance.
+
+        Args:
+            key: Signer key as a byte sequence.
+
+        Returns:
+            UserImportHash: A new ``UserImportHash``.
+        """
         return cls._hmac('HMAC_SHA1', key)
 
     @classmethod
     def hmac_md5(cls, key):
+        """Creates a new HMAC MD5 algorithm instance.
+
+        Args:
+            key: Signer key as a byte sequence.
+
+        Returns:
+            UserImportHash: A new ``UserImportHash``.
+        """
         return cls._hmac('HMAC_MD5', key)
 
     @classmethod
     def md5(cls, rounds):
+        """Creates a new MD5 algorithm instance.
+
+        Args:
+            rounds: Number of rounds. Must be an integer between 0 and 120000.
+
+        Returns:
+            UserImportHash: A new ``UserImportHash``.
+        """
         return cls._basic_hash('MD5', rounds)
 
     @classmethod
     def sha1(cls, rounds):
+        """Creates a new SHA1 algorithm instance.
+
+        Args:
+            rounds: Number of rounds. Must be an integer between 0 and 120000.
+
+        Returns:
+            UserImportHash: A new ``UserImportHash``.
+        """
         return cls._basic_hash('SHA1', rounds)
 
     @classmethod
     def sha256(cls, rounds):
+        """Creates a new SHA256 algorithm instance.
+
+        Args:
+            rounds: Number of rounds. Must be an integer between 0 and 120000.
+
+        Returns:
+            UserImportHash: A new ``UserImportHash``.
+        """
         return cls._basic_hash('SHA256', rounds)
 
     @classmethod
     def sha512(cls, rounds):
+        """Creates a new SHA512 algorithm instance.
+
+        Args:
+            rounds: Number of rounds. Must be an integer between 0 and 120000.
+
+        Returns:
+            UserImportHash: A new ``UserImportHash``.
+        """
         return cls._basic_hash('SHA512', rounds)
 
     @classmethod
     def pbkdf_sha1(cls, rounds):
+        """Creates a new PBKDF SHA1 algorithm instance.
+
+        Args:
+            rounds: Number of rounds. Must be an integer between 0 and 120000.
+
+        Returns:
+            UserImportHash: A new ``UserImportHash``.
+        """
         return cls._basic_hash('PBKDF_SHA1', rounds)
 
     @classmethod
     def pbkdf_sha256(cls, rounds):
+        """Creates a new PBKDF2 SHA256 algorithm instance.
+
+        Args:
+            rounds: Number of rounds. Must be an integer between 0 and 120000.
+
+        Returns:
+            UserImportHash: A new ``UserImportHash``.
+        """
         return cls._basic_hash('PBKDF2_SHA256', rounds)
 
     @classmethod
     def scrypt(cls, key, rounds, memory_cost, salt_separator=None):
+        """Creates a new Scrypt algorithm instance.
+
+        This is the modified Scrypt algorithm used by Firebase Auth. See ``standard_scrypt()``
+        function for the standard Scrypt algorith,
+
+        Args:
+            key: Signer key as a byte sequence.
+            rounds: Number of rounds. Must be an integer between 1 and 8.
+            memory_cost: Memory cost as an integer between 1 and 14.
+            salt_separator: Salt separator as a byte sequence (optional).
+
+        Returns:
+            UserImportHash: A new ``UserImportHash``.
+        """
         data = {
             'signerKey': b64_encode(_auth_utils.validate_bytes(key, 'key', required=True)),
             'rounds': _auth_utils.validate_int(rounds, 'rounds', 1, 8),
@@ -346,10 +435,26 @@ class UserImportHash(object):
 
     @classmethod
     def bcrypt(cls):
+        """Creates a new Bcrypt algorithm instance.
+
+        Returns:
+            UserImportHash: A new ``UserImportHash``.
+        """
         return UserImportHash('BCRYPT')
 
     @classmethod
     def standard_scrypt(cls, memory_cost, parallelization, block_size, derived_key_length):
+        """Creates a new standard Scrypt algorithm instance.
+
+        Args:
+            memory_cost: Memory cost as a non-negaive integer.
+            parallelization: Parallelization as a non-negative integer.
+            block_size: Block size as a non-negative integer.
+            derived_key_length: Derived key length as a non-negative integer.
+
+        Returns:
+            UserImportHash: A new ``UserImportHash``.
+        """
         data = {
             'memoryCost': _auth_utils.validate_int(memory_cost, 'memory_cost', low=0),
             'parallelization': _auth_utils.validate_int(parallelization, 'parallelization', low=0),

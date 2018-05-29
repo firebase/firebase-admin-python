@@ -776,6 +776,8 @@ class TestUserImportHash(object):
         (auth.UserImportHash.sha256, 'SHA256'),
         (auth.UserImportHash.sha1, 'SHA1'),
         (auth.UserImportHash.md5, 'MD5'),
+        (auth.UserImportHash.pbkdf_sha1, 'PBKDF_SHA1'),
+        (auth.UserImportHash.pbkdf2_sha256, 'PBKDF2_SHA256'),
     ])
     def test_basic(self, func, name):
         basic = func(rounds=10)
@@ -788,6 +790,7 @@ class TestUserImportHash(object):
     @pytest.mark.parametrize('func', [
         auth.UserImportHash.sha512, auth.UserImportHash.sha256,
         auth.UserImportHash.sha1, auth.UserImportHash.md5,
+        auth.UserImportHash.pbkdf_sha1, auth.UserImportHash.pbkdf2_sha256,
     ])
     @pytest.mark.parametrize('rounds', INVALID_INTS + [120001])
     def test_invalid_basic(self, func, rounds):

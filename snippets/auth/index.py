@@ -14,6 +14,7 @@
 
 from __future__ import print_function
 
+import base64
 import datetime
 import sys
 import time
@@ -407,6 +408,175 @@ def clear_session_cookie_and_revoke(app, flask):
             return flask.redirect('/login')
     # [END session_clear_and_revoke]
 
+def import_users():
+    # [START build_user_list]
+    # Up to 1000 users can be imported at once.
+    users = [
+        auth.ImportUserRecord(
+            uid='uid1',
+            email='user1@example.com',
+            password_hash=b'password_hash_1',
+            password_salt=b'salt1'
+        ),
+        auth.ImportUserRecord(
+            uid='uid2',
+            email='user2@example.com',
+            password_hash=b'password_hash_2',
+            password_salt=b'salt2'
+        ),
+    ]
+    # [END build_user_list]
+
+    # [START import_users]
+    hash_alg = auth.UserImportHash.hmac_sha256(key=b'secret_key')
+    try:
+        result = auth.import_users(users, hash_alg=hash_alg)
+        print('Successfully imported {0} users. Failed to import {1} users.'.format(
+            result.success_count, result.failure_count))
+        for err in result.errors:
+            print('Failed to import {0} due to {1}'.format(users[err.index].uid, err.reason))
+    except auth.AuthError:
+        # Some unrecoverable error occurred that prevented the operation from running.
+        pass
+    # [END import_users]
+
+def import_with_hmac():
+    # [START import_with_hmac]
+    users = [
+        auth.ImportUserRecord(
+            uid='some-uid',
+            email='user@example.com',
+            password_hash=b'password_hash',
+            password_salt=b'salt'
+        ),
+    ]
+
+    hash_alg = auth.UserImportHash.hmac_sha256(key=b'secret')
+    try:
+        result = auth.import_users(users, hash_alg=hash_alg)
+        for err in result.errors:
+            print('Failed to import user:', err.reason)
+    except auth.AuthError as error:
+        print('Error importing users:', error)
+    # [END import_with_hmac]
+
+def import_with_pbkdf():
+    # [START import_with_pbkdf]
+    users = [
+        auth.ImportUserRecord(
+            uid='some-uid',
+            email='user@example.com',
+            password_hash=b'password_hash',
+            password_salt=b'salt'
+        ),
+    ]
+
+    hash_alg = auth.UserImportHash.pbkdf2_sha256(rounds=100000)
+    try:
+        result = auth.import_users(users, hash_alg=hash_alg)
+        for err in result.errors:
+            print('Failed to import user:', err.reason)
+    except auth.AuthError as error:
+        print('Error importing users:', error)
+    # [END import_with_pbkdf]
+
+def import_with_standard_scrypt():
+    # [START import_with_standard_scrypt]
+    users = [
+        auth.ImportUserRecord(
+            uid='some-uid',
+            email='user@example.com',
+            password_hash=b'password_hash',
+            password_salt=b'salt'
+        ),
+    ]
+
+    hash_alg = auth.UserImportHash.standard_scrypt(
+        memory_cost=1024, parallelization=16, block_size=8, derived_key_length=64)
+    try:
+        result = auth.import_users(users, hash_alg=hash_alg)
+        for err in result.errors:
+            print('Failed to import user:', err.reason)
+    except auth.AuthError as error:
+        print('Error importing users:', error)
+    # [END import_with_standard_scrypt]
+
+def import_with_bcrypt():
+    # [START import_with_bcrypt]
+    users = [
+        auth.ImportUserRecord(
+            uid='some-uid',
+            email='user@example.com',
+            password_hash=b'password_hash',
+            password_salt=b'salt'
+        ),
+    ]
+
+    hash_alg = auth.UserImportHash.bcrypt()
+    try:
+        result = auth.import_users(users, hash_alg=hash_alg)
+        for err in result.errors:
+            print('Failed to import user:', err.reason)
+    except auth.AuthError as error:
+        print('Error importing users:', error)
+    # [END import_with_bcrypt]
+
+def import_with_scrypt():
+    # [START import_with_scrypt]
+    users = [
+        auth.ImportUserRecord(
+            uid='some-uid',
+            email='user@example.com',
+            password_hash=b'password_hash',
+            password_salt=b'salt'
+        ),
+    ]
+
+    # All the parameters below can be obtained from the Firebase Console's "Users"
+    # section. Base64 encoded parameters must be decoded into raw bytes.
+    hash_alg = auth.UserImportHash.scrypt(
+        key=base64.b64decode('base64_secret'),
+        salt_separator=base64.b64decode('base64_salt_separator'),
+        rounds=8,
+        memory_cost=14
+    )
+    try:
+        result = auth.import_users(users, hash_alg=hash_alg)
+        for err in result.errors:
+            print('Failed to import user:', err.reason)
+    except auth.AuthError as error:
+        print('Error importing users:', error)
+    # [END import_with_scrypt]
+
+def import_without_password():
+    # [START import_without_password]
+    users = [
+        auth.ImportUserRecord(
+            uid='some-uid',
+            display_name='John Doe',
+            email='johndoe@gmail.com',
+            photo_url='http://www.example.com/12345678/photo.png',
+            email_verified=True,
+            phone_number='+11234567890',
+            custom_claims={'admin': True}, # set this user as admin
+            provider_data=[ # user with Google provider
+                auth.UserProvider(
+                    uid='google-uid',
+                    email='johndoe@gmail.com',
+                    display_name='John Doe',
+                    photo_url='http://www.example.com/12345678/photo.png',
+                    provider_id='google.com'
+                )
+            ],
+        ),
+    ]
+    try:
+        result = auth.import_users(users)
+        for err in result.errors:
+            print('Failed to import user:', err.reason)
+    except auth.AuthError as error:
+        print('Error importing users:', error)
+    # [END import_without_password]
 
 initialize_sdk_with_service_account()
 initialize_sdk_with_application_default()

@@ -396,7 +396,7 @@ class UserImportHash(object):
         return cls._basic_hash('PBKDF_SHA1', rounds)
 
     @classmethod
-    def pbkdf_sha256(cls, rounds):
+    def pbkdf2_sha256(cls, rounds):
         """Creates a new PBKDF2 SHA256 algorithm instance.
 
         Args:

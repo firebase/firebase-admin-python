@@ -518,7 +518,7 @@ class UserManager(object):
                 raise ValueError(
                     'Users must be a non-empty list with no more than {0} elements.'.format(
                         MAX_IMPORT_USERS_SIZE))
-            if any([not isinstance(u, _user_import.UserImportRecord) for u in users]):
+            if any([not isinstance(u, _user_import.ImportUserRecord) for u in users]):
                 raise ValueError('One or more user objects are invalid.')
         except TypeError:
             raise ValueError('users must be iterable')

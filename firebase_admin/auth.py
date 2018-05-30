@@ -39,9 +39,9 @@ __all__ = [
     'AuthError',
     'ErrorInfo',
     'ExportedUserRecord',
+    'ImportUserRecord',
     'ListUsersPage',
     'UserImportHash',
-    'UserImportRecord',
     'UserImportResult',
     'UserInfo',
     'UserMetadata',
@@ -68,7 +68,7 @@ ErrorInfo = _user_import.ErrorInfo
 ExportedUserRecord = _user_mgt.ExportedUserRecord
 ListUsersPage = _user_mgt.ListUsersPage
 UserImportHash = _user_import.UserImportHash
-UserImportRecord = _user_import.UserImportRecord
+ImportUserRecord = _user_import.ImportUserRecord
 UserImportResult = _user_import.UserImportResult
 UserInfo = _user_mgt.UserInfo
 UserMetadata = _user_mgt.UserMetadata
@@ -418,6 +418,27 @@ def delete_user(uid, app=None):
         raise AuthError(error.code, str(error), error.detail)
 
 def import_users(users, hash_alg=None, app=None):
+    """Imports the specified list of users into Firebase Auth.
+
+    At most 1000 users can be imported at a time. This operation is optimized for bulk imports and
+    will ignore checks on identifier uniqueness which could result in duplications. The
+    ``hash_alg`` parameter must be specified when importing users with passwords. Refer to the
+    ``UserImportHash`` class for supported hash algorithms.
+
+    Args:
+        users: A list of ``ImportUserRecord`` instances to import. Length of the list must not
+            exceed 1000.
+        hash_alg: A ``UserImportHash`` object (optional). Required when importing users with
+            passwords.
+        app: An App instance (optional).
+
+    Returns:
+        UserImportResult: An object summarizing the result of the import operation.
+
+    Raises:
+        ValueError: If the provided arguments are invalid.
+        AuthError: If an error occurs while importing users.
+    """
     user_manager = _get_auth_service(app).user_manager
     try:
         result = user_manager.import_users(users, hash_alg)

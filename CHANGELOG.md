@@ -1,5 +1,12 @@
 # Unreleased
 
+- [added] Implemented the ability to create custom tokens without
+  service account credentials.
+
+# v2.11.0
+
+- [added] A new `auth.import_users()` API for importing users into Firebase
+  Auth in bulk.
 - [fixed] The `db.Reference.update()` function now accepts dictionaries with
   `None` values. This can be used to delete child keys from a reference.
 

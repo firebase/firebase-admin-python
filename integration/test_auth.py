@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Integration tests for firebase_admin.auth module."""
+import base64
 import datetime
 import random
 import time
@@ -24,13 +25,21 @@ import requests
 from firebase_admin import auth
 
 
-_id_toolkit_url = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyCustomToken'
+_verify_token_url = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyCustomToken'
+_verify_password_url = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyPassword'
 
 
 def _sign_in(custom_token, api_key):
     body = {'token' : custom_token.decode(), 'returnSecureToken' : True}
     params = {'key' : api_key}
-    resp = requests.request('post', _id_toolkit_url, params=params, json=body)
+    resp = requests.request('post', _verify_token_url, params=params, json=body)
+    resp.raise_for_status()
+    return resp.json().get('idToken')
+
+def _sign_in_with_password(email, password, api_key):
+    body = {'email': email, 'password': password}
+    params = {'key' : api_key}
+    resp = requests.request('post', _verify_password_url, params=params, json=body)
     resp.raise_for_status()
     return resp.json().get('idToken')
 
@@ -309,3 +318,38 @@ def test_verify_session_cookie_revoked(new_user, api_key):
     session_cookie = auth.create_session_cookie(id_token, expires_in=datetime.timedelta(days=1))
     claims = auth.verify_session_cookie(session_cookie, check_revoked=True)
     assert claims['iat'] * 1000 >= user.tokens_valid_after_timestamp
+
+def test_import_users():
+    uid, email = _random_id()
+    user = auth.ImportUserRecord(uid=uid, email=email)
+    result = auth.import_users([user])
+    try:
+        assert result.success_count == 1
+        assert result.failure_count == 0
+        saved_user = auth.get_user(uid)
+        assert saved_user.email == email
+    finally:
+        auth.delete_user(uid)
+
+def test_import_users_with_password(api_key):
+    uid, email = _random_id()
+    password_hash = base64.b64decode(
+        'V358E8LdWJXAO7muq0CufVpEOXaj8aFiC7T/rcaGieN04q/ZPJ08WhJEHGjj9lz/2TT+/86N5VjVoc5DdBhBiw==')
+    user = auth.ImportUserRecord(
+        uid=uid, email=email, password_hash=password_hash, password_salt=b'NaCl')
+
+    scrypt_key = base64.b64decode(
+        'jxspr8Ki0RYycVU8zykbdLGjFQ3McFUH0uiiTvC8pVMXAn210wjLNmdZJzxUECKbm0QsEmYUSDzZvpjeJ9WmXA==')
+    salt_separator = base64.b64decode('Bw==')
+    scrypt = auth.UserImportHash.scrypt(
+        key=scrypt_key, salt_separator=salt_separator, rounds=8, memory_cost=14)
+    result = auth.import_users([user], hash_alg=scrypt)
+    try:
+        assert result.success_count == 1
+        assert result.failure_count == 0
+        saved_user = auth.get_user(uid)
+        assert saved_user.email == email
+        id_token = _sign_in_with_password(email, 'password', api_key)
+        assert len(id_token) > 0
+    finally:
+        auth.delete_user(uid)

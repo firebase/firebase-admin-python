@@ -26,6 +26,7 @@ from google.auth import iam
 from google.auth import jwt
 from google.auth import transport
 import google.oauth2.id_token
+import google.oauth2.service_account
 
 
 # ID token constants
@@ -98,26 +99,36 @@ class TokenGenerator(object):
         self.request = transport.requests.Request()
         self._signing_provider = None
 
-    def _infer_service_account(self):
+    def _init_signing_provider(self):
+        """Initializes a signing provider by following the go/firebase-admin-sign protocol."""
+        # If the SDK was initialized with a service account, use it to sign bytes.
+        google_cred = self.app.credential.get_credential()
+        if isinstance(google_cred, google.oauth2.service_account.Credentials):
+            return _SigningProvider.from_credential(google_cred)
+
+        # If the SDK was initialized with a service account email, use it with the IAM service
+        # to sign bytes.
         service_account = self.app.options.get('service_account')
-        if not service_account:
-            resp = self.request(url=METADATA_SERVICE_URL)
-            service_account = resp.data.decode()
-        return service_account
+        if service_account:
+            return _SigningProvider.from_iam(self.request, google_cred, service_account)
+
+        # If the SDK was initialized with some other credential type that supports signing
+        # (e.g. GAE credentials), use it to sign bytes.
+        if isinstance(google_cred, credentials.Signing):
+            return _SigningProvider.from_credential(google_cred)
+
+        # Attempt to discover a service account email from the local Metadata service. Use it
+        # with the IAM service to sign bytes.
+        resp = self.request(url=METADATA_SERVICE_URL)
+        service_account = resp.data.decode()
+        return _SigningProvider.from_iam(self.request, google_cred, service_account)
 
     @property
     def signing_provider(self):
         """Initializes and returns the SigningProvider instance to be used."""
-        if self._signing_provider:
-            return self._signing_provider
-        google_cred = self.app.credential.get_credential()
-        if isinstance(google_cred, credentials.Signing):
-            self._signing_provider = _SigningProvider.from_credential(google_cred)
-        else:
+        if not self._signing_provider:
             try:
-                service_account = self._infer_service_account()
-                self._signing_provider = _SigningProvider.from_iam(
-                    self.request, google_cred, service_account)
+                self._signing_provider = self._init_signing_provider()
             except Exception as error:
                 raise ValueError(
                     'Failed to determine service account: {0}. Make sure to initialize the SDK '

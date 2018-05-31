@@ -241,6 +241,8 @@ class TestCreateCustomToken(object):
             custom_token = auth.create_custom_token(MOCK_UID, app=app).decode()
             assert custom_token.endswith('.' + signature)
             self._verify_signer(custom_token, 'discovered-service-account')
+            assert len(request.log) == 2
+            assert request.log[0][1]['headers'] == {'Metadata-Flavor': 'Google'}
         finally:
             firebase_admin.delete_app(app)
 

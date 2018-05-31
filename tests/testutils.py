@@ -70,8 +70,10 @@ class MockRequest(transport.Request):
 
     def __init__(self, status, response):
         self.response = MockResponse(status, response)
+        self.log = []
 
     def __call__(self, *args, **kwargs):
+        self.log.append((args, kwargs))
         return self.response
 
 

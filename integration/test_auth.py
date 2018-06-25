@@ -64,7 +64,7 @@ def test_custom_token_without_service_account(api_key):
     google_cred = firebase_admin.get_app().credential.get_credential()
     cred = CredentialWrapper.from_existing_credential(google_cred)
     custom_app = firebase_admin.initialize_app(cred, {
-        'service_account': google_cred.service_account_email,
+        'service_account_id': google_cred.service_account_email,
     }, 'temp-app')
     try:
         custom_token = auth.create_custom_token('user1', app=custom_app)

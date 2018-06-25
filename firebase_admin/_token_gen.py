@@ -108,7 +108,7 @@ class TokenGenerator(object):
 
         # If the SDK was initialized with a service account email, use it with the IAM service
         # to sign bytes.
-        service_account = self.app.options.get('service_account')
+        service_account = self.app.options.get('service_account_id')
         if service_account:
             return _SigningProvider.from_iam(self.request, google_cred, service_account)
 

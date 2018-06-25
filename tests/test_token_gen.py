@@ -246,6 +246,19 @@ class TestCreateCustomToken(object):
         finally:
             firebase_admin.delete_app(app)
 
+    def test_sign_with_discovery_failure(self):
+        request = testutils.MockFailedRequest(Exception('test error'))
+        app = firebase_admin.initialize_app(testutils.MockCredential(), name='iam-signer-app')
+        try:
+            _overwrite_iam_request(app, request)
+            with pytest.raises(ValueError) as excinfo:
+                auth.create_custom_token(MOCK_UID, app=app)
+            assert str(excinfo.value).startswith('Failed to determine service account: test error')
+            assert len(request.log) == 1
+            assert request.log[0][1]['headers'] == {'Metadata-Flavor': 'Google'}
+        finally:
+            firebase_admin.delete_app(app)
+
     def _verify_signer(self, token, signer):
         segments = token.split('.')
         assert len(segments) == 3

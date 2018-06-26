@@ -16,7 +16,6 @@
 import datetime
 import json
 import numbers
-import os
 
 import pytest
 import six
@@ -871,17 +870,11 @@ class TestSend(object):
         return messaging._MessagingService.FCM_URL.format(project_id)
 
     def test_no_project_id(self):
-        env_var = 'GCLOUD_PROJECT'
-        gcloud_project = os.environ.get(env_var)
-        if gcloud_project:
-            del os.environ[env_var]
-        try:
+        def evaluate():
             app = firebase_admin.initialize_app(testutils.MockCredential(), name='no_project_id')
             with pytest.raises(ValueError):
                 messaging.send(messaging.Message(topic='foo'), app=app)
-        finally:
-            if gcloud_project:
-                os.environ[env_var] = gcloud_project
+        testutils.run_without_project_id(evaluate)
 
     @pytest.mark.parametrize('msg', NON_OBJECT_ARGS + [None])
     def test_invalid_send(self, msg):

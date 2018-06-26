@@ -71,6 +71,6 @@ class _FirestoreClient(object):
         if not project:
             raise ValueError(
                 'Project ID is required to access Firestore. Either set the projectId option, '
-                'or use service account credentials. Alternatively, set the GCLOUD_PROJECT '
+                'or use service account credentials. Alternatively, set the GOOGLE_CLOUD_PROJECT '
                 'environment variable.')
         return _FirestoreClient(credentials, project)

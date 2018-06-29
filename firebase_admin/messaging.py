@@ -759,9 +759,9 @@ class _MessagingService(object):
         project_id = app.project_id
         if not project_id:
             raise ValueError(
-                'Project ID is required to access Cloud Messaging service. Either set the'
-                ' projectId option, or use service account credentials. Alternatively, set the '
-                'GCLOUD_PROJECT environment variable.')
+                'Project ID is required to access Cloud Messaging service. Either set the '
+                'projectId option, or use service account credentials. Alternatively, set the '
+                'GOOGLE_CLOUD_PROJECT environment variable.')
         self._fcm_url = _MessagingService.FCM_URL.format(project_id)
         self._client = _http_client.JsonHttpClient(credential=app.credential.get_credential())
         self._timeout = app.options.get('httpTimeout')

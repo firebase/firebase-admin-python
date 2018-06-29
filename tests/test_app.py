@@ -25,7 +25,6 @@ from tests import testutils
 
 CREDENTIAL = credentials.Certificate(
     testutils.resource_filename('service_account.json'))
-GCLOUD_PROJECT = 'GCLOUD_PROJECT'
 CONFIG_JSON = firebase_admin._FIREBASE_CONFIG_ENV_VAR
 
 # This fixture will ignore the environment variable pointing to the default
@@ -295,27 +294,26 @@ class TestFirebaseApp(object):
         assert app.project_id == 'mock-project-id'
 
     def test_project_id_from_environment(self):
-        project_id = os.environ.get(GCLOUD_PROJECT)
-        os.environ[GCLOUD_PROJECT] = 'env-project'
-        try:
-            app = firebase_admin.initialize_app(testutils.MockCredential(), name='myApp')
-            assert app.project_id == 'env-project'
-        finally:
-            if project_id:
-                os.environ[GCLOUD_PROJECT] = project_id
-            else:
-                del os.environ[GCLOUD_PROJECT]
+        variables = ['GOOGLE_CLOUD_PROJECT', 'GCLOUD_PROJECT']
+        for idx, var in enumerate(variables):
+            old_project_id = os.environ.get(var)
+            new_project_id = 'env-project-{0}'.format(idx)
+            os.environ[var] = new_project_id
+            try:
+                app = firebase_admin.initialize_app(
+                    testutils.MockCredential(), name='myApp{0}'.format(var))
+                assert app.project_id == new_project_id
+            finally:
+                if old_project_id:
+                    os.environ[var] = old_project_id
+                else:
+                    del os.environ[var]
 
     def test_no_project_id(self):
-        project_id = os.environ.get(GCLOUD_PROJECT)
-        if project_id:
-            del os.environ[GCLOUD_PROJECT]
-        try:
+        def evaluate():
             app = firebase_admin.initialize_app(testutils.MockCredential(), name='myApp')
             assert app.project_id is None
-        finally:
-            if project_id:
-                os.environ[GCLOUD_PROJECT] = project_id
+        testutils.run_without_project_id(evaluate)
 
     def test_non_string_project_id(self):
         options = {'projectId': {'key': 'not a string'}}

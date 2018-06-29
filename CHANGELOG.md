@@ -1,6 +1,7 @@
 # Unreleased
 
--
+- [added] Admin SDK can now read the project ID from both `GCLOUD_PROJECT` and
+  `GOOGLE_CLOUD_PROJECT` environment variables.
 
 # v2.11.0
 

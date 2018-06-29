@@ -223,7 +223,8 @@ class App(object):
 
         This method first inspects the app options for a ``projectId`` entry. Then it attempts to
         get the project ID from the credential used to initialize the app. If that also fails,
-        attempts to look up the ``GCLOUD_PROJECT`` environment variable.
+        attempts to look up the ``GOOGLE_CLOUD_PROJECT`` and ``GCLOUD_PROJECT`` environment
+        variables.
 
         Args:
             credential: A Firebase credential instance.
@@ -235,18 +236,18 @@ class App(object):
         Raises:
             ValueError: If a non-string project ID value is specified.
         """
-        pid = options.get('projectId')
-        if not pid:
+        project_id = options.get('projectId')
+        if not project_id:
             try:
-                pid = credential.project_id
+                project_id = credential.project_id
             except AttributeError:
                 pass
-        if not pid:
-            pid = os.environ.get('GCLOUD_PROJECT')
-        if pid is not None and not isinstance(pid, six.string_types):
+        if not project_id:
+            project_id = os.environ.get('GOOGLE_CLOUD_PROJECT', os.environ.get('GCLOUD_PROJECT'))
+        if project_id is not None and not isinstance(project_id, six.string_types):
             raise ValueError(
-                'Invalid project ID: "{0}". project ID must be a string.'.format(pid))
-        return pid
+                'Invalid project ID: "{0}". project ID must be a string.'.format(project_id))
+        return project_id
 
     @property
     def name(self):

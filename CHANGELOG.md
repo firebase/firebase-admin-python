@@ -1,5 +1,9 @@
 # Unreleased
 
+
+- [added] The `db.reference()` method now optionally takes a `base_url`
+  parameter. This can be used to access multiple Firebase Databases
+  in the same project more easily. 
 - [added] Admin SDK can now read the project ID from both `GCLOUD_PROJECT` and
   `GOOGLE_CLOUD_PROJECT` environment variables.
 

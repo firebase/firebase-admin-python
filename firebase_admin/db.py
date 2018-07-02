@@ -41,14 +41,19 @@ _USER_AGENT = 'Firebase/HTTP/{0}/{1}.{2}/AdminPython'.format(
 _TRANSACTION_MAX_RETRIES = 25
 
 
-def reference(path='/', app=None):
+def reference(path='/', app=None, base_url=None):
     """Returns a database Reference representing the node at the specified path.
 
     If no path is specified, this function returns a Reference that represents the database root.
+    By default, the returned References provide access to the Firebase Database specified at
+    app initialization. To connect to a different Database instance in the same Firebase project,
+    specify the ``base_url`` parameter.
 
     Args:
       path: Path to a node in the Firebase realtime database (optional).
       app: An App instance (optional).
+      base_url: Base URL of the Firebase Database instance (optional). When specified, takes
+          precedence over the the ``databaseURL`` option set at app initialization.
 
     Returns:
       Reference: A newly initialized Reference.
@@ -56,7 +61,8 @@ def reference(path='/', app=None):
     Raises:
       ValueError: If the specified path or app is invalid.
     """
-    client = _utils.get_app_service(app, _DB_ATTRIBUTE, _Client.from_app)
+    service = _utils.get_app_service(app, _DB_ATTRIBUTE, _DatabaseService)
+    client = service.get_client(base_url)
     return Reference(client=client, path=path)
 
 def _parse_path(path):
@@ -662,65 +668,50 @@ class _SortEntry(object):
         return self._compare(other) is 0
 
 
-class _Client(_http_client.JsonHttpClient):
-    """HTTP client used to make REST calls.
-
-    _Client maintains an HTTP session, and handles authenticating HTTP requests along with
-    marshalling and unmarshalling of JSON data.
-    """
+class _DatabaseService(object):
+    """Service that maintains a collection of database clients."""
 
     _DEFAULT_AUTH_OVERRIDE = '_admin_'
 
-    def __init__(self, credential, base_url, auth_override=_DEFAULT_AUTH_OVERRIDE, timeout=None):
-        """Creates a new _Client from the given parameters.
-
-        This exists primarily to enable testing. For regular use, obtain _Client instances by
-        calling the from_app() class method.
-
-        Args:
-          credential: A Google credential that can be used to authenticate requests.
-          base_url: A URL prefix to be added to all outgoing requests. This is typically the
-              Firebase Realtime Database URL.
-          auth_override: A dictionary representing auth variable overrides or None (optional).
-              Default value provides admin privileges. A None value here provides un-authenticated
-              guest privileges.
-          timeout: HTTP request timeout in seconds (optional). If not set connections will never
-              timeout, which is the default behavior of the underlying requests library.
-        """
-        _http_client.JsonHttpClient.__init__(
-            self, credential=credential, base_url=base_url, headers={'User-Agent': _USER_AGENT})
+    def __init__(self, app):
+        self._credential = app.credential.get_credential()
+        db_url = app.options.get('databaseURL')
+        if db_url:
+            self._db_url = _DatabaseService._validate_url(db_url)
+        else:
+            self._db_url = None
+        auth_override = _DatabaseService._get_auth_override(app)
         if auth_override != self._DEFAULT_AUTH_OVERRIDE and auth_override != {}:
             encoded = json.dumps(auth_override, separators=(',', ':'))
             self._auth_override = 'auth_variable_override={0}'.format(encoded)
         else:
             self._auth_override = None
-        self._timeout = timeout
+        self._timeout = app.options.get('httpTimeout')
+        self._clients = {}
+
+    def get_client(self, base_url=None):
+        if base_url is None:
+            base_url = self._db_url
+        base_url = _DatabaseService._validate_url(base_url)
+        if base_url not in self._clients:
+            client = _Client(self._credential, base_url, self._auth_override, self._timeout)
+            self._clients[base_url] = client
+        return self._clients[base_url]
 
     @classmethod
-    def from_app(cls, app):
-        """Creates a new _Client for a given App"""
-        credential = app.credential.get_credential()
-        db_url = cls._get_db_url(app)
-        auth_override = cls._get_auth_override(app)
-        timeout = app.options.get('httpTimeout')
-        return _Client(credential, db_url, auth_override, timeout)
-
-    @classmethod
-    def _get_db_url(cls, app):
-        """Retrieves and parses the database URL option."""
-        url = app.options.get('databaseURL')
+    def _validate_url(cls, url):
+        """Parses and validates a given database URL."""
         if not url or not isinstance(url, six.string_types):
             raise ValueError(
-                'Invalid databaseURL option: "{0}". databaseURL must be a non-empty URL '
-                'string.'.format(url))
-
+                'Invalid database URL: "{0}". Database URL must be a non-empty '
+                'URL string.'.format(url))
         parsed = urllib.parse.urlparse(url)
         if parsed.scheme != 'https':
             raise ValueError(
-                'Invalid databaseURL option: "{0}". databaseURL must be an HTTPS URL.'.format(url))
+                'Invalid database URL: "{0}". Database URL must be an HTTPS URL.'.format(url))
         elif not parsed.netloc.endswith('.firebaseio.com'):
             raise ValueError(
-                'Invalid databaseURL option: "{0}". databaseURL must be a valid URL to a '
+                'Invalid database URL: "{0}". Database URL must be a valid URL to a '
                 'Firebase Realtime Database instance.'.format(url))
         return 'https://{0}'.format(parsed.netloc)
 
@@ -734,6 +725,39 @@ class _Client(_http_client.JsonHttpClient):
                              'value must be a dict or None.'.format(auth_override))
         else:
             return auth_override
+
+    def close(self):
+        for value in self._clients.values():
+            value.close()
+        self._clients = {}
+
+
+class _Client(_http_client.JsonHttpClient):
+    """HTTP client used to make REST calls.
+
+    _Client maintains an HTTP session, and handles authenticating HTTP requests along with
+    marshalling and unmarshalling of JSON data.
+    """
+
+    def __init__(self, credential, base_url, auth_override, timeout):
+        """Creates a new _Client from the given parameters.
+
+        This exists primarily to enable testing. For regular use, obtain _Client instances by
+        calling the from_app() class method.
+
+        Args:
+          credential: A Google credential that can be used to authenticate requests.
+          base_url: A URL prefix to be added to all outgoing requests. This is typically the
+              Firebase Realtime Database URL.
+          auth_override: The encoded auth_variable_override query parameter to be included in
+              outgoing requests.
+          timeout: HTTP request timeout in seconds. If not set connections will never
+              timeout, which is the default behavior of the underlying requests library.
+        """
+        _http_client.JsonHttpClient.__init__(
+            self, credential=credential, base_url=base_url, headers={'User-Agent': _USER_AGENT})
+        self._auth_override = auth_override
+        self._timeout = timeout
 
     @property
     def auth_override(self):

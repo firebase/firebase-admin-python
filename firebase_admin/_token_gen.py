@@ -130,10 +130,12 @@ class TokenGenerator(object):
             try:
                 self._signing_provider = self._init_signing_provider()
             except Exception as error:
+                url = 'https://firebase.google.com/docs/auth/admin/create-custom-tokens'
                 raise ValueError(
                     'Failed to determine service account: {0}. Make sure to initialize the SDK '
-                    'with a service account credential. Alternatively, specify a service account '
-                    'with iam.serviceAccounts.signBlob permission.'.format(error))
+                    'with service account credentials or specify a service account ID with '
+                    'iam.serviceAccounts.signBlob permission. Please refer to {1} for more '
+                    'details on creating custom tokens.'.format(error, url))
         return self._signing_provider
 
     def create_custom_token(self, uid, developer_claims=None):

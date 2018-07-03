@@ -53,7 +53,7 @@ def initialize_sdk_with_refresh_token():
 def initialize_sdk_with_service_account_id():
     # [START initialize_sdk_with_service_account_id]
     options = {
-        'service_account_id': 'my-client-id@my-project-id.iam.gserviceaccount.com',
+        'serviceAccountId': 'my-client-id@my-project-id.iam.gserviceaccount.com',
     }
     firebase_admin.initialize_app(options=options)
     # [END initialize_sdk_with_service_account_id]

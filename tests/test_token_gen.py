@@ -199,7 +199,7 @@ class TestCreateCustomToken(object):
             auth.create_custom_token(MOCK_UID, app=user_mgt_app)
 
     def test_sign_with_iam(self):
-        options = {'service_account_id': 'test-service-account'}
+        options = {'serviceAccountId': 'test-service-account'}
         app = firebase_admin.initialize_app(
             testutils.MockCredential(), name='iam-signer-app', options=options)
         try:
@@ -213,7 +213,7 @@ class TestCreateCustomToken(object):
             firebase_admin.delete_app(app)
 
     def test_sign_with_iam_error(self):
-        options = {'service_account_id': 'test-service-account'}
+        options = {'serviceAccountId': 'test-service-account'}
         app = firebase_admin.initialize_app(
             testutils.MockCredential(), name='iam-signer-app', options=options)
         try:

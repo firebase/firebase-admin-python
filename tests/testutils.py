@@ -86,9 +86,23 @@ class MockRequest(transport.Request):
 
     def __init__(self, status, response):
         self.response = MockResponse(status, response)
+        self.log = []
 
     def __call__(self, *args, **kwargs):
+        self.log.append((args, kwargs))
         return self.response
+
+
+class MockFailedRequest(transport.Request):
+    """A mock HTTP request that fails by raising an exception."""
+
+    def __init__(self, error):
+        self.error = error
+        self.log = []
+
+    def __call__(self, *args, **kwargs):
+        self.log.append((args, kwargs))
+        raise self.error
 
 
 class MockGoogleCredential(credentials.Credentials):

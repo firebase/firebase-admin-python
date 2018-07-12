@@ -400,7 +400,10 @@ class TestVerifyIdToken(object):
         finally:
             firebase_admin.delete_app(app)
 
-    @pytest.mark.parametrize('env_var_app', [{'GCLOUD_PROJECT': 'mock-project-id'}], indirect=True)
+    @pytest.mark.parametrize('env_var_app', [
+        {'GCLOUD_PROJECT': 'mock-project-id'},
+        {'GOOGLE_CLOUD_PROJECT': 'mock-project-id'}
+    ], indirect=True)
     def test_project_id_env_var(self, env_var_app):
         _overwrite_cert_request(env_var_app, MOCK_REQUEST)
         claims = auth.verify_id_token(TEST_ID_TOKEN, env_var_app)

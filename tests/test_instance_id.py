@@ -14,8 +14,6 @@
 
 """Tests for firebase_admin.instance_id."""
 
-import os
-
 import pytest
 
 import firebase_admin
@@ -47,17 +45,11 @@ class TestDeleteInstanceId(object):
         return instance_id._IID_SERVICE_URL + 'project/{0}/instanceId/{1}'.format(project_id, iid)
 
     def test_no_project_id(self):
-        env_var = 'GCLOUD_PROJECT'
-        gcloud_project = os.environ.get(env_var)
-        if gcloud_project:
-            del os.environ[env_var]
-        try:
+        def evaluate():
             firebase_admin.initialize_app(testutils.MockCredential())
             with pytest.raises(ValueError):
                 instance_id.delete_instance_id('test')
-        finally:
-            if gcloud_project:
-                os.environ[env_var] = gcloud_project
+        testutils.run_without_project_id(evaluate)
 
     def test_delete_instance_id(self):
         cred = testutils.MockCredential()

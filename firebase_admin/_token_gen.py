@@ -271,7 +271,7 @@ class _JWTVerifier(object):
                 'Failed to ascertain project ID from the credential or the environment. Project '
                 'ID is required to call {0}. Initialize the app with a credentials.Certificate '
                 'or set your Firebase project ID as an app option. Alternatively set the '
-                'GCLOUD_PROJECT environment variable.'.format(self.operation))
+                'GOOGLE_CLOUD_PROJECT environment variable.'.format(self.operation))
 
         header = jwt.decode_header(token)
         payload = jwt.decode(token, verify=False)

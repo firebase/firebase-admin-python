@@ -4,7 +4,6 @@
 
 # v2.12.0
 
-
 - [added] Implemented the ability to create custom tokens without
   service account credentials.
 - [added] Admin SDK can now read the project ID from both `GCLOUD_PROJECT` and

@@ -23,15 +23,24 @@ module uses the Firebase REST API underneath.
 import collections
 import json
 import sys
+import threading
+import time
 
 import requests
 import six
 from six.moves import urllib
+from google.auth import transport
 
 import firebase_admin
 from firebase_admin import _http_client
 from firebase_admin import _utils
+from firebase_admin.sseclient import SSEClient, KeepAuthSession
 
+
+try:
+    from urllib.parse import urlencode
+except ImportError:
+    from urllib import urlencode
 
 _DB_ATTRIBUTE = '_database'
 _INVALID_PATH_CHARACTERS = '[].#$'
@@ -69,6 +78,49 @@ def _parse_path(path):
     return [seg for seg in path.split('/') if seg]
 
 
+class Stream(object):
+    """Class that handles the streaming of data node changes from server"""
+    def __init__(self, url, build_headers, stream_handler, stream_id):
+        """Initialize the streaming object"""
+        self.url = url
+        self.build_headers = build_headers
+        self.stream_handler = stream_handler
+        self.stream_id = stream_id
+        self.sse = None
+        self.thread = None
+        self.start()
+
+    def start(self):
+        """Start the streaming by spawning a thread"""
+        self.thread = threading.Thread(target=self.start_stream)
+        self.thread.start()
+        return self
+
+    def start_stream(self):
+        """Streaming function for the spawned thread to run"""
+        self.sse = SSEClient(
+            self.url,
+            session=KeepAuthSession(),
+            build_headers=self.build_headers
+        )
+
+        for msg in self.sse:
+            # iterate the sse client's generator
+            if msg:
+                msg_data = json.loads(msg.data)
+                msg_data["event"] = msg.event
+                if self.stream_id:
+                    msg_data["stream_id"] = self.stream_id
+                self.stream_handler(msg_data)
+
+    def close(self):
+        while not self.sse and not hasattr(self.sse, "resp"):
+            time.sleep(0.001)
+        self.sse.running = False
+        self.sse.close()
+        self.thread.join()
+
+
 class Reference(object):
     """Reference represents a node in the Firebase realtime database."""
 
@@ -100,6 +152,23 @@ class Reference(object):
         if self._segments:
             return Reference(client=self._client, segments=self._segments[:-1])
         return None
+
+    def build_headers(self, token=None):
+        headers = {'content-type' : 'application/json; charset=UTF-8'}
+        if not token and self._client._session.credentials:
+            request = transport.requests.Request()
+            self._client._session.credentials.refresh(request)
+            access_token = self._client._session.credentials.token
+            headers['Authorization'] = 'Bearer ' + access_token
+        return headers
+
+    def stream(self, stream_handler, stream_id=None):
+        parameters = {}
+        # reset path and build_query for next query
+        request_ref = '{}{}.json?{}'.format(
+            self._client.base_url, self._pathurl, urlencode(parameters)
+        )
+        return Stream(request_ref, self.build_headers, stream_handler, stream_id)
 
     def child(self, path):
         """Returns a Reference to the specified child node.

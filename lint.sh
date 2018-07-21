@@ -33,6 +33,7 @@ set -o nounset
 
 SKIP_FOR_TESTS="redefined-outer-name,protected-access,missing-docstring,too-many-lines"
 SKIP_FOR_SNIPPETS="${SKIP_FOR_TESTS},reimported,unused-variable"
+SKIP_FOR_DB="protected-access"
 
 if [[ "$#" -eq 1 && "$1" = "all" ]]
 then
@@ -47,12 +48,12 @@ fi
 
 if [[ "$CHECK_ALL" = true ]]
 then
-  lintAllFiles "firebase_admin" ""
+  lintAllFiles "firebase_admin" "$SKIP_FOR_DB"
   lintAllFiles "tests" "$SKIP_FOR_TESTS"
   lintAllFiles "integration" "$SKIP_FOR_TESTS"
   lintAllFiles "snippets" "$SKIP_FOR_SNIPPETS"
 else
-  lintChangedFiles "firebase_admin" ""
+  lintChangedFiles "firebase_admin" "$SKIP_FOR_DB"
   lintChangedFiles "tests" "$SKIP_FOR_TESTS"
   lintChangedFiles "integration" "$SKIP_FOR_TESTS"
   lintChangedFiles "snippets" "$SKIP_FOR_SNIPPETS"

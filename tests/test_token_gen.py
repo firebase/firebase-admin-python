@@ -14,6 +14,7 @@
 
 """Test cases for the firebase_admin._token_gen module."""
 
+import base64
 import datetime
 import json
 import os
@@ -109,8 +110,11 @@ def _instrument_user_manager(app, status, payload):
 
 def _overwrite_cert_request(app, request):
     auth_service = auth._get_auth_service(app)
-    token_verifier = auth_service.token_verifier
-    token_verifier.request = request
+    auth_service.token_verifier.request = request
+
+def _overwrite_iam_request(app, request):
+    auth_service = auth._get_auth_service(app)
+    auth_service.token_generator.request = request
 
 @pytest.fixture(scope='module')
 def auth_app():
@@ -193,6 +197,74 @@ class TestCreateCustomToken(object):
     def test_noncert_credential(self, user_mgt_app):
         with pytest.raises(ValueError):
             auth.create_custom_token(MOCK_UID, app=user_mgt_app)
+
+    def test_sign_with_iam(self):
+        options = {'serviceAccountId': 'test-service-account'}
+        app = firebase_admin.initialize_app(
+            testutils.MockCredential(), name='iam-signer-app', options=options)
+        try:
+            signature = base64.b64encode(b'test').decode()
+            iam_resp = '{{"signature": "{0}"}}'.format(signature)
+            _overwrite_iam_request(app, testutils.MockRequest(200, iam_resp))
+            custom_token = auth.create_custom_token(MOCK_UID, app=app).decode()
+            assert custom_token.endswith('.' + signature)
+            self._verify_signer(custom_token, 'test-service-account')
+        finally:
+            firebase_admin.delete_app(app)
+
+    def test_sign_with_iam_error(self):
+        options = {'serviceAccountId': 'test-service-account'}
+        app = firebase_admin.initialize_app(
+            testutils.MockCredential(), name='iam-signer-app', options=options)
+        try:
+            iam_resp = '{"error": {"code": 403, "message": "test error"}}'
+            _overwrite_iam_request(app, testutils.MockRequest(403, iam_resp))
+            with pytest.raises(auth.AuthError) as excinfo:
+                auth.create_custom_token(MOCK_UID, app=app)
+            assert excinfo.value.code == _token_gen.TOKEN_SIGN_ERROR
+            assert iam_resp in str(excinfo.value)
+        finally:
+            firebase_admin.delete_app(app)
+
+    def test_sign_with_discovered_service_account(self):
+        request = testutils.MockRequest(200, 'discovered-service-account')
+        app = firebase_admin.initialize_app(testutils.MockCredential(), name='iam-signer-app')
+        try:
+            _overwrite_iam_request(app, request)
+            # Force initialization of the signing provider. This will invoke the Metadata service.
+            auth_service = auth._get_auth_service(app)
+            assert auth_service.token_generator.signing_provider is not None
+            # Now invoke the IAM signer.
+            signature = base64.b64encode(b'test').decode()
+            request.response = testutils.MockResponse(
+                200, '{{"signature": "{0}"}}'.format(signature))
+            custom_token = auth.create_custom_token(MOCK_UID, app=app).decode()
+            assert custom_token.endswith('.' + signature)
+            self._verify_signer(custom_token, 'discovered-service-account')
+            assert len(request.log) == 2
+            assert request.log[0][1]['headers'] == {'Metadata-Flavor': 'Google'}
+        finally:
+            firebase_admin.delete_app(app)
+
+    def test_sign_with_discovery_failure(self):
+        request = testutils.MockFailedRequest(Exception('test error'))
+        app = firebase_admin.initialize_app(testutils.MockCredential(), name='iam-signer-app')
+        try:
+            _overwrite_iam_request(app, request)
+            with pytest.raises(ValueError) as excinfo:
+                auth.create_custom_token(MOCK_UID, app=app)
+            assert str(excinfo.value).startswith('Failed to determine service account: test error')
+            assert len(request.log) == 1
+            assert request.log[0][1]['headers'] == {'Metadata-Flavor': 'Google'}
+        finally:
+            firebase_admin.delete_app(app)
+
+    def _verify_signer(self, token, signer):
+        segments = token.split('.')
+        assert len(segments) == 3
+        body = json.loads(base64.b64decode(segments[1]).decode())
+        assert body['iss'] == signer
+        assert body['sub'] == signer
 
 
 class TestCreateSessionCookie(object):

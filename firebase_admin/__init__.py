@@ -50,9 +50,9 @@ def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
       credential: A credential object used to initialize the SDK (optional). If none is provided,
           Google Application Default Credentials are used.
       options: A dictionary of configuration options (optional). Supported options include
-          ``databaseURL``, ``storageBucket``, ``projectId``, ``databaseAuthVariableOverride``
-          and ``httpTimeout``. If ``httpTimeout`` is not set, HTTP connections initiated by client
-          modules such as ``db`` will not time out.
+          ``databaseURL``, ``storageBucket``, ``projectId``, ``databaseAuthVariableOverride``,
+          ``serviceAccountId`` and ``httpTimeout``. If ``httpTimeout`` is not set, HTTP
+          connections initiated by client modules such as ``db`` will not time out.
       name: Name of the app (optional).
     Returns:
       App: A newly initialized instance of App.

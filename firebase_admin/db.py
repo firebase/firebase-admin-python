@@ -41,18 +41,18 @@ _USER_AGENT = 'Firebase/HTTP/{0}/{1}.{2}/AdminPython'.format(
 _TRANSACTION_MAX_RETRIES = 25
 
 
-def reference(path='/', app=None, base_url=None):
+def reference(path='/', app=None, url=None):
     """Returns a database Reference representing the node at the specified path.
 
     If no path is specified, this function returns a Reference that represents the database root.
     By default, the returned References provide access to the Firebase Database specified at
     app initialization. To connect to a different Database instance in the same Firebase project,
-    specify the ``base_url`` parameter.
+    specify the ``url`` parameter.
 
     Args:
       path: Path to a node in the Firebase realtime database (optional).
       app: An App instance (optional).
-      base_url: Base URL of the Firebase Database instance (optional). When specified, takes
+      url: Base URL of the Firebase Database instance (optional). When specified, takes
           precedence over the the ``databaseURL`` option set at app initialization.
 
     Returns:
@@ -62,7 +62,7 @@ def reference(path='/', app=None, base_url=None):
       ValueError: If the specified path or app is invalid.
     """
     service = _utils.get_app_service(app, _DB_ATTRIBUTE, _DatabaseService)
-    client = service.get_client(base_url)
+    client = service.get_client(url)
     return Reference(client=client, path=path)
 
 def _parse_path(path):

@@ -155,10 +155,10 @@ class Reference(object):
 
     def build_headers(self, token=None):
         headers = {'content-type' : 'application/json; charset=UTF-8'}
-        if not token and self._client._session.credentials: # pylint: disable=protected-access
+        if not token and self._client.session:
             request = transport.requests.Request()
-            self._client._session.credentials.refresh(request) # pylint: disable=protected-access
-            access_token = self._client._session.credentials.token # pylint: disable=protected-access
+            self._client.session.credentials.refresh(request)
+            access_token = self._client.session.credentials.token
             headers['Authorization'] = 'Bearer ' + access_token
         return headers
 

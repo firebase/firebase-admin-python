@@ -34,7 +34,7 @@ from firebase_admin import _utils
 
 
 _DB_ATTRIBUTE = '_database'
-_INVALID_PATH_CHARACTERS = '[].#$'
+_INVALID_PATH_CHARACTERS = '[].?#$'
 _RESERVED_FILTERS = ('$key', '$value', '$priority')
 _USER_AGENT = 'Firebase/HTTP/{0}/{1}.{2}/AdminPython'.format(
     firebase_admin.__version__, sys.version_info.major, sys.version_info.minor)

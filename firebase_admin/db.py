@@ -34,7 +34,7 @@ from google.auth import transport
 import firebase_admin
 from firebase_admin import _http_client
 from firebase_admin import _utils
-from firebase_admin.sseclient import SSEClient, KeepAuthSession
+from firebase_admin._sseclient import SSEClient, KeepAuthSession
 
 
 try:

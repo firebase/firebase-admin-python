@@ -20,11 +20,13 @@ import time
 import cachecontrol
 import requests
 import six
+from google.auth import credentials
+from google.auth import exceptions
+from google.auth import iam
 from google.auth import jwt
 from google.auth import transport
 import google.oauth2.id_token
-
-from firebase_admin import credentials
+import google.oauth2.service_account
 
 
 # ID token constants
@@ -46,9 +48,12 @@ RESERVED_CLAIMS = set([
     'acr', 'amr', 'at_hash', 'aud', 'auth_time', 'azp', 'cnf', 'c_hash',
     'exp', 'firebase', 'iat', 'iss', 'jti', 'nbf', 'nonce', 'sub'
 ])
+METADATA_SERVICE_URL = ('http://metadata/computeMetadata/v1/instance/service-accounts/'
+                        'default/email')
 
 # Error codes
 COOKIE_CREATE_ERROR = 'COOKIE_CREATE_ERROR'
+TOKEN_SIGN_ERROR = 'TOKEN_SIGN_ERROR'
 
 
 class ApiCallError(Exception):
@@ -60,20 +65,81 @@ class ApiCallError(Exception):
         self.detail = error
 
 
+class _SigningProvider(object):
+    """Stores a reference to a google.auth.crypto.Signer."""
+
+    def __init__(self, signer, signer_email):
+        self._signer = signer
+        self._signer_email = signer_email
+
+    @property
+    def signer(self):
+        return self._signer
+
+    @property
+    def signer_email(self):
+        return self._signer_email
+
+    @classmethod
+    def from_credential(cls, google_cred):
+        return _SigningProvider(google_cred.signer, google_cred.signer_email)
+
+    @classmethod
+    def from_iam(cls, request, google_cred, service_account):
+        signer = iam.Signer(request, google_cred, service_account)
+        return _SigningProvider(signer, service_account)
+
+
 class TokenGenerator(object):
     """Generates custom tokens and session cookies."""
 
     def __init__(self, app, client):
-        self._app = app
-        self._client = client
+        self.app = app
+        self.client = client
+        self.request = transport.requests.Request()
+        self._signing_provider = None
+
+    def _init_signing_provider(self):
+        """Initializes a signing provider by following the go/firebase-admin-sign protocol."""
+        # If the SDK was initialized with a service account, use it to sign bytes.
+        google_cred = self.app.credential.get_credential()
+        if isinstance(google_cred, google.oauth2.service_account.Credentials):
+            return _SigningProvider.from_credential(google_cred)
+
+        # If the SDK was initialized with a service account email, use it with the IAM service
+        # to sign bytes.
+        service_account = self.app.options.get('serviceAccountId')
+        if service_account:
+            return _SigningProvider.from_iam(self.request, google_cred, service_account)
+
+        # If the SDK was initialized with some other credential type that supports signing
+        # (e.g. GAE credentials), use it to sign bytes.
+        if isinstance(google_cred, credentials.Signing):
+            return _SigningProvider.from_credential(google_cred)
+
+        # Attempt to discover a service account email from the local Metadata service. Use it
+        # with the IAM service to sign bytes.
+        resp = self.request(url=METADATA_SERVICE_URL, headers={'Metadata-Flavor': 'Google'})
+        service_account = resp.data.decode()
+        return _SigningProvider.from_iam(self.request, google_cred, service_account)
+
+    @property
+    def signing_provider(self):
+        """Initializes and returns the SigningProvider instance to be used."""
+        if not self._signing_provider:
+            try:
+                self._signing_provider = self._init_signing_provider()
+            except Exception as error:
+                url = 'https://firebase.google.com/docs/auth/admin/create-custom-tokens'
+                raise ValueError(
+                    'Failed to determine service account: {0}. Make sure to initialize the SDK '
+                    'with service account credentials or specify a service account ID with '
+                    'iam.serviceAccounts.signBlob permission. Please refer to {1} for more '
+                    'details on creating custom tokens.'.format(error, url))
+        return self._signing_provider
 
     def create_custom_token(self, uid, developer_claims=None):
         """Builds and signs a Firebase custom auth token."""
-        if not isinstance(self._app.credential, credentials.Certificate):
-            raise ValueError(
-                'Must initialize Firebase App with a certificate credential '
-                'to call create_custom_token().')
-
         if developer_claims is not None:
             if not isinstance(developer_claims, dict):
                 raise ValueError('developer_claims must be a dictionary')
@@ -93,10 +159,11 @@ class TokenGenerator(object):
         if not uid or not isinstance(uid, six.string_types) or len(uid) > 128:
             raise ValueError('uid must be a string between 1 and 128 characters.')
 
+        signing_provider = self.signing_provider
         now = int(time.time())
         payload = {
-            'iss': self._app.credential.service_account_email,
-            'sub': self._app.credential.service_account_email,
+            'iss': signing_provider.signer_email,
+            'sub': signing_provider.signer_email,
             'aud': FIREBASE_AUDIENCE,
             'uid': uid,
             'iat': now,
@@ -105,7 +172,12 @@ class TokenGenerator(object):
 
         if developer_claims is not None:
             payload['claims'] = developer_claims
-        return jwt.encode(self._app.credential.signer, payload)
+        try:
+            return jwt.encode(signing_provider.signer, payload)
+        except exceptions.TransportError as error:
+            msg = 'Failed to sign custom token. {0}'.format(error)
+            raise ApiCallError(TOKEN_SIGN_ERROR, msg, error)
+
 
     def create_session_cookie(self, id_token, expires_in):
         """Creates a session cookie from the provided ID token."""
@@ -131,7 +203,7 @@ class TokenGenerator(object):
             'validDuration': expires_in,
         }
         try:
-            response = self._client.request('post', 'createSessionCookie', json=payload)
+            response = self.client.request('post', 'createSessionCookie', json=payload)
         except requests.exceptions.RequestException as error:
             self._handle_http_error(COOKIE_CREATE_ERROR, 'Failed to create session cookie', error)
         else:
@@ -199,7 +271,7 @@ class _JWTVerifier(object):
                 'Failed to ascertain project ID from the credential or the environment. Project '
                 'ID is required to call {0}. Initialize the app with a credentials.Certificate '
                 'or set your Firebase project ID as an app option. Alternatively set the '
-                'GCLOUD_PROJECT environment variable.'.format(self.operation))
+                'GOOGLE_CLOUD_PROJECT environment variable.'.format(self.operation))
 
         header = jwt.decode_header(token)
         payload = jwt.decode(token, verify=False)

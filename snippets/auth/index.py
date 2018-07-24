@@ -50,6 +50,15 @@ def initialize_sdk_with_refresh_token():
     # [END initialize_sdk_with_refresh_token]
     firebase_admin.delete_app(default_app)
 
+def initialize_sdk_with_service_account_id():
+    # [START initialize_sdk_with_service_account_id]
+    options = {
+        'serviceAccountId': 'my-client-id@my-project-id.iam.gserviceaccount.com',
+    }
+    firebase_admin.initialize_app(options=options)
+    # [END initialize_sdk_with_service_account_id]
+    firebase_admin.delete_app(firebase_admin.get_app())
+
 def access_services_default():
     cred = credentials.Certificate('path/to/service.json')
     # [START access_services_default]

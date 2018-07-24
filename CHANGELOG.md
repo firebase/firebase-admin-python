@@ -2,6 +2,13 @@
 
 -
 
+# v2.12.0
+
+- [added] Implemented the ability to create custom tokens without
+  service account credentials.
+- [added] Admin SDK can now read the project ID from both `GCLOUD_PROJECT` and
+  `GOOGLE_CLOUD_PROJECT` environment variables.
+
 # v2.11.0
 
 - [added] A new `auth.import_users()` API for importing users into Firebase

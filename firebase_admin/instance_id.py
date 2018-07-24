@@ -78,7 +78,7 @@ class _InstanceIdService(object):
             raise ValueError(
                 'Project ID is required to access Instance ID service. Either set the projectId '
                 'option, or use service account credentials. Alternatively, set the '
-                'GCLOUD_PROJECT environment variable.')
+                'GOOGLE_CLOUD_PROJECT environment variable.')
         self._project_id = project_id
         self._client = _http_client.JsonHttpClient(
             credential=app.credential.get_credential(), base_url=_IID_SERVICE_URL)

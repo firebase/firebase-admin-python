@@ -14,8 +14,6 @@
 
 """Tests for firebase_admin.firestore."""
 
-import os
-
 import pytest
 
 import firebase_admin
@@ -28,17 +26,11 @@ def teardown_function():
     testutils.cleanup_apps()
 
 def test_no_project_id():
-    env_var = 'GCLOUD_PROJECT'
-    gcloud_project = os.environ.get(env_var)
-    if gcloud_project:
-        del os.environ[env_var]
-    try:
+    def evaluate():
         firebase_admin.initialize_app(testutils.MockCredential())
         with pytest.raises(ValueError):
             firestore.client()
-    finally:
-        if gcloud_project:
-            os.environ[env_var] = gcloud_project
+    testutils.run_without_project_id(evaluate)
 
 def test_project_id():
     cred = credentials.Certificate(testutils.resource_filename('service_account.json'))

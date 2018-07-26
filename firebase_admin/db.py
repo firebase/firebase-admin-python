@@ -33,6 +33,17 @@ from firebase_admin import _http_client
 from firebase_admin import _utils
 
 
+from sseclient import SSEClient
+import socket
+import threading
+import time
+from requests import Session
+
+try:
+    from urllib.parse import urlencode, quote
+except:
+    from urllib import urlencode, quote
+
 _DB_ATTRIBUTE = '_database'
 _INVALID_PATH_CHARACTERS = '[].?#$'
 _RESERVED_FILTERS = ('$key', '$value', '$priority')
@@ -74,6 +85,70 @@ def _parse_path(path):
             'Invalid path: "{0}". Path contains illegal characters.'.format(path))
     return [seg for seg in path.split('/') if seg]
 
+class KeepAuthSession(Session):
+    """
+    A session that doesn't drop Authentication on redirects between domains.
+    """
+
+    def rebuild_auth(self, prepared_request, response):
+        pass
+
+class ClosableSSEClient(SSEClient):
+    def __init__(self, *args, **kwargs):
+        self.should_connect = True
+        super(ClosableSSEClient, self).__init__(*args, **kwargs)
+
+    def _connect(self):
+        if self.should_connect:
+            super(ClosableSSEClient, self)._connect()
+        else:
+            raise StopIteration()
+
+    def close(self):
+        self.should_connect = False
+        self.retry = 0
+        self.resp.raw._fp.fp.raw._sock.shutdown(socket.SHUT_RDWR)
+        self.resp.raw._fp.fp.raw._sock.close()
+
+class Stream:
+    def __init__(self, url, stream_handler, build_headers, stream_id):
+        self.build_headers = build_headers
+        self.url = url
+        self.stream_handler = stream_handler
+        self.stream_id = stream_id
+        self.sse = None
+        self.thread = None
+        self.start()
+
+    def make_session(self):
+        """
+        Return a custom session object to be passed to the ClosableSSEClient.
+        """
+        session = KeepAuthSession()
+        return session
+
+    def start(self):
+        self.thread = threading.Thread(target=self.start_stream)
+        self.thread.start()
+        return self
+
+    def start_stream(self):
+        self.sse = ClosableSSEClient(self.url, session=self.make_session(), build_headers=self.build_headers)
+        for msg in self.sse:
+            if msg:
+                msg_data = json.loads(msg.data)
+                msg_data["event"] = msg.event
+                if self.stream_id:
+                    msg_data["stream_id"] = self.stream_id
+                self.stream_handler(msg_data)
+
+    def close(self):
+        while not self.sse and not hasattr(self.sse, 'resp'):
+            time.sleep(0.001)
+        self.sse.running = False
+        self.sse.close()
+        self.thread.join()
+        return self
 
 class Reference(object):
     """Reference represents a node in the Firebase realtime database."""
@@ -106,6 +181,22 @@ class Reference(object):
         if self._segments:
             return Reference(client=self._client, segments=self._segments[:-1])
         return None
+
+    def build_headers(self, token=None):
+        headers = {"content-type": "application/json; charset=UTF-8"}
+        if not token and self._client._session.credentials:
+            access_token = self._client._session.credentials.token
+            headers['Authorization'] = 'Bearer ' + access_token
+        return headers
+
+    def stream(self, stream_handler, token=None, stream_id=None):
+        # request_ref = self.build_request_url(token)
+        parameters = {}
+        # reset path and build_query for next query
+        request_ref = '{0}{1}.json?{2}'.format(self._client._url, self._pathurl, urlencode(parameters))
+        #self.stream_path = ""
+        #self.build_query = {}
+        return Stream(request_ref, stream_handler, self.build_headers, stream_id)
 
     def child(self, path):
         """Returns a Reference to the specified child node.

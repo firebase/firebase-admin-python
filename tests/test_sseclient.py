@@ -8,14 +8,17 @@ from tests.testutils import MockAdapter
 
 
 class MockSSEClient(MockAdapter):
-    def __init__(self, payload, status, recorder):
-        super().__init__(payload, status, recorder)
+    def __init__(self, payload):
+        status = 200
+        recorder = []
+        MockAdapter.__init__(self, payload, status, recorder)
 
     def send(self, request, **kwargs):
         resp = requests.models.Response()
         resp.url = request.url
         resp.status_code = self._status
         resp.raw = six.BytesIO(self._data.encode())
+        resp.encoding = "utf-8"
         return resp
 
 
@@ -33,10 +36,8 @@ class TestSSEClient(object):
 
     def init_sse(self):
         payload = 'event: put\ndata: {"path":"/","data":"testevent"}\n\n'
-        status = 200
-        recorder = []
 
-        adapter = MockSSEClient(payload, status, recorder)
+        adapter = MockSSEClient(payload)
         session = KeepAuthSession()
         session.mount(self.test_url, adapter)
 

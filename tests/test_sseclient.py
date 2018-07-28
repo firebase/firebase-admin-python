@@ -4,6 +4,7 @@ import six
 import requests
 
 from firebase_admin._sseclient import SSEClient, KeepAuthSession, Event
+from firebase_admin import _sseclient
 from tests.testutils import MockAdapter
 
 
@@ -27,12 +28,6 @@ class TestSSEClient(object):
 
     test_url = "https://test.firebaseio.com"
 
-    def build_headers(self):
-        """Returns a mock header for SSEClient test"""
-        return {
-            "content-type": "application/json; charset=UTF-8",
-            "Authorization" : "Bearer MOCK_ACCESS_TOKEN"
-        }
 
     def init_sse(self):
         payload = 'event: put\ndata: {"path":"/","data":"testevent"}\n\n'
@@ -41,7 +36,7 @@ class TestSSEClient(object):
         session = KeepAuthSession()
         session.mount(self.test_url, adapter)
 
-        sseclient = SSEClient(url=self.test_url, session=session, build_headers=self.build_headers)
+        sseclient = SSEClient(url=self.test_url, session=session)
         return sseclient
 
 

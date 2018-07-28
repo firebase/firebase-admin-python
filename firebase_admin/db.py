@@ -80,10 +80,9 @@ def _parse_path(path):
 
 class Stream(object):
     """Class that handles the streaming of data node changes from server"""
-    def __init__(self, url, build_headers, stream_handler, stream_id):
+    def __init__(self, url, stream_handler, stream_id):
         """Initialize the streaming object"""
         self.url = url
-        self.build_headers = build_headers
         self.stream_handler = stream_handler
         self.stream_id = stream_id
         self.sse = None
@@ -100,8 +99,7 @@ class Stream(object):
         """Streaming function for the spawned thread to run"""
         self.sse = SSEClient(
             self.url,
-            session=KeepAuthSession(),
-            build_headers=self.build_headers
+            session=KeepAuthSession()
         )
 
         for msg in self.sse:
@@ -153,22 +151,13 @@ class Reference(object):
             return Reference(client=self._client, segments=self._segments[:-1])
         return None
 
-    def build_headers(self, token=None):
-        headers = {'content-type' : 'application/json; charset=UTF-8'}
-        if not token and self._client.session:
-            request = transport.requests.Request()
-            self._client.session.credentials.refresh(request)
-            access_token = self._client.session.credentials.token
-            headers['Authorization'] = 'Bearer ' + access_token
-        return headers
-
     def stream(self, stream_handler, stream_id=None):
         parameters = {}
         # reset path and build_query for next query
         request_ref = '{}{}.json?{}'.format(
             self._client.base_url, self._pathurl, urlencode(parameters)
         )
-        return Stream(request_ref, self.build_headers, stream_handler, stream_id)
+        return Stream(request_ref, stream_handler, stream_id)
 
     def child(self, path):
         """Returns a Reference to the specified child node.

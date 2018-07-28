@@ -6,7 +6,6 @@ import re
 import time
 import warnings
 import six
-
 import requests
 
 
@@ -23,27 +22,30 @@ class KeepAuthSession(requests.Session):
 
 class SSEClient(object):
     """SSE Client Class"""
-    def __init__(self, url, session, build_headers, last_id=None, retry=3000, **kwargs):
+    def __init__(self, url, session, last_id=None, retry=3000, **kwargs):
+        """Initialize the SSEClient
+        Args:
+            url: the url to connect to
+            session: the requests.session()
+            last_id: optional id
+            retry: the interval in ms
+            **kwargs: extra kwargs will be sent to requests.get
+        """
         self.should_connect = True
         self.url = url
         self.last_id = last_id
         self.retry = retry
         self.running = True
-        # Optional support for passing in a requests.Session()
         self.session = session
-        # function for building auth header when token expires
-        self.build_headers = build_headers
-        self.start_time = None
-        # Any extra kwargs will be fed into the requests.get call later.
         self.requests_kwargs = kwargs
 
+        headers = self.requests_kwargs.get('headers', {})
         # The SSE spec requires making requests with Cache-Control: nocache
-        if 'headers' not in self.requests_kwargs:
-            self.requests_kwargs['headers'] = {}
-        self.requests_kwargs['headers']['Cache-Control'] = 'no-cache'
-
+        headers['Cache-Control'] = 'no-cache'
         # The 'Accept' header is not required, but explicit > implicit
-        self.requests_kwargs['headers']['Accept'] = 'text/event-stream'
+        headers['Accept'] = 'text/event-stream'
+
+        self.requests_kwargs['headers'] = headers
 
         # Keep data here as it streams in
         self.buf = u''
@@ -54,6 +56,7 @@ class SSEClient(object):
         """Close the SSE Client instance"""
         # TODO: check if AttributeError is needed to catch here
         self.should_connect = False
+        self.running = False
         self.retry = 0
         self.resp.close()
         #  self.resp.raw._fp.fp.raw._sock.shutdown(socket.SHUT_RDWR)
@@ -62,13 +65,11 @@ class SSEClient(object):
 
     def _connect(self):
         """connects to the server using requests"""
-        if self.should_connect:
+        if self.should_connect and self.running:
             success = False
             while not success:
                 if self.last_id:
                     self.requests_kwargs['headers']['Last-Event-ID'] = self.last_id
-                headers = self.build_headers()
-                self.requests_kwargs['headers'].update(headers)
                 # Use session if set.  Otherwise fall back to requests module.
                 self.requester = self.session or requests
                 self.resp = self.requester.get(self.url, stream=True, **self.requests_kwargs)
@@ -83,6 +84,7 @@ class SSEClient(object):
             raise StopIteration()
 
     def _event_complete(self):
+        """Checks if the event is completed by matching regular expression"""
         return re.search(end_of_field, self.buf) is not None
 
     def __iter__(self):
@@ -96,6 +98,7 @@ class SSEClient(object):
             except (StopIteration, requests.RequestException):
                 time.sleep(self.retry / 1000.0)
                 self._connect()
+
 
                 # The SSE spec only supports resuming from a whole message, so
                 # if we have half a message we should throw it out.
@@ -143,26 +146,16 @@ class Event(object):
         self.event_id = event_id
         self.retry = retry
 
-    def dump(self):
-        """Dumps the event data"""
-        lines = []
-        if self.event_id:
-            lines.append('id: %s' % self.event_id)
-
-        # Only include an event line if it's not the default already.
-        if self.event != 'message':
-            lines.append('event: %s' % self.event)
-
-        if self.retry:
-            lines.append('retry: %s' % self.retry)
-
-        lines.extend('data: %s' % d for d in self.data.split('\n'))
-        return '\n'.join(lines) + '\n\n'
-
     @classmethod
     def parse(cls, raw):
         """Given a possibly-multiline string representing an SSE message, parse it
         and return a Event object.
+
+        Args:
+          raw: the raw data to parse
+
+        Returns:
+          Event: newly intialized Event() object with the parameters  initialized
         """
         msg = cls()
         for line in raw.split('\n'):

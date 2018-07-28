@@ -3,7 +3,6 @@ import json
 import six
 import requests
 
-from firebase_admin._sseclient import SSEClient, KeepAuthSession, Event
 from firebase_admin import _sseclient
 from tests.testutils import MockAdapter
 
@@ -33,10 +32,10 @@ class TestSSEClient(object):
         payload = 'event: put\ndata: {"path":"/","data":"testevent"}\n\n'
 
         adapter = MockSSEClient(payload)
-        session = KeepAuthSession()
+        session = _sseclient.KeepAuthSession()
         session.mount(self.test_url, adapter)
 
-        sseclient = SSEClient(url=self.test_url, session=session)
+        sseclient = _sseclient.SSEClient(url=self.test_url, session=session)
         return sseclient
 
 
@@ -49,9 +48,8 @@ class TestSSEClient(object):
 
     def test_event(self):
         sseclient = self.init_sse()
-        for msg in sseclient:
-            event = json.loads(msg.data)
-            break
+        msg = next(sseclient)
+        event = json.loads(msg.data)
         assert event["data"] == "testevent"
         assert event["path"] == "/"
 
@@ -61,12 +59,12 @@ class TestEvent(object):
 
     def test_normal(self):
         data = 'event: put\ndata: {"path":"/","data":"testdata"}'
-        event = Event.parse(data)
+        event = _sseclient.Event.parse(data)
         assert event.event == "put"
         assert event.data == '{"path":"/","data":"testdata"}'
 
     def test_invalid(self):
         data = 'event: invalid_event'
-        event = Event.parse(data)
+        event = _sseclient.Event.parse(data)
         assert event.event == "invalid_event"
         assert event.data == ''

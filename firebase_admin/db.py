@@ -29,12 +29,11 @@ import time
 import requests
 import six
 from six.moves import urllib
-from google.auth import transport
 
 import firebase_admin
 from firebase_admin import _http_client
 from firebase_admin import _utils
-from firebase_admin._sseclient import SSEClient, KeepAuthSession
+from firebase_admin import _sseclient
 
 
 try:
@@ -97,9 +96,9 @@ class Stream(object):
 
     def start_stream(self):
         """Streaming function for the spawned thread to run"""
-        self.sse = SSEClient(
+        self.sse = _sseclient.SSEClient(
             self.url,
-            session=KeepAuthSession()
+            session=_sseclient.KeepAuthSession()
         )
 
         for msg in self.sse:

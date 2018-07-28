@@ -61,9 +61,7 @@ class TestEvent(object):
 
     def test_normal(self):
         data = 'event: put\ndata: {"path":"/","data":"testdata"}'
-        output = 'event: put\ndata: {"path":"/","data":"testdata"}\n\n'
         event = Event.parse(data)
-        assert event.dump() == output
         assert event.event == "put"
         assert event.data == '{"path":"/","data":"testdata"}'
 

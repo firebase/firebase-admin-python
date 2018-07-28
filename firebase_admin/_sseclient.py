@@ -22,14 +22,15 @@ class KeepAuthSession(requests.Session):
 
 class SSEClient(object):
     """SSE Client Class"""
+
     def __init__(self, url, session, last_id=None, retry=3000, **kwargs):
         """Initialize the SSEClient
         Args:
-            url: the url to connect to
-            session: the requests.session()
-            last_id: optional id
-            retry: the interval in ms
-            **kwargs: extra kwargs will be sent to requests.get
+          url: the url to connect to
+          session: the requests.session()
+          last_id: optional id
+          retry: the interval in ms
+          **kwargs: extra kwargs will be sent to requests.get
         """
         self.should_connect = True
         self.url = url
@@ -84,7 +85,11 @@ class SSEClient(object):
             raise StopIteration()
 
     def _event_complete(self):
-        """Checks if the event is completed by matching regular expression"""
+        """Checks if the event is completed by matching regular expression
+
+        Returns:
+           boolean: True if the regex matched meaning end of event, else False
+        """
         return re.search(end_of_field, self.buf) is not None
 
     def __iter__(self):

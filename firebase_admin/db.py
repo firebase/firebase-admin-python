@@ -24,7 +24,6 @@ import collections
 import json
 import sys
 import threading
-import time
 
 import requests
 import six
@@ -90,17 +89,16 @@ class Stream(object):
 
     def start(self):
         """Start the streaming by spawning a thread"""
+        self.sse = _sseclient.SSEClient(
+            self.url,
+            session=_sseclient.KeepAuthSession()
+        )
         self.thread = threading.Thread(target=self.start_stream)
         self.thread.start()
         return self
 
     def start_stream(self):
         """Streaming function for the spawned thread to run"""
-        self.sse = _sseclient.SSEClient(
-            self.url,
-            session=_sseclient.KeepAuthSession()
-        )
-
         for msg in self.sse:
             # iterate the sse client's generator
             if msg:
@@ -111,8 +109,6 @@ class Stream(object):
                 self.stream_handler(msg_data)
 
     def close(self):
-        while not self.sse and not hasattr(self.sse, "resp"):
-            time.sleep(0.001)
         self.sse.running = False
         self.sse.close()
         self.thread.join()

@@ -43,7 +43,6 @@ class TestSSEClient(object):
         sseclient = self.init_sse()
 
         assert sseclient.url == self.test_url
-        assert sseclient.running
         assert sseclient.session != None
 
     def test_event(self):

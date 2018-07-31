@@ -48,7 +48,6 @@ class SSEClient(object):
         self.url = url
         self.last_id = last_id
         self.retry = retry
-        self.running = True
         self.session = session
         self.requests_kwargs = kwargs
 
@@ -69,7 +68,6 @@ class SSEClient(object):
         """Close the SSE Client instance"""
         # TODO: check if AttributeError is needed to catch here
         self.should_connect = False
-        self.running = False
         self.retry = 0
         self.resp.close()
         #  self.resp.raw._fp.fp.raw._sock.shutdown(socket.SHUT_RDWR)
@@ -78,7 +76,7 @@ class SSEClient(object):
 
     def _connect(self):
         """connects to the server using requests"""
-        if self.should_connect and self.running:
+        if self.should_connect:
             success = False
             while not success:
                 if self.last_id:

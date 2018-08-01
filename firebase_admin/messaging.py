@@ -284,7 +284,13 @@ class WebpushConfig(object):
 
 
 class WebpushNotificationAction(object):
-    """An action available to the users when the notification is presented."""
+    """An action available to the users when the notification is presented.
+
+    Args:
+        action: Action string.
+        title: Title string.
+        icon: Icon URL for the action (optional).
+    """
 
     def __init__(self, action, title, icon=None):
         self.action = action

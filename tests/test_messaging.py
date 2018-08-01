@@ -447,20 +447,93 @@ class TestWebpushNotificationEncoder(object):
         excinfo = self._check_notification(notification)
         assert str(excinfo.value) == 'WebpushNotification.icon must be a string.'
 
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_badge(self, data):
+        notification = messaging.WebpushNotification(badge=data)
+        excinfo = self._check_notification(notification)
+        assert str(excinfo.value) == 'WebpushNotification.badge must be a string.'
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS + ['foo'])
+    def test_invalid_direction(self, data):
+        notification = messaging.WebpushNotification(direction=data)
+        excinfo = self._check_notification(notification)
+        if isinstance(data, six.string_types):
+            assert str(excinfo.value) == ('WebpushNotification.direction must be "auto", '
+                                          '"ltr" or "rtl".')
+        else:
+            assert str(excinfo.value) == 'WebpushNotification.direction must be a string.'
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_image(self, data):
+        notification = messaging.WebpushNotification(image=data)
+        excinfo = self._check_notification(notification)
+        assert str(excinfo.value) == 'WebpushNotification.image must be a string.'
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_language(self, data):
+        notification = messaging.WebpushNotification(language=data)
+        excinfo = self._check_notification(notification)
+        assert str(excinfo.value) == 'WebpushNotification.language must be a string.'
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_tag(self, data):
+        notification = messaging.WebpushNotification(tag=data)
+        excinfo = self._check_notification(notification)
+        assert str(excinfo.value) == 'WebpushNotification.tag must be a string.'
+
+    @pytest.mark.parametrize('data', ['', 'foo', list(), tuple(), dict()])
+    def test_invalid_timestamp(self, data):
+        notification = messaging.WebpushNotification(timestamp_millis=data)
+        excinfo = self._check_notification(notification)
+        assert str(excinfo.value) == 'WebpushNotification.timestamp_millis must be a number.'
+
+    @pytest.mark.parametrize('data', ['', list(), tuple(), True, False, 1, 0, ])
+    def test_invalid_custom_data(self, data):
+        notification = messaging.WebpushNotification(custom_data=data)
+        excinfo = self._check_notification(notification)
+        assert str(excinfo.value) == 'WebpushNotification.custom_data must be a dict.'
+
     def test_webpush_notification(self):
         msg = messaging.Message(
             topic='topic',
             webpush=messaging.WebpushConfig(
-                notification=messaging.WebpushNotification(title='t', body='b', icon='i')
+                notification=messaging.WebpushNotification(
+                    badge='badge',
+                    body='body',
+                    data={'foo': 'bar'},
+                    icon='icon',
+                    image='image',
+                    language='language',
+                    renotify=True,
+                    require_interaction=True,
+                    silent=True,
+                    tag='tag',
+                    timestamp_millis=100,
+                    title='title',
+                    vibrate=[100, 200, 100],
+                    custom_data={'k1': 'v1', 'k2': 'v2'},
+                ),
             )
         )
         expected = {
             'topic': 'topic',
             'webpush': {
                 'notification': {
-                    'title': 't',
-                    'body': 'b',
-                    'icon': 'i',
+                    'badge': 'badge',
+                    'body': 'body',
+                    'data': {'foo': 'bar'},
+                    'icon': 'icon',
+                    'image': 'image',
+                    'lang': 'language',
+                    'renotify': True,
+                    'requireInteraction': True,
+                    'silent': True,
+                    'tag': 'tag',
+                    'timestamp': 100,
+                    'vibrate': [100, 200, 100],
+                    'title': 'title',
+                    'k1': 'v1',
+                    'k2': 'v2',
                 },
             },
         }

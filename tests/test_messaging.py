@@ -487,11 +487,18 @@ class TestWebpushNotificationEncoder(object):
         excinfo = self._check_notification(notification)
         assert str(excinfo.value) == 'WebpushNotification.timestamp_millis must be a number.'
 
-    @pytest.mark.parametrize('data', ['', list(), tuple(), True, False, 1, 0, ])
+    @pytest.mark.parametrize('data', ['', list(), tuple(), True, False, 1, 0])
     def test_invalid_custom_data(self, data):
         notification = messaging.WebpushNotification(custom_data=data)
         excinfo = self._check_notification(notification)
         assert str(excinfo.value) == 'WebpushNotification.custom_data must be a dict.'
+
+    @pytest.mark.parametrize('data', ['', dict(), tuple(), True, False, 1, 0, [1, 2]])
+    def test_invalid_actions(self, data):
+        notification = messaging.WebpushNotification(actions=data)
+        excinfo = self._check_notification(notification)
+        assert str(excinfo.value) == ('WebpushConfig.notification.actions must be a list of '
+                                      'WebpushNotificationAction instances.')
 
     def test_webpush_notification(self):
         msg = messaging.Message(
@@ -538,6 +545,75 @@ class TestWebpushNotificationEncoder(object):
             },
         }
         check_encoding(msg, expected)
+
+    def test_multiple_field_specifications(self):
+        notification = messaging.WebpushNotification(
+            badge='badge',
+            custom_data={'badge': 'other badge'},
+        )
+        excinfo = self._check_notification(notification)
+        expected = 'Multiple specifications for badge in WebpushNotification.'
+        assert str(excinfo.value) == expected
+
+    def test_webpush_notification_action(self):
+        msg = messaging.Message(
+            topic='topic',
+            webpush=messaging.WebpushConfig(
+                notification=messaging.WebpushNotification(
+                    actions=[
+                        messaging.WebpushNotificationAction(
+                            action='a1',
+                            title='t1',
+                        ),
+                        messaging.WebpushNotificationAction(
+                            action='a2',
+                            title='t2',
+                            icon='i2',
+                        ),
+                    ],
+                ),
+            )
+        )
+        expected = {
+            'topic': 'topic',
+            'webpush': {
+                'notification': {
+                    'actions': [
+                        {
+                            'action': 'a1',
+                            'title': 't1',
+                        },
+                        {
+                            'action': 'a2',
+                            'title': 't2',
+                            'icon': 'i2',
+                        },
+                    ],
+                },
+            },
+        }
+        check_encoding(msg, expected)
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_action_name(self, data):
+        action = messaging.WebpushNotificationAction(action=data, title='title')
+        notification = messaging.WebpushNotification(actions=[action])
+        excinfo = self._check_notification(notification)
+        assert str(excinfo.value) == 'WebpushNotificationAction.action must be a string.'
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_action_title(self, data):
+        action = messaging.WebpushNotificationAction(action='action', title=data)
+        notification = messaging.WebpushNotification(actions=[action])
+        excinfo = self._check_notification(notification)
+        assert str(excinfo.value) == 'WebpushNotificationAction.title must be a string.'
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_action_icon(self, data):
+        action = messaging.WebpushNotificationAction(action='action', title='title', icon=data)
+        notification = messaging.WebpushNotification(actions=[action])
+        excinfo = self._check_notification(notification)
+        assert str(excinfo.value) == 'WebpushNotificationAction.icon must be a string.'
 
 
 class TestAPNSConfigEncoder(object):

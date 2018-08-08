@@ -82,46 +82,64 @@ class Event(object):
 
     def __init__(self, sse_event):
         self._sse_event = sse_event
+        self._data = json.loads(sse_event.data)
 
     @property
     def data(self):
-        return self._sse_event.data
+        """Parsed JSON data of this event."""
+        return self._data['data']
+
+    @property
+    def path(self):
+        """Path of the database reference that triggered this event."""
+        return self._data['path']
 
     @property
     def event_type(self):
+        """Event type string (put, patch)."""
         return self._sse_event.event_type
-
-    @property
-    def event_id(self):
-        return self._sse_event.event_id
 
 
 class ListenerRegistration(object):
     """Represents the addition of an event listener to a database reference."""
 
-    def __init__(self, credential, url, callback):
-        """Initialize a new ListenerRegistration object with given parameters
+    def __init__(self, url, callback, credential=None, retry=None, session=None):
+        """Initializes a new listener with given parameters.
+
+        This is an internal API. Use the ``db.Reference.listen()`` method to start a
+        new listener.
 
         Args:
-          credential: Google Credentials to authorize the requests.
-          url: the data node url to listen for changes.
-          callback: the callback function to fire in case of event.
+          url: The data node url to listen for changes.
+          callback: The callback function to fire in case of event.
+          credential: Google Credentials to authorize the requests (optional).
+          retry: Retry duration in milliseconds (optional). Exposed for testing.
+          session: A transport session to make requests with (optional). Exposed for testing.
         """
         self._callback = callback
         self._sse = None
         self._thread = None
-        self._sse = _sseclient.SSEClient(url, _sseclient.KeepAuthSession(credential))
+        if session is None:
+            if credential:
+                session = _sseclient.KeepAuthSession(credential)
+            else:
+                session = requests.Session() # pylint: disable=redefined-variable-type
+        self._sse = _sseclient.SSEClient(url, session, retry=retry)
         self._thread = threading.Thread(target=self._start_listen)
         self._thread.start()
 
     def _start_listen(self):
+        # iterate the sse client's generator
         for sse_event in self._sse:
-            # iterate the sse client's generator
+            # only inject data events
             if sse_event:
                 self._callback(Event(sse_event))
 
     def close(self):
-        """Terminates SSE server connection and joins the thread."""
+        """Stops the event listener represented by this registration
+
+        This closes the SSE HTTP connection, and joins the background thread.
+        """
         self._sse.close()
         self._thread.join()
 
@@ -341,9 +359,10 @@ class Reference(object):
     def listen(self, callback):
         """Registers the ``callback`` function to receive realtime updates.
 
-        Each call to ``listen()`` starts a new HTTP connection and a background thread.
-        This is an experimental feature. It currently does not honor the auth overrides
-        and timeout settings.
+        This API is based on the event streaming support available in the Firebase REST API. Each
+        call to ``listen()`` starts a new HTTP connection and a background thread. This is an
+        experimental feature. It currently does not honor the auth overrides and timeout settings.
+        Cannot be used in thread-constrained environments such as Google App Engine.
 
         Args:
           callback: A function to be called when a data change is detected.
@@ -351,8 +370,8 @@ class Reference(object):
         Returns:
           ListenerRegistration: An object that can be used to stop the event listener.
         """
-        request_url = self._client.base_url + self._add_suffix()
-        return ListenerRegistration(self._client.credential, request_url, callback)
+        url = self._client.base_url + self._add_suffix()
+        return ListenerRegistration(url, callback, credential=self._client.credential)
 
     def transaction(self, transaction_update):
         """Atomically modifies the data at this location.

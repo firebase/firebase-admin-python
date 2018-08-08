@@ -16,12 +16,15 @@
 import collections
 import json
 import sys
+import time
 
 import pytest
+import requests
 
 import firebase_admin
 from firebase_admin import db
 from tests import testutils
+from tests import test_sseclient
 
 
 class MockAdapter(testutils.MockAdapter):
@@ -448,6 +451,70 @@ class TestReference(object):
         with pytest.raises(db.ApiCallError) as excinfo:
             ref.get()
         assert 'Reason: custom error message' in str(excinfo.value)
+
+
+class TestReferenceListen(object):
+
+    test_url = 'https://test.firebaseio.com'
+
+    @classmethod
+    def setup_class(cls):
+        firebase_admin.initialize_app(testutils.MockCredential(), {'databaseURL' : cls.test_url})
+
+    @classmethod
+    def teardown_class(cls):
+        testutils.cleanup_apps()
+
+    def instrument(self, session, payload):
+        recorder = []
+        adapter = test_sseclient.MockSSEClientAdapter(payload, recorder)
+        session.mount(self.test_url, adapter)
+        return recorder
+
+    def test_single_event(self):
+        self.events = []
+        data = 'event: put\ndata: {"path":"/","data":"testevent"}\n\n'
+        session = requests.Session()
+        self.instrument(session, data)
+        def callback(event):
+            self.events.append(event)
+        registration = db.ListenerRegistration(self.test_url, callback, retry=1, session=session)
+        TestReferenceListen.wait_for(self.events)
+        registration.close()
+        assert len(self.events) == 1
+        event = self.events[0]
+        assert event.event_type == 'put'
+        assert event.path == '/'
+        assert event.data == 'testevent'
+
+    def test_multiple_events(self):
+        self.events = []
+        data = 'event: put\ndata: {"path":"/foo","data":"testevent1"}\n\n'
+        data += 'event: put\ndata: {"path":"/bar","data":{"a": 1}}\n\n'
+        session = requests.Session()
+        self.instrument(session, data)
+        def callback(event):
+            self.events.append(event)
+        registration = db.ListenerRegistration(self.test_url, callback, retry=1, session=session)
+        TestReferenceListen.wait_for(self.events, count=2)
+        registration.close()
+        assert len(self.events) == 2
+        event = self.events[0]
+        assert event.event_type == 'put'
+        assert event.path == '/foo'
+        assert event.data == 'testevent1'
+        event = self.events[1]
+        assert event.event_type == 'put'
+        assert event.path == '/bar'
+        assert event.data == {'a': 1}
+
+    @classmethod
+    def wait_for(cls, events, count=1, timeout_seconds=5):
+        must_end = time.time() + timeout_seconds
+        while time.time() < must_end:
+            if len(events) >= count:
+                return
+        raise pytest.fail('Timed out while waiting for events')
 
 
 class TestReferenceWithAuthOverride(object):

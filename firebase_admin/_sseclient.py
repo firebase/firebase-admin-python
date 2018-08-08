@@ -1,3 +1,5 @@
+# Copyright 2017 Google Inc.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -10,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""SSEClient module to stream realtime updates in the Firebase Database"""
+"""SSEClient module to stream realtime updates in the Firebase Database."""
 
 import re
 import time
@@ -26,7 +28,7 @@ end_of_field = re.compile(r'\r\n\r\n|\r\r|\n\n')
 
 
 class KeepAuthSession(transport.requests.AuthorizedSession):
-    """A session that does not drop Authentication on redirects between domains"""
+    """A session that does not drop authentication on redirects between domains."""
 
     def __init__(self, credential):
         super(KeepAuthSession, self).__init__(credential)
@@ -36,21 +38,24 @@ class KeepAuthSession(transport.requests.AuthorizedSession):
 
 
 class SSEClient(object):
-    """SSE Client Class"""
+    """SSE client implementation."""
 
-    def __init__(self, url, session, retry=3000, **kwargs):
+    def __init__(self, url, session, retry=None, **kwargs):
         """Initializes the SSEClient.
 
         Args:
-          url: the url to connect to.
-          session: the requests session.
-          retry: the retry interval in ms.
-          **kwargs: extra kwargs will be sent to ``requests.get()``.
+          url: The remote url to connect to.
+          session: The requests session.
+          retry: The retry interval in milliseconds (optional).
+          **kwargs: Extra kwargs that will be sent to ``requests.get()`` (optional).
         """
         self.should_connect = True
         self.url = url
         self.last_id = None
-        self.retry = retry
+        if retry is None:
+            self.retry = 3000
+        else:
+            self.retry = retry
         self.session = session
         self.requests_kwargs = kwargs
 
@@ -67,7 +72,6 @@ class SSEClient(object):
 
     def close(self):
         """Closes the SSEClient instance."""
-        # TODO: check if AttributeError is needed to be caught here
         self.should_connect = False
         self.retry = 0
         self.resp.close()

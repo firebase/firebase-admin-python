@@ -82,13 +82,17 @@ def _parse_path(path):
     return [seg for seg in path.split('/') if seg]
 
 
-class Stream(object):
+class ListenerRegistration(object):
     """Class that handles the streaming of data node changes from server"""
-    def __init__(self, url, stream_handler, stream_id):
-        """Initialize the streaming object"""
+    def __init__(self, url, stream_handler):
+        """Initialize a new ListenerRegistration object with given parameters
+
+        Args:
+          url: the data node url to listen for changes
+          stream_handler: the callback function to fire in case of event
+        """
         self.url = url
         self.stream_handler = stream_handler
-        self.stream_id = stream_id
         self.sse = None
         self.thread = None
         self.start()
@@ -110,11 +114,10 @@ class Stream(object):
             if msg:
                 msg_data = json.loads(msg.data)
                 msg_data["event"] = msg.event
-                if self.stream_id:
-                    msg_data["stream_id"] = self.stream_id
                 self.stream_handler(msg_data)
 
     def close(self):
+        """Terminates SSE server connection and joins the thread"""
         self.sse.running = False
         self.sse.close()
         self.thread.join()
@@ -152,13 +155,21 @@ class Reference(object):
             return Reference(client=self._client, segments=self._segments[:-1])
         return None
 
-    def stream(self, stream_handler, stream_id=None):
+    def listen(self, stream_handler):
+        """Function to setup the streaming of data from server data node changes
+
+        Args:
+          stream_handler: A function to callback in the event of data node change detected
+
+        Returns:
+          object: Returns a ListenerRegistration object which handles the stream
+        """
         parameters = {}
         # reset path and build_query for next query
         request_ref = '{}{}.json?{}'.format(
             self._client.base_url, self._pathurl, urlencode(parameters)
         )
-        return Stream(request_ref, stream_handler, stream_id)
+        return ListenerRegistration(request_ref, stream_handler)
 
     def child(self, path):
         """Returns a Reference to the specified child node.

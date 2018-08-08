@@ -1,5 +1,7 @@
 # Unreleased
 
+- [added] The `db.Reference` type now provides a `listen()` API for
+  receiving realtime update events from the Firebase Database.
 - [added] The `db.reference()` method now optionally takes a `url`
   parameter. This can be used to access multiple Firebase Databases
   in the same project more easily. 

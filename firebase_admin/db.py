@@ -31,14 +31,9 @@ from six.moves import urllib
 
 import firebase_admin
 from firebase_admin import _http_client
-from firebase_admin import _utils
 from firebase_admin import _sseclient
+from firebase_admin import _utils
 
-
-try:
-    from urllib.parse import urlencode
-except ImportError:
-    from urllib import urlencode
 
 _DB_ATTRIBUTE = '_database'
 _INVALID_PATH_CHARACTERS = '[].?#$'
@@ -82,45 +77,53 @@ def _parse_path(path):
     return [seg for seg in path.split('/') if seg]
 
 
+class Event(object):
+    """Represents a realtime update event received from the database."""
+
+    def __init__(self, sse_event):
+        self._sse_event = sse_event
+
+    @property
+    def data(self):
+        return self._sse_event.data
+
+    @property
+    def event_type(self):
+        return self._sse_event.event_type
+
+    @property
+    def event_id(self):
+        return self._sse_event.event_id
+
+
 class ListenerRegistration(object):
-    """Class that handles the streaming of data node changes from server"""
-    def __init__(self, url, stream_handler):
+    """Represents the addition of an event listener to a database reference."""
+
+    def __init__(self, credential, url, callback):
         """Initialize a new ListenerRegistration object with given parameters
 
         Args:
-          url: the data node url to listen for changes
-          stream_handler: the callback function to fire in case of event
+          credential: Google Credentials to authorize the requests.
+          url: the data node url to listen for changes.
+          callback: the callback function to fire in case of event.
         """
-        self.url = url
-        self.stream_handler = stream_handler
-        self.sse = None
-        self.thread = None
-        self.start()
+        self._callback = callback
+        self._sse = None
+        self._thread = None
+        self._sse = _sseclient.SSEClient(url, _sseclient.KeepAuthSession(credential))
+        self._thread = threading.Thread(target=self._start_listen)
+        self._thread.start()
 
-    def start(self):
-        """Start the streaming by spawning a thread"""
-        self.sse = _sseclient.SSEClient(
-            self.url,
-            session=_sseclient.KeepAuthSession()
-        )
-        self.thread = threading.Thread(target=self.start_stream)
-        self.thread.start()
-        return self
-
-    def start_stream(self):
-        """Streaming function for the spawned thread to run"""
-        for msg in self.sse:
+    def _start_listen(self):
+        for sse_event in self._sse:
             # iterate the sse client's generator
-            if msg:
-                msg_data = json.loads(msg.data)
-                msg_data["event"] = msg.event
-                self.stream_handler(msg_data)
+            if sse_event:
+                self._callback(Event(sse_event))
 
     def close(self):
-        """Terminates SSE server connection and joins the thread"""
-        self.sse.running = False
-        self.sse.close()
-        self.thread.join()
+        """Terminates SSE server connection and joins the thread."""
+        self._sse.close()
+        self._thread.join()
 
 
 class Reference(object):
@@ -154,22 +157,6 @@ class Reference(object):
         if self._segments:
             return Reference(client=self._client, segments=self._segments[:-1])
         return None
-
-    def listen(self, stream_handler):
-        """Function to setup the streaming of data from server data node changes
-
-        Args:
-          stream_handler: A function to callback in the event of data node change detected
-
-        Returns:
-          object: Returns a ListenerRegistration object which handles the stream
-        """
-        parameters = {}
-        # reset path and build_query for next query
-        request_ref = '{}{}.json?{}'.format(
-            self._client.base_url, self._pathurl, urlencode(parameters)
-        )
-        return ListenerRegistration(request_ref, stream_handler)
 
     def child(self, path):
         """Returns a Reference to the specified child node.
@@ -350,6 +337,22 @@ class Reference(object):
           ApiCallError: If an error occurs while communicating with the remote database server.
         """
         self._client.request('delete', self._add_suffix())
+
+    def listen(self, callback):
+        """Registers the ``callback`` function to receive realtime updates.
+
+        Each call to ``listen()`` starts a new HTTP connection and a background thread.
+        This is an experimental feature. It currently does not honor the auth overrides
+        and timeout settings.
+
+        Args:
+          callback: A function to be called when a data change is detected.
+
+        Returns:
+          ListenerRegistration: An object that can be used to stop the event listener.
+        """
+        request_url = self._client.base_url + self._add_suffix()
+        return ListenerRegistration(self._client.credential, request_url, callback)
 
     def transaction(self, transaction_update):
         """Atomically modifies the data at this location.
@@ -820,16 +823,9 @@ class _Client(_http_client.JsonHttpClient):
         """
         _http_client.JsonHttpClient.__init__(
             self, credential=credential, base_url=base_url, headers={'User-Agent': _USER_AGENT})
-        self._auth_override = auth_override
-        self._timeout = timeout
-
-    @property
-    def auth_override(self):
-        return self._auth_override
-
-    @property
-    def timeout(self):
-        return self._timeout
+        self.credential = credential
+        self.auth_override = auth_override
+        self.timeout = timeout
 
     def request(self, method, url, **kwargs):
         """Makes an HTTP call using the Python requests library.
@@ -849,15 +845,15 @@ class _Client(_http_client.JsonHttpClient):
         Raises:
           ApiCallError: If an error occurs while making the HTTP call.
         """
-        if self._auth_override:
+        if self.auth_override:
             params = kwargs.get('params')
             if params:
-                params += '&{0}'.format(self._auth_override)
+                params += '&{0}'.format(self.auth_override)
             else:
-                params = self._auth_override
+                params = self.auth_override
             kwargs['params'] = params
-        if self._timeout:
-            kwargs['timeout'] = self._timeout
+        if self.timeout:
+            kwargs['timeout'] = self.timeout
         try:
             return super(_Client, self).request(method, url, **kwargs)
         except requests.exceptions.RequestException as error:

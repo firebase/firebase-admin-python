@@ -103,28 +103,18 @@ class Event(object):
 class ListenerRegistration(object):
     """Represents the addition of an event listener to a database reference."""
 
-    def __init__(self, url, callback, credential=None, retry=None, session=None):
+    def __init__(self, callback, sse):
         """Initializes a new listener with given parameters.
 
         This is an internal API. Use the ``db.Reference.listen()`` method to start a
         new listener.
 
         Args:
-          url: The data node url to listen for changes.
           callback: The callback function to fire in case of event.
-          credential: Google Credentials to authorize the requests (optional).
-          retry: Retry duration in milliseconds (optional). Exposed for testing.
-          session: A transport session to make requests with (optional). Exposed for testing.
+          sse: A transport session to make requests with.
         """
         self._callback = callback
-        self._sse = None
-        self._thread = None
-        if session is None:
-            if credential:
-                session = _sseclient.KeepAuthSession(credential)
-            else:
-                session = requests.Session() # pylint: disable=redefined-variable-type
-        self._sse = _sseclient.SSEClient(url, session, retry=retry)
+        self._sse = sse
         self._thread = threading.Thread(target=self._start_listen)
         self._thread.start()
 
@@ -371,7 +361,9 @@ class Reference(object):
           ListenerRegistration: An object that can be used to stop the event listener.
         """
         url = self._client.base_url + self._add_suffix()
-        return ListenerRegistration(url, callback, credential=self._client.credential)
+        session = _sseclient.KeepAuthSession(self._client.credential)
+        sse = _sseclient.SSEClient(url, session)
+        return ListenerRegistration(callback, sse)
 
     def transaction(self, transaction_update):
         """Atomically modifies the data at this location.

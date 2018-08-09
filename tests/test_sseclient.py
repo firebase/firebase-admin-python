@@ -90,7 +90,7 @@ class TestSSEClient(object):
 
 
 class TestEvent(object):
-    """Test cases for Events"""
+    """Test cases for server-side events"""
 
     def test_normal(self):
         data = 'event: put\ndata: {"path":"/","data":"testdata"}'

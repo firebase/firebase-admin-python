@@ -52,10 +52,7 @@ class SSEClient(object):
         self.should_connect = True
         self.url = url
         self.last_id = None
-        if retry is None:
-            self.retry = 3000
-        else:
-            self.retry = retry
+        self.retry = retry or 3000
         self.session = session
         self.requests_kwargs = kwargs
 
@@ -79,14 +76,11 @@ class SSEClient(object):
     def _connect(self):
         """Connects to the server using requests."""
         if self.should_connect:
-            success = False
-            while not success:
-                if self.last_id:
-                    self.requests_kwargs['headers']['Last-Event-ID'] = self.last_id
-                self.resp = self.session.get(self.url, stream=True, **self.requests_kwargs)
-                self.resp_iterator = self.resp.iter_content(decode_unicode=True)
-                self.resp.raise_for_status()
-                success = True
+            if self.last_id:
+                self.requests_kwargs['headers']['Last-Event-ID'] = self.last_id
+            self.resp = self.session.get(self.url, stream=True, **self.requests_kwargs)
+            self.resp_iterator = self.resp.iter_content(decode_unicode=True)
+            self.resp.raise_for_status()
         else:
             raise StopIteration()
 

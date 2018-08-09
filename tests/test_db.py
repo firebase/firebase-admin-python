@@ -469,15 +469,23 @@ class TestReference(object):
 class TestListenerRegistration(object):
     """Test cases for receiving events via ListenerRegistrations."""
 
-    @classmethod
-    def setup_class(cls):
+    def test_listen_error(self):
+        test_url = 'https://test.firebaseio.com'
         firebase_admin.initialize_app(testutils.MockCredential(), {
-            'databaseURL' : 'https://test.firebaseio.com',
+            'databaseURL' : test_url,
         })
-
-    @classmethod
-    def teardown_class(cls):
-        testutils.cleanup_apps()
+        try:
+            ref = db.reference()
+            adapter = MockAdapter(json.dumps({'error' : 'json error message'}), 500, [])
+            session = ref._client.session
+            session.mount(test_url, adapter)
+            def callback(_):
+                pass
+            with pytest.raises(db.ApiCallError) as excinfo:
+                ref._listen_with_session(callback, session)
+            assert 'Reason: json error message' in str(excinfo.value)
+        finally:
+            testutils.cleanup_apps()
 
     def test_single_event(self):
         self.events = []

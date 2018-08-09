@@ -40,7 +40,7 @@ class KeepAuthSession(transport.requests.AuthorizedSession):
 class SSEClient(object):
     """SSE client implementation."""
 
-    def __init__(self, url, session, retry=None, **kwargs):
+    def __init__(self, url, session, retry=3000, **kwargs):
         """Initializes the SSEClient.
 
         Args:
@@ -49,12 +49,13 @@ class SSEClient(object):
           retry: The retry interval in milliseconds (optional).
           **kwargs: Extra kwargs that will be sent to ``requests.get()`` (optional).
         """
-        self.should_connect = True
         self.url = url
-        self.last_id = None
-        self.retry = retry or 3000
         self.session = session
+        self.retry = retry
         self.requests_kwargs = kwargs
+        self.should_connect = True
+        self.last_id = None
+        self.buf = u'' # Keep data here as it streams in
 
         headers = self.requests_kwargs.get('headers', {})
         # The SSE spec requires making requests with Cache-Control: nocache
@@ -62,9 +63,6 @@ class SSEClient(object):
         # The 'Accept' header is not required, but explicit > implicit
         headers['Accept'] = 'text/event-stream'
         self.requests_kwargs['headers'] = headers
-
-        # Keep data here as it streams in
-        self.buf = u''
         self._connect()
 
     def close(self):

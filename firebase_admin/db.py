@@ -349,21 +349,25 @@ class Reference(object):
     def listen(self, callback):
         """Registers the ``callback`` function to receive realtime updates.
 
+        The specified callback function will get invoked with ``db.Event`` objects for each
+        realtime update received from the Database.
+
         This API is based on the event streaming support available in the Firebase REST API. Each
         call to ``listen()`` starts a new HTTP connection and a background thread. This is an
         experimental feature. It currently does not honor the auth overrides and timeout settings.
-        Cannot be used in thread-constrained environments such as Google App Engine.
+        Cannot be used in thread-constrained environments like Google App Engine.
 
         Args:
           callback: A function to be called when a data change is detected.
 
         Returns:
           ListenerRegistration: An object that can be used to stop the event listener.
+
+        Raises:
+          ApiCallError: If an error occurs while starting the initial HTTP connection.
         """
-        url = self._client.base_url + self._add_suffix()
         session = _sseclient.KeepAuthSession(self._client.credential)
-        sse = _sseclient.SSEClient(url, session)
-        return ListenerRegistration(callback, sse)
+        return self._listen_with_session(callback, session)
 
     def transaction(self, transaction_update):
         """Atomically modifies the data at this location.
@@ -450,6 +454,14 @@ class Reference(object):
 
     def _add_suffix(self, suffix='.json'):
         return self._pathurl + suffix
+
+    def _listen_with_session(self, callback, session):
+        url = self._client.base_url + self._add_suffix()
+        try:
+            sse = _sseclient.SSEClient(url, session)
+            return ListenerRegistration(callback, sse)
+        except requests.exceptions.RequestException as error:
+            raise ApiCallError(_Client.extract_error_message(error), error)
 
 
 class Query(object):
@@ -868,9 +880,10 @@ class _Client(_http_client.JsonHttpClient):
         try:
             return super(_Client, self).request(method, url, **kwargs)
         except requests.exceptions.RequestException as error:
-            raise ApiCallError(self._extract_error_message(error), error)
+            raise ApiCallError(_Client.extract_error_message(error), error)
 
-    def _extract_error_message(self, error):
+    @classmethod
+    def extract_error_message(cls, error):
         """Extracts an error message from an exception.
 
         If the server has not sent any response, simply converts the exception into a string.

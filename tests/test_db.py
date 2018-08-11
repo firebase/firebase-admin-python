@@ -523,7 +523,7 @@ class TestReferenceWithAuthOverride(object):
         assert recorder[0].headers['User-Agent'] == db._USER_AGENT
 
 
-class TestDatabseInitialization(object):
+class TestDatabaseInitialization(object):
     """Test cases for database initialization."""
 
     def teardown_method(self):

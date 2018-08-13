@@ -16,11 +16,13 @@
 import collections
 import json
 import sys
+import time
 
 import pytest
 
 import firebase_admin
 from firebase_admin import db
+from firebase_admin import _sseclient
 from tests import testutils
 
 
@@ -42,6 +44,20 @@ class MockAdapter(testutils.MockAdapter):
         elif if_none_match == MockAdapter.ETAG:
             resp.status_code = 304
         return resp
+
+
+class MockSSEClient(object):
+    """A mock SSE client that mimics long-lived HTTP connections."""
+
+    def __init__(self, events):
+        self.events = events
+        self.closed = False
+
+    def __iter__(self):
+        return iter(self.events)
+
+    def close(self):
+        self.closed = True
 
 
 class _Object(object):
@@ -448,6 +464,75 @@ class TestReference(object):
         with pytest.raises(db.ApiCallError) as excinfo:
             ref.get()
         assert 'Reason: custom error message' in str(excinfo.value)
+
+
+class TestListenerRegistration(object):
+    """Test cases for receiving events via ListenerRegistrations."""
+
+    def test_listen_error(self):
+        test_url = 'https://test.firebaseio.com'
+        firebase_admin.initialize_app(testutils.MockCredential(), {
+            'databaseURL' : test_url,
+        })
+        try:
+            ref = db.reference()
+            adapter = MockAdapter(json.dumps({'error' : 'json error message'}), 500, [])
+            session = ref._client.session
+            session.mount(test_url, adapter)
+            def callback(_):
+                pass
+            with pytest.raises(db.ApiCallError) as excinfo:
+                ref._listen_with_session(callback, session)
+            assert 'Reason: json error message' in str(excinfo.value)
+        finally:
+            testutils.cleanup_apps()
+
+    def test_single_event(self):
+        self.events = []
+        def callback(event):
+            self.events.append(event)
+        sse = MockSSEClient([
+            _sseclient.Event.parse('event: put\ndata: {"path":"/","data":"testevent"}\n\n')
+        ])
+        registration = db.ListenerRegistration(callback, sse)
+        self.wait_for(self.events)
+        registration.close()
+        assert sse.closed
+        assert len(self.events) == 1
+        event = self.events[0]
+        assert event.event_type == 'put'
+        assert event.path == '/'
+        assert event.data == 'testevent'
+
+    def test_multiple_events(self):
+        self.events = []
+        def callback(event):
+            self.events.append(event)
+        sse = MockSSEClient([
+            _sseclient.Event.parse('event: put\ndata: {"path":"/foo","data":"testevent1"}\n\n'),
+            _sseclient.Event.parse('event: put\ndata: {"path":"/bar","data":{"a": 1}}\n\n'),
+        ])
+        registration = db.ListenerRegistration(callback, sse)
+        self.wait_for(self.events, count=2)
+        registration.close()
+        assert sse.closed
+        assert len(self.events) == 2
+        event = self.events[0]
+        assert event.event_type == 'put'
+        assert event.path == '/foo'
+        assert event.data == 'testevent1'
+        event = self.events[1]
+        assert event.event_type == 'put'
+        assert event.path == '/bar'
+        assert event.data == {'a': 1}
+
+    @classmethod
+    def wait_for(cls, events, count=1, timeout_seconds=5):
+        must_end = time.time() + timeout_seconds
+        while time.time() < must_end:
+            if len(events) >= count:
+                return
+        raise pytest.fail('Timed out while waiting for events')
 
 
 class TestReferenceWithAuthOverride(object):

@@ -5,6 +5,8 @@
 - [added] The `db.reference()` method now optionally takes a `url`
   parameter. This can be used to access multiple Firebase Databases
   in the same project more easily. 
+- [added] The `messaging.WebpushNotification` type now supports
+  additional parameters.
 
 # v2.12.0
 

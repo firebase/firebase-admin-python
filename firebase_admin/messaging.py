@@ -283,8 +283,25 @@ class WebpushConfig(object):
         self.notification = notification
 
 
+class WebpushNotificationAction(object):
+    """An action available to the users when the notification is presented.
+
+    Args:
+        action: Action string.
+        title: Title string.
+        icon: Icon URL for the action (optional).
+    """
+
+    def __init__(self, action, title, icon=None):
+        self.action = action
+        self.title = title
+        self.icon = icon
+
+
 class WebpushNotification(object):
     """Webpush-specific notification parameters.
+
+    Refer to the `Notification Reference`_ for more information.
 
     Args:
         title: Title of the notification (optional). If specified, overrides the title set via
@@ -292,12 +309,50 @@ class WebpushNotification(object):
         body: Body of the notification (optional). If specified, overrides the body set via
             ``messaging.Notification``.
         icon: Icon URL of the notification (optional).
+        actions: A list of ``messaging.WebpushNotificationAction`` instances (optional).
+        badge: URL of the image used to represent the notification when there is
+            not enough space to display the notification itself (optional).
+        data: Any arbitrary JSON data that should be associated with the notification (optional).
+        direction: The direction in which to display the notification (optional). Must be either
+            'auto', 'ltr' or 'rtl'.
+        image: The URL of an image to be displayed in the notification (optional).
+        language: Notification language (optional).
+        renotify: A boolean indicating whether the user should be notified after a new
+            notification replaces an old one (optional).
+        require_interaction: A boolean indicating whether a notification should remain active
+            until the user clicks or dismisses it, rather than closing automatically (optional).
+        silent: True to indicate that the notification should be silent (optional).
+        tag: An identifying tag on the notification (optional).
+        timestamp_millis: A timestamp value in milliseconds on the notification (optional).
+        vibrate: A vibration pattern for the device's vibration hardware to emit when the
+            notification fires (optional). THe pattern is specified as an integer array.
+        custom_data: A dict of custom key-value pairs to be included in the notification
+            (optional)
+
+    .. _Notification Reference: https://developer.mozilla.org/en-US/docs/Web/API\
+        /notification/Notification
     """
 
-    def __init__(self, title=None, body=None, icon=None):
+    def __init__(self, title=None, body=None, icon=None, actions=None, badge=None, data=None,
+                 direction=None, image=None, language=None, renotify=None,
+                 require_interaction=None, silent=None, tag=None, timestamp_millis=None,
+                 vibrate=None, custom_data=None):
         self.title = title
         self.body = body
         self.icon = icon
+        self.actions = actions
+        self.badge = badge
+        self.data = data
+        self.direction = direction
+        self.image = image
+        self.language = language
+        self.renotify = renotify
+        self.require_interaction = require_interaction
+        self.silent = silent
+        self.tag = tag
+        self.timestamp_millis = timestamp_millis
+        self.vibrate = vibrate
+        self.custom_data = custom_data
 
 
 class APNSConfig(object):
@@ -579,14 +634,67 @@ class _MessageEncoder(json.JSONEncoder):
             raise ValueError('WebpushConfig.notification must be an instance of '
                              'WebpushNotification class.')
         result = {
+            'actions': cls.encode_webpush_notification_actions(notification.actions),
+            'badge': _Validators.check_string(
+                'WebpushNotification.badge', notification.badge),
             'body': _Validators.check_string(
                 'WebpushNotification.body', notification.body),
+            'data': notification.data,
+            'dir': _Validators.check_string(
+                'WebpushNotification.direction', notification.direction),
             'icon': _Validators.check_string(
                 'WebpushNotification.icon', notification.icon),
+            'image': _Validators.check_string(
+                'WebpushNotification.image', notification.image),
+            'lang': _Validators.check_string(
+                'WebpushNotification.language', notification.language),
+            'renotify': notification.renotify,
+            'requireInteraction': notification.require_interaction,
+            'silent': notification.silent,
+            'tag': _Validators.check_string(
+                'WebpushNotification.tag', notification.tag),
+            'timestamp': _Validators.check_number(
+                'WebpushNotification.timestamp_millis', notification.timestamp_millis),
             'title': _Validators.check_string(
                 'WebpushNotification.title', notification.title),
+            'vibrate': notification.vibrate,
         }
+        direction = result.get('dir')
+        if direction and direction not in ('auto', 'ltr', 'rtl'):
+            raise ValueError('WebpushNotification.direction must be "auto", "ltr" or "rtl".')
+        if notification.custom_data is not None:
+            if not isinstance(notification.custom_data, dict):
+                raise ValueError('WebpushNotification.custom_data must be a dict.')
+            for key, value in notification.custom_data.items():
+                if key in result:
+                    raise ValueError(
+                        'Multiple specifications for {0} in WebpushNotification.'.format(key))
+                result[key] = value
         return cls.remove_null_values(result)
+
+    @classmethod
+    def encode_webpush_notification_actions(cls, actions):
+        """Encodes a list of WebpushNotificationActions into JSON."""
+        if actions is None:
+            return None
+        if not isinstance(actions, list):
+            raise ValueError('WebpushConfig.notification.actions must be a list of '
+                             'WebpushNotificationAction instances.')
+        results = []
+        for action in actions:
+            if not isinstance(action, WebpushNotificationAction):
+                raise ValueError('WebpushConfig.notification.actions must be a list of '
+                                 'WebpushNotificationAction instances.')
+            result = {
+                'action': _Validators.check_string(
+                    'WebpushNotificationAction.action', action.action),
+                'title': _Validators.check_string(
+                    'WebpushNotificationAction.title', action.title),
+                'icon': _Validators.check_string(
+                    'WebpushNotificationAction.icon', action.icon),
+            }
+            results.append(cls.remove_null_values(result))
+        return results
 
     @classmethod
     def encode_apns(cls, apns):

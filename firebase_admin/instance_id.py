@@ -33,10 +33,11 @@ def _get_iid_service(app):
 
 
 def delete_instance_id(instance_id, app=None):
-    """Deletes the specified instance ID from Firebase.
+    """Deletes the specified instance ID and the associated data from Firebase.
 
-    This can be used to delete an instance ID and associated user data from a Firebase project,
-    pursuant to the General Data Protection Regulation (GDPR).
+    Note that Google Analytics for Firebase uses its own form of Instance ID to
+    keep track of analytics data. Therefore deleting a regular Instance ID does
+    not delete Analytics data. See `Delete an Instance ID`_ for more information.
 
     Args:
       instance_id: A non-empty instance ID string.
@@ -45,6 +46,9 @@ def delete_instance_id(instance_id, app=None):
     Raises:
       InstanceIdError: If an error occurs while invoking the backend instance ID service.
       ValueError: If the specified instance ID or app is invalid.
+
+    .. _Delete an Instance ID: https://firebase.google.com/support/privacy\
+          /manage-iids#delete_an_instance_id
     """
     _get_iid_service(app).delete_instance_id(instance_id)
 

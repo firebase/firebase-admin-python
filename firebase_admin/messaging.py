@@ -321,11 +321,11 @@ class WebpushNotification(object):
             notification replaces an old one (optional).
         require_interaction: A boolean indicating whether a notification should remain active
             until the user clicks or dismisses it, rather than closing automatically (optional).
-        silent: True to indicate that the notification should be silent (optional).
+        silent: ``True`` to indicate that the notification should be silent (optional).
         tag: An identifying tag on the notification (optional).
         timestamp_millis: A timestamp value in milliseconds on the notification (optional).
         vibrate: A vibration pattern for the device's vibration hardware to emit when the
-            notification fires (optional). THe pattern is specified as an integer array.
+            notification fires (optional). The pattern is specified as an integer array.
         custom_data: A dict of custom key-value pairs to be included in the notification
             (optional)
 

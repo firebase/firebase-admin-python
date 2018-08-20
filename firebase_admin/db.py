@@ -44,11 +44,11 @@ _TRANSACTION_MAX_RETRIES = 25
 
 
 def reference(path='/', app=None, url=None):
-    """Returns a database Reference representing the node at the specified path.
+    """Returns a database ``Reference`` representing the node at the specified path.
 
-    If no path is specified, this function returns a Reference that represents the database root.
-    By default, the returned References provide access to the Firebase Database specified at
-    app initialization. To connect to a different Database instance in the same Firebase project,
+    If no path is specified, this function returns a ``Reference`` that represents the database
+    root. By default, the returned References provide access to the Firebase Database specified at
+    app initialization. To connect to a different database instance in the same Firebase project,
     specify the ``url`` parameter.
 
     Args:
@@ -350,7 +350,7 @@ class Reference(object):
         """Registers the ``callback`` function to receive realtime updates.
 
         The specified callback function will get invoked with ``db.Event`` objects for each
-        realtime update received from the Database.
+        realtime update received from the database.
 
         This API is based on the event streaming support available in the Firebase REST API. Each
         call to ``listen()`` starts a new HTTP connection and a background thread. This is an

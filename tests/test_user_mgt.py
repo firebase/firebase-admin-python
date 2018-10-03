@@ -759,6 +759,22 @@ class TestUserImportHash(object):
         expected = {
             'hashAlgorithm': name,
             'signerKey': _user_import.b64_encode(b'key'),
+            'passwordHashOrder': None
+        }
+        assert hmac.to_dict() == expected
+
+    @pytest.mark.parametrize('func,name', [
+        (auth.UserImportHash.hmac_sha512, 'HMAC_SHA512'),
+        (auth.UserImportHash.hmac_sha256, 'HMAC_SHA256'),
+        (auth.UserImportHash.hmac_sha1, 'HMAC_SHA1'),
+        (auth.UserImportHash.hmac_md5, 'HMAC_MD5'),
+    ])
+    def test_hmac_hash_order(self, func, name):
+        hmac = func(key=b'key', input_order='SALT_FIRST')
+        expected = {
+            'hashAlgorithm': name,
+            'signerKey': _user_import.b64_encode(b'key'),
+            'passwordHashOrder': 'SALT_AND_PASSWORD'
         }
         assert hmac.to_dict() == expected
 
@@ -784,6 +800,22 @@ class TestUserImportHash(object):
         expected = {
             'hashAlgorithm': name,
             'rounds': 10,
+            'passwordHashOrder': None
+        }
+        assert basic.to_dict() == expected
+
+    @pytest.mark.parametrize('func,name', [
+        (auth.UserImportHash.sha512, 'SHA512'),
+        (auth.UserImportHash.sha256, 'SHA256'),
+        (auth.UserImportHash.sha1, 'SHA1'),
+        (auth.UserImportHash.md5, 'MD5')
+    ])
+    def test_basic_hash_order(self, func, name):
+        basic = func(rounds=10, input_order='PASSWORD_FIRST')
+        expected = {
+            'hashAlgorithm': name,
+            'rounds': 10,
+            'passwordHashOrder': 'PASSWORD_AND_SALT'
         }
         assert basic.to_dict() == expected
 

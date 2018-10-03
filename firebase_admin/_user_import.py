@@ -276,112 +276,156 @@ class UserImportHash(object):
         return payload
 
     @classmethod
-    def _hmac(cls, name, key):
+    def _hmac(cls, name, key, input_order=None):
+        """Creates a new HMAC based algorithm instance.
+
+        Args:
+            name: The HMAC algorithm name.
+            key: Signer key as a byte sequence.
+            input_order: The salt + password order, either SALT_FIRST or PASSWORD_FIRST.
+
+        Returns:
+            UserImportHash: A new ``UserImportHash``.
+        """
+
+        password_hash_order = None
+        if input_order is 'SALT_FIRST':
+            password_hash_order = 'SALT_AND_PASSWORD'
+        elif input_order is 'PASSWORD_FIRST':
+            password_hash_order = 'PASSWORD_AND_SALT'
         data = {
-            'signerKey': b64_encode(_auth_utils.validate_bytes(key, 'key', required=True))
+            'signerKey': b64_encode(_auth_utils.validate_bytes(key, 'key', required=True)),
+            'passwordHashOrder': password_hash_order
         }
         return UserImportHash(name, data)
 
     @classmethod
-    def _basic_hash(cls, name, rounds):
-        data = {'rounds': _auth_utils.validate_int(rounds, 'rounds', 0, 120000)}
+    def _basic_hash(cls, name, rounds, input_order=None):
+        """Creates a new basic hash algorithm instance.
+
+        Args:
+            name: The basic algorithm name.
+            rounds: Number of rounds. This differs depending on the algorithm used.
+            input_order: The salt + password order, either SALT_FIRST or PASSWORD_FIRST.
+
+        Returns:
+            UserImportHash: A new ``UserImportHash``.
+        """
+
+        password_hash_order = None
+        if input_order is 'SALT_FIRST':
+            password_hash_order = 'SALT_AND_PASSWORD'
+        elif input_order is 'PASSWORD_FIRST':
+            password_hash_order = 'PASSWORD_AND_SALT'
+        data = {
+            'rounds': _auth_utils.validate_int(rounds, 'rounds', 0, 120000),
+            'passwordHashOrder': password_hash_order
+        }
         return UserImportHash(name, data)
 
     @classmethod
-    def hmac_sha512(cls, key):
+    def hmac_sha512(cls, key, input_order=None):
         """Creates a new HMAC SHA512 algorithm instance.
 
         Args:
             key: Signer key as a byte sequence.
+            input_order: The salt + password order, either SALT_FIRST or PASSWORD_FIRST.
 
         Returns:
             UserImportHash: A new ``UserImportHash``.
         """
-        return cls._hmac('HMAC_SHA512', key)
+        return cls._hmac('HMAC_SHA512', key, input_order)
 
     @classmethod
-    def hmac_sha256(cls, key):
+    def hmac_sha256(cls, key, input_order=None):
         """Creates a new HMAC SHA256 algorithm instance.
 
         Args:
             key: Signer key as a byte sequence.
+            input_order: The salt + password order, either SALT_FIRST or PASSWORD_FIRST.
 
         Returns:
             UserImportHash: A new ``UserImportHash``.
         """
-        return cls._hmac('HMAC_SHA256', key)
+        return cls._hmac('HMAC_SHA256', key, input_order)
 
     @classmethod
-    def hmac_sha1(cls, key):
+    def hmac_sha1(cls, key, input_order=None):
         """Creates a new HMAC SHA1 algorithm instance.
 
         Args:
             key: Signer key as a byte sequence.
+            input_order: The salt + password order, either SALT_FIRST or PASSWORD_FIRST.
 
         Returns:
             UserImportHash: A new ``UserImportHash``.
         """
-        return cls._hmac('HMAC_SHA1', key)
+        return cls._hmac('HMAC_SHA1', key, input_order)
 
     @classmethod
-    def hmac_md5(cls, key):
+    def hmac_md5(cls, key, input_order=None):
         """Creates a new HMAC MD5 algorithm instance.
 
         Args:
             key: Signer key as a byte sequence.
+            input_order: The salt + password order, either SALT_FIRST or PASSWORD_FIRST.
 
         Returns:
             UserImportHash: A new ``UserImportHash``.
         """
-        return cls._hmac('HMAC_MD5', key)
+        return cls._hmac('HMAC_MD5', key, input_order)
 
     @classmethod
-    def md5(cls, rounds):
+    def md5(cls, rounds, input_order=None):
         """Creates a new MD5 algorithm instance.
 
         Args:
             rounds: Number of rounds. Must be an integer between 0 and 120000.
+            input_order: The salt + password order, either SALT_FIRST or PASSWORD_FIRST.
 
         Returns:
             UserImportHash: A new ``UserImportHash``.
         """
-        return cls._basic_hash('MD5', rounds)
+        return cls._basic_hash('MD5', rounds, input_order)
 
     @classmethod
-    def sha1(cls, rounds):
+    def sha1(cls, rounds, input_order=None):
         """Creates a new SHA1 algorithm instance.
 
         Args:
             rounds: Number of rounds. Must be an integer between 0 and 120000.
+            input_order: The salt + password order, either SALT_FIRST or PASSWORD_FIRST.
 
         Returns:
             UserImportHash: A new ``UserImportHash``.
         """
-        return cls._basic_hash('SHA1', rounds)
+        return cls._basic_hash('SHA1', rounds, input_order)
 
     @classmethod
-    def sha256(cls, rounds):
+    def sha256(cls, rounds, input_order=None):
         """Creates a new SHA256 algorithm instance.
 
         Args:
             rounds: Number of rounds. Must be an integer between 0 and 120000.
+            input_order: The salt + password order, either SALT_FIRST or PASSWORD_FIRST.
 
         Returns:
             UserImportHash: A new ``UserImportHash``.
         """
-        return cls._basic_hash('SHA256', rounds)
+        return cls._basic_hash('SHA256', rounds, input_order)
 
     @classmethod
-    def sha512(cls, rounds):
+    def sha512(cls, rounds, input_order=None):
         """Creates a new SHA512 algorithm instance.
 
         Args:
             rounds: Number of rounds. Must be an integer between 0 and 120000.
+            input_order: The salt + password order, either SALT_FIRST or PASSWORD_FIRST.
 
         Returns:
             UserImportHash: A new ``UserImportHash``.
         """
-        return cls._basic_hash('SHA512', rounds)
+        return cls._basic_hash('SHA512', rounds, input_order)
 
     @classmethod
     def pbkdf_sha1(cls, rounds):

@@ -758,7 +758,7 @@ class TestUserImportHash(object):
         hmac = func(key=b'key')
         expected = {
             'hashAlgorithm': name,
-            'signerKey': _user_import.b64_encode(b'key')
+            'signerKey': _user_import.b64_encode(b'key'),
         }
         assert hmac.to_dict() == expected
 
@@ -773,7 +773,7 @@ class TestUserImportHash(object):
         expected = {
             'hashAlgorithm': name,
             'signerKey': _user_import.b64_encode(b'key'),
-            'passwordHashOrder': 'SALT_AND_PASSWORD'
+            'passwordHashOrder': 'SALT_AND_PASSWORD',
         }
         assert hmac.to_dict() == expected
 
@@ -798,7 +798,7 @@ class TestUserImportHash(object):
         basic = func(rounds=10)
         expected = {
             'hashAlgorithm': name,
-            'rounds': 10
+            'rounds': 10,
         }
         assert basic.to_dict() == expected
 
@@ -813,7 +813,7 @@ class TestUserImportHash(object):
         expected = {
             'hashAlgorithm': name,
             'rounds': 10,
-            'passwordHashOrder': 'PASSWORD_AND_SALT'
+            'passwordHashOrder': 'PASSWORD_AND_SALT',
         }
         assert basic.to_dict() == expected
 

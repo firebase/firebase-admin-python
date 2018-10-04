@@ -288,15 +288,13 @@ class UserImportHash(object):
             UserImportHash: A new ``UserImportHash``.
         """
 
-        password_hash_order = None
-        if input_order is 'SALT_FIRST':
-            password_hash_order = 'SALT_AND_PASSWORD'
-        elif input_order is 'PASSWORD_FIRST':
-            password_hash_order = 'PASSWORD_AND_SALT'
         data = {
-            'signerKey': b64_encode(_auth_utils.validate_bytes(key, 'key', required=True)),
-            'passwordHashOrder': password_hash_order
+            'signerKey': b64_encode(_auth_utils.validate_bytes(key, 'key', required=True))
         }
+        if input_order is 'SALT_FIRST':
+            data['passwordHashOrder'] = 'SALT_AND_PASSWORD'
+        elif input_order is 'PASSWORD_FIRST':
+            data['passwordHashOrder'] = 'PASSWORD_AND_SALT'
         return UserImportHash(name, data)
 
     @classmethod
@@ -312,15 +310,11 @@ class UserImportHash(object):
             UserImportHash: A new ``UserImportHash``.
         """
 
-        password_hash_order = None
+        data = {'rounds': _auth_utils.validate_int(rounds, 'rounds', 0, 120000)}
         if input_order is 'SALT_FIRST':
-            password_hash_order = 'SALT_AND_PASSWORD'
+            data['passwordHashOrder'] = 'SALT_AND_PASSWORD'
         elif input_order is 'PASSWORD_FIRST':
-            password_hash_order = 'PASSWORD_AND_SALT'
-        data = {
-            'rounds': _auth_utils.validate_int(rounds, 'rounds', 0, 120000),
-            'passwordHashOrder': password_hash_order
-        }
+            data['passwordHashOrder'] = 'PASSWORD_AND_SALT'
         return UserImportHash(name, data)
 
     @classmethod

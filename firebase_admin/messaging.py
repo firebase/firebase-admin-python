@@ -273,7 +273,7 @@ class WebpushConfig(object):
         data: A dictionary of data fields (optional). All keys and values in the dictionary must be
             strings. When specified, overrides any data fields set via ``Message.data``.
         notification: A ``messaging.WebpushNotification`` to be included in the message (optional).
-        fcm_options: A ``messaging.WebpushFcmOptions``. (optional).
+        fcm_options: A ``messaging.WebpushFcmOptions`` (optional).
 
     .. _Webpush Specification: https://tools.ietf.org/html/rfc8030#section-5
     """

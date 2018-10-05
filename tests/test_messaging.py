@@ -616,6 +616,29 @@ class TestWebpushNotificationEncoder(object):
         assert str(excinfo.value) == 'WebpushNotificationAction.icon must be a string.'
 
 
+class TestWebpushFcmOptionsEncoder(object):
+
+    def _check_fcm_options(self, fcm_options):
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(
+                topic='topic', webpush=messaging.WebpushConfig(fcm_options=fcm_options)))
+        return excinfo
+
+    @pytest.mark.parametrize('data', NON_OBJECT_ARGS)
+    def test_invalid_webpush_fcm_options(self, data):
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(
+                topic='topic', webpush=messaging.WebpushConfig(fcm_options=data)))
+        expected = 'WebpushConfig.fcm_options must be an instance of WebFcmOptions class.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_link(self, data):
+        notification = messaging.WebpushFcmOptions(link=data)
+        excinfo = self._check_fcm_options(notification)
+        assert str(excinfo.value) == 'WebpushFcmOptions.link must be a string.'
+
+
 class TestAPNSConfigEncoder(object):
 
     @pytest.mark.parametrize('data', NON_OBJECT_ARGS)

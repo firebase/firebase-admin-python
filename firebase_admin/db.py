@@ -36,7 +36,7 @@ from firebase_admin import _utils
 
 
 _DB_ATTRIBUTE = '_database'
-_INVALID_PATH_CHARACTERS = '[].?#$'
+_INVALID_PATH_CHARACTERS = '[].#$'
 _RESERVED_FILTERS = ('$key', '$value', '$priority')
 _USER_AGENT = 'Firebase/HTTP/{0}/{1}.{2}/AdminPython'.format(
     firebase_admin.__version__, sys.version_info.major, sys.version_info.minor)
@@ -845,7 +845,8 @@ class _Client(_http_client.JsonHttpClient):
               timeout, which is the default behavior of the underlying requests library.
         """
         _http_client.JsonHttpClient.__init__(
-            self, credential=credential, base_url=base_url, headers={'User-Agent': _USER_AGENT})
+            self, credential=credential, base_url=base_url,
+            headers={'User-Agent': _USER_AGENT, 'X-Firebase-Decoding': '1'})
         self.credential = credential
         self.auth_override = auth_override
         self.timeout = timeout

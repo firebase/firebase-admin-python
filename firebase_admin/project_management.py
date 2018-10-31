@@ -17,10 +17,6 @@
 This module enables management of resources in Firebase projects, such as Android and iOS Apps.
 """
 
-import requests
-import six
-
-from firebase_admin import _http_client
 from firebase_admin import _utils
 
 

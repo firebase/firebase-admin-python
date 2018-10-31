@@ -33,6 +33,7 @@ _FIREBASE_CONFIG_ENV_VAR = 'FIREBASE_CONFIG'
 _CONFIG_VALID_KEYS = ['databaseAuthVariableOverride', 'databaseURL', 'httpTimeout', 'projectId',
                       'storageBucket']
 
+# Trivial change to test whether tests are passing in a clean-branch.
 def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
     """Initializes and returns a new App instance.
 

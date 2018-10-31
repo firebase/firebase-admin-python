@@ -14,8 +14,7 @@
 
 """Firebase Project Management module.
 
-This module enables management of resources in Firebase projects, such as
-Android and iOS Apps.
+This module enables management of resources in Firebase projects, such as Android and iOS Apps.
 """
 
 import requests
@@ -35,7 +34,7 @@ def _get_project_management_service(app):
 
 
 class ApiCallError(Exception):
-    """An error arisen from using the Firebase Project Management Service."""
+    """An error encountered while interacting with the Firebase Project Management Service."""
 
     def __init__(self, message, error):
         Exception.__init__(self, message)
@@ -43,4 +42,4 @@ class ApiCallError(Exception):
 
 
 class _ProjectManagementService(object):
-  pass
+    """Provides methods for interacting with the Firebase Project Management Service."""

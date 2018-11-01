@@ -17,7 +17,6 @@
 This module enables management of resources in Firebase projects, such as Android and iOS Apps.
 """
 
-import re
 import requests
 import six
 
@@ -85,8 +84,8 @@ class AndroidApp(object):
             AndroidAppMetadata: An ``AndroidAppMetadata`` instance.
 
         Raises:
-            ApiCallError: If an error occurs while communicating with the Firebase Project Management
-                Service.
+            ApiCallError: If an error occurs while communicating with the Firebase Project
+                Management Service.
         """
         return self._service.get_android_app_metadata(self._app_id)
 

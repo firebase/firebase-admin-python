@@ -332,10 +332,10 @@ class _OperationPoller(object):
     def poll_and_notify(self):
         with self._waiting_thread_cv:
             try:
+                self._current_attempt += 1
                 path = '/v1/{0}'.format(self._operation_name)
                 poll_response = self._client.body('get', url=path, timeout=self._rpc_timeout)
                 done = poll_response.get('done')
-                self._current_attempt += 1
                 # If either the Operation is done or we have exceeded our retry limit, we set one of
                 # _response or _error, and set _done to True.
                 if done or self._current_attempt >= _OperationPoller.MAXIMUM_POLLING_ATTEMPTS:
@@ -352,6 +352,7 @@ class _OperationPoller(object):
                 # If any attempt results in an RPC error, we stop the retries.
                 self._error = error  # pylint: disable=redefined-variable-type
                 self._done = True
+            # Other Exceptions are ignored and polling will be retried.
             finally:
                 # We must always reawaken the thread that calls run().
                 self._waiting_thread_cv.notify()

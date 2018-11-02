@@ -337,7 +337,7 @@ class _OperationPoller(object):
                 done = poll_response.get('done')
                 self._current_attempt += 1
                 # If either the Operation is done or we have exceeded our retry limit, we set one of
-                # _response or _error, and set the _done_event (to True).
+                # _response or _error, and set _done to True.
                 if done or self._current_attempt >= _OperationPoller.MAXIMUM_POLLING_ATTEMPTS:
                     if done:
                         response = poll_response.get('response')

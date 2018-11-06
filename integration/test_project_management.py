@@ -14,6 +14,8 @@
 
 """Integration tests for the firebase_admin.project_management module."""
 
+import pytest
+
 from firebase_admin import project_management
 
 
@@ -21,18 +23,17 @@ TEST_APP_PACKAGE_NAME = 'com.firebase.adminsdk_python_integration_test'
 TEST_APP_DISPLAY_NAME_PREFIX = 'Created By Firebase AdminSDK Python Integration Testing'
 
 
-def _ensure_test_android_app_exists():
+@pytest.fixture(scope='module')
+def test_android_app(default_app):
     android_apps = project_management.list_android_apps()
     for android_app in android_apps:
         if android_app.get_metadata().display_name.startswith(TEST_APP_DISPLAY_NAME_PREFIX):
             return android_app
-    else:  # pylint: disable=useless-else-on-loop
-        return project_management.create_android_app(
-            package_name=TEST_APP_PACKAGE_NAME, display_name=TEST_APP_DISPLAY_NAME_PREFIX)
+    return project_management.create_android_app(
+        package_name=TEST_APP_PACKAGE_NAME, display_name=TEST_APP_DISPLAY_NAME_PREFIX)
 
 
-def test_get_android_app_metadata(project_id):
-    test_android_app = _ensure_test_android_app_exists()
+def test_get_android_app_metadata(test_android_app, project_id):
     app_id = test_android_app.app_id
     metadata = project_management.android_app(app_id).get_metadata()
 
@@ -43,10 +44,10 @@ def test_get_android_app_metadata(project_id):
     assert metadata.package_name == TEST_APP_PACKAGE_NAME
 
 
-def test_list_android_apps():
-    _ensure_test_android_app_exists()
+def test_list_android_apps(test_android_app):
     android_apps = project_management.list_android_apps()
     for android_app in android_apps:
         if android_app.get_metadata().display_name.startswith(TEST_APP_DISPLAY_NAME_PREFIX):
             found = True
+            break
     assert found

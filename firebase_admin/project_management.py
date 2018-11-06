@@ -18,6 +18,7 @@ This module enables management of resources in Firebase projects, such as Androi
 """
 
 import threading
+import time
 
 import requests
 import six
@@ -99,7 +100,7 @@ class ApiCallError(Exception):
         self.detail = error
 
 
-class PollingError(Exception):
+class _PollingError(Exception):
     """An error encountered during the polling of an App's creation status."""
 
     def __init__(self, message):
@@ -136,7 +137,7 @@ class AndroidApp(object):
         return self._service.get_android_app_metadata(self._app_id)
 
 
-class AppMetadata(object):
+class _AppMetadata(object):
     """Detailed information about a Firebase App."""
 
     def __init__(self, name, app_id, display_name, project_id):
@@ -169,7 +170,7 @@ class AppMetadata(object):
         return self._project_id
 
 
-class AndroidAppMetadata(AppMetadata):
+class AndroidAppMetadata(_AppMetadata):
     """Android-specific information about an Android Firebase App."""
 
     def __init__(self, name, app_id, display_name, project_id, package_name):
@@ -187,6 +188,9 @@ class _ProjectManagementService(object):
 
     BASE_URL = 'https://firebase.googleapis.com'
     MAXIMUM_LIST_APPS_PAGE_SIZE = 1
+    MAXIMUM_POLLING_ATTEMPTS = 8
+    POLL_BASE_WAIT_TIME_SECONDS = 0.5
+    POLL_EXPONENTIAL_BACKOFF_FACTOR = 1.5
     ERROR_CODES = {
         401: 'Request not authorized.',
         403: 'Client does not have sufficient privileges.',
@@ -251,16 +255,30 @@ class _ProjectManagementService(object):
         request_body = {'displayName': display_name, 'packageName': package_name}
         response = self._make_request('post', path, package_name, 'Package name', json=request_body)
         operation_name = response['name']
-        poller = _OperationPoller(operation_name, self._timeout, self._client)
-        polling_thread = threading.Thread(target=poller.run)
-        polling_thread.start()
-        polling_thread.join()
-        poller_response = poller.response
-        if poller_response:
-            return AndroidApp(app_id=poller_response['appId'], service=self)
-        if poller.error:
+        try:
+            poll_response = self._poll_app_creation(operation_name)
+            return AndroidApp(app_id=poll_response['appId'], service=self)
+        except _PollingError as error:
             raise ApiCallError(
-                self._extract_message(operation_name, 'Operation name', poller.error), poller.error)
+                self._extract_message(operation_name, 'Operation name', error), error)
+
+    def _poll_app_creation(self, operation_name):
+        """Polls the Long-Running Operation repeatedly until it is done with exponential backoff."""
+        for current_attempt in range(_ProjectManagementService.MAXIMUM_POLLING_ATTEMPTS):
+            delay_factor = pow(
+                _ProjectManagementService.POLL_EXPONENTIAL_BACKOFF_FACTOR, current_attempt)
+            wait_time_seconds = delay_factor * _ProjectManagementService.POLL_BASE_WAIT_TIME_SECONDS
+            time.sleep(wait_time_seconds)
+            path = '/v1/{0}'.format(operation_name)
+            poll_response = self._make_request('get', path, operation_name, 'Operation name')
+            done = poll_response.get('done')
+            if done:
+                response = poll_response.get('response')
+                if response:
+                    return response
+                else:
+                    raise _PollingError('Operation terminated in an error.')
+        raise _PollingError('Polling deadline exceeded.')
 
     def _make_request(self, method, url, resource_identifier, resource_identifier_label, json=None):
         try:
@@ -344,9 +362,9 @@ class _OperationPoller(object):
                         if response:
                             self._response = response
                         else:
-                            self._error = PollingError('Operation terminated in an error.')
+                            self._error = _PollingError('Operation terminated in an error.')
                     else:
-                        self._error = PollingError('Polling deadline exceeded.')
+                        self._error = _PollingError('Polling deadline exceeded.')
                     self._done = True
             except requests.exceptions.RequestException as error:
                 # If any attempt results in an RPC error, we stop the retries.

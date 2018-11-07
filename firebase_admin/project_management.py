@@ -490,7 +490,7 @@ class _ProjectManagementService(object):
         return '{0} "{1}": Error {2}.'.format(identifier_label, identifier, status)
 
     @staticmethod
-    def _none_to_empty(self, string):
+    def _none_to_empty(string):
         if not string:
             return ''
         return string

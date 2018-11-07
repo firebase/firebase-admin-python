@@ -14,7 +14,7 @@
 
 """Firebase Project Management module.
 
-This module enables management of resources in Firebase projects, such as Android and iOS Apps.
+This module enables management of resources in Firebase projects, such as Android and iOS apps.
 """
 
 import time
@@ -34,10 +34,10 @@ def _get_project_management_service(app):
 
 
 def android_app(app_id, app=None):
-    """Obtains a reference to an Android App in the associated Firebase project.
+    """Obtains a reference to an Android app in the associated Firebase project.
 
     Args:
-        app_id: The App ID that identifies this Android App.
+        app_id: The app ID that identifies this Android app.
         app: An App instance (optional).
 
     Returns:
@@ -47,10 +47,10 @@ def android_app(app_id, app=None):
 
 
 def ios_app(app_id, app=None):
-    """Obtains a reference to an iOS App in the associated Firebase project.
+    """Obtains a reference to an iOS app in the associated Firebase project.
 
     Args:
-        app_id: The App ID that identifies this iOS App.
+        app_id: The app ID that identifies this iOS app.
         app: An App instance (optional).
 
     Returns:
@@ -60,54 +60,54 @@ def ios_app(app_id, app=None):
 
 
 def list_android_apps(app=None):
-    """Lists all Android Apps in the associated Firebase project.
+    """Lists all Android apps in the associated Firebase project.
 
     Args:
         app: An App instance (optional).
 
     Returns:
-        list: a list of ``AndroidApp`` instances referring to each Android App in the Firebase
+        list: a list of ``AndroidApp`` instances referring to each Android app in the Firebase
             project.
     """
     return _get_project_management_service(app).list_android_apps()
 
 
 def list_ios_apps(app=None):
-    """Lists all iOS Apps in the associated Firebase project.
+    """Lists all iOS apps in the associated Firebase project.
 
     Args:
         app: An App instance (optional).
 
     Returns:
-        list: a list of ``IosApp`` instances referring to each iOS App in the Firebase project.
+        list: a list of ``IosApp`` instances referring to each iOS app in the Firebase project.
     """
     return _get_project_management_service(app).list_ios_apps()
 
 
 def create_android_app(package_name, display_name=None, app=None):
-    """Creates a new Android App in the associated Firebase project.
+    """Creates a new Android app in the associated Firebase project.
 
     Args:
-        package_name: The package name of the Android App to be created.
-        display_name: A nickname for this Android App (optional).
+        package_name: The package name of the Android app to be created.
+        display_name: A nickname for this Android app (optional).
         app: An App instance (optional).
 
     Returns:
-        AndroidApp: An ``AndroidApp`` instance that is a reference to the newly created App.
+        AndroidApp: An ``AndroidApp`` instance that is a reference to the newly created app.
     """
     return _get_project_management_service(app).create_android_app(package_name, display_name)
 
 
 def create_ios_app(bundle_id, display_name=None, app=None):
-    """Creates a new iOS App in the associated Firebase project.
+    """Creates a new iOS app in the associated Firebase project.
 
     Args:
-        bundle_id: The bundle ID of the iOS App to be created.
-        display_name: A nickname for this iOS App (optional).
+        bundle_id: The bundle ID of the iOS app to be created.
+        display_name: A nickname for this iOS app (optional).
         app: An App instance (optional).
 
     Returns:
-        IosApp: An ``IosApp`` instance that is a reference to the newly created App.
+        IosApp: An ``IosApp`` instance that is a reference to the newly created app.
     """
     return _get_project_management_service(app).create_ios_app(bundle_id, display_name)
 
@@ -139,14 +139,14 @@ class ApiCallError(Exception):
 
 
 class _PollingError(Exception):
-    """An error encountered during the polling of an App's creation status."""
+    """An error encountered during the polling of an app's creation status."""
 
     def __init__(self, message):
         Exception.__init__(self, message)
 
 
 class AndroidApp(object):
-    """A reference to an Android App within a Firebase project.
+    """A reference to an Android app within a Firebase project.
 
     Please use the module-level function ``android_app(app_id)`` to obtain instances of this class
     instead of instantiating it directly.
@@ -161,7 +161,7 @@ class AndroidApp(object):
         return self._app_id
 
     def get_metadata(self):
-        """Retrieves detailed information about this Android App.
+        """Retrieves detailed information about this Android app.
 
         Note: this method makes an RPC.
 
@@ -175,12 +175,12 @@ class AndroidApp(object):
         return self._service.get_android_app_metadata(self._app_id)
 
     def set_display_name(self, new_display_name):
-        """Updates the Display Name attribute of this Android App to the one given.
+        """Updates the display name attribute of this Android app to the one given.
 
         Note: this method makes an RPC.
 
         Args:
-            new_display_name: The new Display Name for this Android App.
+            new_display_name: The new display name for this Android app.
 
         Returns:
             NoneType: None.
@@ -193,7 +193,7 @@ class AndroidApp(object):
 
 
 class IosApp(object):
-    """A reference to an iOS App within a Firebase project.
+    """A reference to an iOS app within a Firebase project.
 
     Please use the module-level function ``ios_app(app_id)`` to obtain instances of this class
     instead of instantiating it directly.
@@ -208,7 +208,7 @@ class IosApp(object):
         return self._app_id
 
     def get_metadata(self):
-        """Retrieves detailed information about this iOS App.
+        """Retrieves detailed information about this iOS app.
 
         Note: this method makes an RPC.
 
@@ -222,12 +222,12 @@ class IosApp(object):
         return self._service.get_ios_app_metadata(self._app_id)
 
     def set_display_name(self, new_display_name):
-        """Updates the Display Name attribute of this iOS App to the one given.
+        """Updates the display name attribute of this iOS app to the one given.
 
         Note: this method makes an RPC.
 
         Args:
-            new_display_name: The new Display Name for this iOS App.
+            new_display_name: The new display name for this iOS app.
 
         Returns:
             NoneType: None.
@@ -240,7 +240,7 @@ class IosApp(object):
 
 
 class _AppMetadata(object):
-    """Detailed information about a Firebase Android or iOS App."""
+    """Detailed information about a Firebase Android or iOS app."""
 
     def __init__(self, name, app_id, display_name, project_id):
         self._name = _check_is_nonempty_string(name, 'name')
@@ -250,20 +250,20 @@ class _AppMetadata(object):
 
     @property
     def name(self):
-        """The fully qualified resource name of this Android or iOS App."""
+        """The fully qualified resource name of this Android or iOS app."""
         return self._name
 
     @property
     def app_id(self):
-        """The globally unique, Firebase-assigned identifier of this Android or iOS App.
+        """The globally unique, Firebase-assigned identifier of this Android or iOS app.
 
-        This ID is unique even across Apps of different platforms.
+        This ID is unique even across apps of different platforms.
         """
         return self._app_id
 
     @property
     def display_name(self):
-        """The user-assigned display name of this Android or iOS App."""
+        """The user-assigned display name of this Android or iOS app."""
         return self._display_name
 
     @property
@@ -273,7 +273,7 @@ class _AppMetadata(object):
 
 
 class AndroidAppMetadata(_AppMetadata):
-    """Android-specific information about an Android Firebase App."""
+    """Android-specific information about an Android Firebase app."""
 
     def __init__(self, package_name, name, app_id, display_name, project_id):
         super(AndroidAppMetadata, self).__init__(name, app_id, display_name, project_id)
@@ -281,12 +281,12 @@ class AndroidAppMetadata(_AppMetadata):
 
     @property
     def package_name(self):
-        """The canonical package name of this Android App as it would appear in the Play Store."""
+        """The canonical package name of this Android app as it would appear in the Play Store."""
         return self._package_name
 
 
 class IosAppMetadata(_AppMetadata):
-    """iOS-specific information about an iOS Firebase App."""
+    """iOS-specific information about an iOS Firebase app."""
 
     def __init__(self, bundle_id, name, app_id, display_name, project_id):
         super(IosAppMetadata, self).__init__(name, app_id, display_name, project_id)
@@ -294,7 +294,7 @@ class IosAppMetadata(_AppMetadata):
 
     @property
     def bundle_id(self):
-        """The canonical bundle ID of this iOS App as it would appear in the iOS AppStore."""
+        """The canonical bundle ID of this iOS app as it would appear in the iOS AppStore."""
         return self._bundle_id
 
 
@@ -351,7 +351,7 @@ class _ProjectManagementService(object):
             app_id=app_id)
 
     def _get_app_metadata(self, platform_resource_name, identifier_name, metadata_class, app_id):
-        """Retrieves detailed information about an Android or iOS App."""
+        """Retrieves detailed information about an Android or iOS app."""
         _check_is_nonempty_string(app_id, 'app_id')
         path = '/v1beta1/projects/-/{0}/{1}'.format(platform_resource_name, app_id)
         response = self._make_request('get', path, app_id, 'App ID')
@@ -359,7 +359,7 @@ class _ProjectManagementService(object):
             response[identifier_name],
             name=response['name'],
             app_id=response['appId'],
-            display_name=self._none_to_empty(response.get('displayName')),
+            display_name=_ProjectManagementService._none_to_empty(response.get('displayName')),
             project_id=response['projectId'])
 
     def set_android_app_display_name(self, app_id, new_display_name):
@@ -375,7 +375,7 @@ class _ProjectManagementService(object):
             platform_resource_name=_ProjectManagementService.IOS_APPS_RESOURCE_NAME)
 
     def _set_display_name(self, app_id, new_display_name, platform_resource_name):
-        """Sets the display name of an Android or iOS App."""
+        """Sets the display name of an Android or iOS app."""
         path = '/v1beta1/projects/-/{0}/{1}?update_mask=display_name'.format(
             platform_resource_name, app_id)
         request_body = {'displayName': new_display_name}
@@ -392,7 +392,7 @@ class _ProjectManagementService(object):
             app_class=IosApp)
 
     def _list_apps(self, platform_resource_name, app_class):
-        """Lists all the Android or iOS Apps within the Firebase project."""
+        """Lists all the Android or iOS apps within the Firebase project."""
         path = '/v1beta1/projects/{0}/{1}?pageSize={2}'.format(
             self._project_id,
             platform_resource_name,
@@ -407,7 +407,7 @@ class _ProjectManagementService(object):
             next_page_token = response.get('nextPageToken')
             if not next_page_token:
                 break
-            # Retrieve the next page of Apps.
+            # Retrieve the next page of apps.
             path = '/v1beta1/projects/{0}/{1}?pageToken={2}&pageSize={3}'.format(
                 self._project_id,
                 platform_resource_name,
@@ -442,7 +442,7 @@ class _ProjectManagementService(object):
             identifier,
             display_name,
             app_class):
-        """Creates an Android or iOS App."""
+        """Creates an Android or iOS app."""
         _check_is_string_or_none(display_name, 'display_name')
         path = '/v1beta1/projects/{0}/{1}'.format(self._project_id, platform_resource_name)
         request_body = {'displayName': display_name, identifier_name: identifier}
@@ -489,6 +489,7 @@ class _ProjectManagementService(object):
             return '{0} "{1}": {2}'.format(identifier_label, identifier, message)
         return '{0} "{1}": Error {2}.'.format(identifier_label, identifier, status)
 
+    @staticmethod
     def _none_to_empty(self, string):
         if not string:
             return ''

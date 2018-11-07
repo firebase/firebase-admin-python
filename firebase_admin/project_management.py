@@ -17,7 +17,6 @@
 This module enables management of resources in Firebase projects, such as Android and iOS Apps.
 """
 
-import threading
 import time
 
 import requests

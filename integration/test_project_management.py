@@ -25,6 +25,7 @@ TEST_APP_DISPLAY_NAME_PREFIX = 'Created By Firebase AdminSDK Python Integration 
 
 @pytest.fixture(scope='module')
 def test_android_app(default_app):
+    del default_app
     android_apps = project_management.list_android_apps()
     for android_app in android_apps:
         if android_app.get_metadata().display_name.startswith(TEST_APP_DISPLAY_NAME_PREFIX):
@@ -45,6 +46,7 @@ def test_get_android_app_metadata(test_android_app, project_id):
 
 
 def test_list_android_apps(test_android_app):
+    del test_android_app
     android_apps = project_management.list_android_apps()
     for android_app in android_apps:
         if android_app.get_metadata().display_name.startswith(TEST_APP_DISPLAY_NAME_PREFIX):

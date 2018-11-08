@@ -17,6 +17,7 @@
 This module enables management of resources in Firebase projects, such as Android and iOS apps.
 """
 
+import re
 import time
 
 import requests
@@ -130,6 +131,18 @@ def _check_is_nonempty_string(obj, field_name):
     raise ValueError('{0} must be a non-empty string.'.format(field_name))
 
 
+def _check_is_nonempty_string_or_none(obj, field_name):
+    if obj is None:
+        return None
+    return _check_is_nonempty_string(obj, field_name)
+
+
+def _check_not_none(obj, field_name):
+    if obj is None:
+        raise ValueError('{0} cannot be None.'.format(field_name))
+    return obj
+
+
 class ApiCallError(Exception):
     """An error encountered while interacting with the Firebase Project Management Service."""
 
@@ -148,6 +161,8 @@ class _PollingError(Exception):
 class AndroidApp(object):
     """A reference to an Android app within a Firebase project.
 
+    Note: Unless otherwise specified, all methods defined in this class make an RPC.
+
     Please use the module-level function ``android_app(app_id)`` to obtain instances of this class
     instead of instantiating it directly.
     """
@@ -158,12 +173,17 @@ class AndroidApp(object):
 
     @property
     def app_id(self):
+        """Returns the app ID of the Android app to which this instance refers.
+
+        Note: This method does not make an RPC.
+
+        Returns:
+            string: The app ID of the Android app to which this instance refers.
+        """
         return self._app_id
 
     def get_metadata(self):
         """Retrieves detailed information about this Android app.
-
-        Note: this method makes an RPC.
 
         Returns:
             AndroidAppMetadata: An ``AndroidAppMetadata`` instance.
@@ -177,8 +197,6 @@ class AndroidApp(object):
     def set_display_name(self, new_display_name):
         """Updates the display name attribute of this Android app to the one given.
 
-        Note: this method makes an RPC.
-
         Args:
             new_display_name: The new display name for this Android app.
 
@@ -191,9 +209,53 @@ class AndroidApp(object):
         """
         return self._service.set_android_app_display_name(self._app_id, new_display_name)
 
+    def get_sha_certificates(self):
+        """Retrieves the entire list of SHA certificates associated with this Android app.
+
+        Returns:
+            list: A list of ``ShaCertificate`` instances.
+
+        Raises:
+            ApiCallError: If an error occurs while communicating with the Firebase Project
+                Management Service.
+        """
+        return self._service.get_sha_certificates(self._app_id)
+
+    def add_sha_certificate(self, certificate_to_add):
+        """Adds a SHA certificate to this Android app.
+
+        Args:
+            certificate_to_add: The SHA certificate to add.
+
+        Returns:
+            NoneType: None.
+
+        Raises:
+            ApiCallError: If an error occurs while communicating with the Firebase Project
+                Management Service. (For example, if the certificate_to_add already exists.)
+        """
+        return self._service.add_sha_certificate(self._app_id, certificate_to_add)
+
+    def delete_sha_certificate(self, certificate_to_delete):
+        """Removes a SHA certificate from this Android app.
+
+        Args:
+            certificate_to_delete: The SHA certificate to delete.
+
+        Returns:
+            NoneType: None.
+
+        Raises:
+            ApiCallError: If an error occurs while communicating with the Firebase Project
+                Management Service. (For example, if the certificate_to_delete is not found.)
+        """
+        return self._service.delete_sha_certificate(certificate_to_delete)
+
 
 class IosApp(object):
     """A reference to an iOS app within a Firebase project.
+
+    Note: Unless otherwise specified, all methods defined in this class make an RPC.
 
     Please use the module-level function ``ios_app(app_id)`` to obtain instances of this class
     instead of instantiating it directly.
@@ -205,12 +267,17 @@ class IosApp(object):
 
     @property
     def app_id(self):
+        """Returns the app ID of the iOS app to which this instance refers.
+
+        Note: This method does not make an RPC.
+
+        Returns:
+            string: The app ID of the iOS app to which this instance refers.
+        """
         return self._app_id
 
     def get_metadata(self):
         """Retrieves detailed information about this iOS app.
-
-        Note: this method makes an RPC.
 
         Returns:
             IosAppMetadata: An ``IosAppMetadata`` instance.
@@ -298,6 +365,68 @@ class IosAppMetadata(_AppMetadata):
         return self._bundle_id
 
 
+class ShaCertificate(object):
+    """Represents a SHA-1 or SHA-256 certificate associated with an Android app."""
+
+    SHA_1 = 'SHA_1'
+    SHA_256 = 'SHA_256'
+
+    _SHA_1_RE = re.compile('^[0-9A-Fa-f]{40}$')
+    _SHA_256_RE = re.compile('^[0-9A-Fa-f]{64}$')
+
+    def __init__(self, sha_hash, name=None):
+        """Creates a new ShaCertificate instance.
+
+        Args:
+            sha_hash: A string; the certificate hash for the Android app.
+            name: The fully qualified resource name of this certificate; note that this field should
+                be omitted if the instance is being constructed for the purpose of calling the
+                add_sha_certificate() method on an ``AndroidApp``.
+
+        Raises:
+            ValueError: If the sha_hash is not a valid SHA-1 or SHA-256 certificate hash.
+        """
+        _check_is_nonempty_string(sha_hash, 'sha_hash')
+        _check_is_nonempty_string_or_none(name, 'name')
+        self._name = name
+        self._sha_hash = sha_hash.lower()
+        if ShaCertificate._SHA_1_RE.match(sha_hash):
+            self._cert_type = ShaCertificate.SHA_1
+        elif ShaCertificate._SHA_256_RE.match(sha_hash):
+            self._cert_type = ShaCertificate.SHA_256
+        else:
+            raise ValueError(
+                'The supplied certificate hash is neither a valid SHA-1 nor SHA_256 hash.')
+
+    @property
+    def name(self):
+        """Returns the fully qualified resource name of this certificate, if known.
+
+        Returns:
+            string: The fully qualified resource name of this certificate, if known; otherwise, the
+                empty string.
+        """
+        return self._name
+
+    @property
+    def sha_hash(self):
+        """Returns the certificate hash.
+
+        Returns:
+            string: The certificate hash.
+        """
+        return self._sha_hash
+
+    @property
+    def cert_type(self):
+        """Returns the type of the SHA certificate encoded in the hash.
+
+        Returns:
+            string: One of 'SHA_1' or 'SHA_256'.
+        """
+        return self._cert_type
+
+
 class _ProjectManagementService(object):
     """Provides methods for interacting with the Firebase Project Management Service."""
 
@@ -359,7 +488,7 @@ class _ProjectManagementService(object):
             response[identifier_name],
             name=response['name'],
             app_id=response['appId'],
-            display_name=_ProjectManagementService._none_to_empty(response.get('displayName')),
+            display_name=response.get('displayName') or '',
             project_id=response['projectId'])
 
     def set_android_app_display_name(self, app_id, new_display_name):
@@ -473,6 +602,24 @@ class _ProjectManagementService(object):
                     raise _PollingError('Operation terminated in an error.')
         raise _PollingError('Polling deadline exceeded.')
 
+    def get_sha_certificates(self, app_id):
+        path = '/v1beta1/projects/-/androidApps/{0}/sha'.format(app_id)
+        response = self._make_request('get', path, app_id, 'App ID')
+        cert_list = response.get('certificates') or []
+        return [ShaCertificate(sha_hash=cert['shaHash'], name=cert['name']) for cert in cert_list]
+
+    def add_sha_certificate(self, app_id, certificate_to_add):
+        path = '/v1beta1/projects/-/androidApps/{0}/sha'.format(app_id)
+        sha_hash = _check_not_none(certificate_to_add, 'certificate_to_add').sha_hash
+        cert_type = certificate_to_add.cert_type
+        request_body = {'shaHash': sha_hash, 'certType': cert_type}
+        self._make_request('post', path, app_id, 'App ID', json=request_body)
+
+    def delete_sha_certificate(self, certificate_to_delete):
+        name = _check_not_none(certificate_to_delete, 'certificate_to_delete').name
+        path = '/v1beta1/{0}'.format(name)
+        self._make_request('delete', path, name, 'SHA ID')
+
     def _make_request(self, method, url, resource_identifier, resource_identifier_label, json=None):
         try:
             return self._client.body(method=method, url=url, json=json, timeout=self._timeout)
@@ -488,9 +635,3 @@ class _ProjectManagementService(object):
         if message:
             return '{0} "{1}": {2}'.format(identifier_label, identifier, message)
         return '{0} "{1}": Error {2}.'.format(identifier_label, identifier, status)
-
-    @staticmethod
-    def _none_to_empty(string):
-        if not string:
-            return ''
-        return string

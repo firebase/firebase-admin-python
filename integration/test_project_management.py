@@ -28,7 +28,7 @@ TEST_APP_DISPLAY_NAME_PREFIX = 'Created By Firebase AdminSDK Python Integration 
 SHA_1_HASH_1 = '123456789a123456789a123456789a123456789a'
 SHA_1_HASH_2 = 'aaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbb'
 SHA_256_HASH_1 = '123456789a123456789a123456789a123456789a123456789a123456789a1234'
-SHA_256_HASH_2 = 'cafef00dba5eba11b01dfaceacc01adeda7aba5eca5ecade0b57ac1e5ca1ab1e'
+SHA_256_HASH_2 = 'cafef00dba5eba11b01dfaceacc01adeda7aba5eca55e77e0b57ac1e5ca1ab1e'
 SHA_1 = project_management.ShaCertificate.SHA_1
 SHA_256 = project_management.ShaCertificate.SHA_256
 
@@ -93,6 +93,13 @@ def test_list_android_apps(test_android_app):
             found = True
             break
     assert found
+
+
+def test_get_android_app_config(test_android_app, project_id):
+    config = test_android_app.get_config()
+
+    assert '"mobilesdk_app_id": "{0}"'.format(test_android_app.app_id) in config
+    assert '"project_id": "{0}"'.format(project_id) in config
 
 
 def test_android_sha_certificates(test_android_app):
@@ -175,3 +182,10 @@ def test_list_ios_apps(test_ios_app):
             found = True
             break
     assert found
+
+
+def test_get_ios_app_config(test_ios_app, project_id):
+    config = test_ios_app.get_config()
+
+    assert '<string>{0}</string>'.format(test_ios_app.app_id) in config
+    assert '<string>{0}</string>'.format(project_id) in config

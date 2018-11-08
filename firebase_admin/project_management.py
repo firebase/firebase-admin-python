@@ -17,6 +17,7 @@
 This module enables management of resources in Firebase projects, such as Android and iOS apps.
 """
 
+import base64
 import re
 import time
 
@@ -209,6 +210,10 @@ class AndroidApp(object):
         """
         return self._service.set_android_app_display_name(self._app_id, new_display_name)
 
+    def get_config(self):
+        """Retrieves the configuration artifact associated with this Android app."""
+        return self._service.get_android_app_config(self._app_id)
+
     def get_sha_certificates(self):
         """Retrieves the entire list of SHA certificates associated with this Android app.
 
@@ -291,8 +296,6 @@ class IosApp(object):
     def set_display_name(self, new_display_name):
         """Updates the display name attribute of this iOS app to the one given.
 
-        Note: this method makes an RPC.
-
         Args:
             new_display_name: The new display name for this iOS app.
 
@@ -304,6 +307,10 @@ class IosApp(object):
                 Management Service.
         """
         return self._service.set_ios_app_display_name(self._app_id, new_display_name)
+
+    def get_config(self):
+        """Retrieves the configuration artifact associated with this iOS app."""
+        return self._service.get_ios_app_config(self._app_id)
 
 
 class _AppMetadata(object):
@@ -601,6 +608,20 @@ class _ProjectManagementService(object):
                 else:
                     raise _PollingError('Operation terminated in an error.')
         raise _PollingError('Polling deadline exceeded.')
+
+    def get_android_app_config(self, app_id):
+        return self._get_app_config(
+            platform_resource_name=_ProjectManagementService.ANDROID_APPS_RESOURCE_NAME,
+            app_id=app_id)
+
+    def get_ios_app_config(self, app_id):
+        return self._get_app_config(
+            platform_resource_name=_ProjectManagementService.IOS_APPS_RESOURCE_NAME, app_id=app_id)
+
+    def _get_app_config(self, platform_resource_name, app_id):
+        path = '/v1beta1/projects/-/{0}/{1}/config'.format(platform_resource_name, app_id)
+        response = self._make_request('get', path, app_id, 'App ID')
+        return base64.standard_b64decode(response['configFileContents'])
 
     def get_sha_certificates(self, app_id):
         path = '/v1beta1/projects/-/androidApps/{0}/sha'.format(app_id)

@@ -581,7 +581,9 @@ class _ProjectManagementService(object):
         """Creates an Android or iOS app."""
         _check_is_string_or_none(display_name, 'display_name')
         path = '/v1beta1/projects/{0}/{1}'.format(self._project_id, platform_resource_name)
-        request_body = {'displayName': display_name, identifier_name: identifier}
+        request_body = {identifier_name: identifier}
+        if display_name:
+            request_body['displayName'] = display_name
         response = self._make_request('post', path, identifier, identifier_label, json=request_body)
         operation_name = response['name']
         try:
@@ -606,7 +608,8 @@ class _ProjectManagementService(object):
                 if response:
                     return response
                 else:
-                    raise _PollingError('Operation terminated in an error.')
+                    raise _PollingError(
+                        'Polling finished, but the Operation terminated in an error.')
         raise _PollingError('Polling deadline exceeded.')
 
     def get_android_app_config(self, app_id):
@@ -650,7 +653,7 @@ class _ProjectManagementService(object):
 
     def _extract_message(self, identifier, identifier_label, error):
         if not isinstance(error, requests.exceptions.RequestException) or error.response is None:
-            return str(error)
+            return '{0} "{1}": {2}'.format(identifier_label, identifier, str(error))
         status = error.response.status_code
         message = _ProjectManagementService.ERROR_CODES.get(status)
         if message:

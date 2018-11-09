@@ -30,8 +30,8 @@ class MockSSEClientAdapter(MockAdapter):
     def send(self, request, **kwargs):
         resp = super(MockSSEClientAdapter, self).send(request, **kwargs)
         resp.url = request.url
-        resp.status_code = self._status
-        resp.raw = six.BytesIO(self._data.encode())
+        resp.status_code = self._statuses[0]
+        resp.raw = six.BytesIO(self._responses[0].encode())
         resp.encoding = "utf-8"
         return resp
 

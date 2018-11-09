@@ -512,7 +512,7 @@ class _ProjectManagementService(object):
 
     def _set_display_name(self, app_id, new_display_name, platform_resource_name):
         """Sets the display name of an Android or iOS app."""
-        path = '/v1beta1/projects/-/{0}/{1}?update_mask=display_name'.format(
+        path = '/v1beta1/projects/-/{0}/{1}?updateMask=displayName'.format(
             platform_resource_name, app_id)
         request_body = {'displayName': new_display_name}
         self._make_request('patch', path, app_id, 'App ID', json=request_body)

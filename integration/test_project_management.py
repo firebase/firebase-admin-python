@@ -58,12 +58,11 @@ def test_ios_app(default_app):
 def test_create_android_app_already_exists(test_android_app):
     del test_android_app
 
-    try:
+    with pytest.raises(project_management.ApiCallError) as excinfo:
         project_management.create_android_app(
             package_name=TEST_APP_PACKAGE_NAME, display_name=TEST_APP_DISPLAY_NAME_PREFIX)
-        assert False, 'Failed to raise ApiCallError.'
-    except project_management.ApiCallError as error:
-        assert 'The resource already exists' in str(error)
+    assert 'The resource already exists' in str(excinfo.value)
+    assert excinfo.value.detail is not None
 
 
 def test_android_set_display_name_and_get_metadata(test_android_app, project_id):
@@ -124,11 +123,10 @@ def test_android_sha_certificates(test_android_app):
         assert cert.name
 
     # Adding the same cert twice should cause an already-exists error.
-    try:
+    with pytest.raises(project_management.ApiCallError) as excinfo:
         test_android_app.add_sha_certificate(project_management.ShaCertificate(SHA_256_HASH_2))
-        assert False, 'Failed to raise ApiCallError.'
-    except project_management.ApiCallError as error:
-        assert 'The resource already exists' in str(error)
+    assert 'The resource already exists' in str(excinfo.value)
+    assert excinfo.value.detail is not None
 
     # Delete all certs and assert that they have all been deleted successfully.
     for cert in cert_list:
@@ -137,22 +135,20 @@ def test_android_sha_certificates(test_android_app):
     assert test_android_app.get_sha_certificates() == []
 
     # Deleting a nonexistent cert should cause a not-found error.
-    try:
+    with pytest.raises(project_management.ApiCallError) as excinfo:
         test_android_app.delete_sha_certificate(cert_list[0])
-        assert False, 'Failed to raise ApiCallError.'
-    except project_management.ApiCallError as error:
-        assert 'Failed to find the resource' in str(error)
+    assert 'Failed to find the resource' in str(excinfo.value)
+    assert excinfo.value.detail is not None
 
 
 def test_create_ios_app_already_exists(test_ios_app):
     del test_ios_app
 
-    try:
+    with pytest.raises(project_management.ApiCallError) as excinfo:
         project_management.create_ios_app(
             bundle_id=TEST_APP_BUNDLE_ID, display_name=TEST_APP_DISPLAY_NAME_PREFIX)
-        assert False, 'Failed to raise ApiCallError.'
-    except project_management.ApiCallError as error:
-        assert 'The resource already exists' in str(error)
+    assert 'The resource already exists' in str(excinfo.value)
+    assert excinfo.value.detail is not None
 
 
 def test_ios_set_display_name_and_get_metadata(test_ios_app, project_id):

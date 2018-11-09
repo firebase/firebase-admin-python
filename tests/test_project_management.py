@@ -62,6 +62,7 @@ TEST_IOS_APP_NO_DISPLAY_NAME = {
 }
 
 OPERATION_NAME = 'operations/abcdefg'
+POLLING_URL = BASE_URL + '/v1/{0}'.format(OPERATION_NAME)
 OPERATION_IN_PROGRESS_RESPONSE = json.dumps({
     'name': OPERATION_NAME,
     'done': False
@@ -91,13 +92,38 @@ IOS_APP_NO_DISPLAY_NAME_OPERATION_SUCCESSFUL_RESPONSE = json.dumps({
     'done': True,
     'response': TEST_IOS_APP_NO_DISPLAY_NAME,
 })
-
 ERROR_RESPONSE = 'some error'
 
-class TestCreateAndroidApp(object):
-    _CREATION_URL = BASE_URL + '/v1beta1/projects/{0}/{1}'.format(TEST_PROJECT_ID, "androidApps")
-    _POLLING_URL = BASE_URL + '/v1/{0}'.format(OPERATION_NAME)
+LIST_APPS_NEXT_PAGE_TOKEN = 'nextpagetoken'
+TEST_ANDROID_APP_2 = {
+    'name': TEST_ANDROID_APP_NAME + 'cafe',
+    'appId': TEST_ANDROID_APP_ID + 'cafe',
+    'displayName': TEST_ANDROID_APP_DISPLAY_NAME + ' 2',
+    'projectId': TEST_PROJECT_ID,
+    'packageName': TEST_ANDROID_APP_PACKAGE_NAME + '2',
+}
+LIST_ANDROID_APPS_RESPONSE = json.dumps({'apps': [TEST_ANDROID_APP, TEST_ANDROID_APP_2]})
+LIST_ANDROID_APPS_PAGE_1_RESPONSE = json.dumps({
+    'apps': [TEST_ANDROID_APP],
+    'nextPageToken': LIST_APPS_NEXT_PAGE_TOKEN,
+})
+LIST_ANDROID_APPS_PAGE_2_RESPONSE = json.dumps({'apps': [TEST_ANDROID_APP_2]})
+TEST_IOS_APP_2 = {
+    'name': TEST_IOS_APP_NAME + 'cafe',
+    'appId': TEST_IOS_APP_ID + 'cafe',
+    'displayName': TEST_IOS_APP_DISPLAY_NAME + ' 2',
+    'projectId': TEST_PROJECT_ID,
+    'bundleId': TEST_IOS_APP_BUNDLE_ID + '2',
+}
+LIST_IOS_APPS_RESPONSE = json.dumps({'apps': [TEST_IOS_APP, TEST_IOS_APP_2]})
+LIST_IOS_APPS_PAGE_1_RESPONSE = json.dumps({
+    'apps': [TEST_IOS_APP],
+    'nextPageToken': LIST_APPS_NEXT_PAGE_TOKEN,
+})
+LIST_IOS_APPS_PAGE_2_RESPONSE = json.dumps({'apps': [TEST_IOS_APP_2]})
 
+
+class BaseProjectManagementTest(object):
     @classmethod
     def setup_class(cls):
         firebase_admin.initialize_app(
@@ -118,6 +144,10 @@ class TestCreateAndroidApp(object):
             testutils.MockMultiRequestAdapter(responses, statuses, captor))
         return captor
 
+
+class TestCreateAndroidApp(BaseProjectManagementTest):
+    _CREATION_URL = BASE_URL + '/v1beta1/projects/{0}/{1}'.format(TEST_PROJECT_ID, "androidApps")
+
     def test_create_android_app_without_display_name(self):
         captor = self._set_up_mock_responses_and_request_captor_for_project_management_service(
             statuses=[200, 200, 200],
@@ -137,10 +167,10 @@ class TestCreateAndroidApp(object):
         body = {'packageName': TEST_ANDROID_APP_PACKAGE_NAME}
         assert json.loads(captor[0].body.decode()) == body
         assert captor[1].method == 'GET'
-        assert captor[1].url == TestCreateAndroidApp._POLLING_URL
+        assert captor[1].url == POLLING_URL
         assert not captor[1].body
         assert captor[2].method == 'GET'
-        assert captor[2].url == TestCreateAndroidApp._POLLING_URL
+        assert captor[2].url == POLLING_URL
         assert not captor[2].body
 
     def test_create_android_app(self):
@@ -166,10 +196,10 @@ class TestCreateAndroidApp(object):
         }
         assert json.loads(captor[0].body.decode()) == body
         assert captor[1].method == 'GET'
-        assert captor[1].url == TestCreateAndroidApp._POLLING_URL
+        assert captor[1].url == POLLING_URL
         assert not captor[1].body
         assert captor[2].method == 'GET'
-        assert captor[2].url == TestCreateAndroidApp._POLLING_URL
+        assert captor[2].url == POLLING_URL
         assert not captor[2].body
 
     def test_create_android_app_already_exists(self):
@@ -220,3 +250,128 @@ class TestCreateAndroidApp(object):
         assert 'Polling finished, but the Operation terminated in an error' in str(excinfo.value)
         assert excinfo.value.detail is not None
         assert len(captor) == 3
+
+
+class TestCreateIosApp(BaseProjectManagementTest):
+    _CREATION_URL = BASE_URL + '/v1beta1/projects/{0}/{1}'.format(TEST_PROJECT_ID, "iosApps")
+
+    def test_create_ios_app_without_display_name(self):
+        captor = self._set_up_mock_responses_and_request_captor_for_project_management_service(
+            statuses=[200, 200, 200],
+            responses=[
+                OPERATION_IN_PROGRESS_RESPONSE,  # Request to create iOS app asynchronously.
+                OPERATION_IN_PROGRESS_RESPONSE,  # Creation Operation is still not done.
+                IOS_APP_NO_DISPLAY_NAME_OPERATION_SUCCESSFUL_RESPONSE,  # Operation completed.
+            ])
+
+        ios_app = project_management.create_ios_app(
+            bundle_id=TEST_IOS_APP_BUNDLE_ID)
+
+        assert ios_app.app_id == TEST_IOS_APP_ID
+        assert len(captor) == 3
+        assert captor[0].method == 'POST'
+        assert captor[0].url == TestCreateIosApp._CREATION_URL
+        body = {'bundleId': TEST_IOS_APP_BUNDLE_ID}
+        assert json.loads(captor[0].body.decode()) == body
+        assert captor[1].method == 'GET'
+        assert captor[1].url == POLLING_URL
+        assert not captor[1].body
+        assert captor[2].method == 'GET'
+        assert captor[2].url == POLLING_URL
+        assert not captor[2].body
+
+    def test_create_ios_app(self):
+        captor = self._set_up_mock_responses_and_request_captor_for_project_management_service(
+            statuses=[200, 200, 200],
+            responses=[
+                OPERATION_IN_PROGRESS_RESPONSE,  # Request to create iOS app asynchronously.
+                OPERATION_IN_PROGRESS_RESPONSE,  # Creation Operation is still not done.
+                IOS_APP_OPERATION_SUCCESSFUL_RESPONSE,  # Creation Operation completed.
+            ])
+
+        ios_app = project_management.create_ios_app(
+            bundle_id=TEST_IOS_APP_BUNDLE_ID,
+            display_name=TEST_IOS_APP_DISPLAY_NAME)
+
+        assert ios_app.app_id == TEST_IOS_APP_ID
+        assert len(captor) == 3
+        assert captor[0].method == 'POST'
+        assert captor[0].url == TestCreateIosApp._CREATION_URL
+        body = {
+            'bundleId': TEST_IOS_APP_BUNDLE_ID,
+            'displayName': TEST_IOS_APP_DISPLAY_NAME,
+        }
+        assert json.loads(captor[0].body.decode()) == body
+        assert captor[1].method == 'GET'
+        assert captor[1].url == POLLING_URL
+        assert not captor[1].body
+        assert captor[2].method == 'GET'
+        assert captor[2].url == POLLING_URL
+        assert not captor[2].body
+
+    def test_create_ios_app_already_exists(self):
+        captor = self._set_up_mock_responses_and_request_captor_for_project_management_service(
+            statuses=[409], responses=[ERROR_RESPONSE])
+
+        with pytest.raises(project_management.ApiCallError) as excinfo:
+            project_management.create_ios_app(
+                bundle_id=TEST_IOS_APP_BUNDLE_ID,
+                display_name=TEST_IOS_APP_DISPLAY_NAME)
+
+        assert 'The resource already exists' in str(excinfo.value)
+        assert excinfo.value.detail is not None
+        assert len(captor) == 1
+
+    def test_create_ios_app_polling_rpc_error(self):
+        captor = self._set_up_mock_responses_and_request_captor_for_project_management_service(
+            statuses=[200, 200, 503],  # Error 503 means that backend servers are over capacity.
+            responses=[
+                OPERATION_IN_PROGRESS_RESPONSE,  # Request to create iOS app asynchronously.
+                OPERATION_IN_PROGRESS_RESPONSE,  # Creation Operation is still not done.
+                ERROR_RESPONSE,  # Error 503.
+            ])
+
+        with pytest.raises(project_management.ApiCallError) as excinfo:
+            project_management.create_ios_app(
+                bundle_id=TEST_IOS_APP_BUNDLE_ID,
+                display_name=TEST_IOS_APP_DISPLAY_NAME)
+
+        assert 'Backend servers are over capacity' in str(excinfo.value)
+        assert excinfo.value.detail is not None
+        assert len(captor) == 3
+
+    def test_create_ios_app_polling_failure(self):
+        captor = self._set_up_mock_responses_and_request_captor_for_project_management_service(
+            statuses=[200, 200, 200],
+            responses=[
+                OPERATION_IN_PROGRESS_RESPONSE,  # Request to create iOS app asynchronously.
+                OPERATION_IN_PROGRESS_RESPONSE,  # Creation Operation is still not done.
+                OPERATION_FAILED_RESPONSE,  # Operation is finished, but terminated with an error.
+            ])
+
+        with pytest.raises(project_management.ApiCallError) as excinfo:
+            project_management.create_ios_app(
+                bundle_id=TEST_IOS_APP_BUNDLE_ID,
+                display_name=TEST_IOS_APP_DISPLAY_NAME)
+
+        assert 'Polling finished, but the Operation terminated in an error' in str(excinfo.value)
+        assert excinfo.value.detail is not None
+        assert len(captor) == 3
+
+
+class TestListAndroidApps(BaseProjectManagementTest):
+    _LISTING_URL = BASE_URL + '/v1beta1/projects/{0}/androidApps?pageSize=100'.format(
+        TEST_PROJECT_ID)
+
+    def test_list_android_apps(self):
+        captor = self._set_up_mock_responses_and_request_captor_for_project_management_service(
+            statuses=[200], responses=[LIST_ANDROID_APPS_RESPONSE])
+
+        android_apps = project_management.list_android_apps()
+
+        expected_app_ids = set([TEST_ANDROID_APP_ID, TEST_ANDROID_APP_ID + 'cafe'])
+        assert set(app.app_id for app in android_apps) == expected_app_ids
+        assert len(captor) == 1
+        assert captor[0].method == 'GET'
+        assert captor[0].url == TestListAndroidApps._LISTING_URL
+        assert not captor[0].body

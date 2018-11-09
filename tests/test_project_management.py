@@ -95,8 +95,8 @@ IOS_APP_NO_DISPLAY_NAME_OPERATION_SUCCESSFUL_RESPONSE = json.dumps({
 ERROR_RESPONSE = 'some error'
 
 class TestCreateAndroidApp(object):
-    _CREATION_URL = BASE_URL + '/v1beta1/projects/{0}/{1}'.format(TEST_PROJECT_ID, "androidApps")
-    _POLLING_URL = BASE_URL + '/v1/{0}'.format(OPERATION_NAME)
+    _CREATION_URL = '{0}/v1beta1/projects/{1}/{2}'.format(BASE_URL, TEST_PROJECT_ID, "androidApps")
+    _POLLING_URL = '{0}/v1/{1}'.format(BASE_URL, OPERATION_NAME)
 
     @classmethod
     def setup_class(cls):

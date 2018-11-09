@@ -122,9 +122,12 @@ LIST_IOS_APPS_PAGE_1_RESPONSE = json.dumps({
 LIST_IOS_APPS_PAGE_2_RESPONSE = json.dumps({'apps': [TEST_IOS_APP_2]})
 
 TEST_APP_CONFIG = 'hello world'
+# In Python 2.7, the base64 module works with strings, while in Python 3, it works with bytes
+# objects. This line works in both versions.
+TEST_APP_ENCODED_CONFIG = base64.standard_b64encode(TEST_APP_CONFIG.encode('utf-8')).decode('utf-8')
 TEST_APP_CONFIG_RESPONSE = json.dumps({
     'configFilename': 'hello',
-    'configFileContents': base64.b64encode(TEST_APP_CONFIG),
+    'configFileContents': TEST_APP_ENCODED_CONFIG,
 })
 
 SHA_1_HASH = '123456789a123456789a123456789a123456789a'

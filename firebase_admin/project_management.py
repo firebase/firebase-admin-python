@@ -302,7 +302,7 @@ class _ProjectManagementService(object):
     """Provides methods for interacting with the Firebase Project Management Service."""
 
     BASE_URL = 'https://firebase.googleapis.com'
-    MAXIMUM_LIST_APPS_PAGE_SIZE = 1
+    MAXIMUM_LIST_APPS_PAGE_SIZE = 100
     MAXIMUM_POLLING_ATTEMPTS = 8
     POLL_BASE_WAIT_TIME_SECONDS = 0.5
     POLL_EXPONENTIAL_BACKOFF_FACTOR = 1.5

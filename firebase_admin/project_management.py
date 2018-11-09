@@ -433,6 +433,15 @@ class ShaCertificate(object):
         """
         return self._cert_type
 
+    def __eq__(self, other):
+        if not isinstance(other, ShaCertificate):
+            return False
+        return (self.name == other.name and self.sha_hash == other.sha_hash and
+                self.cert_type == other.cert_type)
+
+    def __hash__(self):
+        return hash((self.name, self.sha_hash, self.cert_type))
+
 
 class _ProjectManagementService(object):
     """Provides methods for interacting with the Firebase Project Management Service."""

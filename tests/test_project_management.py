@@ -124,7 +124,7 @@ LIST_IOS_APPS_PAGE_2_RESPONSE = json.dumps({'apps': [TEST_IOS_APP_2]})
 TEST_APP_CONFIG = 'hello world'
 TEST_APP_CONFIG_RESPONSE = json.dumps({
     'configFilename': 'hello',
-    'configFileContents': base64.standard_b64encode(TEST_APP_CONFIG),
+    'configFileContents': base64.b64encode(TEST_APP_CONFIG),
 })
 
 SHA_1_HASH = '123456789a123456789a123456789a123456789a'

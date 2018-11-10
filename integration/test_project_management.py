@@ -189,7 +189,12 @@ def test_list_ios_apps(ios_app):
 def test_get_ios_app_config(ios_app, project_id):
     config = ios_app.get_config()
 
-    plist = plistlib.readPlistFromString(config)
+    # In Python 2.7, the plistlib module works with strings, while in Python 3, it is significantly
+    # redesigned and works with bytes objects instead.
+    try:
+        plist = plistlib.loads(config.encode('utf-8'))
+    except AttributeError:  # Python 2.7 plistlib does not have the loads attribute.
+        plist = plistlib.readPlistFromString(config)
     assert plist['BUNDLE_ID'] == TEST_APP_BUNDLE_ID
     assert plist['PROJECT_ID'] == project_id
     assert plist['GOOGLE_APP_ID'] == ios_app.app_id

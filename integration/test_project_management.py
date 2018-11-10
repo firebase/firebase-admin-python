@@ -183,7 +183,7 @@ def test_list_ios_apps(ios_app):
     ios_apps = project_management.list_ios_apps()
 
     assert any(ios_app.get_metadata().display_name.startswith(TEST_APP_DISPLAY_NAME_PREFIX)
-            for ios_app in ios_apps)
+               for ios_app in ios_apps)
 
 
 def test_get_ios_app_config(ios_app, project_id):

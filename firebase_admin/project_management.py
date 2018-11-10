@@ -633,7 +633,9 @@ class _ProjectManagementService(object):
     def _get_app_config(self, platform_resource_name, app_id):
         path = '/v1beta1/projects/-/{0}/{1}/config'.format(platform_resource_name, app_id)
         response = self._make_request('get', path, app_id, 'App ID')
-        return base64.standard_b64decode(response['configFileContents'])
+        # In Python 2.7, the base64 module works with strings, while in Python 3, it works with
+        # bytes objects. This line works in both versions.
+        return base64.standard_b64decode(response['configFileContents']).decode(encoding='utf-8')
 
     def get_sha_certificates(self, app_id):
         path = '/v1beta1/projects/-/androidApps/{0}/sha'.format(app_id)

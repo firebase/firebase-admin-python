@@ -194,7 +194,7 @@ def test_get_ios_app_config(ios_app, project_id):
     try:
         plist = plistlib.loads(config.encode('utf-8'))
     except AttributeError:  # Python 2.7 plistlib does not have the loads attribute.
-        plist = plistlib.readPlistFromString(config)
+        plist = plistlib.readPlistFromString(config)  # pylint: disable=no-member
     assert plist['BUNDLE_ID'] == TEST_APP_BUNDLE_ID
     assert plist['PROJECT_ID'] == project_id
     assert plist['GOOGLE_APP_ID'] == ios_app.app_id

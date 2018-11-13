@@ -120,6 +120,9 @@ class TokenGenerator(object):
         # Attempt to discover a service account email from the local Metadata service. Use it
         # with the IAM service to sign bytes.
         resp = self.request(url=METADATA_SERVICE_URL, headers={'Metadata-Flavor': 'Google'})
+        if resp.status != 200:
+            raise ValueError(
+                'Failed to contact the local metadata service: {0}.'.format(resp.data.decode()))
         service_account = resp.data.decode()
         return _SigningProvider.from_iam(self.request, google_cred, service_account)
 

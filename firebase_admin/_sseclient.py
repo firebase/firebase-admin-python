@@ -12,7 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""SSEClient module to stream realtime updates in the Firebase Database."""
+"""SSEClient module to stream realtime updates from the Firebase Database.
+
+Based on a similar implementation from Pyrebase.
+"""
 
 import re
 import time
@@ -58,7 +61,7 @@ class SSEClient(object):
         self.buf = u'' # Keep data here as it streams in
 
         headers = self.requests_kwargs.get('headers', {})
-        # The SSE spec requires making requests with Cache-Control: nocache
+        # The SSE spec requires making requests with Cache-Control: no-cache
         headers['Cache-Control'] = 'no-cache'
         # The 'Accept' header is not required, but explicit > implicit
         headers['Accept'] = 'text/event-stream'
@@ -77,7 +80,7 @@ class SSEClient(object):
             if self.last_id:
                 self.requests_kwargs['headers']['Last-Event-ID'] = self.last_id
             self.resp = self.session.get(self.url, stream=True, **self.requests_kwargs)
-            self.resp_iterator = self.resp.iter_content(decode_unicode=True)
+            self.resp_iterator = self.resp.iter_content(decode_unicode=True, chunk_size=None)
             self.resp.raise_for_status()
         else:
             raise StopIteration()
@@ -99,15 +102,13 @@ class SSEClient(object):
                 self._connect()
                 # The SSE spec only supports resuming from a whole message, so
                 # if we have half a message we should throw it out.
-                head, sep, tail = self.buf.rpartition('\n')
+                head, sep, _ = self.buf.rpartition('\n')
                 self.buf = head + sep
                 continue
 
         split = re.split(end_of_field, self.buf)
         head = split[0]
-        tail = ''.join(split[1:])
-
-        self.buf = tail
+        self.buf = '\n\n'.join(split[1:])
         event = Event.parse(head)
 
         if event.data == 'credential is no longer valid':
@@ -150,7 +151,7 @@ class Event(object):
           raw: the raw data to parse.
 
         Returns:
-          Event: newly intialized ``Event`` object with the parameters  initialized.
+          Event: newly intialized ``Event`` object with the parameters initialized.
         """
         event = cls()
         for line in raw.split('\n'):

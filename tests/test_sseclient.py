@@ -73,6 +73,17 @@ class TestSSEClient(object):
         assert event_payload["path"] == "/"
         assert len(recorder) == 2
 
+    def test_large_event(self):
+        data = 'a' * int(0.1 * 1024 * 1024)
+        payload = 'event: put\ndata: {"path":"/","data":"' + data + '"}\n\n'
+        recorder = []
+        sseclient = self.init_sse(payload, recorder)
+        event = next(sseclient)
+        event_payload = json.loads(event.data)
+        assert event_payload["data"] == data
+        assert event_payload["path"] == "/"
+        assert len(recorder) == 1
+
     def test_multiple_events(self):
         payload = 'event: put\ndata: {"path":"/foo","data":"testevent1"}\n\n'
         payload += 'event: put\ndata: {"path":"/bar","data":"testevent2"}\n\n'

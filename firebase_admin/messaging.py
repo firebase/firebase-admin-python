@@ -943,7 +943,7 @@ class _MessagingService(object):
         error_dict = data.get('error', {})
         server_code = None
         for detail in error_dict.get('details', []):
-            if detail.get('@type') == 'type.googleapis.com/google.firebase.fcm.v1.FcmErrorCode':
+            if detail.get('@type') == 'type.googleapis.com/google.firebase.fcm.v1.FcmError':
                 server_code = detail.get('errorCode')
                 break
         if not server_code:

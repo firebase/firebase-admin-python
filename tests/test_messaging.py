@@ -1120,7 +1120,7 @@ class TestSend(object):
                 'message': 'test error',
                 'details': [
                     {
-                        '@type': 'type.googleapis.com/google.firebase.fcm.v1.FcmErrorCode',
+                        '@type': 'type.googleapis.com/google.firebase.fcm.v1.FcmError',
                         'errorCode': 'UNREGISTERED',
                     },
                 ],

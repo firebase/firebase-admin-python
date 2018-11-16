@@ -107,7 +107,7 @@ def test_get_android_app_config(android_app, project_id):
             assert client_info['android_client_info']['package_name'] == TEST_APP_PACKAGE_NAME
             break
     else:
-        assert False, 'Failed to find the test Android app in the Android config.'
+        pytest.fail('Failed to find the test Android app in the Android config.')
 
 
 def test_android_sha_certificates(android_app):

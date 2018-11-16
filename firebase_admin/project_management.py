@@ -345,6 +345,10 @@ class _AppMetadata(object):
         """The permanent, globally unique, user-assigned ID of the parent Firebase project."""
         return self._project_id
 
+    def __eq__(self, other):
+        return (self.name == other.name and self.app_id == other.app_id and
+                self.display_name == other.display_name and self.project_id == other.project_id)
+
 
 class AndroidAppMetadata(_AppMetadata):
     """Android-specific information about an Android Firebase app."""
@@ -358,6 +362,15 @@ class AndroidAppMetadata(_AppMetadata):
         """The canonical package name of this Android app as it would appear in the Play Store."""
         return self._package_name
 
+    def __eq__(self, other):
+        if not isinstance(other, AndroidAppMetadata):
+            return False
+        return (super(AndroidAppMetadata, self).__eq__(other) and
+                self.package_name == other.package_name)
+
+    def __hash__(self):
+        return hash((self.name, self.app_id, self.display_name, self.project_id, self.package_name))
+
 
 class IosAppMetadata(_AppMetadata):
     """iOS-specific information about an iOS Firebase app."""
@@ -370,6 +383,14 @@ class IosAppMetadata(_AppMetadata):
     def bundle_id(self):
         """The canonical bundle ID of this iOS app as it would appear in the iOS AppStore."""
         return self._bundle_id
+
+    def __eq__(self, other):
+        if not isinstance(other, IosAppMetadata):
+            return False
+        return super(IosAppMetadata, self).__eq__(other) and self.bundle_id == other.bundle_id
+
+    def __hash__(self):
+        return hash((self.name, self.app_id, self.display_name, self.project_id, self.bundle_id))
 
 
 class ShaCertificate(object):

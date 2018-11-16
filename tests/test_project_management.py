@@ -95,6 +95,7 @@ IOS_APP_NO_DISPLAY_NAME_OPERATION_SUCCESSFUL_RESPONSE = json.dumps({
 })
 ERROR_RESPONSE = 'some error'
 
+LIST_APPS_EMPTY_RESPONSE = json.dumps(dict())
 LIST_APPS_NEXT_PAGE_TOKEN = 'nextpagetoken'
 TEST_ANDROID_APP_2 = {
     'name': TEST_ANDROID_APP_NAME + 'cafe',
@@ -143,10 +144,231 @@ GET_SHA_CERTIFICATES_RESPONSE = json.dumps({'certificates': [
 ]})
 
 
+class TestShaCertificate(object):
+    def test_create_sha_certificate_errors(self):
+        # sha_hash cannot be None.
+        with pytest.raises(ValueError):
+            project_management.ShaCertificate(sha_hash=None)
+        # sha_hash must be a string.
+        with pytest.raises(ValueError):
+            project_management.ShaCertificate(sha_hash=0x123456789a123456789a123456789a123456789a)
+        # sha_hash must be a valid SHA-1 or SHA-256 hash.
+        with pytest.raises(ValueError):
+            project_management.ShaCertificate(sha_hash="123456789a123456789")
+        with pytest.raises(ValueError):
+            project_management.ShaCertificate(sha_hash="123456789a123456789a123456789a123456oops")
+
+    def test_sha_certificate_eq(self):
+        sha_cert_1 = project_management.ShaCertificate(SHA_1_HASH, SHA_1_NAME)
+        # sha_hash is different from sha_cert_1, but name is the same.
+        sha_cert_2 = project_management.ShaCertificate(
+            '0000000000000000000000000000000000000000', SHA_1_NAME)
+        # name is different from sha_cert_1, but sha_hash is the same.
+        sha_cert_3 = project_management.ShaCertificate(SHA_1_HASH, None)
+        # name is different from sha_cert_1, but sha_hash is the same.
+        sha_cert_4 = project_management.ShaCertificate(
+            SHA_1_HASH, 'projects/-/androidApps/{0}/sha/notname1')
+        # sha_hash and cert_type are different from sha_cert_1, but name is the same.
+        sha_cert_5 = project_management.ShaCertificate(
+            SHA_256_HASH, 'projects/-/androidApps/{0}/sha/name1')
+        # Exactly the same as sha_cert_1.
+        sha_cert_6 = project_management.ShaCertificate(SHA_1_HASH, SHA_1_NAME)
+        not_a_sha_cert = {'name': SHA_1_NAME, 'sha_hash': SHA_1_HASH, 'cert_type': 'SHA_1'}
+
+        assert sha_cert_1 == sha_cert_1
+        assert sha_cert_1 != sha_cert_2
+        assert sha_cert_1 != sha_cert_3
+        assert sha_cert_1 != sha_cert_4
+        assert sha_cert_1 != sha_cert_5
+        assert sha_cert_1 == sha_cert_6
+        assert sha_cert_1 != not_a_sha_cert
+
+    def test_sha_certificate_name(self):
+        assert SHA_1_CERTIFICATE.name == SHA_1_NAME
+        assert SHA_256_CERTIFICATE.name == SHA_256_NAME
+
+    def test_sha_certificate_sha_hash(self):
+        assert SHA_1_CERTIFICATE.sha_hash == SHA_1_HASH
+        assert SHA_256_CERTIFICATE.sha_hash == SHA_256_HASH
+
+    def test_sha_certificate_cert_type(self):
+        assert SHA_1_CERTIFICATE.cert_type == 'SHA_1'
+        assert SHA_256_CERTIFICATE.cert_type == 'SHA_256'
+
+
+class TestAndroidAppMetadata(object):
+    ANDROID_APP_METADATA = project_management.AndroidAppMetadata(
+        package_name=TEST_ANDROID_APP_PACKAGE_NAME, name=TEST_ANDROID_APP_NAME,
+        app_id=TEST_ANDROID_APP_ID, display_name=TEST_ANDROID_APP_DISPLAY_NAME,
+        project_id=TEST_PROJECT_ID)
+
+    def test_create_android_app_metadata_errors(self):
+        # package_name must be a non-empty string.
+        with pytest.raises(ValueError):
+            project_management.AndroidAppMetadata(
+                package_name='', name=TEST_ANDROID_APP_NAME, app_id=TEST_ANDROID_APP_ID,
+                display_name=TEST_ANDROID_APP_DISPLAY_NAME, project_id=TEST_PROJECT_ID)
+        # name must be a non-empty string.
+        with pytest.raises(ValueError):
+            project_management.AndroidAppMetadata(
+                package_name=TEST_ANDROID_APP_PACKAGE_NAME, name='', app_id=TEST_ANDROID_APP_ID,
+                display_name=TEST_ANDROID_APP_DISPLAY_NAME, project_id=TEST_PROJECT_ID)
+        # app_id must be a non-empty string.
+        with pytest.raises(ValueError):
+            project_management.AndroidAppMetadata(
+                package_name=TEST_ANDROID_APP_PACKAGE_NAME, name=TEST_ANDROID_APP_NAME, app_id='',
+                display_name=TEST_ANDROID_APP_DISPLAY_NAME, project_id=TEST_PROJECT_ID)
+        # display_name must be a string.
+        with pytest.raises(ValueError):
+            project_management.AndroidAppMetadata(
+                package_name=TEST_ANDROID_APP_PACKAGE_NAME, name=TEST_ANDROID_APP_NAME,
+                app_id=TEST_ANDROID_APP_ID, display_name=None, project_id=TEST_PROJECT_ID)
+        # project_id must be a nonempty string.
+        with pytest.raises(ValueError):
+            project_management.AndroidAppMetadata(
+                package_name=TEST_ANDROID_APP_PACKAGE_NAME, name=TEST_ANDROID_APP_NAME,
+                app_id=TEST_ANDROID_APP_ID, display_name=TEST_ANDROID_APP_NAME, project_id='')
+
+    def test_android_app_metadata_eq_and_hash(self):
+        metadata_1 = TestAndroidAppMetadata.ANDROID_APP_METADATA
+        metadata_2 = project_management.AndroidAppMetadata(
+            package_name='different', name=TEST_ANDROID_APP_NAME,
+            app_id=TEST_ANDROID_APP_ID, display_name=TEST_ANDROID_APP_DISPLAY_NAME,
+            project_id=TEST_PROJECT_ID)
+        metadata_3 = project_management.AndroidAppMetadata(
+            package_name=TEST_ANDROID_APP_PACKAGE_NAME, name='different',
+            app_id=TEST_ANDROID_APP_ID, display_name=TEST_ANDROID_APP_DISPLAY_NAME,
+            project_id=TEST_PROJECT_ID)
+        metadata_4 = project_management.AndroidAppMetadata(
+            package_name=TEST_ANDROID_APP_PACKAGE_NAME, name=TEST_ANDROID_APP_NAME,
+            app_id='different', display_name=TEST_ANDROID_APP_DISPLAY_NAME,
+            project_id=TEST_PROJECT_ID)
+        metadata_5 = project_management.AndroidAppMetadata(
+            package_name=TEST_ANDROID_APP_PACKAGE_NAME, name=TEST_ANDROID_APP_NAME,
+            app_id=TEST_ANDROID_APP_ID, display_name='different', project_id=TEST_PROJECT_ID)
+        metadata_6 = project_management.AndroidAppMetadata(
+            package_name=TEST_ANDROID_APP_PACKAGE_NAME, name=TEST_ANDROID_APP_NAME,
+            app_id=TEST_ANDROID_APP_ID, display_name=TEST_ANDROID_APP_DISPLAY_NAME,
+            project_id='different')
+        metadata_7 = project_management.AndroidAppMetadata(
+            package_name=TEST_ANDROID_APP_PACKAGE_NAME, name=TEST_ANDROID_APP_NAME,
+            app_id=TEST_ANDROID_APP_ID, display_name=TEST_ANDROID_APP_DISPLAY_NAME,
+            project_id=TEST_PROJECT_ID)
+        ios_metadata = TestIosAppMetadata.IOS_APP_METADATA
+
+        assert metadata_1 == metadata_1
+        assert metadata_1 != metadata_2
+        assert metadata_1 != metadata_3
+        assert metadata_1 != metadata_4
+        assert metadata_1 != metadata_5
+        assert metadata_1 != metadata_6
+        assert metadata_1 == metadata_7
+        assert metadata_1 != ios_metadata
+        assert set([metadata_1, metadata_2, metadata_7]) == set([metadata_1, metadata_2])
+
+    def test_android_app_metadata_package_name(self):
+        assert (TestAndroidAppMetadata.ANDROID_APP_METADATA.package_name ==
+                TEST_ANDROID_APP_PACKAGE_NAME)
+
+    def test_android_app_metadata_name(self):
+        assert TestAndroidAppMetadata.ANDROID_APP_METADATA.name == TEST_ANDROID_APP_NAME
+
+    def test_android_app_metadata_app_id(self):
+        assert TestAndroidAppMetadata.ANDROID_APP_METADATA.app_id == TEST_ANDROID_APP_ID
+
+    def test_android_app_metadata_display_name(self):
+        assert (TestAndroidAppMetadata.ANDROID_APP_METADATA.display_name ==
+                TEST_ANDROID_APP_DISPLAY_NAME)
+
+    def test_android_app_metadata_project_id(self):
+        assert TestAndroidAppMetadata.ANDROID_APP_METADATA.project_id == TEST_PROJECT_ID
+
+
+class TestIosAppMetadata(object):
+    IOS_APP_METADATA = project_management.IosAppMetadata(
+        bundle_id=TEST_IOS_APP_BUNDLE_ID, name=TEST_IOS_APP_NAME, app_id=TEST_IOS_APP_ID,
+        display_name=TEST_IOS_APP_DISPLAY_NAME, project_id=TEST_PROJECT_ID)
+
+    def test_create_ios_app_metadata_errors(self):
+        # bundle_id must be a non-empty string.
+        with pytest.raises(ValueError):
+            project_management.IosAppMetadata(
+                bundle_id='', name=TEST_IOS_APP_NAME, app_id=TEST_IOS_APP_ID,
+                display_name=TEST_IOS_APP_DISPLAY_NAME, project_id=TEST_PROJECT_ID)
+        # name must be a non-empty string.
+        with pytest.raises(ValueError):
+            project_management.IosAppMetadata(
+                bundle_id=TEST_IOS_APP_BUNDLE_ID, name='', app_id=TEST_IOS_APP_ID,
+                display_name=TEST_IOS_APP_DISPLAY_NAME, project_id=TEST_PROJECT_ID)
+        # app_id must be a non-empty string.
+        with pytest.raises(ValueError):
+            project_management.IosAppMetadata(
+                bundle_id=TEST_IOS_APP_BUNDLE_ID, name=TEST_IOS_APP_NAME, app_id='',
+                display_name=TEST_IOS_APP_DISPLAY_NAME, project_id=TEST_PROJECT_ID)
+        # display_name must be a string.
+        with pytest.raises(ValueError):
+            project_management.IosAppMetadata(
+                bundle_id=TEST_IOS_APP_BUNDLE_ID, name=TEST_IOS_APP_NAME,
+                app_id=TEST_IOS_APP_ID, display_name=None, project_id=TEST_PROJECT_ID)
+        # project_id must be a nonempty string.
+        with pytest.raises(ValueError):
+            project_management.IosAppMetadata(
+                bundle_id=TEST_IOS_APP_BUNDLE_ID, name=TEST_IOS_APP_NAME,
+                app_id=TEST_IOS_APP_ID, display_name=TEST_IOS_APP_NAME, project_id='')
+
+    def test_ios_app_metadata_eq_and_hash(self):
+        metadata_1 = TestIosAppMetadata.IOS_APP_METADATA
+        metadata_2 = project_management.IosAppMetadata(
+            bundle_id='different', name=TEST_IOS_APP_NAME, app_id=TEST_IOS_APP_ID,
+            display_name=TEST_IOS_APP_DISPLAY_NAME, project_id=TEST_PROJECT_ID)
+        metadata_3 = project_management.IosAppMetadata(
+            bundle_id=TEST_IOS_APP_BUNDLE_ID, name='different', app_id=TEST_IOS_APP_ID,
+            display_name=TEST_IOS_APP_DISPLAY_NAME, project_id=TEST_PROJECT_ID)
+        metadata_4 = project_management.IosAppMetadata(
+            bundle_id=TEST_IOS_APP_BUNDLE_ID, name=TEST_IOS_APP_NAME, app_id='different',
+            display_name=TEST_IOS_APP_DISPLAY_NAME, project_id=TEST_PROJECT_ID)
+        metadata_5 = project_management.IosAppMetadata(
+            bundle_id=TEST_IOS_APP_BUNDLE_ID, name=TEST_IOS_APP_NAME, app_id=TEST_IOS_APP_ID,
+            display_name='different', project_id=TEST_PROJECT_ID)
+        metadata_6 = project_management.IosAppMetadata(
+            bundle_id=TEST_IOS_APP_BUNDLE_ID, name=TEST_IOS_APP_NAME, app_id=TEST_IOS_APP_ID,
+            display_name=TEST_IOS_APP_DISPLAY_NAME, project_id='different')
+        metadata_7 = project_management.IosAppMetadata(
+            bundle_id=TEST_IOS_APP_BUNDLE_ID, name=TEST_IOS_APP_NAME, app_id=TEST_IOS_APP_ID,
+            display_name=TEST_IOS_APP_DISPLAY_NAME, project_id=TEST_PROJECT_ID)
+        android_metadata = TestAndroidAppMetadata.ANDROID_APP_METADATA
+
+        assert metadata_1 == metadata_1
+        assert metadata_1 != metadata_2
+        assert metadata_1 != metadata_3
+        assert metadata_1 != metadata_4
+        assert metadata_1 != metadata_5
+        assert metadata_1 != metadata_6
+        assert metadata_1 == metadata_7
+        assert metadata_1 != android_metadata
+        assert set([metadata_1, metadata_2, metadata_7]) == set([metadata_1, metadata_2])
+
+    def test_ios_app_metadata_bundle_id(self):
+        assert TestIosAppMetadata.IOS_APP_METADATA.bundle_id == TEST_IOS_APP_BUNDLE_ID
+
+    def test_ios_app_metadata_name(self):
+        assert TestIosAppMetadata.IOS_APP_METADATA.name == TEST_IOS_APP_NAME
+
+    def test_ios_app_metadata_app_id(self):
+        assert TestIosAppMetadata.IOS_APP_METADATA.app_id == TEST_IOS_APP_ID
+
+    def test_ios_app_metadata_display_name(self):
+        assert TestIosAppMetadata.IOS_APP_METADATA.display_name == TEST_IOS_APP_DISPLAY_NAME
+
+    def test_ios_app_metadata_project_id(self):
+        assert TestIosAppMetadata.IOS_APP_METADATA.project_id == TEST_PROJECT_ID
+
+
 class BaseProjectManagementTest(object):
     @classmethod
     def setup_class(cls):
         project_management._ProjectManagementService.POLL_BASE_WAIT_TIME_SECONDS = 0.01
+        project_management._ProjectManagementService.MAXIMUM_POLLING_ATTEMPTS = 3
         firebase_admin.initialize_app(
             testutils.MockCredential(), {'projectId': TEST_PROJECT_ID})
 
@@ -270,6 +492,25 @@ class TestCreateAndroidApp(BaseProjectManagementTest):
         assert excinfo.value.detail is not None
         assert len(captor) == 3
 
+    def test_create_android_app_polling_limit_exceeded(self):
+        project_management._ProjectManagementService.MAXIMUM_POLLING_ATTEMPTS = 2
+        captor = self._set_up_mock_responses_and_request_captor_for_project_management_service(
+            statuses=[200, 200, 200],
+            responses=[
+                OPERATION_IN_PROGRESS_RESPONSE,  # Request to create Android app asynchronously.
+                OPERATION_IN_PROGRESS_RESPONSE,  # Creation Operation is still not done.
+                OPERATION_IN_PROGRESS_RESPONSE,  # Creation Operation is still not done.
+            ])
+
+        with pytest.raises(project_management.ApiCallError) as excinfo:
+            project_management.create_android_app(
+                package_name=TEST_ANDROID_APP_PACKAGE_NAME,
+                display_name=TEST_ANDROID_APP_DISPLAY_NAME)
+
+        assert 'Polling deadline exceeded' in str(excinfo.value)
+        assert excinfo.value.detail is not None
+        assert len(captor) == 3
+
 
 class TestCreateIosApp(BaseProjectManagementTest):
     _CREATION_URL = BASE_URL + '/v1beta1/projects/{0}/{1}'.format(TEST_PROJECT_ID, "iosApps")
@@ -365,6 +606,25 @@ class TestCreateIosApp(BaseProjectManagementTest):
         assert excinfo.value.detail is not None
         assert len(captor) == 3
 
+    def test_create_ios_app_polling_limit_exceeded(self):
+        project_management._ProjectManagementService.MAXIMUM_POLLING_ATTEMPTS = 2
+        captor = self._set_up_mock_responses_and_request_captor_for_project_management_service(
+            statuses=[200, 200, 200],
+            responses=[
+                OPERATION_IN_PROGRESS_RESPONSE,  # Request to create iOS app asynchronously.
+                OPERATION_IN_PROGRESS_RESPONSE,  # Creation Operation is still not done.
+                OPERATION_IN_PROGRESS_RESPONSE,  # Creation Operation is still not done.
+            ])
+
+        with pytest.raises(project_management.ApiCallError) as excinfo:
+            project_management.create_ios_app(
+                bundle_id=TEST_IOS_APP_BUNDLE_ID,
+                display_name=TEST_IOS_APP_DISPLAY_NAME)
+
+        assert 'Polling deadline exceeded' in str(excinfo.value)
+        assert excinfo.value.detail is not None
+        assert len(captor) == 3
+
 
 class TestListAndroidApps(BaseProjectManagementTest):
     _LISTING_URL = '{0}/v1beta1/projects/{1}/androidApps?pageSize=100'.format(
@@ -393,6 +653,16 @@ class TestListAndroidApps(BaseProjectManagementTest):
         assert 'Backend servers are over capacity' in str(excinfo.value)
         assert excinfo.value.detail is not None
         assert len(captor) == 1
+
+    def test_list_android_apps_empty_list(self):
+        captor = self._set_up_mock_responses_and_request_captor_for_project_management_service(
+            statuses=[200], responses=[LIST_APPS_EMPTY_RESPONSE])
+
+        android_apps = project_management.list_android_apps()
+
+        assert android_apps == []
+        assert len(captor) == 1
+        self._assert_request_is_correct(captor[0], 'GET', TestListAndroidApps._LISTING_URL)
 
     def test_list_android_apps_multiple_pages(self):
         captor = self._set_up_mock_responses_and_request_captor_for_project_management_service(
@@ -447,6 +717,16 @@ class TestListIosApps(BaseProjectManagementTest):
         assert 'Backend servers are over capacity' in str(excinfo.value)
         assert excinfo.value.detail is not None
         assert len(captor) == 1
+
+    def test_list_ios_apps_empty_list(self):
+        captor = self._set_up_mock_responses_and_request_captor_for_project_management_service(
+            statuses=[200], responses=[LIST_APPS_EMPTY_RESPONSE])
+
+        ios_apps = project_management.list_ios_apps()
+
+        assert ios_apps == []
+        assert len(captor) == 1
+        self._assert_request_is_correct(captor[0], 'GET', TestListIosApps._LISTING_URL)
 
     def test_list_ios_apps_multiple_pages(self):
         captor = self._set_up_mock_responses_and_request_captor_for_project_management_service(
@@ -597,6 +877,10 @@ class TestAndroidApp(BaseProjectManagementTest):
         assert excinfo.value.detail is not None
         assert len(captor) == 1
 
+    def test_add_certificate_none_error(self, android_app):
+        with pytest.raises(ValueError):
+            android_app.add_sha_certificate(None)
+
     def test_add_sha_1_certificate(self, android_app):
         captor = self._set_up_mock_responses_and_request_captor_for_project_management_service(
             statuses=[200], responses=[json.dumps({})])
@@ -627,6 +911,10 @@ class TestAndroidApp(BaseProjectManagementTest):
         assert 'The resource already exists' in str(excinfo.value)
         assert excinfo.value.detail is not None
         assert len(captor) == 1
+
+    def test_delete_certificate_none_error(self, android_app):
+        with pytest.raises(ValueError):
+            android_app.delete_sha_certificate(None)
 
     def test_delete_sha_1_certificate(self, android_app):
         captor = self._set_up_mock_responses_and_request_captor_for_project_management_service(

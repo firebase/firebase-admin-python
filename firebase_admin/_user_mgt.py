@@ -215,7 +215,7 @@ class UserRecord(UserInfo):
         valid_since = self._data.get('validSince')
         if valid_since is not None:
             return 1000 * int(valid_since)
-        return None
+        return 0
 
     @property
     def user_metadata(self):

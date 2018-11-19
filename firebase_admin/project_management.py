@@ -346,6 +346,8 @@ class _AppMetadata(object):
         return self._project_id
 
     def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
         return (self.name == other.name and self.app_id == other.app_id and
                 self.display_name == other.display_name and self.project_id == other.project_id)
 
@@ -363,8 +365,6 @@ class AndroidAppMetadata(_AppMetadata):
         return self._package_name
 
     def __eq__(self, other):
-        if not isinstance(other, AndroidAppMetadata):
-            return False
         return (super(AndroidAppMetadata, self).__eq__(other) and
                 self.package_name == other.package_name)
 
@@ -385,8 +385,6 @@ class IosAppMetadata(_AppMetadata):
         return self._bundle_id
 
     def __eq__(self, other):
-        if not isinstance(other, IosAppMetadata):
-            return False
         return super(IosAppMetadata, self).__eq__(other) and self.bundle_id == other.bundle_id
 
     def __hash__(self):
@@ -455,7 +453,7 @@ class ShaCertificate(object):
         return self._cert_type
 
     def __eq__(self, other):
-        if not isinstance(other, ShaCertificate):
+        if not isinstance(other, type(self)):
             return False
         return (self.name == other.name and self.sha_hash == other.sha_hash and
                 self.cert_type == other.cert_type)

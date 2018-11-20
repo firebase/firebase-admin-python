@@ -17,7 +17,6 @@
 Based on a similar implementation from Pyrebase.
 """
 
-import collections
 import re
 import time
 import warnings
@@ -46,25 +45,24 @@ class _EventBuffer(object):
 
     def __init__(self):
         self._buffer = []
-        self._tail = collections.deque([])
+        self._tail = ''
 
     def append(self, char):
         self._buffer.append(char)
-        self._tail.append(char)
+        self._tail += char
         if len(self._tail) > 4:
-            self._tail.popleft()
+            self._tail = self._tail[1:]
 
     def truncate(self):
         head, sep, _ = self.buffer_string.rpartition('\n')
         rem = head + sep
         self._buffer = list(rem)
-        self._tail = collections.deque(self._buffer[-4:])
+        self._tail = rem[-4:]
 
     @property
     def is_end_of_field(self):
-        tail_str = ''.join(self._tail)
-        last_two_chars = tail_str[-2:]
-        return tail_str == '\r\n\r\n' or last_two_chars == '\n\n' or last_two_chars == '\r\r'
+        last_two_chars = self._tail[-2:]
+        return last_two_chars == '\n\n' or last_two_chars == '\r\r' or self._tail == '\r\n\r\n'
 
     @property
     def buffer_string(self):

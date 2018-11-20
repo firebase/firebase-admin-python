@@ -17,6 +17,7 @@
 Based on a similar implementation from Pyrebase.
 """
 
+import collections
 import re
 import time
 import warnings
@@ -38,6 +39,36 @@ class KeepAuthSession(transport.requests.AuthorizedSession):
 
     def rebuild_auth(self, prepared_request, response):
         pass
+
+
+class _EventBuffer(object):
+    """A helper class for buffering and parsing raw SSE data."""
+
+    def __init__(self):
+        self._buffer = []
+        self._tail = collections.deque([])
+
+    def append(self, char):
+        self._buffer.append(char)
+        self._tail.append(char)
+        if len(self._tail) > 4:
+            self._tail.popleft()
+
+    def truncate(self):
+        head, sep, _ = self.buffer_string.rpartition('\n')
+        rem = head + sep
+        self._buffer = list(rem)
+        self._tail = collections.deque(self._buffer[-4:])
+
+    @property
+    def is_end_of_field(self):
+        tail_str = ''.join(self._tail)
+        last_two_chars = tail_str[-2:]
+        return tail_str == '\r\n\r\n' or last_two_chars == '\n\n' or last_two_chars == '\r\r'
+
+    @property
+    def buffer_string(self):
+        return ''.join(self._buffer)
 
 
 class SSEClient(object):
@@ -80,31 +111,29 @@ class SSEClient(object):
             if self.last_id:
                 self.requests_kwargs['headers']['Last-Event-ID'] = self.last_id
             self.resp = self.session.get(self.url, stream=True, **self.requests_kwargs)
-            self.resp_iterator = self.resp.iter_content(decode_unicode=True, chunk_size=None)
+            self.resp_iterator = self.resp.iter_content(decode_unicode=True)
             self.resp.raise_for_status()
         else:
             raise StopIteration()
-
-    def _event_complete(self):
-        """Checks if the event is completed by matching regular expression."""
-        return re.search(end_of_field, self.buf) is not None
 
     def __iter__(self):
         return self
 
     def __next__(self):
-        while not self._event_complete():
-            try:
-                nextchar = next(self.resp_iterator)
-                self.buf += nextchar
-            except (StopIteration, requests.RequestException):
-                time.sleep(self.retry / 1000.0)
-                self._connect()
-                # The SSE spec only supports resuming from a whole message, so
-                # if we have half a message we should throw it out.
-                head, sep, _ = self.buf.rpartition('\n')
-                self.buf = head + sep
-                continue
+        if not re.search(end_of_field, self.buf):
+            temp_buffer = _EventBuffer()
+            while not temp_buffer.is_end_of_field:
+                try:
+                    nextchar = next(self.resp_iterator)
+                    temp_buffer.append(nextchar)
+                except (StopIteration, requests.RequestException):
+                    time.sleep(self.retry / 1000.0)
+                    self._connect()
+                    # The SSE spec only supports resuming from a whole message, so
+                    # if we have half a message we should throw it out.
+                    temp_buffer.truncate()
+                    continue
+            self.buf = temp_buffer.buffer_string
 
         split = re.split(end_of_field, self.buf)
         head = split[0]

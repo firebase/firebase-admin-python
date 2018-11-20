@@ -19,10 +19,10 @@ import requests
 import six
 
 from firebase_admin import _sseclient
-from tests.testutils import MockAdapter
+from tests import testutils
 
 
-class MockSSEClientAdapter(MockAdapter):
+class MockSSEClientAdapter(testutils.MockAdapter):
 
     def __init__(self, payload, recorder):
         super(MockSSEClientAdapter, self).__init__(payload, 200, recorder)
@@ -97,6 +97,26 @@ class TestSSEClient(object):
         event_payload = json.loads(event.data)
         assert event_payload["data"] == "testevent2"
         assert event_payload["path"] == "/bar"
+        assert len(recorder) == 1
+
+    def test_event_separators(self):
+        payload = 'event: put\ndata: {"path":"/foo","data":"testevent1"}\n\n'
+        payload += 'event: put\ndata: {"path":"/bar","data":"testevent2"}\r\r'
+        payload += 'event: put\ndata: {"path":"/baz","data":"testevent3"}\r\n\r\n'
+        recorder = []
+        sseclient = self.init_sse(payload, recorder)
+        event = next(sseclient)
+        event_payload = json.loads(event.data)
+        assert event_payload["data"] == "testevent1"
+        assert event_payload["path"] == "/foo"
+        event = next(sseclient)
+        event_payload = json.loads(event.data)
+        assert event_payload["data"] == "testevent2"
+        assert event_payload["path"] == "/bar"
+        event = next(sseclient)
+        event_payload = json.loads(event.data)
+        assert event_payload["data"] == "testevent3"
+        assert event_payload["path"] == "/baz"
         assert len(recorder) == 1
 
 

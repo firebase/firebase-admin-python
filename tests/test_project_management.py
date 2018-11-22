@@ -24,10 +24,10 @@ from tests import testutils
 
 BASE_URL = 'https://firebase.googleapis.com'
 
-TEST_PROJECT_ID = 'hello-world'
+TEST_PROJECT_ID = 'test-project-id'
 TEST_ANDROID_APP_ID = '1:12345678:android:deadbeef'
 TEST_ANDROID_APP_NAME = 'projects/{0}/androidApps/{1}'.format(TEST_PROJECT_ID, TEST_ANDROID_APP_ID)
-TEST_ANDROID_APP_DISPLAY_NAME = "My Android App"
+TEST_ANDROID_APP_DISPLAY_NAME = 'My Android App'
 TEST_ANDROID_APP_PACKAGE_NAME = 'com.hello.world.android'
 TEST_ANDROID_APP = {
     'name': TEST_ANDROID_APP_NAME,
@@ -45,7 +45,7 @@ TEST_ANDROID_APP_NO_DISPLAY_NAME = {
 
 TEST_IOS_APP_ID = '1:12345678:ios:ca5cade5'
 TEST_IOS_APP_NAME = 'projects/{0}/iosApps/{1}'.format(TEST_PROJECT_ID, TEST_IOS_APP_ID)
-TEST_IOS_APP_DISPLAY_NAME = "My iOS App"
+TEST_IOS_APP_DISPLAY_NAME = 'My iOS App'
 TEST_IOS_APP_BUNDLE_ID = 'com.hello.world.ios'
 TEST_IOS_APP = {
     'name': TEST_IOS_APP_NAME,
@@ -95,7 +95,7 @@ IOS_APP_NO_DISPLAY_NAME_OPERATION_SUCCESSFUL_RESPONSE = json.dumps({
 ERROR_RESPONSE = 'some error'
 
 class TestCreateAndroidApp(object):
-    _CREATION_URL = '{0}/v1beta1/projects/{1}/{2}'.format(BASE_URL, TEST_PROJECT_ID, "androidApps")
+    _CREATION_URL = '{0}/v1beta1/projects/{1}/{2}'.format(BASE_URL, TEST_PROJECT_ID, 'androidApps')
     _POLLING_URL = '{0}/v1/{1}'.format(BASE_URL, OPERATION_NAME)
 
     @classmethod
@@ -107,23 +107,22 @@ class TestCreateAndroidApp(object):
     def teardown_class(cls):
         testutils.cleanup_apps()
 
-    def _set_up_mock_responses_and_request_captor_for_project_management_service(
-            self, statuses, responses, app=None):
+    def _instrument_service(self, statuses, responses, app=None):
         if not app:
             app = firebase_admin.get_app()
         project_management_service = project_management._get_project_management_service(app)
-        captor = []
+        recorder = []
         project_management_service._client.session.mount(
             'https://firebase.googleapis.com',
-            testutils.MockMultiRequestAdapter(responses, statuses, captor))
-        return captor
+            testutils.MockMultiRequestAdapter(responses, statuses, recorder))
+        return recorder
 
     def test_create_android_app_without_display_name(self):
-        captor = self._set_up_mock_responses_and_request_captor_for_project_management_service(
+        recorder = self._instrument_service(
             statuses=[200, 200, 200],
             responses=[
                 OPERATION_IN_PROGRESS_RESPONSE,  # Request to create Android app asynchronously.
-                OPERATION_IN_PROGRESS_RESPONSE,  # Creation Operation is still not done.
+                OPERATION_IN_PROGRESS_RESPONSE,  # Creation operation is still not done.
                 ANDROID_APP_NO_DISPLAY_NAME_OPERATION_SUCCESSFUL_RESPONSE,  # Operation completed.
             ])
 
@@ -131,25 +130,25 @@ class TestCreateAndroidApp(object):
             package_name=TEST_ANDROID_APP_PACKAGE_NAME)
 
         assert android_app.app_id == TEST_ANDROID_APP_ID
-        assert len(captor) == 3
-        assert captor[0].method == 'POST'
-        assert captor[0].url == TestCreateAndroidApp._CREATION_URL
+        assert len(recorder) == 3
+        assert recorder[0].method == 'POST'
+        assert recorder[0].url == TestCreateAndroidApp._CREATION_URL
         body = {'packageName': TEST_ANDROID_APP_PACKAGE_NAME}
-        assert json.loads(captor[0].body.decode()) == body
-        assert captor[1].method == 'GET'
-        assert captor[1].url == TestCreateAndroidApp._POLLING_URL
-        assert not captor[1].body
-        assert captor[2].method == 'GET'
-        assert captor[2].url == TestCreateAndroidApp._POLLING_URL
-        assert not captor[2].body
+        assert json.loads(recorder[0].body.decode()) == body
+        assert recorder[1].method == 'GET'
+        assert recorder[1].url == TestCreateAndroidApp._POLLING_URL
+        assert not recorder[1].body
+        assert recorder[2].method == 'GET'
+        assert recorder[2].url == TestCreateAndroidApp._POLLING_URL
+        assert not recorder[2].body
 
     def test_create_android_app(self):
-        captor = self._set_up_mock_responses_and_request_captor_for_project_management_service(
+        recorder = self._instrument_service(
             statuses=[200, 200, 200],
             responses=[
                 OPERATION_IN_PROGRESS_RESPONSE,  # Request to create Android app asynchronously.
-                OPERATION_IN_PROGRESS_RESPONSE,  # Creation Operation is still not done.
-                ANDROID_APP_OPERATION_SUCCESSFUL_RESPONSE,  # Creation Operation completed.
+                OPERATION_IN_PROGRESS_RESPONSE,  # Creation operation is still not done.
+                ANDROID_APP_OPERATION_SUCCESSFUL_RESPONSE,  # Creation operation completed.
             ])
 
         android_app = project_management.create_android_app(
@@ -157,24 +156,23 @@ class TestCreateAndroidApp(object):
             display_name=TEST_ANDROID_APP_DISPLAY_NAME)
 
         assert android_app.app_id == TEST_ANDROID_APP_ID
-        assert len(captor) == 3
-        assert captor[0].method == 'POST'
-        assert captor[0].url == TestCreateAndroidApp._CREATION_URL
+        assert len(recorder) == 3
+        assert recorder[0].method == 'POST'
+        assert recorder[0].url == TestCreateAndroidApp._CREATION_URL
         body = {
             'packageName': TEST_ANDROID_APP_PACKAGE_NAME,
             'displayName': TEST_ANDROID_APP_DISPLAY_NAME,
         }
-        assert json.loads(captor[0].body.decode()) == body
-        assert captor[1].method == 'GET'
-        assert captor[1].url == TestCreateAndroidApp._POLLING_URL
-        assert not captor[1].body
-        assert captor[2].method == 'GET'
-        assert captor[2].url == TestCreateAndroidApp._POLLING_URL
-        assert not captor[2].body
+        assert json.loads(recorder[0].body.decode()) == body
+        assert recorder[1].method == 'GET'
+        assert recorder[1].url == TestCreateAndroidApp._POLLING_URL
+        assert not recorder[1].body
+        assert recorder[2].method == 'GET'
+        assert recorder[2].url == TestCreateAndroidApp._POLLING_URL
+        assert not recorder[2].body
 
     def test_create_android_app_already_exists(self):
-        captor = self._set_up_mock_responses_and_request_captor_for_project_management_service(
-            statuses=[409], responses=[ERROR_RESPONSE])
+        recorder = self._instrument_service(statuses=[409], responses=[ERROR_RESPONSE])
 
         with pytest.raises(project_management.ApiCallError) as excinfo:
             project_management.create_android_app(
@@ -183,14 +181,14 @@ class TestCreateAndroidApp(object):
 
         assert 'The resource already exists' in str(excinfo.value)
         assert excinfo.value.detail is not None
-        assert len(captor) == 1
+        assert len(recorder) == 1
 
     def test_create_android_app_polling_rpc_error(self):
-        captor = self._set_up_mock_responses_and_request_captor_for_project_management_service(
+        recorder = self._instrument_service(
             statuses=[200, 200, 503],  # Error 503 means that backend servers are over capacity.
             responses=[
                 OPERATION_IN_PROGRESS_RESPONSE,  # Request to create Android app asynchronously.
-                OPERATION_IN_PROGRESS_RESPONSE,  # Creation Operation is still not done.
+                OPERATION_IN_PROGRESS_RESPONSE,  # Creation operation is still not done.
                 ERROR_RESPONSE,  # Error 503.
             ])
 
@@ -201,14 +199,14 @@ class TestCreateAndroidApp(object):
 
         assert 'Backend servers are over capacity' in str(excinfo.value)
         assert excinfo.value.detail is not None
-        assert len(captor) == 3
+        assert len(recorder) == 3
 
     def test_create_android_app_polling_failure(self):
-        captor = self._set_up_mock_responses_and_request_captor_for_project_management_service(
+        recorder = self._instrument_service(
             statuses=[200, 200, 200],
             responses=[
                 OPERATION_IN_PROGRESS_RESPONSE,  # Request to create Android app asynchronously.
-                OPERATION_IN_PROGRESS_RESPONSE,  # Creation Operation is still not done.
+                OPERATION_IN_PROGRESS_RESPONSE,  # Creation operation is still not done.
                 OPERATION_FAILED_RESPONSE,  # Operation is finished, but terminated with an error.
             ])
 
@@ -217,6 +215,6 @@ class TestCreateAndroidApp(object):
                 package_name=TEST_ANDROID_APP_PACKAGE_NAME,
                 display_name=TEST_ANDROID_APP_DISPLAY_NAME)
 
-        assert 'Polling finished, but the Operation terminated in an error' in str(excinfo.value)
+        assert 'Polling finished, but the operation terminated in an error' in str(excinfo.value)
         assert excinfo.value.detail is not None
-        assert len(captor) == 3
+        assert len(recorder) == 3

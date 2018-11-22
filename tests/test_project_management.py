@@ -154,9 +154,9 @@ class TestShaCertificate(object):
             project_management.ShaCertificate(sha_hash=0x123456789a123456789a123456789a123456789a)
         # sha_hash must be a valid SHA-1 or SHA-256 hash.
         with pytest.raises(ValueError):
-            project_management.ShaCertificate(sha_hash="123456789a123456789")
+            project_management.ShaCertificate(sha_hash='123456789a123456789')
         with pytest.raises(ValueError):
-            project_management.ShaCertificate(sha_hash="123456789a123456789a123456789a123456oops")
+            project_management.ShaCertificate(sha_hash='123456789a123456789a123456789a123456oops')
 
     def test_sha_certificate_eq(self):
         sha_cert_1 = project_management.ShaCertificate(SHA_1_HASH, SHA_1_NAME)
@@ -398,7 +398,7 @@ class BaseProjectManagementTest(object):
 
 
 class TestCreateAndroidApp(BaseProjectManagementTest):
-    _CREATION_URL = '{0}/v1beta1/projects/{1}/{2}'.format(BASE_URL, TEST_PROJECT_ID, "androidApps")
+    _CREATION_URL = '{0}/v1beta1/projects/{1}/{2}'.format(BASE_URL, TEST_PROJECT_ID, 'androidApps')
 
     def test_create_android_app_without_display_name(self):
         recorder = self._instrument_service(
@@ -494,7 +494,7 @@ class TestCreateAndroidApp(BaseProjectManagementTest):
 
     def test_create_android_app_polling_limit_exceeded(self):
         project_management._ProjectManagementService.MAXIMUM_POLLING_ATTEMPTS = 2
-        captor = self._set_up_mock_responses_and_request_captor_for_project_management_service(
+        recorder = self._instrument_service(
             statuses=[200, 200, 200],
             responses=[
                 OPERATION_IN_PROGRESS_RESPONSE,  # Request to create Android app asynchronously.
@@ -509,11 +509,11 @@ class TestCreateAndroidApp(BaseProjectManagementTest):
 
         assert 'Polling deadline exceeded' in str(excinfo.value)
         assert excinfo.value.detail is not None
-        assert len(captor) == 3
+        assert len(recorder) == 3
 
 
 class TestCreateIosApp(BaseProjectManagementTest):
-    _CREATION_URL = BASE_URL + '/v1beta1/projects/{0}/{1}'.format(TEST_PROJECT_ID, "iosApps")
+    _CREATION_URL = BASE_URL + '/v1beta1/projects/{0}/{1}'.format(TEST_PROJECT_ID, 'iosApps')
 
     def test_create_ios_app_without_display_name(self):
         recorder = self._instrument_service(
@@ -607,7 +607,7 @@ class TestCreateIosApp(BaseProjectManagementTest):
 
     def test_create_ios_app_polling_limit_exceeded(self):
         project_management._ProjectManagementService.MAXIMUM_POLLING_ATTEMPTS = 2
-        captor = self._set_up_mock_responses_and_request_captor_for_project_management_service(
+        recorder = self._instrument_service(
             statuses=[200, 200, 200],
             responses=[
                 OPERATION_IN_PROGRESS_RESPONSE,  # Request to create iOS app asynchronously.
@@ -622,7 +622,7 @@ class TestCreateIosApp(BaseProjectManagementTest):
 
         assert 'Polling deadline exceeded' in str(excinfo.value)
         assert excinfo.value.detail is not None
-        assert len(captor) == 3
+        assert len(recorder) == 3
 
 
 class TestListAndroidApps(BaseProjectManagementTest):
@@ -652,14 +652,13 @@ class TestListAndroidApps(BaseProjectManagementTest):
         assert len(recorder) == 1
 
     def test_list_android_apps_empty_list(self):
-        captor = self._set_up_mock_responses_and_request_captor_for_project_management_service(
-            statuses=[200], responses=[LIST_APPS_EMPTY_RESPONSE])
+        recorder = self._instrument_service(statuses=[200], responses=[LIST_APPS_EMPTY_RESPONSE])
 
         android_apps = project_management.list_android_apps()
 
         assert android_apps == []
-        assert len(captor) == 1
-        self._assert_request_is_correct(captor[0], 'GET', TestListAndroidApps._LISTING_URL)
+        assert len(recorder) == 1
+        self._assert_request_is_correct(recorder[0], 'GET', TestListAndroidApps._LISTING_URL)
 
     def test_list_android_apps_multiple_pages(self):
         recorder = self._instrument_service(
@@ -714,14 +713,13 @@ class TestListIosApps(BaseProjectManagementTest):
         assert len(recorder) == 1
 
     def test_list_ios_apps_empty_list(self):
-        captor = self._set_up_mock_responses_and_request_captor_for_project_management_service(
-            statuses=[200], responses=[LIST_APPS_EMPTY_RESPONSE])
+        recorder = self._instrument_service(statuses=[200], responses=[LIST_APPS_EMPTY_RESPONSE])
 
         ios_apps = project_management.list_ios_apps()
 
         assert ios_apps == []
-        assert len(captor) == 1
-        self._assert_request_is_correct(captor[0], 'GET', TestListIosApps._LISTING_URL)
+        assert len(recorder) == 1
+        self._assert_request_is_correct(recorder[0], 'GET', TestListIosApps._LISTING_URL)
 
     def test_list_ios_apps_multiple_pages(self):
         recorder = self._instrument_service(

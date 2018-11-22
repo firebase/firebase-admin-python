@@ -132,7 +132,8 @@ class MockMultiRequestAdapter(adapters.HTTPAdapter):
         statuses are exhausted, further requests will reuse the last response and status.
         """
         adapters.HTTPAdapter.__init__(self)
-        assert len(responses) == len(statuses)
+        if len(responses) != len(statuses):
+            raise ValueError('The lengths of responses and statuses do not match.')
         self._current_response = 0
         self._responses = list(responses)  # Make a copy.
         self._statuses = list(statuses)
@@ -153,3 +154,11 @@ class MockAdapter(MockMultiRequestAdapter):
     """A mock HTTP adapter for the Python requests module."""
     def __init__(self, data, status, recorder):
         super(MockAdapter, self).__init__([data], [status], recorder)
+
+    @property
+    def status(self):
+        return self._statuses[0]
+
+    @property
+    def data(self):
+        return self._responses[0]

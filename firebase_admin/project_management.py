@@ -637,7 +637,7 @@ class _ProjectManagementService(object):
                     return response
                 else:
                     raise _PollingError(
-                        'Polling finished, but the Operation terminated in an error.')
+                        'Polling finished, but the operation terminated in an error.')
         raise _PollingError('Polling deadline exceeded.')
 
     def get_android_app_config(self, app_id):

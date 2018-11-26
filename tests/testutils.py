@@ -121,12 +121,22 @@ class MockCredential(firebase_admin.credentials.Base):
         return self._g_credential
 
 
-class MockAdapter(adapters.HTTPAdapter):
-    """A mock HTTP adapter for the Python requests module."""
-    def __init__(self, data, status, recorder):
+class MockMultiRequestAdapter(adapters.HTTPAdapter):
+    """A mock HTTP adapter that supports multiple responses for the Python requests module."""
+    def __init__(self, responses, statuses, recorder):
+        """Constructs a MockMultiRequestAdapter.
+
+        The lengths of the responses and statuses parameters must match.
+
+        Each incoming request consumes a response and a status, in order. If all responses and
+        statuses are exhausted, further requests will reuse the last response and status.
+        """
         adapters.HTTPAdapter.__init__(self)
-        self._data = data
-        self._status = status
+        if len(responses) != len(statuses):
+            raise ValueError('The lengths of responses and statuses do not match.')
+        self._current_response = 0
+        self._responses = list(responses)  # Make a copy.
+        self._statuses = list(statuses)
         self._recorder = recorder
 
     def send(self, request, **kwargs):
@@ -134,6 +144,21 @@ class MockAdapter(adapters.HTTPAdapter):
         self._recorder.append(request)
         resp = models.Response()
         resp.url = request.url
-        resp.status_code = self._status
-        resp.raw = six.BytesIO(self._data.encode())
+        resp.status_code = self._statuses[self._current_response]
+        resp.raw = six.BytesIO(self._responses[self._current_response].encode())
+        self._current_response = min(self._current_response + 1, len(self._responses) - 1)
         return resp
+
+
+class MockAdapter(MockMultiRequestAdapter):
+    """A mock HTTP adapter for the Python requests module."""
+    def __init__(self, data, status, recorder):
+        super(MockAdapter, self).__init__([data], [status], recorder)
+
+    @property
+    def status(self):
+        return self._statuses[0]
+
+    @property
+    def data(self):
+        return self._responses[0]

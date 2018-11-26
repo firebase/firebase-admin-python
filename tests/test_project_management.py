@@ -23,104 +23,150 @@ import firebase_admin
 from firebase_admin import project_management
 from tests import testutils
 
-BASE_URL = 'https://firebase.googleapis.com'
-
-TEST_PROJECT_ID = 'test-project-id'
-TEST_ANDROID_APP_ID = '1:12345678:android:deadbeef'
-TEST_ANDROID_APP_NAME = 'projects/{0}/androidApps/{1}'.format(TEST_PROJECT_ID, TEST_ANDROID_APP_ID)
-TEST_ANDROID_APP_DISPLAY_NAME = 'My Android App'
-TEST_ANDROID_APP_PACKAGE_NAME = 'com.hello.world.android'
-
-TEST_IOS_APP_ID = '1:12345678:ios:ca5cade5'
-TEST_IOS_APP_NAME = 'projects/{0}/iosApps/{1}'.format(TEST_PROJECT_ID, TEST_IOS_APP_ID)
-TEST_IOS_APP_DISPLAY_NAME = 'My iOS App'
-TEST_IOS_APP_BUNDLE_ID = 'com.hello.world.ios'
-
-OPERATION_NAME = 'operations/abcdefg'
-POLLING_URL = BASE_URL + '/v1/{0}'.format(OPERATION_NAME)
 OPERATION_IN_PROGRESS_RESPONSE = json.dumps({
-    'name': OPERATION_NAME,
+    'name': 'operations/abcdefg',
     'done': False
 })
 OPERATION_FAILED_RESPONSE = json.dumps({
-    'name': OPERATION_NAME,
+    'name': 'operations/abcdefg',
     'done': True,
     'error': 'some error',
 })
 ANDROID_APP_OPERATION_SUCCESSFUL_RESPONSE = json.dumps({
-    'name': OPERATION_NAME,
+    'name': 'operations/abcdefg',
     'done': True,
     'response': {
-        'name': TEST_ANDROID_APP_NAME,
-        'appId': TEST_ANDROID_APP_ID,
-        'displayName': TEST_ANDROID_APP_DISPLAY_NAME,
-        'projectId': TEST_PROJECT_ID,
-        'packageName': TEST_ANDROID_APP_PACKAGE_NAME,
+        'name': 'projects/test-project-id/androidApps/1:12345678:android:deadbeef',
+        'appId': '1:12345678:android:deadbeef',
+        'displayName': 'My Android App',
+        'projectId': 'test-project-id',
+        'packageName': 'com.hello.world.android',
     },
 })
 ANDROID_APP_NO_DISPLAY_NAME_OPERATION_SUCCESSFUL_RESPONSE = json.dumps({
-    'name': OPERATION_NAME,
+    'name': 'operations/abcdefg',
     'done': True,
     'response': {
-        'name': TEST_ANDROID_APP_NAME,
-        'appId': TEST_ANDROID_APP_ID,
-        'projectId': TEST_PROJECT_ID,
-        'packageName': TEST_ANDROID_APP_PACKAGE_NAME,
+        'name': 'projects/test-project-id/androidApps/1:12345678:android:deadbeef',
+        'appId': '1:12345678:android:deadbeef',
+        'projectId': 'test-project-id',
+        'packageName': 'com.hello.world.android',
     },
 })
+ANDROID_APP_METADATA_RESPONSE = json.dumps({
+    'name': 'projects/test-project-id/androidApps/1:12345678:android:deadbeef',
+    'appId': '1:12345678:android:deadbeef',
+    'displayName': 'My Android App',
+    'projectId': 'test-project-id',
+    'packageName': 'com.hello.world.android',
+})
+ANDROID_APP_NO_DISPLAY_NAME_METADATA_RESPONSE = json.dumps({
+    'name': 'projects/test-project-id/androidApps/1:12345678:android:deadbeef',
+    'appId': '1:12345678:android:deadbeef',
+    'projectId': 'test-project-id',
+    'packageName': 'com.hello.world.android',
+})
 IOS_APP_OPERATION_SUCCESSFUL_RESPONSE = json.dumps({
-    'name': OPERATION_NAME,
+    'name': 'operations/abcdefg',
     'done': True,
     'response': {
-        'name': TEST_IOS_APP_NAME,
-        'appId': TEST_IOS_APP_ID,
-        'displayName': TEST_IOS_APP_DISPLAY_NAME,
-        'projectId': TEST_PROJECT_ID,
-        'bundleId': TEST_IOS_APP_BUNDLE_ID,
+        'name': 'projects/test-project-id/iosApps/1:12345678:ios:ca5cade5',
+        'appId': '1:12345678:ios:ca5cade5',
+        'displayName': 'My iOS App',
+        'projectId': 'test-project-id',
+        'bundleId': 'com.hello.world.ios',
     },
 })
 IOS_APP_NO_DISPLAY_NAME_OPERATION_SUCCESSFUL_RESPONSE = json.dumps({
-    'name': OPERATION_NAME,
+    'name': 'operations/abcdefg',
     'done': True,
     'response': {
-        'name': TEST_IOS_APP_NAME,
-        'appId': TEST_IOS_APP_ID,
-        'projectId': TEST_PROJECT_ID,
-        'bundleId': TEST_IOS_APP_BUNDLE_ID,
+        'name': 'projects/test-project-id/iosApps/1:12345678:ios:ca5cade5',
+        'appId': '1:12345678:ios:ca5cade5',
+        'projectId': 'test-project-id',
+        'bundleId': 'com.hello.world.ios',
     },
 })
-ERROR_RESPONSE = 'some error'
+IOS_APP_METADATA_RESPONSE = json.dumps({
+    'name': 'projects/test-project-id/iosApps/1:12345678:ios:ca5cade5',
+    'appId': '1:12345678:ios:ca5cade5',
+    'displayName': 'My iOS App',
+    'projectId': 'test-project-id',
+    'bundleId': 'com.hello.world.ios',
+})
+IOS_APP_NO_DISPLAY_NAME_METADATA_RESPONSE = json.dumps({
+    'name': 'projects/test-project-id/iosApps/1:12345678:ios:ca5cade5',
+    'appId': '1:12345678:ios:ca5cade5',
+    'projectId': 'test-project-id',
+    'bundleId': 'com.hello.world.ios',
+})
 
-LIST_APPS_NEXT_PAGE_TOKEN = 'nextpagetoken'
-TEST_ANDROID_APP_2 = {
-    'name': TEST_ANDROID_APP_NAME + 'cafe',
-    'appId': TEST_ANDROID_APP_ID + 'cafe',
-    'projectId': TEST_PROJECT_ID,
-    'packageName': TEST_ANDROID_APP_PACKAGE_NAME + '2',
-}
-LIST_ANDROID_APPS_RESPONSE = json.dumps({'apps': [TEST_ANDROID_APP, TEST_ANDROID_APP_2]})
+LIST_ANDROID_APPS_RESPONSE = json.dumps({'apps': [
+    {
+        'name': 'projects/test-project-id/androidApps/1:12345678:android:deadbeef',
+        'appId': '1:12345678:android:deadbeef',
+        'displayName': 'My Android App',
+        'projectId': 'test-project-id',
+        'packageName': 'com.hello.world.android',
+    },
+    {
+        'name': 'projects/test-project-id/androidApps/1:12345678:android:deadbeefcafe',
+        'appId': '1:12345678:android:deadbeefcafe',
+        'projectId': 'test-project-id',
+        'packageName': 'com.hello.world.android2',
+    }]})
 LIST_ANDROID_APPS_PAGE_1_RESPONSE = json.dumps({
-    'apps': [TEST_ANDROID_APP],
-    'nextPageToken': LIST_APPS_NEXT_PAGE_TOKEN,
+    'apps': [{
+        'name': 'projects/test-project-id/androidApps/1:12345678:android:deadbeef',
+        'appId': '1:12345678:android:deadbeef',
+        'displayName': 'My Android App',
+        'projectId': 'test-project-id',
+        'packageName': 'com.hello.world.android',
+    }],
+    'nextPageToken': 'nextpagetoken',
 })
-LIST_ANDROID_APPS_PAGE_2_RESPONSE = json.dumps({'apps': [TEST_ANDROID_APP_2]})
-TEST_IOS_APP_2 = {
-    'name': TEST_IOS_APP_NAME + 'cafe',
-    'appId': TEST_IOS_APP_ID + 'cafe',
-    'projectId': TEST_PROJECT_ID,
-    'bundleId': TEST_IOS_APP_BUNDLE_ID + '2',
-}
-LIST_IOS_APPS_RESPONSE = json.dumps({'apps': [TEST_IOS_APP, TEST_IOS_APP_2]})
+LIST_ANDROID_APPS_PAGE_2_RESPONSE = json.dumps({
+    'apps': [{
+        'name': 'projects/test-project-id/androidApps/1:12345678:android:deadbeefcafe',
+        'appId': '1:12345678:android:deadbeefcafe',
+        'projectId': 'test-project-id',
+        'packageName': 'com.hello.world.android2',
+    }]})
+LIST_IOS_APPS_RESPONSE = json.dumps({'apps': [
+    {
+        'name': 'projects/test-project-id/iosApps/1:12345678:ios:ca5cade5',
+        'appId': '1:12345678:ios:ca5cade5',
+        'displayName': 'My iOS App',
+        'projectId': 'test-project-id',
+        'bundleId': 'com.hello.world.ios',
+    },
+    {
+        'name': 'projects/test-project-id/iosApps/1:12345678:ios:ca5cade5cafe',
+        'appId': '1:12345678:ios:ca5cade5cafe',
+        'projectId': 'test-project-id',
+        'bundleId': 'com.hello.world.ios2',
+    }]})
 LIST_IOS_APPS_PAGE_1_RESPONSE = json.dumps({
-    'apps': [TEST_IOS_APP],
-    'nextPageToken': LIST_APPS_NEXT_PAGE_TOKEN,
+    'apps': [{
+        'name': 'projects/test-project-id/iosApps/1:12345678:ios:ca5cade5',
+        'appId': '1:12345678:ios:ca5cade5',
+        'displayName': 'My iOS App',
+        'projectId': 'test-project-id',
+        'bundleId': 'com.hello.world.ios',
+    }],
+    'nextPageToken': 'nextpagetoken',
 })
-LIST_IOS_APPS_PAGE_2_RESPONSE = json.dumps({'apps': [TEST_IOS_APP_2]})
+LIST_IOS_APPS_PAGE_2_RESPONSE = json.dumps({
+    'apps': [{
+        'name': 'projects/test-project-id/iosApps/1:12345678:ios:ca5cade5cafe',
+        'appId': '1:12345678:ios:ca5cade5cafe',
+        'projectId': 'test-project-id',
+        'bundleId': 'com.hello.world.ios2',
+    }]})
 
-TEST_APP_CONFIG = 'hello world'
 # In Python 2.7, the base64 module works with strings, while in Python 3, it works with bytes
 # objects. This line works in both versions.
-TEST_APP_ENCODED_CONFIG = base64.standard_b64encode(TEST_APP_CONFIG.encode('utf-8')).decode('utf-8')
+TEST_APP_ENCODED_CONFIG = base64.standard_b64encode('hello world'.encode('utf-8')).decode('utf-8')
 TEST_APP_CONFIG_RESPONSE = json.dumps({
     'configFilename': 'hello',
     'configFileContents': TEST_APP_ENCODED_CONFIG,
@@ -128,8 +174,8 @@ TEST_APP_CONFIG_RESPONSE = json.dumps({
 
 SHA_1_HASH = '123456789a123456789a123456789a123456789a'
 SHA_256_HASH = '123456789a123456789a123456789a123456789a123456789a123456789a1234'
-SHA_1_NAME = 'projects/-/androidApps/{0}/sha/name1'.format(TEST_ANDROID_APP_ID)
-SHA_256_NAME = 'projects/-/androidApps/{0}/sha/name256'.format(TEST_ANDROID_APP_ID)
+SHA_1_NAME = 'projects/-/androidApps/1:12345678:android:deadbeef/sha/name1'
+SHA_256_NAME = 'projects/-/androidApps/1:12345678:android:deadbeef/sha/name256'
 
 SHA_1_CERTIFICATE = project_management.ShaCertificate(SHA_1_HASH, SHA_1_NAME)
 SHA_256_CERTIFICATE = project_management.ShaCertificate(SHA_256_HASH, SHA_256_NAME)
@@ -144,7 +190,7 @@ class BaseProjectManagementTest(object):
     def setup_class(cls):
         project_management._ProjectManagementService.POLL_BASE_WAIT_TIME_SECONDS = 0.01
         firebase_admin.initialize_app(
-            testutils.MockCredential(), {'projectId': TEST_PROJECT_ID})
+            testutils.MockCredential(), {'projectId': 'test-project-id'})
 
     @classmethod
     def teardown_class(cls):
@@ -172,7 +218,7 @@ class BaseProjectManagementTest(object):
 
 
 class TestCreateAndroidApp(BaseProjectManagementTest):
-    _CREATION_URL = '{0}/v1beta1/projects/{1}/{2}'.format(BASE_URL, TEST_PROJECT_ID, "androidApps")
+    _CREATION_URL = 'https://firebase.googleapis.com/v1beta1/projects/test-project-id/androidApps'
 
     def test_create_android_app_without_display_name(self):
         recorder = self._instrument_service(
@@ -184,15 +230,17 @@ class TestCreateAndroidApp(BaseProjectManagementTest):
             ])
 
         android_app = project_management.create_android_app(
-            package_name=TEST_ANDROID_APP_PACKAGE_NAME)
+            package_name='com.hello.world.android')
 
-        assert android_app.app_id == TEST_ANDROID_APP_ID
+        assert android_app.app_id == '1:12345678:android:deadbeef'
         assert len(recorder) == 3
-        body = {'packageName': TEST_ANDROID_APP_PACKAGE_NAME}
+        body = {'packageName': 'com.hello.world.android'}
         self._assert_request_is_correct(
             recorder[0], 'POST', TestCreateAndroidApp._CREATION_URL, body)
-        self._assert_request_is_correct(recorder[1], 'GET', POLLING_URL)
-        self._assert_request_is_correct(recorder[2], 'GET', POLLING_URL)
+        self._assert_request_is_correct(
+            recorder[1], 'GET', 'https://firebase.googleapis.com/v1/operations/abcdefg')
+        self._assert_request_is_correct(
+            recorder[2], 'GET', 'https://firebase.googleapis.com/v1/operations/abcdefg')
 
     def test_create_android_app(self):
         recorder = self._instrument_service(
@@ -204,27 +252,29 @@ class TestCreateAndroidApp(BaseProjectManagementTest):
             ])
 
         android_app = project_management.create_android_app(
-            package_name=TEST_ANDROID_APP_PACKAGE_NAME,
-            display_name=TEST_ANDROID_APP_DISPLAY_NAME)
+            package_name='com.hello.world.android',
+            display_name='My Android App')
 
-        assert android_app.app_id == TEST_ANDROID_APP_ID
+        assert android_app.app_id == '1:12345678:android:deadbeef'
         assert len(recorder) == 3
         body = {
-            'packageName': TEST_ANDROID_APP_PACKAGE_NAME,
-            'displayName': TEST_ANDROID_APP_DISPLAY_NAME,
+            'packageName': 'com.hello.world.android',
+            'displayName': 'My Android App',
         }
         self._assert_request_is_correct(
             recorder[0], 'POST', TestCreateAndroidApp._CREATION_URL, body)
-        self._assert_request_is_correct(recorder[1], 'GET', POLLING_URL)
-        self._assert_request_is_correct(recorder[2], 'GET', POLLING_URL)
+        self._assert_request_is_correct(
+            recorder[1], 'GET', 'https://firebase.googleapis.com/v1/operations/abcdefg')
+        self._assert_request_is_correct(
+            recorder[2], 'GET', 'https://firebase.googleapis.com/v1/operations/abcdefg')
 
     def test_create_android_app_already_exists(self):
-        recorder = self._instrument_service(statuses=[409], responses=[ERROR_RESPONSE])
+        recorder = self._instrument_service(statuses=[409], responses=['some error response'])
 
         with pytest.raises(project_management.ApiCallError) as excinfo:
             project_management.create_android_app(
-                package_name=TEST_ANDROID_APP_PACKAGE_NAME,
-                display_name=TEST_ANDROID_APP_DISPLAY_NAME)
+                package_name='com.hello.world.android',
+                display_name='My Android App')
 
         assert 'The resource already exists' in str(excinfo.value)
         assert excinfo.value.detail is not None
@@ -236,13 +286,13 @@ class TestCreateAndroidApp(BaseProjectManagementTest):
             responses=[
                 OPERATION_IN_PROGRESS_RESPONSE,  # Request to create Android app asynchronously.
                 OPERATION_IN_PROGRESS_RESPONSE,  # Creation operation is still not done.
-                ERROR_RESPONSE,  # Error 503.
+                'some error response',  # Error 503.
             ])
 
         with pytest.raises(project_management.ApiCallError) as excinfo:
             project_management.create_android_app(
-                package_name=TEST_ANDROID_APP_PACKAGE_NAME,
-                display_name=TEST_ANDROID_APP_DISPLAY_NAME)
+                package_name='com.hello.world.android',
+                display_name='My Android App')
 
         assert 'Backend servers are over capacity' in str(excinfo.value)
         assert excinfo.value.detail is not None
@@ -259,8 +309,8 @@ class TestCreateAndroidApp(BaseProjectManagementTest):
 
         with pytest.raises(project_management.ApiCallError) as excinfo:
             project_management.create_android_app(
-                package_name=TEST_ANDROID_APP_PACKAGE_NAME,
-                display_name=TEST_ANDROID_APP_DISPLAY_NAME)
+                package_name='com.hello.world.android',
+                display_name='My Android App')
 
         assert 'Polling finished, but the operation terminated in an error' in str(excinfo.value)
         assert excinfo.value.detail is not None
@@ -268,7 +318,7 @@ class TestCreateAndroidApp(BaseProjectManagementTest):
 
 
 class TestCreateIosApp(BaseProjectManagementTest):
-    _CREATION_URL = BASE_URL + '/v1beta1/projects/{0}/{1}'.format(TEST_PROJECT_ID, "iosApps")
+    _CREATION_URL = 'https://firebase.googleapis.com/v1beta1/projects/test-project-id/iosApps'
 
     def test_create_ios_app_without_display_name(self):
         recorder = self._instrument_service(
@@ -280,14 +330,16 @@ class TestCreateIosApp(BaseProjectManagementTest):
             ])
 
         ios_app = project_management.create_ios_app(
-            bundle_id=TEST_IOS_APP_BUNDLE_ID)
+            bundle_id='com.hello.world.ios')
 
-        assert ios_app.app_id == TEST_IOS_APP_ID
+        assert ios_app.app_id == '1:12345678:ios:ca5cade5'
         assert len(recorder) == 3
-        body = {'bundleId': TEST_IOS_APP_BUNDLE_ID}
+        body = {'bundleId': 'com.hello.world.ios'}
         self._assert_request_is_correct(recorder[0], 'POST', TestCreateIosApp._CREATION_URL, body)
-        self._assert_request_is_correct(recorder[1], 'GET', POLLING_URL)
-        self._assert_request_is_correct(recorder[2], 'GET', POLLING_URL)
+        self._assert_request_is_correct(
+            recorder[1], 'GET', 'https://firebase.googleapis.com/v1/operations/abcdefg')
+        self._assert_request_is_correct(
+            recorder[2], 'GET', 'https://firebase.googleapis.com/v1/operations/abcdefg')
 
     def test_create_ios_app(self):
         recorder = self._instrument_service(
@@ -299,26 +351,28 @@ class TestCreateIosApp(BaseProjectManagementTest):
             ])
 
         ios_app = project_management.create_ios_app(
-            bundle_id=TEST_IOS_APP_BUNDLE_ID,
-            display_name=TEST_IOS_APP_DISPLAY_NAME)
+            bundle_id='com.hello.world.ios',
+            display_name='My iOS App')
 
-        assert ios_app.app_id == TEST_IOS_APP_ID
+        assert ios_app.app_id == '1:12345678:ios:ca5cade5'
         assert len(recorder) == 3
         body = {
-            'bundleId': TEST_IOS_APP_BUNDLE_ID,
-            'displayName': TEST_IOS_APP_DISPLAY_NAME,
+            'bundleId': 'com.hello.world.ios',
+            'displayName': 'My iOS App',
         }
         self._assert_request_is_correct(recorder[0], 'POST', TestCreateIosApp._CREATION_URL, body)
-        self._assert_request_is_correct(recorder[1], 'GET', POLLING_URL)
-        self._assert_request_is_correct(recorder[2], 'GET', POLLING_URL)
+        self._assert_request_is_correct(
+            recorder[1], 'GET', 'https://firebase.googleapis.com/v1/operations/abcdefg')
+        self._assert_request_is_correct(
+            recorder[2], 'GET', 'https://firebase.googleapis.com/v1/operations/abcdefg')
 
     def test_create_ios_app_already_exists(self):
-        recorder = self._instrument_service(statuses=[409], responses=[ERROR_RESPONSE])
+        recorder = self._instrument_service(statuses=[409], responses=['some error response'])
 
         with pytest.raises(project_management.ApiCallError) as excinfo:
             project_management.create_ios_app(
-                bundle_id=TEST_IOS_APP_BUNDLE_ID,
-                display_name=TEST_IOS_APP_DISPLAY_NAME)
+                bundle_id='com.hello.world.ios',
+                display_name='My iOS App')
 
         assert 'The resource already exists' in str(excinfo.value)
         assert excinfo.value.detail is not None
@@ -330,13 +384,13 @@ class TestCreateIosApp(BaseProjectManagementTest):
             responses=[
                 OPERATION_IN_PROGRESS_RESPONSE,  # Request to create iOS app asynchronously.
                 OPERATION_IN_PROGRESS_RESPONSE,  # Creation operation is still not done.
-                ERROR_RESPONSE,  # Error 503.
+                'some error response',  # Error 503.
             ])
 
         with pytest.raises(project_management.ApiCallError) as excinfo:
             project_management.create_ios_app(
-                bundle_id=TEST_IOS_APP_BUNDLE_ID,
-                display_name=TEST_IOS_APP_DISPLAY_NAME)
+                bundle_id='com.hello.world.ios',
+                display_name='My iOS App')
 
         assert 'Backend servers are over capacity' in str(excinfo.value)
         assert excinfo.value.detail is not None
@@ -353,8 +407,8 @@ class TestCreateIosApp(BaseProjectManagementTest):
 
         with pytest.raises(project_management.ApiCallError) as excinfo:
             project_management.create_ios_app(
-                bundle_id=TEST_IOS_APP_BUNDLE_ID,
-                display_name=TEST_IOS_APP_DISPLAY_NAME)
+                bundle_id='com.hello.world.ios',
+                display_name='My iOS App')
 
         assert 'Polling finished, but the operation terminated in an error' in str(excinfo.value)
         assert excinfo.value.detail is not None
@@ -362,23 +416,23 @@ class TestCreateIosApp(BaseProjectManagementTest):
 
 
 class TestListAndroidApps(BaseProjectManagementTest):
-    _LISTING_URL = '{0}/v1beta1/projects/{1}/androidApps?pageSize=100'.format(
-        BASE_URL, TEST_PROJECT_ID)
-    _LISTING_PAGE_2_URL = '{0}/v1beta1/projects/{1}/androidApps?pageToken={2}&pageSize=100'.format(
-        BASE_URL, TEST_PROJECT_ID, LIST_APPS_NEXT_PAGE_TOKEN)
+    _LISTING_URL = ('https://firebase.googleapis.com/v1beta1/projects/test-project-id/'
+                    'androidApps?pageSize=100')
+    _LISTING_PAGE_2_URL = ('https://firebase.googleapis.com/v1beta1/projects/test-project-id/'
+                           'androidApps?pageToken=nextpagetoken&pageSize=100')
 
     def test_list_android_apps(self):
         recorder = self._instrument_service(statuses=[200], responses=[LIST_ANDROID_APPS_RESPONSE])
 
         android_apps = project_management.list_android_apps()
 
-        expected_app_ids = set([TEST_ANDROID_APP_ID, TEST_ANDROID_APP_ID + 'cafe'])
+        expected_app_ids = set(['1:12345678:android:deadbeef', '1:12345678:android:deadbeefcafe'])
         assert set(app.app_id for app in android_apps) == expected_app_ids
         assert len(recorder) == 1
         self._assert_request_is_correct(recorder[0], 'GET', TestListAndroidApps._LISTING_URL)
 
     def test_list_android_apps_rpc_error(self):
-        recorder = self._instrument_service(statuses=[503], responses=[ERROR_RESPONSE])
+        recorder = self._instrument_service(statuses=[503], responses=['some error response'])
 
         with pytest.raises(project_management.ApiCallError) as excinfo:
             project_management.list_android_apps()
@@ -394,7 +448,7 @@ class TestListAndroidApps(BaseProjectManagementTest):
 
         android_apps = project_management.list_android_apps()
 
-        expected_app_ids = set([TEST_ANDROID_APP_ID, TEST_ANDROID_APP_ID + 'cafe'])
+        expected_app_ids = set(['1:12345678:android:deadbeef', '1:12345678:android:deadbeefcafe'])
         assert set(app.app_id for app in android_apps) == expected_app_ids
         assert len(recorder) == 2
         self._assert_request_is_correct(recorder[0], 'GET', TestListAndroidApps._LISTING_URL)
@@ -403,7 +457,7 @@ class TestListAndroidApps(BaseProjectManagementTest):
     def test_list_android_apps_multiple_pages_rpc_error(self):
         recorder = self._instrument_service(
             statuses=[200, 503],
-            responses=[LIST_ANDROID_APPS_PAGE_1_RESPONSE, ERROR_RESPONSE])
+            responses=[LIST_ANDROID_APPS_PAGE_1_RESPONSE, 'some error response'])
 
         with pytest.raises(project_management.ApiCallError) as excinfo:
             project_management.list_android_apps()
@@ -414,23 +468,23 @@ class TestListAndroidApps(BaseProjectManagementTest):
 
 
 class TestListIosApps(BaseProjectManagementTest):
-    _LISTING_URL = '{0}/v1beta1/projects/{1}/iosApps?pageSize=100'.format(
-        BASE_URL, TEST_PROJECT_ID)
-    _LISTING_PAGE_2_URL = '{0}/v1beta1/projects/{1}/iosApps?pageToken={2}&pageSize=100'.format(
-        BASE_URL, TEST_PROJECT_ID, LIST_APPS_NEXT_PAGE_TOKEN)
+    _LISTING_URL = ('https://firebase.googleapis.com/v1beta1/projects/test-project-id/'
+                    'iosApps?pageSize=100')
+    _LISTING_PAGE_2_URL = ('https://firebase.googleapis.com/v1beta1/projects/test-project-id/'
+                           'iosApps?pageToken=nextpagetoken&pageSize=100')
 
     def test_list_ios_apps(self):
         recorder = self._instrument_service(statuses=[200], responses=[LIST_IOS_APPS_RESPONSE])
 
         ios_apps = project_management.list_ios_apps()
 
-        expected_app_ids = set([TEST_IOS_APP_ID, TEST_IOS_APP_ID + 'cafe'])
+        expected_app_ids = set(['1:12345678:ios:ca5cade5', '1:12345678:ios:ca5cade5cafe'])
         assert set(app.app_id for app in ios_apps) == expected_app_ids
         assert len(recorder) == 1
         self._assert_request_is_correct(recorder[0], 'GET', TestListIosApps._LISTING_URL)
 
     def test_list_ios_apps_rpc_error(self):
-        recorder = self._instrument_service(statuses=[503], responses=[ERROR_RESPONSE])
+        recorder = self._instrument_service(statuses=[503], responses=['some error response'])
 
         with pytest.raises(project_management.ApiCallError) as excinfo:
             project_management.list_ios_apps()
@@ -446,7 +500,7 @@ class TestListIosApps(BaseProjectManagementTest):
 
         ios_apps = project_management.list_ios_apps()
 
-        expected_app_ids = set([TEST_IOS_APP_ID, TEST_IOS_APP_ID + 'cafe'])
+        expected_app_ids = set(['1:12345678:ios:ca5cade5', '1:12345678:ios:ca5cade5cafe'])
         assert set(app.app_id for app in ios_apps) == expected_app_ids
         assert len(recorder) == 2
         self._assert_request_is_correct(recorder[0], 'GET', TestListIosApps._LISTING_URL)
@@ -455,7 +509,7 @@ class TestListIosApps(BaseProjectManagementTest):
     def test_list_ios_apps_multiple_pages_rpc_error(self):
         recorder = self._instrument_service(
             statuses=[200, 503],
-            responses=[LIST_IOS_APPS_PAGE_1_RESPONSE, ERROR_RESPONSE])
+            responses=[LIST_IOS_APPS_PAGE_1_RESPONSE, 'some error response'])
 
         with pytest.raises(project_management.ApiCallError) as excinfo:
             project_management.list_ios_apps()
@@ -466,53 +520,53 @@ class TestListIosApps(BaseProjectManagementTest):
 
 
 class TestAndroidApp(BaseProjectManagementTest):
-    _GET_METADATA_URL = '{0}/v1beta1/projects/-/androidApps/{1}'.format(
-        BASE_URL, TEST_ANDROID_APP_ID)
-    _SET_DISPLAY_NAME_URL = '{0}/v1beta1/projects/-/androidApps/{1}?updateMask=displayName'.format(
-        BASE_URL, TEST_ANDROID_APP_ID)
-    _GET_CONFIG_URL = '{0}/v1beta1/projects/-/androidApps/{1}/config'.format(
-        BASE_URL, TEST_ANDROID_APP_ID)
-    _ADD_CERT_URL = '{0}/v1beta1/projects/-/androidApps/{1}/sha'.format(
-        BASE_URL, TEST_ANDROID_APP_ID)
-    _LIST_CERTS_URL = '{0}/v1beta1/projects/-/androidApps/{1}/sha'.format(
-        BASE_URL, TEST_ANDROID_APP_ID)
-    _DELETE_SHA_1_CERT_URL = '{0}/v1beta1/{1}'.format(BASE_URL, SHA_1_NAME)
-    _DELETE_SHA_256_CERT_URL = '{0}/v1beta1/{1}'.format(BASE_URL, SHA_256_NAME)
+    _GET_METADATA_URL = ('https://firebase.googleapis.com/v1beta1/projects/-/androidApps/'
+                         '1:12345678:android:deadbeef')
+    _SET_DISPLAY_NAME_URL = ('https://firebase.googleapis.com/v1beta1/projects/-/androidApps/'
+                             '1:12345678:android:deadbeef?updateMask=displayName')
+    _GET_CONFIG_URL = ('https://firebase.googleapis.com/v1beta1/projects/-/androidApps/'
+                       '1:12345678:android:deadbeef/config')
+    _ADD_CERT_URL = ('https://firebase.googleapis.com/v1beta1/projects/-/androidApps/'
+                     '1:12345678:android:deadbeef/sha')
+    _LIST_CERTS_URL = ('https://firebase.googleapis.com/v1beta1/projects/-/androidApps/'
+                       '1:12345678:android:deadbeef/sha')
+    _DELETE_SHA_1_CERT_URL = 'https://firebase.googleapis.com/v1beta1/{0}'.format(SHA_1_NAME)
+    _DELETE_SHA_256_CERT_URL = 'https://firebase.googleapis.com/v1beta1/{0}'.format(SHA_256_NAME)
 
     @pytest.fixture
     def android_app(self):
-        return project_management.android_app(TEST_ANDROID_APP_ID)
+        return project_management.android_app('1:12345678:android:deadbeef')
 
     def test_get_metadata_no_display_name(self, android_app):
         recorder = self._instrument_service(
-            statuses=[200], responses=[json.dumps(TEST_ANDROID_APP_NO_DISPLAY_NAME)])
+            statuses=[200], responses=[ANDROID_APP_NO_DISPLAY_NAME_METADATA_RESPONSE])
 
         metadata = android_app.get_metadata()
 
-        assert metadata.name == TEST_ANDROID_APP_NAME
-        assert metadata.app_id == TEST_ANDROID_APP_ID
+        assert metadata.name == 'projects/test-project-id/androidApps/1:12345678:android:deadbeef'
+        assert metadata.app_id == '1:12345678:android:deadbeef'
         assert metadata.display_name == ''
-        assert metadata.project_id == TEST_PROJECT_ID
-        assert metadata.package_name == TEST_ANDROID_APP_PACKAGE_NAME
+        assert metadata.project_id == 'test-project-id'
+        assert metadata.package_name == 'com.hello.world.android'
         assert len(recorder) == 1
         self._assert_request_is_correct(recorder[0], 'GET', TestAndroidApp._GET_METADATA_URL)
 
     def test_get_metadata(self, android_app):
         recorder = self._instrument_service(
-            statuses=[200], responses=[json.dumps(TEST_ANDROID_APP)])
+            statuses=[200], responses=[ANDROID_APP_METADATA_RESPONSE])
 
         metadata = android_app.get_metadata()
 
-        assert metadata.name == TEST_ANDROID_APP_NAME
-        assert metadata.app_id == TEST_ANDROID_APP_ID
-        assert metadata.display_name == TEST_ANDROID_APP_DISPLAY_NAME
-        assert metadata.project_id == TEST_PROJECT_ID
-        assert metadata.package_name == TEST_ANDROID_APP_PACKAGE_NAME
+        assert metadata.name == 'projects/test-project-id/androidApps/1:12345678:android:deadbeef'
+        assert metadata.app_id == '1:12345678:android:deadbeef'
+        assert metadata.display_name == 'My Android App'
+        assert metadata.project_id == 'test-project-id'
+        assert metadata.package_name == 'com.hello.world.android'
         assert len(recorder) == 1
         self._assert_request_is_correct(recorder[0], 'GET', TestAndroidApp._GET_METADATA_URL)
 
     def test_get_metadata_not_found(self, android_app):
-        recorder = self._instrument_service(statuses=[404], responses=[ERROR_RESPONSE])
+        recorder = self._instrument_service(statuses=[404], responses=['some error response'])
 
         with pytest.raises(project_management.ApiCallError) as excinfo:
             android_app.get_metadata()
@@ -533,7 +587,7 @@ class TestAndroidApp(BaseProjectManagementTest):
             recorder[0], 'PATCH', TestAndroidApp._SET_DISPLAY_NAME_URL, body)
 
     def test_set_display_name_not_found(self, android_app):
-        recorder = self._instrument_service(statuses=[404], responses=[ERROR_RESPONSE])
+        recorder = self._instrument_service(statuses=[404], responses=['some error response'])
         new_display_name = 'A new display name!'
 
         with pytest.raises(project_management.ApiCallError) as excinfo:
@@ -548,12 +602,12 @@ class TestAndroidApp(BaseProjectManagementTest):
 
         config = android_app.get_config()
 
-        assert config == TEST_APP_CONFIG
+        assert config == 'hello world'
         assert len(recorder) == 1
         self._assert_request_is_correct(recorder[0], 'GET', TestAndroidApp._GET_CONFIG_URL)
 
     def test_get_config_not_found(self, android_app):
-        recorder = self._instrument_service(statuses=[404], responses=[ERROR_RESPONSE])
+        recorder = self._instrument_service(statuses=[404], responses=['some error response'])
 
         with pytest.raises(project_management.ApiCallError) as excinfo:
             android_app.get_config()
@@ -573,7 +627,7 @@ class TestAndroidApp(BaseProjectManagementTest):
         self._assert_request_is_correct(recorder[0], 'GET', TestAndroidApp._LIST_CERTS_URL)
 
     def test_get_sha_certificates_not_found(self, android_app):
-        recorder = self._instrument_service(statuses=[404], responses=[ERROR_RESPONSE])
+        recorder = self._instrument_service(statuses=[404], responses=['some error response'])
 
         with pytest.raises(project_management.ApiCallError) as excinfo:
             android_app.get_sha_certificates()
@@ -601,7 +655,7 @@ class TestAndroidApp(BaseProjectManagementTest):
         self._assert_request_is_correct(recorder[0], 'POST', TestAndroidApp._ADD_CERT_URL, body)
 
     def test_add_sha_certificates_already_exists(self, android_app):
-        recorder = self._instrument_service(statuses=[409], responses=[ERROR_RESPONSE])
+        recorder = self._instrument_service(statuses=[409], responses=['some error response'])
 
         with pytest.raises(project_management.ApiCallError) as excinfo:
             android_app.add_sha_certificate(project_management.ShaCertificate(SHA_1_HASH))
@@ -629,7 +683,7 @@ class TestAndroidApp(BaseProjectManagementTest):
             recorder[0], 'DELETE', TestAndroidApp._DELETE_SHA_256_CERT_URL)
 
     def test_delete_sha_certificates_not_found(self, android_app):
-        recorder = self._instrument_service(statuses=[404], responses=[ERROR_RESPONSE])
+        recorder = self._instrument_service(statuses=[404], responses=['some error response'])
 
         with pytest.raises(project_management.ApiCallError) as excinfo:
             android_app.delete_sha_certificate(SHA_1_CERTIFICATE)
@@ -640,46 +694,46 @@ class TestAndroidApp(BaseProjectManagementTest):
 
 
 class TestIosApp(BaseProjectManagementTest):
-    _GET_METADATA_URL = '{0}/v1beta1/projects/-/iosApps/{1}'.format(
-        BASE_URL, TEST_IOS_APP_ID)
-    _SET_DISPLAY_NAME_URL = '{0}/v1beta1/projects/-/iosApps/{1}?updateMask=displayName'.format(
-        BASE_URL, TEST_IOS_APP_ID)
-    _GET_CONFIG_URL = '{0}/v1beta1/projects/-/iosApps/{1}/config'.format(
-        BASE_URL, TEST_IOS_APP_ID)
+    _GET_METADATA_URL = ('https://firebase.googleapis.com/v1beta1/projects/-/iosApps/'
+                         '1:12345678:ios:ca5cade5')
+    _SET_DISPLAY_NAME_URL = ('https://firebase.googleapis.com/v1beta1/projects/-/iosApps/'
+                             '1:12345678:ios:ca5cade5?updateMask=displayName')
+    _GET_CONFIG_URL = ('https://firebase.googleapis.com/v1beta1/projects/-/iosApps/'
+                       '1:12345678:ios:ca5cade5/config')
 
     @pytest.fixture
     def ios_app(self):
-        return project_management.ios_app(TEST_IOS_APP_ID)
+        return project_management.ios_app('1:12345678:ios:ca5cade5')
 
     def test_get_metadata_no_display_name(self, ios_app):
         recorder = self._instrument_service(
-            statuses=[200], responses=[json.dumps(TEST_IOS_APP_NO_DISPLAY_NAME)])
+            statuses=[200], responses=[IOS_APP_NO_DISPLAY_NAME_METADATA_RESPONSE])
 
         metadata = ios_app.get_metadata()
 
-        assert metadata.name == TEST_IOS_APP_NAME
-        assert metadata.app_id == TEST_IOS_APP_ID
+        assert metadata.name == 'projects/test-project-id/iosApps/1:12345678:ios:ca5cade5'
+        assert metadata.app_id == '1:12345678:ios:ca5cade5'
         assert metadata.display_name == ''
-        assert metadata.project_id == TEST_PROJECT_ID
-        assert metadata.bundle_id == TEST_IOS_APP_BUNDLE_ID
+        assert metadata.project_id == 'test-project-id'
+        assert metadata.bundle_id == 'com.hello.world.ios'
         assert len(recorder) == 1
         self._assert_request_is_correct(recorder[0], 'GET', TestIosApp._GET_METADATA_URL)
 
     def test_get_metadata(self, ios_app):
-        recorder = self._instrument_service(statuses=[200], responses=[json.dumps(TEST_IOS_APP)])
+        recorder = self._instrument_service(statuses=[200], responses=[IOS_APP_METADATA_RESPONSE])
 
         metadata = ios_app.get_metadata()
 
-        assert metadata.name == TEST_IOS_APP_NAME
-        assert metadata.app_id == TEST_IOS_APP_ID
-        assert metadata.display_name == TEST_IOS_APP_DISPLAY_NAME
-        assert metadata.project_id == TEST_PROJECT_ID
-        assert metadata.bundle_id == TEST_IOS_APP_BUNDLE_ID
+        assert metadata.name == 'projects/test-project-id/iosApps/1:12345678:ios:ca5cade5'
+        assert metadata.app_id == '1:12345678:ios:ca5cade5'
+        assert metadata.display_name == 'My iOS App'
+        assert metadata.project_id == 'test-project-id'
+        assert metadata.bundle_id == 'com.hello.world.ios'
         assert len(recorder) == 1
         self._assert_request_is_correct(recorder[0], 'GET', TestIosApp._GET_METADATA_URL)
 
     def test_get_metadata_not_found(self, ios_app):
-        recorder = self._instrument_service(statuses=[404], responses=[ERROR_RESPONSE])
+        recorder = self._instrument_service(statuses=[404], responses=['some error response'])
 
         with pytest.raises(project_management.ApiCallError) as excinfo:
             ios_app.get_metadata()
@@ -700,7 +754,7 @@ class TestIosApp(BaseProjectManagementTest):
             recorder[0], 'PATCH', TestIosApp._SET_DISPLAY_NAME_URL, body)
 
     def test_set_display_name_not_found(self, ios_app):
-        recorder = self._instrument_service(statuses=[404], responses=[ERROR_RESPONSE])
+        recorder = self._instrument_service(statuses=[404], responses=['some error response'])
         new_display_name = 'A new display name!'
 
         with pytest.raises(project_management.ApiCallError) as excinfo:
@@ -715,12 +769,12 @@ class TestIosApp(BaseProjectManagementTest):
 
         config = ios_app.get_config()
 
-        assert config == TEST_APP_CONFIG
+        assert config == 'hello world'
         assert len(recorder) == 1
         self._assert_request_is_correct(recorder[0], 'GET', TestIosApp._GET_CONFIG_URL)
 
     def test_get_config_not_found(self, ios_app):
-        recorder = self._instrument_service(statuses=[404], responses=[ERROR_RESPONSE])
+        recorder = self._instrument_service(statuses=[404], responses=['some error response'])
 
         with pytest.raises(project_management.ApiCallError) as excinfo:
             ios_app.get_config()

@@ -29,37 +29,11 @@ TEST_ANDROID_APP_ID = '1:12345678:android:deadbeef'
 TEST_ANDROID_APP_NAME = 'projects/{0}/androidApps/{1}'.format(TEST_PROJECT_ID, TEST_ANDROID_APP_ID)
 TEST_ANDROID_APP_DISPLAY_NAME = 'My Android App'
 TEST_ANDROID_APP_PACKAGE_NAME = 'com.hello.world.android'
-TEST_ANDROID_APP = {
-    'name': TEST_ANDROID_APP_NAME,
-    'appId': TEST_ANDROID_APP_ID,
-    'displayName': TEST_ANDROID_APP_DISPLAY_NAME,
-    'projectId': TEST_PROJECT_ID,
-    'packageName': TEST_ANDROID_APP_PACKAGE_NAME,
-}
-TEST_ANDROID_APP_NO_DISPLAY_NAME = {
-    'name': TEST_ANDROID_APP_NAME,
-    'appId': TEST_ANDROID_APP_ID,
-    'projectId': TEST_PROJECT_ID,
-    'packageName': TEST_ANDROID_APP_PACKAGE_NAME,
-}
 
 TEST_IOS_APP_ID = '1:12345678:ios:ca5cade5'
 TEST_IOS_APP_NAME = 'projects/{0}/iosApps/{1}'.format(TEST_PROJECT_ID, TEST_IOS_APP_ID)
 TEST_IOS_APP_DISPLAY_NAME = 'My iOS App'
 TEST_IOS_APP_BUNDLE_ID = 'com.hello.world.ios'
-TEST_IOS_APP = {
-    'name': TEST_IOS_APP_NAME,
-    'appId': TEST_IOS_APP_ID,
-    'displayName': TEST_IOS_APP_DISPLAY_NAME,
-    'projectId': TEST_PROJECT_ID,
-    'bundleId': TEST_IOS_APP_BUNDLE_ID,
-}
-TEST_IOS_APP_NO_DISPLAY_NAME = {
-    'name': TEST_IOS_APP_NAME,
-    'appId': TEST_IOS_APP_ID,
-    'projectId': TEST_PROJECT_ID,
-    'bundleId': TEST_IOS_APP_BUNDLE_ID,
-}
 
 OPERATION_NAME = 'operations/abcdefg'
 OPERATION_IN_PROGRESS_RESPONSE = json.dumps({
@@ -74,22 +48,44 @@ OPERATION_FAILED_RESPONSE = json.dumps({
 ANDROID_APP_OPERATION_SUCCESSFUL_RESPONSE = json.dumps({
     'name': OPERATION_NAME,
     'done': True,
-    'response': TEST_ANDROID_APP,
+    'response': {
+        'name': TEST_ANDROID_APP_NAME,
+        'appId': TEST_ANDROID_APP_ID,
+        'displayName': TEST_ANDROID_APP_DISPLAY_NAME,
+        'projectId': TEST_PROJECT_ID,
+        'packageName': TEST_ANDROID_APP_PACKAGE_NAME,
+    },
 })
 ANDROID_APP_NO_DISPLAY_NAME_OPERATION_SUCCESSFUL_RESPONSE = json.dumps({
     'name': OPERATION_NAME,
     'done': True,
-    'response': TEST_ANDROID_APP_NO_DISPLAY_NAME,
+    'response': {
+        'name': TEST_ANDROID_APP_NAME,
+        'appId': TEST_ANDROID_APP_ID,
+        'projectId': TEST_PROJECT_ID,
+        'packageName': TEST_ANDROID_APP_PACKAGE_NAME,
+    },
 })
 IOS_APP_OPERATION_SUCCESSFUL_RESPONSE = json.dumps({
     'name': OPERATION_NAME,
     'done': True,
-    'response': TEST_IOS_APP,
+    'response': {
+        'name': TEST_IOS_APP_NAME,
+        'appId': TEST_IOS_APP_ID,
+        'displayName': TEST_IOS_APP_DISPLAY_NAME,
+        'projectId': TEST_PROJECT_ID,
+        'bundleId': TEST_IOS_APP_BUNDLE_ID,
+    },
 })
 IOS_APP_NO_DISPLAY_NAME_OPERATION_SUCCESSFUL_RESPONSE = json.dumps({
     'name': OPERATION_NAME,
     'done': True,
-    'response': TEST_IOS_APP_NO_DISPLAY_NAME,
+    'response': {
+        'name': TEST_IOS_APP_NAME,
+        'appId': TEST_IOS_APP_ID,
+        'projectId': TEST_PROJECT_ID,
+        'bundleId': TEST_IOS_APP_BUNDLE_ID,
+    },
 })
 
 ERROR_RESPONSE = 'some error'

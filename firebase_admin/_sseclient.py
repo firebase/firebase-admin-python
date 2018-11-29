@@ -50,8 +50,7 @@ class _EventBuffer(object):
     def append(self, char):
         self._buffer.append(char)
         self._tail += char
-        if len(self._tail) > 4:
-            self._tail = self._tail[1:]
+        self._tail = self._tail[-4:]
 
     def truncate(self):
         head, sep, _ = self.buffer_string.rpartition('\n')

@@ -212,7 +212,7 @@ class BaseProjectManagementTest(object):
         assert request.method == expected_method
         assert request.url == expected_url
         if expected_body is None:
-            assert not request.body
+            assert request.body is None
         else:
             assert json.loads(request.body.decode()) == expected_body
 

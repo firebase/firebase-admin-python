@@ -114,16 +114,12 @@ def create_ios_app(bundle_id, display_name=None, app=None):
     return _get_project_management_service(app).create_ios_app(bundle_id, display_name)
 
 
-def _check_is_string(obj, field_name):
-    if isinstance(obj, six.string_types):
-        return obj
-    raise ValueError('{0} must be a string.'.format(field_name))
-
-
 def _check_is_string_or_none(obj, field_name):
     if obj is None:
         return None
-    return _check_is_string(obj, field_name)
+    if isinstance(obj, six.string_types):
+        return obj
+    raise ValueError('{0} must be a string.'.format(field_name))
 
 
 def _check_is_nonempty_string(obj, field_name):
@@ -319,7 +315,7 @@ class _AppMetadata(object):
     def __init__(self, name, app_id, display_name, project_id):
         self._name = _check_is_nonempty_string(name, 'name')
         self._app_id = _check_is_nonempty_string(app_id, 'app_id')
-        self._display_name = _check_is_string(display_name, 'display_name')
+        self._display_name = _check_is_string_or_none(display_name, 'display_name')
         self._project_id = _check_is_nonempty_string(project_id, 'project_id')
 
     @property
@@ -337,7 +333,9 @@ class _AppMetadata(object):
 
     @property
     def display_name(self):
-        """The user-assigned display name of this Android or iOS app."""
+        """The user-assigned display name of this Android or iOS app.
+
+        Note that the display name can be None if it has never been set by the user."""
         return self._display_name
 
     @property
@@ -523,7 +521,7 @@ class _ProjectManagementService(object):
             response[identifier_name],
             name=response['name'],
             app_id=response['appId'],
-            display_name=response.get('displayName') or '',
+            display_name=response.get('displayName') or None,
             project_id=response['projectId'])
 
     def set_android_app_display_name(self, app_id, new_display_name):

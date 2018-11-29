@@ -81,7 +81,7 @@ def test_android_set_display_name_and_get_metadata(android_app, project_id):
     metadata = project_management.android_app(app_id).get_metadata()
     android_app.set_display_name(TEST_APP_DISPLAY_NAME_PREFIX)  # Revert the display name.
 
-    assert metadata.name == 'projects/{0}/androidApps/{1}'.format(project_id, app_id)
+    assert metadata._name == 'projects/{0}/androidApps/{1}'.format(project_id, app_id)
     assert metadata.app_id == app_id
     assert metadata.project_id == project_id
     assert metadata.display_name == new_display_name
@@ -171,7 +171,7 @@ def test_ios_set_display_name_and_get_metadata(ios_app, project_id):
     metadata = project_management.ios_app(app_id).get_metadata()
     ios_app.set_display_name(TEST_APP_DISPLAY_NAME_PREFIX)  # Revert the display name.
 
-    assert metadata.name == 'projects/{0}/iosApps/{1}'.format(project_id, app_id)
+    assert metadata._name == 'projects/{0}/iosApps/{1}'.format(project_id, app_id)
     assert metadata.app_id == app_id
     assert metadata.project_id == project_id
     assert metadata.display_name == new_display_name

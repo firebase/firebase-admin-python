@@ -295,7 +295,7 @@ class TestAndroidAppMetadata(object):
         assert ANDROID_APP_METADATA.package_name == 'com.hello.world.android'
 
     def test_android_app_metadata_name(self):
-        assert (ANDROID_APP_METADATA.name ==
+        assert (ANDROID_APP_METADATA._name ==
                 'projects/test-project-id/androidApps/1:12345678:android:deadbeef')
 
     def test_android_app_metadata_app_id(self):
@@ -406,7 +406,7 @@ class TestIosAppMetadata(object):
         assert IOS_APP_METADATA.bundle_id == 'com.hello.world.ios'
 
     def test_ios_app_metadata_name(self):
-        assert IOS_APP_METADATA.name == 'projects/test-project-id/iosApps/1:12345678:ios:ca5cade5'
+        assert IOS_APP_METADATA._name == 'projects/test-project-id/iosApps/1:12345678:ios:ca5cade5'
 
     def test_ios_app_metadata_app_id(self):
         assert IOS_APP_METADATA.app_id == '1:12345678:android:deadbeef'
@@ -902,7 +902,7 @@ class TestAndroidApp(BaseProjectManagementTest):
 
         metadata = android_app.get_metadata()
 
-        assert metadata.name == 'projects/test-project-id/androidApps/1:12345678:android:deadbeef'
+        assert metadata._name == 'projects/test-project-id/androidApps/1:12345678:android:deadbeef'
         assert metadata.app_id == '1:12345678:android:deadbeef'
         assert metadata.display_name is None
         assert metadata.project_id == 'test-project-id'
@@ -916,7 +916,7 @@ class TestAndroidApp(BaseProjectManagementTest):
 
         metadata = android_app.get_metadata()
 
-        assert metadata.name == 'projects/test-project-id/androidApps/1:12345678:android:deadbeef'
+        assert metadata._name == 'projects/test-project-id/androidApps/1:12345678:android:deadbeef'
         assert metadata.app_id == '1:12345678:android:deadbeef'
         assert metadata.display_name == 'My Android App'
         assert metadata.project_id == 'test-project-id'
@@ -1084,7 +1084,7 @@ class TestIosApp(BaseProjectManagementTest):
 
         metadata = ios_app.get_metadata()
 
-        assert metadata.name == 'projects/test-project-id/iosApps/1:12345678:ios:ca5cade5'
+        assert metadata._name == 'projects/test-project-id/iosApps/1:12345678:ios:ca5cade5'
         assert metadata.app_id == '1:12345678:ios:ca5cade5'
         assert metadata.display_name is None
         assert metadata.project_id == 'test-project-id'
@@ -1097,7 +1097,7 @@ class TestIosApp(BaseProjectManagementTest):
 
         metadata = ios_app.get_metadata()
 
-        assert metadata.name == 'projects/test-project-id/iosApps/1:12345678:ios:ca5cade5'
+        assert metadata._name == 'projects/test-project-id/iosApps/1:12345678:ios:ca5cade5'
         assert metadata.app_id == '1:12345678:ios:ca5cade5'
         assert metadata.display_name == 'My iOS App'
         assert metadata.project_id == 'test-project-id'

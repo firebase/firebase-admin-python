@@ -313,15 +313,12 @@ class _AppMetadata(object):
     """Detailed information about a Firebase Android or iOS app."""
 
     def __init__(self, name, app_id, display_name, project_id):
+        # _name is the fully qualified resource name of this Android or iOS app; currently it is not
+        # exposed to client code.
         self._name = _check_is_nonempty_string(name, 'name')
         self._app_id = _check_is_nonempty_string(app_id, 'app_id')
         self._display_name = _check_is_string_or_none(display_name, 'display_name')
         self._project_id = _check_is_nonempty_string(project_id, 'project_id')
-
-    @property
-    def name(self):
-        """The fully qualified resource name of this Android or iOS app."""
-        return self._name
 
     @property
     def app_id(self):
@@ -346,7 +343,8 @@ class _AppMetadata(object):
     def __eq__(self, other):
         if not isinstance(other, type(self)):
             return False
-        return (self.name == other.name and self.app_id == other.app_id and
+        # pylint: disable=protected-access
+        return (self._name == other._name and self.app_id == other.app_id and
                 self.display_name == other.display_name and self.project_id == other.project_id)
 
 
@@ -354,6 +352,7 @@ class AndroidAppMetadata(_AppMetadata):
     """Android-specific information about an Android Firebase app."""
 
     def __init__(self, package_name, name, app_id, display_name, project_id):
+        """Clients should not instantiate this class directly."""
         super(AndroidAppMetadata, self).__init__(name, app_id, display_name, project_id)
         self._package_name = _check_is_nonempty_string(package_name, 'package_name')
 
@@ -367,13 +366,15 @@ class AndroidAppMetadata(_AppMetadata):
                 self.package_name == other.package_name)
 
     def __hash__(self):
-        return hash((self.name, self.app_id, self.display_name, self.project_id, self.package_name))
+        return hash(
+            (self._name, self.app_id, self.display_name, self.project_id, self.package_name))
 
 
 class IosAppMetadata(_AppMetadata):
     """iOS-specific information about an iOS Firebase app."""
 
     def __init__(self, bundle_id, name, app_id, display_name, project_id):
+        """Clients should not instantiate this class directly."""
         super(IosAppMetadata, self).__init__(name, app_id, display_name, project_id)
         self._bundle_id = _check_is_nonempty_string(bundle_id, 'bundle_id')
 
@@ -386,7 +387,7 @@ class IosAppMetadata(_AppMetadata):
         return super(IosAppMetadata, self).__eq__(other) and self.bundle_id == other.bundle_id
 
     def __hash__(self):
-        return hash((self.name, self.app_id, self.display_name, self.project_id, self.bundle_id))
+        return hash((self._name, self.app_id, self.display_name, self.project_id, self.bundle_id))
 
 
 class ShaCertificate(object):

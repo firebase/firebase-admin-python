@@ -364,6 +364,9 @@ class AndroidAppMetadata(_AppMetadata):
         return (super(AndroidAppMetadata, self).__eq__(other) and
                 self.package_name == other.package_name)
 
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __hash__(self):
         return hash(
             (self._name, self.app_id, self.display_name, self.project_id, self.package_name))
@@ -384,6 +387,9 @@ class IosAppMetadata(_AppMetadata):
 
     def __eq__(self, other):
         return super(IosAppMetadata, self).__eq__(other) and self.bundle_id == other.bundle_id
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def __hash__(self):
         return hash((self._name, self.app_id, self.display_name, self.project_id, self.bundle_id))
@@ -455,6 +461,9 @@ class ShaCertificate(object):
             return False
         return (self.name == other.name and self.sha_hash == other.sha_hash and
                 self.cert_type == other.cert_type)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def __hash__(self):
         return hash((self.name, self.sha_hash, self.cert_type))

@@ -1083,10 +1083,13 @@ class TestAndroidApp(BaseProjectManagementTest):
         assert len(recorder) == 1
 
     def test_raises_if_app_has_no_project_id(self):
-        app = firebase_admin.initialize_app(testutils.MockCredential(), name='no_project_id')
+        def evaluate():
+            app = firebase_admin.initialize_app(testutils.MockCredential(), name='no_project_id')
 
-        with pytest.raises(ValueError):
-            project_management.android_app(app_id='1:12345678:android:deadbeef', app=app)
+            with pytest.raises(ValueError):
+                project_management.android_app(app_id='1:12345678:android:deadbeef', app=app)
+
+        testutils.run_without_project_id(evaluate)
 
 
 class TestIosApp(BaseProjectManagementTest):

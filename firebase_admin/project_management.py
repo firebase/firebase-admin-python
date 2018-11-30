@@ -344,6 +344,7 @@ class _AppMetadata(object):
         # pylint: disable=protected-access
         return (self._name == other._name and self.app_id == other.app_id and
                 self.display_name == other.display_name and self.project_id == other.project_id)
+        # pylint: enable=protected-access
 
 
 class AndroidAppMetadata(_AppMetadata):

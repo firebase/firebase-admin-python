@@ -281,7 +281,8 @@ class TestAndroidAppMetadata(object):
             project_id='test-project-id')
         ios_metadata = IOS_APP_METADATA
 
-        assert metadata_1 != ios_metadata
+        # Don't trigger __ne__.
+        assert not metadata_1 == ios_metadata  # pylint: disable=unneeded-not
         assert metadata_1 == metadata_1
         assert metadata_1 != metadata_2
         assert metadata_1 != metadata_3
@@ -392,7 +393,8 @@ class TestIosAppMetadata(object):
             project_id='test-project-id')
         android_metadata = ANDROID_APP_METADATA
 
-        assert metadata_1 != android_metadata
+        # Don't trigger __ne__.
+        assert not metadata_1 == android_metadata  # pylint: disable=unneeded-not
         assert metadata_1 == metadata_1
         assert metadata_1 != metadata_2
         assert metadata_1 != metadata_3
@@ -466,7 +468,8 @@ class TestShaCertificate(object):
         assert sha_cert_1 != sha_cert_4
         assert sha_cert_1 != sha_cert_5
         assert sha_cert_1 == sha_cert_6
-        assert sha_cert_1 != not_a_sha_cert
+        # Don't trigger __ne__.
+        assert not sha_cert_1 == not_a_sha_cert  # pylint: disable=unneeded-not
 
     def test_sha_certificate_name(self):
         assert (SHA_1_CERTIFICATE.name ==

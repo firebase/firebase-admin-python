@@ -885,7 +885,9 @@ class _MessagingService(object):
         if dry_run:
             data['validate_only'] = True
         try:
-            resp = self._client.body('post', url=self._fcm_url, json=data, timeout=self._timeout)
+            headers = {'X-GOOG-API-FORMAT-VERSION': '2'}
+            resp = self._client.body(
+                'post', url=self._fcm_url, headers=headers, json=data, timeout=self._timeout)
         except requests.exceptions.RequestException as error:
             if error.response is not None:
                 self._handle_fcm_error(error)

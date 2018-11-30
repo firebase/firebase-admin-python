@@ -115,9 +115,7 @@ def create_ios_app(bundle_id, display_name=None, app=None):
 
 
 def _check_is_string_or_none(obj, field_name):
-    if obj is None:
-        return None
-    if isinstance(obj, six.string_types):
+    if obj is None or isinstance(obj, six.string_types):
         return obj
     raise ValueError('{0} must be a string.'.format(field_name))
 
@@ -452,7 +450,7 @@ class ShaCertificate(object):
         return self._cert_type
 
     def __eq__(self, other):
-        if not isinstance(other, type(self)):
+        if not isinstance(other, ShaCertificate):
             return False
         return (self.name == other.name and self.sha_hash == other.sha_hash and
                 self.cert_type == other.cert_type)
@@ -618,7 +616,8 @@ class _ProjectManagementService(object):
             return app_class(app_id=poll_response['appId'], service=self)
         except _PollingError as error:
             raise ApiCallError(
-                self._extract_message(operation_name, 'Operation name', error), error)
+                _ProjectManagementService._extract_message(operation_name, 'Operation name', error),
+                error)
 
     def _poll_app_creation(self, operation_name):
         """Polls the Long-Running Operation repeatedly until it is done with exponential backoff."""
@@ -678,9 +677,12 @@ class _ProjectManagementService(object):
             return self._client.body(method=method, url=url, json=json, timeout=self._timeout)
         except requests.exceptions.RequestException as error:
             raise ApiCallError(
-                self._extract_message(resource_identifier, resource_identifier_label, error), error)
+                _ProjectManagementService._extract_message(
+                    resource_identifier, resource_identifier_label, error),
+                error)
 
-    def _extract_message(self, identifier, identifier_label, error):
+    @staticmethod
+    def _extract_message(identifier, identifier_label, error):
         if not isinstance(error, requests.exceptions.RequestException) or error.response is None:
             return '{0} "{1}": {2}'.format(identifier_label, identifier, str(error))
         status = error.response.status_code

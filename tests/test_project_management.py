@@ -281,6 +281,7 @@ class TestAndroidAppMetadata(object):
             project_id='test-project-id')
         ios_metadata = IOS_APP_METADATA
 
+        assert metadata_1 != ios_metadata
         assert metadata_1 == metadata_1
         assert metadata_1 != metadata_2
         assert metadata_1 != metadata_3
@@ -288,7 +289,6 @@ class TestAndroidAppMetadata(object):
         assert metadata_1 != metadata_5
         assert metadata_1 != metadata_6
         assert metadata_1 == metadata_7
-        assert metadata_1 != ios_metadata
         assert set([metadata_1, metadata_2, metadata_7]) == set([metadata_1, metadata_2])
 
     def test_android_app_metadata_package_name(self):
@@ -392,6 +392,7 @@ class TestIosAppMetadata(object):
             project_id='test-project-id')
         android_metadata = ANDROID_APP_METADATA
 
+        assert metadata_1 != android_metadata
         assert metadata_1 == metadata_1
         assert metadata_1 != metadata_2
         assert metadata_1 != metadata_3
@@ -399,7 +400,6 @@ class TestIosAppMetadata(object):
         assert metadata_1 != metadata_5
         assert metadata_1 != metadata_6
         assert metadata_1 == metadata_7
-        assert metadata_1 != android_metadata
         assert set([metadata_1, metadata_2, metadata_7]) == set([metadata_1, metadata_2])
 
     def test_ios_app_metadata_bundle_id(self):
@@ -924,6 +924,17 @@ class TestAndroidApp(BaseProjectManagementTest):
         assert len(recorder) == 1
         self._assert_request_is_correct(recorder[0], 'GET', TestAndroidApp._GET_METADATA_URL)
 
+    def test_get_metadata_unknown_error(self, android_app):
+        recorder = self._instrument_service(
+            statuses=[428], responses=['precondition required error'])
+
+        with pytest.raises(project_management.ApiCallError) as excinfo:
+            android_app.get_metadata()
+
+        assert 'Error 428' in str(excinfo.value)
+        assert excinfo.value.detail is not None
+        assert len(recorder) == 1
+
     def test_get_metadata_not_found(self, android_app):
         recorder = self._instrument_service(statuses=[404], responses=['some error response'])
 
@@ -1065,6 +1076,12 @@ class TestAndroidApp(BaseProjectManagementTest):
         assert excinfo.value.detail is not None
         assert len(recorder) == 1
 
+    def test_raises_if_app_has_no_project_id(self):
+        app = firebase_admin.initialize_app(testutils.MockCredential(), name='no_project_id')
+
+        with pytest.raises(ValueError):
+            project_management.android_app(app_id='1:12345678:android:deadbeef', app=app)
+
 
 class TestIosApp(BaseProjectManagementTest):
     _GET_METADATA_URL = ('https://firebase.googleapis.com/v1beta1/projects/-/iosApps/'
@@ -1104,6 +1121,17 @@ class TestIosApp(BaseProjectManagementTest):
         assert metadata.bundle_id == 'com.hello.world.ios'
         assert len(recorder) == 1
         self._assert_request_is_correct(recorder[0], 'GET', TestIosApp._GET_METADATA_URL)
+
+    def test_get_metadata_unknown_error(self, ios_app):
+        recorder = self._instrument_service(
+            statuses=[428], responses=['precondition required error'])
+
+        with pytest.raises(project_management.ApiCallError) as excinfo:
+            ios_app.get_metadata()
+
+        assert 'Error 428' in str(excinfo.value)
+        assert excinfo.value.detail is not None
+        assert len(recorder) == 1
 
     def test_get_metadata_not_found(self, ios_app):
         recorder = self._instrument_service(statuses=[404], responses=['some error response'])
@@ -1155,3 +1183,12 @@ class TestIosApp(BaseProjectManagementTest):
         assert 'Failed to find the resource' in str(excinfo.value)
         assert excinfo.value.detail is not None
         assert len(recorder) == 1
+
+    def test_raises_if_app_has_no_project_id(self):
+        def evaluate():
+            app = firebase_admin.initialize_app(testutils.MockCredential(), name='no_project_id')
+
+            with pytest.raises(ValueError):
+                project_management.ios_app(app_id='1:12345678:ios:ca5cade5', app=app)
+
+        testutils.run_without_project_id(evaluate)

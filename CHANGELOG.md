@@ -4,6 +4,8 @@
   type.googleapis.com/google.firebase.fcm.v1.FcmError to set error code.
 - [fixed] Ensuring that `UserRecord.tokens_valid_after_time` always
   returns an integer, and never returns `None`.
+- [fixed] Fixing a performance issue in the `db.listen()` API
+  where it was taking a long time to process large RTDB nodes.
 
 # v2.13.0
 

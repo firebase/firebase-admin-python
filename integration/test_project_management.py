@@ -35,12 +35,16 @@ SHA_1 = project_management.ShaCertificate.SHA_1
 SHA_256 = project_management.ShaCertificate.SHA_256
 
 
+def _starts_with(display_name, prefix):
+    return display_name and display_name.startswith(prefix)
+
+
 @pytest.fixture(scope='module')
 def android_app(default_app):
     del default_app
     android_apps = project_management.list_android_apps()
     for android_app in android_apps:
-        if android_app.get_metadata().display_name.startswith(TEST_APP_DISPLAY_NAME_PREFIX):
+        if _starts_with(android_app.get_metadata().display_name, TEST_APP_DISPLAY_NAME_PREFIX):
             return android_app
     return project_management.create_android_app(
         package_name=TEST_APP_PACKAGE_NAME, display_name=TEST_APP_DISPLAY_NAME_PREFIX)
@@ -51,7 +55,7 @@ def ios_app(default_app):
     del default_app
     ios_apps = project_management.list_ios_apps()
     for ios_app in ios_apps:
-        if ios_app.get_metadata().display_name.startswith(TEST_APP_DISPLAY_NAME_PREFIX):
+        if _starts_with(ios_app.get_metadata().display_name, TEST_APP_DISPLAY_NAME_PREFIX):
             return ios_app
     return project_management.create_ios_app(
         bundle_id=TEST_APP_BUNDLE_ID, display_name=TEST_APP_DISPLAY_NAME_PREFIX)
@@ -77,7 +81,7 @@ def test_android_set_display_name_and_get_metadata(android_app, project_id):
     metadata = project_management.android_app(app_id).get_metadata()
     android_app.set_display_name(TEST_APP_DISPLAY_NAME_PREFIX)  # Revert the display name.
 
-    assert metadata.name == 'projects/{0}/androidApps/{1}'.format(project_id, app_id)
+    assert metadata._name == 'projects/{0}/androidApps/{1}'.format(project_id, app_id)
     assert metadata.app_id == app_id
     assert metadata.project_id == project_id
     assert metadata.display_name == new_display_name
@@ -89,11 +93,8 @@ def test_list_android_apps(android_app):
 
     android_apps = project_management.list_android_apps()
 
-    for android_app in android_apps:
-        if android_app.get_metadata().display_name.startswith(TEST_APP_DISPLAY_NAME_PREFIX):
-            found = True
-            break
-    assert found
+    assert any(_starts_with(android_app.get_metadata().display_name, TEST_APP_DISPLAY_NAME_PREFIX)
+               for android_app in android_apps)
 
 
 def test_get_android_app_config(android_app, project_id):
@@ -170,7 +171,7 @@ def test_ios_set_display_name_and_get_metadata(ios_app, project_id):
     metadata = project_management.ios_app(app_id).get_metadata()
     ios_app.set_display_name(TEST_APP_DISPLAY_NAME_PREFIX)  # Revert the display name.
 
-    assert metadata.name == 'projects/{0}/iosApps/{1}'.format(project_id, app_id)
+    assert metadata._name == 'projects/{0}/iosApps/{1}'.format(project_id, app_id)
     assert metadata.app_id == app_id
     assert metadata.project_id == project_id
     assert metadata.display_name == new_display_name
@@ -182,7 +183,7 @@ def test_list_ios_apps(ios_app):
 
     ios_apps = project_management.list_ios_apps()
 
-    assert any(ios_app.get_metadata().display_name.startswith(TEST_APP_DISPLAY_NAME_PREFIX)
+    assert any(_starts_with(ios_app.get_metadata().display_name, TEST_APP_DISPLAY_NAME_PREFIX)
                for ios_app in ios_apps)
 
 

@@ -114,16 +114,10 @@ def create_ios_app(bundle_id, display_name=None, app=None):
     return _get_project_management_service(app).create_ios_app(bundle_id, display_name)
 
 
-def _check_is_string(obj, field_name):
-    if isinstance(obj, six.string_types):
+def _check_is_string_or_none(obj, field_name):
+    if obj is None or isinstance(obj, six.string_types):
         return obj
     raise ValueError('{0} must be a string.'.format(field_name))
-
-
-def _check_is_string_or_none(obj, field_name):
-    if obj is None:
-        return None
-    return _check_is_string(obj, field_name)
 
 
 def _check_is_nonempty_string(obj, field_name):
@@ -317,15 +311,12 @@ class _AppMetadata(object):
     """Detailed information about a Firebase Android or iOS app."""
 
     def __init__(self, name, app_id, display_name, project_id):
+        # _name is the fully qualified resource name of this Android or iOS app; currently it is not
+        # exposed to client code.
         self._name = _check_is_nonempty_string(name, 'name')
         self._app_id = _check_is_nonempty_string(app_id, 'app_id')
-        self._display_name = _check_is_string(display_name, 'display_name')
+        self._display_name = _check_is_string_or_none(display_name, 'display_name')
         self._project_id = _check_is_nonempty_string(project_id, 'project_id')
-
-    @property
-    def name(self):
-        """The fully qualified resource name of this Android or iOS app."""
-        return self._name
 
     @property
     def app_id(self):
@@ -337,7 +328,9 @@ class _AppMetadata(object):
 
     @property
     def display_name(self):
-        """The user-assigned display name of this Android or iOS app."""
+        """The user-assigned display name of this Android or iOS app.
+
+        Note that the display name can be None if it has never been set by the user."""
         return self._display_name
 
     @property
@@ -345,11 +338,20 @@ class _AppMetadata(object):
         """The permanent, globally unique, user-assigned ID of the parent Firebase project."""
         return self._project_id
 
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        # pylint: disable=protected-access
+        return (self._name == other._name and self.app_id == other.app_id and
+                self.display_name == other.display_name and self.project_id == other.project_id)
+        # pylint: enable=protected-access
+
 
 class AndroidAppMetadata(_AppMetadata):
     """Android-specific information about an Android Firebase app."""
 
     def __init__(self, package_name, name, app_id, display_name, project_id):
+        """Clients should not instantiate this class directly."""
         super(AndroidAppMetadata, self).__init__(name, app_id, display_name, project_id)
         self._package_name = _check_is_nonempty_string(package_name, 'package_name')
 
@@ -358,11 +360,23 @@ class AndroidAppMetadata(_AppMetadata):
         """The canonical package name of this Android app as it would appear in the Play Store."""
         return self._package_name
 
+    def __eq__(self, other):
+        return (super(AndroidAppMetadata, self).__eq__(other) and
+                self.package_name == other.package_name)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(
+            (self._name, self.app_id, self.display_name, self.project_id, self.package_name))
+
 
 class IosAppMetadata(_AppMetadata):
     """iOS-specific information about an iOS Firebase app."""
 
     def __init__(self, bundle_id, name, app_id, display_name, project_id):
+        """Clients should not instantiate this class directly."""
         super(IosAppMetadata, self).__init__(name, app_id, display_name, project_id)
         self._bundle_id = _check_is_nonempty_string(bundle_id, 'bundle_id')
 
@@ -370,6 +384,15 @@ class IosAppMetadata(_AppMetadata):
     def bundle_id(self):
         """The canonical bundle ID of this iOS app as it would appear in the iOS AppStore."""
         return self._bundle_id
+
+    def __eq__(self, other):
+        return super(IosAppMetadata, self).__eq__(other) and self.bundle_id == other.bundle_id
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash((self._name, self.app_id, self.display_name, self.project_id, self.bundle_id))
 
 
 class ShaCertificate(object):
@@ -439,6 +462,9 @@ class ShaCertificate(object):
         return (self.name == other.name and self.sha_hash == other.sha_hash and
                 self.cert_type == other.cert_type)
 
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __hash__(self):
         return hash((self.name, self.sha_hash, self.cert_type))
 
@@ -504,7 +530,7 @@ class _ProjectManagementService(object):
             response[identifier_name],
             name=response['name'],
             app_id=response['appId'],
-            display_name=response.get('displayName') or '',
+            display_name=response.get('displayName') or None,
             project_id=response['projectId'])
 
     def set_android_app_display_name(self, app_id, new_display_name):
@@ -600,7 +626,8 @@ class _ProjectManagementService(object):
             return app_class(app_id=poll_response['appId'], service=self)
         except _PollingError as error:
             raise ApiCallError(
-                self._extract_message(operation_name, 'Operation name', error), error)
+                _ProjectManagementService._extract_message(operation_name, 'Operation name', error),
+                error)
 
     def _poll_app_creation(self, operation_name):
         """Polls the Long-Running Operation repeatedly until it is done with exponential backoff."""
@@ -660,9 +687,12 @@ class _ProjectManagementService(object):
             return self._client.body(method=method, url=url, json=json, timeout=self._timeout)
         except requests.exceptions.RequestException as error:
             raise ApiCallError(
-                self._extract_message(resource_identifier, resource_identifier_label, error), error)
+                _ProjectManagementService._extract_message(
+                    resource_identifier, resource_identifier_label, error),
+                error)
 
-    def _extract_message(self, identifier, identifier_label, error):
+    @staticmethod
+    def _extract_message(identifier, identifier_label, error):
         if not isinstance(error, requests.exceptions.RequestException) or error.response is None:
             return '{0} "{1}": {2}'.format(identifier_label, identifier, str(error))
         status = error.response.status_code

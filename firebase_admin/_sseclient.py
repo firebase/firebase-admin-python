@@ -177,7 +177,7 @@ class Event(object):
           raw: the raw data to parse.
 
         Returns:
-          Event: newly intialized ``Event`` object with the parameters initialized.
+          Event: A new ``Event`` with the parameters initialized.
         """
         event = cls()
         for line in raw.split('\n'):

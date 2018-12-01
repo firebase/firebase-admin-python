@@ -1,8 +1,8 @@
 # Unreleased
 
+- [added] `messaging.AndroidNotification`type now supports channel_id.
 - [fixed] Fixing error handling in FCM. The SDK now checks the key
   type.googleapis.com/google.firebase.fcm.v1.FcmError to set error code.
-
 
 # v2.13.0
 

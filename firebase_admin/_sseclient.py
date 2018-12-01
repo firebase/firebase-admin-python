@@ -12,7 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""SSEClient module to stream realtime updates in the Firebase Database."""
+"""SSEClient module to stream realtime updates from the Firebase Database.
+
+Based on a similar implementation from Pyrebase.
+"""
 
 import re
 import time
@@ -37,6 +40,34 @@ class KeepAuthSession(transport.requests.AuthorizedSession):
         pass
 
 
+class _EventBuffer(object):
+    """A helper class for buffering and parsing raw SSE data."""
+
+    def __init__(self):
+        self._buffer = []
+        self._tail = ''
+
+    def append(self, char):
+        self._buffer.append(char)
+        self._tail += char
+        self._tail = self._tail[-4:]
+
+    def truncate(self):
+        head, sep, _ = self.buffer_string.rpartition('\n')
+        rem = head + sep
+        self._buffer = list(rem)
+        self._tail = rem[-4:]
+
+    @property
+    def is_end_of_field(self):
+        last_two_chars = self._tail[-2:]
+        return last_two_chars == '\n\n' or last_two_chars == '\r\r' or self._tail == '\r\n\r\n'
+
+    @property
+    def buffer_string(self):
+        return ''.join(self._buffer)
+
+
 class SSEClient(object):
     """SSE client implementation."""
 
@@ -58,7 +89,7 @@ class SSEClient(object):
         self.buf = u'' # Keep data here as it streams in
 
         headers = self.requests_kwargs.get('headers', {})
-        # The SSE spec requires making requests with Cache-Control: nocache
+        # The SSE spec requires making requests with Cache-Control: no-cache
         headers['Cache-Control'] = 'no-cache'
         # The 'Accept' header is not required, but explicit > implicit
         headers['Accept'] = 'text/event-stream'
@@ -82,32 +113,28 @@ class SSEClient(object):
         else:
             raise StopIteration()
 
-    def _event_complete(self):
-        """Checks if the event is completed by matching regular expression."""
-        return re.search(end_of_field, self.buf) is not None
-
     def __iter__(self):
         return self
 
     def __next__(self):
-        while not self._event_complete():
-            try:
-                nextchar = next(self.resp_iterator)
-                self.buf += nextchar
-            except (StopIteration, requests.RequestException):
-                time.sleep(self.retry / 1000.0)
-                self._connect()
-                # The SSE spec only supports resuming from a whole message, so
-                # if we have half a message we should throw it out.
-                head, sep, tail = self.buf.rpartition('\n')
-                self.buf = head + sep
-                continue
+        if not re.search(end_of_field, self.buf):
+            temp_buffer = _EventBuffer()
+            while not temp_buffer.is_end_of_field:
+                try:
+                    nextchar = next(self.resp_iterator)
+                    temp_buffer.append(nextchar)
+                except (StopIteration, requests.RequestException):
+                    time.sleep(self.retry / 1000.0)
+                    self._connect()
+                    # The SSE spec only supports resuming from a whole message, so
+                    # if we have half a message we should throw it out.
+                    temp_buffer.truncate()
+                    continue
+            self.buf = temp_buffer.buffer_string
 
         split = re.split(end_of_field, self.buf)
         head = split[0]
-        tail = ''.join(split[1:])
-
-        self.buf = tail
+        self.buf = '\n\n'.join(split[1:])
         event = Event.parse(head)
 
         if event.data == 'credential is no longer valid':
@@ -150,7 +177,7 @@ class Event(object):
           raw: the raw data to parse.
 
         Returns:
-          Event: newly intialized ``Event`` object with the parameters  initialized.
+          Event: A new ``Event`` with the parameters initialized.
         """
         event = cls()
         for line in raw.split('\n'):

@@ -335,6 +335,12 @@ class TestAndroidNotificationEncoder(object):
         expected = 'AndroidNotification.body_loc_key is required when specifying body_loc_args.'
         assert str(excinfo.value) == expected
 
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_channek_id(self, data):
+        notification = messaging.AndroidNotification(channel_id=data)
+        excinfo = self._check_notification(notification)
+        assert str(excinfo.value) == 'AndroidNotification.channel_id must be a string.'
+
     def test_android_notification(self):
         msg = messaging.Message(
             topic='topic',
@@ -342,7 +348,7 @@ class TestAndroidNotificationEncoder(object):
                 notification=messaging.AndroidNotification(
                     title='t', body='b', icon='i', color='#112233', sound='s', tag='t',
                     click_action='ca', title_loc_key='tlk', body_loc_key='blk',
-                    title_loc_args=['t1', 't2'], body_loc_args=['b1', 'b2']
+                    title_loc_args=['t1', 't2'], body_loc_args=['b1', 'b2'], channel_id='c'
                 )
             )
         )
@@ -361,6 +367,7 @@ class TestAndroidNotificationEncoder(object):
                     'body_loc_key': 'blk',
                     'title_loc_args': ['t1', 't2'],
                     'body_loc_args': ['b1', 'b2'],
+                    'channel_id' : 'c',
                 },
             },
         }

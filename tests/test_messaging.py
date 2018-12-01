@@ -339,7 +339,7 @@ class TestAndroidNotificationEncoder(object):
     def test_invalid_channek_id(self, data):
         notification = messaging.AndroidNotification(channel_id=data)
         excinfo = self._check_notification(notification)
-        assert str(excinfo.value) == 'AndroidNotification.channelk_id must be a string.'
+        assert str(excinfo.value) == 'AndroidNotification.channel_id must be a string.'
 
     def test_android_notification(self):
         msg = messaging.Message(

@@ -3,6 +3,8 @@
 - [added] A new `project_management` API for managing apps in a
   project.
 - [added] `messaging.AndroidNotification`type now supports channel_id.
+- [fixed] FCM errors sent by the back-end now include more details
+  that are helpful when debugging problems.
 - [fixed] Fixing error handling in FCM. The SDK now checks the key
   type.googleapis.com/google.firebase.fcm.v1.FcmError to set error code.
 - [fixed] Ensuring that `UserRecord.tokens_valid_after_time` always

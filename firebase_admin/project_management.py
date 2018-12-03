@@ -69,7 +69,7 @@ def list_android_apps(app=None):
 
     Returns:
         list: a list of ``AndroidApp`` instances referring to each Android app in the Firebase
-            project.
+        project.
     """
     return _get_project_management_service(app).list_android_apps()
 
@@ -434,7 +434,7 @@ class ShaCertificate(object):
 
         Returns:
             string: The fully qualified resource name of this certificate, if known; otherwise, the
-                empty string.
+            empty string.
         """
         return self._name
 

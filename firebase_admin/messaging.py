@@ -246,11 +246,12 @@ class AndroidNotification(object):
             title text (optional).
         title_loc_args: A list of resource keys that will be used in place of the format specifiers
             in ``title_loc_key`` (optional).
+        channel_id: channel_id of the notification (optional).
     """
 
     def __init__(self, title=None, body=None, icon=None, color=None, sound=None, tag=None,
                  click_action=None, body_loc_key=None, body_loc_args=None, title_loc_key=None,
-                 title_loc_args=None):
+                 title_loc_args=None, channel_id=None):
         self.title = title
         self.body = body
         self.icon = icon
@@ -262,6 +263,7 @@ class AndroidNotification(object):
         self.body_loc_args = body_loc_args
         self.title_loc_key = title_loc_key
         self.title_loc_args = title_loc_args
+        self.channel_id = channel_id
 
 
 class WebpushConfig(object):
@@ -596,6 +598,8 @@ class _MessageEncoder(json.JSONEncoder):
                 'AndroidNotification.title_loc_args', notification.title_loc_args),
             'title_loc_key': _Validators.check_string(
                 'AndroidNotification.title_loc_key', notification.title_loc_key),
+            'channel_id': _Validators.check_string(
+                'AndroidNotification.channel_id', notification.channel_id),
         }
         result = cls.remove_null_values(result)
         color = result.get('color')
@@ -943,7 +947,7 @@ class _MessagingService(object):
         error_dict = data.get('error', {})
         server_code = None
         for detail in error_dict.get('details', []):
-            if detail.get('@type') == 'type.googleapis.com/google.firebase.fcm.v1.FcmErrorCode':
+            if detail.get('@type') == 'type.googleapis.com/google.firebase.fcm.v1.FcmError':
                 server_code = detail.get('errorCode')
                 break
         if not server_code:

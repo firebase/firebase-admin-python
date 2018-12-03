@@ -151,6 +151,14 @@ class TestUserRecord(object):
         with pytest.raises(ValueError):
             _user_mgt.ProviderUserInfo(data)
 
+    def test_tokens_valid_after_time(self):
+        user = auth.UserRecord({'localId' : 'user', 'validSince' : 100})
+        assert user.tokens_valid_after_timestamp == 100000
+
+    def test_no_tokens_valid_after_time(self):
+        user = auth.UserRecord({'localId' : 'user'})
+        assert user.tokens_valid_after_timestamp is 0
+
 
 class TestGetUser(object):
 

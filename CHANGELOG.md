@@ -1,8 +1,12 @@
 # Unreleased
 
+-
+
+# v2.14.0
+
 - [added] A new `project_management` API for managing apps in a
   project.
-- [added] `messaging.AndroidNotification`type now supports channel_id.
+- [added] `messaging.AndroidNotification` type now supports `channel_id`.
 - [fixed] FCM errors sent by the back-end now include more details
   that are helpful when debugging problems.
 - [fixed] Fixing error handling in FCM. The SDK now checks the key
@@ -11,7 +15,6 @@
   returns an integer, and never returns `None`.
 - [fixed] Fixing a performance issue in the `db.listen()` API
   where it was taking a long time to process large RTDB nodes.
-
 
 # v2.13.0
 

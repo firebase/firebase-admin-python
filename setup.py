@@ -22,11 +22,12 @@ from setuptools import find_packages
 from setuptools import setup
 
 
-if sys.version_info < (2, 7):
-    print('firebase_admin requires python2 version >= 2.7 or python3.', file=sys.stderr)
+(major, minor) = (sys.version_info.major, sys.version_info.minor)
+if (major == 2 and minor < 7) or (major == 3 and minor < 4):
+    print('firebase_admin requires python2 >= 2.7 or python3 >= 3.4', file=sys.stderr)
     sys.exit(1)
 
-# Read in the package meta data per recommendations from:
+# Read in the package metadata per recommendations from:
 # https://packaging.python.org/guides/single-sourcing-package-version/
 about_path = path.join(path.dirname(path.abspath(__file__)), 'firebase_admin', '__about__.py')
 about = {}
@@ -45,10 +46,6 @@ install_requires = [
     'six>=1.6.1'
 ]
 
-extras_require = {
-    ':python_version<"3.4"': ('enum34>=1.0.4',),
-}
-
 setup(
     name=about['__title__'],
     version=about['__version__'],
@@ -58,9 +55,9 @@ setup(
     author=about['__author__'],
     license=about['__license__'],
     keywords='firebase cloud development',
-    extras_require=extras_require,
     install_requires=install_requires,
     packages=find_packages(exclude=['tests']),
+    python_requires='>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*',
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
@@ -68,8 +65,10 @@ setup(
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.3',
+        'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
         'License :: OSI Approved :: Apache Software License',
     ],
 )

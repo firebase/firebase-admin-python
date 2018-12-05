@@ -1,6 +1,6 @@
 # Unreleased
 
--
+- [changed] Dropped support for Python 3.3.
 
 # v2.14.0
 

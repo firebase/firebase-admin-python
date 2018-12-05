@@ -24,6 +24,7 @@ import time
 import requests
 import six
 
+import firebase_admin
 from firebase_admin import _http_client
 from firebase_admin import _utils
 
@@ -502,9 +503,11 @@ class _ProjectManagementService(object):
                 'set the projectId option, or use service account credentials. Alternatively, set '
                 'the GOOGLE_CLOUD_PROJECT environment variable.')
         self._project_id = project_id
+        version_header = 'Python/Admin/{0}'.format(firebase_admin.__version__)
         self._client = _http_client.JsonHttpClient(
             credential=app.credential.get_credential(),
-            base_url=_ProjectManagementService.BASE_URL)
+            base_url=_ProjectManagementService.BASE_URL,
+            headers={'X-Client-Version': version_header})
         self._timeout = app.options.get('httpTimeout')
 
     def get_android_app_metadata(self, app_id):

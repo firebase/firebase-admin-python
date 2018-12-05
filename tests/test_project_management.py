@@ -518,6 +518,8 @@ class BaseProjectManagementTest(object):
             self, request, expected_method, expected_url, expected_body=None):
         assert request.method == expected_method
         assert request.url == expected_url
+        client_version = 'Python/Admin/{0}'.format(firebase_admin.__version__)
+        assert request.headers['X-Client-Version'] == client_version
         if expected_body is None:
             assert request.body is None
         else:

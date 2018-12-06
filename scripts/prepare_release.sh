@@ -93,10 +93,10 @@ fi
 # Ensure the checked out branch is master
 CHECKED_OUT_BRANCH="$(git branch | grep "*" | awk -F ' ' '{print $2}')"
 if [[ $CHECKED_OUT_BRANCH != "master" ]]; then
-    read -p "[WARN] You are on the '${CHECKED_OUT_BRANCH}' branch, not 'master'. Continue? (Y/n) " CONTINUE
+    read -p "[WARN] You are on the '${CHECKED_OUT_BRANCH}' branch, not 'master'. Continue? (y/N) " CONTINUE
     echo
 
-    if ! [[ $CONTINUE == "Y" ]]; then
+    if ! [[ $CONTINUE == "y" || $CONTINUE == "Y" ]]; then
         echo "[INFO] You chose not to continue."
         exit 1
     fi
@@ -104,10 +104,10 @@ fi
 
 # Ensure the branch does not have local changes
 if [[ $(git status --porcelain) ]]; then
-    read -p "[WARN] Local changes exist in the repo. Continue? (Y/n) " CONTINUE
+    read -p "[WARN] Local changes exist in the repo. Continue? (y/N) " CONTINUE
     echo
 
-    if ! [[ $CONTINUE == "Y" ]]; then
+    if ! [[ $CONTINUE == "y" || $CONTINUE == "Y" ]]; then
         echo "[INFO] You chose not to continue."
         exit 1
     fi

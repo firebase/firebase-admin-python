@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# pylint: disable=too-many-lines
+
 """Firebase Cloud Messaging module."""
 
 import datetime
@@ -395,7 +397,8 @@ class Aps(object):
     Args:
         alert: A string or a ``messaging.ApsAlert`` instance (optional).
         badge: A number representing the badge to be displayed with the message (optional).
-        sound: Name of the sound file to be played with the message (optional).
+        sound: Name of the sound file to be played with the message or a
+            ``messaging.CriticalSound`` instance (optional).
         content_available: A boolean indicating whether to configure a background update
             notification (optional).
         category: String identifier representing the message type (optional).
@@ -416,6 +419,25 @@ class Aps(object):
         self.thread_id = thread_id
         self.mutable_content = mutable_content
         self.custom_data = custom_data
+
+
+class CriticalSound(object):
+    """Critical alert sound configuration that can be included in ``messaging.Aps``.
+
+    Args:
+        name: The name of a sound file in your app's main bundle or in the ``Library/Sounds``
+            folder of your app's container directory. Specify the string ``default`` to play the
+            system sound.
+        critical: Set to ``True`` to set the critical alert flag on the sound configuration
+            (optional).
+        volume: The volume for the critical alert's sound. Must be a value between 0.0 (silent)
+            and 1.0 (full volume) (optional).
+    """
+
+    def __init__(self, name, critical=None, volume=None):
+        self.name = name
+        self.critical = critical
+        self.volume = volume
 
 
 class ApsAlert(object):
@@ -736,7 +758,7 @@ class _MessageEncoder(json.JSONEncoder):
         result = {
             'alert': cls.encode_aps_alert(aps.alert),
             'badge': _Validators.check_number('Aps.badge', aps.badge),
-            'sound': _Validators.check_string('Aps.sound', aps.sound),
+            'sound': cls.encode_aps_sound(aps.sound),
             'category': _Validators.check_string('Aps.category', aps.category),
             'thread-id': _Validators.check_string('Aps.thread_id', aps.thread_id),
         }
@@ -753,6 +775,27 @@ class _MessageEncoder(json.JSONEncoder):
                     raise ValueError('Multiple specifications for {0} in Aps.'.format(key))
                 result[key] = val
         return cls.remove_null_values(result)
+
+    @classmethod
+    def encode_aps_sound(cls, sound):
+        """Encodes an APNs sound configuration into JSON."""
+        if sound is None:
+            return None
+        if isinstance(sound, six.string_types):
+            return sound
+        if not isinstance(sound, CriticalSound):
+            raise ValueError('Aps.sound must be a string or an instance of CriticalSound class.')
+        result = {
+            'name': _Validators.check_string('CriticalSound.name', sound.name)
+        }
+        if sound.critical is True:
+            result['critical'] = 1
+        volume = _Validators.check_number('CriticalSound.volume', sound.volume)
+        if volume:
+            if volume < 0 or volume > 1:
+                raise ValueError('CriticalSound.volume must be in the interval [0,1].')
+            result['volume'] = volume
+        return result
 
     @classmethod
     def encode_aps_alert(cls, alert):

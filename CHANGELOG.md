@@ -1,5 +1,7 @@
 # Unreleased
 
+- `messaging.Aps` class now supports configuring a critical sound. A new
+  `messaging.CriticalSound` class has been introduced for this purpose.
 - [changed] Dropped support for Python 3.3.
 
 # v2.14.0

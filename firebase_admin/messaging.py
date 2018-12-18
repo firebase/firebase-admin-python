@@ -781,21 +781,24 @@ class _MessageEncoder(json.JSONEncoder):
         """Encodes an APNs sound configuration into JSON."""
         if sound is None:
             return None
-        if isinstance(sound, six.string_types):
+        if sound and isinstance(sound, six.string_types):
             return sound
         if not isinstance(sound, CriticalSound):
-            raise ValueError('Aps.sound must be a string or an instance of CriticalSound class.')
+            raise ValueError(
+                'Aps.sound must be a non-empty string or an instance of CriticalSound class.')
         result = {
-            'name': _Validators.check_string('CriticalSound.name', sound.name)
+            'name': _Validators.check_string('CriticalSound.name', sound.name, non_empty=True),
+            'volume': _Validators.check_number('CriticalSound.volume', sound.volume),
         }
         if sound.critical is True:
             result['critical'] = 1
-        volume = _Validators.check_number('CriticalSound.volume', sound.volume)
+        if not result['name']:
+            raise ValueError('CriticalSond.name must be a non-empty string.')
+        volume = result['volume']
         if volume:
             if volume < 0 or volume > 1:
                 raise ValueError('CriticalSound.volume must be in the interval [0,1].')
-            result['volume'] = volume
-        return result
+        return cls.remove_null_values(result)
 
     @classmethod
     def encode_aps_alert(cls, alert):

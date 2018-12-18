@@ -721,12 +721,12 @@ class TestApsEncoder(object):
         expected = 'Aps.badge must be a number.'
         assert str(excinfo.value) == expected
 
-    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    @pytest.mark.parametrize('data', NON_STRING_ARGS + [''])
     def test_invalid_sound(self, data):
         aps = messaging.Aps(sound=data)
         with pytest.raises(ValueError) as excinfo:
             self._encode_aps(aps)
-        expected = 'Aps.sound must be a string or an instance of CriticalSound class.'
+        expected = 'Aps.sound must be a non-empty string or an instance of CriticalSound class.'
         assert str(excinfo.value) == expected
 
     @pytest.mark.parametrize('data', NON_STRING_ARGS)
@@ -847,7 +847,7 @@ class TestApsSoundEncoder(object):
     def test_invalid_name(self, data):
         sound = messaging.CriticalSound(name=data)
         excinfo = self._check_sound(sound)
-        expected = 'CriticalSound.name must be a string.'
+        expected = 'CriticalSound.name must be a non-empty string.'
         assert str(excinfo.value) == expected
 
     @pytest.mark.parametrize('data', [list(), tuple(), dict(), 'foo'])

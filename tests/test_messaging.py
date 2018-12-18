@@ -959,6 +959,13 @@ class TestApsAlertEncoder(object):
         assert str(excinfo.value) == expected
 
     @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_subtitle(self, data):
+        alert = messaging.ApsAlert(subtitle=data)
+        excinfo = self._check_alert(alert)
+        expected = 'ApsAlert.subtitle must be a string.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
     def test_invalid_body(self, data):
         alert = messaging.ApsAlert(body=data)
         excinfo = self._check_alert(alert)
@@ -1035,6 +1042,7 @@ class TestApsAlertEncoder(object):
                     aps=messaging.Aps(
                         alert=messaging.ApsAlert(
                             title='t',
+                            subtitle='st',
                             body='b',
                             title_loc_key='tlk',
                             title_loc_args=['t1', 't2'],
@@ -1054,6 +1062,7 @@ class TestApsAlertEncoder(object):
                     'aps': {
                         'alert': {
                             'title': 't',
+                            'subtitle': 'st',
                             'body': 'b',
                             'title-loc-key': 'tlk',
                             'title-loc-args': ['t1', 't2'],

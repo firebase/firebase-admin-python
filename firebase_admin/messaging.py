@@ -795,9 +795,8 @@ class _MessageEncoder(json.JSONEncoder):
         if not result['name']:
             raise ValueError('CriticalSond.name must be a non-empty string.')
         volume = result['volume']
-        if volume:
-            if volume < 0 or volume > 1:
-                raise ValueError('CriticalSound.volume must be in the interval [0,1].')
+        if volume is not None and (volume < 0 or volume > 1):
+            raise ValueError('CriticalSound.volume must be in the interval [0,1].')
         return cls.remove_null_values(result)
 
     @classmethod

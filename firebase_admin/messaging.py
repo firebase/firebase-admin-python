@@ -790,7 +790,7 @@ class _MessageEncoder(json.JSONEncoder):
             'name': _Validators.check_string('CriticalSound.name', sound.name, non_empty=True),
             'volume': _Validators.check_number('CriticalSound.volume', sound.volume),
         }
-        if sound.critical is True:
+        if sound.critical:
             result['critical'] = 1
         if not result['name']:
             raise ValueError('CriticalSond.name must be a non-empty string.')

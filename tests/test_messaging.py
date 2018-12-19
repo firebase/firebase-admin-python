@@ -721,12 +721,12 @@ class TestApsEncoder(object):
         expected = 'Aps.badge must be a number.'
         assert str(excinfo.value) == expected
 
-    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    @pytest.mark.parametrize('data', NON_STRING_ARGS + [''])
     def test_invalid_sound(self, data):
         aps = messaging.Aps(sound=data)
         with pytest.raises(ValueError) as excinfo:
             self._encode_aps(aps)
-        expected = 'Aps.sound must be a string.'
+        expected = 'Aps.sound must be a non-empty string or an instance of CriticalSound class.'
         assert str(excinfo.value) == expected
 
     @pytest.mark.parametrize('data', NON_STRING_ARGS)
@@ -825,6 +825,114 @@ class TestApsEncoder(object):
                         'alert': 'alert text',
                         'k1': 'v1',
                         'k2': 1,
+                    },
+                }
+            },
+        }
+        check_encoding(msg, expected)
+
+
+class TestApsSoundEncoder(object):
+
+    def _check_sound(self, sound):
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(
+                topic='topic', apns=messaging.APNSConfig(
+                    payload=messaging.APNSPayload(aps=messaging.Aps(sound=sound))
+                )
+            ))
+        return excinfo
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_name(self, data):
+        sound = messaging.CriticalSound(name=data)
+        excinfo = self._check_sound(sound)
+        expected = 'CriticalSound.name must be a non-empty string.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', [list(), tuple(), dict(), 'foo'])
+    def test_invalid_volume(self, data):
+        sound = messaging.CriticalSound(name='default', volume=data)
+        excinfo = self._check_sound(sound)
+        expected = 'CriticalSound.volume must be a number.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', [-0.1, 1.1])
+    def test_volume_out_of_range(self, data):
+        sound = messaging.CriticalSound(name='default', volume=data)
+        excinfo = self._check_sound(sound)
+        expected = 'CriticalSound.volume must be in the interval [0,1].'
+        assert str(excinfo.value) == expected
+
+    def test_sound_string(self):
+        msg = messaging.Message(
+            topic='topic',
+            apns=messaging.APNSConfig(
+                payload=messaging.APNSPayload(aps=messaging.Aps(sound='default'))
+            )
+        )
+        expected = {
+            'topic': 'topic',
+            'apns': {
+                'payload': {
+                    'aps': {
+                        'sound': 'default',
+                    },
+                }
+            },
+        }
+        check_encoding(msg, expected)
+
+    def test_critical_sound(self):
+        msg = messaging.Message(
+            topic='topic',
+            apns=messaging.APNSConfig(
+                payload=messaging.APNSPayload(
+                    aps=messaging.Aps(
+                        sound=messaging.CriticalSound(
+                            name='default',
+                            critical=True,
+                            volume=0.5
+                        )
+                    ),
+                )
+            )
+        )
+        expected = {
+            'topic': 'topic',
+            'apns': {
+                'payload': {
+                    'aps': {
+                        'sound': {
+                            'name': 'default',
+                            'critical': 1,
+                            'volume': 0.5,
+                        },
+                    },
+                }
+            },
+        }
+        check_encoding(msg, expected)
+
+    def test_critical_sound_name_only(self):
+        msg = messaging.Message(
+            topic='topic',
+            apns=messaging.APNSConfig(
+                payload=messaging.APNSPayload(
+                    aps=messaging.Aps(
+                        sound=messaging.CriticalSound(name='default')
+                    ),
+                )
+            )
+        )
+        expected = {
+            'topic': 'topic',
+            'apns': {
+                'payload': {
+                    'aps': {
+                        'sound': {
+                            'name': 'default',
+                        },
                     },
                 }
             },

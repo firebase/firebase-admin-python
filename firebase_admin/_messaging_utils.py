@@ -150,14 +150,16 @@ class WebpushConfig(object):
         data: A dictionary of data fields (optional). All keys and values in the dictionary must be
             strings. When specified, overrides any data fields set via ``Message.data``.
         notification: A ``messaging.WebpushNotification`` to be included in the message (optional).
+        fcm_options: A ``messaging.WebpushFcmOptions`` to be included in the messsage (optional).
 
     .. _Webpush Specification: https://tools.ietf.org/html/rfc8030#section-5
     """
 
-    def __init__(self, headers=None, data=None, notification=None):
+    def __init__(self, headers=None, data=None, notification=None, fcm_options=None):
         self.headers = headers
         self.data = data
         self.notification = notification
+        self.fcm_options = fcm_options
 
 
 class WebpushNotificationAction(object):
@@ -230,6 +232,18 @@ class WebpushNotification(object):
         self.timestamp_millis = timestamp_millis
         self.vibrate = vibrate
         self.custom_data = custom_data
+
+
+class WebpushFcmOptions(object):
+    """Options for features provided by the FCM SDK for Web.
+
+    Args:
+        link: The link to open when the user clicks on the notification. Must be an HTTPS URL
+            (optional).
+    """
+
+    def __init__(self, link=None):
+        self.link = link
 
 
 class APNSConfig(object):
@@ -503,7 +517,7 @@ class MessageEncoder(json.JSONEncoder):
 
     @classmethod
     def encode_webpush(cls, webpush):
-        """Encodes an WebpushConfig instance into JSON."""
+        """Encodes a WebpushConfig instance into JSON."""
         if webpush is None:
             return None
         if not isinstance(webpush, WebpushConfig):
@@ -514,12 +528,13 @@ class MessageEncoder(json.JSONEncoder):
             'headers': _Validators.check_string_dict(
                 'WebpushConfig.headers', webpush.headers),
             'notification': cls.encode_webpush_notification(webpush.notification),
+            'fcmOptions': cls.encode_webpush_fcm_options(webpush.fcm_options),
         }
         return cls.remove_null_values(result)
 
     @classmethod
     def encode_webpush_notification(cls, notification):
-        """Encodes an WebpushNotification instance into JSON."""
+        """Encodes a WebpushNotification instance into JSON."""
         if notification is None:
             return None
         if not isinstance(notification, WebpushNotification):
@@ -587,6 +602,20 @@ class MessageEncoder(json.JSONEncoder):
             }
             results.append(cls.remove_null_values(result))
         return results
+
+    @classmethod
+    def encode_webpush_fcm_options(cls, options):
+        """Encodes a WebpushFcmOptions instance into JSON."""
+        if options is None:
+            return None
+        result = {
+            'link': _Validators.check_string('WebpushConfig.fcm_options.link', options.link),
+        }
+        result = cls.remove_null_values(result)
+        link = result.get('link')
+        if link is not None and not link.startswith('https://'):
+            raise ValueError('WebpushFcmOptions.link must be a HTTPS URL.')
+        return result
 
     @classmethod
     def encode_apns(cls, apns):

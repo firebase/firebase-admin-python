@@ -39,6 +39,7 @@ __all__ = [
     'Notification',
     'TopicManagementResponse',
     'WebpushConfig',
+    'WebpushFcmOptions',
     'WebpushNotification',
     'WebpushNotificationAction',
 
@@ -58,6 +59,7 @@ CriticalSound = _messaging_utils.CriticalSound
 Message = _messaging_utils.Message
 Notification = _messaging_utils.Notification
 WebpushConfig = _messaging_utils.WebpushConfig
+WebpushFcmOptions = _messaging_utils.WebpushFcmOptions
 WebpushNotification = _messaging_utils.WebpushNotification
 WebpushNotificationAction = _messaging_utils.WebpushNotificationAction
 

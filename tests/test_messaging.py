@@ -401,7 +401,7 @@ class TestWebpushConfigEncoder(object):
             topic='topic',
             webpush=messaging.WebpushConfig(
                 headers={'h1': 'v1', 'h2': 'v2'},
-                data={'k1': 'v1', 'k2': 'v2'}
+                data={'k1': 'v1', 'k2': 'v2'},
             )
         )
         expected = {
@@ -414,6 +414,52 @@ class TestWebpushConfigEncoder(object):
                 'data': {
                     'k1': 'v1',
                     'k2': 'v2',
+                },
+            },
+        }
+        check_encoding(msg, expected)
+
+
+class TestWebpushFcmOptionsEncoder(object):
+
+    @pytest.mark.parametrize('data', NON_OBJECT_ARGS)
+    def test_invalid_webpush_fcm_options(self, data):
+        with pytest.raises(AttributeError):
+            check_encoding(messaging.Message(
+                topic='topic', webpush=messaging.WebpushConfig(fcm_options=data)))
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_link_type(self, data):
+        options = messaging.WebpushFcmOptions(link=data)
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(
+                topic='topic', webpush=messaging.WebpushConfig(fcm_options=options)))
+        expected = 'WebpushConfig.fcm_options.link must be a string.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', ['', 'foo', 'http://example'])
+    def test_invalid_link_format(self, data):
+        options = messaging.WebpushFcmOptions(link=data)
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(
+                topic='topic', webpush=messaging.WebpushConfig(fcm_options=options)))
+        expected = 'WebpushFcmOptions.link must be a HTTPS URL.'
+        assert str(excinfo.value) == expected
+
+    def test_webpush_notification(self):
+        msg = messaging.Message(
+            topic='topic',
+            webpush=messaging.WebpushConfig(
+                fcm_options=messaging.WebpushFcmOptions(
+                    link='https://example',
+                ),
+            )
+        )
+        expected = {
+            'topic': 'topic',
+            'webpush': {
+                'fcmOptions': {
+                    'link': 'https://example',
                 },
             },
         }

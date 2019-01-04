@@ -1,9 +1,13 @@
 # Unreleased
 
-- Taking a direct dependency on `google-api-core[grpc]` in order to
+- [changed] Taking a direct dependency on `google-api-core[grpc]` in order to
   resolve some long standing Firestore installation problems.
-- `messaging.Aps` class now supports configuring a critical sound. A new
-  `messaging.CriticalSound` class has been introduced for this purpose.
+- `messaging.WebpushConfig` class now supports configuring additional
+  [added] FCM options for the features supported by the web SDK. A new
+  `messaging.WebpushFcmOptions` type has been introduced for this
+  purpose.
+- [added] `messaging.Aps` class now supports configuring a critical sound. A
+  new `messaging.CriticalSound` class has been introduced for this purpose.
 - [changed] Dropped support for Python 3.3.
 
 # v2.14.0

@@ -238,7 +238,7 @@ class WebpushFcmOptions(object):
     """Options for features provided by the FCM SDK for Web.
 
     Args:
-        link: The link to open when the user clicks on the notification. Must be a HTTPS URL
+        link: The link to open when the user clicks on the notification. Must be an HTTPS URL
             (optional).
     """
 

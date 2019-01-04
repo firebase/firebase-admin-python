@@ -1,5 +1,7 @@
 # Unreleased
 
+- Taking a direct dependency on `google-api-core[grpc]` in order to
+  resolve some long standing Firestore installation problems.
 - `messaging.Aps` class now supports configuring a critical sound. A new
   `messaging.CriticalSound` class has been introduced for this purpose.
 - [changed] Dropped support for Python 3.3.
@@ -24,7 +26,7 @@
   receiving realtime update events from the Firebase Database.
 - [added] The `db.reference()` method now optionally takes a `url`
   parameter. This can be used to access multiple Firebase Databases
-  in the same project more easily. 
+  in the same project more easily.
 - [added] The `messaging.WebpushNotification` type now supports
   additional parameters.
 

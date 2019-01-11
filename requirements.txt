@@ -1,5 +1,5 @@
 pylint == 1.6.4
-pytest >= 3.0.6
+pytest >= 3.6.0
 pytest-cov >= 2.4.0
 pytest-localserver >= 0.4.1
 tox >= 3.6.0

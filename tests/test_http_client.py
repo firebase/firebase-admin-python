@@ -64,6 +64,19 @@ def test_base_url():
     assert recorder[0].method == 'GET'
     assert recorder[0].url == _TEST_URL + 'foo'
 
+def test_credential():
+    client = _http_client.HttpClient(
+        credential=testutils.MockGoogleCredential())
+    assert client.session is not None
+    recorder = _instrument(client, 'body')
+    resp = client.request('get', _TEST_URL)
+    assert resp.status_code == 200
+    assert resp.text == 'body'
+    assert len(recorder) == 1
+    assert recorder[0].method == 'GET'
+    assert recorder[0].url == _TEST_URL
+    assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+
 def _instrument(client, payload, status=200):
     recorder = []
     adapter = testutils.MockAdapter(payload, status, recorder)
@@ -81,7 +94,8 @@ class TestHttpRetry(object):
 
     def test_retry_on_503(self, httpserver):
         httpserver.serve_content({}, 503)
-        client = _http_client.JsonHttpClient(base_url=httpserver.url)
+        client = _http_client.JsonHttpClient(
+            credential=testutils.MockGoogleCredential(), base_url=httpserver.url)
         with pytest.raises(requests.exceptions.HTTPError) as excinfo:
             client.request('get', '/')
         assert excinfo.value.response.status_code == 503
@@ -89,7 +103,8 @@ class TestHttpRetry(object):
 
     def test_retry_on_500(self, httpserver):
         httpserver.serve_content({}, 500)
-        client = _http_client.JsonHttpClient(base_url=httpserver.url)
+        client = _http_client.JsonHttpClient(
+            credential=testutils.MockGoogleCredential(), base_url=httpserver.url)
         with pytest.raises(requests.exceptions.HTTPError) as excinfo:
             client.request('get', '/')
         assert excinfo.value.response.status_code == 500
@@ -97,7 +112,8 @@ class TestHttpRetry(object):
 
     def test_no_retry_on_404(self, httpserver):
         httpserver.serve_content({}, 404)
-        client = _http_client.JsonHttpClient(base_url=httpserver.url)
+        client = _http_client.JsonHttpClient(
+            credential=testutils.MockGoogleCredential(), base_url=httpserver.url)
         with pytest.raises(requests.exceptions.HTTPError) as excinfo:
             client.request('get', '/')
         assert excinfo.value.response.status_code == 404

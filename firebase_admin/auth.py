@@ -21,8 +21,6 @@ creating and managing user accounts in Firebase projects.
 
 import time
 
-from google.auth import transport
-
 import firebase_admin
 from firebase_admin import _http_client
 from firebase_admin import _token_gen

@@ -19,15 +19,27 @@
 
 from google.auth import transport
 import requests
+from requests.packages.urllib3.util import retry # pylint: disable=import-error
+
+
+# Default retry configuration: Retries once on low-level connection and socket read errors.
+# Retries up to 4 times on HTTP 500 and 503 errors, with exponential backoff. Returns the
+# last response upon exhausting all retries.
+DEFAULT_RETRY_CONFIG = retry.Retry(
+    connect=1, read=1, status=4, status_forcelist=[500, 503],
+    raise_on_status=False, backoff_factor=0.5)
 
 
 class HttpClient(object):
     """Base HTTP client used to make HTTP calls.
 
-    HttpClient maintains an HTTP session, and handles request authentication if necessary.
+    HttpClient maintains an HTTP session, and handles request authentication and retries if
+    necessary.
     """
 
-    def __init__(self, credential=None, session=None, base_url='', headers=None):
+    def __init__(
+            self, credential=None, session=None, base_url='', headers=None,
+            retries=DEFAULT_RETRY_CONFIG):
         """Cretes a new HttpClient instance from the provided arguments.
 
         If a credential is provided, initializes a new HTTP session authorized with it. If neither
@@ -38,6 +50,9 @@ class HttpClient(object):
           session: A custom HTTP session (optional).
           base_url: A URL prefix to be added to all outgoing requests (optional).
           headers: A map of headers to be added to all outgoing requests (optional).
+          retries: A urllib retry configuration. Default settings would retry once for low-level
+              connection and socket read errors, and up to 4 times for HTTP 500 and 503 errors.
+              Pass a False value to disable retries (optional).
         """
         if credential:
             self._session = transport.requests.AuthorizedSession(credential)
@@ -48,6 +63,9 @@ class HttpClient(object):
 
         if headers:
             self._session.headers.update(headers)
+        if retries:
+            self._session.mount('http://', requests.adapters.HTTPAdapter(max_retries=retries))
+            self._session.mount('https://', requests.adapters.HTTPAdapter(max_retries=retries))
         self._base_url = base_url
 
     @property

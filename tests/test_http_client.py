@@ -13,11 +13,16 @@
 # limitations under the License.
 
 """Tests for firebase_admin._http_client."""
+import pytest
+from pytest_localserver import plugin
 import requests
 
 from firebase_admin import _http_client
 from tests import testutils
 
+
+# Fixture for mocking a HTTP server
+httpserver = plugin.httpserver
 
 _TEST_URL = 'http://firebase.test.url/'
 
@@ -64,3 +69,36 @@ def _instrument(client, payload, status=200):
     adapter = testutils.MockAdapter(payload, status, recorder)
     client.session.mount(_TEST_URL, adapter)
     return recorder
+
+
+class TestHttpRetry(object):
+    """Unit tests for the default HTTP retry configuration."""
+
+    @classmethod
+    def setup_class(cls):
+        # Turn off exponential backoff for faster execution
+        _http_client.DEFAULT_RETRY_CONFIG.backoff_factor = 0
+
+    def test_retry_on_503(self, httpserver):
+        httpserver.serve_content({}, 503)
+        client = _http_client.JsonHttpClient(base_url=httpserver.url)
+        with pytest.raises(requests.exceptions.HTTPError) as excinfo:
+            client.request('get', '/')
+        assert excinfo.value.response.status_code == 503
+        assert len(httpserver.requests) == 5
+
+    def test_retry_on_500(self, httpserver):
+        httpserver.serve_content({}, 500)
+        client = _http_client.JsonHttpClient(base_url=httpserver.url)
+        with pytest.raises(requests.exceptions.HTTPError) as excinfo:
+            client.request('get', '/')
+        assert excinfo.value.response.status_code == 500
+        assert len(httpserver.requests) == 5
+
+    def test_no_retry_on_404(self, httpserver):
+        httpserver.serve_content({}, 404)
+        client = _http_client.JsonHttpClient(base_url=httpserver.url)
+        with pytest.raises(requests.exceptions.HTTPError) as excinfo:
+            client.request('get', '/')
+        assert excinfo.value.response.status_code == 404
+        assert len(httpserver.requests) == 1

@@ -36,8 +36,7 @@ def test_firestore():
     assert data == expected
 
     doc.delete()
-    with pytest.raises(exceptions.NotFound):
-        doc.get()
+    assert doc.get().exists is False
 
 def test_server_timestamp():
     client = firestore.client()

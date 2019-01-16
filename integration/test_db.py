@@ -42,7 +42,7 @@ def testdata():
         return json.load(dino_file)
 
 @pytest.fixture(scope='module')
-def testref(update_rules):
+def testref(update_rules, testdata):
     """Adds the necessary DB indices, and sets the initial values.
 
     This fixture is attached to the module scope, and therefore is guaranteed to run only once
@@ -53,7 +53,7 @@ def testref(update_rules):
     """
     del update_rules
     ref = db.reference('_adminsdk/python/dinodb')
-    ref.set(testdata())
+    ref.set(testdata)
     return ref
 
 

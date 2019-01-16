@@ -14,9 +14,6 @@
 
 """Integration tests for firebase_admin.firestore module."""
 import datetime
-import pytest
-
-from google.cloud import exceptions # pylint: disable=import-error,no-name-in-module
 
 from firebase_admin import firestore
 

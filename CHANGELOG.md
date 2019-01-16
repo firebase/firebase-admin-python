@@ -1,5 +1,10 @@
 # Unreleased
 
+-
+
+# v2.15.0
+
+
 - [changed] Taking a direct dependency on `google-api-core[grpc]` in order to
   resolve some long standing Firestore installation problems.
 - `messaging.WebpushConfig` class now supports configuring additional

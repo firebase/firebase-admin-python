@@ -14,9 +14,6 @@
 
 """Integration tests for firebase_admin.firestore module."""
 import datetime
-import pytest
-
-from google.cloud import exceptions # pylint: disable=import-error,no-name-in-module
 
 from firebase_admin import firestore
 
@@ -36,8 +33,7 @@ def test_firestore():
     assert data == expected
 
     doc.delete()
-    with pytest.raises(exceptions.NotFound):
-        doc.get()
+    assert doc.get().exists is False
 
 def test_server_timestamp():
     client = firestore.client()

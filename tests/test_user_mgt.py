@@ -48,7 +48,7 @@ def _instrument_user_manager(app, status, payload):
     user_manager = auth_service.user_manager
     recorder = []
     user_manager._client.session.mount(
-        auth._AuthHTTPClient.ID_TOOLKIT_URL,
+        auth._AuthService.ID_TOOLKIT_URL,
         testutils.MockAdapter(payload, status, recorder))
     return user_manager, recorder
 

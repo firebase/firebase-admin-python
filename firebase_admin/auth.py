@@ -21,9 +21,8 @@ creating and managing user accounts in Firebase projects.
 
 import time
 
-from google.auth import transport
-
 import firebase_admin
+from firebase_admin import _http_client
 from firebase_admin import _token_gen
 from firebase_admin import _user_import
 from firebase_admin import _user_mgt
@@ -467,8 +466,14 @@ class AuthError(Exception):
 class _AuthService(object):
     """Firebase Authentication service."""
 
+    ID_TOOLKIT_URL = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/'
+
     def __init__(self, app):
-        client = _AuthHTTPClient(app)
+        credential = app.credential.get_credential()
+        version_header = 'Python/Admin/{0}'.format(firebase_admin.__version__)
+        client = _http_client.JsonHttpClient(
+            credential=credential, base_url=self.ID_TOOLKIT_URL,
+            headers={'X-Client-Version': version_header})
         self._token_generator = _token_gen.TokenGenerator(app, client)
         self._token_verifier = _token_gen.TokenVerifier(app)
         self._user_manager = _user_mgt.UserManager(client)
@@ -484,32 +489,3 @@ class _AuthService(object):
     @property
     def user_manager(self):
         return self._user_manager
-
-
-class _AuthHTTPClient(object):
-    """An HTTP client for making REST calls to the identity toolkit service."""
-
-    ID_TOOLKIT_URL = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/'
-
-    def __init__(self, app):
-        g_credential = app.credential.get_credential()
-        session = transport.requests.AuthorizedSession(g_credential)
-        version_header = 'Python/Admin/{0}'.format(firebase_admin.__version__)
-        session.headers.update({'X-Client-Version': version_header})
-        self.session = session
-
-    def request(self, method, urlpath, **kwargs):
-        """Makes an HTTP call using the Python requests library.
-
-        Args:
-            method: HTTP method name as a string (e.g. get, post).
-            urlpath: URL path of the endpoint. This will be appended to the server's base URL.
-            kwargs: An additional set of keyword arguments to be passed into requests API
-              (e.g. json, params).
-
-        Returns:
-            dict: The parsed JSON response.
-        """
-        resp = self.session.request(method, self.ID_TOOLKIT_URL + urlpath, **kwargs)
-        resp.raise_for_status()
-        return resp.json()

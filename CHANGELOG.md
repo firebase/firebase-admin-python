@@ -3,6 +3,9 @@
 - [added] Implemented HTTP retries. The SDK now retries HTTP calls on
   low-level connection and socket read errors, as well as HTTP 500 and
   503 errors.
+
+# v2.15.0
+
 - [changed] Taking a direct dependency on `google-api-core[grpc]` in order to
   resolve some long standing Firestore installation problems.
 - `messaging.WebpushConfig` class now supports configuring additional

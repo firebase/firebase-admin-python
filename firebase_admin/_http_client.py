@@ -40,7 +40,7 @@ class HttpClient(object):
     def __init__(
             self, credential=None, session=None, base_url='', headers=None,
             retries=DEFAULT_RETRY_CONFIG):
-        """Cretes a new HttpClient instance from the provided arguments.
+        """Creates a new HttpClient instance from the provided arguments.
 
         If a credential is provided, initializes a new HTTP session authorized with it. If neither
         a credential nor a session is provided, initializes a new unauthorized session.

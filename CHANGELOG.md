@@ -1,5 +1,9 @@
 # Unreleased
 
+-
+
+# v2.15.1
+
 - [added] Implemented HTTP retries. The SDK now retries HTTP calls on
   low-level connection and socket read errors, as well as HTTP 500 and
   503 errors.

@@ -1,6 +1,6 @@
 # Unreleased
 
--
+- [fixed] Extending HTTP retries to more HTTP methods like POST and PATCH.
 
 # v2.15.1
 

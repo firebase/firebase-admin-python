@@ -87,6 +87,14 @@ def _check_user_record(user, expected_uid='testuser'):
     assert provider.provider_id == 'phone'
 
 
+class TestAuthServiceInitialization(object):
+
+    def test_fail_on_no_project_id(self):
+        app = firebase_admin.initialize_app(testutils.MockCredential(), name='userMgt2')
+        with pytest.raises(ValueError):
+            auth._get_auth_service(app)
+        firebase_admin.delete_app(app)
+
 class TestUserRecord(object):
 
     # Input dict must be non-empty, and must not contain unsupported keys.

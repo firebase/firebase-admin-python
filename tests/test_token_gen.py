@@ -199,7 +199,7 @@ class TestCreateCustomToken(object):
             auth.create_custom_token(MOCK_UID, app=user_mgt_app)
 
     def test_sign_with_iam(self):
-        options = {'serviceAccountId': 'test-service-account'}
+        options = {'serviceAccountId': 'test-service-account', 'projectId': 'mock-project-id'}
         app = firebase_admin.initialize_app(
             testutils.MockCredential(), name='iam-signer-app', options=options)
         try:
@@ -213,7 +213,7 @@ class TestCreateCustomToken(object):
             firebase_admin.delete_app(app)
 
     def test_sign_with_iam_error(self):
-        options = {'serviceAccountId': 'test-service-account'}
+        options = {'serviceAccountId': 'test-service-account', 'projectId': 'mock-project-id'}
         app = firebase_admin.initialize_app(
             testutils.MockCredential(), name='iam-signer-app', options=options)
         try:
@@ -228,7 +228,9 @@ class TestCreateCustomToken(object):
 
     def test_sign_with_discovered_service_account(self):
         request = testutils.MockRequest(200, 'discovered-service-account')
-        app = firebase_admin.initialize_app(testutils.MockCredential(), name='iam-signer-app')
+        options = {'projectId': 'mock-project-id'}
+        app = firebase_admin.initialize_app(testutils.MockCredential(), name='iam-signer-app',
+                                            options=options)
         try:
             _overwrite_iam_request(app, request)
             # Force initialization of the signing provider. This will invoke the Metadata service.
@@ -248,7 +250,9 @@ class TestCreateCustomToken(object):
 
     def test_sign_with_discovery_failure(self):
         request = testutils.MockFailedRequest(Exception('test error'))
-        app = firebase_admin.initialize_app(testutils.MockCredential(), name='iam-signer-app')
+        options = {'projectId': 'mock-project-id'}
+        app = firebase_admin.initialize_app(testutils.MockCredential(), name='iam-signer-app',
+                                            options=options)
         try:
             _overwrite_iam_request(app, request)
             with pytest.raises(ValueError) as excinfo:
@@ -409,12 +413,6 @@ class TestVerifyIdToken(object):
         claims = auth.verify_id_token(TEST_ID_TOKEN, env_var_app)
         assert claims['admin'] is True
 
-    @pytest.mark.parametrize('env_var_app', [{}], indirect=True)
-    def test_no_project_id(self, env_var_app):
-        _overwrite_cert_request(env_var_app, MOCK_REQUEST)
-        with pytest.raises(ValueError):
-            auth.verify_id_token(TEST_ID_TOKEN, env_var_app)
-
     def test_custom_token(self, auth_app):
         id_token = auth.create_custom_token(MOCK_UID, app=auth_app)
         _overwrite_cert_request(auth_app, MOCK_REQUEST)
@@ -514,12 +512,6 @@ class TestVerifySessionCookie(object):
         _overwrite_cert_request(env_var_app, MOCK_REQUEST)
         claims = auth.verify_session_cookie(TEST_SESSION_COOKIE, app=env_var_app)
         assert claims['admin'] is True
-
-    @pytest.mark.parametrize('env_var_app', [{}], indirect=True)
-    def test_no_project_id(self, env_var_app):
-        _overwrite_cert_request(env_var_app, MOCK_REQUEST)
-        with pytest.raises(ValueError):
-            auth.verify_session_cookie(TEST_SESSION_COOKIE, app=env_var_app)
 
     def test_custom_token(self, auth_app):
         custom_token = auth.create_custom_token(MOCK_UID, app=auth_app)

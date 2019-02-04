@@ -466,13 +466,19 @@ class AuthError(Exception):
 class _AuthService(object):
     """Firebase Authentication service."""
 
-    ID_TOOLKIT_URL = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/'
+    ID_TOOLKIT_URL = 'https://identitytoolkit.googleapis.com/v1/projects/'
 
     def __init__(self, app):
         credential = app.credential.get_credential()
         version_header = 'Python/Admin/{0}'.format(firebase_admin.__version__)
+
+        if not app.project_id:
+            raise ValueError("Project ID is required to access the auth service. Use a service account credential or "
+            + "set the project ID explicitly via FirebaseOptions. Alternatively you can also "
+            + "set the project ID via the GOOGLE_CLOUD_PROJECT environment variable.")
+
         client = _http_client.JsonHttpClient(
-            credential=credential, base_url=self.ID_TOOLKIT_URL,
+            credential=credential, base_url=self.ID_TOOLKIT_URL + app.project_id,
             headers={'X-Client-Version': version_header})
         self._token_generator = _token_gen.TokenGenerator(app, client)
         self._token_verifier = _token_gen.TokenVerifier(app)

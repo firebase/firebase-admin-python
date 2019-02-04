@@ -394,7 +394,7 @@ class UserManager(object):
             raise TypeError('Unsupported keyword arguments: {0}.'.format(kwargs))
 
         try:
-            response = self._client.body('post', 'getAccountInfo', json=payload)
+            response = self._client.body('post', '/accounts:lookup', json=payload)
         except requests.exceptions.RequestException as error:
             msg = 'Failed to get user by {0}: {1}.'.format(key_type, key)
             self._handle_http_error(INTERNAL_ERROR, msg, error)
@@ -421,7 +421,7 @@ class UserManager(object):
         if page_token:
             payload['nextPageToken'] = page_token
         try:
-            return self._client.body('post', 'downloadAccount', json=payload)
+            return self._client.body('get', '/accounts:batchGet', json=payload)
         except requests.exceptions.RequestException as error:
             self._handle_http_error(USER_DOWNLOAD_ERROR, 'Failed to download user accounts.', error)
 
@@ -440,7 +440,7 @@ class UserManager(object):
         }
         payload = {k: v for k, v in payload.items() if v is not None}
         try:
-            response = self._client.body('post', 'signupNewUser', json=payload)
+            response = self._client.body('post', '/accounts', json=payload)
         except requests.exceptions.RequestException as error:
             self._handle_http_error(USER_CREATE_ERROR, 'Failed to create new user.', error)
         else:
@@ -490,7 +490,7 @@ class UserManager(object):
 
         payload = {k: v for k, v in payload.items() if v is not None}
         try:
-            response = self._client.body('post', 'setAccountInfo', json=payload)
+            response = self._client.body('post', '/accounts:update', json=payload)
         except requests.exceptions.RequestException as error:
             self._handle_http_error(
                 USER_UPDATE_ERROR, 'Failed to update user: {0}.'.format(uid), error)
@@ -503,7 +503,7 @@ class UserManager(object):
         """Deletes the user identified by the specified user ID."""
         _auth_utils.validate_uid(uid, required=True)
         try:
-            response = self._client.body('post', 'deleteAccount', json={'localId' : uid})
+            response = self._client.body('post', '/accounts:delete', json={'localId' : uid})
         except requests.exceptions.RequestException as error:
             self._handle_http_error(
                 USER_DELETE_ERROR, 'Failed to delete user: {0}.'.format(uid), error)
@@ -529,7 +529,7 @@ class UserManager(object):
                 raise ValueError('A UserImportHash is required to import users with passwords.')
             payload.update(hash_alg.to_dict())
         try:
-            response = self._client.body('post', 'uploadAccount', json=payload)
+            response = self._client.body('post', '/accounts:batchCreate', json=payload)
         except requests.exceptions.RequestException as error:
             self._handle_http_error(USER_IMPORT_ERROR, 'Failed to import users.', error)
         else:

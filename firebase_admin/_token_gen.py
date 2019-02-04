@@ -206,7 +206,7 @@ class TokenGenerator(object):
             'validDuration': expires_in,
         }
         try:
-            response = self.client.body('post', 'createSessionCookie', json=payload)
+            response = self.client.body('post', ':createSessionCookie', json=payload)
         except requests.exceptions.RequestException as error:
             self._handle_http_error(COOKIE_CREATE_ERROR, 'Failed to create session cookie', error)
         else:

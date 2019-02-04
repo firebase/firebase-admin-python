@@ -25,6 +25,8 @@ from firebase_admin import _auth_utils
 from firebase_admin import _user_import
 from firebase_admin import _user_mgt
 from tests import testutils
+from urllib3.util import parse_url
+from requests.compat import urlencode
 
 
 INVALID_STRINGS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
@@ -628,8 +630,8 @@ class TestListUsers(object):
         if expected is None:
             expected = {'maxResults' : 1000}
         assert len(recorder) == 1
-        request = json.loads(recorder[0].body.decode())
-        assert request == expected
+        request = parse_url(recorder[0].url).query
+        assert request == urlencode(query=expected)
 
 
 class TestUserProvider(object):

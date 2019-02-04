@@ -421,7 +421,7 @@ class UserManager(object):
         if page_token:
             payload['nextPageToken'] = page_token
         try:
-            return self._client.body('get', '/accounts:batchGet', json=payload)
+            return self._client.body('get', '/accounts:batchGet', params=payload)
         except requests.exceptions.RequestException as error:
             self._handle_http_error(USER_DOWNLOAD_ERROR, 'Failed to download user accounts.', error)
 

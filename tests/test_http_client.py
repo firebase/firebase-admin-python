@@ -87,26 +87,37 @@ def _instrument(client, payload, status=200):
 class TestHttpRetry(object):
     """Unit tests for the default HTTP retry configuration."""
 
+    ENTITY_ENCLOSING_METHODS = ['post', 'put', 'patch']
+    ALL_METHODS = ENTITY_ENCLOSING_METHODS + ['get', 'delete', 'head', 'options']
+
     @classmethod
     def setup_class(cls):
         # Turn off exponential backoff for faster execution
         _http_client.DEFAULT_RETRY_CONFIG.backoff_factor = 0
 
-    def test_retry_on_503(self, httpserver):
+    @pytest.mark.parametrize('method', ALL_METHODS)
+    def test_retry_on_503(self, httpserver, method):
         httpserver.serve_content({}, 503)
         client = _http_client.JsonHttpClient(
             credential=testutils.MockGoogleCredential(), base_url=httpserver.url)
+        body = None
+        if method in self.ENTITY_ENCLOSING_METHODS:
+            body = {'key': 'value'}
         with pytest.raises(requests.exceptions.HTTPError) as excinfo:
-            client.request('get', '/')
+            client.request(method, '/', json=body)
         assert excinfo.value.response.status_code == 503
         assert len(httpserver.requests) == 5
 
-    def test_retry_on_500(self, httpserver):
+    @pytest.mark.parametrize('method', ALL_METHODS)
+    def test_retry_on_500(self, httpserver, method):
         httpserver.serve_content({}, 500)
         client = _http_client.JsonHttpClient(
             credential=testutils.MockGoogleCredential(), base_url=httpserver.url)
+        body = None
+        if method in self.ENTITY_ENCLOSING_METHODS:
+            body = {'key': 'value'}
         with pytest.raises(requests.exceptions.HTTPError) as excinfo:
-            client.request('get', '/')
+            client.request(method, '/', json=body)
         assert excinfo.value.response.status_code == 500
         assert len(httpserver.requests) == 5
 

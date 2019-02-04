@@ -473,9 +473,10 @@ class _AuthService(object):
         version_header = 'Python/Admin/{0}'.format(firebase_admin.__version__)
 
         if not app.project_id:
-            raise ValueError("Project ID is required to access the auth service. Use a service account credential or "
-            + "set the project ID explicitly via FirebaseOptions. Alternatively you can also "
-            + "set the project ID via the GOOGLE_CLOUD_PROJECT environment variable.")
+            raise ValueError("""Project ID is required to access the auth service.
+            1. Use a service account credential, or
+            2. set the project ID explicitly via FirebaseOptions, or
+            3. set the project ID via the GOOGLE_CLOUD_PROJECT environment variable.""")
 
         client = _http_client.JsonHttpClient(
             credential=credential, base_url=self.ID_TOOLKIT_URL + app.project_id,

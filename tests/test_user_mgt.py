@@ -25,8 +25,11 @@ from firebase_admin import _auth_utils
 from firebase_admin import _user_import
 from firebase_admin import _user_mgt
 from tests import testutils
-from urllib3.util import parse_url
-from requests.compat import urlencode
+
+try:
+    from urllib.parse import urlsplit, parse_qsl
+except ImportError:
+    from urlparse import urlsplit, parse_qsl
 
 
 INVALID_STRINGS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
@@ -521,7 +524,7 @@ class TestListUsers(object):
         assert page.next_page_token == ''
         assert page.has_next_page is False
         assert page.get_next_page() is None
-        self._check_rpc_calls(recorder, {'maxResults': 1000, 'nextPageToken': 'token'})
+        self._check_rpc_calls(recorder, {'maxResults': '1000', 'nextPageToken': 'token'})
 
     def test_list_users_paged_iteration(self, user_mgt_app):
         # Page 1
@@ -547,7 +550,7 @@ class TestListUsers(object):
         assert user.uid == 'user4'
         with pytest.raises(StopIteration):
             next(iterator)
-        self._check_rpc_calls(recorder, {'maxResults': 1000, 'nextPageToken': 'token'})
+        self._check_rpc_calls(recorder, {'maxResults': '1000', 'nextPageToken': 'token'})
 
     def test_list_users_iterator_state(self, user_mgt_app):
         response = {
@@ -600,13 +603,13 @@ class TestListUsers(object):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_LIST_USERS_RESPONSE)
         page = auth.list_users(max_results=500, app=user_mgt_app)
         self._check_page(page)
-        self._check_rpc_calls(recorder, {'maxResults' : 500})
+        self._check_rpc_calls(recorder, {'maxResults' : '500'})
 
     def test_list_users_with_all_args(self, user_mgt_app):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_LIST_USERS_RESPONSE)
         page = auth.list_users(page_token='foo', max_results=500, app=user_mgt_app)
         self._check_page(page)
-        self._check_rpc_calls(recorder, {'nextPageToken' : 'foo', 'maxResults' : 500})
+        self._check_rpc_calls(recorder, {'nextPageToken' : 'foo', 'maxResults' : '500'})
 
     def test_list_users_error(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
@@ -628,10 +631,10 @@ class TestListUsers(object):
 
     def _check_rpc_calls(self, recorder, expected=None):
         if expected is None:
-            expected = {'maxResults' : 1000}
+            expected = {'maxResults' : '1000'}
         assert len(recorder) == 1
-        request = parse_url(recorder[0].url).query
-        assert request == urlencode(query=expected)
+        request = dict(parse_qsl(urlsplit(recorder[0].url).query))
+        assert request == expected
 
 
 class TestUserProvider(object):

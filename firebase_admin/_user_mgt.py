@@ -14,6 +14,7 @@
 
 """Firebase user management sub module."""
 
+import copy
 import json
 
 import requests
@@ -30,6 +31,7 @@ USER_UPDATE_ERROR = 'USER_UPDATE_ERROR'
 USER_DELETE_ERROR = 'USER_DELETE_ERROR'
 USER_IMPORT_ERROR = 'USER_IMPORT_ERROR'
 USER_DOWNLOAD_ERROR = 'LIST_USERS_ERROR'
+USER_LINK_GENERATE_ERROR = 'USER_LINK_GENERATE_ERROR'
 
 MAX_LIST_USERS_RESULTS = 1000
 MAX_IMPORT_USERS_SIZE = 1000
@@ -372,6 +374,81 @@ class ProviderUserInfo(UserInfo):
     def provider_id(self):
         return self._data.get('providerId')
 
+class ActionCodeSettings(object):
+    """Contains required continue/state URL with optional Android and iOS settings.
+    Used when invoking the email action link generation APIs.
+    """
+    KEYS = set(['url', 'handle_code_in_app', 'dynamic_link_domain', 'ios_bundle_id',
+                'android_package_name', 'android_minimum_version', 'android_install_app'])
+
+    def __init__(self, data=None):
+        super(ActionCodeSettings, self).__init__()
+        data = data or {}
+        if not isinstance(data, dict):
+            raise ValueError('Invalid data argument: {0}. Must be a dictionary.'.format(data))
+        if len(set(six.iterkeys(data)) - self.KEYS):
+            raise ValueError('Invalid settings provided: {0}. Valid dictionary \
+                have following keys {1}'.format(data, self.KEYS))
+        self._data = copy.deepcopy(data)
+
+    @property
+    def url(self):
+        return self._data.get('url', None)
+
+    @url.setter
+    def url(self, url):
+        self._data['url'] = url
+
+    @property
+    def handle_code_in_app(self):
+        return self._data.get('handle_code_in_app', False)
+
+    @handle_code_in_app.setter
+    def handle_code_in_app(self, handle_code_in_app):
+        self._data['handle_code_in_app'] = handle_code_in_app
+
+    @property
+    def dynamic_link_domain(self):
+        return self._data.get('dynamic_link_domain', None)
+
+    @dynamic_link_domain.setter
+    def dynamic_link_domain(self, dynamic_link_domain):
+        self._data['dynamic_link_domain'] = dynamic_link_domain
+
+    @property
+    def ios_bundle_id(self):
+        return self._data.get('ios_bundle_id', None)
+
+    @ios_bundle_id.setter
+    def ios_bundle_id(self, ios_bundle_id):
+        self._data['ios_bundle_id'] = ios_bundle_id
+
+    @property
+    def android_package_name(self):
+        return self._data.get('android_package_name', None)
+
+    @android_package_name.setter
+    def android_package_name(self, android_package_name):
+        self._data['android_package_name'] = android_package_name
+
+    @property
+    def android_minimum_version(self):
+        return self._data.get('android_minimum_version', None)
+
+    @android_minimum_version.setter
+    def android_minimum_version(self, android_minimum_version):
+        self._data['android_minimum_version'] = android_minimum_version
+
+    @property
+    def android_install_app(self):
+        return self._data.get('android_install_app', False)
+
+    @android_install_app.setter
+    def android_install_app(self, android_install_app):
+        self._data['android_install_app'] = android_install_app
+
+    def to_parameters_dict(self):
+        return _auth_utils.validate_action_code_settings(self._data)
 
 class UserManager(object):
     """Provides methods for interacting with the Google Identity Toolkit."""
@@ -536,6 +613,43 @@ class UserManager(object):
             if not isinstance(response, dict):
                 raise ApiCallError(USER_IMPORT_ERROR, 'Failed to import users.')
             return response
+
+    def generate_email_action_link(self, action_type, email, settings=None):
+        """Fetches the email action links for types
+
+        Args:
+            action_type: String. Valid values ['VERIFY_EMAIL', 'EMAIL_SIGNIN', 'PASSWORD_RESET']
+            email: Email of the user for which the action is performed
+            settings: ``ActionCodeSettings`` object or dict (optional). Defines whether
+                the link is to be handled by a mobile app and the additional state information to be
+                passed in the deep link, etc.
+        Returns:
+            link_url: action url to be emailed to the user
+
+        Raises:
+            ApiCallError: If an error occurs while generating the link
+
+        """
+        payload = {
+            'requestType': _auth_utils.validate_action_type(action_type),
+            'email': _auth_utils.validate_email(email),
+            'returnOobLink': True
+        }
+
+        if settings and not isinstance(settings, ActionCodeSettings):
+            settings = ActionCodeSettings(settings)
+
+        if settings and isinstance(settings, ActionCodeSettings):
+            payload.update(settings.to_parameters_dict())
+
+        try:
+            response = self._client.body('post', '/accounts:sendOobCode', json=payload)
+        except requests.exceptions.RequestException as error:
+            self._handle_http_error(USER_LINK_GENERATE_ERROR, 'Failed to generate link.', error)
+        else:
+            if not response or not response.get('oobLink'):
+                raise ApiCallError(USER_LINK_GENERATE_ERROR, 'Failed to generate link.')
+            return response.get('oobLink')
 
     def _handle_http_error(self, code, msg, error):
         if error.response is not None:

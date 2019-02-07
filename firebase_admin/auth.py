@@ -35,6 +35,7 @@ _SESSION_COOKIE_REVOKED = 'SESSION_COOKIE_REVOKED'
 
 
 __all__ = [
+    'ActionCodeSettings',
     'AuthError',
     'ErrorInfo',
     'ExportedUserRecord',
@@ -51,6 +52,9 @@ __all__ = [
     'create_session_cookie',
     'create_user',
     'delete_user',
+    'generate_password_reset_link',
+    'generate_email_verification_link',
+    'generate_email_sign_in_link',
     'get_user',
     'get_user_by_email',
     'get_user_by_phone_number',
@@ -63,6 +67,7 @@ __all__ = [
     'verify_session_cookie',
 ]
 
+ActionCodeSettings = _user_mgt.ActionCodeSettings
 ErrorInfo = _user_import.ErrorInfo
 ExportedUserRecord = _user_mgt.ExportedUserRecord
 ListUsersPage = _user_mgt.ListUsersPage
@@ -445,6 +450,75 @@ def import_users(users, hash_alg=None, app=None):
     try:
         result = user_manager.import_users(users, hash_alg)
         return UserImportResult(result, len(users))
+    except _user_mgt.ApiCallError as error:
+        raise AuthError(error.code, str(error), error.detail)
+
+def generate_password_reset_link(email, settings=None, app=None):
+    """Generates the out-of-band email action link for password reset flows for the specified email
+    address.
+
+    Args:
+        email: The email of the user whose password is to be reset.
+        settings: dict or ``ActionCodeSettings`` instance (optional). Defines whether
+            the link is to be handled by a mobile app and the additional state information to be
+            passed in the deep link, etc.
+        app: An App instance (optional).
+    Returns:
+        link: The password reset link created by API
+
+    Raises:
+        ValueError: If the provided arguments are invalid
+        AuthError: If an error occurs while generating the link
+    """
+    user_manager = _get_auth_service(app).user_manager
+    try:
+        return user_manager.generate_email_action_link('PASSWORD_RESET', email, settings)
+    except _user_mgt.ApiCallError as error:
+        raise AuthError(error.code, str(error), error.detail)
+
+def generate_email_verification_link(email, settings=None, app=None):
+    """Generates the out-of-band email action link for email verification flows for the specified
+    email address.
+
+    Args:
+        email: The email of the user to be verified.
+        settings: dict or ``ActionCodeSettings`` instance (optional). Defines whether
+            the link is to be handled by a mobile app and the additional state information to be
+            passed in the deep link, etc.
+        app: An App instance (optional).
+    Returns:
+        link: The email verification link created by API
+
+    Raises:
+        ValueError: If the provided arguments are invalid
+        AuthError: If an error occurs while generating the link
+    """
+    user_manager = _get_auth_service(app).user_manager
+    try:
+        return user_manager.generate_email_action_link('VERIFY_EMAIL', email, settings)
+    except _user_mgt.ApiCallError as error:
+        raise AuthError(error.code, str(error), error.detail)
+
+def generate_email_sign_in_link(email, settings=None, app=None):
+    """Generates the out-of-band email action link for email link sign-in flows, using the action
+    code settings provided.
+
+    Args:
+        email: The email of the user signing in.
+        settings: dict or ``ActionCodeSettings`` instance (optional). Defines whether
+            the link is to be handled by a mobile app and the additional state information to be
+            passed in the deep link, etc.
+        app: An App instance (optional).
+    Returns:
+        link: The email sign in link created by API
+
+    Raises:
+        ValueError: If the provided arguments are invalid
+        AuthError: If an error occurs while generating the link
+    """
+    user_manager = _get_auth_service(app).user_manager
+    try:
+        return user_manager.generate_email_action_link('EMAIL_SIGNIN', email, settings)
     except _user_mgt.ApiCallError as error:
         raise AuthError(error.code, str(error), error.detail)
 

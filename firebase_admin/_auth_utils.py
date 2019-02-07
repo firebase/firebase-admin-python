@@ -26,6 +26,7 @@ RESERVED_CLAIMS = set([
     'acr', 'amr', 'at_hash', 'aud', 'auth_time', 'azp', 'cnf', 'c_hash', 'exp', 'iat',
     'iss', 'jti', 'nbf', 'nonce', 'sub', 'firebase',
 ])
+VALID_ACTION_TYPE = set(['VERIFY_EMAIL', 'EMAIL_SIGNIN', 'PASSWORD_RESET'])
 
 
 def validate_uid(uid, required=False):
@@ -181,3 +182,74 @@ def validate_custom_claims(custom_claims, required=False):
         raise ValueError(
             'Claim "{0}" is reserved, and must not be set.'.format(invalid_claims.pop()))
     return claims_str
+
+def validate_action_code_settings(settings):
+    """ Validates the provided action code settings for email link generation and
+    populates the REST api parameters.
+
+    settings - dict provided to build the ActionCodeSettings object
+    returns  - dict of parameters to be passed for link gereration.
+    """
+    if not isinstance(settings, dict):
+        raise ValueError('Invalid data argument: {0}. Must be a dictionary.'.format(settings))
+
+    parameters = {}
+    # Validate url
+    url = settings.get('url', None)
+    if url:
+        try:
+            parsed = urllib.parse.urlparse(url)
+            if not parsed.netloc:
+                raise ValueError('Malformed photo URL: "{0}".'.format(url))
+            parameters['continueUrl'] = url
+        except Exception:
+            raise ValueError('Malformed photo URL: "{0}".'.format(url))
+
+    # Validate boolean types
+    for field in ['handle_code_in_app', 'android_install_app']:
+        if not isinstance(settings.get(field, False), bool):
+            raise ValueError('Invalid value provided for {0}: {1}'.format(
+                field, settings.get(field, False)))
+
+    # Validate string types
+    for field in ['dynamic_link_domain', 'ios_bundle_id',
+                  'android_package_name', 'android_minimum_version']:
+        if not isinstance(settings.get(field, ''), six.string_types):
+            raise ValueError('Invalid value provided for {0}: {1}'.format(
+                field, settings.get(field, False)))
+
+    # handle_code_in_app
+    handle_code_in_app = settings.get('handle_code_in_app', False)
+    if handle_code_in_app:
+        parameters['canHandleCodeInApp'] = handle_code_in_app
+
+    # dynamic_link_domain
+    dynamic_link_domain = settings.get('dynamic_link_domain', None)
+    if dynamic_link_domain:
+        parameters['dynamicLinkDomain'] = dynamic_link_domain
+
+    # ios_bundle_id
+    ios_bundle_id = settings.get('ios_bundle_id', None)
+    if ios_bundle_id:
+        parameters['iosBundleId'] = ios_bundle_id
+
+    # android_* attributes
+    android_package_name = settings.get('android_package_name', None)
+    android_minimum_version = settings.get('android_minimum_version', None)
+    android_install_app = settings.get('android_install_app', False)
+    if (android_minimum_version or android_install_app) and not android_package_name:
+        raise ValueError("Android package name is required when specifying other Android settings")
+
+    if android_package_name:
+        parameters['androidPackageName'] = android_package_name
+    if android_minimum_version:
+        parameters['androidMinimumVersion'] = android_minimum_version
+    if android_install_app:
+        parameters['androidInstallApp'] = android_install_app
+    return parameters
+
+def validate_action_type(action_type):
+    if not action_type in VALID_ACTION_TYPE:
+        raise ValueError('Invalid action type provided action_type: {0}. \
+            Valid values are {1}'.format(action_type, VALID_ACTION_TYPE))
+    return action_type

@@ -18,6 +18,7 @@ import datetime
 import random
 import time
 import uuid
+import six
 
 import pytest
 import requests
@@ -371,6 +372,44 @@ def test_import_users_with_password(api_key):
         assert len(id_token) > 0
     finally:
         auth.delete_user(uid)
+
+@pytest.fixture
+def action_code_settings():
+    data = {
+        'url': 'http://localhost',
+    }
+    return auth.ActionCodeSettings(data)
+
+def _validate_link_url(link):
+    assert isinstance(link, six.string_types)
+    six.moves.urllib.parse.urlparse(link)
+
+def test_password_reset(new_user_with_params):
+    link = auth.generate_password_reset_link(new_user_with_params.email)
+    _validate_link_url(link)
+
+def test_email_verification(new_user_with_params):
+    link = auth.generate_email_verification_link(new_user_with_params.email)
+    _validate_link_url(link)
+
+def test_email_sign_in(new_user_with_params):
+    link = auth.generate_email_sign_in_link(new_user_with_params.email)
+    _validate_link_url(link)
+
+def test_password_reset_with_settings(new_user_with_params, action_code_settings):
+    link = auth.generate_password_reset_link(new_user_with_params.email,
+                                             settings=action_code_settings)
+    _validate_link_url(link)
+
+def test_email_verification_with_settings(new_user_with_params, action_code_settings):
+    link = auth.generate_email_verification_link(new_user_with_params.email,
+                                                 settings=action_code_settings)
+    _validate_link_url(link)
+
+def test_email_sign_in_with_settings(new_user_with_params, action_code_settings):
+    link = auth.generate_email_sign_in_link(new_user_with_params.email,
+                                            settings=action_code_settings)
+    _validate_link_url(link)
 
 
 class CredentialWrapper(credentials.Base):

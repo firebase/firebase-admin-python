@@ -475,7 +475,7 @@ class _AuthService(object):
         if not app.project_id:
             raise ValueError("""Project ID is required to access the auth service.
             1. Use a service account credential, or
-            2. set the project ID explicitly via FirebaseOptions, or
+            2. set the project ID explicitly via Firebase App options, or
             3. set the project ID via the GOOGLE_CLOUD_PROJECT environment variable.""")
 
         client = _http_client.JsonHttpClient(

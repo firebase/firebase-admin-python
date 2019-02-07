@@ -26,10 +26,7 @@ from firebase_admin import _user_import
 from firebase_admin import _user_mgt
 from tests import testutils
 
-try:
-    from urllib.parse import urlsplit, parse_qsl
-except ImportError:
-    from urlparse import urlsplit, parse_qsl
+from six.moves import urllib
 
 
 INVALID_STRINGS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
@@ -633,7 +630,7 @@ class TestListUsers(object):
         if expected is None:
             expected = {'maxResults' : '1000'}
         assert len(recorder) == 1
-        request = dict(parse_qsl(urlsplit(recorder[0].url).query))
+        request = dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(recorder[0].url).query))
         assert request == expected
 
 

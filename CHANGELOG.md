@@ -1,6 +1,6 @@
 # Unreleased
 
-- [added] Migrated the `FirebaseAuth` user management API to the
+- [added] Migrated the `auth` user management API to the
   new Identity Toolkit endpoint.
 - [fixed] Extending HTTP retries to more HTTP methods like POST and PATCH.
 

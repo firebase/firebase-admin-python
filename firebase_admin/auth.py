@@ -54,7 +54,7 @@ __all__ = [
     'delete_user',
     'generate_password_reset_link',
     'generate_email_verification_link',
-    'generate_email_sign_in_link',
+    'generate_sign_in_with_email_link',
     'get_user',
     'get_user_by_email',
     'get_user_by_phone_number',
@@ -453,13 +453,13 @@ def import_users(users, hash_alg=None, app=None):
     except _user_mgt.ApiCallError as error:
         raise AuthError(error.code, str(error), error.detail)
 
-def generate_password_reset_link(email, settings=None, app=None):
+def generate_password_reset_link(email, action_code_settings=None, app=None):
     """Generates the out-of-band email action link for password reset flows for the specified email
     address.
 
     Args:
         email: The email of the user whose password is to be reset.
-        settings: dict or ``ActionCodeSettings`` instance (optional). Defines whether
+        action_code_settings: ``ActionCodeSettings`` instance (optional). Defines whether
             the link is to be handled by a mobile app and the additional state information to be
             passed in the deep link, etc.
         app: An App instance (optional).
@@ -472,17 +472,18 @@ def generate_password_reset_link(email, settings=None, app=None):
     """
     user_manager = _get_auth_service(app).user_manager
     try:
-        return user_manager.generate_email_action_link('PASSWORD_RESET', email, settings)
+        return user_manager.generate_email_action_link('PASSWORD_RESET', email,
+                                                       action_code_settings=action_code_settings)
     except _user_mgt.ApiCallError as error:
         raise AuthError(error.code, str(error), error.detail)
 
-def generate_email_verification_link(email, settings=None, app=None):
+def generate_email_verification_link(email, action_code_settings=None, app=None):
     """Generates the out-of-band email action link for email verification flows for the specified
     email address.
 
     Args:
         email: The email of the user to be verified.
-        settings: dict or ``ActionCodeSettings`` instance (optional). Defines whether
+        action_code_settings: ``ActionCodeSettings`` instance (optional). Defines whether
             the link is to be handled by a mobile app and the additional state information to be
             passed in the deep link, etc.
         app: An App instance (optional).
@@ -495,17 +496,18 @@ def generate_email_verification_link(email, settings=None, app=None):
     """
     user_manager = _get_auth_service(app).user_manager
     try:
-        return user_manager.generate_email_action_link('VERIFY_EMAIL', email, settings)
+        return user_manager.generate_email_action_link('VERIFY_EMAIL', email,
+                                                       action_code_settings=action_code_settings)
     except _user_mgt.ApiCallError as error:
         raise AuthError(error.code, str(error), error.detail)
 
-def generate_email_sign_in_link(email, settings=None, app=None):
+def generate_sign_in_with_email_link(email, action_code_settings, app=None):
     """Generates the out-of-band email action link for email link sign-in flows, using the action
     code settings provided.
 
     Args:
         email: The email of the user signing in.
-        settings: dict or ``ActionCodeSettings`` instance (optional). Defines whether
+        action_code_settings: ``ActionCodeSettings`` instance. Defines whether
             the link is to be handled by a mobile app and the additional state information to be
             passed in the deep link, etc.
         app: An App instance (optional).
@@ -518,7 +520,8 @@ def generate_email_sign_in_link(email, settings=None, app=None):
     """
     user_manager = _get_auth_service(app).user_manager
     try:
-        return user_manager.generate_email_action_link('EMAIL_SIGNIN', email, settings)
+        return user_manager.generate_email_action_link('EMAIL_SIGNIN', email,
+                                                       action_code_settings=action_code_settings)
     except _user_mgt.ApiCallError as error:
         raise AuthError(error.code, str(error), error.detail)
 

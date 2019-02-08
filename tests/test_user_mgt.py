@@ -26,7 +26,6 @@ from firebase_admin import _user_import
 from firebase_admin import _user_mgt
 from tests import testutils
 
-import six
 from six.moves import urllib
 
 
@@ -976,12 +975,6 @@ class TestRevokeRefreshTokkens(object):
 
 class TestActionCodeSetting(object):
 
-    # Input dict must be non-empty, and must not contain unsupported keys.
-    @pytest.mark.parametrize('data', ['foo', 12, True, {'foo':'bar'}])
-    def test_invalid_settings(self, data):
-        with pytest.raises(ValueError):
-            auth.ActionCodeSettings(data)
-
     def test_valid_data(self):
         data = {
             'url': 'http://localhost',
@@ -992,8 +985,8 @@ class TestActionCodeSetting(object):
             'android_minimum_version': '7',
             'android_install_app': True,
         }
-        settings = auth.ActionCodeSettings(data)
-        parameters = settings.to_parameters_dict()
+        settings = auth.ActionCodeSettings(**data)
+        parameters = _user_mgt.encode_action_code_settings(settings)
         assert parameters['continueUrl'] == data['url']
         assert parameters['canHandleCodeInApp'] == data['handle_code_in_app']
         assert parameters['dynamicLinkDomain'] == data['dynamic_link_domain']
@@ -1002,47 +995,7 @@ class TestActionCodeSetting(object):
         assert parameters['androidMinimumVersion'] == data['android_minimum_version']
         assert parameters['androidInstallApp'] == data['android_install_app']
 
-    def test_empty_dict(self):
-        data = {}
-        settings = auth.ActionCodeSettings(data)
-        parameters = settings.to_parameters_dict()
-        assert parameters == {}
-
-    def test_no_parameters(self):
-        settings = auth.ActionCodeSettings()
-        parameters = settings.to_parameters_dict()
-        assert parameters == {}
-
-    def test_setters(self):
-        data = {
-            'url': 'http://localhost',
-            'handle_code_in_app': True,
-            'dynamic_link_domain': 'http://testly',
-            'ios_bundle_id': 'test.bundle',
-            'android_package_name': 'test.bundle',
-            'android_minimum_version': '7',
-            'android_install_app': True,
-        }
-        settings = auth.ActionCodeSettings()
-        for key in six.iterkeys(data):
-            setattr(settings, key, data[key])
-        parameters = settings.to_parameters_dict()
-        assert parameters['continueUrl'] == data['url']
-        assert parameters['canHandleCodeInApp'] == data['handle_code_in_app']
-        assert parameters['dynamicLinkDomain'] == data['dynamic_link_domain']
-        assert parameters['iosBundleId'] == data['ios_bundle_id']
-        assert parameters['androidPackageName'] == data['android_package_name']
-        assert parameters['androidMinimumVersion'] == data['android_minimum_version']
-        assert parameters['androidInstallApp'] == data['android_install_app']
-
-    def test_empty_url(self):
-        settings = auth.ActionCodeSettings()
-        settings.url = ''
-        parameters = settings.to_parameters_dict()
-        assert parameters == {}
-
-    @pytest.mark.parametrize('data', [{'url':'badurl'},
-                                      {'handle_code_in_app':'nonboolean'},
+    @pytest.mark.parametrize('data', [{'handle_code_in_app':'nonboolean'},
                                       {'android_install_app':'nonboolean'},
                                       {'dynamic_link_domain': False},
                                       {'ios_bundle_id':11},
@@ -1051,15 +1004,23 @@ class TestActionCodeSetting(object):
                                       {'android_minimum_version':'7'},
                                       {'android_install_app': True}])
     def test_bad_data(self, data):
-        settings = auth.ActionCodeSettings(data)
+        settings = auth.ActionCodeSettings('http://localhost', **data)
         with pytest.raises(ValueError):
-            settings.to_parameters_dict()
+            _user_mgt.encode_action_code_settings(settings)
+
+    def test_bad_url(self):
+        settings = auth.ActionCodeSettings('http:')
+        with pytest.raises(ValueError):
+            _user_mgt.encode_action_code_settings(settings)
+
+    def test_encode_action_code_bad_data(self):
+        with pytest.raises(ValueError):
+            _user_mgt.encode_action_code_settings({"foo":"bar"})
 
 
 @pytest.fixture(scope='module')
 def action_code_settings():
     data = {
-        'url': 'http://localhost',
         'handle_code_in_app': True,
         'dynamic_link_domain': 'http://testly',
         'ios_bundle_id': 'test.bundle',
@@ -1067,7 +1028,7 @@ def action_code_settings():
         'android_minimum_version': '7',
         'android_install_app': True,
     }
-    return auth.ActionCodeSettings(data)
+    return auth.ActionCodeSettings('http://localhost', **data)
 
 class TestGenerateEmailActionLink(object):
 
@@ -1082,16 +1043,6 @@ class TestGenerateEmailActionLink(object):
             assert request['androidPackageName'] == settings.android_package_name
             assert request['androidMinimumVersion'] == settings.android_minimum_version
             assert request['androidInstallApp'] == settings.android_install_app
-
-    def test_email_signin_no_settings(self, user_mgt_app):
-        _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"oobLink":"https://testlink"}')
-        link = auth.generate_email_sign_in_link("test@test.com", app=user_mgt_app)
-        request = json.loads(recorder[0].body.decode())
-
-        assert link == "https://testlink"
-        assert request['requestType'] == "EMAIL_SIGNIN"
-        self._validate_request(request)
-
 
     def test_email_verification_no_settings(self, user_mgt_app):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"oobLink":"https://testlink"}')
@@ -1113,9 +1064,9 @@ class TestGenerateEmailActionLink(object):
 
     def test_email_signin_with_settings(self, user_mgt_app, action_code_settings):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"oobLink":"https://testlink"}')
-        link = auth.generate_email_sign_in_link("test@test.com",
-                                                settings=action_code_settings,
-                                                app=user_mgt_app)
+        link = auth.generate_sign_in_with_email_link("test@test.com",
+                                                     action_code_settings=action_code_settings,
+                                                     app=user_mgt_app)
         request = json.loads(recorder[0].body.decode())
 
         assert link == "https://testlink"
@@ -1125,7 +1076,7 @@ class TestGenerateEmailActionLink(object):
     def test_email_verification_with_settings(self, user_mgt_app, action_code_settings):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"oobLink":"https://testlink"}')
         link = auth.generate_email_verification_link("test@test.com",
-                                                     settings=action_code_settings,
+                                                     action_code_settings=action_code_settings,
                                                      app=user_mgt_app)
         request = json.loads(recorder[0].body.decode())
 
@@ -1136,7 +1087,7 @@ class TestGenerateEmailActionLink(object):
     def test_password_reset_with_settings(self, user_mgt_app, action_code_settings):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"oobLink":"https://testlink"}')
         link = auth.generate_password_reset_link("test@test.com",
-                                                 settings=action_code_settings,
+                                                 action_code_settings=action_code_settings,
                                                  app=user_mgt_app)
         request = json.loads(recorder[0].body.decode())
 
@@ -1145,31 +1096,38 @@ class TestGenerateEmailActionLink(object):
         self._validate_request(request, action_code_settings)
 
     @pytest.mark.parametrize('func', [
-        auth.generate_email_sign_in_link,
+        auth.generate_sign_in_with_email_link,
         auth.generate_email_verification_link,
         auth.generate_password_reset_link,
     ])
-    def test_api_call_failure(self, user_mgt_app, func):
+    def test_api_call_failure(self, user_mgt_app, action_code_settings, func):
         _instrument_user_manager(user_mgt_app, 500, '{"error":"dummy error"}')
         with pytest.raises(auth.AuthError):
-            func("test@test.com", app=user_mgt_app)
+            func("test@test.com", action_code_settings, app=user_mgt_app)
 
     @pytest.mark.parametrize('func', [
-        auth.generate_email_sign_in_link,
+        auth.generate_sign_in_with_email_link,
         auth.generate_email_verification_link,
         auth.generate_password_reset_link,
     ])
-    def test_api_call_no_link(self, user_mgt_app, func):
+    def test_api_call_no_link(self, user_mgt_app, action_code_settings, func):
         _instrument_user_manager(user_mgt_app, 200, '{}')
         with pytest.raises(auth.AuthError):
-            func("test@test.com", app=user_mgt_app)
+            func("test@test.com", action_code_settings, app=user_mgt_app)
 
     @pytest.mark.parametrize('func', [
-        auth.generate_email_sign_in_link,
+        auth.generate_sign_in_with_email_link,
         auth.generate_email_verification_link,
         auth.generate_password_reset_link,
     ])
     def test_bad_settings_data(self, user_mgt_app, func):
         _instrument_user_manager(user_mgt_app, 200, '{"oobLink":"https://testlink"}')
         with pytest.raises(ValueError):
-            func("test@test.com", app=user_mgt_app, settings=1234)
+            func("test@test.com", app=user_mgt_app, action_code_settings=1234)
+
+    def test_bad_action_type(self, user_mgt_app, action_code_settings):
+        with pytest.raises(ValueError):
+            auth._get_auth_service(user_mgt_app) \
+                .user_manager \
+                .generate_email_action_link("BAD_TYPE", "test@test.com",
+                                            action_code_settings=action_code_settings)

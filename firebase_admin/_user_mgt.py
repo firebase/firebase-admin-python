@@ -14,11 +14,11 @@
 
 """Firebase user management sub module."""
 
-import copy
 import json
 
 import requests
 import six
+from six.moves import urllib
 
 from firebase_admin import _auth_utils
 from firebase_admin import _user_import
@@ -378,77 +378,75 @@ class ActionCodeSettings(object):
     """Contains required continue/state URL with optional Android and iOS settings.
     Used when invoking the email action link generation APIs.
     """
-    KEYS = set(['url', 'handle_code_in_app', 'dynamic_link_domain', 'ios_bundle_id',
-                'android_package_name', 'android_minimum_version', 'android_install_app'])
 
-    def __init__(self, data=None):
-        super(ActionCodeSettings, self).__init__()
-        data = data or {}
-        if not isinstance(data, dict):
-            raise ValueError('Invalid data argument: {0}. Must be a dictionary.'.format(data))
-        if len(set(six.iterkeys(data)) - self.KEYS):
-            raise ValueError('Invalid settings provided: {0}. Valid dictionary \
-                have following keys {1}'.format(data, self.KEYS))
-        self._data = copy.deepcopy(data)
+    def __init__(self, url, handle_code_in_app=None, dynamic_link_domain=None, ios_bundle_id=None,
+                 android_package_name=None, android_install_app=None, android_minimum_version=None):
+        self.url = url
+        self.handle_code_in_app = handle_code_in_app
+        self.dynamic_link_domain = dynamic_link_domain
+        self.ios_bundle_id = ios_bundle_id
+        self.android_package_name = android_package_name
+        self.android_install_app = android_install_app
+        self.android_minimum_version = android_minimum_version
 
-    @property
-    def url(self):
-        return self._data.get('url', None)
+def encode_action_code_settings(settings):
+    """ Validates the provided action code settings for email link generation and
+    populates the REST api parameters.
 
-    @url.setter
-    def url(self, url):
-        self._data['url'] = url
+    settings - ``ActionCodeSettings`` object provided to be encoded
+    returns  - dict of parameters to be passed for link gereration.
+    """
+    if not isinstance(settings, ActionCodeSettings):
+        raise ValueError('Invalid data argument: {0}. Must be a dictionary.'.format(settings))
 
-    @property
-    def handle_code_in_app(self):
-        return self._data.get('handle_code_in_app', False)
+    parameters = {}
+    # Validate url
+    if settings.url:
+        try:
+            parsed = urllib.parse.urlparse(settings.url)
+            if not parsed.netloc:
+                raise ValueError('Malformed dynamic action links url: "{0}".'.format(settings.url))
+            parameters['continueUrl'] = settings.url
+        except Exception:
+            raise ValueError('Malformed dynamic action links url: "{0}".'.format(settings.url))
 
-    @handle_code_in_app.setter
-    def handle_code_in_app(self, handle_code_in_app):
-        self._data['handle_code_in_app'] = handle_code_in_app
+    # Validate boolean types
+    for field in ['handle_code_in_app', 'android_install_app']:
+        value = getattr(settings, field, None)
+        if value != None and not isinstance(value, bool):
+            raise ValueError('Invalid value provided for {0}: {1}'.format(field, value))
 
-    @property
-    def dynamic_link_domain(self):
-        return self._data.get('dynamic_link_domain', None)
+    # Validate string types
+    for field in ['dynamic_link_domain', 'ios_bundle_id',
+                  'android_package_name', 'android_minimum_version']:
+        value = getattr(settings, field, None)
+        if value != None and not isinstance(value, six.string_types):
+            raise ValueError('Invalid value provided for {0}: {1}'.format(field, value))
 
-    @dynamic_link_domain.setter
-    def dynamic_link_domain(self, dynamic_link_domain):
-        self._data['dynamic_link_domain'] = dynamic_link_domain
+    # handle_code_in_app
+    if settings.handle_code_in_app != None:
+        parameters['canHandleCodeInApp'] = settings.handle_code_in_app
 
-    @property
-    def ios_bundle_id(self):
-        return self._data.get('ios_bundle_id', None)
+    # dynamic_link_domain
+    if settings.dynamic_link_domain != None:
+        parameters['dynamicLinkDomain'] = settings.dynamic_link_domain
 
-    @ios_bundle_id.setter
-    def ios_bundle_id(self, ios_bundle_id):
-        self._data['ios_bundle_id'] = ios_bundle_id
+    # ios_bundle_id
+    if settings.ios_bundle_id:
+        parameters['iosBundleId'] = settings.ios_bundle_id
 
-    @property
-    def android_package_name(self):
-        return self._data.get('android_package_name', None)
+    # android_* attributes
+    if (settings.android_minimum_version or settings.android_install_app) \
+        and not settings.android_package_name:
+        raise ValueError("Android package name is required when specifying other Android settings")
 
-    @android_package_name.setter
-    def android_package_name(self, android_package_name):
-        self._data['android_package_name'] = android_package_name
-
-    @property
-    def android_minimum_version(self):
-        return self._data.get('android_minimum_version', None)
-
-    @android_minimum_version.setter
-    def android_minimum_version(self, android_minimum_version):
-        self._data['android_minimum_version'] = android_minimum_version
-
-    @property
-    def android_install_app(self):
-        return self._data.get('android_install_app', False)
-
-    @android_install_app.setter
-    def android_install_app(self, android_install_app):
-        self._data['android_install_app'] = android_install_app
-
-    def to_parameters_dict(self):
-        return _auth_utils.validate_action_code_settings(self._data)
+    if settings.android_package_name:
+        parameters['androidPackageName'] = settings.android_package_name
+    if settings.android_minimum_version:
+        parameters['androidMinimumVersion'] = settings.android_minimum_version
+    if settings.android_install_app:
+        parameters['androidInstallApp'] = settings.android_install_app
+    return parameters
 
 class UserManager(object):
     """Provides methods for interacting with the Google Identity Toolkit."""
@@ -614,13 +612,13 @@ class UserManager(object):
                 raise ApiCallError(USER_IMPORT_ERROR, 'Failed to import users.')
             return response
 
-    def generate_email_action_link(self, action_type, email, settings=None):
+    def generate_email_action_link(self, action_type, email, action_code_settings=None):
         """Fetches the email action links for types
 
         Args:
             action_type: String. Valid values ['VERIFY_EMAIL', 'EMAIL_SIGNIN', 'PASSWORD_RESET']
             email: Email of the user for which the action is performed
-            settings: ``ActionCodeSettings`` object or dict (optional). Defines whether
+            action_code_settings: ``ActionCodeSettings`` object or dict (optional). Defines whether
                 the link is to be handled by a mobile app and the additional state information to be
                 passed in the deep link, etc.
         Returns:
@@ -628,7 +626,7 @@ class UserManager(object):
 
         Raises:
             ApiCallError: If an error occurs while generating the link
-
+            ValueError: If the provided arguments are invalid
         """
         payload = {
             'requestType': _auth_utils.validate_action_type(action_type),
@@ -636,11 +634,11 @@ class UserManager(object):
             'returnOobLink': True
         }
 
-        if settings and not isinstance(settings, ActionCodeSettings):
-            settings = ActionCodeSettings(settings)
-
-        if settings and isinstance(settings, ActionCodeSettings):
-            payload.update(settings.to_parameters_dict())
+        if action_code_settings:
+            if not isinstance(action_code_settings, ActionCodeSettings):
+                raise ValueError("'action_code_settings' parameter should be " + \
+                    "of type ActionCodeSettings")
+            payload.update(encode_action_code_settings(action_code_settings))
 
         try:
             response = self._client.body('post', '/accounts:sendOobCode', json=payload)

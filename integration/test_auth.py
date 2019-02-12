@@ -31,7 +31,11 @@ from google.auth import transport
 
 _verify_token_url = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyCustomToken'
 _verify_password_url = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyPassword'
+_password_reset_url = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/resetPassword'
+_verify_email_url = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/setAccountInfo'
+_email_sign_in_url = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/emailLinkSignin'
 
+ACTION_LINK_CONTINUE_URL = 'http://localhost?a=1&b=5#f=1'
 
 def _sign_in(custom_token, api_key):
     body = {'token' : custom_token.decode(), 'returnSecureToken' : True}
@@ -54,6 +58,35 @@ def _random_id():
 
 def _random_phone():
     return '+1' + ''.join([str(random.randint(0, 9)) for _ in range(0, 10)])
+
+def _reset_password(oob_code, new_password, api_key):
+    body = {'oobCode': oob_code, 'newPassword': new_password}
+    params = {'key' : api_key}
+    resp = requests.request('post', _password_reset_url, params=params, json=body)
+    resp.raise_for_status()
+    return resp.json().get('email')
+
+def _verify_email(oob_code, api_key):
+    body = {'oobCode': oob_code}
+    params = {'key' : api_key}
+    resp = requests.request('post', _verify_email_url, params=params, json=body)
+    resp.raise_for_status()
+    return resp.json().get('email')
+
+def _sign_in_with_email_link(email, oob_code, api_key):
+    body = {'oobCode': oob_code, 'email': email}
+    params = {'key' : api_key}
+    resp = requests.request('post', _email_sign_in_url, params=params, json=body)
+    resp.raise_for_status()
+    return resp.json().get('idToken')
+
+def _validate_link_url(link, check_continue_url=True):
+    assert isinstance(link, six.string_types)
+    query = six.moves.urllib.parse.urlparse(link).query
+    query_dict = dict(six.moves.urllib.parse.parse_qsl(query))
+    if check_continue_url:
+        assert query_dict['continueUrl'] == ACTION_LINK_CONTINUE_URL
+    return query_dict['oobCode']
 
 def test_custom_token(api_key):
     custom_token = auth.create_custom_token('user1')
@@ -151,6 +184,18 @@ def new_user_list():
     yield users
     for uid in users:
         auth.delete_user(uid)
+
+@pytest.fixture
+def new_user_email_unverified():
+    random_id, email = _random_id()
+    user = auth.create_user(
+        uid=random_id,
+        email=email,
+        email_verified=False,
+        password='password'
+    )
+    yield user
+    auth.delete_user(user.uid)
 
 def test_get_user(new_user_with_params):
     user = auth.get_user(new_user_with_params.uid)
@@ -373,37 +418,41 @@ def test_import_users_with_password(api_key):
     finally:
         auth.delete_user(uid)
 
-@pytest.fixture
-def action_code_settings():
-    return auth.ActionCodeSettings('http://localhost')
+def test_password_reset(new_user_email_unverified, api_key):
+    link = auth.generate_password_reset_link(new_user_email_unverified.email)
+    oob_code = _validate_link_url(link, check_continue_url=False)
+    assert new_user_email_unverified.email == _reset_password(oob_code, "newPassword", api_key)
+    assert auth.get_user(new_user_email_unverified.uid).email_verified
 
-def _validate_link_url(link):
-    assert isinstance(link, six.string_types)
-    six.moves.urllib.parse.urlparse(link)
+def test_email_verification(new_user_email_unverified, api_key):
+    link = auth.generate_email_verification_link(new_user_email_unverified.email)
+    oob_code = _validate_link_url(link, check_continue_url=False)
+    assert new_user_email_unverified.email == _verify_email(oob_code, api_key)
+    assert auth.get_user(new_user_email_unverified.uid).email_verified
 
-def test_password_reset(new_user_with_params):
-    link = auth.generate_password_reset_link(new_user_with_params.email)
-    _validate_link_url(link)
-
-def test_email_verification(new_user_with_params):
-    link = auth.generate_email_verification_link(new_user_with_params.email)
-    _validate_link_url(link)
-
-def test_password_reset_with_settings(new_user_with_params, action_code_settings):
-    link = auth.generate_password_reset_link(new_user_with_params.email,
+def test_password_reset_with_settings(new_user_email_unverified, api_key):
+    action_code_settings = auth.ActionCodeSettings(ACTION_LINK_CONTINUE_URL)
+    link = auth.generate_password_reset_link(new_user_email_unverified.email,
                                              action_code_settings=action_code_settings)
-    _validate_link_url(link)
+    oob_code = _validate_link_url(link)
+    assert new_user_email_unverified.email == _reset_password(oob_code, "newPassword", api_key)
+    assert auth.get_user(new_user_email_unverified.uid).email_verified
 
-def test_email_verification_with_settings(new_user_with_params, action_code_settings):
-    link = auth.generate_email_verification_link(new_user_with_params.email,
+def test_email_verification_with_settings(new_user_email_unverified, api_key):
+    action_code_settings = auth.ActionCodeSettings(ACTION_LINK_CONTINUE_URL)
+    link = auth.generate_email_verification_link(new_user_email_unverified.email,
                                                  action_code_settings=action_code_settings)
-    _validate_link_url(link)
+    oob_code = _validate_link_url(link)
+    assert new_user_email_unverified.email == _verify_email(oob_code, api_key)
+    assert auth.get_user(new_user_email_unverified.uid).email_verified
 
-def test_email_sign_in_with_settings(new_user_with_params, action_code_settings):
-    link = auth.generate_sign_in_with_email_link(new_user_with_params.email,
+def test_email_sign_in_with_settings(new_user_email_unverified, api_key):
+    action_code_settings = auth.ActionCodeSettings(ACTION_LINK_CONTINUE_URL)
+    link = auth.generate_sign_in_with_email_link(new_user_email_unverified.email,
                                                  action_code_settings=action_code_settings)
-    _validate_link_url(link)
-
+    oob_code = _validate_link_url(link)
+    assert _sign_in_with_email_link(new_user_email_unverified.email, oob_code, api_key)
+    assert auth.get_user(new_user_email_unverified.uid).email_verified
 
 class CredentialWrapper(credentials.Base):
     """A custom Firebase credential that wraps an OAuth2 token."""

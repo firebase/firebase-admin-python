@@ -31,7 +31,7 @@ USER_UPDATE_ERROR = 'USER_UPDATE_ERROR'
 USER_DELETE_ERROR = 'USER_DELETE_ERROR'
 USER_IMPORT_ERROR = 'USER_IMPORT_ERROR'
 USER_DOWNLOAD_ERROR = 'LIST_USERS_ERROR'
-USER_LINK_GENERATE_ERROR = 'USER_LINK_GENERATE_ERROR'
+GENERATE_EMAIL_ACTION_LINK_ERROR = 'GENERATE_EMAIL_ACTION_LINK_ERROR'
 
 MAX_LIST_USERS_RESULTS = 1000
 MAX_IMPORT_USERS_SIZE = 1000
@@ -396,43 +396,39 @@ def encode_action_code_settings(settings):
     settings - ``ActionCodeSettings`` object provided to be encoded
     returns  - dict of parameters to be passed for link gereration.
     """
-    if not isinstance(settings, ActionCodeSettings):
-        raise ValueError('Invalid data argument: {0}. Must be a dictionary.'.format(settings))
 
     parameters = {}
-    # Validate url
-    if settings.url:
-        try:
-            parsed = urllib.parse.urlparse(settings.url)
-            if not parsed.netloc:
-                raise ValueError('Malformed dynamic action links url: "{0}".'.format(settings.url))
-            parameters['continueUrl'] = settings.url
-        except Exception:
+    # url
+    if not settings.url:
+        raise ValueError("Dynamic action links url is mandatory")
+
+    try:
+        parsed = urllib.parse.urlparse(settings.url)
+        if not parsed.netloc:
             raise ValueError('Malformed dynamic action links url: "{0}".'.format(settings.url))
-
-    # Validate boolean types
-    for field in ['handle_code_in_app', 'android_install_app']:
-        value = getattr(settings, field, None)
-        if value != None and not isinstance(value, bool):
-            raise ValueError('Invalid value provided for {0}: {1}'.format(field, value))
-
-    # Validate string types
-    for field in ['dynamic_link_domain', 'ios_bundle_id',
-                  'android_package_name', 'android_minimum_version']:
-        value = getattr(settings, field, None)
-        if value != None and not isinstance(value, six.string_types):
-            raise ValueError('Invalid value provided for {0}: {1}'.format(field, value))
+        parameters['continueUrl'] = settings.url
+    except Exception:
+        raise ValueError('Malformed dynamic action links url: "{0}".'.format(settings.url))
 
     # handle_code_in_app
-    if settings.handle_code_in_app != None:
+    if settings.handle_code_in_app is not None:
+        if not isinstance(settings.handle_code_in_app, bool):
+            raise ValueError('Invalid value provided for handle_code_in_app: {0}'
+                             .format(settings.handle_code_in_app))
         parameters['canHandleCodeInApp'] = settings.handle_code_in_app
 
     # dynamic_link_domain
-    if settings.dynamic_link_domain != None:
+    if settings.dynamic_link_domain is not None:
+        if not isinstance(settings.dynamic_link_domain, six.string_types):
+            raise ValueError('Invalid value provided for dynamic_link_domain: {0}'
+                             .format(settings.dynamic_link_domain))
         parameters['dynamicLinkDomain'] = settings.dynamic_link_domain
 
     # ios_bundle_id
-    if settings.ios_bundle_id:
+    if settings.ios_bundle_id is not None:
+        if not isinstance(settings.ios_bundle_id, six.string_types):
+            raise ValueError('Invalid value provided for ios_bundle_id: {0}'
+                             .format(settings.ios_bundle_id))
         parameters['iosBundleId'] = settings.ios_bundle_id
 
     # android_* attributes
@@ -440,12 +436,24 @@ def encode_action_code_settings(settings):
         and not settings.android_package_name:
         raise ValueError("Android package name is required when specifying other Android settings")
 
-    if settings.android_package_name:
+    if settings.android_package_name is not None:
+        if not isinstance(settings.android_package_name, six.string_types):
+            raise ValueError('Invalid value provided for android_package_name: {0}'
+                             .format(settings.android_package_name))
         parameters['androidPackageName'] = settings.android_package_name
-    if settings.android_minimum_version:
+
+    if settings.android_minimum_version is not None:
+        if not isinstance(settings.android_minimum_version, six.string_types):
+            raise ValueError('Invalid value provided for android_minimum_version: {0}'
+                             .format(settings.android_minimum_version))
         parameters['androidMinimumVersion'] = settings.android_minimum_version
-    if settings.android_install_app:
+
+    if settings.android_install_app is not None:
+        if not isinstance(settings.android_install_app, bool):
+            raise ValueError('Invalid value provided for android_install_app: {0}'
+                             .format(settings.android_install_app))
         parameters['androidInstallApp'] = settings.android_install_app
+
     return parameters
 
 class UserManager(object):
@@ -635,18 +643,16 @@ class UserManager(object):
         }
 
         if action_code_settings:
-            if not isinstance(action_code_settings, ActionCodeSettings):
-                raise ValueError("'action_code_settings' parameter should be " + \
-                    "of type ActionCodeSettings")
             payload.update(encode_action_code_settings(action_code_settings))
 
         try:
             response = self._client.body('post', '/accounts:sendOobCode', json=payload)
         except requests.exceptions.RequestException as error:
-            self._handle_http_error(USER_LINK_GENERATE_ERROR, 'Failed to generate link.', error)
+            self._handle_http_error(GENERATE_EMAIL_ACTION_LINK_ERROR, 'Failed to generate link.',
+                                    error)
         else:
             if not response or not response.get('oobLink'):
-                raise ApiCallError(USER_LINK_GENERATE_ERROR, 'Failed to generate link.')
+                raise ApiCallError(GENERATE_EMAIL_ACTION_LINK_ERROR, 'Failed to generate link.')
             return response.get('oobLink')
 
     def _handle_http_error(self, code, msg, error):

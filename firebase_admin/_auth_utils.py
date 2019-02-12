@@ -26,7 +26,7 @@ RESERVED_CLAIMS = set([
     'acr', 'amr', 'at_hash', 'aud', 'auth_time', 'azp', 'cnf', 'c_hash', 'exp', 'iat',
     'iss', 'jti', 'nbf', 'nonce', 'sub', 'firebase',
 ])
-VALID_ACTION_TYPE = set(['VERIFY_EMAIL', 'EMAIL_SIGNIN', 'PASSWORD_RESET'])
+VALID_EMAIL_ACTION_TYPES = set(['VERIFY_EMAIL', 'EMAIL_SIGNIN', 'PASSWORD_RESET'])
 
 
 def validate_uid(uid, required=False):
@@ -184,7 +184,7 @@ def validate_custom_claims(custom_claims, required=False):
     return claims_str
 
 def validate_action_type(action_type):
-    if action_type not in VALID_ACTION_TYPE:
+    if action_type not in VALID_EMAIL_ACTION_TYPES:
         raise ValueError('Invalid action type provided action_type: {0}. \
-            Valid values are {1}'.format(action_type, VALID_ACTION_TYPE))
+            Valid values are {1}'.format(action_type, ', '.join(VALID_EMAIL_ACTION_TYPES)))
     return action_type

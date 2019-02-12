@@ -37,6 +37,16 @@ INVALID_TIMESTAMPS = ['foo', '1', 0, -1, 1.1, True, False, list(), tuple(), dict
 MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
 MOCK_LIST_USERS_RESPONSE = testutils.resource('list_users.json')
 
+MOCK_ACTION_CODE_DATA = {
+    'url': 'http://localhost',
+    'handle_code_in_app': True,
+    'dynamic_link_domain': 'http://testly',
+    'ios_bundle_id': 'test.bundle',
+    'android_package_name': 'test.bundle',
+    'android_minimum_version': '7',
+    'android_install_app': True,
+}
+MOCK_ACTION_CODE_SETTINGS = auth.ActionCodeSettings(**MOCK_ACTION_CODE_DATA)
 
 @pytest.fixture(scope='module')
 def user_mgt_app():
@@ -1014,26 +1024,101 @@ class TestActionCodeSetting(object):
             _user_mgt.encode_action_code_settings(settings)
 
     def test_encode_action_code_bad_data(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(AttributeError):
             _user_mgt.encode_action_code_settings({"foo":"bar"})
-
-
-@pytest.fixture(scope='module')
-def action_code_settings():
-    data = {
-        'handle_code_in_app': True,
-        'dynamic_link_domain': 'http://testly',
-        'ios_bundle_id': 'test.bundle',
-        'android_package_name': 'test.bundle',
-        'android_minimum_version': '7',
-        'android_install_app': True,
-    }
-    return auth.ActionCodeSettings('http://localhost', **data)
 
 class TestGenerateEmailActionLink(object):
 
+    def test_email_verification_no_settings(self, user_mgt_app):
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"oobLink":"https://testlink"}')
+        link = auth.generate_email_verification_link('test@test.com', app=user_mgt_app)
+        request = json.loads(recorder[0].body.decode())
+
+        assert link == 'https://testlink'
+        assert request['requestType'] == 'VERIFY_EMAIL'
+        self._validate_request(request)
+
+    def test_password_reset_no_settings(self, user_mgt_app):
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"oobLink":"https://testlink"}')
+        link = auth.generate_password_reset_link('test@test.com', app=user_mgt_app)
+        request = json.loads(recorder[0].body.decode())
+
+        assert link == 'https://testlink'
+        assert request['requestType'] == 'PASSWORD_RESET'
+        self._validate_request(request)
+
+    def test_email_signin_with_settings(self, user_mgt_app):
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"oobLink":"https://testlink"}')
+        link = auth.generate_sign_in_with_email_link('test@test.com',
+                                                     action_code_settings=MOCK_ACTION_CODE_SETTINGS,
+                                                     app=user_mgt_app)
+        request = json.loads(recorder[0].body.decode())
+
+        assert link == 'https://testlink'
+        assert request['requestType'] == 'EMAIL_SIGNIN'
+        self._validate_request(request, MOCK_ACTION_CODE_SETTINGS)
+
+    def test_email_verification_with_settings(self, user_mgt_app):
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"oobLink":"https://testlink"}')
+        link = auth.generate_email_verification_link('test@test.com',
+                                                     action_code_settings=MOCK_ACTION_CODE_SETTINGS,
+                                                     app=user_mgt_app)
+        request = json.loads(recorder[0].body.decode())
+
+        assert link == 'https://testlink'
+        assert request['requestType'] == 'VERIFY_EMAIL'
+        self._validate_request(request, MOCK_ACTION_CODE_SETTINGS)
+
+    def test_password_reset_with_settings(self, user_mgt_app):
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"oobLink":"https://testlink"}')
+        link = auth.generate_password_reset_link('test@test.com',
+                                                 action_code_settings=MOCK_ACTION_CODE_SETTINGS,
+                                                 app=user_mgt_app)
+        request = json.loads(recorder[0].body.decode())
+
+        assert link == 'https://testlink'
+        assert request['requestType'] == 'PASSWORD_RESET'
+        self._validate_request(request, MOCK_ACTION_CODE_SETTINGS)
+
+    @pytest.mark.parametrize('func', [
+        auth.generate_sign_in_with_email_link,
+        auth.generate_email_verification_link,
+        auth.generate_password_reset_link,
+    ])
+    def test_api_call_failure(self, user_mgt_app, func):
+        _instrument_user_manager(user_mgt_app, 500, '{"error":"dummy error"}')
+        with pytest.raises(auth.AuthError):
+            func('test@test.com', MOCK_ACTION_CODE_SETTINGS, app=user_mgt_app)
+
+    @pytest.mark.parametrize('func', [
+        auth.generate_sign_in_with_email_link,
+        auth.generate_email_verification_link,
+        auth.generate_password_reset_link,
+    ])
+    def test_api_call_no_link(self, user_mgt_app, func):
+        _instrument_user_manager(user_mgt_app, 200, '{}')
+        with pytest.raises(auth.AuthError):
+            func('test@test.com', MOCK_ACTION_CODE_SETTINGS, app=user_mgt_app)
+
+    @pytest.mark.parametrize('func', [
+        auth.generate_sign_in_with_email_link,
+        auth.generate_email_verification_link,
+        auth.generate_password_reset_link,
+    ])
+    def test_bad_settings_data(self, user_mgt_app, func):
+        _instrument_user_manager(user_mgt_app, 200, '{"oobLink":"https://testlink"}')
+        with pytest.raises(AttributeError):
+            func('test@test.com', app=user_mgt_app, action_code_settings=1234)
+
+    def test_bad_action_type(self, user_mgt_app):
+        with pytest.raises(ValueError):
+            auth._get_auth_service(user_mgt_app) \
+                .user_manager \
+                .generate_email_action_link('BAD_TYPE', 'test@test.com',
+                                            action_code_settings=MOCK_ACTION_CODE_SETTINGS)
+
     def _validate_request(self, request, settings=None):
-        assert request['email'] == "test@test.com"
+        assert request['email'] == 'test@test.com'
         assert request['returnOobLink']
         if settings:
             assert request['continueUrl'] == settings.url
@@ -1043,91 +1128,3 @@ class TestGenerateEmailActionLink(object):
             assert request['androidPackageName'] == settings.android_package_name
             assert request['androidMinimumVersion'] == settings.android_minimum_version
             assert request['androidInstallApp'] == settings.android_install_app
-
-    def test_email_verification_no_settings(self, user_mgt_app):
-        _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"oobLink":"https://testlink"}')
-        link = auth.generate_email_verification_link("test@test.com", app=user_mgt_app)
-        request = json.loads(recorder[0].body.decode())
-
-        assert link == "https://testlink"
-        assert request['requestType'] == "VERIFY_EMAIL"
-        self._validate_request(request)
-
-    def test_password_reset_no_settings(self, user_mgt_app):
-        _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"oobLink":"https://testlink"}')
-        link = auth.generate_password_reset_link("test@test.com", app=user_mgt_app)
-        request = json.loads(recorder[0].body.decode())
-
-        assert link == "https://testlink"
-        assert request['requestType'] == "PASSWORD_RESET"
-        self._validate_request(request)
-
-    def test_email_signin_with_settings(self, user_mgt_app, action_code_settings):
-        _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"oobLink":"https://testlink"}')
-        link = auth.generate_sign_in_with_email_link("test@test.com",
-                                                     action_code_settings=action_code_settings,
-                                                     app=user_mgt_app)
-        request = json.loads(recorder[0].body.decode())
-
-        assert link == "https://testlink"
-        assert request['requestType'] == "EMAIL_SIGNIN"
-        self._validate_request(request, action_code_settings)
-
-    def test_email_verification_with_settings(self, user_mgt_app, action_code_settings):
-        _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"oobLink":"https://testlink"}')
-        link = auth.generate_email_verification_link("test@test.com",
-                                                     action_code_settings=action_code_settings,
-                                                     app=user_mgt_app)
-        request = json.loads(recorder[0].body.decode())
-
-        assert link == "https://testlink"
-        assert request['requestType'] == "VERIFY_EMAIL"
-        self._validate_request(request, action_code_settings)
-
-    def test_password_reset_with_settings(self, user_mgt_app, action_code_settings):
-        _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"oobLink":"https://testlink"}')
-        link = auth.generate_password_reset_link("test@test.com",
-                                                 action_code_settings=action_code_settings,
-                                                 app=user_mgt_app)
-        request = json.loads(recorder[0].body.decode())
-
-        assert link == "https://testlink"
-        assert request['requestType'] == "PASSWORD_RESET"
-        self._validate_request(request, action_code_settings)
-
-    @pytest.mark.parametrize('func', [
-        auth.generate_sign_in_with_email_link,
-        auth.generate_email_verification_link,
-        auth.generate_password_reset_link,
-    ])
-    def test_api_call_failure(self, user_mgt_app, action_code_settings, func):
-        _instrument_user_manager(user_mgt_app, 500, '{"error":"dummy error"}')
-        with pytest.raises(auth.AuthError):
-            func("test@test.com", action_code_settings, app=user_mgt_app)
-
-    @pytest.mark.parametrize('func', [
-        auth.generate_sign_in_with_email_link,
-        auth.generate_email_verification_link,
-        auth.generate_password_reset_link,
-    ])
-    def test_api_call_no_link(self, user_mgt_app, action_code_settings, func):
-        _instrument_user_manager(user_mgt_app, 200, '{}')
-        with pytest.raises(auth.AuthError):
-            func("test@test.com", action_code_settings, app=user_mgt_app)
-
-    @pytest.mark.parametrize('func', [
-        auth.generate_sign_in_with_email_link,
-        auth.generate_email_verification_link,
-        auth.generate_password_reset_link,
-    ])
-    def test_bad_settings_data(self, user_mgt_app, func):
-        _instrument_user_manager(user_mgt_app, 200, '{"oobLink":"https://testlink"}')
-        with pytest.raises(ValueError):
-            func("test@test.com", app=user_mgt_app, action_code_settings=1234)
-
-    def test_bad_action_type(self, user_mgt_app, action_code_settings):
-        with pytest.raises(ValueError):
-            auth._get_auth_service(user_mgt_app) \
-                .user_manager \
-                .generate_email_action_link("BAD_TYPE", "test@test.com",
-                                            action_code_settings=action_code_settings)

@@ -1,5 +1,8 @@
 # Unreleased
 
+- [added] Added `generate_password_reset_link()`, 
+  `generate_email_verification_link()` and `generate_sign_in_with_email_link()`
+  methods to the `auth` API.
 - [added] Migrated the `auth` user management API to the
   new Identity Toolkit endpoint.
 - [fixed] Extending HTTP retries to more HTTP methods like POST and PATCH.

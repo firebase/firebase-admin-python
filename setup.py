@@ -18,7 +18,6 @@ from __future__ import print_function
 from os import path
 import sys
 
-from setuptools import find_packages
 from setuptools import setup
 
 
@@ -55,7 +54,7 @@ setup(
     license=about['__license__'],
     keywords='firebase cloud development',
     install_requires=install_requires,
-    packages=find_packages(exclude=['tests']),
+    packages=['firebase_admin'],
     python_requires='>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*',
     classifiers=[
         'Development Status :: 5 - Production/Stable',

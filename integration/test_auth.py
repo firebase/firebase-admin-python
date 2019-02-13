@@ -80,13 +80,10 @@ def _sign_in_with_email_link(email, oob_code, api_key):
     resp.raise_for_status()
     return resp.json().get('idToken')
 
-def _validate_link_url(link, check_continue_url=True):
-    assert isinstance(link, six.string_types)
+def _extract_link_params(link):
     query = six.moves.urllib.parse.urlparse(link).query
     query_dict = dict(six.moves.urllib.parse.parse_qsl(query))
-    if check_continue_url:
-        assert query_dict['continueUrl'] == ACTION_LINK_CONTINUE_URL
-    return query_dict['oobCode']
+    return query_dict
 
 def test_custom_token(api_key):
     custom_token = auth.create_custom_token('user1')
@@ -420,38 +417,54 @@ def test_import_users_with_password(api_key):
 
 def test_password_reset(new_user_email_unverified, api_key):
     link = auth.generate_password_reset_link(new_user_email_unverified.email)
-    oob_code = _validate_link_url(link, check_continue_url=False)
-    assert new_user_email_unverified.email == _reset_password(oob_code, "newPassword", api_key)
+    assert isinstance(link, six.string_types)
+    query_dict = _extract_link_params(link)
+    user_email = _reset_password(query_dict['oobCode'], "newPassword", api_key)
+    assert new_user_email_unverified.email == user_email
+    # password reset also set email_verified to True
     assert auth.get_user(new_user_email_unverified.uid).email_verified
 
 def test_email_verification(new_user_email_unverified, api_key):
     link = auth.generate_email_verification_link(new_user_email_unverified.email)
-    oob_code = _validate_link_url(link, check_continue_url=False)
-    assert new_user_email_unverified.email == _verify_email(oob_code, api_key)
+    assert isinstance(link, six.string_types)
+    query_dict = _extract_link_params(link)
+    user_email = _verify_email(query_dict['oobCode'], api_key)
+    assert new_user_email_unverified.email == user_email
     assert auth.get_user(new_user_email_unverified.uid).email_verified
 
 def test_password_reset_with_settings(new_user_email_unverified, api_key):
     action_code_settings = auth.ActionCodeSettings(ACTION_LINK_CONTINUE_URL)
     link = auth.generate_password_reset_link(new_user_email_unverified.email,
                                              action_code_settings=action_code_settings)
-    oob_code = _validate_link_url(link)
-    assert new_user_email_unverified.email == _reset_password(oob_code, "newPassword", api_key)
+    assert isinstance(link, six.string_types)
+    query_dict = _extract_link_params(link)
+    assert query_dict['continueUrl'] == ACTION_LINK_CONTINUE_URL
+    user_email = _reset_password(query_dict['oobCode'], "newPassword", api_key)
+    assert new_user_email_unverified.email == user_email
+    # password reset also set email_verified to True
     assert auth.get_user(new_user_email_unverified.uid).email_verified
 
 def test_email_verification_with_settings(new_user_email_unverified, api_key):
     action_code_settings = auth.ActionCodeSettings(ACTION_LINK_CONTINUE_URL)
     link = auth.generate_email_verification_link(new_user_email_unverified.email,
                                                  action_code_settings=action_code_settings)
-    oob_code = _validate_link_url(link)
-    assert new_user_email_unverified.email == _verify_email(oob_code, api_key)
+    assert isinstance(link, six.string_types)
+    query_dict = _extract_link_params(link)
+    assert query_dict['continueUrl'] == ACTION_LINK_CONTINUE_URL
+    user_email = _verify_email(query_dict['oobCode'], api_key)
+    assert new_user_email_unverified.email == user_email
     assert auth.get_user(new_user_email_unverified.uid).email_verified
 
 def test_email_sign_in_with_settings(new_user_email_unverified, api_key):
     action_code_settings = auth.ActionCodeSettings(ACTION_LINK_CONTINUE_URL)
     link = auth.generate_sign_in_with_email_link(new_user_email_unverified.email,
                                                  action_code_settings=action_code_settings)
-    oob_code = _validate_link_url(link)
-    assert _sign_in_with_email_link(new_user_email_unverified.email, oob_code, api_key)
+    assert isinstance(link, six.string_types)
+    query_dict = _extract_link_params(link)
+    assert query_dict['continueUrl'] == ACTION_LINK_CONTINUE_URL
+    oob_code = query_dict['oobCode']
+    id_token = _sign_in_with_email_link(new_user_email_unverified.email, oob_code, api_key)
+    assert id_token
     assert auth.get_user(new_user_email_unverified.uid).email_verified
 
 class CredentialWrapper(credentials.Base):

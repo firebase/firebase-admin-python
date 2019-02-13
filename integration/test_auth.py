@@ -419,7 +419,7 @@ def test_password_reset(new_user_email_unverified, api_key):
     link = auth.generate_password_reset_link(new_user_email_unverified.email)
     assert isinstance(link, six.string_types)
     query_dict = _extract_link_params(link)
-    user_email = _reset_password(query_dict['oobCode'], "newPassword", api_key)
+    user_email = _reset_password(query_dict['oobCode'], 'newPassword', api_key)
     assert new_user_email_unverified.email == user_email
     # password reset also set email_verified to True
     assert auth.get_user(new_user_email_unverified.uid).email_verified
@@ -439,7 +439,7 @@ def test_password_reset_with_settings(new_user_email_unverified, api_key):
     assert isinstance(link, six.string_types)
     query_dict = _extract_link_params(link)
     assert query_dict['continueUrl'] == ACTION_LINK_CONTINUE_URL
-    user_email = _reset_password(query_dict['oobCode'], "newPassword", api_key)
+    user_email = _reset_password(query_dict['oobCode'], 'newPassword', api_key)
     assert new_user_email_unverified.email == user_email
     # password reset also set email_verified to True
     assert auth.get_user(new_user_email_unverified.uid).email_verified
@@ -464,7 +464,7 @@ def test_email_sign_in_with_settings(new_user_email_unverified, api_key):
     assert query_dict['continueUrl'] == ACTION_LINK_CONTINUE_URL
     oob_code = query_dict['oobCode']
     id_token = _sign_in_with_email_link(new_user_email_unverified.email, oob_code, api_key)
-    assert id_token
+    assert id_token is not None and len(id_token) > 0
     assert auth.get_user(new_user_email_unverified.uid).email_verified
 
 class CredentialWrapper(credentials.Base):

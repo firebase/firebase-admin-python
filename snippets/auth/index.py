@@ -587,6 +587,56 @@ def import_without_password():
         print('Error importing users:', error)
     # [END import_without_password]
 
+def init_action_code_settings():
+    # [START init_action_code_settings]
+    action_code_settings = auth.ActionCodeSettings(
+        url='https://www.example.com/checkout?cartId=1234',
+        handle_code_in_app=True,
+        ios_bundle_id='com.example.ios',
+        android_package_name='com.example.android',
+        android_install_app=True,
+        android_minimum_version='12',
+        dynamic_link_domain='coolapp.page.link',
+    )
+    # [END init_action_code_settings]
+    return action_code_settings
+
+def password_reset_link():
+    action_code_settings = init_action_code_settings()
+    display_name = 'Example User'
+    # [START password_reset_link]
+    email = 'user@example.com'
+    link = auth.generate_password_reset_link(email, action_code_settings)
+    # Construct password reset email template, embed the link and send
+    # using custom SMTP server.
+    send_custom_email(email, display_name, link)
+    # [END password_reset_link]
+
+def email_verification_link():
+    action_code_settings = init_action_code_settings()
+    display_name = 'Example User'
+    # [START email_verification_link]
+    email = 'user@example.com'
+    link = auth.generate_email_verification_link(email, action_code_settings)
+    # Construct email verification template, embed the link and send
+    # using custom SMTP server.
+    send_custom_email(email, display_name, link)
+    # [END email_verification_link]
+
+def sign_in_with_email_link():
+    action_code_settings = init_action_code_settings()
+    display_name = 'Example User'
+    # [START sign_in_with_email_link]
+    email = 'user@example.com'
+    link = auth.generate_sign_in_with_email_link(email, action_code_settings)
+    # Construct sign-in with email link template, embed the link and send
+    # using custom SMTP server.
+    send_custom_email(email, display_name, link)
+    # [END sign_in_with_email_link]
+
+def send_custom_email(email, display_name, link):
+    pass
+
 initialize_sdk_with_service_account()
 initialize_sdk_with_application_default()
 #initialize_sdk_with_refresh_token()

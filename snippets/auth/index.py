@@ -635,7 +635,9 @@ def sign_in_with_email_link():
     # [END sign_in_with_email_link]
 
 def send_custom_email(email, display_name, link):
-    pass
+    del email
+    del display_name
+    del link
 
 initialize_sdk_with_service_account()
 initialize_sdk_with_application_default()

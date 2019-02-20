@@ -52,8 +52,8 @@ __all__ = [
     'create_session_cookie',
     'create_user',
     'delete_user',
-    'generate_password_reset_link',
     'generate_email_verification_link',
+    'generate_password_reset_link',
     'generate_sign_in_with_email_link',
     'get_user',
     'get_user_by_email',
@@ -464,7 +464,7 @@ def generate_password_reset_link(email, action_code_settings=None, app=None):
             passed in the deep link.
         app: An App instance (optional).
     Returns:
-        link: The password reset link created by API
+        link: The password reset link created by the API
 
     Raises:
         ValueError: If the provided arguments are invalid
@@ -488,7 +488,7 @@ def generate_email_verification_link(email, action_code_settings=None, app=None)
             passed in the deep link.
         app: An App instance (optional).
     Returns:
-        link: The email verification link created by API
+        link: The email verification link created by the API
 
     Raises:
         ValueError: If the provided arguments are invalid
@@ -512,7 +512,7 @@ def generate_sign_in_with_email_link(email, action_code_settings, app=None):
             passed in the deep link.
         app: An App instance (optional).
     Returns:
-        link: The email sign in link created by API
+        link: The email sign-in link created by the API
 
     Raises:
         ValueError: If the provided arguments are invalid

@@ -1,6 +1,10 @@
 # Unreleased
 
-- [added] Added `generate_password_reset_link()`, 
+-
+
+# v2.16.0
+
+- [added] Added `generate_password_reset_link()`,
   `generate_email_verification_link()` and `generate_sign_in_with_email_link()`
   methods to the `auth` API.
 - [added] Migrated the `auth` user management API to the

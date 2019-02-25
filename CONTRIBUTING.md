@@ -85,6 +85,8 @@ information on using pull requests.
 
 ### Initial Setup
 
+You need Python 2.7 or Python 3.4+ to build and test the code in this repo.
+
 We recommend using [pip](https://pypi.python.org/pypi/pip) for installing the necessary tools and
 project dependencies. Most recent versions of Python ship with pip. If your development environment
 does not already have pip, use the software package manager of your platform (e.g. apt-get, brew)
@@ -120,7 +122,7 @@ pass `all` as an argument.
 
 ```
 ./lint.sh      # Lint locally modified source files
-./lint.sh all  # Lint all source files 
+./lint.sh all  # Lint all source files
 ```
 
 Ideally you should not see any pylint errors or warnings when you run the
@@ -167,36 +169,52 @@ do not already have one suitable for running the tests aginst. Then obtain the
 following credentials from the project:
 
 1. *Service account certificate*: This can be downloaded as a JSON file from
-   the "Settings > Service Accounts" tab of the Firebase console.
+   the "Settings > Service Accounts" tab of the Firebase console. Copy the
+   file into the repo so it's available at `scripts/cert.json`.
 2. *Web API key*: This is displayed in the "Settings > General" tab of the
-   console. Copy it and save to a new text file.
+   console. Copy it and save to a new text file at `scripts/apikey.txt`.
+
+Then set up your Firebase/GCP project as follows:
+
+1. Enable Firestore: Go to the Firebase Console, and select "Database" from
+   the "Develop" menu. Click on the "Create database" button. You may choose
+   to set up Firestore either in the locked mode or in the test mode.
+2. Enable password auth: Select "Authentication" from the "Develop" menu in
+   Firebase Console. Select the "Sign-in method" tab, and enable the
+   "Email/Password" sign-in method.
+3. Enable the IAM API: Go to the
+   [Google Cloud Platform Console](https://console.cloud.google.com) and make
+   sure your Firebase/GCP project is selected. Select "APIs & Services >
+   Dashboard" from the main menu, and click the "ENABLE APIS AND SERVICES"
+   button. Search for and enable the "Identity and Access Management (IAM)
+   API".
 
 Now you can invoke the integration test suite as follows:
 
 ```
-pytest integration/ --cert path/to/service_acct.json --apikey path/to/apikey.txt
+pytest integration/ --cert scripts/cert.json --apikey scripts/apikey.txt
 ```
 
 ### Test Coverage
 
-To review the test coverage, run `pytest` with the `--cov` flag. To view a detailed line by line 
-coverage, use    
+To review the test coverage, run `pytest` with the `--cov` flag. To view a detailed line by line
+coverage, use
 ```bash
 pytest --cov --cov-report html
 ```
-and point your browser to 
+and point your browser to
 `file:///<dir>/htmlcov/index.html` (where `dir` is the location from which the report was created).
 
 
 ### Testing in Different Environments
 
 Sometimes we want to run unit tests in multiple environments (e.g. different Python versions), and
-ensure that the SDK works as expected in each of them. We use 
-[tox](https://tox.readthedocs.io/en/latest/) for this purpose. 
+ensure that the SDK works as expected in each of them. We use
+[tox](https://tox.readthedocs.io/en/latest/) for this purpose.
 
 But before you can invoke tox, you must set up all the necessary target environments on your
 workstation. The easiest and cleanest way to achieve this is by using a tool like
-[pyenv](https://github.com/pyenv/pyenv). Refer to the 
+[pyenv](https://github.com/pyenv/pyenv). Refer to the
 [pyenv documentation](https://github.com/pyenv/pyenv#installation) for instructions on how to
 install it. This generally involves installing some binaries as well as modifying a system level
 configuration file such as `.bash_profile`. Once pyenv is installed, you can install multiple

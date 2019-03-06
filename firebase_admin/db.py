@@ -350,7 +350,11 @@ class Reference(object):
         """Registers the ``callback`` function to receive realtime updates.
 
         The specified callback function will get invoked with ``db.Event`` objects for each
-        realtime update received from the database.
+        realtime update received from the database. It will also get called whenever the SDK
+        reconnects to the server due to network issues and credential expiration. In general,
+        the OAuth2 credentials used to authorize connections to the server expire every hour.
+        Therefore clients should expect the ``callback`` to fire at least once every hour, even if
+        there are no updates in the database.
 
         This API is based on the event streaming support available in the Firebase REST API. Each
         call to ``listen()`` starts a new HTTP connection and a background thread. This is an

@@ -157,7 +157,6 @@ class TestReference(object):
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
         assert recorder[0].headers['User-Agent'] == db._USER_AGENT
-        assert recorder[0].headers['X-Firebase-Decoding'] == '1'
         assert 'X-Firebase-ETag' not in recorder[0].headers
 
     @pytest.mark.parametrize('data', valid_values)
@@ -170,7 +169,6 @@ class TestReference(object):
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
         assert recorder[0].headers['User-Agent'] == db._USER_AGENT
-        assert recorder[0].headers['X-Firebase-Decoding'] == '1'
         assert recorder[0].headers['X-Firebase-ETag'] == 'true'
 
     @pytest.mark.parametrize('data', valid_values)
@@ -182,7 +180,6 @@ class TestReference(object):
         assert recorder[0].method == 'GET'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json?shallow=true'
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
-        assert recorder[0].headers['X-Firebase-Decoding'] == '1'
         assert recorder[0].headers['User-Agent'] == db._USER_AGENT
 
     def test_get_with_etag_and_shallow(self):
@@ -200,14 +197,12 @@ class TestReference(object):
         assert recorder[0].method == 'GET'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
         assert recorder[0].headers['if-none-match'] == 'invalid-etag'
-        assert recorder[0].headers['X-Firebase-Decoding'] == '1'
 
         assert ref.get_if_changed(MockAdapter.ETAG) == (False, None, None)
         assert len(recorder) == 2
         assert recorder[1].method == 'GET'
         assert recorder[1].url == 'https://test.firebaseio.com/test.json'
         assert recorder[1].headers['if-none-match'] == MockAdapter.ETAG
-        assert recorder[1].headers['X-Firebase-Decoding'] == '1'
 
     @pytest.mark.parametrize('etag', [0, 1, True, False, dict(), list(), tuple()])
     def test_get_if_changed_invalid_etag(self, etag):
@@ -226,7 +221,6 @@ class TestReference(object):
         assert recorder[0].method == 'GET'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
-        assert recorder[0].headers['X-Firebase-Decoding'] == '1'
 
     @pytest.mark.parametrize('data', valid_values)
     def test_limit_query(self, data):
@@ -240,7 +234,6 @@ class TestReference(object):
         assert recorder[0].method == 'GET'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
-        assert recorder[0].headers['X-Firebase-Decoding'] == '1'
 
     @pytest.mark.parametrize('data', valid_values)
     def test_range_query(self, data):
@@ -255,7 +248,6 @@ class TestReference(object):
         assert recorder[0].method == 'GET'
         assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
-        assert recorder[0].headers['X-Firebase-Decoding'] == '1'
 
     @pytest.mark.parametrize('data', valid_values)
     def test_set_value(self, data):
@@ -267,7 +259,6 @@ class TestReference(object):
         assert recorder[0].url == 'https://test.firebaseio.com/test.json?print=silent'
         assert json.loads(recorder[0].body.decode()) == data
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
-        assert recorder[0].headers['X-Firebase-Decoding'] == '1'
 
     def test_set_none_value(self):
         ref = db.reference('/test')
@@ -294,7 +285,6 @@ class TestReference(object):
         assert recorder[0].url == 'https://test.firebaseio.com/test.json?print=silent'
         assert json.loads(recorder[0].body.decode()) == data
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
-        assert recorder[0].headers['X-Firebase-Decoding'] == '1'
 
     @pytest.mark.parametrize('data', valid_values)
     def test_set_if_unchanged_success(self, data):
@@ -308,7 +298,6 @@ class TestReference(object):
         assert json.loads(recorder[0].body.decode()) == data
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
         assert recorder[0].headers['if-match'] == MockAdapter.ETAG
-        assert recorder[0].headers['X-Firebase-Decoding'] == '1'
 
     @pytest.mark.parametrize('data', valid_values)
     def test_set_if_unchanged_failure(self, data):
@@ -322,7 +311,6 @@ class TestReference(object):
         assert json.loads(recorder[0].body.decode()) == data
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
         assert recorder[0].headers['if-match'] == 'invalid-etag'
-        assert recorder[0].headers['X-Firebase-Decoding'] == '1'
 
     @pytest.mark.parametrize('etag', [0, 1, True, False, dict(), list(), tuple()])
     def test_set_if_unchanged_invalid_etag(self, etag):
@@ -368,7 +356,6 @@ class TestReference(object):
         assert json.loads(recorder[0].body.decode()) == data
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
         assert recorder[0].headers['User-Agent'] == db._USER_AGENT
-        assert recorder[0].headers['X-Firebase-Decoding'] == '1'
 
     def test_push_default(self):
         ref = db.reference('/test')
@@ -380,7 +367,6 @@ class TestReference(object):
         assert json.loads(recorder[0].body.decode()) == ''
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
         assert recorder[0].headers['User-Agent'] == db._USER_AGENT
-        assert recorder[0].headers['X-Firebase-Decoding'] == '1'
 
     def test_push_none_value(self):
         ref = db.reference('/test')
@@ -397,7 +383,6 @@ class TestReference(object):
         assert recorder[0].url == 'https://test.firebaseio.com/test.json'
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
         assert recorder[0].headers['User-Agent'] == db._USER_AGENT
-        assert recorder[0].headers['X-Firebase-Decoding'] == '1'
 
     def test_transaction(self):
         ref = db.reference('/test')
@@ -583,7 +568,6 @@ class TestReferenceWithAuthOverride(object):
         assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
         assert recorder[0].headers['User-Agent'] == db._USER_AGENT
-        assert recorder[0].headers['X-Firebase-Decoding'] == '1'
 
     def test_set_value(self):
         ref = db.reference('/test')
@@ -597,7 +581,6 @@ class TestReferenceWithAuthOverride(object):
         assert json.loads(recorder[0].body.decode()) == data
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
         assert recorder[0].headers['User-Agent'] == db._USER_AGENT
-        assert recorder[0].headers['X-Firebase-Decoding'] == '1'
 
     def test_order_by_query(self):
         ref = db.reference('/test')
@@ -610,7 +593,6 @@ class TestReferenceWithAuthOverride(object):
         assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
         assert recorder[0].headers['User-Agent'] == db._USER_AGENT
-        assert recorder[0].headers['X-Firebase-Decoding'] == '1'
 
     def test_range_query(self):
         ref = db.reference('/test')
@@ -624,7 +606,6 @@ class TestReferenceWithAuthOverride(object):
         assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
         assert recorder[0].headers['User-Agent'] == db._USER_AGENT
-        assert recorder[0].headers['X-Firebase-Decoding'] == '1'
 
 
 class TestDatabaseInitialization(object):

@@ -20,6 +20,8 @@ import re
 import six
 from six.moves import urllib
 
+from firebase_admin import exceptions
+
 
 MAX_CLAIMS_PAYLOAD_SIZE = 1000
 RESERVED_CLAIMS = set([
@@ -188,3 +190,15 @@ def validate_action_type(action_type):
         raise ValueError('Invalid action type provided action_type: {0}. \
             Valid values are {1}'.format(action_type, ', '.join(VALID_EMAIL_ACTION_TYPES)))
     return action_type
+
+
+class FirebaseAuthError(exceptions.FirebaseError):
+    """Represents an Exception encountered while invoking the Firebase auth API."""
+
+    def __init__(self, code, message, cause=None, http_response=None, auth_error_code=None):
+        exceptions.FirebaseError.__init__(self, code, message, cause, http_response)
+        self._auth_error_code = auth_error_code
+
+    @property
+    def auth_error_code(self):
+        return self._auth_error_code

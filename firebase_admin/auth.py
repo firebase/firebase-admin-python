@@ -22,6 +22,8 @@ creating and managing user accounts in Firebase projects.
 import time
 
 import firebase_admin
+from firebase_admin import exceptions
+from firebase_admin import _auth_utils
 from firebase_admin import _http_client
 from firebase_admin import _token_gen
 from firebase_admin import _user_import
@@ -30,8 +32,8 @@ from firebase_admin import _utils
 
 
 _AUTH_ATTRIBUTE = '_auth'
-_ID_TOKEN_REVOKED = 'ID_TOKEN_REVOKED'
-_SESSION_COOKIE_REVOKED = 'SESSION_COOKIE_REVOKED'
+ID_TOKEN_REVOKED = 'ID_TOKEN_REVOKED'
+SESSION_COOKIE_REVOKED = 'SESSION_COOKIE_REVOKED'
 
 
 __all__ = [
@@ -70,6 +72,7 @@ __all__ = [
 ActionCodeSettings = _user_mgt.ActionCodeSettings
 ErrorInfo = _user_import.ErrorInfo
 ExportedUserRecord = _user_mgt.ExportedUserRecord
+FirebaseAuthError = _auth_utils.FirebaseAuthError
 ListUsersPage = _user_mgt.ListUsersPage
 UserImportHash = _user_import.UserImportHash
 ImportUserRecord = _user_import.ImportUserRecord
@@ -147,7 +150,7 @@ def verify_id_token(id_token, app=None, check_revoked=False):
     token_verifier = _get_auth_service(app).token_verifier
     verified_claims = token_verifier.verify_id_token(id_token)
     if check_revoked:
-        _check_jwt_revoked(verified_claims, _ID_TOKEN_REVOKED, 'ID token', app)
+        _check_jwt_revoked(verified_claims, ID_TOKEN_REVOKED, 'ID token', app)
     return verified_claims
 
 def create_session_cookie(id_token, expires_in, app=None):
@@ -196,7 +199,7 @@ def verify_session_cookie(session_cookie, check_revoked=False, app=None):
     token_verifier = _get_auth_service(app).token_verifier
     verified_claims = token_verifier.verify_session_cookie(session_cookie)
     if check_revoked:
-        _check_jwt_revoked(verified_claims, _SESSION_COOKIE_REVOKED, 'session cookie', app)
+        _check_jwt_revoked(verified_claims, SESSION_COOKIE_REVOKED, 'session cookie', app)
     return verified_claims
 
 def revoke_refresh_tokens(uid, app=None):
@@ -528,16 +531,10 @@ def generate_sign_in_with_email_link(email, action_code_settings, app=None):
 def _check_jwt_revoked(verified_claims, error_code, label, app):
     user = get_user(verified_claims.get('uid'), app=app)
     if verified_claims.get('iat') * 1000 < user.tokens_valid_after_timestamp:
-        raise AuthError(error_code, 'The Firebase {0} has been revoked.'.format(label))
-
-
-class AuthError(Exception):
-    """Represents an Exception encountered while invoking the Firebase auth API."""
-
-    def __init__(self, code, message, error=None):
-        Exception.__init__(self, message)
-        self.code = code
-        self.detail = error
+        raise FirebaseAuthError(
+            exceptions.INVALID_ARGUMENT,
+            'The Firebase {0} has been revoked.'.format(label),
+            auth_error_code=error_code)
 
 
 class _AuthService(object):

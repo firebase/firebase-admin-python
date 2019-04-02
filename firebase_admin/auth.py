@@ -128,10 +128,7 @@ def create_custom_token(uid, developer_claims=None, app=None):
         AuthError: If an error occurs while creating the token using the remote IAM service.
     """
     token_generator = _get_auth_service(app).token_generator
-    try:
-        return token_generator.create_custom_token(uid, developer_claims)
-    except _token_gen.ApiCallError as error:
-        raise FirebaseAuthError(error.code, str(error), cause=error)
+    return token_generator.create_custom_token(uid, developer_claims)
 
 
 def verify_id_token(id_token, app=None, check_revoked=False):
@@ -183,10 +180,7 @@ def create_session_cookie(id_token, expires_in, app=None):
         AuthError: If an error occurs while creating the cookie.
     """
     token_generator = _get_auth_service(app).token_generator
-    try:
-        return token_generator.create_session_cookie(id_token, expires_in)
-    except _token_gen.ApiCallError as error:
-        raise FirebaseAuthError(error.code, str(error), cause=error)
+    return token_generator.create_session_cookie(id_token, expires_in)
 
 
 def verify_session_cookie(session_cookie, check_revoked=False, app=None):

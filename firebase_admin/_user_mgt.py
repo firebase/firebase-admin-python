@@ -469,7 +469,7 @@ class UserManager(object):
             body, response = self._client.body_and_response('post', '/accounts:lookup', json=payload)
         except requests.exceptions.RequestException as error:
             msg = 'Failed to get user by {0}: {1}.'.format(key_type, key)
-            self._handle_http_error(msg, error)
+            _auth_utils.handle_http_error(msg, error)
         else:
             if not body or not body.get('users'):
                 raise _auth_utils.FirebaseAuthError(
@@ -497,7 +497,7 @@ class UserManager(object):
         try:
             return self._client.body('get', '/accounts:batchGet', params=payload)
         except requests.exceptions.RequestException as error:
-            self._handle_http_error('Failed to download user accounts.', error)
+            _auth_utils.handle_http_error('Failed to download user accounts.', error)
 
     def create_user(self, uid=None, display_name=None, email=None, phone_number=None,
                     photo_url=None, password=None, disabled=None, email_verified=None):
@@ -516,7 +516,7 @@ class UserManager(object):
         try:
             body, response = self._client.body_and_response('post', '/accounts', json=payload)
         except requests.exceptions.RequestException as error:
-            self._handle_http_error('Failed to create new user.', error)
+            _auth_utils.handle_http_error('Failed to create new user.', error)
         else:
             if not body or not body.get('localId'):
                 raise _auth_utils.FirebaseAuthError(
@@ -570,7 +570,7 @@ class UserManager(object):
         try:
             body, response = self._client.body_and_response('post', '/accounts:update', json=payload)
         except requests.exceptions.RequestException as error:
-            self._handle_http_error('Failed to update user: {0}.'.format(uid), error)
+            _auth_utils.handle_http_error('Failed to update user: {0}.'.format(uid), error)
         else:
             if not body or not body.get('localId'):
                 raise _auth_utils.FirebaseAuthError(
@@ -586,7 +586,7 @@ class UserManager(object):
         try:
             body, response = self._client.body_and_response('post', '/accounts:delete', json={'localId' : uid})
         except requests.exceptions.RequestException as error:
-            self._handle_http_error('Failed to delete user: {0}.'.format(uid), error)
+            _auth_utils.handle_http_error('Failed to delete user: {0}.'.format(uid), error)
         else:
             if not body or not body.get('kind'):
                 raise _auth_utils.FirebaseAuthError(
@@ -615,7 +615,7 @@ class UserManager(object):
         try:
             body, response = self._client.body_and_response('post', '/accounts:batchCreate', json=payload)
         except requests.exceptions.RequestException as error:
-            self._handle_http_error('Failed to import users.', error)
+            _auth_utils.handle_http_error('Failed to import users.', error)
         else:
             if not isinstance(body, dict):
                 raise _auth_utils.FirebaseAuthError(
@@ -653,7 +653,7 @@ class UserManager(object):
         try:
             body, response = self._client.body_and_response('post', '/accounts:sendOobCode', json=payload)
         except requests.exceptions.RequestException as error:
-            self._handle_http_error('Failed to generate link.', error)
+            _auth_utils.handle_http_error('Failed to generate link.', error)
         else:
             if not body or not body.get('oobLink'):
                 raise _auth_utils.FirebaseAuthError(
@@ -662,26 +662,6 @@ class UserManager(object):
                     http_response=response,
                     auth_error_code=UNEXPECTED_RESPONSE)
             return body.get('oobLink')
-
-    _ERROR_CODE_MAPPINGS = {
-        'CLAIMS_TOO_LARGE': exceptions.INVALID_ARGUMENT,
-        'INVALID_EMAIL': exceptions.INVALID_ARGUMENT,
-        'INSUFFICIENT_PERMISSION': exceptions.PERMISSION_DENIED,
-        'OPERATION_NOT_ALLOWED': exceptions.PERMISSION_DENIED,
-        'PERMISSION_DENIED': exceptions.PERMISSION_DENIED,
-        'USER_NOT_FOUND': exceptions.NOT_FOUND,
-        'DUPLICATE_EMAIL': exceptions.ALREADY_EXISTS,
-    }
-
-    def _handle_http_error(self, msg, error):
-        response_payload = {}
-        if error.response is not None:
-            response_payload = error.response.json()
-            msg += '\n Server response: {0}'.format(error.response.content.decode())
-        server_code = response_payload.get('error', {}).get('message')
-        canonical_code = self._ERROR_CODE_MAPPINGS.get(server_code, exceptions.UNKNOWN)
-        raise _auth_utils.FirebaseAuthError(
-            canonical_code, msg, cause=error, http_response=error.response, auth_error_code=server_code)
 
 
 class _UserIterator(object):

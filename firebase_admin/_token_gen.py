@@ -20,13 +20,16 @@ import time
 import cachecontrol
 import requests
 import six
+import google.auth.exceptions
 from google.auth import credentials
-from google.auth import exceptions
 from google.auth import iam
 from google.auth import jwt
 from google.auth import transport
 import google.oauth2.id_token
 import google.oauth2.service_account
+
+from firebase_admin import exceptions
+from firebase_admin import _auth_utils
 
 
 # ID token constants
@@ -52,17 +55,8 @@ METADATA_SERVICE_URL = ('http://metadata/computeMetadata/v1/instance/service-acc
                         'default/email')
 
 # Error codes
-COOKIE_CREATE_ERROR = 'COOKIE_CREATE_ERROR'
-TOKEN_SIGN_ERROR = 'TOKEN_SIGN_ERROR'
-
-
-class ApiCallError(Exception):
-    """Represents an Exception encountered while invoking the ID toolkit API."""
-
-    def __init__(self, code, message, error=None):
-        Exception.__init__(self, message)
-        self.code = code
-        self.detail = error
+TOKEN_SIGN_FAILED = 'TOKEN_SIGN_FAILED'
+CERTIFICATE_FETCH_FAILED = 'CERTIFICATE_FETCH_FAILED'
 
 
 class _SigningProvider(object):
@@ -177,9 +171,12 @@ class TokenGenerator(object):
             payload['claims'] = developer_claims
         try:
             return jwt.encode(signing_provider.signer, payload)
-        except exceptions.TransportError as error:
-            msg = 'Failed to sign custom token. {0}'.format(error)
-            raise ApiCallError(TOKEN_SIGN_ERROR, msg, error)
+        except google.auth.exceptions.TransportError as error:
+            raise _auth_utils.FirebaseAuthError(
+                exceptions.UNKNOWN,
+                'Failed to sign custom token. {0}'.format(error),
+                cause=error,
+                auth_error_code=TOKEN_SIGN_FAILED)
 
 
     def create_session_cookie(self, id_token, expires_in):
@@ -206,20 +203,17 @@ class TokenGenerator(object):
             'validDuration': expires_in,
         }
         try:
-            response = self.client.body('post', ':createSessionCookie', json=payload)
+            body, response = self.client.body_and_response('post', ':createSessionCookie', json=payload)
         except requests.exceptions.RequestException as error:
-            self._handle_http_error(COOKIE_CREATE_ERROR, 'Failed to create session cookie', error)
+            _auth_utils.handle_http_error('Failed to create session cookie', error)
         else:
-            if not response or not response.get('sessionCookie'):
-                raise ApiCallError(COOKIE_CREATE_ERROR, 'Failed to create session cookie.')
-            return response.get('sessionCookie')
-
-    def _handle_http_error(self, code, msg, error):
-        if error.response is not None:
-            msg += '\nServer response: {0}'.format(error.response.content.decode())
-        else:
-            msg += '\nReason: {0}'.format(error)
-        raise ApiCallError(code, msg, error)
+            if not body or not body.get('sessionCookie'):
+                raise _auth_utils.FirebaseAuthError(
+                    exceptions.UNKNOWN,
+                    'Failed to create session cookie.',
+                    http_response=response,
+                    auth_error_code='UNEXPECTED_RESPONSE')
+            return body.get('sessionCookie')
 
 
 class TokenVerifier(object):
@@ -332,10 +326,18 @@ class _JWTVerifier(object):
         if error_message:
             raise ValueError(error_message)
 
-        verified_claims = google.oauth2.id_token.verify_token(
-            token,
-            request=request,
-            audience=self.project_id,
-            certs_url=self.cert_url)
-        verified_claims['uid'] = verified_claims['sub']
-        return verified_claims
+        try:
+            verified_claims = google.oauth2.id_token.verify_token(
+                token,
+                request=request,
+                audience=self.project_id,
+                certs_url=self.cert_url)
+            verified_claims['uid'] = verified_claims['sub']
+            return verified_claims
+        except google.auth.exceptions.TransportError as error:
+            raise _auth_utils.FirebaseAuthError(
+                exceptions.UNKNOWN,
+                'Failed to fetch public key certificates. {0}'.format(error),
+                cause=error,
+                auth_error_code=CERTIFICATE_FETCH_FAILED)
+

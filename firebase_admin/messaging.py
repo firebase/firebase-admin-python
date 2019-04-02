@@ -251,7 +251,7 @@ class _MessagingService(object):
         try:
             headers = {
                 'X-GOOG-API-FORMAT-VERSION': '2',
-                'X-FIREBASE-CLIENT': 'fire-admin-python/{0}'.format(firebase_admin.__version__)
+                'X-FIREBASE-CLIENT': self._client_version,
             }
             resp = self._client.body(
                 'post', url=self._fcm_url, headers=headers, json=data, timeout=self._timeout)

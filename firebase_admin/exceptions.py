@@ -13,6 +13,11 @@
 # limitations under the License.
 
 
+"""Firebase exceptions module.
+
+Defines the top-level error codes and exception base classes.
+"""
+
 ALREADY_EXISTS = 'ALREADY_EXISTS'
 INVALID_ARGUMENT = 'INVALID_ARGUMENT'
 FAILED_PRECONDITION = 'FAILED_PRECONDITION'
@@ -26,13 +31,13 @@ DEADLINE_EXCEEDED = 'DEADLINE_EXCEEDED'
 
 
 class FirebaseError(Exception):
+    """Base class for all errors raised by the Admin SDK."""
 
     def __init__(self, code, message, cause=None, http_response=None):
         Exception.__init__(self, message)
         self._code = code
         self._cause = cause
         self._http_response = http_response
-        print('CONST', self._http_response)
 
     @property
     def code(self):

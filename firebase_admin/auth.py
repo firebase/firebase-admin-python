@@ -40,7 +40,6 @@ USER_NOT_FOUND = _user_mgt.USER_NOT_FOUND
 
 __all__ = [
     'ActionCodeSettings',
-    'AuthError',
     'ErrorInfo',
     'ExportedUserRecord',
     'FirebaseAuthError',

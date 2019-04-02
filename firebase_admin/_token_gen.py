@@ -203,7 +203,8 @@ class TokenGenerator(object):
             'validDuration': expires_in,
         }
         try:
-            body, response = self.client.body_and_response('post', ':createSessionCookie', json=payload)
+            body, response = self.client.body_and_response(
+                'post', ':createSessionCookie', json=payload)
         except requests.exceptions.RequestException as error:
             _auth_utils.handle_http_error('Failed to create session cookie', error)
         else:
@@ -340,4 +341,3 @@ class _JWTVerifier(object):
                 'Failed to fetch public key certificates. {0}'.format(error),
                 cause=error,
                 auth_error_code=CERTIFICATE_FETCH_FAILED)
-

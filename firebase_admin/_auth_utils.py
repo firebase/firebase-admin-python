@@ -205,14 +205,15 @@ class FirebaseAuthError(exceptions.FirebaseError):
 
 
 _ERROR_CODE_MAPPINGS = {
-        'CLAIMS_TOO_LARGE': exceptions.INVALID_ARGUMENT,
-        'INVALID_EMAIL': exceptions.INVALID_ARGUMENT,
-        'INSUFFICIENT_PERMISSION': exceptions.PERMISSION_DENIED,
-        'OPERATION_NOT_ALLOWED': exceptions.PERMISSION_DENIED,
-        'PERMISSION_DENIED': exceptions.PERMISSION_DENIED,
-        'USER_NOT_FOUND': exceptions.NOT_FOUND,
-        'DUPLICATE_EMAIL': exceptions.ALREADY_EXISTS,
-    }
+    'CLAIMS_TOO_LARGE': exceptions.INVALID_ARGUMENT,
+    'INVALID_EMAIL': exceptions.INVALID_ARGUMENT,
+    'INSUFFICIENT_PERMISSION': exceptions.PERMISSION_DENIED,
+    'OPERATION_NOT_ALLOWED': exceptions.PERMISSION_DENIED,
+    'PERMISSION_DENIED': exceptions.PERMISSION_DENIED,
+    'USER_NOT_FOUND': exceptions.NOT_FOUND,
+    'DUPLICATE_LOCAL_ID': exceptions.ALREADY_EXISTS,
+    'DUPLICATE_EMAIL': exceptions.ALREADY_EXISTS,
+}
 
 
 def handle_http_error(msg, error):

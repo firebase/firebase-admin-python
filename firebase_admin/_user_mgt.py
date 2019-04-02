@@ -466,7 +466,8 @@ class UserManager(object):
             raise TypeError('Unsupported keyword arguments: {0}.'.format(kwargs))
 
         try:
-            body, response = self._client.body_and_response('post', '/accounts:lookup', json=payload)
+            body, response = self._client.body_and_response(
+                'post', '/accounts:lookup', json=payload)
         except requests.exceptions.RequestException as error:
             msg = 'Failed to get user by {0}: {1}.'.format(key_type, key)
             _auth_utils.handle_http_error(msg, error)
@@ -568,7 +569,8 @@ class UserManager(object):
 
         payload = {k: v for k, v in payload.items() if v is not None}
         try:
-            body, response = self._client.body_and_response('post', '/accounts:update', json=payload)
+            body, response = self._client.body_and_response(
+                'post', '/accounts:update', json=payload)
         except requests.exceptions.RequestException as error:
             _auth_utils.handle_http_error('Failed to update user: {0}.'.format(uid), error)
         else:
@@ -584,7 +586,8 @@ class UserManager(object):
         """Deletes the user identified by the specified user ID."""
         _auth_utils.validate_uid(uid, required=True)
         try:
-            body, response = self._client.body_and_response('post', '/accounts:delete', json={'localId' : uid})
+            body, response = self._client.body_and_response(
+                'post', '/accounts:delete', json={'localId' : uid})
         except requests.exceptions.RequestException as error:
             _auth_utils.handle_http_error('Failed to delete user: {0}.'.format(uid), error)
         else:
@@ -613,7 +616,8 @@ class UserManager(object):
                 raise ValueError('A UserImportHash is required to import users with passwords.')
             payload.update(hash_alg.to_dict())
         try:
-            body, response = self._client.body_and_response('post', '/accounts:batchCreate', json=payload)
+            body, response = self._client.body_and_response(
+                'post', '/accounts:batchCreate', json=payload)
         except requests.exceptions.RequestException as error:
             _auth_utils.handle_http_error('Failed to import users.', error)
         else:
@@ -651,7 +655,8 @@ class UserManager(object):
             payload.update(encode_action_code_settings(action_code_settings))
 
         try:
-            body, response = self._client.body_and_response('post', '/accounts:sendOobCode', json=payload)
+            body, response = self._client.body_and_response(
+                'post', '/accounts:sendOobCode', json=payload)
         except requests.exceptions.RequestException as error:
             _auth_utils.handle_http_error('Failed to generate link.', error)
         else:

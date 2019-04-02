@@ -337,10 +337,6 @@ class TestVerifyIdToken(object):
         'IntSubject': _get_id_token({'sub': 10}),
         'LongStrSubject': _get_id_token({'sub': 'a' * 129}),
         'FutureToken': _get_id_token({'iat': int(time.time()) + 1000}),
-        'ExpiredToken': _get_id_token({
-            'iat': int(time.time()) - 10000,
-            'exp': int(time.time()) - 3600
-        }),
         'MalformedToken': 'foobar',
     }
 
@@ -397,6 +393,17 @@ class TestVerifyIdToken(object):
         assert excinfo.value.code == exceptions.INVALID_ARGUMENT
         assert excinfo.value.auth_error_code == auth.INVALID_ID_TOKEN
 
+    def test_expired_token(self, user_mgt_app):
+        expired_token = _get_id_token({
+            'iat': int(time.time()) - 10000,
+            'exp': int(time.time()) - 3600
+        })
+        _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
+        with pytest.raises(auth.FirebaseAuthError) as excinfo:
+            auth.verify_id_token(expired_token, app=user_mgt_app)
+        assert excinfo.value.code == exceptions.INVALID_ARGUMENT
+        assert excinfo.value.auth_error_code == auth.EXPIRED_ID_TOKEN
+
     def test_project_id_option(self):
         app = firebase_admin.initialize_app(
             testutils.MockCredential(), options={'projectId': 'mock-project-id'}, name='myApp')
@@ -451,10 +458,6 @@ class TestVerifySessionCookie(object):
         'IntSubject': _get_session_cookie({'sub': 10}),
         'LongStrSubject': _get_session_cookie({'sub': 'a' * 129}),
         'FutureCookie': _get_session_cookie({'iat': int(time.time()) + 1000}),
-        'ExpiredCookie': _get_session_cookie({
-            'iat': int(time.time()) - 10000,
-            'exp': int(time.time()) - 3600
-        }),
         'IDToken': TEST_ID_TOKEN,
         'MalformedToken': 'foobar',
     }
@@ -505,6 +508,17 @@ class TestVerifySessionCookie(object):
             auth.verify_session_cookie(cookie, app=user_mgt_app)
         assert excinfo.value.code == exceptions.INVALID_ARGUMENT
         assert excinfo.value.auth_error_code == auth.INVALID_SESSION_COOKIE
+
+    def test_expired_cookie(self, user_mgt_app):
+        expired_cookie = _get_session_cookie({
+            'iat': int(time.time()) - 10000,
+            'exp': int(time.time()) - 3600
+        })
+        _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
+        with pytest.raises(auth.FirebaseAuthError) as excinfo:
+            auth.verify_session_cookie(expired_cookie, app=user_mgt_app)
+        assert excinfo.value.code == exceptions.INVALID_ARGUMENT
+        assert excinfo.value.auth_error_code == auth.EXPIRED_SESSION_COOKIE
 
     def test_project_id_option(self):
         app = firebase_admin.initialize_app(

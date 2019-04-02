@@ -224,12 +224,14 @@ class TokenVerifier(object):
             operation='verify_id_token()',
             doc_url='https://firebase.google.com/docs/auth/admin/verify-id-tokens',
             error_code=_auth_utils.INVALID_ID_TOKEN,
+            expiry_error_code=_auth_utils.EXPIRED_ID_TOKEN,
             cert_url=ID_TOKEN_CERT_URI, issuer=ID_TOKEN_ISSUER_PREFIX)
         self.cookie_verifier = _JWTVerifier(
             project_id=app.project_id, short_name='session cookie',
             operation='verify_session_cookie()',
             doc_url='https://firebase.google.com/docs/auth/admin/verify-id-tokens',
             error_code=_auth_utils.INVALID_SESSION_COOKIE,
+            expiry_error_code=_auth_utils.EXPIRED_SESSION_COOKIE,
             cert_url=COOKIE_CERT_URI, issuer=COOKIE_ISSUER_PREFIX)
 
     def verify_id_token(self, id_token):
@@ -250,6 +252,7 @@ class _JWTVerifier(object):
         self.cert_url = kwargs.pop('cert_url')
         self.issuer = kwargs.pop('issuer')
         self.error_code = kwargs.pop('error_code')
+        self.expiry_error_code = kwargs.pop('expiry_error_code')
         if self.short_name[0].lower() in 'aeiou':
             self.articled_short_name = 'an {0}'.format(self.short_name)
         else:
@@ -341,11 +344,14 @@ class _JWTVerifier(object):
                 cause=error,
                 auth_error_code=_auth_utils.CERTIFICATE_FETCH_FAILED)
         except ValueError as error:
+            error_code = self.error_code
+            if 'Token expired' in str(error):
+                error_code = self.expiry_error_code
             raise _auth_utils.FirebaseAuthError(
                 exceptions.INVALID_ARGUMENT,
                 'Invalid Firebase {0}: {1}'.format(self.short_name, error),
                 cause=error,
-                auth_error_code=self.error_code)
+                auth_error_code=error_code)
 
     def _decode_token(self, token):
         try:

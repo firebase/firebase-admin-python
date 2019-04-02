@@ -34,6 +34,8 @@ from firebase_admin import _utils
 _AUTH_ATTRIBUTE = '_auth'
 ID_TOKEN_REVOKED = 'ID_TOKEN_REVOKED'
 SESSION_COOKIE_REVOKED = 'SESSION_COOKIE_REVOKED'
+UNEXPECTED_RESPONSE = _user_mgt.UNEXPECTED_RESPONSE
+USER_NOT_FOUND = _user_mgt.USER_NOT_FOUND
 
 
 __all__ = [
@@ -41,6 +43,7 @@ __all__ = [
     'AuthError',
     'ErrorInfo',
     'ExportedUserRecord',
+    'FirebaseAuthError',
     'ImportUserRecord',
     'ListUsersPage',
     'UserImportHash',
@@ -67,7 +70,13 @@ __all__ = [
     'update_user',
     'verify_id_token',
     'verify_session_cookie',
+
+    'ID_TOKEN_REVOKED',
+    'SESSION_COOKIE_REVOKED',
+    'UNEXPECTED_RESPONSE',
+    'USER_NOT_FOUND',
 ]
+
 
 ActionCodeSettings = _user_mgt.ActionCodeSettings
 ErrorInfo = _user_import.ErrorInfo
@@ -122,7 +131,8 @@ def create_custom_token(uid, developer_claims=None, app=None):
     try:
         return token_generator.create_custom_token(uid, developer_claims)
     except _token_gen.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+        raise FirebaseAuthError(error.code, str(error), cause=error)
+
 
 def verify_id_token(id_token, app=None, check_revoked=False):
     """Verifies the signature and data for the provided JWT.
@@ -153,6 +163,7 @@ def verify_id_token(id_token, app=None, check_revoked=False):
         _check_jwt_revoked(verified_claims, ID_TOKEN_REVOKED, 'ID token', app)
     return verified_claims
 
+
 def create_session_cookie(id_token, expires_in, app=None):
     """Creates a new Firebase session cookie from the given ID token and options.
 
@@ -175,7 +186,8 @@ def create_session_cookie(id_token, expires_in, app=None):
     try:
         return token_generator.create_session_cookie(id_token, expires_in)
     except _token_gen.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+        raise FirebaseAuthError(error.code, str(error), cause=error)
+
 
 def verify_session_cookie(session_cookie, check_revoked=False, app=None):
     """Verifies a Firebase session cookie.
@@ -202,6 +214,7 @@ def verify_session_cookie(session_cookie, check_revoked=False, app=None):
         _check_jwt_revoked(verified_claims, SESSION_COOKIE_REVOKED, 'session cookie', app)
     return verified_claims
 
+
 def revoke_refresh_tokens(uid, app=None):
     """Revokes all refresh tokens for an existing user.
 
@@ -216,6 +229,7 @@ def revoke_refresh_tokens(uid, app=None):
     """
     user_manager = _get_auth_service(app).user_manager
     user_manager.update_user(uid, valid_since=int(time.time()))
+
 
 def get_user(uid, app=None):
     """Gets the user data corresponding to the specified user ID.
@@ -233,11 +247,9 @@ def get_user(uid, app=None):
             does not exist.
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        response = user_manager.get_user(uid=uid)
-        return UserRecord(response)
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    response = user_manager.get_user(uid=uid)
+    return UserRecord(response)
+
 
 def get_user_by_email(email, app=None):
     """Gets the user data corresponding to the specified user email.
@@ -255,11 +267,8 @@ def get_user_by_email(email, app=None):
             email address.
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        response = user_manager.get_user(email=email)
-        return UserRecord(response)
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    response = user_manager.get_user(email=email)
+    return UserRecord(response)
 
 
 def get_user_by_phone_number(phone_number, app=None):
@@ -278,11 +287,9 @@ def get_user_by_phone_number(phone_number, app=None):
             phone number.
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        response = user_manager.get_user(phone_number=phone_number)
-        return UserRecord(response)
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    response = user_manager.get_user(phone_number=phone_number)
+    return UserRecord(response)
+
 
 def list_users(page_token=None, max_results=_user_mgt.MAX_LIST_USERS_RESULTS, app=None):
     """Retrieves a page of user accounts from a Firebase project.
@@ -308,10 +315,7 @@ def list_users(page_token=None, max_results=_user_mgt.MAX_LIST_USERS_RESULTS, ap
     """
     user_manager = _get_auth_service(app).user_manager
     def download(page_token, max_results):
-        try:
-            return user_manager.list_users(page_token, max_results)
-        except _user_mgt.ApiCallError as error:
-            raise AuthError(error.code, str(error), error.detail)
+        return user_manager.list_users(page_token, max_results)
     return ListUsersPage(download, page_token, max_results)
 
 
@@ -339,11 +343,8 @@ def create_user(**kwargs):
     """
     app = kwargs.pop('app', None)
     user_manager = _get_auth_service(app).user_manager
-    try:
-        uid = user_manager.create_user(**kwargs)
-        return UserRecord(user_manager.get_user(uid=uid))
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    uid = user_manager.create_user(**kwargs)
+    return UserRecord(user_manager.get_user(uid=uid))
 
 
 def update_user(uid, **kwargs):
@@ -378,11 +379,9 @@ def update_user(uid, **kwargs):
     """
     app = kwargs.pop('app', None)
     user_manager = _get_auth_service(app).user_manager
-    try:
-        user_manager.update_user(uid, **kwargs)
-        return UserRecord(user_manager.get_user(uid=uid))
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    user_manager.update_user(uid, **kwargs)
+    return UserRecord(user_manager.get_user(uid=uid))
+
 
 def set_custom_user_claims(uid, custom_claims, app=None):
     """Sets additional claims on an existing user account.
@@ -405,10 +404,8 @@ def set_custom_user_claims(uid, custom_claims, app=None):
         AuthError: If an error occurs while updating the user account.
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        user_manager.update_user(uid, custom_claims=custom_claims)
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    user_manager.update_user(uid, custom_claims=custom_claims)
+
 
 def delete_user(uid, app=None):
     """Deletes the user identified by the specified user ID.
@@ -422,10 +419,8 @@ def delete_user(uid, app=None):
         AuthError: If an error occurs while deleting the user account.
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        user_manager.delete_user(uid)
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    user_manager.delete_user(uid)
+
 
 def import_users(users, hash_alg=None, app=None):
     """Imports the specified list of users into Firebase Auth.
@@ -450,11 +445,9 @@ def import_users(users, hash_alg=None, app=None):
         AuthError: If an error occurs while importing users.
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        result = user_manager.import_users(users, hash_alg)
-        return UserImportResult(result, len(users))
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    result = user_manager.import_users(users, hash_alg)
+    return UserImportResult(result, len(users))
+
 
 def generate_password_reset_link(email, action_code_settings=None, app=None):
     """Generates the out-of-band email action link for password reset flows for the specified email
@@ -474,11 +467,9 @@ def generate_password_reset_link(email, action_code_settings=None, app=None):
         AuthError: If an error occurs while generating the link
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        return user_manager.generate_email_action_link('PASSWORD_RESET', email,
-                                                       action_code_settings=action_code_settings)
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    return user_manager.generate_email_action_link(
+        'PASSWORD_RESET', email, action_code_settings=action_code_settings)
+
 
 def generate_email_verification_link(email, action_code_settings=None, app=None):
     """Generates the out-of-band email action link for email verification flows for the specified
@@ -498,11 +489,9 @@ def generate_email_verification_link(email, action_code_settings=None, app=None)
         AuthError: If an error occurs while generating the link
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        return user_manager.generate_email_action_link('VERIFY_EMAIL', email,
-                                                       action_code_settings=action_code_settings)
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    return user_manager.generate_email_action_link(
+        'VERIFY_EMAIL', email, action_code_settings=action_code_settings)
+
 
 def generate_sign_in_with_email_link(email, action_code_settings, app=None):
     """Generates the out-of-band email action link for email link sign-in flows, using the action
@@ -522,11 +511,9 @@ def generate_sign_in_with_email_link(email, action_code_settings, app=None):
         AuthError: If an error occurs while generating the link
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        return user_manager.generate_email_action_link('EMAIL_SIGNIN', email,
-                                                       action_code_settings=action_code_settings)
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    return user_manager.generate_email_action_link(
+        'EMAIL_SIGNIN', email, action_code_settings=action_code_settings)
+
 
 def _check_jwt_revoked(verified_claims, error_code, label, app):
     user = get_user(verified_claims.get('uid'), app=app)

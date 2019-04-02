@@ -20,18 +20,13 @@ import requests
 import six
 from six.moves import urllib
 
+from firebase_admin import exceptions
 from firebase_admin import _auth_utils
 from firebase_admin import _user_import
 
 
-INTERNAL_ERROR = 'INTERNAL_ERROR'
-USER_NOT_FOUND_ERROR = 'USER_NOT_FOUND_ERROR'
-USER_CREATE_ERROR = 'USER_CREATE_ERROR'
-USER_UPDATE_ERROR = 'USER_UPDATE_ERROR'
-USER_DELETE_ERROR = 'USER_DELETE_ERROR'
-USER_IMPORT_ERROR = 'USER_IMPORT_ERROR'
-USER_DOWNLOAD_ERROR = 'LIST_USERS_ERROR'
-GENERATE_EMAIL_ACTION_LINK_ERROR = 'GENERATE_EMAIL_ACTION_LINK_ERROR'
+USER_NOT_FOUND = 'USER_NOT_FOUND'
+UNEXPECTED_RESPONSE = 'UNEXPECTED_RESPONSE'
 
 MAX_LIST_USERS_RESULTS = 1000
 MAX_IMPORT_USERS_SIZE = 1000
@@ -41,15 +36,6 @@ class _Unspecified(object):
 
 # Use this internally, until sentinels are available in the public API.
 _UNSPECIFIED = _Unspecified()
-
-
-class ApiCallError(Exception):
-    """Represents an Exception encountered while invoking the Firebase user management API."""
-
-    def __init__(self, code, message, error=None):
-        Exception.__init__(self, message)
-        self.code = code
-        self.detail = error
 
 
 class UserMetadata(object):
@@ -374,6 +360,7 @@ class ProviderUserInfo(UserInfo):
     def provider_id(self):
         return self._data.get('providerId')
 
+
 class ActionCodeSettings(object):
     """Contains required continue/state URL with optional Android and iOS settings.
     Used when invoking the email action link generation APIs.
@@ -388,6 +375,7 @@ class ActionCodeSettings(object):
         self.android_package_name = android_package_name
         self.android_install_app = android_install_app
         self.android_minimum_version = android_minimum_version
+
 
 def encode_action_code_settings(settings):
     """ Validates the provided action code settings for email link generation and
@@ -456,6 +444,7 @@ def encode_action_code_settings(settings):
 
     return parameters
 
+
 class UserManager(object):
     """Provides methods for interacting with the Google Identity Toolkit."""
 
@@ -477,16 +466,18 @@ class UserManager(object):
             raise TypeError('Unsupported keyword arguments: {0}.'.format(kwargs))
 
         try:
-            response = self._client.body('post', '/accounts:lookup', json=payload)
+            body, response = self._client.body_and_response('post', '/accounts:lookup', json=payload)
         except requests.exceptions.RequestException as error:
             msg = 'Failed to get user by {0}: {1}.'.format(key_type, key)
-            self._handle_http_error(INTERNAL_ERROR, msg, error)
+            self._handle_http_error(msg, error)
         else:
-            if not response or not response.get('users'):
-                raise ApiCallError(
-                    USER_NOT_FOUND_ERROR,
-                    'No user record found for the provided {0}: {1}.'.format(key_type, key))
-            return response['users'][0]
+            if not body or not body.get('users'):
+                raise _auth_utils.FirebaseAuthError(
+                    exceptions.NOT_FOUND,
+                    'No user record found for the provided {0}: {1}.'.format(key_type, key),
+                    http_response=response,
+                    auth_error_code=USER_NOT_FOUND)
+            return body['users'][0]
 
     def list_users(self, page_token=None, max_results=MAX_LIST_USERS_RESULTS):
         """Retrieves a batch of users."""
@@ -506,7 +497,7 @@ class UserManager(object):
         try:
             return self._client.body('get', '/accounts:batchGet', params=payload)
         except requests.exceptions.RequestException as error:
-            self._handle_http_error(USER_DOWNLOAD_ERROR, 'Failed to download user accounts.', error)
+            self._handle_http_error('Failed to download user accounts.', error)
 
     def create_user(self, uid=None, display_name=None, email=None, phone_number=None,
                     photo_url=None, password=None, disabled=None, email_verified=None):
@@ -523,13 +514,17 @@ class UserManager(object):
         }
         payload = {k: v for k, v in payload.items() if v is not None}
         try:
-            response = self._client.body('post', '/accounts', json=payload)
+            body, response = self._client.body_and_response('post', '/accounts', json=payload)
         except requests.exceptions.RequestException as error:
-            self._handle_http_error(USER_CREATE_ERROR, 'Failed to create new user.', error)
+            self._handle_http_error('Failed to create new user.', error)
         else:
-            if not response or not response.get('localId'):
-                raise ApiCallError(USER_CREATE_ERROR, 'Failed to create new user.')
-            return response.get('localId')
+            if not body or not body.get('localId'):
+                raise _auth_utils.FirebaseAuthError(
+                    exceptions.UNKNOWN,
+                    'Failed to create new user.',
+                    http_response=response,
+                    auth_error_code=UNEXPECTED_RESPONSE)
+            return body.get('localId')
 
     def update_user(self, uid, display_name=_UNSPECIFIED, email=None, phone_number=_UNSPECIFIED,
                     photo_url=_UNSPECIFIED, password=None, disabled=None, email_verified=None,
@@ -573,26 +568,32 @@ class UserManager(object):
 
         payload = {k: v for k, v in payload.items() if v is not None}
         try:
-            response = self._client.body('post', '/accounts:update', json=payload)
+            body, response = self._client.body_and_response('post', '/accounts:update', json=payload)
         except requests.exceptions.RequestException as error:
-            self._handle_http_error(
-                USER_UPDATE_ERROR, 'Failed to update user: {0}.'.format(uid), error)
+            self._handle_http_error('Failed to update user: {0}.'.format(uid), error)
         else:
-            if not response or not response.get('localId'):
-                raise ApiCallError(USER_UPDATE_ERROR, 'Failed to update user: {0}.'.format(uid))
-            return response.get('localId')
+            if not body or not body.get('localId'):
+                raise _auth_utils.FirebaseAuthError(
+                    exceptions.UNKNOWN,
+                    'Failed to update user: {0}.'.format(uid),
+                    http_response=response,
+                    auth_error_code=UNEXPECTED_RESPONSE)
+            return body.get('localId')
 
     def delete_user(self, uid):
         """Deletes the user identified by the specified user ID."""
         _auth_utils.validate_uid(uid, required=True)
         try:
-            response = self._client.body('post', '/accounts:delete', json={'localId' : uid})
+            body, response = self._client.body_and_response('post', '/accounts:delete', json={'localId' : uid})
         except requests.exceptions.RequestException as error:
-            self._handle_http_error(
-                USER_DELETE_ERROR, 'Failed to delete user: {0}.'.format(uid), error)
+            self._handle_http_error('Failed to delete user: {0}.'.format(uid), error)
         else:
-            if not response or not response.get('kind'):
-                raise ApiCallError(USER_DELETE_ERROR, 'Failed to delete user: {0}.'.format(uid))
+            if not body or not body.get('kind'):
+                raise _auth_utils.FirebaseAuthError(
+                    exceptions.UNKNOWN,
+                    'Failed to delete user: {0}.'.format(uid),
+                    http_response=response,
+                    auth_error_code=UNEXPECTED_RESPONSE)
 
     def import_users(self, users, hash_alg=None):
         """Imports the given list of users to Firebase Auth."""
@@ -612,13 +613,17 @@ class UserManager(object):
                 raise ValueError('A UserImportHash is required to import users with passwords.')
             payload.update(hash_alg.to_dict())
         try:
-            response = self._client.body('post', '/accounts:batchCreate', json=payload)
+            body, response = self._client.body_and_response('post', '/accounts:batchCreate', json=payload)
         except requests.exceptions.RequestException as error:
-            self._handle_http_error(USER_IMPORT_ERROR, 'Failed to import users.', error)
+            self._handle_http_error('Failed to import users.', error)
         else:
-            if not isinstance(response, dict):
-                raise ApiCallError(USER_IMPORT_ERROR, 'Failed to import users.')
-            return response
+            if not isinstance(body, dict):
+                raise _auth_utils.FirebaseAuthError(
+                    exceptions.UNKNOWN,
+                    'Failed to import users.',
+                    http_response=response,
+                    auth_error_code=UNEXPECTED_RESPONSE)
+            return body
 
     def generate_email_action_link(self, action_type, email, action_code_settings=None):
         """Fetches the email action links for types
@@ -633,7 +638,7 @@ class UserManager(object):
             link_url: action url to be emailed to the user
 
         Raises:
-            ApiCallError: If an error occurs while generating the link
+            auth.FirebaseAuthError: If an error occurs while generating the link
             ValueError: If the provided arguments are invalid
         """
         payload = {
@@ -646,21 +651,37 @@ class UserManager(object):
             payload.update(encode_action_code_settings(action_code_settings))
 
         try:
-            response = self._client.body('post', '/accounts:sendOobCode', json=payload)
+            body, response = self._client.body_and_response('post', '/accounts:sendOobCode', json=payload)
         except requests.exceptions.RequestException as error:
-            self._handle_http_error(GENERATE_EMAIL_ACTION_LINK_ERROR, 'Failed to generate link.',
-                                    error)
+            self._handle_http_error('Failed to generate link.', error)
         else:
-            if not response or not response.get('oobLink'):
-                raise ApiCallError(GENERATE_EMAIL_ACTION_LINK_ERROR, 'Failed to generate link.')
-            return response.get('oobLink')
+            if not body or not body.get('oobLink'):
+                raise _auth_utils.FirebaseAuthError(
+                    exceptions.UNKNOWN,
+                    'Failed to generate link.',
+                    http_response=response,
+                    auth_error_code=UNEXPECTED_RESPONSE)
+            return body.get('oobLink')
 
-    def _handle_http_error(self, code, msg, error):
+    _ERROR_CODE_MAPPINGS = {
+        'CLAIMS_TOO_LARGE': exceptions.INVALID_ARGUMENT,
+        'INVALID_EMAIL': exceptions.INVALID_ARGUMENT,
+        'INSUFFICIENT_PERMISSION': exceptions.PERMISSION_DENIED,
+        'OPERATION_NOT_ALLOWED': exceptions.PERMISSION_DENIED,
+        'PERMISSION_DENIED': exceptions.PERMISSION_DENIED,
+        'USER_NOT_FOUND': exceptions.NOT_FOUND,
+        'DUPLICATE_EMAIL': exceptions.ALREADY_EXISTS,
+    }
+
+    def _handle_http_error(self, msg, error):
+        response_payload = {}
         if error.response is not None:
-            msg += '\nServer response: {0}'.format(error.response.content.decode())
-        else:
-            msg += '\nReason: {0}'.format(error)
-        raise ApiCallError(code, msg, error)
+            response_payload = error.response.json()
+            msg += '\n Server response: {0}'.format(error.response.content.decode())
+        server_code = response_payload.get('error', {}).get('message')
+        canonical_code = self._ERROR_CODE_MAPPINGS.get(server_code, exceptions.UNKNOWN)
+        raise _auth_utils.FirebaseAuthError(
+            canonical_code, msg, cause=error, http_response=error.response, auth_error_code=server_code)
 
 
 class _UserIterator(object):

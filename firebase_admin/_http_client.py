@@ -109,9 +109,13 @@ class HttpClient(object):
         resp = self.request(method, url, **kwargs)
         return resp.headers
 
-    def body(self, method, url, **kwargs):
+    def body_and_response(self, method, url, **kwargs):
         resp = self.request(method, url, **kwargs)
-        return self.parse_body(resp)
+        return self.parse_body(resp), resp
+
+    def body(self, method, url, **kwargs):
+        body, _ = self.body_and_response(method, url, **kwargs)
+        return body
 
     def headers_and_body(self, method, url, **kwargs):
         resp = self.request(method, url, **kwargs)

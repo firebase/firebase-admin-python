@@ -21,11 +21,13 @@ import pytest
 
 import firebase_admin
 from firebase_admin import auth
+from firebase_admin import exceptions
 from firebase_admin import _auth_utils
 from firebase_admin import _user_import
 from firebase_admin import _user_mgt
 from tests import testutils
 
+import requests
 from six.moves import urllib
 
 
@@ -36,6 +38,7 @@ INVALID_TIMESTAMPS = ['foo', '1', 0, -1, 1.1, True, False, list(), tuple(), dict
 
 MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
 MOCK_LIST_USERS_RESPONSE = testutils.resource('list_users.json')
+MOCK_ERROR_RESPONSE = '{"error": {"message": "test"}}'
 
 MOCK_ACTION_CODE_DATA = {
     'url': 'http://localhost',
@@ -211,30 +214,42 @@ class TestGetUser(object):
 
     def test_get_user_non_existing(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 200, '{"users":[]}')
-        with pytest.raises(auth.AuthError) as excinfo:
+        with pytest.raises(auth.FirebaseAuthError) as excinfo:
             auth.get_user('nonexistentuser', user_mgt_app)
-        assert excinfo.value.code == _user_mgt.USER_NOT_FOUND_ERROR
+        assert excinfo.value.code == exceptions.NOT_FOUND
+
+    def test_get_user_unknown_http_error(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 500, MOCK_ERROR_RESPONSE)
+        with pytest.raises(auth.FirebaseAuthError) as excinfo:
+            auth.get_user('testuser', user_mgt_app)
+        assert excinfo.value.code == exceptions.UNKNOWN
+        assert excinfo.value.auth_error_code == 'test'
+        assert MOCK_ERROR_RESPONSE in str(excinfo.value)
 
     def test_get_user_http_error(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
-        with pytest.raises(auth.AuthError) as excinfo:
+        error_payload = '{"error": {"message": "INSUFFICIENT_PERMISSION"}}'
+        _instrument_user_manager(user_mgt_app, 500, error_payload)
+        with pytest.raises(auth.FirebaseAuthError) as excinfo:
             auth.get_user('testuser', user_mgt_app)
-        assert excinfo.value.code == _user_mgt.INTERNAL_ERROR
-        assert '{"error":"test"}' in str(excinfo.value)
+        assert excinfo.value.code == exceptions.PERMISSION_DENIED
+        assert excinfo.value.auth_error_code == 'INSUFFICIENT_PERMISSION'
+        assert isinstance(excinfo.value.cause, requests.exceptions.RequestException)
+        assert excinfo.value.http_response.status_code == 500
+        assert error_payload in str(excinfo.value)
 
     def test_get_user_by_email_http_error(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
-        with pytest.raises(auth.AuthError) as excinfo:
+        _instrument_user_manager(user_mgt_app, 500, MOCK_ERROR_RESPONSE)
+        with pytest.raises(auth.FirebaseAuthError) as excinfo:
             auth.get_user_by_email('non.existent.user@example.com', user_mgt_app)
-        assert excinfo.value.code == _user_mgt.INTERNAL_ERROR
-        assert '{"error":"test"}' in str(excinfo.value)
+        assert excinfo.value.code == exceptions.UNKNOWN
+        assert MOCK_ERROR_RESPONSE in str(excinfo.value)
 
     def test_get_user_by_phone_http_error(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
-        with pytest.raises(auth.AuthError) as excinfo:
+        _instrument_user_manager(user_mgt_app, 500, MOCK_ERROR_RESPONSE)
+        with pytest.raises(auth.FirebaseAuthError) as excinfo:
             auth.get_user_by_phone_number('+1234567890', user_mgt_app)
-        assert excinfo.value.code == _user_mgt.INTERNAL_ERROR
-        assert '{"error":"test"}' in str(excinfo.value)
+        assert excinfo.value.code == exceptions.UNKNOWN
+        assert MOCK_ERROR_RESPONSE in str(excinfo.value)
 
 
 class TestCreateUser(object):
@@ -301,11 +316,11 @@ class TestCreateUser(object):
         assert request == {'localId' : 'testuser'}
 
     def test_create_user_error(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
-        with pytest.raises(auth.AuthError) as excinfo:
+        _instrument_user_manager(user_mgt_app, 500, MOCK_ERROR_RESPONSE)
+        with pytest.raises(auth.FirebaseAuthError) as excinfo:
             auth.create_user(app=user_mgt_app)
-        assert excinfo.value.code == _user_mgt.USER_CREATE_ERROR
-        assert '{"error":"test"}' in str(excinfo.value)
+        assert excinfo.value.code == exceptions.UNKNOWN
+        assert MOCK_ERROR_RESPONSE in str(excinfo.value)
 
 
 class TestUpdateUser(object):
@@ -392,11 +407,11 @@ class TestUpdateUser(object):
         }
 
     def test_update_user_error(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
-        with pytest.raises(auth.AuthError) as excinfo:
+        _instrument_user_manager(user_mgt_app, 500, MOCK_ERROR_RESPONSE)
+        with pytest.raises(auth.FirebaseAuthError) as excinfo:
             auth.update_user('user', app=user_mgt_app)
-        assert excinfo.value.code == _user_mgt.USER_UPDATE_ERROR
-        assert '{"error":"test"}' in str(excinfo.value)
+        assert excinfo.value.code == exceptions.UNKNOWN
+        assert MOCK_ERROR_RESPONSE in str(excinfo.value)
 
     @pytest.mark.parametrize('arg', [1, 1.0])
     def test_update_user_valid_since(self, user_mgt_app, arg):
@@ -460,11 +475,11 @@ class TestSetCustomUserClaims(object):
         assert request == {'localId' : 'testuser', 'customAttributes' : json.dumps({})}
 
     def test_set_custom_user_claims_error(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
-        with pytest.raises(auth.AuthError) as excinfo:
+        _instrument_user_manager(user_mgt_app, 500, MOCK_ERROR_RESPONSE)
+        with pytest.raises(auth.FirebaseAuthError) as excinfo:
             auth.set_custom_user_claims('user', {}, app=user_mgt_app)
-        assert excinfo.value.code == _user_mgt.USER_UPDATE_ERROR
-        assert '{"error":"test"}' in str(excinfo.value)
+        assert excinfo.value.code == exceptions.UNKNOWN
+        assert MOCK_ERROR_RESPONSE in str(excinfo.value)
 
 
 class TestDeleteUser(object):
@@ -480,11 +495,11 @@ class TestDeleteUser(object):
         auth.delete_user('testuser', user_mgt_app)
 
     def test_delete_user_error(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
-        with pytest.raises(auth.AuthError) as excinfo:
+        _instrument_user_manager(user_mgt_app, 500, MOCK_ERROR_RESPONSE)
+        with pytest.raises(auth.FirebaseAuthError) as excinfo:
             auth.delete_user('user', app=user_mgt_app)
-        assert excinfo.value.code == _user_mgt.USER_DELETE_ERROR
-        assert '{"error":"test"}' in str(excinfo.value)
+        assert excinfo.value.code == exceptions.UNKNOWN
+        assert MOCK_ERROR_RESPONSE in str(excinfo.value)
 
 
 class TestListUsers(object):
@@ -619,11 +634,11 @@ class TestListUsers(object):
         self._check_rpc_calls(recorder, {'nextPageToken' : 'foo', 'maxResults' : '500'})
 
     def test_list_users_error(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
-        with pytest.raises(auth.AuthError) as excinfo:
+        _instrument_user_manager(user_mgt_app, 500, MOCK_ERROR_RESPONSE)
+        with pytest.raises(auth.FirebaseAuthError) as excinfo:
             auth.list_users(app=user_mgt_app)
-        assert excinfo.value.code == _user_mgt.USER_DOWNLOAD_ERROR
-        assert '{"error":"test"}' in str(excinfo.value)
+        assert excinfo.value.code == exceptions.UNKNOWN
+        assert MOCK_ERROR_RESPONSE in str(excinfo.value)
 
     def _check_page(self, page):
         assert isinstance(page, auth.ListUsersPage)
@@ -1086,8 +1101,8 @@ class TestGenerateEmailActionLink(object):
         auth.generate_password_reset_link,
     ])
     def test_api_call_failure(self, user_mgt_app, func):
-        _instrument_user_manager(user_mgt_app, 500, '{"error":"dummy error"}')
-        with pytest.raises(auth.AuthError):
+        _instrument_user_manager(user_mgt_app, 500, MOCK_ERROR_RESPONSE)
+        with pytest.raises(auth.FirebaseAuthError):
             func('test@test.com', MOCK_ACTION_CODE_SETTINGS, app=user_mgt_app)
 
     @pytest.mark.parametrize('func', [
@@ -1097,7 +1112,7 @@ class TestGenerateEmailActionLink(object):
     ])
     def test_api_call_no_link(self, user_mgt_app, func):
         _instrument_user_manager(user_mgt_app, 200, '{}')
-        with pytest.raises(auth.AuthError):
+        with pytest.raises(auth.FirebaseAuthError):
             func('test@test.com', MOCK_ACTION_CODE_SETTINGS, app=user_mgt_app)
 
     @pytest.mark.parametrize('func', [

@@ -219,7 +219,7 @@ class TestCreateCustomToken(object):
         try:
             iam_resp = '{"error": {"code": 403, "message": "test error"}}'
             _overwrite_iam_request(app, testutils.MockRequest(403, iam_resp))
-            with pytest.raises(auth.AuthError) as excinfo:
+            with pytest.raises(auth.FirebaseAuthError) as excinfo:
                 auth.create_custom_token(MOCK_UID, app=app)
             assert excinfo.value.code == _token_gen.TOKEN_SIGN_ERROR
             assert iam_resp in str(excinfo.value)
@@ -299,14 +299,14 @@ class TestCreateSessionCookie(object):
 
     def test_error(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
-        with pytest.raises(auth.AuthError) as excinfo:
+        with pytest.raises(auth.FirebaseAuthError) as excinfo:
             auth.create_session_cookie('id_token', expires_in=3600, app=user_mgt_app)
         assert excinfo.value.code == _token_gen.COOKIE_CREATE_ERROR
         assert '{"error":"test"}' in str(excinfo.value)
 
     def test_unexpected_response(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 200, '{}')
-        with pytest.raises(auth.AuthError) as excinfo:
+        with pytest.raises(auth.FirebaseAuthError) as excinfo:
             auth.create_session_cookie('id_token', expires_in=3600, app=user_mgt_app)
         assert excinfo.value.code == _token_gen.COOKIE_CREATE_ERROR
         assert 'Failed to create session cookie' in str(excinfo.value)
@@ -368,9 +368,9 @@ class TestVerifyIdToken(object):
     def test_revoked_token_check_revoked(self, user_mgt_app, revoked_tokens, id_token):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
         _instrument_user_manager(user_mgt_app, 200, revoked_tokens)
-        with pytest.raises(auth.AuthError) as excinfo:
+        with pytest.raises(auth.FirebaseAuthError) as excinfo:
             auth.verify_id_token(id_token, app=user_mgt_app, check_revoked=True)
-        assert excinfo.value.code == 'ID_TOKEN_REVOKED'
+        assert excinfo.value.auth_error_code == 'ID_TOKEN_REVOKED'
         assert str(excinfo.value) == 'The Firebase ID token has been revoked.'
 
     @pytest.mark.parametrize('arg', INVALID_BOOLS)
@@ -477,9 +477,9 @@ class TestVerifySessionCookie(object):
     def test_revoked_cookie_check_revoked(self, user_mgt_app, revoked_tokens, cookie):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
         _instrument_user_manager(user_mgt_app, 200, revoked_tokens)
-        with pytest.raises(auth.AuthError) as excinfo:
+        with pytest.raises(auth.FirebaseAuthError) as excinfo:
             auth.verify_session_cookie(cookie, app=user_mgt_app, check_revoked=True)
-        assert excinfo.value.code == 'SESSION_COOKIE_REVOKED'
+        assert excinfo.value.auth_error_code == 'SESSION_COOKIE_REVOKED'
         assert str(excinfo.value) == 'The Firebase session cookie has been revoked.'
 
     @pytest.mark.parametrize('cookie', valid_cookies.values(), ids=list(valid_cookies))

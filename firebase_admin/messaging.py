@@ -17,6 +17,7 @@
 import requests
 import six
 
+import firebase_admin
 from firebase_admin import _http_client
 from firebase_admin import _messaging_utils
 from firebase_admin import _utils
@@ -235,6 +236,7 @@ class _MessagingService(object):
         self._fcm_url = _MessagingService.FCM_URL.format(project_id)
         self._client = _http_client.JsonHttpClient(credential=app.credential.get_credential())
         self._timeout = app.options.get('httpTimeout')
+        self._client_version = 'fire-admin-python/{0}'.format(firebase_admin.__version__)
 
     @classmethod
     def encode_message(cls, message):
@@ -247,7 +249,10 @@ class _MessagingService(object):
         if dry_run:
             data['validate_only'] = True
         try:
-            headers = {'X-GOOG-API-FORMAT-VERSION': '2'}
+            headers = {
+                'X-GOOG-API-FORMAT-VERSION': '2',
+                'X-FIREBASE-CLIENT': self._client_version,
+            }
             resp = self._client.body(
                 'post', url=self._fcm_url, headers=headers, json=data, timeout=self._timeout)
         except requests.exceptions.RequestException as error:

@@ -222,7 +222,7 @@ class TestCreateCustomToken(object):
             with pytest.raises(auth.FirebaseAuthError) as excinfo:
                 auth.create_custom_token(MOCK_UID, app=app)
             assert excinfo.value.code == exceptions.UNKNOWN
-            assert excinfo.value._auth_error_code == _token_gen.TOKEN_SIGN_FAILED
+            assert excinfo.value._auth_error_code == auth.TOKEN_SIGN_FAILED
             assert iam_resp in str(excinfo.value)
         finally:
             firebase_admin.delete_app(app)
@@ -341,14 +341,6 @@ class TestVerifyIdToken(object):
             'iat': int(time.time()) - 10000,
             'exp': int(time.time()) - 3600
         }),
-        'NoneToken': None,
-        'EmptyToken': '',
-        'BoolToken': True,
-        'IntToken': 1,
-        'ListToken': [],
-        'EmptyDictToken': {},
-        'NonEmptyDictToken': {'a': 1},
-        'BadFormatToken': 'foobar'
     }
 
     @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
@@ -390,11 +382,19 @@ class TestVerifyIdToken(object):
         assert claims['admin'] is True
         assert claims['uid'] == claims['sub']
 
-    @pytest.mark.parametrize('id_token', invalid_tokens.values(), ids=list(invalid_tokens))
-    def test_invalid_token(self, user_mgt_app, id_token):
+    @pytest.mark.parametrize('id_token', [None, '', 'foobar', True, 1, [], {}, {'a': 1}])
+    def test_invalid_jwt(self, user_mgt_app, id_token):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
         with pytest.raises(ValueError):
             auth.verify_id_token(id_token, app=user_mgt_app)
+
+    @pytest.mark.parametrize('id_token', invalid_tokens.values(), ids=list(invalid_tokens))
+    def test_invalid_token(self, user_mgt_app, id_token):
+        _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
+        with pytest.raises(auth.FirebaseAuthError) as excinfo:
+            auth.verify_id_token(id_token, app=user_mgt_app)
+        assert excinfo.value.code == exceptions.INVALID_ARGUMENT
+        assert excinfo.value.auth_error_code == auth.INVALID_ID_TOKEN
 
     def test_project_id_option(self):
         app = firebase_admin.initialize_app(
@@ -419,15 +419,17 @@ class TestVerifyIdToken(object):
     def test_custom_token(self, auth_app):
         id_token = auth.create_custom_token(MOCK_UID, app=auth_app)
         _overwrite_cert_request(auth_app, MOCK_REQUEST)
-        with pytest.raises(ValueError):
+        with pytest.raises(auth.FirebaseAuthError) as excinfo:
             auth.verify_id_token(id_token, app=auth_app)
+        assert excinfo.value.code == exceptions.INVALID_ARGUMENT
+        assert excinfo.value.auth_error_code == auth.INVALID_ID_TOKEN
 
     def test_certificate_request_failure(self, user_mgt_app):
         _overwrite_cert_request(user_mgt_app, testutils.MockRequest(404, 'not found'))
         with pytest.raises(auth.FirebaseAuthError) as excinfo:
             auth.verify_id_token(TEST_ID_TOKEN, app=user_mgt_app)
         assert excinfo.value.code == exceptions.UNKNOWN
-        assert excinfo.value.auth_error_code == 'CERTIFICATE_FETCH_FAILED'
+        assert excinfo.value.auth_error_code == auth.CERTIFICATE_FETCH_FAILED
 
 
 class TestVerifySessionCookie(object):
@@ -452,14 +454,6 @@ class TestVerifySessionCookie(object):
             'iat': int(time.time()) - 10000,
             'exp': int(time.time()) - 3600
         }),
-        'NoneCookie': None,
-        'EmptyCookie': '',
-        'BoolCookie': True,
-        'IntCookie': 1,
-        'ListCookie': [],
-        'EmptyDictCookie': {},
-        'NonEmptyDictCookie': {'a': 1},
-        'BadFormatCookie': 'foobar',
         'IDToken': TEST_ID_TOKEN,
     }
 
@@ -496,11 +490,19 @@ class TestVerifySessionCookie(object):
         assert claims['admin'] is True
         assert claims['uid'] == claims['sub']
 
-    @pytest.mark.parametrize('cookie', invalid_cookies.values(), ids=list(invalid_cookies))
-    def test_invalid_cookie(self, user_mgt_app, cookie):
+    @pytest.mark.parametrize('cookie', [None, '', 'foobar', True, 1, [], {}, {'a': 1}])
+    def test_invalid_jwt(self, user_mgt_app, cookie):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
         with pytest.raises(ValueError):
             auth.verify_session_cookie(cookie, app=user_mgt_app)
+
+    @pytest.mark.parametrize('cookie', invalid_cookies.values(), ids=list(invalid_cookies))
+    def test_invalid_cookie(self, user_mgt_app, cookie):
+        _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
+        with pytest.raises(auth.FirebaseAuthError) as excinfo:
+            auth.verify_session_cookie(cookie, app=user_mgt_app)
+        assert excinfo.value.code == exceptions.INVALID_ARGUMENT
+        assert excinfo.value.auth_error_code == auth.INVALID_SESSION_COOKIE
 
     def test_project_id_option(self):
         app = firebase_admin.initialize_app(
@@ -522,15 +524,17 @@ class TestVerifySessionCookie(object):
     def test_custom_token(self, auth_app):
         custom_token = auth.create_custom_token(MOCK_UID, app=auth_app)
         _overwrite_cert_request(auth_app, MOCK_REQUEST)
-        with pytest.raises(ValueError):
+        with pytest.raises(auth.FirebaseAuthError) as excinfo:
             auth.verify_session_cookie(custom_token, app=auth_app)
+        assert excinfo.value.code == exceptions.INVALID_ARGUMENT
+        assert excinfo.value.auth_error_code == auth.INVALID_SESSION_COOKIE
 
     def test_certificate_request_failure(self, user_mgt_app):
         _overwrite_cert_request(user_mgt_app, testutils.MockRequest(404, 'not found'))
         with pytest.raises(auth.FirebaseAuthError) as excinfo:
             auth.verify_session_cookie(TEST_SESSION_COOKIE, app=user_mgt_app)
         assert excinfo.value.code == exceptions.UNKNOWN
-        assert excinfo.value.auth_error_code == 'CERTIFICATE_FETCH_FAILED'
+        assert excinfo.value.auth_error_code == auth.CERTIFICATE_FETCH_FAILED
 
 
 class TestCertificateCaching(object):

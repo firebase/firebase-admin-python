@@ -54,10 +54,6 @@ RESERVED_CLAIMS = set([
 METADATA_SERVICE_URL = ('http://metadata/computeMetadata/v1/instance/service-accounts/'
                         'default/email')
 
-# Error codes
-TOKEN_SIGN_FAILED = 'TOKEN_SIGN_FAILED'
-CERTIFICATE_FETCH_FAILED = 'CERTIFICATE_FETCH_FAILED'
-
 
 class _SigningProvider(object):
     """Stores a reference to a google.auth.crypto.Signer."""
@@ -176,7 +172,7 @@ class TokenGenerator(object):
                 exceptions.UNKNOWN,
                 'Failed to sign custom token. {0}'.format(error),
                 cause=error,
-                auth_error_code=TOKEN_SIGN_FAILED)
+                auth_error_code=_auth_utils.TOKEN_SIGN_FAILED)
 
 
     def create_session_cookie(self, id_token, expires_in):
@@ -227,11 +223,13 @@ class TokenVerifier(object):
             project_id=app.project_id, short_name='ID token',
             operation='verify_id_token()',
             doc_url='https://firebase.google.com/docs/auth/admin/verify-id-tokens',
+            error_code=_auth_utils.INVALID_ID_TOKEN,
             cert_url=ID_TOKEN_CERT_URI, issuer=ID_TOKEN_ISSUER_PREFIX)
         self.cookie_verifier = _JWTVerifier(
             project_id=app.project_id, short_name='session cookie',
             operation='verify_session_cookie()',
             doc_url='https://firebase.google.com/docs/auth/admin/verify-id-tokens',
+            error_code=_auth_utils.INVALID_SESSION_COOKIE,
             cert_url=COOKIE_CERT_URI, issuer=COOKIE_ISSUER_PREFIX)
 
     def verify_id_token(self, id_token):
@@ -251,6 +249,7 @@ class _JWTVerifier(object):
         self.url = kwargs.pop('doc_url')
         self.cert_url = kwargs.pop('cert_url')
         self.issuer = kwargs.pop('issuer')
+        self.error_code = kwargs.pop('error_code')
         if self.short_name[0].lower() in 'aeiou':
             self.articled_short_name = 'an {0}'.format(self.short_name)
         else:
@@ -325,7 +324,8 @@ class _JWTVerifier(object):
                 '{1}'.format(self.short_name, verify_id_token_msg))
 
         if error_message:
-            raise ValueError(error_message)
+            raise _auth_utils.FirebaseAuthError(
+                exceptions.INVALID_ARGUMENT, error_message, auth_error_code=self.error_code)
 
         try:
             verified_claims = google.oauth2.id_token.verify_token(
@@ -340,4 +340,10 @@ class _JWTVerifier(object):
                 exceptions.UNKNOWN,
                 'Failed to fetch public key certificates. {0}'.format(error),
                 cause=error,
-                auth_error_code=CERTIFICATE_FETCH_FAILED)
+                auth_error_code=_auth_utils.CERTIFICATE_FETCH_FAILED)
+        except ValueError as error:
+            raise _auth_utils.FirebaseAuthError(
+                exceptions.INVALID_ARGUMENT,
+                'Invalid Firebase {0}: {1}'.format(self.short_name, error),
+                cause=error,
+                auth_error_code=self.error_code)

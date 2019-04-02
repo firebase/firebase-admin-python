@@ -1165,6 +1165,7 @@ class TestTimeout(object):
 class TestSend(object):
 
     _DEFAULT_RESPONSE = json.dumps({'name': 'message-id'})
+    _CLIENT_VERSION = 'fire-admin-python/{0}'.format(firebase_admin.__version__)
 
     @classmethod
     def setup_class(cls):
@@ -1210,6 +1211,7 @@ class TestSend(object):
         assert recorder[0].method == 'POST'
         assert recorder[0].url == self._get_url('explicit-project-id')
         assert recorder[0].headers['X-GOOG-API-FORMAT-VERSION'] == '2'
+        assert recorder[0].headers['X-FIREBASE-CLIENT'] == self._CLIENT_VERSION
         body = {
             'message': messaging._MessagingService.encode_message(msg),
             'validate_only': True,
@@ -1225,6 +1227,7 @@ class TestSend(object):
         assert recorder[0].method == 'POST'
         assert recorder[0].url == self._get_url('explicit-project-id')
         assert recorder[0].headers['X-GOOG-API-FORMAT-VERSION'] == '2'
+        assert recorder[0].headers['X-FIREBASE-CLIENT'] == self._CLIENT_VERSION
         assert recorder[0]._extra_kwargs['timeout'] is None
         body = {'message': messaging._MessagingService.encode_message(msg)}
         assert json.loads(recorder[0].body.decode()) == body
@@ -1242,6 +1245,7 @@ class TestSend(object):
         assert recorder[0].method == 'POST'
         assert recorder[0].url == self._get_url('explicit-project-id')
         assert recorder[0].headers['X-GOOG-API-FORMAT-VERSION'] == '2'
+        assert recorder[0].headers['X-FIREBASE-CLIENT'] == self._CLIENT_VERSION
         body = {'message': messaging._MessagingService.JSON_ENCODER.default(msg)}
         assert json.loads(recorder[0].body.decode()) == body
 

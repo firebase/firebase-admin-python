@@ -341,6 +341,7 @@ class TestVerifyIdToken(object):
             'iat': int(time.time()) - 10000,
             'exp': int(time.time()) - 3600
         }),
+        'MalformedToken': 'foobar',
     }
 
     @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
@@ -382,7 +383,7 @@ class TestVerifyIdToken(object):
         assert claims['admin'] is True
         assert claims['uid'] == claims['sub']
 
-    @pytest.mark.parametrize('id_token', [None, '', 'foobar', True, 1, [], {}, {'a': 1}])
+    @pytest.mark.parametrize('id_token', [None, '', True, 1, [], {}, {'a': 1}])
     def test_invalid_jwt(self, user_mgt_app, id_token):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
         with pytest.raises(ValueError):
@@ -455,6 +456,7 @@ class TestVerifySessionCookie(object):
             'exp': int(time.time()) - 3600
         }),
         'IDToken': TEST_ID_TOKEN,
+        'MalformedToken': 'foobar',
     }
 
     @pytest.mark.parametrize('cookie', valid_cookies.values(), ids=list(valid_cookies))
@@ -490,7 +492,7 @@ class TestVerifySessionCookie(object):
         assert claims['admin'] is True
         assert claims['uid'] == claims['sub']
 
-    @pytest.mark.parametrize('cookie', [None, '', 'foobar', True, 1, [], {}, {'a': 1}])
+    @pytest.mark.parametrize('cookie', [None, '', True, 1, [], {}, {'a': 1}])
     def test_invalid_jwt(self, user_mgt_app, cookie):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
         with pytest.raises(ValueError):

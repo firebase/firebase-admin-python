@@ -75,8 +75,12 @@ __all__ = [
     'verify_id_token',
     'verify_session_cookie',
 
+    'CERTIFICATE_FETCH_FAILED',
     'ID_TOKEN_REVOKED',
+    'INVALID_ID_TOKEN',
+    'INVALID_SESSION_COOKIE',
     'SESSION_COOKIE_REVOKED',
+    'TOKEN_SIGN_FAILED',
     'UNEXPECTED_RESPONSE',
     'USER_NOT_FOUND',
 ]

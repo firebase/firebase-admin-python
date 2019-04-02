@@ -270,8 +270,7 @@ class _JWTVerifier(object):
                 'or set your Firebase project ID as an app option. Alternatively set the '
                 'GOOGLE_CLOUD_PROJECT environment variable.'.format(self.operation))
 
-        header = jwt.decode_header(token)
-        payload = jwt.decode(token, verify=False)
+        header, payload = self._decode_token(token)
         issuer = payload.get('iss')
         audience = payload.get('aud')
         subject = payload.get('sub')
@@ -341,6 +340,18 @@ class _JWTVerifier(object):
                 'Failed to fetch public key certificates. {0}'.format(error),
                 cause=error,
                 auth_error_code=_auth_utils.CERTIFICATE_FETCH_FAILED)
+        except ValueError as error:
+            raise _auth_utils.FirebaseAuthError(
+                exceptions.INVALID_ARGUMENT,
+                'Invalid Firebase {0}: {1}'.format(self.short_name, error),
+                cause=error,
+                auth_error_code=self.error_code)
+
+    def _decode_token(self, token):
+        try:
+            header = jwt.decode_header(token)
+            payload = jwt.decode(token, verify=False)
+            return header, payload
         except ValueError as error:
             raise _auth_utils.FirebaseAuthError(
                 exceptions.INVALID_ARGUMENT,

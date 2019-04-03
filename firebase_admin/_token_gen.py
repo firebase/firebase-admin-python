@@ -209,7 +209,7 @@ class TokenGenerator(object):
                     exceptions.UNKNOWN,
                     'Failed to create session cookie.',
                     http_response=response,
-                    auth_error_code='UNEXPECTED_RESPONSE')
+                    auth_error_code=_auth_utils.UNEXPECTED_RESPONSE)
             return body.get('sessionCookie')
 
 

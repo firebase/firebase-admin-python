@@ -26,7 +26,6 @@ from firebase_admin import _user_import
 
 
 USER_NOT_FOUND = 'USER_NOT_FOUND'
-UNEXPECTED_RESPONSE = 'UNEXPECTED_RESPONSE'
 
 MAX_LIST_USERS_RESULTS = 1000
 MAX_IMPORT_USERS_SIZE = 1000
@@ -524,7 +523,7 @@ class UserManager(object):
                     exceptions.UNKNOWN,
                     'Failed to create new user.',
                     http_response=response,
-                    auth_error_code=UNEXPECTED_RESPONSE)
+                    auth_error_code=_auth_utils.UNEXPECTED_RESPONSE)
             return body.get('localId')
 
     def update_user(self, uid, display_name=_UNSPECIFIED, email=None, phone_number=_UNSPECIFIED,
@@ -579,7 +578,7 @@ class UserManager(object):
                     exceptions.UNKNOWN,
                     'Failed to update user: {0}.'.format(uid),
                     http_response=response,
-                    auth_error_code=UNEXPECTED_RESPONSE)
+                    auth_error_code=_auth_utils.UNEXPECTED_RESPONSE)
             return body.get('localId')
 
     def delete_user(self, uid):
@@ -596,7 +595,7 @@ class UserManager(object):
                     exceptions.UNKNOWN,
                     'Failed to delete user: {0}.'.format(uid),
                     http_response=response,
-                    auth_error_code=UNEXPECTED_RESPONSE)
+                    auth_error_code=_auth_utils.UNEXPECTED_RESPONSE)
 
     def import_users(self, users, hash_alg=None):
         """Imports the given list of users to Firebase Auth."""
@@ -626,7 +625,7 @@ class UserManager(object):
                     exceptions.UNKNOWN,
                     'Failed to import users.',
                     http_response=response,
-                    auth_error_code=UNEXPECTED_RESPONSE)
+                    auth_error_code=_auth_utils.UNEXPECTED_RESPONSE)
             return body
 
     def generate_email_action_link(self, action_type, email, action_code_settings=None):
@@ -665,7 +664,7 @@ class UserManager(object):
                     exceptions.UNKNOWN,
                     'Failed to generate link.',
                     http_response=response,
-                    auth_error_code=UNEXPECTED_RESPONSE)
+                    auth_error_code=_auth_utils.UNEXPECTED_RESPONSE)
             return body.get('oobLink')
 
 

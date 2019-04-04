@@ -237,6 +237,17 @@ class TestGetUser(object):
         assert excinfo.value.http_response.status_code == 500
         assert error_payload in str(excinfo.value)
 
+    def test_get_user_malformed_http_error(self, user_mgt_app):
+        error_payload = '{"error": "INSUFFICIENT_PERMISSION"}'
+        _instrument_user_manager(user_mgt_app, 500, error_payload)
+        with pytest.raises(auth.FirebaseAuthError) as excinfo:
+            auth.get_user('testuser', user_mgt_app)
+        assert excinfo.value.code == exceptions.UNKNOWN
+        assert excinfo.value.auth_error_code is None
+        assert isinstance(excinfo.value.cause, requests.exceptions.RequestException)
+        assert excinfo.value.http_response.status_code == 500
+        assert error_payload in str(excinfo.value)
+
     def test_get_user_by_email_http_error(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 500, MOCK_ERROR_RESPONSE)
         with pytest.raises(auth.FirebaseAuthError) as excinfo:

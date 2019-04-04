@@ -17,6 +17,7 @@
 import json
 import re
 
+import requests
 import six
 from six.moves import urllib
 
@@ -215,22 +216,63 @@ class FirebaseAuthError(exceptions.FirebaseError):
 
 _ERROR_CODE_MAPPINGS = {
     'CLAIMS_TOO_LARGE': exceptions.INVALID_ARGUMENT,
+    'INVALID_CONTINUE_URL': exceptions.INVALID_ARGUMENT,
+    'INVALID_DYNAMIC_LINK_DOMAIN': exceptions.INVALID_ARGUMENT,
+    'FORBIDDEN_CLAIM': exceptions.INVALID_ARGUMENT,
+    'INVALID_CLAIMS': exceptions.INVALID_ARGUMENT,
+    'INVALID_DURATION': exceptions.INVALID_ARGUMENT,
     'INVALID_EMAIL': exceptions.INVALID_ARGUMENT,
+    'INVALID_ID_TOKEN': exceptions.INVALID_ARGUMENT,
+    'INVALID_PAGE_SELECTION': exceptions.INVALID_ARGUMENT,
+    'INVALID_PHONE_NUMBER': exceptions.INVALID_ARGUMENT,
+    'MISSING_ANDROID_PACKAGE_NAME': exceptions.INVALID_ARGUMENT,
+    'MISSING_IOS_BUNDLE_ID': exceptions.INVALID_ARGUMENT,
+    'MISSING_LOCAL_ID': exceptions.INVALID_ARGUMENT,
+    'MISSING_USER_ACCOUNT': exceptions.INVALID_ARGUMENT,
+    'UNAUTHORIZED_DOMAIN': exceptions.INVALID_ARGUMENT,
+    'WEAK_PASSWORD': exceptions.INVALID_ARGUMENT,
+
     'INSUFFICIENT_PERMISSION': exceptions.PERMISSION_DENIED,
     'OPERATION_NOT_ALLOWED': exceptions.PERMISSION_DENIED,
     'PERMISSION_DENIED': exceptions.PERMISSION_DENIED,
+
+    'CONFIGURATION_NOT_FOUND': exceptions.NOT_FOUND,
+    'PROJECT_NOT_FOUND': exceptions.NOT_FOUND,
     'USER_NOT_FOUND': exceptions.NOT_FOUND,
-    'DUPLICATE_LOCAL_ID': exceptions.ALREADY_EXISTS,
+
     'DUPLICATE_EMAIL': exceptions.ALREADY_EXISTS,
+    'DUPLICATE_LOCAL_ID': exceptions.ALREADY_EXISTS,
+    'EMAIL_EXISTS': exceptions.ALREADY_EXISTS,
 }
 
 
 def handle_http_error(msg, error):
-    response_payload = {}
-    if error.response is not None:
-        response_payload = error.response.json()
-        msg += '\n Server response: {0}'.format(error.response.content.decode())
-    server_code = response_payload.get('error', {}).get('message')
-    canonical_code = _ERROR_CODE_MAPPINGS.get(server_code, exceptions.UNKNOWN)
+    """Creates and raises a FirebaseAuthError from a requests exception."""
+    if isinstance(error, requests.exceptions.Timeout):
+        raise FirebaseAuthError(
+            exceptions.DEADLINE_EXCEEDED,
+            '{0}; Timed out while making an API call: {1}'.format(msg, error),
+            cause=error)
+    elif isinstance(error, requests.exceptions.ConnectionError):
+        raise FirebaseAuthError(
+            exceptions.UNAVAILABLE,
+            '{0}; Network or service unavailable: {1}'.format(msg, error),
+            cause=error)
+    elif error.response is None:
+        raise FirebaseAuthError(
+            exceptions.UNKNOWN,
+            '{0}; Unknown error while making remote service call: {1}'.format(msg, error),
+            cause=error)
+
+    server_code, canonical_code = _get_error_codes(error)
+    msg += '\n Server response: {0}'.format(error.response.content.decode())
     raise FirebaseAuthError(
         canonical_code, msg, cause=error, http_response=error.response, auth_error_code=server_code)
+
+def _get_error_codes(error):
+    response_payload = error.response.json()
+    error_obj = response_payload.get('error', {})
+    server_code = None
+    if isinstance(error_obj, dict):
+        server_code = error_obj.get('message')
+    return server_code, _ERROR_CODE_MAPPINGS.get(server_code, exceptions.UNKNOWN)

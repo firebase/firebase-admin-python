@@ -172,4 +172,5 @@ class TransportErrorAdapter(adapters.HTTPAdapter):
         self._exception = exception
 
     def send(self, request, **kwargs):
+        del kwargs
         raise self._exception

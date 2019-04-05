@@ -202,7 +202,7 @@ class TokenGenerator(object):
             body, response = self.client.body_and_response(
                 'post', ':createSessionCookie', json=payload)
         except requests.exceptions.RequestException as error:
-            _auth_utils.handle_http_error('Failed to create session cookie', error)
+            _auth_utils.handle_http_error('Failed to create session cookie.', error)
         else:
             if not body or not body.get('sessionCookie'):
                 raise _auth_utils.FirebaseAuthError(

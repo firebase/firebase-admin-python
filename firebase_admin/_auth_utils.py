@@ -251,17 +251,17 @@ def handle_http_error(msg, error):
     if isinstance(error, requests.exceptions.Timeout):
         raise FirebaseAuthError(
             exceptions.DEADLINE_EXCEEDED,
-            '{0}; Timed out while making an API call: {1}'.format(msg, error),
+            '{0} Timed out while making an API call: {1}'.format(msg, error),
             cause=error)
     elif isinstance(error, requests.exceptions.ConnectionError):
         raise FirebaseAuthError(
             exceptions.UNAVAILABLE,
-            '{0}; Network or service unavailable: {1}'.format(msg, error),
+            '{0} Failed to establish connection: {1}'.format(msg, error),
             cause=error)
     elif error.response is None:
         raise FirebaseAuthError(
             exceptions.UNKNOWN,
-            '{0}; Unknown error while making remote service call: {1}'.format(msg, error),
+            '{0} Unknown error while making remote service call: {1}'.format(msg, error),
             cause=error)
 
     server_code, canonical_code = _get_error_codes(error)

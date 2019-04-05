@@ -162,3 +162,14 @@ class MockAdapter(MockMultiRequestAdapter):
     @property
     def data(self):
         return self._responses[0]
+
+
+class TransportErrorAdapter(adapters.HTTPAdapter):
+    """A mock adapter for simulating low-level I/O errors."""
+
+    def __init__(self, exception):
+        adapters.HTTPAdapter.__init__(self)
+        self._exception = exception
+
+    def send(self, request, **kwargs):
+        raise self._exception

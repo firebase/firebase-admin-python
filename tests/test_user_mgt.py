@@ -67,6 +67,15 @@ def _instrument_user_manager(app, status, payload):
         testutils.MockAdapter(payload, status, recorder))
     return user_manager, recorder
 
+def _instrument_user_manager_with_error(app, exception):
+    auth_service = auth._get_auth_service(app)
+    user_manager = auth_service.user_manager
+    recorder = []
+    user_manager._client.session.mount(
+        auth._AuthService.ID_TOOLKIT_URL,
+        testutils.TransportErrorAdapter(exception))
+    return user_manager, recorder
+
 def _check_user_record(user, expected_uid='testuser'):
     assert isinstance(user, auth.UserRecord)
     assert user.uid == expected_uid
@@ -247,6 +256,33 @@ class TestGetUser(object):
         assert isinstance(excinfo.value.cause, requests.exceptions.RequestException)
         assert excinfo.value.http_response.status_code == 500
         assert error_payload in str(excinfo.value)
+
+    def test_get_user_timeout(self, user_mgt_app):
+        _instrument_user_manager_with_error(user_mgt_app, requests.exceptions.Timeout())
+        with pytest.raises(auth.FirebaseAuthError) as excinfo:
+            auth.get_user('testuser', user_mgt_app)
+        assert excinfo.value.code == exceptions.DEADLINE_EXCEEDED
+        assert isinstance(excinfo.value.cause, requests.exceptions.Timeout)
+        assert excinfo.value.auth_error_code is None
+        assert excinfo.value.http_response is None
+
+    def test_get_user_connection_error(self, user_mgt_app):
+        _instrument_user_manager_with_error(user_mgt_app, requests.exceptions.ConnectionError())
+        with pytest.raises(auth.FirebaseAuthError) as excinfo:
+            auth.get_user('testuser', user_mgt_app)
+        assert excinfo.value.code == exceptions.UNAVAILABLE
+        assert isinstance(excinfo.value.cause, requests.exceptions.ConnectionError)
+        assert excinfo.value.auth_error_code is None
+        assert excinfo.value.http_response is None
+
+    def test_get_user_unknown_io_error(self, user_mgt_app):
+        _instrument_user_manager_with_error(user_mgt_app, requests.exceptions.RequestException())
+        with pytest.raises(auth.FirebaseAuthError) as excinfo:
+            auth.get_user('testuser', user_mgt_app)
+        assert excinfo.value.code == exceptions.UNKNOWN
+        assert isinstance(excinfo.value.cause, requests.exceptions.RequestException)
+        assert excinfo.value.auth_error_code is None
+        assert excinfo.value.http_response is None
 
     def test_get_user_by_email_http_error(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 500, MOCK_ERROR_RESPONSE)

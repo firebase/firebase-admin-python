@@ -360,7 +360,8 @@ def update_user(uid, **kwargs):
             verified (optional).
         phone_number: The user's primary phone number (optional). Can be removed by explicitly
             passing ``auth.DELETE_ATTRIBUTE``.
-        photo_url: The user's photo URL (optional). Can be removed by explicitly passing ``auth.DELETE_ATTRIBUTE``.
+        photo_url: The user's photo URL (optional). Can be removed by explicitly passing
+            ``auth.DELETE_ATTRIBUTE``.
         password: The user's raw, unhashed password. (optional).
         disabled: A boolean indicating whether or not the user account is disabled (optional).
         custom_claims: A dictionary or a JSON string contining the custom claims to be set on the

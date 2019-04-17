@@ -37,6 +37,7 @@ _SESSION_COOKIE_REVOKED = 'SESSION_COOKIE_REVOKED'
 __all__ = [
     'ActionCodeSettings',
     'AuthError',
+    'DELETE_ATTRIBUTE',
     'ErrorInfo',
     'ExportedUserRecord',
     'ImportUserRecord',
@@ -68,6 +69,7 @@ __all__ = [
 ]
 
 ActionCodeSettings = _user_mgt.ActionCodeSettings
+DELETE_ATTRIBUTE = _user_mgt.DELETE_ATTRIBUTE
 ErrorInfo = _user_import.ErrorInfo
 ExportedUserRecord = _user_mgt.ExportedUserRecord
 ListUsersPage = _user_mgt.ListUsersPage
@@ -352,17 +354,17 @@ def update_user(uid, **kwargs):
 
     Keyword Args:
         display_name: The user's display name (optional). Can be removed by explicitly passing
-            None.
+            ``auth.DELETE_ATTRIBUTE``.
         email: The user's primary email (optional).
         email_verified: A boolean indicating whether or not the user's primary email is
             verified (optional).
         phone_number: The user's primary phone number (optional). Can be removed by explicitly
-            passing None.
-        photo_url: The user's photo URL (optional). Can be removed by explicitly passing None.
+            passing ``auth.DELETE_ATTRIBUTE``.
+        photo_url: The user's photo URL (optional). Can be removed by explicitly passing ``auth.DELETE_ATTRIBUTE``.
         password: The user's raw, unhashed password. (optional).
         disabled: A boolean indicating whether or not the user account is disabled (optional).
         custom_claims: A dictionary or a JSON string contining the custom claims to be set on the
-            user account (optional).
+            user account (optional). To remove all custom claims, pass ``auth.DELETE_ATTRIBUTE``.
         valid_since: An integer signifying the seconds since the epoch. This field is set by
             ``revoke_refresh_tokens`` and it is discouraged to set this field directly.
 

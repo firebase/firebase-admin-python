@@ -14,8 +14,13 @@
 
 """Firebase Cloud Messaging module."""
 
+import json
 import requests
 import six
+
+import googleapiclient
+from googleapiclient import http
+from googleapiclient import _auth
 
 import firebase_admin
 from firebase_admin import _http_client
@@ -34,10 +39,13 @@ __all__ = [
     'ApiCallError',
     'Aps',
     'ApsAlert',
+    'BatchResponse',
     'CriticalSound',
     'ErrorInfo',
     'Message',
+    'MulticastMessage',
     'Notification',
+    'SendResponse',
     'TopicManagementResponse',
     'WebpushConfig',
     'WebpushFcmOptions',
@@ -45,6 +53,8 @@ __all__ = [
     'WebpushNotificationAction',
 
     'send',
+    'send_all',
+    'send_multicast',
     'subscribe_to_topic',
     'unsubscribe_from_topic',
 ]
@@ -58,6 +68,7 @@ Aps = _messaging_utils.Aps
 ApsAlert = _messaging_utils.ApsAlert
 CriticalSound = _messaging_utils.CriticalSound
 Message = _messaging_utils.Message
+MulticastMessage = _messaging_utils.MulticastMessage
 Notification = _messaging_utils.Notification
 WebpushConfig = _messaging_utils.WebpushConfig
 WebpushFcmOptions = _messaging_utils.WebpushFcmOptions
@@ -87,6 +98,56 @@ def send(message, dry_run=False, app=None):
         ValueError: If the input arguments are invalid.
     """
     return _get_messaging_service(app).send(message, dry_run)
+
+def send_all(messages, dry_run=False, app=None):
+    """Batch sends the given messages via Firebase Cloud Messaging (FCM).
+
+    If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
+    recipients. Instead FCM performs all the usual validations, and emulates the send operation.
+
+    Args:
+        messages: A list of ``messaging.Message`` instances.
+        dry_run: A boolean indicating whether to run the operation in dry run mode (optional).
+        app: An App instance (optional).
+
+    Returns:
+        BatchResponse: A ``messaging.BatchResponse`` instance.
+
+    Raises:
+        ApiCallError: If an error occurs while sending the message to FCM service.
+        ValueError: If the input arguments are invalid.
+    """
+    return _get_messaging_service(app).send_all(messages, dry_run)
+
+def send_multicast(multicast_message, dry_run=False, app=None):
+    """Sends the given mutlicast message to the mutlicast message tokens via Firebase Cloud Messaging (FCM).
+
+    If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
+    recipients. Instead FCM performs all the usual validations, and emulates the send operation.
+
+    Args:
+        message: An instance of ``messaging.MulticastMessage``.
+        dry_run: A boolean indicating whether to run the operation in dry run mode (optional).
+        app: An App instance (optional).
+
+    Returns:
+        BatchResponse: A ``messaging.BatchResponse`` instance.
+
+    Raises:
+        ApiCallError: If an error occurs while sending the message to FCM service.
+        ValueError: If the input arguments are invalid.
+    """
+    if not isinstance(multicast_message, MulticastMessage):
+        raise ValueError('Message must be an instance of messaging.MulticastMessage class.')
+    messages = map(lambda token: Message(
+        data=multicast_message.data,
+        notification=multicast_message.notification,
+        android=multicast_message.android,
+        webpush=multicast_message.webpush,
+        apns=multicast_message.apns,
+        token=token
+    ), multicast_message.tokens)
+    return _get_messaging_service(app).send_all(messages, dry_run)
 
 def subscribe_to_topic(tokens, topic, app=None):
     """Subscribes a list of registration tokens to an FCM topic.
@@ -192,10 +253,58 @@ class ApiCallError(Exception):
         self.detail = detail
 
 
+class BatchResponse(object):
+
+    def __init__(self, responses):
+        self._responses = responses
+        self._success_count = 0
+        for response in responses:
+            if response.success:
+                self._success_count += 1
+
+    @property
+    def responses(self):
+        """A list of ``messaging.SendResponse`` objects (possibly empty)."""
+        return self._responses
+
+    @property
+    def success_count(self):
+        return self._success_count
+
+    @property
+    def failure_count(self):
+        return len(self.responses) - self.success_count
+
+
+class SendResponse(object):
+
+    def __init__(self, resp, exception):
+        self._exception = exception
+        self._message_id = None
+        if resp:
+            self._message_id = resp.get('name', None)
+
+    @property
+    def message_id(self):
+        """A message ID string that uniquely identifies the sent the message."""
+        return self._message_id
+
+    @property
+    def success(self):
+        """A boolean indicating if the request was successful."""
+        return self._message_id is not None and not self._exception
+
+    @property
+    def exception(self):
+        """A ApiCallError if an error occurs while sending the message to FCM service."""
+        return self._exception
+
+
 class _MessagingService(object):
     """Service class that implements Firebase Cloud Messaging (FCM) functionality."""
 
     FCM_URL = 'https://fcm.googleapis.com/v1/projects/{0}/messages:send'
+    FCM_BATCH_URL = 'https://fcm.googleapis.com/batch'
     IID_URL = 'https://iid.googleapis.com'
     IID_HEADERS = {'access_token_auth': 'true'}
     JSON_ENCODER = _messaging_utils.MessageEncoder()
@@ -234,9 +343,13 @@ class _MessagingService(object):
                 'projectId option, or use service account credentials. Alternatively, set the '
                 'GOOGLE_CLOUD_PROJECT environment variable.')
         self._fcm_url = _MessagingService.FCM_URL.format(project_id)
+        self._fcm_headers = {
+            'X-GOOG-API-FORMAT-VERSION': '2',
+            'X-FIREBASE-CLIENT': 'fire-admin-python/{0}'.format(firebase_admin.__version__),
+        }
         self._client = _http_client.JsonHttpClient(credential=app.credential.get_credential())
         self._timeout = app.options.get('httpTimeout')
-        self._client_version = 'fire-admin-python/{0}'.format(firebase_admin.__version__)
+        self._transport = _auth.authorized_http(app.credential.get_credential())
 
     @classmethod
     def encode_message(cls, message):
@@ -245,16 +358,10 @@ class _MessagingService(object):
         return cls.JSON_ENCODER.default(message)
 
     def send(self, message, dry_run=False):
-        data = {'message': _MessagingService.encode_message(message)}
-        if dry_run:
-            data['validate_only'] = True
+        data = self._message_data(message, dry_run)
         try:
-            headers = {
-                'X-GOOG-API-FORMAT-VERSION': '2',
-                'X-FIREBASE-CLIENT': self._client_version,
-            }
             resp = self._client.body(
-                'post', url=self._fcm_url, headers=headers, json=data, timeout=self._timeout)
+                'post', url=self._fcm_url, headers=self._fcm_headers, json=data, timeout=self._timeout)
         except requests.exceptions.RequestException as error:
             if error.response is not None:
                 self._handle_fcm_error(error)
@@ -263,6 +370,33 @@ class _MessagingService(object):
                 raise ApiCallError(self.INTERNAL_ERROR, msg, error)
         else:
             return resp['name']
+
+    def send_all(self, messages, dry_run=False):
+        if not isinstance(messages, list):
+            raise ValueError('Messages must be an list of messaging.Message instances.')
+
+        responses = []
+
+        def batch_callback(request_id, response, error):
+            exception = None
+            if error:
+                exception = self._parse_batch_error(error)
+            send_response = SendResponse(response, exception)
+            responses.append(send_response)
+
+        batch = http.BatchHttpRequest(batch_callback, _MessagingService.FCM_BATCH_URL)
+        for message in messages:
+            body = json.dumps(self._message_data(message, dry_run))
+            req = http.HttpRequest(
+                http=self._transport, postproc=self._postproc, uri=self._fcm_url, method='POST', body=body, headers=self._fcm_headers)
+            batch.add(req)
+
+        try:
+            batch.execute()
+        except googleapiclient.http.HttpError as error:
+            raise self._parse_batch_error(error)
+        else:
+            return BatchResponse(responses)
 
     def make_topic_management_request(self, tokens, topic, operation):
         """Invokes the IID service for topic management functionality."""
@@ -299,6 +433,18 @@ class _MessagingService(object):
         else:
             return TopicManagementResponse(resp)
 
+    def _message_data(self, message, dry_run):
+        data = {'message': _MessagingService.encode_message(message)}
+        if dry_run:
+            data['validate_only'] = True
+        return data
+
+    def _postproc(self, resp, body):
+        if resp.status == 200:
+            return json.loads(body)
+        else:
+            raise Exception('unexpected response')
+
     def _handle_fcm_error(self, error):
         """Handles errors received from the FCM API."""
         data = {}
@@ -309,21 +455,7 @@ class _MessagingService(object):
         except ValueError:
             pass
 
-        error_dict = data.get('error', {})
-        server_code = None
-        for detail in error_dict.get('details', []):
-            if detail.get('@type') == 'type.googleapis.com/google.firebase.fcm.v1.FcmError':
-                server_code = detail.get('errorCode')
-                break
-        if not server_code:
-            server_code = error_dict.get('status')
-        code = _MessagingService.FCM_ERROR_CODES.get(server_code, _MessagingService.UNKNOWN_ERROR)
-
-        msg = error_dict.get('message')
-        if not msg:
-            msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(
-                error.response.status_code, error.response.content.decode())
-        raise ApiCallError(code, msg, error)
+        raise _MessagingService._parse_fcm_error(data, error.response.content, error.response.status_code, error)
 
     def _handle_iid_error(self, error):
         """Handles errors received from the Instance ID API."""
@@ -342,3 +474,36 @@ class _MessagingService(object):
             msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(
                 error.response.status_code, error.response.content.decode())
         raise ApiCallError(code, msg, error)
+
+    def _parse_batch_error(self, error):
+        if error.content is None:
+            msg = 'Failed to call messaging API: {0}'.format(error)
+            return ApiCallError(self.INTERNAL_ERROR, msg, error)
+
+        data = {}
+        try:
+            parsed_body = json.loads(error.content)
+            if isinstance(parsed_body, dict):
+                data = parsed_body
+        except ValueError:
+            pass
+        return _MessagingService._parse_fcm_error(data, error.content, error.resp.status, error)
+
+    @classmethod
+    def _parse_fcm_error(cls, data, content, status_code, error):
+        """Parses an error response from the FCM API to a ApiCallError."""
+        error_dict = data.get('error', {})
+        server_code = None
+        for detail in error_dict.get('details', []):
+            if detail.get('@type') == 'type.googleapis.com/google.firebase.fcm.v1.FcmError':
+                server_code = detail.get('errorCode')
+                break
+        if not server_code:
+            server_code = error_dict.get('status')
+        code = _MessagingService.FCM_ERROR_CODES.get(server_code, _MessagingService.UNKNOWN_ERROR)
+
+        msg = error_dict.get('message')
+        if not msg:
+            msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(status_code, content.decode())
+
+        return ApiCallError(code, msg, error)

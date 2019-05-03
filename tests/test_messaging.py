@@ -20,7 +20,6 @@ import numbers
 import pytest
 import six
 
-import googleapiclient
 from googleapiclient.http import HttpMockSequence
 
 import firebase_admin
@@ -1338,7 +1337,9 @@ class TestSend(object):
 
 class TestSendAll(object):
 
-    _PAYLOAD_FORMAT = """--boundary\r\nContent-Type: application/http\r\nContent-ID: <uuid + 1>\r\n\r\nHTTP/1.1 {} Success\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n{}\r\n\r\n--boundary--"""
+    _PAYLOAD_FORMAT = """--boundary\r\nContent-Type: application/http\r\n\
+Content-ID: <uuid + 1>\r\n\r\nHTTP/1.1 {} Success\r\n\
+Content-Type: application/json; charset=UTF-8\r\n\r\n{}\r\n\r\n--boundary--"""
     _CLIENT_VERSION = 'fire-admin-python/{0}'.format(firebase_admin.__version__)
 
     @classmethod
@@ -1386,7 +1387,8 @@ class TestSendAll(object):
 
     def test_send_all(self):
         payload = json.dumps({'name': 'message-id'})
-        _ = self._instrument_batch_messaging_service(payload=self._PAYLOAD_FORMAT.format('200', payload))
+        _ = self._instrument_batch_messaging_service(
+            payload=self._PAYLOAD_FORMAT.format('200', payload))
         msg = messaging.Message(topic='foo')
         batch_response = messaging.send_all([msg], dry_run=True)
         assert batch_response.success_count is 1
@@ -1488,7 +1490,7 @@ class TestSendAll(object):
         assert str(excinfo.value.code) == 'invalid-argument'
 
     @pytest.mark.parametrize('status', HTTP_ERRORS)
-    def test_send_all_canonical_error_code(self, status):
+    def test_send_all_batch_canonical_error_code(self, status):
         payload = json.dumps({
             'error': {
                 'status': 'NOT_FOUND',
@@ -1503,7 +1505,7 @@ class TestSendAll(object):
         assert str(excinfo.value.code) == 'registration-token-not-registered'
 
     @pytest.mark.parametrize('status', HTTP_ERRORS)
-    def test_send_all_fcm_error_code(self, status):
+    def test_send_all_batch_fcm_error_code(self, status):
         payload = json.dumps({
             'error': {
                 'status': 'INVALID_ARGUMENT',
@@ -1526,7 +1528,9 @@ class TestSendAll(object):
 
 class TestSendMulticast(object):
 
-    _PAYLOAD_FORMAT = """--boundary\r\nContent-Type: application/http\r\nContent-ID: <uuid + 1>\r\n\r\nHTTP/1.1 {} Success\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n{}\r\n\r\n--boundary--"""
+    _PAYLOAD_FORMAT = """--boundary\r\nContent-Type: application/http\r\n\
+Content-ID: <uuid + 1>\r\n\r\nHTTP/1.1 {} Success\r\n\
+Content-Type: application/json; charset=UTF-8\r\n\r\n{}\r\n\r\n--boundary--"""
     _CLIENT_VERSION = 'fire-admin-python/{0}'.format(firebase_admin.__version__)
 
     @classmethod
@@ -1570,7 +1574,8 @@ class TestSendMulticast(object):
 
     def test_send_multicast(self):
         payload = json.dumps({'name': 'message-id'})
-        _ = self._instrument_batch_messaging_service(payload=self._PAYLOAD_FORMAT.format('200', payload))
+        _ = self._instrument_batch_messaging_service(
+            payload=self._PAYLOAD_FORMAT.format('200', payload))
         msg = messaging.MulticastMessage(tokens=['foo'])
         batch_response = messaging.send_multicast(msg, dry_run=True)
         assert batch_response.success_count is 1
@@ -1672,7 +1677,7 @@ class TestSendMulticast(object):
         assert str(excinfo.value.code) == 'invalid-argument'
 
     @pytest.mark.parametrize('status', HTTP_ERRORS)
-    def test_send_multicast_canonical_error_code(self, status):
+    def test_send_multicast_batch_canonical_error_code(self, status):
         payload = json.dumps({
             'error': {
                 'status': 'NOT_FOUND',
@@ -1687,7 +1692,7 @@ class TestSendMulticast(object):
         assert str(excinfo.value.code) == 'registration-token-not-registered'
 
     @pytest.mark.parametrize('status', HTTP_ERRORS)
-    def test_send_multicast_fcm_error_code(self, status):
+    def test_send_multicast_batch_fcm_error_code(self, status):
         payload = json.dumps({
             'error': {
                 'status': 'INVALID_ARGUMENT',

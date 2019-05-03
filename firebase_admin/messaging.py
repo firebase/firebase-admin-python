@@ -120,13 +120,13 @@ def send_all(messages, dry_run=False, app=None):
     return _get_messaging_service(app).send_all(messages, dry_run)
 
 def send_multicast(multicast_message, dry_run=False, app=None):
-    """Sends the given mutlicast message to the mutlicast message tokens via Firebase Cloud Messaging (FCM).
+    """Sends the given mutlicast message to all tokens via Firebase Cloud Messaging (FCM).
 
     If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
     recipients. Instead FCM performs all the usual validations, and emulates the send operation.
 
     Args:
-        message: An instance of ``messaging.MulticastMessage``.
+        multicast_message: An instance of ``messaging.MulticastMessage``.
         dry_run: A boolean indicating whether to run the operation in dry run mode (optional).
         app: An App instance (optional).
 
@@ -139,14 +139,14 @@ def send_multicast(multicast_message, dry_run=False, app=None):
     """
     if not isinstance(multicast_message, MulticastMessage):
         raise ValueError('Message must be an instance of messaging.MulticastMessage class.')
-    messages = map(lambda token: Message(
+    messages = [Message(
         data=multicast_message.data,
         notification=multicast_message.notification,
         android=multicast_message.android,
         webpush=multicast_message.webpush,
         apns=multicast_message.apns,
         token=token
-    ), multicast_message.tokens)
+    ) for token in multicast_message.tokens]
     return _get_messaging_service(app).send_all(messages, dry_run)
 
 def subscribe_to_topic(tokens, topic, app=None):
@@ -254,6 +254,7 @@ class ApiCallError(Exception):
 
 
 class BatchResponse(object):
+    """The response received from a batch request to the FCM API."""
 
     def __init__(self, responses):
         self._responses = responses
@@ -277,6 +278,7 @@ class BatchResponse(object):
 
 
 class SendResponse(object):
+    """The response received from an individual batched request to the FCM API."""
 
     def __init__(self, resp, exception):
         self._exception = exception
@@ -361,7 +363,12 @@ class _MessagingService(object):
         data = self._message_data(message, dry_run)
         try:
             resp = self._client.body(
-                'post', url=self._fcm_url, headers=self._fcm_headers, json=data, timeout=self._timeout)
+                'post',
+                url=self._fcm_url,
+                headers=self._fcm_headers,
+                json=data,
+                timeout=self._timeout
+            )
         except requests.exceptions.RequestException as error:
             if error.response is not None:
                 self._handle_fcm_error(error)
@@ -372,12 +379,13 @@ class _MessagingService(object):
             return resp['name']
 
     def send_all(self, messages, dry_run=False):
+        """Sends the given messages to FCM via the batch API."""
         if not isinstance(messages, list):
             raise ValueError('Messages must be an list of messaging.Message instances.')
 
         responses = []
 
-        def batch_callback(request_id, response, error):
+        def batch_callback(_, response, error):
             exception = None
             if error:
                 exception = self._parse_batch_error(error)
@@ -388,7 +396,13 @@ class _MessagingService(object):
         for message in messages:
             body = json.dumps(self._message_data(message, dry_run))
             req = http.HttpRequest(
-                http=self._transport, postproc=self._postproc, uri=self._fcm_url, method='POST', body=body, headers=self._fcm_headers)
+                http=self._transport,
+                postproc=self._postproc,
+                uri=self._fcm_url,
+                method='POST',
+                body=body,
+                headers=self._fcm_headers
+            )
             batch.add(req)
 
         try:
@@ -455,7 +469,8 @@ class _MessagingService(object):
         except ValueError:
             pass
 
-        raise _MessagingService._parse_fcm_error(data, error.response.content, error.response.status_code, error)
+        raise _MessagingService._parse_fcm_error(
+            data, error.response.content, error.response.status_code, error)
 
     def _handle_iid_error(self, error):
         """Handles errors received from the Instance ID API."""
@@ -476,6 +491,7 @@ class _MessagingService(object):
         raise ApiCallError(code, msg, error)
 
     def _parse_batch_error(self, error):
+        """Parses a googleapiclient.http.HttpError content in to an ApiCallError."""
         if error.content is None:
             msg = 'Failed to call messaging API: {0}'.format(error)
             return ApiCallError(self.INTERNAL_ERROR, msg, error)
@@ -504,6 +520,7 @@ class _MessagingService(object):
 
         msg = error_dict.get('message')
         if not msg:
-            msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(status_code, content.decode())
+            msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(
+                status_code, content.decode())
 
         return ApiCallError(code, msg, error)

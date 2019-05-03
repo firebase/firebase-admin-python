@@ -379,6 +379,8 @@ class _MessagingService(object):
         """Sends the given messages to FCM via the batch API."""
         if not isinstance(messages, list):
             raise ValueError('Messages must be an list of messaging.Message instances.')
+        if len(messages) > 100:
+            raise ValueError('send_all messages must not contain more than 100 messages.')
 
         responses = []
 

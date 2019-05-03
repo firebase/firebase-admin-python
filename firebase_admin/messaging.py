@@ -100,7 +100,7 @@ def send(message, dry_run=False, app=None):
     return _get_messaging_service(app).send(message, dry_run)
 
 def send_all(messages, dry_run=False, app=None):
-    """Batch sends the given messages via Firebase Cloud Messaging (FCM).
+    """Sends the given list of messages via Firebase Cloud Messaging as a single batch.
 
     If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
     recipients. Instead FCM performs all the usual validations, and emulates the send operation.
@@ -258,10 +258,7 @@ class BatchResponse(object):
 
     def __init__(self, responses):
         self._responses = responses
-        self._success_count = 0
-        for response in responses:
-            if response.success:
-                self._success_count += 1
+        self._success_count = len([resp for resp in responses if resp.success])
 
     @property
     def responses(self):
@@ -455,7 +452,7 @@ class _MessagingService(object):
 
     def _postproc(self, resp, body):
         if resp.status == 200:
-            return json.loads(body)
+            return json.loads(body.decode())
         else:
             raise Exception('unexpected response')
 
@@ -498,7 +495,7 @@ class _MessagingService(object):
 
         data = {}
         try:
-            parsed_body = json.loads(error.content)
+            parsed_body = json.loads(error.content.decode())
             if isinstance(parsed_body, dict):
                 data = parsed_body
         except ValueError:

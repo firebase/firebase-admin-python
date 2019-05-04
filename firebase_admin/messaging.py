@@ -453,10 +453,17 @@ class _MessagingService(object):
         return data
 
     def _postproc(self, resp, body):
-        if resp.status == 200:
-            return json.loads(body.decode())
-        else:
-            raise Exception('unexpected response')
+        if resp.status is not 200:
+            data = {}
+            try:
+                parsed_body = json.loads(body.decode())
+                if isinstance(parsed_body, dict):
+                    data = parsed_body
+            except ValueError:
+                pass
+            code, msg = _MessagingService._parse_fcm_error(data, body, resp.status)
+            raise ApiCallError(code, msg)
+        return json.loads(body.decode())
 
     def _handle_fcm_error(self, error):
         """Handles errors received from the FCM API."""
@@ -468,8 +475,9 @@ class _MessagingService(object):
         except ValueError:
             pass
 
-        raise _MessagingService._parse_fcm_error(
-            data, error.response.content, error.response.status_code, error)
+        code, msg = _MessagingService._parse_fcm_error(
+            data, error.response.content, error.response.status_code)
+        raise ApiCallError(code, msg, error)
 
     def _handle_iid_error(self, error):
         """Handles errors received from the Instance ID API."""
@@ -502,10 +510,12 @@ class _MessagingService(object):
                 data = parsed_body
         except ValueError:
             pass
-        return _MessagingService._parse_fcm_error(data, error.content, error.resp.status, error)
+
+        code, msg = _MessagingService._parse_fcm_error(data, error.content, error.resp.status)
+        return ApiCallError(code, msg, error)
 
     @classmethod
-    def _parse_fcm_error(cls, data, content, status_code, error):
+    def _parse_fcm_error(cls, data, content, status_code):
         """Parses an error response from the FCM API to a ApiCallError."""
         error_dict = data.get('error', {})
         server_code = None
@@ -521,5 +531,4 @@ class _MessagingService(object):
         if not msg:
             msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(
                 status_code, content.decode())
-
-        return ApiCallError(code, msg, error)
+        return code, msg

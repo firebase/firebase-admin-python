@@ -55,13 +55,13 @@ class TestMulticastMessage(object):
 
     def test_tokens_over_one_hundred(self):
         with pytest.raises(ValueError) as excinfo:
-            messaging.MulticastMessage(tokens=['token' for i in xrange(0, 101)])
+            messaging.MulticastMessage(tokens=['token' for _ in range(0, 101)])
         expected = 'MulticastMessage.tokens must not contain more than 100 tokens.'
         assert str(excinfo.value) == expected
 
     def test_tokens_type(self):
         messaging.MulticastMessage(tokens=['token'])
-        messaging.MulticastMessage(tokens=['token' for i in xrange(0, 100)])
+        messaging.MulticastMessage(tokens=['token' for _ in range(0, 100)])
 
 
 class TestMessageEncoder(object):
@@ -1401,7 +1401,7 @@ class TestSendAll(TestBatch):
     def test_invalid_over_one_hundred(self):
         msg = messaging.Message(topic='foo')
         with pytest.raises(ValueError) as excinfo:
-            messaging.send_all([msg for i in xrange(0, 101)])
+            messaging.send_all([msg for _ in range(0, 101)])
         expected = 'send_all messages must not contain more than 100 messages.'
         assert str(excinfo.value) == expected
 
@@ -1441,7 +1441,7 @@ class TestSendAll(TestBatch):
             payload=self._batch_payload([(200, success_payload), (202, error_payload)]))
         msg = messaging.Message(topic='foo')
         with pytest.raises(messaging.ApiCallError) as excinfo:
-            batch_response = messaging.send_all([msg, msg], dry_run=True)
+            messaging.send_all([msg, msg], dry_run=True)
         assert str(excinfo.value) == 'test error'
         assert str(excinfo.value.code) == 'invalid-argument'
 
@@ -1458,7 +1458,6 @@ class TestSendAll(TestBatch):
         msg = messaging.Message(topic='foo')
         with pytest.raises(messaging.ApiCallError) as excinfo:
             messaging.send_all([msg, msg], dry_run=True)
-        expected = 'send_all messages must not contain more than 100 messages.'
         assert str(excinfo.value) == 'test error'
         assert str(excinfo.value.code) == 'registration-token-not-registered'
 
@@ -1689,7 +1688,7 @@ class TestSendMulticast(TestBatch):
             payload=self._batch_payload([(200, success_payload), (202, error_payload)]))
         msg = messaging.MulticastMessage(tokens=['foo', 'foo'])
         with pytest.raises(messaging.ApiCallError) as excinfo:
-            batch_response = messaging.send_multicast(msg, dry_run=True)
+            messaging.send_multicast(msg, dry_run=True)
         assert str(excinfo.value) == 'test error'
         assert str(excinfo.value.code) == 'invalid-argument'
 
@@ -1788,7 +1787,7 @@ class TestSendMulticast(TestBatch):
         assert str(exception.code) == 'registration-token-not-registered'
 
     @pytest.mark.parametrize('status', HTTP_ERRORS)
-    def test_send_multicast_canonical_error_code(self, status):
+    def test_send_multicast_fcm_error_code(self, status):
         success_payload = json.dumps({'name': 'message-id'})
         error_payload = json.dumps({
             'error': {

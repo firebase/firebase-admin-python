@@ -453,6 +453,7 @@ class _MessagingService(object):
         return data
 
     def _postproc(self, resp, body):
+        """Handle response from batch API request."""
         if resp.status is not 200:
             data = {}
             try:

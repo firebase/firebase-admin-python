@@ -454,16 +454,7 @@ class _MessagingService(object):
 
     def _postproc(self, resp, body):
         """Handle response from batch API request."""
-        if resp.status is not 200:
-            data = {}
-            try:
-                parsed_body = json.loads(body.decode())
-                if isinstance(parsed_body, dict):
-                    data = parsed_body
-            except ValueError:
-                pass
-            code, msg = _MessagingService._parse_fcm_error(data, body, resp.status)
-            raise ApiCallError(code, msg)
+        # This only gets called for 2xx responses.
         return json.loads(body.decode())
 
     def _handle_fcm_error(self, error):

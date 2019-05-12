@@ -1418,71 +1418,6 @@ class TestSendAll(TestBatch):
         assert all([r.success for r in batch_response.responses])
         assert not any([r.exception for r in batch_response.responses])
 
-    def test_send_all_non_error_non_200(self):
-        success_payload = json.dumps({'name': 'message-id'})
-        error_payload = json.dumps({})
-        _ = self._instrument_batch_messaging_service(
-            payload=self._batch_payload([(200, success_payload), (202, error_payload)]))
-        msg = messaging.Message(topic='foo')
-        with pytest.raises(messaging.ApiCallError) as excinfo:
-            messaging.send_all([msg, msg], dry_run=True)
-        assert str(excinfo.value) == 'Unexpected HTTP response with status: 202; body: {}\r\n'
-        assert str(excinfo.value.code) == messaging._MessagingService.UNKNOWN_ERROR
-
-    def test_send_all_non_error_non_200_detailed_error(self):
-        success_payload = json.dumps({'name': 'message-id'})
-        error_payload = json.dumps({
-            'error': {
-                'status': 'INVALID_ARGUMENT',
-                'message': 'test error'
-            }
-        })
-        _ = self._instrument_batch_messaging_service(
-            payload=self._batch_payload([(200, success_payload), (202, error_payload)]))
-        msg = messaging.Message(topic='foo')
-        with pytest.raises(messaging.ApiCallError) as excinfo:
-            messaging.send_all([msg, msg], dry_run=True)
-        assert str(excinfo.value) == 'test error'
-        assert str(excinfo.value.code) == 'invalid-argument'
-
-    def test_send_all_non_error_non_200_canonical_error_code(self):
-        success_payload = json.dumps({'name': 'message-id'})
-        error_payload = json.dumps({
-            'error': {
-                'status': 'NOT_FOUND',
-                'message': 'test error'
-            }
-        })
-        _ = self._instrument_batch_messaging_service(
-            payload=self._batch_payload([(200, success_payload), (202, error_payload)]))
-        msg = messaging.Message(topic='foo')
-        with pytest.raises(messaging.ApiCallError) as excinfo:
-            messaging.send_all([msg, msg], dry_run=True)
-        assert str(excinfo.value) == 'test error'
-        assert str(excinfo.value.code) == 'registration-token-not-registered'
-
-    def test_send_all_non_error_non_200_fcm_error_code(self):
-        success_payload = json.dumps({'name': 'message-id'})
-        error_payload = json.dumps({
-            'error': {
-                'status': 'INVALID_ARGUMENT',
-                'message': 'test error',
-                'details': [
-                    {
-                        '@type': 'type.googleapis.com/google.firebase.fcm.v1.FcmError',
-                        'errorCode': 'UNREGISTERED',
-                    },
-                ],
-            }
-        })
-        _ = self._instrument_batch_messaging_service(
-            payload=self._batch_payload([(200, success_payload), (202, error_payload)]))
-        msg = messaging.Message(topic='foo')
-        with pytest.raises(messaging.ApiCallError) as excinfo:
-            messaging.send_all([msg, msg], dry_run=True)
-        assert str(excinfo.value) == 'test error'
-        assert str(excinfo.value.code) == 'registration-token-not-registered'
-
     @pytest.mark.parametrize('status', HTTP_ERRORS)
     def test_send_all_detailed_error(self, status):
         success_payload = json.dumps({'name': 'message-id'})
@@ -1501,12 +1436,12 @@ class TestSendAll(TestBatch):
         assert len(batch_response.responses) == 2
         success_response = batch_response.responses[0]
         assert success_response.message_id == 'message-id'
-        assert success_response.success
+        assert success_response.success is True
         assert success_response.exception is None
         error_response = batch_response.responses[1]
         assert error_response.message_id is None
-        assert not error_response.success
-        assert error_response.exception
+        assert error_response.success is False
+        assert error_response.exception is not None
         exception = error_response.exception
         assert str(exception) == 'test error'
         assert str(exception.code) == 'invalid-argument'
@@ -1529,12 +1464,12 @@ class TestSendAll(TestBatch):
         assert len(batch_response.responses) == 2
         success_response = batch_response.responses[0]
         assert success_response.message_id == 'message-id'
-        assert success_response.success
+        assert success_response.success is True
         assert success_response.exception is None
         error_response = batch_response.responses[1]
         assert error_response.message_id is None
-        assert not error_response.success
-        assert error_response.exception
+        assert error_response.success is False
+        assert error_response.exception is not None
         exception = error_response.exception
         assert str(exception) == 'test error'
         assert str(exception.code) == 'registration-token-not-registered'
@@ -1563,12 +1498,12 @@ class TestSendAll(TestBatch):
         assert len(batch_response.responses) == 2
         success_response = batch_response.responses[0]
         assert success_response.message_id == 'message-id'
-        assert success_response.success
+        assert success_response.success is True
         assert success_response.exception is None
         error_response = batch_response.responses[1]
         assert error_response.message_id is None
-        assert not error_response.success
-        assert error_response.exception
+        assert error_response.success is False
+        assert error_response.exception is not None
         exception = error_response.exception
         assert str(exception) == 'test error'
         assert str(exception.code) == 'registration-token-not-registered'
@@ -1664,72 +1599,6 @@ class TestSendMulticast(TestBatch):
         assert all([r.success for r in batch_response.responses])
         assert not any([r.exception for r in batch_response.responses])
 
-    def test_send_multicast_non_error_non_200(self):
-        success_payload = json.dumps({'name': 'message-id'})
-        error_payload = json.dumps({})
-        _ = self._instrument_batch_messaging_service(
-            payload=self._batch_payload([(200, success_payload), (202, error_payload)]))
-        msg = messaging.MulticastMessage(tokens=['foo', 'foo'])
-        with pytest.raises(messaging.ApiCallError) as excinfo:
-            messaging.send_multicast(msg, dry_run=True)
-        expected = 'Unexpected HTTP response with status: 202; body: {}\r\n'
-        assert str(excinfo.value) == expected
-        assert str(excinfo.value.code) == messaging._MessagingService.UNKNOWN_ERROR
-
-    def test_send_multicast_non_error_non_200_detailed_error(self):
-        success_payload = json.dumps({'name': 'message-id'})
-        error_payload = json.dumps({
-            'error': {
-                'status': 'INVALID_ARGUMENT',
-                'message': 'test error'
-            }
-        })
-        _ = self._instrument_batch_messaging_service(
-            payload=self._batch_payload([(200, success_payload), (202, error_payload)]))
-        msg = messaging.MulticastMessage(tokens=['foo', 'foo'])
-        with pytest.raises(messaging.ApiCallError) as excinfo:
-            messaging.send_multicast(msg, dry_run=True)
-        assert str(excinfo.value) == 'test error'
-        assert str(excinfo.value.code) == 'invalid-argument'
-
-    def test_send_multicast_non_error_non_200_canonical_error_code(self):
-        success_payload = json.dumps({'name': 'message-id'})
-        error_payload = json.dumps({
-            'error': {
-                'status': 'NOT_FOUND',
-                'message': 'test error'
-            }
-        })
-        _ = self._instrument_batch_messaging_service(
-            payload=self._batch_payload([(200, success_payload), (202, error_payload)]))
-        msg = messaging.MulticastMessage(tokens=['foo', 'foo'])
-        with pytest.raises(messaging.ApiCallError) as excinfo:
-            messaging.send_multicast(msg, dry_run=True)
-        assert str(excinfo.value) == 'test error'
-        assert str(excinfo.value.code) == 'registration-token-not-registered'
-
-    def test_send_multicast_non_error_non_200_fcm_error_code(self):
-        success_payload = json.dumps({'name': 'message-id'})
-        error_payload = json.dumps({
-            'error': {
-                'status': 'INVALID_ARGUMENT',
-                'message': 'test error',
-                'details': [
-                    {
-                        '@type': 'type.googleapis.com/google.firebase.fcm.v1.FcmError',
-                        'errorCode': 'UNREGISTERED',
-                    },
-                ],
-            }
-        })
-        _ = self._instrument_batch_messaging_service(
-            payload=self._batch_payload([(200, success_payload), (202, error_payload)]))
-        msg = messaging.MulticastMessage(tokens=['foo', 'foo'])
-        with pytest.raises(messaging.ApiCallError) as excinfo:
-            messaging.send_multicast(msg, dry_run=True)
-        assert str(excinfo.value) == 'test error'
-        assert str(excinfo.value.code) == 'registration-token-not-registered'
-
     @pytest.mark.parametrize('status', HTTP_ERRORS)
     def test_send_multicast_detailed_error(self, status):
         success_payload = json.dumps({'name': 'message-id'})
@@ -1748,12 +1617,12 @@ class TestSendMulticast(TestBatch):
         assert len(batch_response.responses) == 2
         success_response = batch_response.responses[0]
         assert success_response.message_id == 'message-id'
-        assert success_response.success
+        assert success_response.success is True
         assert success_response.exception is None
         error_response = batch_response.responses[1]
         assert error_response.message_id is None
-        assert not error_response.success
-        assert error_response.exception
+        assert error_response.success is False
+        assert error_response.exception is not None
         exception = error_response.exception
         assert str(exception) == 'test error'
         assert str(exception.code) == 'invalid-argument'
@@ -1776,12 +1645,12 @@ class TestSendMulticast(TestBatch):
         assert len(batch_response.responses) == 2
         success_response = batch_response.responses[0]
         assert success_response.message_id == 'message-id'
-        assert success_response.success
+        assert success_response.success is True
         assert success_response.exception is None
         error_response = batch_response.responses[1]
         assert error_response.message_id is None
-        assert not error_response.success
-        assert error_response.exception
+        assert error_response.success is False
+        assert error_response.exception is not None
         exception = error_response.exception
         assert str(exception) == 'test error'
         assert str(exception.code) == 'registration-token-not-registered'
@@ -1810,12 +1679,12 @@ class TestSendMulticast(TestBatch):
         assert len(batch_response.responses) == 2
         success_response = batch_response.responses[0]
         assert success_response.message_id == 'message-id'
-        assert success_response.success
+        assert success_response.success is True
         assert success_response.exception is None
         error_response = batch_response.responses[1]
         assert error_response.message_id is None
-        assert not error_response.success
-        assert error_response.exception
+        assert error_response.success is False
+        assert error_response.exception is not None
         exception = error_response.exception
         assert str(exception) == 'test error'
         assert str(exception.code) == 'registration-token-not-registered'

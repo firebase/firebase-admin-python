@@ -452,7 +452,7 @@ class _MessagingService(object):
             data['validate_only'] = True
         return data
 
-    def _postproc(self, resp, body):
+    def _postproc(self, _, body):
         """Handle response from batch API request."""
         # This only gets called for 2xx responses.
         return json.loads(body.decode())

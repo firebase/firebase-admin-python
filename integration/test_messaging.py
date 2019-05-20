@@ -47,6 +47,65 @@ def test_send():
     msg_id = messaging.send(msg, dry_run=True)
     assert re.match('^projects/.*/messages/.*$', msg_id)
 
+def test_send_all():
+    messages = [
+        messaging.Message(topic='foo-bar', notification=messaging.Notification('Title', 'Body')),
+        messaging.Message(topic='foo-bar', notification=messaging.Notification('Title', 'Body')),
+        messaging.Message(token='not-a-token', notification=messaging.Notification('Title', 'Body')),
+    ]
+
+    batch_response = messaging.send_all(messages, dry_run=True)
+
+    assert batch_response.success_count == 2
+    assert batch_response.failure_count == 1
+    assert len(batch_response.responses) == 3
+
+    response = batch_response.responses[0]
+    assert response.success is True
+    assert response.exception is None
+    assert re.match('^projects/.*/messages/.*$', response.message_id)
+
+    response = batch_response.responses[1]
+    assert response.success is True
+    assert response.exception is None
+    assert re.match('^projects/.*/messages/.*$', response.message_id)
+
+    response = batch_response.responses[2]
+    assert response.success is False
+    assert response.exception is not None
+    assert response.message_id is None
+
+def test_send_one_hundred():
+    messages = []
+    for i in range(100):
+        topic = 'foo-bar-{0}'.format(i % 10)
+        messages.append(messaging.Message(topic=topic))
+
+    batch_response = messaging.send_all(messages, dry_run=True)
+
+    assert batch_response.success_count == 100
+    assert batch_response.failure_count == 0
+    assert len(batch_response.responses) == 100
+    for response in batch_response.responses:
+        assert response.success is True
+        assert response.exception is None
+        assert re.match('^projects/.*/messages/.*$', response.message_id)
+
+def test_send_multicast():
+    multicast = messaging.MulticastMessage(
+        notification=messaging.Notification('Title', 'Body'),
+        tokens=['not-a-token', 'also-not-a-token'])
+
+    batch_response = messaging.send_multicast(multicast)
+
+    assert batch_response.success_count is 0
+    assert batch_response.failure_count == 2
+    assert len(batch_response.responses) == 2
+    for response in batch_response.responses:
+        assert response.success is False
+        assert response.exception is not None
+        assert response.message_id is None
+
 def test_subscribe():
     resp = messaging.subscribe_to_topic(_REGISTRATION_TOKEN, 'mock-topic')
     assert resp.success_count + resp.failure_count == 1

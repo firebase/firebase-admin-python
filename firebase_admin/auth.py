@@ -121,6 +121,7 @@ def create_custom_token(uid, developer_claims=None, app=None):
     except _token_gen.ApiCallError as error:
         raise AuthError(error.code, str(error), error.detail)
 
+
 def verify_id_token(id_token, app=None, check_revoked=False):
     """Verifies the signature and data for the provided JWT.
 
@@ -150,6 +151,7 @@ def verify_id_token(id_token, app=None, check_revoked=False):
         _check_jwt_revoked(verified_claims, _ID_TOKEN_REVOKED, 'ID token', app)
     return verified_claims
 
+
 def create_session_cookie(id_token, expires_in, app=None):
     """Creates a new Firebase session cookie from the given ID token and options.
 
@@ -173,6 +175,7 @@ def create_session_cookie(id_token, expires_in, app=None):
         return token_generator.create_session_cookie(id_token, expires_in)
     except _token_gen.ApiCallError as error:
         raise AuthError(error.code, str(error), error.detail)
+
 
 def verify_session_cookie(session_cookie, check_revoked=False, app=None):
     """Verifies a Firebase session cookie.
@@ -199,6 +202,7 @@ def verify_session_cookie(session_cookie, check_revoked=False, app=None):
         _check_jwt_revoked(verified_claims, _SESSION_COOKIE_REVOKED, 'session cookie', app)
     return verified_claims
 
+
 def revoke_refresh_tokens(uid, app=None):
     """Revokes all refresh tokens for an existing user.
 
@@ -213,6 +217,7 @@ def revoke_refresh_tokens(uid, app=None):
     """
     user_manager = _get_auth_service(app).user_manager
     user_manager.update_user(uid, valid_since=int(time.time()))
+
 
 def get_user(uid, app=None):
     """Gets the user data corresponding to the specified user ID.
@@ -235,6 +240,7 @@ def get_user(uid, app=None):
         return UserRecord(response)
     except _user_mgt.ApiCallError as error:
         raise AuthError(error.code, str(error), error.detail)
+
 
 def get_user_by_email(email, app=None):
     """Gets the user data corresponding to the specified user email.
@@ -280,6 +286,7 @@ def get_user_by_phone_number(phone_number, app=None):
         return UserRecord(response)
     except _user_mgt.ApiCallError as error:
         raise AuthError(error.code, str(error), error.detail)
+
 
 def list_users(page_token=None, max_results=_user_mgt.MAX_LIST_USERS_RESULTS, app=None):
     """Retrieves a page of user accounts from a Firebase project.
@@ -381,6 +388,7 @@ def update_user(uid, **kwargs):
     except _user_mgt.ApiCallError as error:
         raise AuthError(error.code, str(error), error.detail)
 
+
 def set_custom_user_claims(uid, custom_claims, app=None):
     """Sets additional claims on an existing user account.
 
@@ -407,6 +415,7 @@ def set_custom_user_claims(uid, custom_claims, app=None):
     except _user_mgt.ApiCallError as error:
         raise AuthError(error.code, str(error), error.detail)
 
+
 def delete_user(uid, app=None):
     """Deletes the user identified by the specified user ID.
 
@@ -423,6 +432,7 @@ def delete_user(uid, app=None):
         user_manager.delete_user(uid)
     except _user_mgt.ApiCallError as error:
         raise AuthError(error.code, str(error), error.detail)
+
 
 def import_users(users, hash_alg=None, app=None):
     """Imports the specified list of users into Firebase Auth.
@@ -453,6 +463,7 @@ def import_users(users, hash_alg=None, app=None):
     except _user_mgt.ApiCallError as error:
         raise AuthError(error.code, str(error), error.detail)
 
+
 def generate_password_reset_link(email, action_code_settings=None, app=None):
     """Generates the out-of-band email action link for password reset flows for the specified email
     address.
@@ -476,6 +487,7 @@ def generate_password_reset_link(email, action_code_settings=None, app=None):
                                                        action_code_settings=action_code_settings)
     except _user_mgt.ApiCallError as error:
         raise AuthError(error.code, str(error), error.detail)
+
 
 def generate_email_verification_link(email, action_code_settings=None, app=None):
     """Generates the out-of-band email action link for email verification flows for the specified
@@ -501,6 +513,7 @@ def generate_email_verification_link(email, action_code_settings=None, app=None)
     except _user_mgt.ApiCallError as error:
         raise AuthError(error.code, str(error), error.detail)
 
+
 def generate_sign_in_with_email_link(email, action_code_settings, app=None):
     """Generates the out-of-band email action link for email link sign-in flows, using the action
     code settings provided.
@@ -524,6 +537,7 @@ def generate_sign_in_with_email_link(email, action_code_settings, app=None):
                                                        action_code_settings=action_code_settings)
     except _user_mgt.ApiCallError as error:
         raise AuthError(error.code, str(error), error.detail)
+
 
 def _check_jwt_revoked(verified_claims, error_code, label, app):
     user = get_user(verified_claims.get('uid'), app=app)

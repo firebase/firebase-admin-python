@@ -106,14 +106,14 @@ $ pip install -r requirements.txt  # Install additional tools and dependencies
 
 We use [pylint](https://pylint.org/) for verifying source code format, and
 enforcing other Python programming best practices.
-There is a pylint configuration file ([`.pylintrc`](../.pylintrc)) at the root of this Git
+There is a pylint configuration file ([`.pylintrc`](.pylintrc)) at the root of this Git
 repository. This enables you to invoke pylint directly from the command line:
 
 ```
 pylint firebase_admin
 ```
 
-However, it is recommended that you use the [`lint.sh`](../lint.sh) bash script to invoke
+However, it is recommended that you use the [`lint.sh`](lint.sh) bash script to invoke
 pylint. This script will run the linter on both `firebase_admin` and the corresponding
 `tests` module. It suprresses some of the noisy warnings that get generated
 when running pylint on test code. Note that by default `lint.sh` will only
@@ -226,7 +226,7 @@ pyenv install 3.3.0        # install Python 3.3.0
 pyenv install pypy2-5.6.0  # install pypy2
 ```
 
-Refer to the [`tox.ini`](../tox.ini) file for a list of target environments that we usually test.
+Refer to the [`tox.ini`](tox.ini) file for a list of target environments that we usually test.
 Use pyenv to install all the required Python versions on your workstation. Verify that they are
 installed by running the following command:
 

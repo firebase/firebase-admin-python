@@ -1,6 +1,9 @@
 # Unreleased
 
--
+- [added] Added a new `auth.DELETE_ATTRIBUTE` sentinel value, which can be
+  used to delete `phone_number`, `display_name`, `photo_url` and `custom_claims`
+  attributes from a user account. It is now recommended to use this sentinel
+  value over passing `None` for deleting attributes.
 
 # v2.16.0
 

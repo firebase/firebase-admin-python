@@ -36,11 +36,18 @@ GENERATE_EMAIL_ACTION_LINK_ERROR = 'GENERATE_EMAIL_ACTION_LINK_ERROR'
 MAX_LIST_USERS_RESULTS = 1000
 MAX_IMPORT_USERS_SIZE = 1000
 
-class _Unspecified(object):
-    pass
+
+class Sentinel(object):
+
+    def __init__(self, description):
+        self.description = description
+
 
 # Use this internally, until sentinels are available in the public API.
-_UNSPECIFIED = _Unspecified()
+_UNSPECIFIED = Sentinel('No value specified')
+
+
+DELETE_ATTRIBUTE = Sentinel('Value used to delete an attribute from a user profile')
 
 
 class ApiCallError(Exception):
@@ -546,12 +553,12 @@ class UserManager(object):
 
         remove = []
         if display_name is not _UNSPECIFIED:
-            if display_name is None:
+            if display_name is None or display_name is DELETE_ATTRIBUTE:
                 remove.append('DISPLAY_NAME')
             else:
                 payload['displayName'] = _auth_utils.validate_display_name(display_name)
         if photo_url is not _UNSPECIFIED:
-            if photo_url is None:
+            if photo_url is None or photo_url is DELETE_ATTRIBUTE:
                 remove.append('PHOTO_URL')
             else:
                 payload['photoUrl'] = _auth_utils.validate_photo_url(photo_url)
@@ -559,13 +566,13 @@ class UserManager(object):
             payload['deleteAttribute'] = remove
 
         if phone_number is not _UNSPECIFIED:
-            if phone_number is None:
+            if phone_number is None or phone_number is DELETE_ATTRIBUTE:
                 payload['deleteProvider'] = ['phone']
             else:
                 payload['phoneNumber'] = _auth_utils.validate_phone(phone_number)
 
         if custom_claims is not _UNSPECIFIED:
-            if custom_claims is None:
+            if custom_claims is None or custom_claims is DELETE_ATTRIBUTE:
                 custom_claims = {}
             json_claims = json.dumps(custom_claims) if isinstance(
                 custom_claims, dict) else custom_claims

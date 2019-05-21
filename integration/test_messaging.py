@@ -49,9 +49,12 @@ def test_send():
 
 def test_send_all():
     messages = [
-        messaging.Message(topic='foo-bar', notification=messaging.Notification('Title', 'Body')),
-        messaging.Message(topic='foo-bar', notification=messaging.Notification('Title', 'Body')),
-        messaging.Message(token='not-a-token', notification=messaging.Notification('Title', 'Body')),
+        messaging.Message(
+            topic='foo-bar', notification=messaging.Notification('Title', 'Body')),
+        messaging.Message(
+            topic='foo-bar', notification=messaging.Notification('Title', 'Body')),
+        messaging.Message(
+            token='not-a-token', notification=messaging.Notification('Title', 'Body')),
     ]
 
     batch_response = messaging.send_all(messages, dry_run=True)
@@ -77,8 +80,8 @@ def test_send_all():
 
 def test_send_one_hundred():
     messages = []
-    for i in range(100):
-        topic = 'foo-bar-{0}'.format(i % 10)
+    for msg_number in range(100):
+        topic = 'foo-bar-{0}'.format(msg_number % 10)
         messages.append(messaging.Message(topic=topic))
 
     batch_response = messaging.send_all(messages, dry_run=True)

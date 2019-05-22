@@ -1,5 +1,7 @@
 # Unreleased
 
+- [added] Added new `send_all()` and `send_multicast()` APIs to the
+  `messasing` module.
 - [added] Added a new `auth.DELETE_ATTRIBUTE` sentinel value, which can be
   used to delete `phone_number`, `display_name`, `photo_url` and `custom_claims`
   attributes from a user account. It is now recommended to use this sentinel

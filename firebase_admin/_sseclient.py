@@ -33,8 +33,9 @@ end_of_field = re.compile(r'\r\n\r\n|\r\r|\n\n')
 class KeepAuthSession(transport.requests.AuthorizedSession):
     """A session that does not drop authentication on redirects between domains."""
 
-    def __init__(self, credential):
+    def __init__(self, credential, http_timeout):
         super(KeepAuthSession, self).__init__(credential)
+        self.http_timeout = http_timeout
 
     def rebuild_auth(self, prepared_request, response):
         pass
@@ -107,7 +108,7 @@ class SSEClient(object):
         if self.should_connect:
             if self.last_id:
                 self.requests_kwargs['headers']['Last-Event-ID'] = self.last_id
-            self.resp = self.session.get(self.url, stream=True, **self.requests_kwargs)
+            self.resp = self.session.get(self.url, stream=True, timeout=self.session.http_timeout, **self.requests_kwargs)
             self.resp_iterator = self.resp.iter_content(decode_unicode=True)
             self.resp.raise_for_status()
         else:

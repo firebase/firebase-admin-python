@@ -370,7 +370,7 @@ class Reference(object):
         Raises:
           ApiCallError: If an error occurs while starting the initial HTTP connection.
         """
-        session = _sseclient.KeepAuthSession(self._client.credential)
+        session = _sseclient.KeepAuthSession(self._client.credential, self._client.timeout)
         return self._listen_with_session(callback, session)
 
     def transaction(self, transaction_update):

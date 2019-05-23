@@ -351,7 +351,7 @@ class Reference(object):
 
         The specified callback function will get invoked with ``db.Event`` objects for each
         realtime update received from the database. It will also get called whenever the SDK
-        reconnects to the server due to network issues and credential expiration. In general,
+        reconnects to the server due to network issues or credential expiration. In general,
         the OAuth2 credentials used to authorize connections to the server expire every hour.
         Therefore clients should expect the ``callback`` to fire at least once every hour, even if
         there are no updates in the database.

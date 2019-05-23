@@ -57,11 +57,8 @@ class Message(object):
 class MulticastMessage(object):
     """A message that can be sent to multiple tokens via Firebase Cloud Messaging.
 
-    Contains payload information as well as recipient information. In particular, the message must
-    contain exactly one of token, topic or condition fields.
-
     Args:
-        tokens: A list of registration token of the device to which the message should be sent.
+        tokens: A list of registration tokens of targeted devices.
         data: A dictionary of data fields (optional). All keys and values in the dictionary must be
             strings.
         notification: An instance of ``messaging.Notification`` (optional).

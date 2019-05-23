@@ -4,7 +4,6 @@
 
 # v2.17.0
 
-
 - [added] Added new `send_all()` and `send_multicast()` APIs to the
   `messasing` module.
 - [added] Added a new `auth.DELETE_ATTRIBUTE` sentinel value, which can be

@@ -53,27 +53,20 @@ def handle_requests_error(error, message=None, status=None):
     """Constructs a FirebaseError from the given requests error."""
     if isinstance(error, requests.exceptions.Timeout):
         return exceptions.DeadlineExceededError(
-            message='Timed out while making an API call: {1}'.format(
-                _low_level_message(error, message)),
+            message='Timed out while making an API call: {0}'.format(error),
             cause=error)
     elif isinstance(error, requests.exceptions.ConnectionError):
         return exceptions.UnavailableError(
-            message='Failed to establish a connection: {1}'.format(
-                _low_level_message(error, message)),
+            message='Failed to establish a connection: {0}'.format(error),
             cause=error)
     elif error.response is None:
         return exceptions.UnknownError(
-            message='Unknown error while making a remote service call: {1}'.format(
-                _low_level_message(error, message)),
+            message='Unknown error while making a remote service call: {0}'.format(error),
             cause=error)
 
     if not status:
         status = error.response.status_code
+    if not message:
+        message = str(error)
     err_type = _STATUS_TO_EXCEPTION_TYPE.get(status, exceptions.UnknownError)
     return err_type(message=message, cause=error, http_response=error.response)
-
-def _low_level_message(error, message=None):
-    low_level_message = str(error)
-    if message is not None:
-        low_level_message = '{0} {1}'.format(message, error)
-    return low_level_message

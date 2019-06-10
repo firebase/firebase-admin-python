@@ -36,6 +36,8 @@ _AUTH_ATTRIBUTE = '_auth'
 
 __all__ = [
     'ActionCodeSettings',
+    'AuthError',
+    'DELETE_ATTRIBUTE',
     'ErrorInfo',
     'ExportedUserRecord',
     'FirebaseAuthError',
@@ -80,6 +82,7 @@ __all__ = [
 
 
 ActionCodeSettings = _user_mgt.ActionCodeSettings
+DELETE_ATTRIBUTE = _user_mgt.DELETE_ATTRIBUTE
 ErrorInfo = _user_import.ErrorInfo
 ExportedUserRecord = _user_mgt.ExportedUserRecord
 FirebaseAuthError = _auth_utils.FirebaseAuthError
@@ -145,6 +148,7 @@ def create_custom_token(uid, developer_claims=None, app=None):
     return token_generator.create_custom_token(uid, developer_claims)
 
 
+
 def verify_id_token(id_token, app=None, check_revoked=False):
     """Verifies the signature and data for the provided JWT.
 
@@ -195,6 +199,7 @@ def create_session_cookie(id_token, expires_in, app=None):
     """
     token_generator = _get_auth_service(app).token_generator
     return token_generator.create_session_cookie(id_token, expires_in)
+
 
 
 def verify_session_cookie(session_cookie, check_revoked=False, app=None):
@@ -262,6 +267,7 @@ def get_user(uid, app=None):
     return UserRecord(response)
 
 
+
 def get_user_by_email(email, app=None):
     """Gets the user data corresponding to the specified user email.
 
@@ -300,6 +306,7 @@ def get_user_by_phone_number(phone_number, app=None):
     user_manager = _get_auth_service(app).user_manager
     response = user_manager.get_user(phone_number=phone_number)
     return UserRecord(response)
+
 
 
 def list_users(page_token=None, max_results=_user_mgt.MAX_LIST_USERS_RESULTS, app=None):
@@ -367,17 +374,18 @@ def update_user(uid, **kwargs):
 
     Keyword Args:
         display_name: The user's display name (optional). Can be removed by explicitly passing
-            None.
+            ``auth.DELETE_ATTRIBUTE``.
         email: The user's primary email (optional).
         email_verified: A boolean indicating whether or not the user's primary email is
             verified (optional).
         phone_number: The user's primary phone number (optional). Can be removed by explicitly
-            passing None.
-        photo_url: The user's photo URL (optional). Can be removed by explicitly passing None.
+            passing ``auth.DELETE_ATTRIBUTE``.
+        photo_url: The user's photo URL (optional). Can be removed by explicitly passing
+            ``auth.DELETE_ATTRIBUTE``.
         password: The user's raw, unhashed password. (optional).
         disabled: A boolean indicating whether or not the user account is disabled (optional).
         custom_claims: A dictionary or a JSON string contining the custom claims to be set on the
-            user account (optional).
+            user account (optional). To remove all custom claims, pass ``auth.DELETE_ATTRIBUTE``.
         valid_since: An integer signifying the seconds since the epoch. This field is set by
             ``revoke_refresh_tokens`` and it is discouraged to set this field directly.
 
@@ -392,6 +400,7 @@ def update_user(uid, **kwargs):
     user_manager = _get_auth_service(app).user_manager
     user_manager.update_user(uid, **kwargs)
     return UserRecord(user_manager.get_user(uid=uid))
+
 
 
 def set_custom_user_claims(uid, custom_claims, app=None):
@@ -418,6 +427,7 @@ def set_custom_user_claims(uid, custom_claims, app=None):
     user_manager.update_user(uid, custom_claims=custom_claims)
 
 
+
 def delete_user(uid, app=None):
     """Deletes the user identified by the specified user ID.
 
@@ -431,6 +441,7 @@ def delete_user(uid, app=None):
     """
     user_manager = _get_auth_service(app).user_manager
     user_manager.delete_user(uid)
+
 
 
 def import_users(users, hash_alg=None, app=None):
@@ -460,6 +471,7 @@ def import_users(users, hash_alg=None, app=None):
     return UserImportResult(result, len(users))
 
 
+
 def generate_password_reset_link(email, action_code_settings=None, app=None):
     """Generates the out-of-band email action link for password reset flows for the specified email
     address.
@@ -480,6 +492,7 @@ def generate_password_reset_link(email, action_code_settings=None, app=None):
     user_manager = _get_auth_service(app).user_manager
     return user_manager.generate_email_action_link(
         'PASSWORD_RESET', email, action_code_settings=action_code_settings)
+
 
 
 def generate_email_verification_link(email, action_code_settings=None, app=None):
@@ -504,6 +517,7 @@ def generate_email_verification_link(email, action_code_settings=None, app=None)
         'VERIFY_EMAIL', email, action_code_settings=action_code_settings)
 
 
+
 def generate_sign_in_with_email_link(email, action_code_settings, app=None):
     """Generates the out-of-band email action link for email link sign-in flows, using the action
     code settings provided.
@@ -524,6 +538,7 @@ def generate_sign_in_with_email_link(email, action_code_settings, app=None):
     user_manager = _get_auth_service(app).user_manager
     return user_manager.generate_email_action_link(
         'EMAIL_SIGNIN', email, action_code_settings=action_code_settings)
+
 
 
 def _check_jwt_revoked(verified_claims, error_code, label, app):

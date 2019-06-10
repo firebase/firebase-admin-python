@@ -54,6 +54,30 @@ class Message(object):
         self.condition = condition
 
 
+class MulticastMessage(object):
+    """A message that can be sent to multiple tokens via Firebase Cloud Messaging.
+
+    Args:
+        tokens: A list of registration tokens of targeted devices.
+        data: A dictionary of data fields (optional). All keys and values in the dictionary must be
+            strings.
+        notification: An instance of ``messaging.Notification`` (optional).
+        android: An instance of ``messaging.AndroidConfig`` (optional).
+        webpush: An instance of ``messaging.WebpushConfig`` (optional).
+        apns: An instance of ``messaging.ApnsConfig`` (optional).
+    """
+    def __init__(self, tokens, data=None, notification=None, android=None, webpush=None, apns=None):
+        _Validators.check_string_list('MulticastMessage.tokens', tokens)
+        if len(tokens) > 100:
+            raise ValueError('MulticastMessage.tokens must not contain more than 100 tokens.')
+        self.tokens = tokens
+        self.data = data
+        self.notification = notification
+        self.android = android
+        self.webpush = webpush
+        self.apns = apns
+
+
 class Notification(object):
     """A notification that can be included in a message.
 
@@ -150,7 +174,7 @@ class WebpushConfig(object):
         data: A dictionary of data fields (optional). All keys and values in the dictionary must be
             strings. When specified, overrides any data fields set via ``Message.data``.
         notification: A ``messaging.WebpushNotification`` to be included in the message (optional).
-        fcm_options: A ``messaging.WebpushFcmOptions`` instance to be included in the messsage
+        fcm_options: A ``messaging.WebpushFcmOptions`` instance to be included in the message
             (optional).
 
     .. _Webpush Specification: https://tools.ietf.org/html/rfc8030#section-5

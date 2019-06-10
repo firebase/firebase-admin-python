@@ -443,9 +443,29 @@ class TestUpdateUser(object):
         request = json.loads(recorder[0].body.decode())
         assert request == {'localId' : 'testuser', 'customAttributes' : json.dumps(claims)}
 
-    def test_update_user_delete_fields(self, user_mgt_app):
+    def test_delete_user_custom_claims(self, user_mgt_app):
+        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        user_mgt.update_user('testuser', custom_claims=auth.DELETE_ATTRIBUTE)
+        request = json.loads(recorder[0].body.decode())
+        assert request == {'localId' : 'testuser', 'customAttributes' : json.dumps({})}
+
+    def test_update_user_delete_fields_with_none(self, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
         user_mgt.update_user('testuser', display_name=None, photo_url=None, phone_number=None)
+        request = json.loads(recorder[0].body.decode())
+        assert request == {
+            'localId' : 'testuser',
+            'deleteAttribute' : ['DISPLAY_NAME', 'PHOTO_URL'],
+            'deleteProvider' : ['phone'],
+        }
+
+    def test_update_user_delete_fields(self, user_mgt_app):
+        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        user_mgt.update_user(
+            'testuser',
+            display_name=auth.DELETE_ATTRIBUTE,
+            photo_url=auth.DELETE_ATTRIBUTE,
+            phone_number=auth.DELETE_ATTRIBUTE)
         request = json.loads(recorder[0].body.decode())
         assert request == {
             'localId' : 'testuser',

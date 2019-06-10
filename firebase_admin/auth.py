@@ -36,8 +36,6 @@ _AUTH_ATTRIBUTE = '_auth'
 
 __all__ = [
     'ActionCodeSettings',
-    'AuthError',
-    'DELETE_ATTRIBUTE',
     'ErrorInfo',
     'ExportedUserRecord',
     'FirebaseAuthError',
@@ -78,6 +76,8 @@ __all__ = [
     'TOKEN_SIGN_FAILED',
     'UNEXPECTED_RESPONSE',
     'USER_NOT_FOUND',
+
+    'DELETE_ATTRIBUTE',
 ]
 
 

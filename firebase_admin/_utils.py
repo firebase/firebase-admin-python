@@ -14,7 +14,22 @@
 
 """Internal utilities common to all modules."""
 
+import requests
+
 import firebase_admin
+from firebase_admin import exceptions
+
+
+_STATUS_TO_EXCEPTION_TYPE = {
+    400: exceptions.InvalidArgumentError,
+    401: exceptions.UnautenticatedError,
+    403: exceptions.PermissionDeniedError,
+    404: exceptions.NotFoundError,
+    409: exceptions.ConflictError,
+    429: exceptions.ResourceExhaustedError,
+    500: exceptions.InternalError,
+    503: exceptions.UnavailableError,
+}
 
 
 def _get_initialized_app(app):
@@ -33,3 +48,32 @@ def _get_initialized_app(app):
 def get_app_service(app, name, initializer):
     app = _get_initialized_app(app)
     return app._get_service(name, initializer) # pylint: disable=protected-access
+
+def handle_requests_error(error, message=None, status=None):
+    """Constructs a FirebaseError from the given requests error."""
+    if isinstance(error, requests.exceptions.Timeout):
+        return exceptions.DeadlineExceededError(
+            message='Timed out while making an API call: {1}'.format(
+                _low_level_message(error, message)),
+            cause=error)
+    elif isinstance(error, requests.exceptions.ConnectionError):
+        return exceptions.UnavailableError(
+            message='Failed to establish a connection: {1}'.format(
+                _low_level_message(error, message)),
+            cause=error)
+    elif error.response is None:
+        return exceptions.UnknownError(
+            message='Unknown error while making a remote service call: {1}'.format(
+                _low_level_message(error, message)),
+            cause=error)
+
+    if not status:
+        status = error.response.status_code
+    err_type = _STATUS_TO_EXCEPTION_TYPE.get(status, exceptions.UnknownError)
+    return err_type(message=message, cause=error, http_response=error.response)
+
+def _low_level_message(error, message=None):
+    low_level_message = str(error)
+    if message is not None:
+        low_level_message = '{0} {1}'.format(message, error)
+    return low_level_message

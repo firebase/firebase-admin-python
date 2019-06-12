@@ -75,6 +75,11 @@ WebpushFcmOptions = _messaging_utils.WebpushFcmOptions
 WebpushNotification = _messaging_utils.WebpushNotification
 WebpushNotificationAction = _messaging_utils.WebpushNotificationAction
 
+QuotaExceededError = _messaging_utils.QuotaExceededError
+SenderIdMismatchError = _messaging_utils.SenderIdMismatchError
+ThirdPartyAuthError = _messaging_utils.ThirdPartyAuthError
+UnregisteredError = _messaging_utils.UnregisteredError
+
 
 def _get_messaging_service(app):
     return _utils.get_app_service(app, _MESSAGING_ATTRIBUTE, _MessagingService)
@@ -310,21 +315,12 @@ class _MessagingService(object):
 
     INTERNAL_ERROR = 'internal-error'
     UNKNOWN_ERROR = 'unknown-error'
-    FCM_ERROR_CODES = {
-        # FCM v1 canonical error codes
-        'NOT_FOUND': 'registration-token-not-registered',
-        'PERMISSION_DENIED': 'mismatched-credential',
-        'RESOURCE_EXHAUSTED': 'message-rate-exceeded',
-        'UNAUTHENTICATED': 'invalid-apns-credentials',
-
-        # FCM v1 new error codes
-        'APNS_AUTH_ERROR': 'invalid-apns-credentials',
-        'INTERNAL': INTERNAL_ERROR,
-        'INVALID_ARGUMENT': 'invalid-argument',
-        'QUOTA_EXCEEDED': 'message-rate-exceeded',
-        'SENDER_ID_MISMATCH': 'mismatched-credential',
-        'UNAVAILABLE': 'server-unavailable',
-        'UNREGISTERED': 'registration-token-not-registered',
+    FCM_ERROR_TYPES = {
+        'APNS_AUTH_ERROR': ThirdPartyAuthError,
+        'QUOTA_EXCEEDED': QuotaExceededError,
+        'SENDER_ID_MISMATCH': SenderIdMismatchError,
+        'THIRD_PARTY_AUTH_ERROR': ThirdPartyAuthError,
+        'UNREGISTERED': UnregisteredError,
     }
     IID_ERROR_CODES = {
         400: 'invalid-argument',
@@ -367,11 +363,7 @@ class _MessagingService(object):
                 timeout=self._timeout
             )
         except requests.exceptions.RequestException as error:
-            if error.response is not None:
-                self._handle_fcm_error(error)
-            else:
-                msg = 'Failed to call messaging API: {0}'.format(error)
-                raise ApiCallError(self.INTERNAL_ERROR, msg, error)
+            self._handle_fcm_error(error)
         else:
             return resp['name']
 
@@ -459,17 +451,15 @@ class _MessagingService(object):
 
     def _handle_fcm_error(self, error):
         """Handles errors received from the FCM API."""
-        data = {}
-        try:
-            parsed_body = error.response.json()
-            if isinstance(parsed_body, dict):
-                data = parsed_body
-        except ValueError:
-            pass
+        status, msg = None, None
+        if error.response is not None:
+            status, msg = _MessagingService._parse_fcm_error(
+                error.response.content.decode(), error.response.status_code)
+            exc_type = _MessagingService.FCM_ERROR_TYPES.get(status)
+            if exc_type:
+                raise exc_type(msg, cause=error, http_response=error.response)
 
-        code, msg = _MessagingService._parse_fcm_error(
-            data, error.response.content, error.response.status_code)
-        raise ApiCallError(code, msg, error)
+        raise _utils.handle_requests_error(error, message=msg, status=status)
 
     def _handle_iid_error(self, error):
         """Handles errors received from the Instance ID API."""
@@ -490,25 +480,34 @@ class _MessagingService(object):
         raise ApiCallError(code, msg, error)
 
     def _parse_batch_error(self, error):
-        """Parses a googleapiclient.http.HttpError content in to an ApiCallError."""
-        if error.content is None:
-            msg = 'Failed to call messaging API: {0}'.format(error)
-            return ApiCallError(self.INTERNAL_ERROR, msg, error)
+        """Parses a googleapiclient.http.HttpError content and constructs a FirebaseError."""
+        resp = requests.models.Response()
+        resp.raw = error.content
+        resp.status_code = error.resp.status
 
+        status, msg = _MessagingService._parse_fcm_error(error.content.decode(), error.resp.status)
+        exc_type = _MessagingService.FCM_ERROR_TYPES.get(status)
+        if exc_type:
+            return exc_type(message=msg, cause=error, http_response=resp)
+
+        if not status:
+            status = error.resp.status
+        if not msg:
+            msg = str(error)
+        err_type = _utils.lookup_error_type(status)
+        return err_type(message=msg, cause=error, http_response=resp)
+
+    @classmethod
+    def _parse_fcm_error(cls, content, status_code):
+        """Parses an error response from the FCM API and extracts the status and message fields."""
         data = {}
         try:
-            parsed_body = json.loads(error.content.decode())
+            parsed_body = json.loads(content)
             if isinstance(parsed_body, dict):
                 data = parsed_body
         except ValueError:
             pass
 
-        code, msg = _MessagingService._parse_fcm_error(data, error.content, error.resp.status)
-        return ApiCallError(code, msg, error)
-
-    @classmethod
-    def _parse_fcm_error(cls, data, content, status_code):
-        """Parses an error response from the FCM API to a ApiCallError."""
         error_dict = data.get('error', {})
         server_code = None
         for detail in error_dict.get('details', []):
@@ -517,10 +516,9 @@ class _MessagingService(object):
                 break
         if not server_code:
             server_code = error_dict.get('status')
-        code = _MessagingService.FCM_ERROR_CODES.get(server_code, _MessagingService.UNKNOWN_ERROR)
 
         msg = error_dict.get('message')
         if not msg:
             msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(
-                status_code, content.decode())
-        return code, msg
+                status_code, content)
+        return server_code, msg

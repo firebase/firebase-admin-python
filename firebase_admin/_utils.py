@@ -29,6 +29,22 @@ _STATUS_TO_EXCEPTION_TYPE = {
     429: exceptions.ResourceExhaustedError,
     500: exceptions.InternalError,
     503: exceptions.UnavailableError,
+
+    exceptions.INVALID_ARGUMENT: exceptions.InvalidArgumentError,
+    exceptions.FAILED_PRECONDITION: exceptions.FailedPreconditionError,
+    exceptions.OUT_OF_RANGE: exceptions.OutOfRangeError,
+    exceptions.UNAUTHENTICATED: exceptions.UnauthenticatedError,
+    exceptions.PERMISSION_DENIED: exceptions.PermissionDeniedError,
+    exceptions.NOT_FOUND: exceptions.NotFoundError,
+    exceptions.ABORTED: exceptions.AbortedError,
+    exceptions.ALREADY_EXISTS: exceptions.AlreadyExistsError,
+    exceptions.RESOURCE_EXHAUSTED: exceptions.ResourceExhaustedError,
+    exceptions.CANCELLED: exceptions.CancelledError,
+    exceptions.DATA_LOSS: exceptions.DataLossError,
+    exceptions.UNKNOWN: exceptions.UnknownError,
+    exceptions.INTERNAL: exceptions.InternalError,
+    exceptions.UNAVAILABLE: exceptions.UnavailableError,
+    exceptions.DEADLINE_EXCEEDED: exceptions.DeadlineExceededError,
 }
 
 
@@ -56,8 +72,9 @@ def handle_requests_error(error, message=None, status=None):
         error: An error raised by the reqests module while making an HTTP call.
         message: A message to be included in the resulting ``FirebaseError`` (optional). If not
             specified the string representation of the ``error`` argument is used as the message.
-        status: An HTTP status code that will be used to determine the resulting error type
-            (optional). If not specified the HTTP status code on the error response is used.
+        status: An HTTP status code or GCP error code that will be used to determine the resulting
+            error type (optional). If not specified the HTTP status code on the error response is
+            used.
 
     Returns:
         FirebaseError: A ``FirebaseError`` that can be raised to the user code.
@@ -79,5 +96,8 @@ def handle_requests_error(error, message=None, status=None):
         status = error.response.status_code
     if not message:
         message = str(error)
-    err_type = _STATUS_TO_EXCEPTION_TYPE.get(status, exceptions.UnknownError)
+    err_type = lookup_error_type(status)
     return err_type(message=message, cause=error, http_response=error.response)
+
+def lookup_error_type(status):
+    return _STATUS_TO_EXCEPTION_TYPE.get(status, exceptions.UnknownError)

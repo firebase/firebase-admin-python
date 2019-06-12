@@ -14,7 +14,22 @@
 
 """Internal utilities common to all modules."""
 
+import requests
+
 import firebase_admin
+from firebase_admin import exceptions
+
+
+_STATUS_TO_EXCEPTION_TYPE = {
+    400: exceptions.InvalidArgumentError,
+    401: exceptions.UnauthenticatedError,
+    403: exceptions.PermissionDeniedError,
+    404: exceptions.NotFoundError,
+    409: exceptions.ConflictError,
+    429: exceptions.ResourceExhaustedError,
+    500: exceptions.InternalError,
+    503: exceptions.UnavailableError,
+}
 
 
 def _get_initialized_app(app):
@@ -33,3 +48,36 @@ def _get_initialized_app(app):
 def get_app_service(app, name, initializer):
     app = _get_initialized_app(app)
     return app._get_service(name, initializer) # pylint: disable=protected-access
+
+def handle_requests_error(error, message=None, status=None):
+    """Constructs a ``FirebaseError`` from the given requests error.
+
+    Args:
+        error: An error raised by the reqests module while making an HTTP call.
+        message: A message to be included in the resulting ``FirebaseError`` (optional). If not
+            specified the string representation of the ``error`` argument is used as the message.
+        status: An HTTP status code that will be used to determine the resulting error type
+            (optional). If not specified the HTTP status code on the error response is used.
+
+    Returns:
+        FirebaseError: A ``FirebaseError`` that can be raised to the user code.
+    """
+    if isinstance(error, requests.exceptions.Timeout):
+        return exceptions.DeadlineExceededError(
+            message='Timed out while making an API call: {0}'.format(error),
+            cause=error)
+    elif isinstance(error, requests.exceptions.ConnectionError):
+        return exceptions.UnavailableError(
+            message='Failed to establish a connection: {0}'.format(error),
+            cause=error)
+    elif error.response is None:
+        return exceptions.UnknownError(
+            message='Unknown error while making a remote service call: {0}'.format(error),
+            cause=error)
+
+    if not status:
+        status = error.response.status_code
+    if not message:
+        message = str(error)
+    err_type = _STATUS_TO_EXCEPTION_TYPE.get(status, exceptions.UnknownError)
+    return err_type(message=message, cause=error, http_response=error.response)

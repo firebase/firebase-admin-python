@@ -28,7 +28,7 @@ http_errors = {
         exceptions.InvalidArgumentError),
     401: (
         'Instance ID "test_iid": Request not authorized.',
-        exceptions.UnautenticatedError),
+        exceptions.UnauthenticatedError),
     403: (
         ('Instance ID "test_iid": Project does not match instance ID or the client does not have '
          'sufficient privileges.'),

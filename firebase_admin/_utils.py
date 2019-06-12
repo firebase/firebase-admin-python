@@ -22,7 +22,7 @@ from firebase_admin import exceptions
 
 _STATUS_TO_EXCEPTION_TYPE = {
     400: exceptions.InvalidArgumentError,
-    401: exceptions.UnautenticatedError,
+    401: exceptions.UnauthenticatedError,
     403: exceptions.PermissionDeniedError,
     404: exceptions.NotFoundError,
     409: exceptions.ConflictError,
@@ -50,7 +50,18 @@ def get_app_service(app, name, initializer):
     return app._get_service(name, initializer) # pylint: disable=protected-access
 
 def handle_requests_error(error, message=None, status=None):
-    """Constructs a FirebaseError from the given requests error."""
+    """Constructs a ``FirebaseError`` from the given requests error.
+
+    Args:
+        error: An error raised by the reqests module while making an HTTP call.
+        message: A message to be included in the resulting ``FirebaseError`` (optional). If not
+            specified the string representation of the ``error`` argument is used as the message.
+        status: An HTTP status code that will be used to determine the resulting error type
+            (optional). If not specified the HTTP status code on the error response is used.
+
+    Returns:
+        FirebaseError: A ``FirebaseError`` that can be raised to the user code.
+    """
     if isinstance(error, requests.exceptions.Timeout):
         return exceptions.DeadlineExceededError(
             message='Timed out while making an API call: {0}'.format(error),

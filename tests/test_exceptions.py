@@ -78,7 +78,7 @@ def test_http_response_with_status():
     resp = models.Response()
     resp.status_code = 500
     error = requests.exceptions.RequestException('Test error', response=resp)
-    firebase_error = _utils.handle_requests_error(error, status=503)
+    firebase_error = _utils.handle_requests_error(error, code=503)
     assert isinstance(firebase_error, exceptions.UnavailableError)
     assert str(firebase_error) == 'Test error'
     assert firebase_error.cause is error
@@ -89,7 +89,7 @@ def test_http_response_with_message_and_status():
     resp.status_code = 500
     error = requests.exceptions.RequestException('Test error', response=resp)
     firebase_error = _utils.handle_requests_error(
-        error, message='Explicit error message', status=503)
+        error, message='Explicit error message', code=503)
     assert isinstance(firebase_error, exceptions.UnavailableError)
     assert str(firebase_error) == 'Explicit error message'
     assert firebase_error.cause is error

@@ -22,7 +22,7 @@ import firebase_admin
 from firebase_admin import exceptions
 
 
-_STATUS_TO_EXCEPTION_TYPE = {
+_ERROR_CODE_TO_EXCEPTION_TYPE = {
     400: exceptions.InvalidArgumentError,
     401: exceptions.UnauthenticatedError,
     403: exceptions.PermissionDeniedError,
@@ -50,6 +50,18 @@ _STATUS_TO_EXCEPTION_TYPE = {
 }
 
 
+_HTTP_STATUS_TO_ERROR_CODE = {
+    400: exceptions.INVALID_ARGUMENT,
+    401: exceptions.UNAUTHENTICATED,
+    403: exceptions.PERMISSION_DENIED,
+    404: exceptions.NOT_FOUND,
+    409: exceptions.CONFLICT,
+    429: exceptions.RESOURCE_EXHAUSTED,
+    500: exceptions.INTERNAL,
+    503: exceptions.UNAVAILABLE,
+}
+
+
 def _get_initialized_app(app):
     if app is None:
         return firebase_admin.get_app()
@@ -63,18 +75,20 @@ def _get_initialized_app(app):
         raise ValueError('Illegal app argument. Argument must be of type '
                          ' firebase_admin.App, but given "{0}".'.format(type(app)))
 
+
 def get_app_service(app, name, initializer):
     app = _get_initialized_app(app)
     return app._get_service(name, initializer) # pylint: disable=protected-access
 
-def handle_requests_error(error, message=None, status=None):
+
+def handle_requests_error(error, message=None, code=None):
     """Constructs a ``FirebaseError`` from the given requests error.
 
     Args:
         error: An error raised by the reqests module while making an HTTP call.
         message: A message to be included in the resulting ``FirebaseError`` (optional). If not
             specified the string representation of the ``error`` argument is used as the message.
-        status: An HTTP status code or GCP error code that will be used to determine the resulting
+        code: An HTTP status code or GCP error code that will be used to determine the resulting
             error type (optional). If not specified the HTTP status code on the error response is
             used.
 
@@ -94,16 +108,24 @@ def handle_requests_error(error, message=None, status=None):
             message='Unknown error while making a remote service call: {0}'.format(error),
             cause=error)
 
-    if not status:
-        status = error.response.status_code
+    if not code:
+        code = error.response.status_code
     if not message:
         message = str(error)
-    err_type = lookup_error_type(status)
+    err_type = lookup_error_type(code)
     return err_type(message=message, cause=error, http_response=error.response)
 
-def lookup_error_type(status):
+
+def lookup_error_type(code):
     """Maps an error code to an exception type."""
-    return _STATUS_TO_EXCEPTION_TYPE.get(status, exceptions.UnknownError)
+    return _ERROR_CODE_TO_EXCEPTION_TYPE.get(code, exceptions.UnknownError)
+
+
+def parse_requests_platform_error(response, parse_func=None):
+    content = response.content.decode()
+    status_code = response.status_code
+    return parse_platform_error(content, status_code, parse_func)
+
 
 def parse_platform_error(content, status_code, parse_func=None):
     """Parses an HTTP error response from a Google Cloud Platform API and extracts the error code
@@ -115,7 +137,7 @@ def parse_platform_error(content, status_code, parse_func=None):
         parse_func: A custom function to extract the code from the error body (optional).
 
     Returns:
-        tuple: A tuple containing error code and message. Either or both could be ``None``.
+        tuple: A tuple containing error code and message.
     """
     data = {}
     try:
@@ -126,13 +148,20 @@ def parse_platform_error(content, status_code, parse_func=None):
         pass
 
     error_dict = data.get('error', {})
-    server_code = None
-    if parse_func:
-        server_code = parse_func(error_dict)
-    if not server_code:
-        server_code = error_dict.get('status')
-
+    server_code = _get_error_code(error_dict, status_code, parse_func)
     msg = error_dict.get('message')
     if not msg:
         msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(status_code, content)
     return server_code, msg
+
+
+def _get_error_code(error_dict, status_code, parse_func):
+    code = _try_get_error_code_from_body(error_dict, parse_func)
+    return code if code else _HTTP_STATUS_TO_ERROR_CODE.get(status_code, exceptions.UNKNOWN)
+
+
+def _try_get_error_code_from_body(error_dict, parse_func):
+    code = None
+    if parse_func:
+        code = parse_func(error_dict)
+    return code if code else error_dict.get('status')

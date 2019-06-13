@@ -451,16 +451,16 @@ class _MessagingService(object):
 
     def _handle_fcm_error(self, error):
         """Handles errors received from the FCM API."""
-        code, msg = None, None
+        code, message = None, None
         if error.response is not None:
-            code, msg = _utils.parse_platform_error(
-                content=error.response.content.decode(), status_code=error.response.status_code,
+            code, message = _utils.parse_requests_platform_error(
+                response=error.response,
                 parse_func=_MessagingService._parse_fcm_error)
             exc_type = _MessagingService.FCM_ERROR_TYPES.get(code)
             if exc_type:
-                raise exc_type(msg, cause=error, http_response=error.response)
+                raise exc_type(message, cause=error, http_response=error.response)
 
-        raise _utils.handle_requests_error(error, message=msg, status=code)
+        raise _utils.handle_requests_error(error, message=message, code=code)
 
     def _handle_iid_error(self, error):
         """Handles errors received from the Instance ID API."""
@@ -487,16 +487,13 @@ class _MessagingService(object):
         resp.status_code = error.resp.status
 
         code, msg = _utils.parse_platform_error(
-            content=error.content.decode(), status_code=error.resp.status,
+            content=error.content.decode(),
+            status_code=error.resp.status,
             parse_func=_MessagingService._parse_fcm_error)
         exc_type = _MessagingService.FCM_ERROR_TYPES.get(code)
         if exc_type:
             return exc_type(message=msg, cause=error, http_response=resp)
 
-        if not code:
-            code = error.resp.status
-        if not msg:
-            msg = str(error)
         err_type = _utils.lookup_error_type(code)
         return err_type(message=msg, cause=error, http_response=resp)
 

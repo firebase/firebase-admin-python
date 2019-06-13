@@ -225,8 +225,7 @@ class TestGoogleApiClient(object):
         assert firebase_error.http_response is None
 
     def test_http_response(self):
-        resp = httplib2.Response({'status': 500})
-        error = errors.HttpError(resp, 'Body')
+        error = self._create_http_error()
         firebase_error = _utils.handle_googleapiclient_error(error)
         assert isinstance(firebase_error, exceptions.InternalError)
         assert str(firebase_error) == str(error)
@@ -235,8 +234,7 @@ class TestGoogleApiClient(object):
         assert firebase_error.http_response.content.decode() == 'Body'
 
     def test_http_response_with_unknown_status(self):
-        resp = httplib2.Response({'status': 501})
-        error = errors.HttpError(resp, 'Body')
+        error = self._create_http_error(status=501)
         firebase_error = _utils.handle_googleapiclient_error(error)
         assert isinstance(firebase_error, exceptions.UnknownError)
         assert str(firebase_error) == str(error)
@@ -245,8 +243,7 @@ class TestGoogleApiClient(object):
         assert firebase_error.http_response.content.decode() == 'Body'
 
     def test_http_response_with_message(self):
-        resp = httplib2.Response({'status': 500})
-        error = errors.HttpError(resp, 'Body')
+        error = self._create_http_error()
         firebase_error = _utils.handle_googleapiclient_error(
             error, message='Explicit error message')
         assert isinstance(firebase_error, exceptions.InternalError)
@@ -256,8 +253,7 @@ class TestGoogleApiClient(object):
         assert firebase_error.http_response.content.decode() == 'Body'
 
     def test_http_response_with_status(self):
-        resp = httplib2.Response({'status': 500})
-        error = errors.HttpError(resp, 'Body')
+        error = self._create_http_error()
         firebase_error = _utils.handle_googleapiclient_error(error, code=503)
         assert isinstance(firebase_error, exceptions.UnavailableError)
         assert str(firebase_error) == str(error)
@@ -266,8 +262,7 @@ class TestGoogleApiClient(object):
         assert firebase_error.http_response.content.decode() == 'Body'
 
     def test_http_response_with_message_and_status(self):
-        resp = httplib2.Response({'status': 500})
-        error = errors.HttpError(resp, 'Body')
+        error = self._create_http_error()
         firebase_error = _utils.handle_googleapiclient_error(
             error, message='Explicit error message', code=503)
         assert isinstance(firebase_error, exceptions.UnavailableError)
@@ -283,8 +278,7 @@ class TestGoogleApiClient(object):
                 'message': 'test error'
             }
         })
-        resp = httplib2.Response({'status': 500})
-        error = errors.HttpError(resp, payload)
+        error = self._create_http_error(payload=payload)
         firebase_error = _utils.handle_platform_error_from_googleapiclient(error)
         assert isinstance(firebase_error, exceptions.NotFoundError)
         assert str(firebase_error) == 'test error'
@@ -301,8 +295,7 @@ class TestGoogleApiClient(object):
         assert firebase_error.http_response is None
 
     def test_handle_platform_error_with_no_error_code(self):
-        resp = httplib2.Response({'status': 500})
-        error = errors.HttpError(resp, 'no error code')
+        error = self._create_http_error(payload='no error code')
         firebase_error = _utils.handle_platform_error_from_googleapiclient(error)
         assert isinstance(firebase_error, exceptions.InternalError)
         message = 'Unexpected HTTP response with status: 500; body: no error code'
@@ -318,8 +311,7 @@ class TestGoogleApiClient(object):
                 'message': 'test error'
             }
         })
-        resp = httplib2.Response({'status': 500})
-        error = errors.HttpError(resp, payload)
+        error = self._create_http_error(payload=payload)
         invocations = []
 
         def _custom_handler(error_dict, message, cause, http_response):
@@ -351,8 +343,7 @@ class TestGoogleApiClient(object):
                 'message': 'test error'
             }
         })
-        resp = httplib2.Response({'status': 500})
-        error = errors.HttpError(resp, payload)
+        error = self._create_http_error(payload=payload)
         invocations = []
 
         def _custom_handler(error_dict, message, cause, http_response):
@@ -376,3 +367,7 @@ class TestGoogleApiClient(object):
         assert args[1] == 'test error'
         assert args[2] is error
         assert args[3] is not None
+
+    def _create_http_error(self, status=500, payload='Body'):
+        resp = httplib2.Response({'status': status})
+        return errors.HttpError(resp, payload.encode())

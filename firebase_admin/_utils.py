@@ -15,7 +15,10 @@
 """Internal utilities common to all modules."""
 
 import json
+import socket
 
+import googleapiclient
+import httplib2
 import requests
 
 import firebase_admin
@@ -116,14 +119,60 @@ def handle_requests_error(error, message=None, code=None):
     return err_type(message=message, cause=error, http_response=error.response)
 
 
+def handle_googleapiclient_error(error, message=None, code=None):
+    """Constructs a ``FirebaseError`` from the given googleapiclient error.
+
+    Args:
+        error: An error raised by the googleapiclient module while making an HTTP call.
+        message: A message to be included in the resulting ``FirebaseError`` (optional). If not
+            specified the string representation of the ``error`` argument is used as the message.
+        code: An HTTP status code or GCP error code that will be used to determine the resulting
+            error type (optional). If not specified the HTTP status code on the error response is
+            used.
+
+    Returns:
+        FirebaseError: A ``FirebaseError`` that can be raised to the user code.
+    """
+    if isinstance(error, socket.error) and 'timed out' in str(error):
+        return exceptions.DeadlineExceededError(
+            message='Timed out while making an API call: {0}'.format(error),
+            cause=error)
+    elif isinstance(error, httplib2.ServerNotFoundError):
+        return exceptions.UnavailableError(
+            message='Failed to establish a connection: {0}'.format(error),
+            cause=error)
+    elif not isinstance(error, googleapiclient.errors.HttpError):
+        return exceptions.UnknownError(
+            message='Unknown error while making a remote service call: {0}'.format(error),
+            cause=error)
+
+    if not code:
+        code = error.resp.status
+    if not message:
+        message = str(error)
+
+    resp = requests.models.Response()
+    resp.raw = error.content
+    resp.status_code = error.resp.status
+    err_type = lookup_error_type(code)
+    return err_type(message=message, cause=error, http_response=resp)
+
+
 def lookup_error_type(code):
     """Maps an error code to an exception type."""
     return _ERROR_CODE_TO_EXCEPTION_TYPE.get(code, exceptions.UnknownError)
 
 
-def parse_requests_platform_error(response, parse_func=None):
+def parse_platform_error_from_requests(error, parse_func=None):
+    response = error.response
     content = response.content.decode()
     status_code = response.status_code
+    return parse_platform_error(content, status_code, parse_func)
+
+
+def parse_platform_error_from_googleapiclient(error, parse_func=None):
+    content = error.content.decode()
+    status_code = error.resp.status
     return parse_platform_error(content, status_code, parse_func)
 
 

@@ -363,7 +363,7 @@ class _MessagingService(object):
                 timeout=self._timeout
             )
         except requests.exceptions.RequestException as error:
-            self._handle_fcm_error(error)
+            raise self._handle_fcm_error(error)
         else:
             return resp['name']
 
@@ -379,7 +379,7 @@ class _MessagingService(object):
         def batch_callback(_, response, error):
             exception = None
             if error:
-                exception = self._parse_batch_error(error)
+                exception = self._handle_batch_error(error)
             send_response = SendResponse(response, exception)
             responses.append(send_response)
 
@@ -399,7 +399,7 @@ class _MessagingService(object):
         try:
             batch.execute()
         except googleapiclient.http.HttpError as error:
-            raise self._parse_batch_error(error)
+            raise self._handle_batch_error(error)
         else:
             return BatchResponse(responses)
 
@@ -453,14 +453,13 @@ class _MessagingService(object):
         """Handles errors received from the FCM API."""
         code, message = None, None
         if error.response is not None:
-            code, message = _utils.parse_requests_platform_error(
-                response=error.response,
-                parse_func=_MessagingService._parse_fcm_error)
+            code, message = _utils.parse_platform_error_from_requests(
+                error=error, parse_func=_MessagingService._parse_fcm_error)
             exc_type = _MessagingService.FCM_ERROR_TYPES.get(code)
             if exc_type:
-                raise exc_type(message, cause=error, http_response=error.response)
+                return exc_type(message, cause=error, http_response=error.response)
 
-        raise _utils.handle_requests_error(error, message=message, code=code)
+        return _utils.handle_requests_error(error, message=message, code=code)
 
     def _handle_iid_error(self, error):
         """Handles errors received from the Instance ID API."""
@@ -480,22 +479,20 @@ class _MessagingService(object):
                 error.response.status_code, error.response.content.decode())
         raise ApiCallError(code, msg, error)
 
-    def _parse_batch_error(self, error):
+    def _handle_batch_error(self, error):
         """Parses a googleapiclient.http.HttpError content and constructs a FirebaseError."""
-        resp = requests.models.Response()
-        resp.raw = error.content
-        resp.status_code = error.resp.status
+        code, message = None, None
+        if isinstance(error, googleapiclient.errors.HttpError):
+            code, message = _utils.parse_platform_error_from_googleapiclient(
+                error=error, parse_func=_MessagingService._parse_fcm_error)
+            exc_type = _MessagingService.FCM_ERROR_TYPES.get(code)
+            if exc_type:
+                resp = requests.models.Response()
+                resp.raw = error.content
+                resp.status_code = error.resp.status
+                return exc_type(message, cause=error, http_response=resp)
 
-        code, msg = _utils.parse_platform_error(
-            content=error.content.decode(),
-            status_code=error.resp.status,
-            parse_func=_MessagingService._parse_fcm_error)
-        exc_type = _MessagingService.FCM_ERROR_TYPES.get(code)
-        if exc_type:
-            return exc_type(message=msg, cause=error, http_response=resp)
-
-        err_type = _utils.lookup_error_type(code)
-        return err_type(message=msg, cause=error, http_response=resp)
+        return _utils.handle_googleapiclient_error(error, message=message, code=code)
 
     @classmethod
     def _parse_fcm_error(cls, error_dict):

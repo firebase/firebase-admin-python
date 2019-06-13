@@ -14,6 +14,8 @@
 
 """Internal utilities common to all modules."""
 
+import json
+
 import requests
 
 import firebase_admin
@@ -100,4 +102,37 @@ def handle_requests_error(error, message=None, status=None):
     return err_type(message=message, cause=error, http_response=error.response)
 
 def lookup_error_type(status):
+    """Maps an error code to an exception type."""
     return _STATUS_TO_EXCEPTION_TYPE.get(status, exceptions.UnknownError)
+
+def parse_platform_error(content, status_code, parse_func=None):
+    """Parses an HTTP error response from a Google Cloud Platform API and extracts the error code
+    and message fields.
+
+    Args:
+        content: Decoded content of the response body.
+        status_code: HTTP status code.
+        parse_func: A custom function to extract the code from the error body (optional).
+
+    Returns:
+        tuple: A tuple containing error code and message. Either or both could be ``None``.
+    """
+    data = {}
+    try:
+        parsed_body = json.loads(content)
+        if isinstance(parsed_body, dict):
+            data = parsed_body
+    except ValueError:
+        pass
+
+    error_dict = data.get('error', {})
+    server_code = None
+    if parse_func:
+        server_code = parse_func(error_dict)
+    if not server_code:
+        server_code = error_dict.get('status')
+
+    msg = error_dict.get('message')
+    if not msg:
+        msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(status_code, content)
+    return server_code, msg

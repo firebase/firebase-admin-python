@@ -451,15 +451,16 @@ class _MessagingService(object):
 
     def _handle_fcm_error(self, error):
         """Handles errors received from the FCM API."""
-        status, msg = None, None
+        code, msg = None, None
         if error.response is not None:
-            status, msg = _MessagingService._parse_fcm_error(
-                error.response.content.decode(), error.response.status_code)
-            exc_type = _MessagingService.FCM_ERROR_TYPES.get(status)
+            code, msg = _utils.parse_platform_error(
+                content=error.response.content.decode(), status_code=error.response.status_code,
+                parse_func=_MessagingService._parse_fcm_error)
+            exc_type = _MessagingService.FCM_ERROR_TYPES.get(code)
             if exc_type:
                 raise exc_type(msg, cause=error, http_response=error.response)
 
-        raise _utils.handle_requests_error(error, message=msg, status=status)
+        raise _utils.handle_requests_error(error, message=msg, status=code)
 
     def _handle_iid_error(self, error):
         """Handles errors received from the Instance ID API."""
@@ -485,40 +486,24 @@ class _MessagingService(object):
         resp.raw = error.content
         resp.status_code = error.resp.status
 
-        status, msg = _MessagingService._parse_fcm_error(error.content.decode(), error.resp.status)
-        exc_type = _MessagingService.FCM_ERROR_TYPES.get(status)
+        code, msg = _utils.parse_platform_error(
+            content=error.content.decode(), status_code=error.resp.status,
+            parse_func=_MessagingService._parse_fcm_error)
+        exc_type = _MessagingService.FCM_ERROR_TYPES.get(code)
         if exc_type:
             return exc_type(message=msg, cause=error, http_response=resp)
 
-        if not status:
-            status = error.resp.status
+        if not code:
+            code = error.resp.status
         if not msg:
             msg = str(error)
-        err_type = _utils.lookup_error_type(status)
+        err_type = _utils.lookup_error_type(code)
         return err_type(message=msg, cause=error, http_response=resp)
 
     @classmethod
-    def _parse_fcm_error(cls, content, status_code):
-        """Parses an error response from the FCM API and extracts the status and message fields."""
-        data = {}
-        try:
-            parsed_body = json.loads(content)
-            if isinstance(parsed_body, dict):
-                data = parsed_body
-        except ValueError:
-            pass
-
-        error_dict = data.get('error', {})
-        server_code = None
+    def _parse_fcm_error(cls, error_dict):
+        """Parses an error response from the FCM API and extracts the error code."""
         for detail in error_dict.get('details', []):
             if detail.get('@type') == 'type.googleapis.com/google.firebase.fcm.v1.FcmError':
-                server_code = detail.get('errorCode')
-                break
-        if not server_code:
-            server_code = error_dict.get('status')
-
-        msg = error_dict.get('message')
-        if not msg:
-            msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(
-                status_code, content)
-        return server_code, msg
+                return detail.get('errorCode')
+        return None

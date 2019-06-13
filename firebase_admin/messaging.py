@@ -99,7 +99,7 @@ def send(message, dry_run=False, app=None):
         string: A message ID string that uniquely identifies the sent the message.
 
     Raises:
-        ApiCallError: If an error occurs while sending the message to the FCM service.
+        FirebaseError: If an error occurs while sending the message to the FCM service.
         ValueError: If the input arguments are invalid.
     """
     return _get_messaging_service(app).send(message, dry_run)
@@ -119,7 +119,7 @@ def send_all(messages, dry_run=False, app=None):
         BatchResponse: A ``messaging.BatchResponse`` instance.
 
     Raises:
-        ApiCallError: If an error occurs while sending the message to the FCM service.
+        FirebaseError: If an error occurs while sending the message to the FCM service.
         ValueError: If the input arguments are invalid.
     """
     return _get_messaging_service(app).send_all(messages, dry_run)
@@ -139,7 +139,7 @@ def send_multicast(multicast_message, dry_run=False, app=None):
         BatchResponse: A ``messaging.BatchResponse`` instance.
 
     Raises:
-        ApiCallError: If an error occurs while sending the message to the FCM service.
+        FirebaseError: If an error occurs while sending the message to the FCM service.
         ValueError: If the input arguments are invalid.
     """
     if not isinstance(multicast_message, MulticastMessage):

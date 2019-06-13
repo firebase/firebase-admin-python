@@ -451,15 +451,8 @@ class _MessagingService(object):
 
     def _handle_fcm_error(self, error):
         """Handles errors received from the FCM API."""
-        code, message = None, None
-        if error.response is not None:
-            code, message = _utils.parse_platform_error_from_requests(
-                error=error, parse_func=_MessagingService._parse_fcm_error)
-            exc_type = _MessagingService.FCM_ERROR_TYPES.get(code)
-            if exc_type:
-                return exc_type(message, cause=error, http_response=error.response)
-
-        return _utils.handle_requests_error(error, message=message, code=code)
+        return _utils.handle_platform_error_from_requests(
+            error, _MessagingService._build_fcm_error)
 
     def _handle_iid_error(self, error):
         """Handles errors received from the Instance ID API."""
@@ -480,24 +473,17 @@ class _MessagingService(object):
         raise ApiCallError(code, msg, error)
 
     def _handle_batch_error(self, error):
-        """Parses a googleapiclient.http.HttpError content and constructs a FirebaseError."""
-        code, message = None, None
-        if isinstance(error, googleapiclient.errors.HttpError):
-            code, message = _utils.parse_platform_error_from_googleapiclient(
-                error=error, parse_func=_MessagingService._parse_fcm_error)
-            exc_type = _MessagingService.FCM_ERROR_TYPES.get(code)
-            if exc_type:
-                resp = requests.models.Response()
-                resp.raw = error.content
-                resp.status_code = error.resp.status
-                return exc_type(message, cause=error, http_response=resp)
-
-        return _utils.handle_googleapiclient_error(error, message=message, code=code)
+        """Handles errors received from the googleapiclient while making batch requests."""
+        return _utils.handle_platform_error_from_googleapiclient(
+            error, _MessagingService._build_fcm_error)
 
     @classmethod
-    def _parse_fcm_error(cls, error_dict):
-        """Parses an error response from the FCM API and extracts the error code."""
+    def _build_fcm_error(cls, error_dict, message, cause, http_response):
+        """Parses an error response from the FCM API and creates a FCM-specific exception if
+        appropriate."""
+        fcm_code = None
         for detail in error_dict.get('details', []):
             if detail.get('@type') == 'type.googleapis.com/google.firebase.fcm.v1.FcmError':
-                return detail.get('errorCode')
-        return None
+                fcm_code = detail.get('errorCode')
+        exc_type = _MessagingService.FCM_ERROR_TYPES.get(fcm_code)
+        return exc_type(message, cause=cause, http_response=http_response) if exc_type else None

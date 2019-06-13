@@ -45,7 +45,6 @@ FCM_ERROR_CODES = {
     'SENDER_ID_MISMATCH': messaging.SenderIdMismatchError,
     'THIRD_PARTY_AUTH_ERROR': messaging.ThirdPartyAuthError,
     'UNREGISTERED': messaging.UnregisteredError,
-    'SOMETHING_NEW': exceptions.UnknownError,
 }
 
 
@@ -1352,6 +1351,31 @@ class TestSend(object):
         _, recorder = self._instrument_messaging_service(status=status, payload=payload)
         msg = messaging.Message(topic='foo')
         with pytest.raises(exc_type) as excinfo:
+            messaging.send(msg)
+        check_exception(excinfo.value, 'test error', status)
+        assert len(recorder) == 1
+        assert recorder[0].method == 'POST'
+        assert recorder[0].url == self._get_url('explicit-project-id')
+        body = {'message': messaging._MessagingService.JSON_ENCODER.default(msg)}
+        assert json.loads(recorder[0].body.decode()) == body
+
+    @pytest.mark.parametrize('status', HTTP_ERROR_CODES)
+    def test_send_unknown_fcm_error_code(self, status):
+        payload = json.dumps({
+            'error': {
+                'status': 'INVALID_ARGUMENT',
+                'message': 'test error',
+                'details': [
+                    {
+                        '@type': 'type.googleapis.com/google.firebase.fcm.v1.FcmError',
+                        'errorCode': 'SOME_UNKNOWN_CODE',
+                    },
+                ],
+            }
+        })
+        _, recorder = self._instrument_messaging_service(status=status, payload=payload)
+        msg = messaging.Message(topic='foo')
+        with pytest.raises(exceptions.InvalidArgumentError) as excinfo:
             messaging.send(msg)
         check_exception(excinfo.value, 'test error', status)
         assert len(recorder) == 1

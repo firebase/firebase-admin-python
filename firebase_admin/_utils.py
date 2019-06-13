@@ -20,6 +20,7 @@ import socket
 import googleapiclient
 import httplib2
 import requests
+import six
 
 import firebase_admin
 from firebase_admin import exceptions
@@ -84,6 +85,34 @@ def get_app_service(app, name, initializer):
     return app._get_service(name, initializer) # pylint: disable=protected-access
 
 
+def handle_platform_error_from_requests(error, handle_func=None):
+    """Constructs a ``FirebaseError`` from the given requests error.
+
+    This can be used to handle errors returned by Google Cloud Platform (GCP) APIs.
+
+    Args:
+        error: An error raised by the reqests module while making an HTTP call to a GCP API.
+        handle_func: A function that can be used to handle platform errors in a custom way. When
+            specified, this function will be called with four arguments -- parsed error response,
+            error message, source exception from requests and the HTTP response object.
+
+    Returns:
+        FirebaseError: A ``FirebaseError`` that can be raised to the user code.
+    """
+    if error.response is None:
+        return handle_requests_error(error)
+
+    response = error.response
+    content = response.content.decode()
+    status_code = response.status_code
+    error_dict, code, message = _parse_platform_error(content, status_code)
+    exc = None
+    if handle_func:
+        exc = handle_func(error_dict, message, error, error.response)
+
+    return exc if exc else handle_requests_error(error, message, code)
+
+
 def handle_requests_error(error, message=None, code=None):
     """Constructs a ``FirebaseError`` from the given requests error.
 
@@ -115,8 +144,37 @@ def handle_requests_error(error, message=None, code=None):
         code = error.response.status_code
     if not message:
         message = str(error)
-    err_type = lookup_error_type(code)
+
+    err_type = _lookup_error_type(code)
     return err_type(message=message, cause=error, http_response=error.response)
+
+
+def handle_platform_error_from_googleapiclient(error, handle_func=None):
+    """Constructs a ``FirebaseError`` from the given googleapiclient error.
+
+    This can be used to handle errors returned by Google Cloud Platform (GCP) APIs.
+
+    Args:
+        error: An error raised by the googleapiclient while making an HTTP call to a GCP API.
+        handle_func: A function that can be used to handle platform errors in a custom way. When
+            specified, this function will be called with four arguments -- parsed error response,
+            error message, source exception from googleapiclient and a HTTP response object.
+
+    Returns:
+        FirebaseError: A ``FirebaseError`` that can be raised to the user code.
+    """
+    if not isinstance(error, googleapiclient.errors.HttpError):
+        return handle_googleapiclient_error(error)
+
+    content = error.content.decode()
+    status_code = error.resp.status
+    error_dict, code, message = _parse_platform_error(content, status_code)
+    exc = None
+    if handle_func:
+        http_response = _http_response_from_googleapiclient_error(error)
+        exc = handle_func(error_dict, message, error, http_response)
+
+    return exc if exc else handle_googleapiclient_error(error, message, code)
 
 
 def handle_googleapiclient_error(error, message=None, code=None):
@@ -133,7 +191,8 @@ def handle_googleapiclient_error(error, message=None, code=None):
     Returns:
         FirebaseError: A ``FirebaseError`` that can be raised to the user code.
     """
-    if isinstance(error, socket.error) and 'timed out' in str(error):
+    if isinstance(error, socket.timeout) or (
+            isinstance(error, socket.error) and 'timed out' in str(error)):
         return exceptions.DeadlineExceededError(
             message='Timed out while making an API call: {0}'.format(error),
             cause=error)
@@ -151,39 +210,31 @@ def handle_googleapiclient_error(error, message=None, code=None):
     if not message:
         message = str(error)
 
+    http_response = _http_response_from_googleapiclient_error(error)
+    err_type = _lookup_error_type(code)
+    return err_type(message=message, cause=error, http_response=http_response)
+
+
+def _http_response_from_googleapiclient_error(error):
+    """Creates a requests HTTP Response object from the given googleapiclient error."""
     resp = requests.models.Response()
-    resp.raw = error.content
+    resp.raw = six.BytesIO(error.content)
     resp.status_code = error.resp.status
-    err_type = lookup_error_type(code)
-    return err_type(message=message, cause=error, http_response=resp)
+    return resp
 
 
-def lookup_error_type(code):
+def _lookup_error_type(code):
     """Maps an error code to an exception type."""
     return _ERROR_CODE_TO_EXCEPTION_TYPE.get(code, exceptions.UnknownError)
 
 
-def parse_platform_error_from_requests(error, parse_func=None):
-    response = error.response
-    content = response.content.decode()
-    status_code = response.status_code
-    return parse_platform_error(content, status_code, parse_func)
-
-
-def parse_platform_error_from_googleapiclient(error, parse_func=None):
-    content = error.content.decode()
-    status_code = error.resp.status
-    return parse_platform_error(content, status_code, parse_func)
-
-
-def parse_platform_error(content, status_code, parse_func=None):
+def _parse_platform_error(content, status_code):
     """Parses an HTTP error response from a Google Cloud Platform API and extracts the error code
     and message fields.
 
     Args:
         content: Decoded content of the response body.
         status_code: HTTP status code.
-        parse_func: A custom function to extract the code from the error body (optional).
 
     Returns:
         tuple: A tuple containing error code and message.
@@ -197,20 +248,11 @@ def parse_platform_error(content, status_code, parse_func=None):
         pass
 
     error_dict = data.get('error', {})
-    server_code = _get_error_code(error_dict, status_code, parse_func)
+    code = error_dict.get('status')
+    if not code:
+        code = _HTTP_STATUS_TO_ERROR_CODE.get(status_code, exceptions.UNKNOWN)
+
     msg = error_dict.get('message')
     if not msg:
         msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(status_code, content)
-    return server_code, msg
-
-
-def _get_error_code(error_dict, status_code, parse_func):
-    code = _try_get_error_code_from_body(error_dict, parse_func)
-    return code if code else _HTTP_STATUS_TO_ERROR_CODE.get(status_code, exceptions.UNKNOWN)
-
-
-def _try_get_error_code_from_body(error_dict, parse_func):
-    code = None
-    if parse_func:
-        code = parse_func(error_dict)
-    return code if code else error_dict.get('status')
+    return error_dict, code, msg

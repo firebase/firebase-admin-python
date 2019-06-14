@@ -452,7 +452,7 @@ class _MessagingService(object):
     def _handle_fcm_error(self, error):
         """Handles errors received from the FCM API."""
         return _utils.handle_platform_error_from_requests(
-            error, _MessagingService._build_fcm_error)
+            error, _MessagingService._build_fcm_error_requests)
 
     def _handle_iid_error(self, error):
         """Handles errors received from the Instance ID API."""
@@ -475,15 +475,28 @@ class _MessagingService(object):
     def _handle_batch_error(self, error):
         """Handles errors received from the googleapiclient while making batch requests."""
         return _utils.handle_platform_error_from_googleapiclient(
-            error, _MessagingService._build_fcm_error)
+            error, _MessagingService._build_fcm_error_googleapiclient)
 
     @classmethod
-    def _build_fcm_error(cls, error_dict, message, cause, http_response):
+    def _build_fcm_error_requests(cls, error, message, error_dict):
         """Parses an error response from the FCM API and creates a FCM-specific exception if
         appropriate."""
+        exc_type = cls._build_fcm_error(error_dict)
+        return exc_type(message, cause=error, http_response=error.response) if exc_type else None
+
+    @classmethod
+    def _build_fcm_error_googleapiclient(cls, error, message, error_dict, http_response):
+        """Parses an error response from the FCM API and creates a FCM-specific exception if
+        appropriate."""
+        exc_type = cls._build_fcm_error(error_dict)
+        return exc_type(message, cause=error, http_response=http_response) if exc_type else None
+
+    @classmethod
+    def _build_fcm_error(cls, error_dict):
+        if not error_dict:
+            return None
         fcm_code = None
         for detail in error_dict.get('details', []):
             if detail.get('@type') == 'type.googleapis.com/google.firebase.fcm.v1.FcmError':
                 fcm_code = detail.get('errorCode')
-        exc_type = _MessagingService.FCM_ERROR_TYPES.get(fcm_code)
-        return exc_type(message, cause=cause, http_response=http_response) if exc_type else None
+        return _MessagingService.FCM_ERROR_TYPES.get(fcm_code)

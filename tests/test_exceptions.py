@@ -26,6 +26,22 @@ from firebase_admin import exceptions
 from firebase_admin import _utils
 
 
+_NOT_FOUND_ERROR_DICT = {
+    'status': 'NOT_FOUND',
+    'message': 'test error'
+}
+
+
+_UNAVAILABLE_ERROR_DICT = {
+    'status': exceptions.UNAVAILABLE,
+}
+
+
+_NOT_FOUND_PAYLOAD = json.dumps({
+    'error': _NOT_FOUND_ERROR_DICT,
+})
+
+
 class TestRequests(object):
 
     def test_timeout_error(self):
@@ -78,7 +94,7 @@ class TestRequests(object):
 
     def test_http_response_with_code(self):
         resp, error = self._create_response()
-        firebase_error = _utils.handle_requests_error(error, code=exceptions.UNAVAILABLE)
+        firebase_error = _utils.handle_requests_error(error, error_dict=_UNAVAILABLE_ERROR_DICT)
         assert isinstance(firebase_error, exceptions.UnavailableError)
         assert str(firebase_error) == 'Test error'
         assert firebase_error.cause is error
@@ -87,20 +103,14 @@ class TestRequests(object):
     def test_http_response_with_message_and_code(self):
         resp, error = self._create_response()
         firebase_error = _utils.handle_requests_error(
-            error, message='Explicit error message', code=exceptions.UNAVAILABLE)
+            error, message='Explicit error message', error_dict=_UNAVAILABLE_ERROR_DICT)
         assert isinstance(firebase_error, exceptions.UnavailableError)
         assert str(firebase_error) == 'Explicit error message'
         assert firebase_error.cause is error
         assert firebase_error.http_response is resp
 
     def test_handle_platform_error(self):
-        payload = json.dumps({
-            'error': {
-                'status': 'NOT_FOUND',
-                'message': 'test error'
-            }
-        })
-        resp, error = self._create_response(payload=payload)
+        resp, error = self._create_response(payload=_NOT_FOUND_PAYLOAD)
         firebase_error = _utils.handle_platform_error_from_requests(error)
         assert isinstance(firebase_error, exceptions.NotFoundError)
         assert str(firebase_error) == 'test error'
@@ -125,18 +135,12 @@ class TestRequests(object):
         assert firebase_error.http_response is resp
 
     def test_handle_platform_error_with_custom_handler(self):
-        payload = json.dumps({
-            'error': {
-                'status': 'NOT_FOUND',
-                'message': 'test error'
-            }
-        })
-        resp, error = self._create_response(payload=payload)
+        resp, error = self._create_response(payload=_NOT_FOUND_PAYLOAD)
         invocations = []
 
-        def _custom_handler(error_dict, message, cause, http_response):
-            invocations.append((error_dict, message, cause, http_response))
-            return exceptions.InvalidArgumentError('Custom message', cause, http_response)
+        def _custom_handler(cause, message, error_dict):
+            invocations.append((cause, message, error_dict))
+            return exceptions.InvalidArgumentError('Custom message', cause, cause.response)
 
         firebase_error = _utils.handle_platform_error_from_requests(error, _custom_handler)
 
@@ -146,27 +150,17 @@ class TestRequests(object):
         assert firebase_error.http_response is resp
         assert len(invocations) == 1
         args = invocations[0]
-        assert len(args) == 4
-        assert args[0] == {
-            'status': 'NOT_FOUND',
-            'message': 'test error'
-        }
+        assert len(args) == 3
+        assert args[0] is error
         assert args[1] == 'test error'
-        assert args[2] is error
-        assert args[3] is resp
+        assert args[2] == _NOT_FOUND_ERROR_DICT
 
     def test_handle_platform_error_with_custom_handler_ignore(self):
-        payload = json.dumps({
-            'error': {
-                'status': 'NOT_FOUND',
-                'message': 'test error'
-            }
-        })
-        resp, error = self._create_response(payload=payload)
+        resp, error = self._create_response(payload=_NOT_FOUND_PAYLOAD)
         invocations = []
 
-        def _custom_handler(error_dict, message, cause, http_response):
-            invocations.append((error_dict, message, cause, http_response))
+        def _custom_handler(cause, message, error_dict):
+            invocations.append((cause, message, error_dict))
             return None
 
         firebase_error = _utils.handle_platform_error_from_requests(error, _custom_handler)
@@ -177,14 +171,10 @@ class TestRequests(object):
         assert firebase_error.http_response is resp
         assert len(invocations) == 1
         args = invocations[0]
-        assert len(args) == 4
-        assert args[0] == {
-            'status': 'NOT_FOUND',
-            'message': 'test error'
-        }
+        assert len(args) == 3
+        assert args[0] is error
         assert args[1] == 'test error'
-        assert args[2] is error
-        assert args[3] is resp
+        assert args[2] == _NOT_FOUND_ERROR_DICT
 
     def _create_response(self, status=500, payload=None):
         resp = models.Response()
@@ -254,7 +244,8 @@ class TestGoogleApiClient(object):
 
     def test_http_response_with_code(self):
         error = self._create_http_error()
-        firebase_error = _utils.handle_googleapiclient_error(error, code=exceptions.UNAVAILABLE)
+        firebase_error = _utils.handle_googleapiclient_error(
+            error, error_dict=_UNAVAILABLE_ERROR_DICT)
         assert isinstance(firebase_error, exceptions.UnavailableError)
         assert str(firebase_error) == str(error)
         assert firebase_error.cause is error
@@ -264,7 +255,7 @@ class TestGoogleApiClient(object):
     def test_http_response_with_message_and_code(self):
         error = self._create_http_error()
         firebase_error = _utils.handle_googleapiclient_error(
-            error, message='Explicit error message', code=exceptions.UNAVAILABLE)
+            error, message='Explicit error message', error_dict=_UNAVAILABLE_ERROR_DICT)
         assert isinstance(firebase_error, exceptions.UnavailableError)
         assert str(firebase_error) == 'Explicit error message'
         assert firebase_error.cause is error
@@ -272,19 +263,13 @@ class TestGoogleApiClient(object):
         assert firebase_error.http_response.content.decode() == 'Body'
 
     def test_handle_platform_error(self):
-        payload = json.dumps({
-            'error': {
-                'status': 'NOT_FOUND',
-                'message': 'test error'
-            }
-        })
-        error = self._create_http_error(payload=payload)
+        error = self._create_http_error(payload=_NOT_FOUND_PAYLOAD)
         firebase_error = _utils.handle_platform_error_from_googleapiclient(error)
         assert isinstance(firebase_error, exceptions.NotFoundError)
         assert str(firebase_error) == 'test error'
         assert firebase_error.cause is error
         assert firebase_error.http_response.status_code == 500
-        assert firebase_error.http_response.content.decode() == payload
+        assert firebase_error.http_response.content.decode() == _NOT_FOUND_PAYLOAD
 
     def test_handle_platform_error_with_no_response(self):
         error = socket.error('Test error')
@@ -305,17 +290,11 @@ class TestGoogleApiClient(object):
         assert firebase_error.http_response.content.decode() == 'no error code'
 
     def test_handle_platform_error_with_custom_handler(self):
-        payload = json.dumps({
-            'error': {
-                'status': 'NOT_FOUND',
-                'message': 'test error'
-            }
-        })
-        error = self._create_http_error(payload=payload)
+        error = self._create_http_error(payload=_NOT_FOUND_PAYLOAD)
         invocations = []
 
-        def _custom_handler(error_dict, message, cause, http_response):
-            invocations.append((error_dict, message, cause, http_response))
+        def _custom_handler(cause, message, error_dict, http_response):
+            invocations.append((cause, message, error_dict, http_response))
             return exceptions.InvalidArgumentError('Custom message', cause, http_response)
 
         firebase_error = _utils.handle_platform_error_from_googleapiclient(error, _custom_handler)
@@ -324,30 +303,21 @@ class TestGoogleApiClient(object):
         assert str(firebase_error) == 'Custom message'
         assert firebase_error.cause is error
         assert firebase_error.http_response.status_code == 500
-        assert firebase_error.http_response.content.decode() == payload
+        assert firebase_error.http_response.content.decode() == _NOT_FOUND_PAYLOAD
         assert len(invocations) == 1
         args = invocations[0]
         assert len(args) == 4
-        assert args[0] == {
-            'status': 'NOT_FOUND',
-            'message': 'test error'
-        }
+        assert args[0] is error
         assert args[1] == 'test error'
-        assert args[2] is error
+        assert args[2] == _NOT_FOUND_ERROR_DICT
         assert args[3] is not None
 
     def test_handle_platform_error_with_custom_handler_ignore(self):
-        payload = json.dumps({
-            'error': {
-                'status': 'NOT_FOUND',
-                'message': 'test error'
-            }
-        })
-        error = self._create_http_error(payload=payload)
+        error = self._create_http_error(payload=_NOT_FOUND_PAYLOAD)
         invocations = []
 
-        def _custom_handler(error_dict, message, cause, http_response):
-            invocations.append((error_dict, message, cause, http_response))
+        def _custom_handler(cause, message, error_dict, http_response):
+            invocations.append((cause, message, error_dict, http_response))
             return None
 
         firebase_error = _utils.handle_platform_error_from_googleapiclient(error, _custom_handler)
@@ -356,16 +326,13 @@ class TestGoogleApiClient(object):
         assert str(firebase_error) == 'test error'
         assert firebase_error.cause is error
         assert firebase_error.http_response.status_code == 500
-        assert firebase_error.http_response.content.decode() == payload
+        assert firebase_error.http_response.content.decode() == _NOT_FOUND_PAYLOAD
         assert len(invocations) == 1
         args = invocations[0]
         assert len(args) == 4
-        assert args[0] == {
-            'status': 'NOT_FOUND',
-            'message': 'test error'
-        }
+        assert args[0] is error
         assert args[1] == 'test error'
-        assert args[2] is error
+        assert args[2] == _NOT_FOUND_ERROR_DICT
         assert args[3] is not None
 
     def _create_http_error(self, status=500, payload='Body'):

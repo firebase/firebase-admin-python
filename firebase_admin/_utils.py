@@ -97,24 +97,23 @@ def handle_platform_error_from_requests(error, handle_func=None):
     response = error.response
     content = response.content.decode()
     status_code = response.status_code
-    error_dict, code, message = _parse_platform_error(content, status_code)
+    error_dict, message = _parse_platform_error(content, status_code)
     exc = None
     if handle_func:
-        exc = handle_func(error_dict, message, error, error.response)
+        exc = handle_func(error, message, error_dict)
 
-    return exc if exc else handle_requests_error(error, message, code)
+    return exc if exc else handle_requests_error(error, message, error_dict)
 
 
-def handle_requests_error(error, message=None, code=None):
+def handle_requests_error(error, message=None, error_dict=None):
     """Constructs a ``FirebaseError`` from the given requests error.
 
     Args:
         error: An error raised by the requests module while making an HTTP call.
         message: A message to be included in the resulting ``FirebaseError`` (optional). If not
             specified the string representation of the ``error`` argument is used as the message.
-        code: A GCP error code that will be used to determine the resulting error type (optional).
-            If not specified the HTTP status code on the error response is used to determine a
-            suitable error code.
+        error_dict: A parsed error payload to extract error code from (optional). If not specified
+            parses the response payload available in the ``error``.
 
     Returns:
         FirebaseError: A ``FirebaseError`` that can be raised to the user code.
@@ -132,6 +131,10 @@ def handle_requests_error(error, message=None, code=None):
             message='Unknown error while making a remote service call: {0}'.format(error),
             cause=error)
 
+    if error_dict is None:
+        error_dict = {}
+
+    code = error_dict.get('status')
     if not code:
         code = _http_status_to_error_code(error.response.status_code)
     if not message:
@@ -160,25 +163,26 @@ def handle_platform_error_from_googleapiclient(error, handle_func=None):
 
     content = error.content.decode()
     status_code = error.resp.status
-    error_dict, code, message = _parse_platform_error(content, status_code)
+    error_dict, message = _parse_platform_error(content, status_code)
+    http_response = _http_response_from_googleapiclient_error(error)
     exc = None
     if handle_func:
-        http_response = _http_response_from_googleapiclient_error(error)
-        exc = handle_func(error_dict, message, error, http_response)
+        exc = handle_func(error, message, error_dict, http_response)
 
-    return exc if exc else handle_googleapiclient_error(error, message, code)
+    return exc if exc else handle_googleapiclient_error(error, message, error_dict, http_response)
 
 
-def handle_googleapiclient_error(error, message=None, code=None):
+def handle_googleapiclient_error(error, message=None, error_dict=None, http_response=None):
     """Constructs a ``FirebaseError`` from the given googleapiclient error.
 
     Args:
         error: An error raised by the googleapiclient module while making an HTTP call.
         message: A message to be included in the resulting ``FirebaseError`` (optional). If not
             specified the string representation of the ``error`` argument is used as the message.
-        code: A GCP error code that will be used to determine the resulting error type (optional).
-            If not specified the HTTP status code on the error response is used to determine a
-            suitable error code.
+        error_dict: A parsed error payload to extract error code from (optional). If not specified
+            the error code will be determined from the HTTP status code of the response.
+        http_response: A requests HTTP response object to associate with the exception (optional).
+            If not specified, one will be created from the ``error``.
 
     Returns:
         FirebaseError: A ``FirebaseError`` that can be raised to the user code.
@@ -197,12 +201,17 @@ def handle_googleapiclient_error(error, message=None, code=None):
             message='Unknown error while making a remote service call: {0}'.format(error),
             cause=error)
 
+    if error_dict is None:
+        error_dict = {}
+
+    code = error_dict.get('status')
     if not code:
         code = _http_status_to_error_code(error.resp.status)
     if not message:
         message = str(error)
+    if not http_response:
+        http_response = _http_response_from_googleapiclient_error(error)
 
-    http_response = _http_response_from_googleapiclient_error(error)
     err_type = _error_code_to_exception_type(code)
     return err_type(message=message, cause=error, http_response=http_response)
 
@@ -245,11 +254,7 @@ def _parse_platform_error(content, status_code):
         pass
 
     error_dict = data.get('error', {})
-    code = error_dict.get('status')
-    if not code:
-        code = _http_status_to_error_code(status_code)
-
     msg = error_dict.get('message')
     if not msg:
         msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(status_code, content)
-    return error_dict, code, msg
+    return error_dict, msg

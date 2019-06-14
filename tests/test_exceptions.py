@@ -32,11 +32,6 @@ _NOT_FOUND_ERROR_DICT = {
 }
 
 
-_UNAVAILABLE_ERROR_DICT = {
-    'status': exceptions.UNAVAILABLE,
-}
-
-
 _NOT_FOUND_PAYLOAD = json.dumps({
     'error': _NOT_FOUND_ERROR_DICT,
 })
@@ -94,7 +89,7 @@ class TestRequests(object):
 
     def test_http_response_with_code(self):
         resp, error = self._create_response()
-        firebase_error = _utils.handle_requests_error(error, error_dict=_UNAVAILABLE_ERROR_DICT)
+        firebase_error = _utils.handle_requests_error(error, code=exceptions.UNAVAILABLE)
         assert isinstance(firebase_error, exceptions.UnavailableError)
         assert str(firebase_error) == 'Test error'
         assert firebase_error.cause is error
@@ -103,7 +98,7 @@ class TestRequests(object):
     def test_http_response_with_message_and_code(self):
         resp, error = self._create_response()
         firebase_error = _utils.handle_requests_error(
-            error, message='Explicit error message', error_dict=_UNAVAILABLE_ERROR_DICT)
+            error, message='Explicit error message', code=exceptions.UNAVAILABLE)
         assert isinstance(firebase_error, exceptions.UnavailableError)
         assert str(firebase_error) == 'Explicit error message'
         assert firebase_error.cause is error
@@ -245,7 +240,7 @@ class TestGoogleApiClient(object):
     def test_http_response_with_code(self):
         error = self._create_http_error()
         firebase_error = _utils.handle_googleapiclient_error(
-            error, error_dict=_UNAVAILABLE_ERROR_DICT)
+            error, code=exceptions.UNAVAILABLE)
         assert isinstance(firebase_error, exceptions.UnavailableError)
         assert str(firebase_error) == str(error)
         assert firebase_error.cause is error
@@ -255,7 +250,7 @@ class TestGoogleApiClient(object):
     def test_http_response_with_message_and_code(self):
         error = self._create_http_error()
         firebase_error = _utils.handle_googleapiclient_error(
-            error, message='Explicit error message', error_dict=_UNAVAILABLE_ERROR_DICT)
+            error, message='Explicit error message', code=exceptions.UNAVAILABLE)
         assert isinstance(firebase_error, exceptions.UnavailableError)
         assert str(firebase_error) == 'Explicit error message'
         assert firebase_error.cause is error

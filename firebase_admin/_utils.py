@@ -85,8 +85,8 @@ def handle_platform_error_from_requests(error, handle_func=None):
     Args:
         error: An error raised by the requests module while making an HTTP call to a GCP API.
         handle_func: A function that can be used to handle platform errors in a custom way. When
-            specified, this function will be called with four arguments -- parsed error response,
-            error message, source exception from requests and the HTTP response object.
+            specified, this function will be called with three arguments. It has the same
+            signature as ```_handle_func_requests``, but may return ``None``.
 
     Returns:
         FirebaseError: A ``FirebaseError`` that can be raised to the user code.
@@ -102,18 +102,38 @@ def handle_platform_error_from_requests(error, handle_func=None):
     if handle_func:
         exc = handle_func(error, message, error_dict)
 
-    return exc if exc else handle_requests_error(error, message, error_dict)
+    return exc if exc else _handle_func_requests(error, message, error_dict)
 
 
-def handle_requests_error(error, message=None, error_dict=None):
+def _handle_func_requests(error, message, error_dict):
+    """Constructs a ``FirebaseError`` from the given GCP error.
+
+    Args:
+        error: An error raised by the requests module while making an HTTP call.
+        message: A message to be included in the resulting ``FirebaseError``.
+        error_dict: Parsed GCP error response.
+
+    Returns:
+        FirebaseError: A ``FirebaseError`` that can be raised to the user code or None.
+    """
+    code = error_dict.get('status')
+    return handle_requests_error(error, message, code)
+
+
+def handle_requests_error(error, message=None, code=None):
     """Constructs a ``FirebaseError`` from the given requests error.
+
+    This method is agnostic of the remote service that produced the error, whether it is a GCP
+    service or otherwise. Therefore, this method does not attempt to parse the error response in
+    any way.
 
     Args:
         error: An error raised by the requests module while making an HTTP call.
         message: A message to be included in the resulting ``FirebaseError`` (optional). If not
             specified the string representation of the ``error`` argument is used as the message.
-        error_dict: A parsed error payload to extract error code from (optional). If not specified
-            parses the response payload available in the ``error``.
+        code: A GCP error code that will be used to determine the resulting error type (optional).
+            If not specified the HTTP status code on the error response is used to determine a
+            suitable error code.
 
     Returns:
         FirebaseError: A ``FirebaseError`` that can be raised to the user code.
@@ -131,10 +151,6 @@ def handle_requests_error(error, message=None, error_dict=None):
             message='Unknown error while making a remote service call: {0}'.format(error),
             cause=error)
 
-    if error_dict is None:
-        error_dict = {}
-
-    code = error_dict.get('status')
     if not code:
         code = _http_status_to_error_code(error.response.status_code)
     if not message:
@@ -152,8 +168,8 @@ def handle_platform_error_from_googleapiclient(error, handle_func=None):
     Args:
         error: An error raised by the googleapiclient while making an HTTP call to a GCP API.
         handle_func: A function that can be used to handle platform errors in a custom way. When
-            specified, this function will be called with four arguments -- parsed error response,
-            error message, source exception from googleapiclient and a HTTP response object.
+            specified, this function will be called with three arguments. It has the same
+            signature as ```_handle_func_googleapiclient``, but may return ``None``.
 
     Returns:
         FirebaseError: A ``FirebaseError`` that can be raised to the user code.
@@ -169,18 +185,39 @@ def handle_platform_error_from_googleapiclient(error, handle_func=None):
     if handle_func:
         exc = handle_func(error, message, error_dict, http_response)
 
-    return exc if exc else handle_googleapiclient_error(error, message, error_dict, http_response)
+    return exc if exc else _handle_func_googleapiclient(error, message, error_dict, http_response)
 
 
-def handle_googleapiclient_error(error, message=None, error_dict=None, http_response=None):
+def _handle_func_googleapiclient(error, message, error_dict, http_response):
+    """Constructs a ``FirebaseError`` from the given GCP error.
+
+    Args:
+        error: An error raised by the googleapiclient module while making an HTTP call.
+        message: A message to be included in the resulting ``FirebaseError``.
+        error_dict: Parsed GCP error response.
+        http_response: A requests HTTP response object to associate with the exception.
+
+    Returns:
+        FirebaseError: A ``FirebaseError`` that can be raised to the user code or None.
+    """
+    code = error_dict.get('status')
+    return handle_googleapiclient_error(error, message, code, http_response)
+
+
+def handle_googleapiclient_error(error, message=None, code=None, http_response=None):
     """Constructs a ``FirebaseError`` from the given googleapiclient error.
+
+    This method is agnostic of the remote service that produced the error, whether it is a GCP
+    service or otherwise. Therefore, this method does not attempt to parse the error response in
+    any way.
 
     Args:
         error: An error raised by the googleapiclient module while making an HTTP call.
         message: A message to be included in the resulting ``FirebaseError`` (optional). If not
             specified the string representation of the ``error`` argument is used as the message.
-        error_dict: A parsed error payload to extract error code from (optional). If not specified
-            the error code will be determined from the HTTP status code of the response.
+        code: A GCP error code that will be used to determine the resulting error type (optional).
+            If not specified the HTTP status code on the error response is used to determine a
+            suitable error code.
         http_response: A requests HTTP response object to associate with the exception (optional).
             If not specified, one will be created from the ``error``.
 
@@ -201,10 +238,6 @@ def handle_googleapiclient_error(error, message=None, error_dict=None, http_resp
             message='Unknown error while making a remote service call: {0}'.format(error),
             cause=error)
 
-    if error_dict is None:
-        error_dict = {}
-
-    code = error_dict.get('status')
     if not code:
         code = _http_status_to_error_code(error.resp.status)
     if not message:

@@ -499,4 +499,5 @@ class _MessagingService(object):
         for detail in error_dict.get('details', []):
             if detail.get('@type') == 'type.googleapis.com/google.firebase.fcm.v1.FcmError':
                 fcm_code = detail.get('errorCode')
+                break
         return _MessagingService.FCM_ERROR_TYPES.get(fcm_code)

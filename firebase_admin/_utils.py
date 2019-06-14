@@ -27,15 +27,6 @@ from firebase_admin import exceptions
 
 
 _ERROR_CODE_TO_EXCEPTION_TYPE = {
-    400: exceptions.InvalidArgumentError,
-    401: exceptions.UnauthenticatedError,
-    403: exceptions.PermissionDeniedError,
-    404: exceptions.NotFoundError,
-    409: exceptions.ConflictError,
-    429: exceptions.ResourceExhaustedError,
-    500: exceptions.InternalError,
-    503: exceptions.UnavailableError,
-
     exceptions.INVALID_ARGUMENT: exceptions.InvalidArgumentError,
     exceptions.FAILED_PRECONDITION: exceptions.FailedPreconditionError,
     exceptions.OUT_OF_RANGE: exceptions.OutOfRangeError,
@@ -44,6 +35,7 @@ _ERROR_CODE_TO_EXCEPTION_TYPE = {
     exceptions.NOT_FOUND: exceptions.NotFoundError,
     exceptions.ABORTED: exceptions.AbortedError,
     exceptions.ALREADY_EXISTS: exceptions.AlreadyExistsError,
+    exceptions.CONFLICT: exceptions.ConflictError,
     exceptions.RESOURCE_EXHAUSTED: exceptions.ResourceExhaustedError,
     exceptions.CANCELLED: exceptions.CancelledError,
     exceptions.DATA_LOSS: exceptions.DataLossError,
@@ -91,7 +83,7 @@ def handle_platform_error_from_requests(error, handle_func=None):
     This can be used to handle errors returned by Google Cloud Platform (GCP) APIs.
 
     Args:
-        error: An error raised by the reqests module while making an HTTP call to a GCP API.
+        error: An error raised by the requests module while making an HTTP call to a GCP API.
         handle_func: A function that can be used to handle platform errors in a custom way. When
             specified, this function will be called with four arguments -- parsed error response,
             error message, source exception from requests and the HTTP response object.
@@ -117,12 +109,12 @@ def handle_requests_error(error, message=None, code=None):
     """Constructs a ``FirebaseError`` from the given requests error.
 
     Args:
-        error: An error raised by the reqests module while making an HTTP call.
+        error: An error raised by the requests module while making an HTTP call.
         message: A message to be included in the resulting ``FirebaseError`` (optional). If not
             specified the string representation of the ``error`` argument is used as the message.
-        code: An HTTP status code or GCP error code that will be used to determine the resulting
-            error type (optional). If not specified the HTTP status code on the error response is
-            used.
+        code: A GCP error code that will be used to determine the resulting error type (optional).
+            If not specified the HTTP status code on the error response is used to determine a
+            suitable error code.
 
     Returns:
         FirebaseError: A ``FirebaseError`` that can be raised to the user code.
@@ -141,11 +133,11 @@ def handle_requests_error(error, message=None, code=None):
             cause=error)
 
     if not code:
-        code = error.response.status_code
+        code = _http_status_to_error_code(error.response.status_code)
     if not message:
         message = str(error)
 
-    err_type = _lookup_error_type(code)
+    err_type = _error_code_to_exception_type(code)
     return err_type(message=message, cause=error, http_response=error.response)
 
 
@@ -184,9 +176,9 @@ def handle_googleapiclient_error(error, message=None, code=None):
         error: An error raised by the googleapiclient module while making an HTTP call.
         message: A message to be included in the resulting ``FirebaseError`` (optional). If not
             specified the string representation of the ``error`` argument is used as the message.
-        code: An HTTP status code or GCP error code that will be used to determine the resulting
-            error type (optional). If not specified the HTTP status code on the error response is
-            used.
+        code: A GCP error code that will be used to determine the resulting error type (optional).
+            If not specified the HTTP status code on the error response is used to determine a
+            suitable error code.
 
     Returns:
         FirebaseError: A ``FirebaseError`` that can be raised to the user code.
@@ -206,12 +198,12 @@ def handle_googleapiclient_error(error, message=None, code=None):
             cause=error)
 
     if not code:
-        code = error.resp.status
+        code = _http_status_to_error_code(error.resp.status)
     if not message:
         message = str(error)
 
     http_response = _http_response_from_googleapiclient_error(error)
-    err_type = _lookup_error_type(code)
+    err_type = _error_code_to_exception_type(code)
     return err_type(message=message, cause=error, http_response=http_response)
 
 
@@ -223,8 +215,13 @@ def _http_response_from_googleapiclient_error(error):
     return resp
 
 
-def _lookup_error_type(code):
-    """Maps an error code to an exception type."""
+def _http_status_to_error_code(status):
+    """Maps an HTTP status to a platform error code."""
+    return _HTTP_STATUS_TO_ERROR_CODE.get(status, exceptions.UNKNOWN)
+
+
+def _error_code_to_exception_type(code):
+    """Maps a platform error code to an exception type."""
     return _ERROR_CODE_TO_EXCEPTION_TYPE.get(code, exceptions.UnknownError)
 
 
@@ -250,7 +247,7 @@ def _parse_platform_error(content, status_code):
     error_dict = data.get('error', {})
     code = error_dict.get('status')
     if not code:
-        code = _HTTP_STATUS_TO_ERROR_CODE.get(status_code, exceptions.UNKNOWN)
+        code = _http_status_to_error_code(status_code)
 
     msg = error_dict.get('message')
     if not msg:

@@ -76,18 +76,18 @@ class TestRequests(object):
         assert firebase_error.cause is error
         assert firebase_error.http_response is resp
 
-    def test_http_response_with_status(self):
+    def test_http_response_with_code(self):
         resp, error = self._create_response()
-        firebase_error = _utils.handle_requests_error(error, code=503)
+        firebase_error = _utils.handle_requests_error(error, code=exceptions.UNAVAILABLE)
         assert isinstance(firebase_error, exceptions.UnavailableError)
         assert str(firebase_error) == 'Test error'
         assert firebase_error.cause is error
         assert firebase_error.http_response is resp
 
-    def test_http_response_with_message_and_status(self):
+    def test_http_response_with_message_and_code(self):
         resp, error = self._create_response()
         firebase_error = _utils.handle_requests_error(
-            error, message='Explicit error message', code=503)
+            error, message='Explicit error message', code=exceptions.UNAVAILABLE)
         assert isinstance(firebase_error, exceptions.UnavailableError)
         assert str(firebase_error) == 'Explicit error message'
         assert firebase_error.cause is error
@@ -252,19 +252,19 @@ class TestGoogleApiClient(object):
         assert firebase_error.http_response.status_code == 500
         assert firebase_error.http_response.content.decode() == 'Body'
 
-    def test_http_response_with_status(self):
+    def test_http_response_with_code(self):
         error = self._create_http_error()
-        firebase_error = _utils.handle_googleapiclient_error(error, code=503)
+        firebase_error = _utils.handle_googleapiclient_error(error, code=exceptions.UNAVAILABLE)
         assert isinstance(firebase_error, exceptions.UnavailableError)
         assert str(firebase_error) == str(error)
         assert firebase_error.cause is error
         assert firebase_error.http_response.status_code == 500
         assert firebase_error.http_response.content.decode() == 'Body'
 
-    def test_http_response_with_message_and_status(self):
+    def test_http_response_with_message_and_code(self):
         error = self._create_http_error()
         firebase_error = _utils.handle_googleapiclient_error(
-            error, message='Explicit error message', code=503)
+            error, message='Explicit error message', code=exceptions.UNAVAILABLE)
         assert isinstance(firebase_error, exceptions.UnavailableError)
         assert str(firebase_error) == 'Explicit error message'
         assert firebase_error.cause is error

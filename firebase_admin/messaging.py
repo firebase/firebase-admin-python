@@ -36,7 +36,6 @@ __all__ = [
     'AndroidNotification',
     'APNSConfig',
     'APNSPayload',
-    'ApiCallError',
     'Aps',
     'ApsAlert',
     'BatchResponse',
@@ -45,8 +44,12 @@ __all__ = [
     'Message',
     'MulticastMessage',
     'Notification',
+    'QuotaExceededError',
+    'SenderIdMismatchError',
     'SendResponse',
+    'ThirdPartyAuthError',
     'TopicManagementResponse',
+    'UnregisteredError',
     'WebpushConfig',
     'WebpushFcmOptions',
     'WebpushNotification',
@@ -167,7 +170,7 @@ def subscribe_to_topic(tokens, topic, app=None):
         TopicManagementResponse: A ``TopicManagementResponse`` instance.
 
     Raises:
-        ApiCallError: If an error occurs while communicating with instance ID service.
+        FirebaseError: If an error occurs while communicating with instance ID service.
         ValueError: If the input arguments are invalid.
     """
     return _get_messaging_service(app).make_topic_management_request(
@@ -186,7 +189,7 @@ def unsubscribe_from_topic(tokens, topic, app=None):
         TopicManagementResponse: A ``TopicManagementResponse`` instance.
 
     Raises:
-        ApiCallError: If an error occurs while communicating with instance ID service.
+        FirebaseError: If an error occurs while communicating with instance ID service.
         ValueError: If the input arguments are invalid.
     """
     return _get_messaging_service(app).make_topic_management_request(
@@ -243,21 +246,6 @@ class TopicManagementResponse(object):
         return self._errors
 
 
-class ApiCallError(Exception):
-    """Represents an Exception encountered while invoking the FCM API.
-
-    Attributes:
-        code: A string error code.
-        message: A error message string.
-        detail: Original low-level exception.
-    """
-
-    def __init__(self, code, message, detail=None):
-        Exception.__init__(self, message)
-        self.code = code
-        self.detail = detail
-
-
 class BatchResponse(object):
     """The response received from a batch request to the FCM API."""
 
@@ -300,7 +288,7 @@ class SendResponse(object):
 
     @property
     def exception(self):
-        """An ApiCallError if an error occurs while sending the message to the FCM service."""
+        """A FirebaseError if an error occurs while sending the message to the FCM service."""
         return self._exception
 
 
@@ -321,13 +309,6 @@ class _MessagingService(object):
         'SENDER_ID_MISMATCH': SenderIdMismatchError,
         'THIRD_PARTY_AUTH_ERROR': ThirdPartyAuthError,
         'UNREGISTERED': UnregisteredError,
-    }
-    IID_ERROR_CODES = {
-        400: 'invalid-argument',
-        401: 'authentication-error',
-        403: 'authentication-error',
-        500: INTERNAL_ERROR,
-        503: 'server-unavailable',
     }
 
     def __init__(self, app):
@@ -431,10 +412,7 @@ class _MessagingService(object):
                 timeout=self._timeout
             )
         except requests.exceptions.RequestException as error:
-            if error.response is not None:
-                self._handle_iid_error(error)
-            else:
-                raise ApiCallError(self.INTERNAL_ERROR, 'Failed to call instance ID API.', error)
+            raise self._handle_iid_error(error)
         else:
             return TopicManagementResponse(resp)
 
@@ -456,6 +434,9 @@ class _MessagingService(object):
 
     def _handle_iid_error(self, error):
         """Handles errors received from the Instance ID API."""
+        if error.response is None:
+            raise _utils.handle_requests_error(error)
+
         data = {}
         try:
             parsed_body = error.response.json()
@@ -464,13 +445,13 @@ class _MessagingService(object):
         except ValueError:
             pass
 
-        code = _MessagingService.IID_ERROR_CODES.get(
-            error.response.status_code, _MessagingService.UNKNOWN_ERROR)
+        # IID error response format: {"error": "some error message"}
         msg = data.get('error')
         if not msg:
             msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(
                 error.response.status_code, error.response.content.decode())
-        raise ApiCallError(code, msg, error)
+
+        return _utils.handle_requests_error(error, msg)
 
     def _handle_batch_error(self, error):
         """Handles errors received from the googleapiclient while making batch requests."""

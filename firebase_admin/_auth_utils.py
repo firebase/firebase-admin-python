@@ -20,6 +20,9 @@ import re
 import six
 from six.moves import urllib
 
+from firebase_admin import exceptions
+from firebase_admin import _utils
+
 
 MAX_CLAIMS_PAYLOAD_SIZE = 1000
 RESERVED_CLAIMS = set([
@@ -188,3 +191,51 @@ def validate_action_type(action_type):
         raise ValueError('Invalid action type provided action_type: {0}. \
             Valid values are {1}'.format(action_type, ', '.join(VALID_EMAIL_ACTION_TYPES)))
     return action_type
+
+
+def handle_auth_backend_error(error):
+    if error.response is None:
+        raise _utils.handle_requests_error(error)
+
+    error_dict = {}
+    try:
+        parsed_body = error.response.json()
+        if isinstance(parsed_body, dict):
+            error_dict = parsed_body.get('error')
+    except ValueError:
+        pass
+
+    if not error_dict:
+        raise _utils.handle_requests_error(error)
+
+    code = error_dict.get('message', '')
+    sep = code.find(':')
+    custom_message = None
+    if sep != -1:
+        code = code[:sep]
+        custom_message = code[sep + 1:].strip()
+
+    msg = custom_message if custom_message else code
+    exc_type = _CODE_TO_EXC_TYPE.get(code)
+    if exc_type:
+        return exc_type(msg, cause=error, http_response=error.response)
+
+    return _utils.handle_requests_error(error, message=msg)
+
+
+class InvalidIdTokenError(exceptions.InvalidArgumentError):
+    """The provided ID token is not a valid Firebase ID token."""
+
+    def __init__(self, message, cause, http_response=None):
+        exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
+
+
+class UnexpectedResponseError(exceptions.UnknownError):
+
+    def __init__(self, message, cause=None, http_response=None):
+        exceptions.UnknownError.__init__(self, message, cause, http_response)
+
+
+_CODE_TO_EXC_TYPE = {
+    'INVALID_ID_TOKEN': InvalidIdTokenError,
+}

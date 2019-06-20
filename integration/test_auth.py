@@ -129,6 +129,11 @@ def test_session_cookies(api_key):
     estimated_exp = int(time.time() + expires_in.total_seconds())
     assert abs(claims['exp'] - estimated_exp) < 5
 
+def test_session_cookie_error():
+    expires_in = datetime.timedelta(days=1)
+    with pytest.raises(auth.InvalidIdTokenError):
+        auth.create_session_cookie('not.a.token', expires_in=expires_in)
+
 def test_get_non_existing_user():
     with pytest.raises(auth.AuthError) as excinfo:
         auth.get_user('non.existing')

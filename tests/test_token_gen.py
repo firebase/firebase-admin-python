@@ -301,17 +301,17 @@ class TestCreateSessionCookie(object):
         assert request == {'idToken' : 'id_token', 'validDuration': 3600}
 
     def test_error(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
-        with pytest.raises(auth.AuthError) as excinfo:
+        _instrument_user_manager(user_mgt_app, 500, '{"error":{"message": "INVALID_ID_TOKEN"}}')
+        with pytest.raises(auth.InvalidIdTokenError) as excinfo:
             auth.create_session_cookie('id_token', expires_in=3600, app=user_mgt_app)
-        assert excinfo.value.code == _token_gen.COOKIE_CREATE_ERROR
-        assert '{"error":"test"}' in str(excinfo.value)
+        assert excinfo.value.code == exceptions.INVALID_ARGUMENT
+        assert str(excinfo.value) == 'INVALID_ID_TOKEN'
 
     def test_unexpected_response(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 200, '{}')
-        with pytest.raises(auth.AuthError) as excinfo:
+        with pytest.raises(auth.UnexpectedResponseError) as excinfo:
             auth.create_session_cookie('id_token', expires_in=3600, app=user_mgt_app)
-        assert excinfo.value.code == _token_gen.COOKIE_CREATE_ERROR
+        assert excinfo.value.code == exceptions.UNKNOWN
         assert 'Failed to create session cookie' in str(excinfo.value)
 
 

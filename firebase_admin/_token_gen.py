@@ -196,7 +196,8 @@ class TokenGenerator(object):
             'validDuration': expires_in,
         }
         try:
-            body, http_resp = self.client.body_and_response('post', ':createSessionCookie', json=payload)
+            body, http_resp = self.client.body_and_response(
+                'post', ':createSessionCookie', json=payload)
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)
         else:

@@ -305,7 +305,20 @@ class TestCreateSessionCookie(object):
         with pytest.raises(auth.InvalidIdTokenError) as excinfo:
             auth.create_session_cookie('id_token', expires_in=3600, app=user_mgt_app)
         assert excinfo.value.code == exceptions.INVALID_ARGUMENT
-        assert str(excinfo.value) == 'INVALID_ID_TOKEN'
+        assert str(excinfo.value) == 'The provided ID token is invalid (INVALID_ID_TOKEN).'
+
+    def test_error_with_details(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 500, '{"error":{"message": "INVALID_ID_TOKEN: More details."}}')
+        with pytest.raises(auth.InvalidIdTokenError) as excinfo:
+            auth.create_session_cookie('id_token', expires_in=3600, app=user_mgt_app)
+        assert excinfo.value.code == exceptions.INVALID_ARGUMENT
+        assert str(excinfo.value) == 'The provided ID token is invalid (INVALID_ID_TOKEN). More details.'
+
+    def test_unknown_error(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 500, '{"error":{"message": "SOMETHING_UNUSUAL"}}')
+        with pytest.raises(exceptions.InternalError) as excinfo:
+            auth.create_session_cookie('id_token', expires_in=3600, app=user_mgt_app)
+        assert str(excinfo.value) == 'Unexpected error code: SOMETHING_UNUSUAL.'
 
     def test_unexpected_response(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 200, '{}')

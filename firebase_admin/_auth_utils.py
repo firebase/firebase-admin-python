@@ -194,6 +194,7 @@ def validate_action_type(action_type):
 
 
 def handle_auth_backend_error(error):
+    """Converts a requests error received from the Firebase Auth service into a FirebaseError."""
     if error.response is None:
         raise _utils.handle_requests_error(error)
 
@@ -208,23 +209,28 @@ def handle_auth_backend_error(error):
     if not error_dict:
         raise _utils.handle_requests_error(error)
 
-    code = error_dict.get('message', '')
-    sep = code.find(':')
+    # Auth error response format: {"error": {"message": "AUTH_ERROR_CODE: Optional text"}}
+    code = error_dict.get('message', '_NONE_')
+    separator = code.find(':')
     custom_message = None
-    if sep != -1:
-        code = code[:sep]
-        custom_message = code[sep + 1:].strip()
+    if separator != -1:
+        custom_message = code[separator + 1:].strip()
+        code = code[:separator]
 
-    msg = custom_message if custom_message else code
+    ext = ' {0}'.format(custom_message) if custom_message else ''
     exc_type = _CODE_TO_EXC_TYPE.get(code)
     if exc_type:
+        msg = '{0} ({1}).{2}'.format(exc_type.message, code, ext)
         return exc_type(msg, cause=error, http_response=error.response)
 
+    msg = 'Unexpected error code: {0}.{1}'.format(code, ext)
     return _utils.handle_requests_error(error, message=msg)
 
 
 class InvalidIdTokenError(exceptions.InvalidArgumentError):
     """The provided ID token is not a valid Firebase ID token."""
+
+    message = 'The provided ID token is invalid'
 
     def __init__(self, message, cause, http_response=None):
         exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)

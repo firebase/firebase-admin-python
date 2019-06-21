@@ -198,45 +198,59 @@ def handle_auth_backend_error(error):
     if error.response is None:
         raise _utils.handle_requests_error(error)
 
+    code, custom_message = _parse_error_body(error.response)
+    if not code:
+        msg = 'Unexpected error response: {0}'.format(error.response.content.decode())
+        raise _utils.handle_requests_error(error, message=msg)
+
+    exc_type = _CODE_TO_EXC_TYPE.get(code)
+    msg = _build_error_message(code, exc_type, custom_message)
+    if not exc_type:
+        return _utils.handle_requests_error(error, message=msg)
+
+    return exc_type(msg, cause=error, http_response=error.response)
+
+
+def _parse_error_body(response):
+    """Parses the given error response to extract Auth error code and message."""
     error_dict = {}
     try:
-        parsed_body = error.response.json()
+        parsed_body = response.json()
         if isinstance(parsed_body, dict):
-            error_dict = parsed_body.get('error')
+            error_dict = parsed_body.get('error', {})
     except ValueError:
         pass
 
-    if not error_dict:
-        raise _utils.handle_requests_error(error)
-
     # Auth error response format: {"error": {"message": "AUTH_ERROR_CODE: Optional text"}}
-    code = error_dict.get('message', '_NONE_')
-    separator = code.find(':')
+    code = error_dict.get('message')
     custom_message = None
-    if separator != -1:
-        custom_message = code[separator + 1:].strip()
-        code = code[:separator]
+    if code:
+        separator = code.find(':')
+        if separator != -1:
+            custom_message = code[separator + 1:].strip()
+            code = code[:separator]
 
+    return code, custom_message
+
+
+def _build_error_message(code, exc_type, custom_message):
+    preamble = exc_type.default_message if (
+        exc_type and hasattr(exc_type, 'default_message')) else 'Error while calling Auth service'
     ext = ' {0}'.format(custom_message) if custom_message else ''
-    exc_type = _CODE_TO_EXC_TYPE.get(code)
-    if exc_type:
-        msg = '{0} ({1}).{2}'.format(exc_type.message, code, ext)
-        return exc_type(msg, cause=error, http_response=error.response)
-
-    msg = 'Unexpected error code: {0}.{1}'.format(code, ext)
-    return _utils.handle_requests_error(error, message=msg)
+    return '{0} ({1}).{2}'.format(preamble, code, ext)
 
 
 class InvalidIdTokenError(exceptions.InvalidArgumentError):
     """The provided ID token is not a valid Firebase ID token."""
 
-    message = 'The provided ID token is invalid'
+    default_message = 'The provided ID token is invalid'
 
     def __init__(self, message, cause, http_response=None):
         exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
 
 
 class UnexpectedResponseError(exceptions.UnknownError):
+    """Backend service responded with an unexpected or malformed response."""
 
     def __init__(self, message, cause=None, http_response=None):
         exceptions.UnknownError.__init__(self, message, cause, http_response)

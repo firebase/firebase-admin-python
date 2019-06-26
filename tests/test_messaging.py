@@ -32,9 +32,9 @@ NON_STRING_ARGS = [list(), tuple(), dict(), True, False, 1, 0]
 NON_DICT_ARGS = ['', list(), tuple(), True, False, 1, 0, {1: 'foo'}, {'foo': 1}]
 NON_OBJECT_ARGS = [list(), tuple(), dict(), 'foo', 0, 1, True, False]
 NON_LIST_ARGS = ['', tuple(), dict(), True, False, 1, 0, [1], ['foo', 1]]
-HTTP_ERRORS = [400, 404, 500] # TODO(hkj): Remove this when IID tests are updated.
 HTTP_ERROR_CODES = {
     400: exceptions.InvalidArgumentError,
+    403: exceptions.PermissionDeniedError,
     404: exceptions.NotFoundError,
     500: exceptions.InternalError,
     503: exceptions.UnavailableError,
@@ -1859,30 +1859,24 @@ class TestTopicManagement(object):
         assert recorder[0].url == self._get_url('iid/v1:batchAdd')
         assert json.loads(recorder[0].body.decode()) == args[2]
 
-    @pytest.mark.parametrize('status', HTTP_ERRORS)
-    def test_subscribe_to_topic_error(self, status):
+    @pytest.mark.parametrize('status, exc_type', HTTP_ERROR_CODES.items())
+    def test_subscribe_to_topic_error(self, status, exc_type):
         _, recorder = self._instrument_iid_service(
             status=status, payload=self._DEFAULT_ERROR_RESPONSE)
-        with pytest.raises(messaging.ApiCallError) as excinfo:
+        with pytest.raises(exc_type) as excinfo:
             messaging.subscribe_to_topic('foo', 'test-topic')
         assert str(excinfo.value) == 'error_reason'
-        code = messaging._MessagingService.IID_ERROR_CODES.get(
-            status, messaging._MessagingService.UNKNOWN_ERROR)
-        assert excinfo.value.code == code
         assert len(recorder) == 1
         assert recorder[0].method == 'POST'
         assert recorder[0].url == self._get_url('iid/v1:batchAdd')
 
-    @pytest.mark.parametrize('status', HTTP_ERRORS)
-    def test_subscribe_to_topic_non_json_error(self, status):
+    @pytest.mark.parametrize('status, exc_type', HTTP_ERROR_CODES.items())
+    def test_subscribe_to_topic_non_json_error(self, status, exc_type):
         _, recorder = self._instrument_iid_service(status=status, payload='not json')
-        with pytest.raises(messaging.ApiCallError) as excinfo:
+        with pytest.raises(exc_type) as excinfo:
             messaging.subscribe_to_topic('foo', 'test-topic')
         reason = 'Unexpected HTTP response with status: {0}; body: not json'.format(status)
-        code = messaging._MessagingService.IID_ERROR_CODES.get(
-            status, messaging._MessagingService.UNKNOWN_ERROR)
         assert str(excinfo.value) == reason
-        assert excinfo.value.code == code
         assert len(recorder) == 1
         assert recorder[0].method == 'POST'
         assert recorder[0].url == self._get_url('iid/v1:batchAdd')
@@ -1897,30 +1891,24 @@ class TestTopicManagement(object):
         assert recorder[0].url == self._get_url('iid/v1:batchRemove')
         assert json.loads(recorder[0].body.decode()) == args[2]
 
-    @pytest.mark.parametrize('status', HTTP_ERRORS)
-    def test_unsubscribe_from_topic_error(self, status):
+    @pytest.mark.parametrize('status, exc_type', HTTP_ERROR_CODES.items())
+    def test_unsubscribe_from_topic_error(self, status, exc_type):
         _, recorder = self._instrument_iid_service(
             status=status, payload=self._DEFAULT_ERROR_RESPONSE)
-        with pytest.raises(messaging.ApiCallError) as excinfo:
+        with pytest.raises(exc_type) as excinfo:
             messaging.unsubscribe_from_topic('foo', 'test-topic')
         assert str(excinfo.value) == 'error_reason'
-        code = messaging._MessagingService.IID_ERROR_CODES.get(
-            status, messaging._MessagingService.UNKNOWN_ERROR)
-        assert excinfo.value.code == code
         assert len(recorder) == 1
         assert recorder[0].method == 'POST'
         assert recorder[0].url == self._get_url('iid/v1:batchRemove')
 
-    @pytest.mark.parametrize('status', HTTP_ERRORS)
-    def test_unsubscribe_from_topic_non_json_error(self, status):
+    @pytest.mark.parametrize('status, exc_type', HTTP_ERROR_CODES.items())
+    def test_unsubscribe_from_topic_non_json_error(self, status, exc_type):
         _, recorder = self._instrument_iid_service(status=status, payload='not json')
-        with pytest.raises(messaging.ApiCallError) as excinfo:
+        with pytest.raises(exc_type) as excinfo:
             messaging.unsubscribe_from_topic('foo', 'test-topic')
         reason = 'Unexpected HTTP response with status: {0}; body: not json'.format(status)
-        code = messaging._MessagingService.IID_ERROR_CODES.get(
-            status, messaging._MessagingService.UNKNOWN_ERROR)
         assert str(excinfo.value) == reason
-        assert excinfo.value.code == code
         assert len(recorder) == 1
         assert recorder[0].method == 'POST'
         assert recorder[0].url == self._get_url('iid/v1:batchRemove')

@@ -301,8 +301,6 @@ class _MessagingService(object):
     IID_HEADERS = {'access_token_auth': 'true'}
     JSON_ENCODER = _messaging_utils.MessageEncoder()
 
-    INTERNAL_ERROR = 'internal-error'
-    UNKNOWN_ERROR = 'unknown-error'
     FCM_ERROR_TYPES = {
         'APNS_AUTH_ERROR': ThirdPartyAuthError,
         'QUOTA_EXCEEDED': QuotaExceededError,

@@ -413,13 +413,22 @@ class APNSFcmOptions(object):
     """Options for features provided by the FCM SDK for iOS.
 
     Args:
-        analytics_label: contains additional options for features provided by the FCM Android SDK
+        analytics_label: contains additional options for features provided by the FCM iOS SDK
             (optional).
     """
 
     def __init__(self, analytics_label=None):
         self.analytics_label = analytics_label
 
+class FcmOptions(object):
+    """Options for features provided by SDK.
+
+    Args:
+        analytics_label: contains additional options to use across all platforms (optional).
+    """
+
+    def __init__(self, analytics_label=None):
+        self.analytics_label = analytics_label
 
 class _Validators(object):
     """A collection of data validation utilities.
@@ -587,7 +596,7 @@ class MessageEncoder(json.JSONEncoder):
             'headers': _Validators.check_string_dict(
                 'WebpushConfig.headers', webpush.headers),
             'notification': cls.encode_webpush_notification(webpush.notification),
-            'fcmOptions': cls.encode_webpush_fcm_options(webpush.fcm_options),
+            'fcm_options': cls.encode_webpush_fcm_options(webpush.fcm_options),
         }
         return cls.remove_null_values(result)
 

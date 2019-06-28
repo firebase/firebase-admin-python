@@ -36,6 +36,7 @@ class Message(object):
         android: An instance of ``messaging.AndroidConfig`` (optional).
         webpush: An instance of ``messaging.WebpushConfig`` (optional).
         apns: An instance of ``messaging.ApnsConfig`` (optional).
+        fcm_options: An instance of ``messaging.FcmOptions`` (optional).
         token: The registration token of the device to which the message should be sent (optional).
         topic: Name of the FCM topic to which the message should be sent (optional). Topic name
             may contain the ``/topics/`` prefix.
@@ -43,12 +44,13 @@ class Message(object):
     """
 
     def __init__(self, data=None, notification=None, android=None, webpush=None, apns=None,
-                 token=None, topic=None, condition=None):
+                 fcm_options=None, token=None, topic=None, condition=None):
         self.data = data
         self.notification = notification
         self.android = android
         self.webpush = webpush
         self.apns = apns
+        self.fcm_options = fcm_options
         self.token = token
         self.topic = topic
         self.condition = condition
@@ -65,8 +67,10 @@ class MulticastMessage(object):
         android: An instance of ``messaging.AndroidConfig`` (optional).
         webpush: An instance of ``messaging.WebpushConfig`` (optional).
         apns: An instance of ``messaging.ApnsConfig`` (optional).
+        fcm_options: An instance of ``messaging.FcmOptions`` (optional).
     """
-    def __init__(self, tokens, data=None, notification=None, android=None, webpush=None, apns=None):
+    def __init__(self, tokens, data=None, notification=None, android=None, webpush=None, apns=None,
+                 fcm_options=None):
         _Validators.check_string_list('MulticastMessage.tokens', tokens)
         if len(tokens) > 100:
             raise ValueError('MulticastMessage.tokens must not contain more than 100 tokens.')
@@ -76,6 +80,7 @@ class MulticastMessage(object):
         self.android = android
         self.webpush = webpush
         self.apns = apns
+        self.fcm_options = fcm_options
 
 
 class Notification(object):
@@ -107,16 +112,18 @@ class AndroidConfig(object):
         data: A dictionary of data fields (optional). All keys and values in the dictionary must be
             strings. When specified, overrides any data fields set via ``Message.data``.
         notification: A ``messaging.AndroidNotification`` to be included in the message (optional).
+        fcm_options: A ``messaging.AndroidFcmOptions`` to be included in the message (optional).
     """
 
     def __init__(self, collapse_key=None, priority=None, ttl=None, restricted_package_name=None,
-                 data=None, notification=None):
+                 data=None, notification=None, fcm_options=None):
         self.collapse_key = collapse_key
         self.priority = priority
         self.ttl = ttl
         self.restricted_package_name = restricted_package_name
         self.data = data
         self.notification = notification
+        self.fcm_options = fcm_options
 
 
 class AndroidNotification(object):
@@ -163,6 +170,18 @@ class AndroidNotification(object):
         self.title_loc_key = title_loc_key
         self.title_loc_args = title_loc_args
         self.channel_id = channel_id
+
+
+class AndroidFcmOptions(object):
+    """Options for features provided by the FCM SDK for Android.
+
+    Args:
+        analytics_label: contains additional options for features provided by the FCM Android SDK
+            (optional).
+    """
+
+    def __init__(self, analytics_label=None):
+        self.analytics_label = analytics_label
 
 
 class WebpushConfig(object):
@@ -279,14 +298,17 @@ class APNSConfig(object):
     Args:
         headers: A dictionary of headers (optional).
         payload: A ``messaging.APNSPayload`` to be included in the message (optional).
+        fcm_options: A ``messaging.APNSFcmOptions`` instance to be included in the message
+            (optional).
 
     .. _APNS Documentation: https://developer.apple.com/library/content/documentation\
         /NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html
     """
 
-    def __init__(self, headers=None, payload=None):
+    def __init__(self, headers=None, payload=None, fcm_options=None):
         self.headers = headers
         self.payload = payload
+        self.fcm_options = fcm_options
 
 
 class APNSPayload(object):
@@ -385,6 +407,18 @@ class ApsAlert(object):
         self.title_loc_args = title_loc_args
         self.action_loc_key = action_loc_key
         self.launch_image = launch_image
+
+
+class APNSFcmOptions(object):
+    """Options for features provided by the FCM SDK for iOS.
+
+    Args:
+        analytics_label: contains additional options for features provided by the FCM Android SDK
+            (optional).
+    """
+
+    def __init__(self, analytics_label=None):
+        self.analytics_label = analytics_label
 
 
 class _Validators(object):

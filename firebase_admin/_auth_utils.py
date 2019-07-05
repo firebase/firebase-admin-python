@@ -193,6 +193,27 @@ def validate_action_type(action_type):
     return action_type
 
 
+class InvalidIdTokenError(exceptions.InvalidArgumentError):
+    """The provided ID token is not a valid Firebase ID token."""
+
+    default_message = 'The provided ID token is invalid'
+
+    def __init__(self, message, cause, http_response=None):
+        exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
+
+
+class UnexpectedResponseError(exceptions.UnknownError):
+    """Backend service responded with an unexpected or malformed response."""
+
+    def __init__(self, message, cause=None, http_response=None):
+        exceptions.UnknownError.__init__(self, message, cause, http_response)
+
+
+_CODE_TO_EXC_TYPE = {
+    'INVALID_ID_TOKEN': InvalidIdTokenError,
+}
+
+
 def handle_auth_backend_error(error):
     """Converts a requests error received from the Firebase Auth service into a FirebaseError."""
     if error.response is None:
@@ -238,24 +259,3 @@ def _build_error_message(code, exc_type, custom_message):
         exc_type and hasattr(exc_type, 'default_message')) else 'Error while calling Auth service'
     ext = ' {0}'.format(custom_message) if custom_message else ''
     return '{0} ({1}).{2}'.format(preamble, code, ext)
-
-
-class InvalidIdTokenError(exceptions.InvalidArgumentError):
-    """The provided ID token is not a valid Firebase ID token."""
-
-    default_message = 'The provided ID token is invalid'
-
-    def __init__(self, message, cause, http_response=None):
-        exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
-
-
-class UnexpectedResponseError(exceptions.UnknownError):
-    """Backend service responded with an unexpected or malformed response."""
-
-    def __init__(self, message, cause=None, http_response=None):
-        exceptions.UnknownError.__init__(self, message, cause, http_response)
-
-
-_CODE_TO_EXC_TYPE = {
-    'INVALID_ID_TOKEN': InvalidIdTokenError,
-}

@@ -308,11 +308,13 @@ class TestCreateSessionCookie(object):
         assert str(excinfo.value) == 'The provided ID token is invalid (INVALID_ID_TOKEN).'
 
     def test_error_with_details(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 500, '{"error":{"message": "INVALID_ID_TOKEN: More details."}}')
+        _instrument_user_manager(
+            user_mgt_app, 500, '{"error":{"message": "INVALID_ID_TOKEN: More details."}}')
         with pytest.raises(auth.InvalidIdTokenError) as excinfo:
             auth.create_session_cookie('id_token', expires_in=3600, app=user_mgt_app)
         assert excinfo.value.code == exceptions.INVALID_ARGUMENT
-        assert str(excinfo.value) == 'The provided ID token is invalid (INVALID_ID_TOKEN). More details.'
+        expected = 'The provided ID token is invalid (INVALID_ID_TOKEN). More details.'
+        assert str(excinfo.value) == expected
 
     def test_unexpected_error_code(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 500, '{"error":{"message": "SOMETHING_UNUSUAL"}}')

@@ -21,8 +21,8 @@ import os
 import time
 
 from google.auth import crypt
-from google.auth import exceptions
 from google.auth import jwt
+import google.auth.exceptions
 import google.oauth2.id_token
 import pytest
 from pytest_localserver import plugin
@@ -31,6 +31,7 @@ import six
 import firebase_admin
 from firebase_admin import auth
 from firebase_admin import credentials
+from firebase_admin import exceptions
 from firebase_admin import _token_gen
 from tests import testutils
 
@@ -219,10 +220,12 @@ class TestCreateCustomToken(object):
         try:
             iam_resp = '{"error": {"code": 403, "message": "test error"}}'
             _overwrite_iam_request(app, testutils.MockRequest(403, iam_resp))
-            with pytest.raises(auth.AuthError) as excinfo:
+            with pytest.raises(auth.TokenSignError) as excinfo:
                 auth.create_custom_token(MOCK_UID, app=app)
-            assert excinfo.value.code == _token_gen.TOKEN_SIGN_ERROR
-            assert iam_resp in str(excinfo.value)
+            error = excinfo.value
+            assert error.code == exceptions.UNKNOWN
+            assert iam_resp in str(error)
+            assert isinstance(error.cause, google.auth.exceptions.TransportError)
         finally:
             firebase_admin.delete_app(app)
 
@@ -421,7 +424,7 @@ class TestVerifyIdToken(object):
 
     def test_certificate_request_failure(self, user_mgt_app):
         _overwrite_cert_request(user_mgt_app, testutils.MockRequest(404, 'not found'))
-        with pytest.raises(exceptions.TransportError):
+        with pytest.raises(google.auth.exceptions.TransportError):
             auth.verify_id_token(TEST_ID_TOKEN, app=user_mgt_app)
 
 
@@ -521,7 +524,7 @@ class TestVerifySessionCookie(object):
 
     def test_certificate_request_failure(self, user_mgt_app):
         _overwrite_cert_request(user_mgt_app, testutils.MockRequest(404, 'not found'))
-        with pytest.raises(exceptions.TransportError):
+        with pytest.raises(google.auth.exceptions.TransportError):
             auth.verify_session_cookie(TEST_SESSION_COOKIE, app=user_mgt_app)
 
 

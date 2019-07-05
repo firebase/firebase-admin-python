@@ -42,6 +42,7 @@ __all__ = [
     'ExportedUserRecord',
     'ImportUserRecord',
     'ListUsersPage',
+    'TokenSignError',
     'UserImportHash',
     'UserImportResult',
     'UserInfo',
@@ -75,6 +76,7 @@ ExportedUserRecord = _user_mgt.ExportedUserRecord
 ListUsersPage = _user_mgt.ListUsersPage
 UserImportHash = _user_import.UserImportHash
 ImportUserRecord = _user_import.ImportUserRecord
+TokenSignError = _token_gen.TokenSignError
 UserImportResult = _user_import.UserImportResult
 UserInfo = _user_mgt.UserInfo
 UserMetadata = _user_mgt.UserMetadata
@@ -115,13 +117,10 @@ def create_custom_token(uid, developer_claims=None, app=None):
 
     Raises:
         ValueError: If input parameters are invalid.
-        AuthError: If an error occurs while creating the token using the remote IAM service.
+        TokenSignError: If an error occurs while signing the token using the remote IAM service.
     """
     token_generator = _get_auth_service(app).token_generator
-    try:
-        return token_generator.create_custom_token(uid, developer_claims)
-    except _token_gen.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    return token_generator.create_custom_token(uid, developer_claims)
 
 
 def verify_id_token(id_token, app=None, check_revoked=False):

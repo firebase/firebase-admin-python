@@ -21,12 +21,14 @@ import cachecontrol
 import requests
 import six
 from google.auth import credentials
-from google.auth import exceptions
 from google.auth import iam
 from google.auth import jwt
 from google.auth import transport
+import google.auth.exceptions
 import google.oauth2.id_token
 import google.oauth2.service_account
+
+from firebase_admin import exceptions
 
 
 # ID token constants
@@ -53,7 +55,6 @@ METADATA_SERVICE_URL = ('http://metadata/computeMetadata/v1/instance/service-acc
 
 # Error codes
 COOKIE_CREATE_ERROR = 'COOKIE_CREATE_ERROR'
-TOKEN_SIGN_ERROR = 'TOKEN_SIGN_ERROR'
 
 
 class ApiCallError(Exception):
@@ -177,9 +178,9 @@ class TokenGenerator(object):
             payload['claims'] = developer_claims
         try:
             return jwt.encode(signing_provider.signer, payload)
-        except exceptions.TransportError as error:
+        except google.auth.exceptions.TransportError as error:
             msg = 'Failed to sign custom token. {0}'.format(error)
-            raise ApiCallError(TOKEN_SIGN_ERROR, msg, error)
+            raise TokenSignError(msg, error)
 
 
     def create_session_cookie(self, id_token, expires_in):
@@ -339,3 +340,10 @@ class _JWTVerifier(object):
             certs_url=self.cert_url)
         verified_claims['uid'] = verified_claims['sub']
         return verified_claims
+
+
+class TokenSignError(exceptions.UnknownError):
+    """Unexpected error while signing a Firebase custom token."""
+
+    def __init__(self, message, cause):
+        exceptions.UnknownError.__init__(self, message, cause)

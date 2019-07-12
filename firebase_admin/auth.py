@@ -48,6 +48,7 @@ __all__ = [
     'UserImportResult',
     'UserInfo',
     'UserMetadata',
+    'UserNotFoundError',
     'UserProvider',
     'UserRecord',
 
@@ -83,6 +84,7 @@ UnexpectedResponseError = _auth_utils.UnexpectedResponseError
 UserImportResult = _user_import.UserImportResult
 UserInfo = _user_mgt.UserInfo
 UserMetadata = _user_mgt.UserMetadata
+UserNotFoundError = _auth_utils.UserNotFoundError
 UserProvider = _user_import.UserProvider
 UserRecord = _user_mgt.UserRecord
 

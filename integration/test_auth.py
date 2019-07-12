@@ -29,6 +29,7 @@ from firebase_admin import credentials
 import google.oauth2.credentials
 from google.auth import transport
 
+
 _verify_token_url = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyCustomToken'
 _verify_password_url = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyPassword'
 _password_reset_url = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/resetPassword'
@@ -135,14 +136,14 @@ def test_session_cookie_error():
         auth.create_session_cookie('not.a.token', expires_in=expires_in)
 
 def test_get_non_existing_user():
-    with pytest.raises(auth.AuthError) as excinfo:
+    with pytest.raises(auth.UserNotFoundError) as excinfo:
         auth.get_user('non.existing')
-    assert 'USER_NOT_FOUND_ERROR' in str(excinfo.value.code)
+    assert str(excinfo.value) == 'No user record found for the provided user ID: non.existing.'
 
 def test_get_non_existing_user_by_email():
-    with pytest.raises(auth.AuthError) as excinfo:
+    with pytest.raises(auth.UserNotFoundError) as excinfo:
         auth.get_user_by_email('non.existing@definitely.non.existing')
-    assert 'USER_NOT_FOUND_ERROR' in str(excinfo.value.code)
+    assert str(excinfo.value) == 'No user record found for the provided email: non.existing@definitely.non.existing.'
 
 def test_update_non_existing_user():
     with pytest.raises(auth.AuthError) as excinfo:

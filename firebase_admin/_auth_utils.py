@@ -209,8 +209,18 @@ class UnexpectedResponseError(exceptions.UnknownError):
         exceptions.UnknownError.__init__(self, message, cause, http_response)
 
 
+class UserNotFoundError(exceptions.NotFoundError):
+    """Failed to find a user with the specified details."""
+
+    default_message = 'No user record found for the given identifier'
+
+    def __init__(self, message, cause=None, http_response=None):
+        exceptions.NotFoundError.__init__(self, message, cause, http_response)
+
+
 _CODE_TO_EXC_TYPE = {
     'INVALID_ID_TOKEN': InvalidIdTokenError,
+    'USER_NOT_FOUND': UserNotFoundError,
 }
 
 
@@ -243,7 +253,7 @@ def _parse_error_body(response):
         pass
 
     # Auth error response format: {"error": {"message": "AUTH_ERROR_CODE: Optional text"}}
-    code = error_dict.get('message')
+    code = error_dict.get('message') if isinstance(error_dict, dict) else None
     custom_message = None
     if code:
         separator = code.find(':')

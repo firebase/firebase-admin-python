@@ -217,6 +217,28 @@ class TestGetUser(object):
         error_msg = 'No user record found for the provided user ID: nonexistentuser.'
         assert excinfo.value.code == exceptions.NOT_FOUND
         assert str(excinfo.value) == error_msg
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is None
+
+    def test_get_user_by_email_non_existing(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 200, '{"users":[]}')
+        with pytest.raises(auth.UserNotFoundError) as excinfo:
+            auth.get_user_by_email('nonexistent@user', user_mgt_app)
+        error_msg = 'No user record found for the provided email: nonexistent@user.'
+        assert excinfo.value.code == exceptions.NOT_FOUND
+        assert str(excinfo.value) == error_msg
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is None
+
+    def test_get_user_by_phone_non_existing(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 200, '{"users":[]}')
+        with pytest.raises(auth.UserNotFoundError) as excinfo:
+            auth.get_user_by_phone_number('+1234567890', user_mgt_app)
+        error_msg = 'No user record found for the provided phone number: +1234567890.'
+        assert excinfo.value.code == exceptions.NOT_FOUND
+        assert str(excinfo.value) == error_msg
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is None
 
     def test_get_user_http_error(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 500, '{"error":{"message": "USER_NOT_FOUND"}}')
@@ -225,18 +247,24 @@ class TestGetUser(object):
         error_msg = 'No user record found for the given identifier (USER_NOT_FOUND).'
         assert excinfo.value.code == exceptions.NOT_FOUND
         assert str(excinfo.value) == error_msg
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is not None
 
     def test_get_user_http_error_unexpected_code(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 500, '{"error":{"message": "UNEXPECTED_CODE"}}')
         with pytest.raises(exceptions.InternalError) as excinfo:
             auth.get_user('testuser', user_mgt_app)
         assert str(excinfo.value) == 'Error while calling Auth service (UNEXPECTED_CODE).'
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is not None
 
     def test_get_user_http_error_malformed_response(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 500, '{"error": "UNEXPECTED_CODE"}')
         with pytest.raises(exceptions.InternalError) as excinfo:
             auth.get_user('testuser', user_mgt_app)
         assert str(excinfo.value) == 'Unexpected error response: {"error": "UNEXPECTED_CODE"}'
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is not None
 
     def test_get_user_by_email_http_error(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 500, '{"error":{"message": "USER_NOT_FOUND"}}')
@@ -245,6 +273,8 @@ class TestGetUser(object):
         error_msg = 'No user record found for the given identifier (USER_NOT_FOUND).'
         assert excinfo.value.code == exceptions.NOT_FOUND
         assert str(excinfo.value) == error_msg
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is not None
 
     def test_get_user_by_phone_http_error(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 500, '{"error":{"message": "USER_NOT_FOUND"}}')
@@ -253,6 +283,8 @@ class TestGetUser(object):
         error_msg = 'No user record found for the given identifier (USER_NOT_FOUND).'
         assert excinfo.value.code == exceptions.NOT_FOUND
         assert str(excinfo.value) == error_msg
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is not None
 
 
 class TestCreateUser(object):

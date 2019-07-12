@@ -210,7 +210,7 @@ class UnexpectedResponseError(exceptions.UnknownError):
 
 
 class UserNotFoundError(exceptions.NotFoundError):
-    """Failed to find a user with the specified details."""
+    """No user record found for the specified identifier."""
 
     default_message = 'No user record found for the given identifier'
 

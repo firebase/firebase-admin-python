@@ -379,6 +379,7 @@ class ProviderUserInfo(UserInfo):
     def provider_id(self):
         return self._data.get('providerId')
 
+
 class ActionCodeSettings(object):
     """Contains required continue/state URL with optional Android and iOS settings.
     Used when invoking the email action link generation APIs.
@@ -393,6 +394,7 @@ class ActionCodeSettings(object):
         self.android_package_name = android_package_name
         self.android_install_app = android_install_app
         self.android_minimum_version = android_minimum_version
+
 
 def encode_action_code_settings(settings):
     """ Validates the provided action code settings for email link generation and
@@ -460,6 +462,7 @@ def encode_action_code_settings(settings):
         parameters['androidInstallApp'] = settings.android_install_app
 
     return parameters
+
 
 class UserManager(object):
     """Provides methods for interacting with the Google Identity Toolkit."""

@@ -736,6 +736,7 @@ class TestUserMetadata(object):
         with pytest.raises(ValueError):
             auth.UserMetadata(**arg)
 
+
 class TestImportUserRecord(object):
 
     _INVALID_USERS = (
@@ -1021,6 +1022,7 @@ class TestRevokeRefreshTokkens(object):
         assert int(request['validSince']) >= int(before_time)
         assert int(request['validSince']) <= int(after_time)
 
+
 class TestActionCodeSetting(object):
 
     def test_valid_data(self):
@@ -1064,6 +1066,7 @@ class TestActionCodeSetting(object):
     def test_encode_action_code_bad_data(self):
         with pytest.raises(AttributeError):
             _user_mgt.encode_action_code_settings({"foo":"bar"})
+
 
 class TestGenerateEmailActionLink(object):
 

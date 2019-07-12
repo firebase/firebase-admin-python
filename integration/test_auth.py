@@ -143,7 +143,9 @@ def test_get_non_existing_user():
 def test_get_non_existing_user_by_email():
     with pytest.raises(auth.UserNotFoundError) as excinfo:
         auth.get_user_by_email('non.existing@definitely.non.existing')
-    assert str(excinfo.value) == 'No user record found for the provided email: non.existing@definitely.non.existing.'
+    error_msg = ('No user record found for the provided email: '
+                 'non.existing@definitely.non.existing.')
+    assert str(excinfo.value) == error_msg
 
 def test_update_non_existing_user():
     with pytest.raises(auth.AuthError) as excinfo:

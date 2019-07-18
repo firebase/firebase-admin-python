@@ -20,6 +20,9 @@ import re
 import six
 from six.moves import urllib
 
+from firebase_admin import exceptions
+from firebase_admin import _utils
+
 
 MAX_CLAIMS_PAYLOAD_SIZE = 1000
 RESERVED_CLAIMS = set([
@@ -188,3 +191,71 @@ def validate_action_type(action_type):
         raise ValueError('Invalid action type provided action_type: {0}. \
             Valid values are {1}'.format(action_type, ', '.join(VALID_EMAIL_ACTION_TYPES)))
     return action_type
+
+
+class InvalidIdTokenError(exceptions.InvalidArgumentError):
+    """The provided ID token is not a valid Firebase ID token."""
+
+    default_message = 'The provided ID token is invalid'
+
+    def __init__(self, message, cause, http_response=None):
+        exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
+
+
+class UnexpectedResponseError(exceptions.UnknownError):
+    """Backend service responded with an unexpected or malformed response."""
+
+    def __init__(self, message, cause=None, http_response=None):
+        exceptions.UnknownError.__init__(self, message, cause, http_response)
+
+
+_CODE_TO_EXC_TYPE = {
+    'INVALID_ID_TOKEN': InvalidIdTokenError,
+}
+
+
+def handle_auth_backend_error(error):
+    """Converts a requests error received from the Firebase Auth service into a FirebaseError."""
+    if error.response is None:
+        raise _utils.handle_requests_error(error)
+
+    code, custom_message = _parse_error_body(error.response)
+    if not code:
+        msg = 'Unexpected error response: {0}'.format(error.response.content.decode())
+        raise _utils.handle_requests_error(error, message=msg)
+
+    exc_type = _CODE_TO_EXC_TYPE.get(code)
+    msg = _build_error_message(code, exc_type, custom_message)
+    if not exc_type:
+        return _utils.handle_requests_error(error, message=msg)
+
+    return exc_type(msg, cause=error, http_response=error.response)
+
+
+def _parse_error_body(response):
+    """Parses the given error response to extract Auth error code and message."""
+    error_dict = {}
+    try:
+        parsed_body = response.json()
+        if isinstance(parsed_body, dict):
+            error_dict = parsed_body.get('error', {})
+    except ValueError:
+        pass
+
+    # Auth error response format: {"error": {"message": "AUTH_ERROR_CODE: Optional text"}}
+    code = error_dict.get('message')
+    custom_message = None
+    if code:
+        separator = code.find(':')
+        if separator != -1:
+            custom_message = code[separator + 1:].strip()
+            code = code[:separator]
+
+    return code, custom_message
+
+
+def _build_error_message(code, exc_type, custom_message):
+    default_message = exc_type.default_message if (
+        exc_type and hasattr(exc_type, 'default_message')) else 'Error while calling Auth service'
+    ext = ' {0}'.format(custom_message) if custom_message else ''
+    return '{0} ({1}).{2}'.format(default_message, code, ext)

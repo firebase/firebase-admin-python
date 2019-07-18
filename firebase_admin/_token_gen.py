@@ -29,6 +29,7 @@ import google.oauth2.id_token
 import google.oauth2.service_account
 
 from firebase_admin import exceptions
+from firebase_admin import _auth_utils
 
 
 # ID token constants
@@ -52,18 +53,6 @@ RESERVED_CLAIMS = set([
 ])
 METADATA_SERVICE_URL = ('http://metadata/computeMetadata/v1/instance/service-accounts/'
                         'default/email')
-
-# Error codes
-COOKIE_CREATE_ERROR = 'COOKIE_CREATE_ERROR'
-
-
-class ApiCallError(Exception):
-    """Represents an Exception encountered while invoking the ID toolkit API."""
-
-    def __init__(self, code, message, error=None):
-        Exception.__init__(self, message)
-        self.code = code
-        self.detail = error
 
 
 class _SigningProvider(object):
@@ -207,20 +196,15 @@ class TokenGenerator(object):
             'validDuration': expires_in,
         }
         try:
-            response = self.client.body('post', ':createSessionCookie', json=payload)
+            body, http_resp = self.client.body_and_response(
+                'post', ':createSessionCookie', json=payload)
         except requests.exceptions.RequestException as error:
-            self._handle_http_error(COOKIE_CREATE_ERROR, 'Failed to create session cookie', error)
+            raise _auth_utils.handle_auth_backend_error(error)
         else:
-            if not response or not response.get('sessionCookie'):
-                raise ApiCallError(COOKIE_CREATE_ERROR, 'Failed to create session cookie.')
-            return response.get('sessionCookie')
-
-    def _handle_http_error(self, code, msg, error):
-        if error.response is not None:
-            msg += '\nServer response: {0}'.format(error.response.content.decode())
-        else:
-            msg += '\nReason: {0}'.format(error)
-        raise ApiCallError(code, msg, error)
+            if not body or not body.get('sessionCookie'):
+                raise _auth_utils.UnexpectedResponseError(
+                    'Failed to create session cookie.', http_response=http_resp)
+            return body.get('sessionCookie')
 
 
 class TokenVerifier(object):

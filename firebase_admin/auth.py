@@ -22,6 +22,7 @@ creating and managing user accounts in Firebase projects.
 import time
 
 import firebase_admin
+from firebase_admin import _auth_utils
 from firebase_admin import _http_client
 from firebase_admin import _token_gen
 from firebase_admin import _user_import
@@ -76,7 +77,9 @@ ExportedUserRecord = _user_mgt.ExportedUserRecord
 ListUsersPage = _user_mgt.ListUsersPage
 UserImportHash = _user_import.UserImportHash
 ImportUserRecord = _user_import.ImportUserRecord
+InvalidIdTokenError = _auth_utils.InvalidIdTokenError
 TokenSignError = _token_gen.TokenSignError
+UnexpectedResponseError = _auth_utils.UnexpectedResponseError
 UserImportResult = _user_import.UserImportResult
 UserInfo = _user_mgt.UserInfo
 UserMetadata = _user_mgt.UserMetadata
@@ -169,13 +172,10 @@ def create_session_cookie(id_token, expires_in, app=None):
 
     Raises:
         ValueError: If input parameters are invalid.
-        AuthError: If an error occurs while creating the cookie.
+        FirebaseError: If an error occurs while creating the cookie.
     """
     token_generator = _get_auth_service(app).token_generator
-    try:
-        return token_generator.create_session_cookie(id_token, expires_in)
-    except _token_gen.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    return token_generator.create_session_cookie(id_token, expires_in)
 
 
 def verify_session_cookie(session_cookie, check_revoked=False, app=None):

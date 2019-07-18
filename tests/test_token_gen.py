@@ -301,17 +301,38 @@ class TestCreateSessionCookie(object):
         assert request == {'idToken' : 'id_token', 'validDuration': 3600}
 
     def test_error(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
-        with pytest.raises(auth.AuthError) as excinfo:
+        _instrument_user_manager(user_mgt_app, 500, '{"error":{"message": "INVALID_ID_TOKEN"}}')
+        with pytest.raises(auth.InvalidIdTokenError) as excinfo:
             auth.create_session_cookie('id_token', expires_in=3600, app=user_mgt_app)
-        assert excinfo.value.code == _token_gen.COOKIE_CREATE_ERROR
-        assert '{"error":"test"}' in str(excinfo.value)
+        assert excinfo.value.code == exceptions.INVALID_ARGUMENT
+        assert str(excinfo.value) == 'The provided ID token is invalid (INVALID_ID_TOKEN).'
+
+    def test_error_with_details(self, user_mgt_app):
+        _instrument_user_manager(
+            user_mgt_app, 500, '{"error":{"message": "INVALID_ID_TOKEN: More details."}}')
+        with pytest.raises(auth.InvalidIdTokenError) as excinfo:
+            auth.create_session_cookie('id_token', expires_in=3600, app=user_mgt_app)
+        assert excinfo.value.code == exceptions.INVALID_ARGUMENT
+        expected = 'The provided ID token is invalid (INVALID_ID_TOKEN). More details.'
+        assert str(excinfo.value) == expected
+
+    def test_unexpected_error_code(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 500, '{"error":{"message": "SOMETHING_UNUSUAL"}}')
+        with pytest.raises(exceptions.InternalError) as excinfo:
+            auth.create_session_cookie('id_token', expires_in=3600, app=user_mgt_app)
+        assert str(excinfo.value) == 'Error while calling Auth service (SOMETHING_UNUSUAL).'
+
+    def test_unexpected_error_response(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 500, '{}')
+        with pytest.raises(exceptions.InternalError) as excinfo:
+            auth.create_session_cookie('id_token', expires_in=3600, app=user_mgt_app)
+        assert str(excinfo.value) == 'Unexpected error response: {}'
 
     def test_unexpected_response(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 200, '{}')
-        with pytest.raises(auth.AuthError) as excinfo:
+        with pytest.raises(auth.UnexpectedResponseError) as excinfo:
             auth.create_session_cookie('id_token', expires_in=3600, app=user_mgt_app)
-        assert excinfo.value.code == _token_gen.COOKIE_CREATE_ERROR
+        assert excinfo.value.code == exceptions.UNKNOWN
         assert 'Failed to create session cookie' in str(excinfo.value)
 
 

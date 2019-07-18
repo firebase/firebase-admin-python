@@ -255,7 +255,7 @@ def _parse_error_body(response):
 
 
 def _build_error_message(code, exc_type, custom_message):
-    preamble = exc_type.default_message if (
+    default_message = exc_type.default_message if (
         exc_type and hasattr(exc_type, 'default_message')) else 'Error while calling Auth service'
     ext = ' {0}'.format(custom_message) if custom_message else ''
-    return '{0} ({1}).{2}'.format(preamble, code, ext)
+    return '{0} ({1}).{2}'.format(default_message, code, ext)

@@ -48,6 +48,7 @@ __all__ = [
     'UserImportResult',
     'UserInfo',
     'UserMetadata',
+    'UserNotFoundError',
     'UserProvider',
     'UserRecord',
 
@@ -83,6 +84,7 @@ UnexpectedResponseError = _auth_utils.UnexpectedResponseError
 UserImportResult = _user_import.UserImportResult
 UserInfo = _user_mgt.UserInfo
 UserMetadata = _user_mgt.UserMetadata
+UserNotFoundError = _auth_utils.UserNotFoundError
 UserProvider = _user_import.UserProvider
 UserRecord = _user_mgt.UserRecord
 
@@ -232,15 +234,12 @@ def get_user(uid, app=None):
 
     Raises:
         ValueError: If the user ID is None, empty or malformed.
-        AuthError: If an error occurs while retrieving the user or if the specified user ID
-            does not exist.
+        UserNotFoundError: If the specified user ID does not exist.
+        FirebaseError: If an error occurs while retrieving the user.
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        response = user_manager.get_user(uid=uid)
-        return UserRecord(response)
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    response = user_manager.get_user(uid=uid)
+    return UserRecord(response)
 
 
 def get_user_by_email(email, app=None):
@@ -255,15 +254,12 @@ def get_user_by_email(email, app=None):
 
     Raises:
         ValueError: If the email is None, empty or malformed.
-        AuthError: If an error occurs while retrieving the user or no user exists by the specified
-            email address.
+        UserNotFoundError: If no user exists by the specified email address.
+        FirebaseError: If an error occurs while retrieving the user.
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        response = user_manager.get_user(email=email)
-        return UserRecord(response)
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    response = user_manager.get_user(email=email)
+    return UserRecord(response)
 
 
 def get_user_by_phone_number(phone_number, app=None):
@@ -278,15 +274,12 @@ def get_user_by_phone_number(phone_number, app=None):
 
     Raises:
         ValueError: If the phone number is None, empty or malformed.
-        AuthError: If an error occurs while retrieving the user or no user exists by the specified
-            phone number.
+        UserNotFoundError: If no user exists by the specified phone number.
+        FirebaseError: If an error occurs while retrieving the user.
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        response = user_manager.get_user(phone_number=phone_number)
-        return UserRecord(response)
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    response = user_manager.get_user(phone_number=phone_number)
+    return UserRecord(response)
 
 
 def list_users(page_token=None, max_results=_user_mgt.MAX_LIST_USERS_RESULTS, app=None):

@@ -21,6 +21,7 @@ import pytest
 
 import firebase_admin
 from firebase_admin import auth
+from firebase_admin import exceptions
 from firebase_admin import _auth_utils
 from firebase_admin import _user_import
 from firebase_admin import _user_mgt
@@ -211,30 +212,79 @@ class TestGetUser(object):
 
     def test_get_user_non_existing(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 200, '{"users":[]}')
-        with pytest.raises(auth.AuthError) as excinfo:
+        with pytest.raises(auth.UserNotFoundError) as excinfo:
             auth.get_user('nonexistentuser', user_mgt_app)
-        assert excinfo.value.code == _user_mgt.USER_NOT_FOUND_ERROR
+        error_msg = 'No user record found for the provided user ID: nonexistentuser.'
+        assert excinfo.value.code == exceptions.NOT_FOUND
+        assert str(excinfo.value) == error_msg
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is None
+
+    def test_get_user_by_email_non_existing(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 200, '{"users":[]}')
+        with pytest.raises(auth.UserNotFoundError) as excinfo:
+            auth.get_user_by_email('nonexistent@user', user_mgt_app)
+        error_msg = 'No user record found for the provided email: nonexistent@user.'
+        assert excinfo.value.code == exceptions.NOT_FOUND
+        assert str(excinfo.value) == error_msg
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is None
+
+    def test_get_user_by_phone_non_existing(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 200, '{"users":[]}')
+        with pytest.raises(auth.UserNotFoundError) as excinfo:
+            auth.get_user_by_phone_number('+1234567890', user_mgt_app)
+        error_msg = 'No user record found for the provided phone number: +1234567890.'
+        assert excinfo.value.code == exceptions.NOT_FOUND
+        assert str(excinfo.value) == error_msg
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is None
 
     def test_get_user_http_error(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
-        with pytest.raises(auth.AuthError) as excinfo:
+        _instrument_user_manager(user_mgt_app, 500, '{"error":{"message": "USER_NOT_FOUND"}}')
+        with pytest.raises(auth.UserNotFoundError) as excinfo:
             auth.get_user('testuser', user_mgt_app)
-        assert excinfo.value.code == _user_mgt.INTERNAL_ERROR
-        assert '{"error":"test"}' in str(excinfo.value)
+        error_msg = 'No user record found for the given identifier (USER_NOT_FOUND).'
+        assert excinfo.value.code == exceptions.NOT_FOUND
+        assert str(excinfo.value) == error_msg
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is not None
+
+    def test_get_user_http_error_unexpected_code(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 500, '{"error":{"message": "UNEXPECTED_CODE"}}')
+        with pytest.raises(exceptions.InternalError) as excinfo:
+            auth.get_user('testuser', user_mgt_app)
+        assert str(excinfo.value) == 'Error while calling Auth service (UNEXPECTED_CODE).'
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is not None
+
+    def test_get_user_http_error_malformed_response(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 500, '{"error": "UNEXPECTED_CODE"}')
+        with pytest.raises(exceptions.InternalError) as excinfo:
+            auth.get_user('testuser', user_mgt_app)
+        assert str(excinfo.value) == 'Unexpected error response: {"error": "UNEXPECTED_CODE"}'
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is not None
 
     def test_get_user_by_email_http_error(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
-        with pytest.raises(auth.AuthError) as excinfo:
+        _instrument_user_manager(user_mgt_app, 500, '{"error":{"message": "USER_NOT_FOUND"}}')
+        with pytest.raises(auth.UserNotFoundError) as excinfo:
             auth.get_user_by_email('non.existent.user@example.com', user_mgt_app)
-        assert excinfo.value.code == _user_mgt.INTERNAL_ERROR
-        assert '{"error":"test"}' in str(excinfo.value)
+        error_msg = 'No user record found for the given identifier (USER_NOT_FOUND).'
+        assert excinfo.value.code == exceptions.NOT_FOUND
+        assert str(excinfo.value) == error_msg
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is not None
 
     def test_get_user_by_phone_http_error(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
-        with pytest.raises(auth.AuthError) as excinfo:
+        _instrument_user_manager(user_mgt_app, 500, '{"error":{"message": "USER_NOT_FOUND"}}')
+        with pytest.raises(auth.UserNotFoundError) as excinfo:
             auth.get_user_by_phone_number('+1234567890', user_mgt_app)
-        assert excinfo.value.code == _user_mgt.INTERNAL_ERROR
-        assert '{"error":"test"}' in str(excinfo.value)
+        error_msg = 'No user record found for the given identifier (USER_NOT_FOUND).'
+        assert excinfo.value.code == exceptions.NOT_FOUND
+        assert str(excinfo.value) == error_msg
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is not None
 
 
 class TestCreateUser(object):
@@ -718,6 +768,7 @@ class TestUserMetadata(object):
         with pytest.raises(ValueError):
             auth.UserMetadata(**arg)
 
+
 class TestImportUserRecord(object):
 
     _INVALID_USERS = (
@@ -1003,6 +1054,7 @@ class TestRevokeRefreshTokkens(object):
         assert int(request['validSince']) >= int(before_time)
         assert int(request['validSince']) <= int(after_time)
 
+
 class TestActionCodeSetting(object):
 
     def test_valid_data(self):
@@ -1046,6 +1098,7 @@ class TestActionCodeSetting(object):
     def test_encode_action_code_bad_data(self):
         with pytest.raises(AttributeError):
             _user_mgt.encode_action_code_settings({"foo":"bar"})
+
 
 class TestGenerateEmailActionLink(object):
 

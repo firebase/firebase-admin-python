@@ -24,8 +24,6 @@ from firebase_admin import _auth_utils
 from firebase_admin import _user_import
 
 
-INTERNAL_ERROR = 'INTERNAL_ERROR'
-USER_NOT_FOUND_ERROR = 'USER_NOT_FOUND_ERROR'
 USER_CREATE_ERROR = 'USER_CREATE_ERROR'
 USER_UPDATE_ERROR = 'USER_UPDATE_ERROR'
 USER_DELETE_ERROR = 'USER_DELETE_ERROR'
@@ -381,6 +379,7 @@ class ProviderUserInfo(UserInfo):
     def provider_id(self):
         return self._data.get('providerId')
 
+
 class ActionCodeSettings(object):
     """Contains required continue/state URL with optional Android and iOS settings.
     Used when invoking the email action link generation APIs.
@@ -395,6 +394,7 @@ class ActionCodeSettings(object):
         self.android_package_name = android_package_name
         self.android_install_app = android_install_app
         self.android_minimum_version = android_minimum_version
+
 
 def encode_action_code_settings(settings):
     """ Validates the provided action code settings for email link generation and
@@ -463,6 +463,7 @@ def encode_action_code_settings(settings):
 
     return parameters
 
+
 class UserManager(object):
     """Provides methods for interacting with the Google Identity Toolkit."""
 
@@ -484,16 +485,16 @@ class UserManager(object):
             raise TypeError('Unsupported keyword arguments: {0}.'.format(kwargs))
 
         try:
-            response = self._client.body('post', '/accounts:lookup', json=payload)
+            body, http_resp = self._client.body_and_response(
+                'post', '/accounts:lookup', json=payload)
         except requests.exceptions.RequestException as error:
-            msg = 'Failed to get user by {0}: {1}.'.format(key_type, key)
-            self._handle_http_error(INTERNAL_ERROR, msg, error)
+            raise _auth_utils.handle_auth_backend_error(error)
         else:
-            if not response or not response.get('users'):
-                raise ApiCallError(
-                    USER_NOT_FOUND_ERROR,
-                    'No user record found for the provided {0}: {1}.'.format(key_type, key))
-            return response['users'][0]
+            if not body or not body.get('users'):
+                raise _auth_utils.UserNotFoundError(
+                    'No user record found for the provided {0}: {1}.'.format(key_type, key),
+                    http_response=http_resp)
+            return body['users'][0]
 
     def list_users(self, page_token=None, max_results=MAX_LIST_USERS_RESULTS):
         """Retrieves a batch of users."""

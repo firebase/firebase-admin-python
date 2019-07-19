@@ -489,6 +489,7 @@ class _Validators(object):
 
     @classmethod
     def check_analytics_label(cls, label, value):
+        """Checks if the given value is a valid analytics label."""
         value = _Validators.check_string(label, value)
         if value is not None and not re.match(r'^[a-zA-Z0-9-_.~%]{1,50}$', value):
             raise ValueError('Malformed {}.'.format(label))
@@ -741,13 +742,14 @@ class MessageEncoder(json.JSONEncoder):
 
     @classmethod
     def encode_apns_fcm_options(cls, fcm_options):
+        """Encodes an APNSFcmOptions instance into JSON."""
         if fcm_options is None:
             return None
         if not isinstance(fcm_options, APNSFcmOptions):
             raise ValueError('APNSConfig.fcm_options must be an instance of APNSFcmOptions class.')
         result = {
-            'analytics_label':
-                _Validators.check_analytics_label('APNSFcmOptions.analytics_label', fcm_options.analytics_label),
+            'analytics_label': _Validators.check_analytics_label(
+                'APNSFcmOptions.analytics_label', fcm_options.analytics_label),
         }
         result = cls.remove_null_values(result)
         return result
@@ -883,6 +885,7 @@ class MessageEncoder(json.JSONEncoder):
 
     @classmethod
     def encode_fcm_options(cls, fcm_options):
+        """Encodes an FcmOptions instance into JSON."""
         if fcm_options is None:
             return None
         if not isinstance(fcm_options, FcmOptions):

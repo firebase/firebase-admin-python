@@ -122,7 +122,8 @@ class TestMessageEncoder(object):
 
     def test_fcm_options(self):
         check_encoding(
-            messaging.Message(topic='topic', fcm_options=messaging.FcmOptions('analytics_label_v1')),
+            messaging.Message(
+                topic='topic', fcm_options=messaging.FcmOptions('analytics_label_v1')),
             {'topic': 'topic', 'fcm_options': {'analytics_label': 'analytics_label_v1'}})
         check_encoding(
             messaging.Message(topic='topic', fcm_options=messaging.FcmOptions()),
@@ -194,19 +195,16 @@ class TestFcmOptionEncoder(object):
             messaging.Message(
                 topic='topic',
                 fcm_options=messaging.FcmOptions('message-label'),
-                android=messaging.AndroidConfig(fcm_options=messaging.AndroidFcmOptions('android-label')),
+                android=messaging.AndroidConfig(
+                    fcm_options=messaging.AndroidFcmOptions('android-label')),
                 apns=messaging.APNSConfig(fcm_options=messaging.APNSFcmOptions('apns-label'))
             ),
             {
                 'topic': 'topic',
-                 'fcm_options': {'analytics_label': 'message-label'},
-                 'android': {
-                     'fcm_options': {'analytics_label': 'android-label'},
-                 },
-                 'apns': {
-                     'fcm_options': {'analytics_label': 'apns-label'},
-                 },
-             })
+                'fcm_options': {'analytics_label': 'message-label'},
+                'android': {'fcm_options': {'analytics_label': 'android-label'}},
+                'apns': {'fcm_options': {'analytics_label': 'apns-label'}},
+            })
 
 
 class TestAndroidConfigEncoder(object):

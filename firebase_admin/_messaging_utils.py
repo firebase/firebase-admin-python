@@ -36,6 +36,7 @@ class Message(object):
         android: An instance of ``messaging.AndroidConfig`` (optional).
         webpush: An instance of ``messaging.WebpushConfig`` (optional).
         apns: An instance of ``messaging.ApnsConfig`` (optional).
+        fcm_options: An instance of ``messaging.FcmOptions`` (optional).
         token: The registration token of the device to which the message should be sent (optional).
         topic: Name of the FCM topic to which the message should be sent (optional). Topic name
             may contain the ``/topics/`` prefix.
@@ -43,12 +44,13 @@ class Message(object):
     """
 
     def __init__(self, data=None, notification=None, android=None, webpush=None, apns=None,
-                 token=None, topic=None, condition=None):
+                 fcm_options=None, token=None, topic=None, condition=None):
         self.data = data
         self.notification = notification
         self.android = android
         self.webpush = webpush
         self.apns = apns
+        self.fcm_options = fcm_options
         self.token = token
         self.topic = topic
         self.condition = condition
@@ -65,8 +67,10 @@ class MulticastMessage(object):
         android: An instance of ``messaging.AndroidConfig`` (optional).
         webpush: An instance of ``messaging.WebpushConfig`` (optional).
         apns: An instance of ``messaging.ApnsConfig`` (optional).
+        fcm_options: An instance of ``messaging.FcmOptions`` (optional).
     """
-    def __init__(self, tokens, data=None, notification=None, android=None, webpush=None, apns=None):
+    def __init__(self, tokens, data=None, notification=None, android=None, webpush=None, apns=None,
+                 fcm_options=None):
         _Validators.check_string_list('MulticastMessage.tokens', tokens)
         if len(tokens) > 100:
             raise ValueError('MulticastMessage.tokens must not contain more than 100 tokens.')
@@ -76,6 +80,7 @@ class MulticastMessage(object):
         self.android = android
         self.webpush = webpush
         self.apns = apns
+        self.fcm_options = fcm_options
 
 
 class Notification(object):
@@ -107,16 +112,18 @@ class AndroidConfig(object):
         data: A dictionary of data fields (optional). All keys and values in the dictionary must be
             strings. When specified, overrides any data fields set via ``Message.data``.
         notification: A ``messaging.AndroidNotification`` to be included in the message (optional).
+        fcm_options: A ``messaging.AndroidFcmOptions`` to be included in the message (optional).
     """
 
     def __init__(self, collapse_key=None, priority=None, ttl=None, restricted_package_name=None,
-                 data=None, notification=None):
+                 data=None, notification=None, fcm_options=None):
         self.collapse_key = collapse_key
         self.priority = priority
         self.ttl = ttl
         self.restricted_package_name = restricted_package_name
         self.data = data
         self.notification = notification
+        self.fcm_options = fcm_options
 
 
 class AndroidNotification(object):
@@ -163,6 +170,18 @@ class AndroidNotification(object):
         self.title_loc_key = title_loc_key
         self.title_loc_args = title_loc_args
         self.channel_id = channel_id
+
+
+class AndroidFcmOptions(object):
+    """Options for features provided by the FCM SDK for Android.
+
+    Args:
+        analytics_label: contains additional options for features provided by the FCM Android SDK
+            (optional).
+    """
+
+    def __init__(self, analytics_label=None):
+        self.analytics_label = analytics_label
 
 
 class WebpushConfig(object):
@@ -279,14 +298,17 @@ class APNSConfig(object):
     Args:
         headers: A dictionary of headers (optional).
         payload: A ``messaging.APNSPayload`` to be included in the message (optional).
+        fcm_options: A ``messaging.APNSFcmOptions`` instance to be included in the message
+            (optional).
 
     .. _APNS Documentation: https://developer.apple.com/library/content/documentation\
         /NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html
     """
 
-    def __init__(self, headers=None, payload=None):
+    def __init__(self, headers=None, payload=None, fcm_options=None):
         self.headers = headers
         self.payload = payload
+        self.fcm_options = fcm_options
 
 
 class APNSPayload(object):
@@ -387,6 +409,29 @@ class ApsAlert(object):
         self.launch_image = launch_image
 
 
+class APNSFcmOptions(object):
+    """Options for features provided by the FCM SDK for iOS.
+
+    Args:
+        analytics_label: contains additional options for features provided by the FCM iOS SDK
+            (optional).
+    """
+
+    def __init__(self, analytics_label=None):
+        self.analytics_label = analytics_label
+
+
+class FcmOptions(object):
+    """Options for features provided by SDK.
+
+    Args:
+        analytics_label: contains additional options to use across all platforms (optional).
+    """
+
+    def __init__(self, analytics_label=None):
+        self.analytics_label = analytics_label
+
+
 class _Validators(object):
     """A collection of data validation utilities.
 
@@ -442,6 +487,14 @@ class _Validators(object):
             raise ValueError('{0} must not contain non-string values.'.format(label))
         return value
 
+    @classmethod
+    def check_analytics_label(cls, label, value):
+        """Checks if the given value is a valid analytics label."""
+        value = _Validators.check_string(label, value)
+        if value is not None and not re.match(r'^[a-zA-Z0-9-_.~%]{1,50}$', value):
+            raise ValueError('Malformed {}.'.format(label))
+        return value
+
 
 class MessageEncoder(json.JSONEncoder):
     """A custom JSONEncoder implementation for serializing Message instances into JSON."""
@@ -468,11 +521,27 @@ class MessageEncoder(json.JSONEncoder):
             'restricted_package_name': _Validators.check_string(
                 'AndroidConfig.restricted_package_name', android.restricted_package_name),
             'ttl': cls.encode_ttl(android.ttl),
+            'fcm_options': cls.encode_android_fcm_options(android.fcm_options),
         }
         result = cls.remove_null_values(result)
         priority = result.get('priority')
         if priority and priority not in ('high', 'normal'):
             raise ValueError('AndroidConfig.priority must be "high" or "normal".')
+        return result
+
+    @classmethod
+    def encode_android_fcm_options(cls, fcm_options):
+        """Encodes a AndroidFcmOptions instance into a json."""
+        if fcm_options is None:
+            return None
+        if not isinstance(fcm_options, AndroidFcmOptions):
+            raise ValueError('AndroidConfig.fcm_options must be an instance of '
+                             'AndroidFcmOptions class.')
+        result = {
+            'analytics_label': _Validators.check_analytics_label(
+                'AndroidFcmOptions.analytics_label', fcm_options.analytics_label),
+        }
+        result = cls.remove_null_values(result)
         return result
 
     @classmethod
@@ -553,7 +622,7 @@ class MessageEncoder(json.JSONEncoder):
             'headers': _Validators.check_string_dict(
                 'WebpushConfig.headers', webpush.headers),
             'notification': cls.encode_webpush_notification(webpush.notification),
-            'fcmOptions': cls.encode_webpush_fcm_options(webpush.fcm_options),
+            'fcm_options': cls.encode_webpush_fcm_options(webpush.fcm_options),
         }
         return cls.remove_null_values(result)
 
@@ -653,6 +722,7 @@ class MessageEncoder(json.JSONEncoder):
             'headers': _Validators.check_string_dict(
                 'APNSConfig.headers', apns.headers),
             'payload': cls.encode_apns_payload(apns.payload),
+            'fcm_options': cls.encode_apns_fcm_options(apns.fcm_options),
         }
         return cls.remove_null_values(result)
 
@@ -669,6 +739,20 @@ class MessageEncoder(json.JSONEncoder):
         for key, value in payload.custom_data.items():
             result[key] = value
         return cls.remove_null_values(result)
+
+    @classmethod
+    def encode_apns_fcm_options(cls, fcm_options):
+        """Encodes an APNSFcmOptions instance into JSON."""
+        if fcm_options is None:
+            return None
+        if not isinstance(fcm_options, APNSFcmOptions):
+            raise ValueError('APNSConfig.fcm_options must be an instance of APNSFcmOptions class.')
+        result = {
+            'analytics_label': _Validators.check_analytics_label(
+                'APNSFcmOptions.analytics_label', fcm_options.analytics_label),
+        }
+        result = cls.remove_null_values(result)
+        return result
 
     @classmethod
     def encode_aps(cls, aps):
@@ -790,10 +874,25 @@ class MessageEncoder(json.JSONEncoder):
             'token': _Validators.check_string('Message.token', obj.token, non_empty=True),
             'topic': _Validators.check_string('Message.topic', obj.topic, non_empty=True),
             'webpush': MessageEncoder.encode_webpush(obj.webpush),
+            'fcm_options': MessageEncoder.encode_fcm_options(obj.fcm_options),
         }
         result['topic'] = MessageEncoder.sanitize_topic_name(result.get('topic'))
         result = MessageEncoder.remove_null_values(result)
         target_count = sum([t in result for t in ['token', 'topic', 'condition']])
         if target_count != 1:
             raise ValueError('Exactly one of token, topic or condition must be specified.')
+        return result
+
+    @classmethod
+    def encode_fcm_options(cls, fcm_options):
+        """Encodes an FcmOptions instance into JSON."""
+        if fcm_options is None:
+            return None
+        if not isinstance(fcm_options, FcmOptions):
+            raise ValueError('Message.fcm_options must be an instance of FcmOptions class.')
+        result = {
+            'analytics_label': _Validators.check_analytics_label(
+                'FcmOptions.analytics_label', fcm_options.analytics_label),
+        }
+        result = cls.remove_null_values(result)
         return result

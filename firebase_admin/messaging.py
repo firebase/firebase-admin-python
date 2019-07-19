@@ -33,8 +33,10 @@ _MESSAGING_ATTRIBUTE = '_messaging'
 
 __all__ = [
     'AndroidConfig',
+    'AndroidFcmOptions',
     'AndroidNotification',
     'APNSConfig',
+    'APNSFcmOptions',
     'APNSPayload',
     'ApiCallError',
     'Aps',
@@ -42,6 +44,7 @@ __all__ = [
     'BatchResponse',
     'CriticalSound',
     'ErrorInfo',
+    'FcmOptions',
     'Message',
     'MulticastMessage',
     'Notification',
@@ -61,12 +64,15 @@ __all__ = [
 
 
 AndroidConfig = _messaging_utils.AndroidConfig
+AndroidFcmOptions = _messaging_utils.AndroidFcmOptions
 AndroidNotification = _messaging_utils.AndroidNotification
 APNSConfig = _messaging_utils.APNSConfig
+APNSFcmOptions = _messaging_utils.APNSFcmOptions
 APNSPayload = _messaging_utils.APNSPayload
 Aps = _messaging_utils.Aps
 ApsAlert = _messaging_utils.ApsAlert
 CriticalSound = _messaging_utils.CriticalSound
+FcmOptions = _messaging_utils.FcmOptions
 Message = _messaging_utils.Message
 MulticastMessage = _messaging_utils.MulticastMessage
 Notification = _messaging_utils.Notification
@@ -145,6 +151,7 @@ def send_multicast(multicast_message, dry_run=False, app=None):
         android=multicast_message.android,
         webpush=multicast_message.webpush,
         apns=multicast_message.apns,
+        fcm_options=multicast_message.fcm_options,
         token=token
     ) for token in multicast_message.tokens]
     return _get_messaging_service(app).send_all(messages, dry_run)

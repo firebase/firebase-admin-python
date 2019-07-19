@@ -537,7 +537,8 @@ class MessageEncoder(json.JSONEncoder):
             raise ValueError('AndroidConfig.fcm_options must be an instance of '
                              'AndroidFcmOptions class.')
         result = {
-            'analytics_label': _Validators.check_analytics_label('AndroidFcmOptions.analytics_label', fcm_options.analytics_label),
+            'analytics_label': _Validators.check_analytics_label(
+                'AndroidFcmOptions.analytics_label', fcm_options.analytics_label),
         }
         result = cls.remove_null_values(result)
         return result
@@ -745,7 +746,8 @@ class MessageEncoder(json.JSONEncoder):
         if not isinstance(fcm_options, APNSFcmOptions):
             raise ValueError('APNSConfig.fcm_options must be an instance of APNSFcmOptions class.')
         result = {
-            'analytics_label': _Validators.check_analytics_label('APNSFcmOptions.analytics_label', fcm_options.analytics_label),
+            'analytics_label':
+                _Validators.check_analytics_label('APNSFcmOptions.analytics_label', fcm_options.analytics_label),
         }
         result = cls.remove_null_values(result)
         return result
@@ -886,7 +888,8 @@ class MessageEncoder(json.JSONEncoder):
         if not isinstance(fcm_options, FcmOptions):
             raise ValueError('Message.fcm_options must be an instance of FcmOptions class.')
         result = {
-            'analytics_label': _Validators.check_analytics_label('FcmOptions.analytics_label', fcm_options.analytics_label),
+            'analytics_label': _Validators.check_analytics_label(
+                'FcmOptions.analytics_label', fcm_options.analytics_label),
         }
         result = cls.remove_null_values(result)
         return result

@@ -44,6 +44,8 @@ __all__ = [
     'ImportUserRecord',
     'ListUsersPage',
     'TokenSignError',
+    'UidAlreadyExistsError',
+    'UnexpectedResponseError',
     'UserImportHash',
     'UserImportResult',
     'UserInfo',
@@ -80,6 +82,7 @@ UserImportHash = _user_import.UserImportHash
 ImportUserRecord = _user_import.ImportUserRecord
 InvalidIdTokenError = _auth_utils.InvalidIdTokenError
 TokenSignError = _token_gen.TokenSignError
+UidAlreadyExistsError = _auth_utils.UidAlreadyExistsError
 UnexpectedResponseError = _auth_utils.UnexpectedResponseError
 UserImportResult = _user_import.UserImportResult
 UserInfo = _user_mgt.UserInfo
@@ -333,15 +336,12 @@ def create_user(**kwargs):
 
     Raises:
         ValueError: If the specified user properties are invalid.
-        AuthError: If an error occurs while creating the user account.
+        FirebaseError: If an error occurs while creating the user account.
     """
     app = kwargs.pop('app', None)
     user_manager = _get_auth_service(app).user_manager
-    try:
-        uid = user_manager.create_user(**kwargs)
-        return UserRecord(user_manager.get_user(uid=uid))
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    uid = user_manager.create_user(**kwargs)
+    return UserRecord(user_manager.get_user(uid=uid))
 
 
 def update_user(uid, **kwargs):
@@ -373,15 +373,12 @@ def update_user(uid, **kwargs):
 
     Raises:
         ValueError: If the specified user ID or properties are invalid.
-        AuthError: If an error occurs while updating the user account.
+        FirebaseError: If an error occurs while updating the user account.
     """
     app = kwargs.pop('app', None)
     user_manager = _get_auth_service(app).user_manager
-    try:
-        user_manager.update_user(uid, **kwargs)
-        return UserRecord(user_manager.get_user(uid=uid))
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    user_manager.update_user(uid, **kwargs)
+    return UserRecord(user_manager.get_user(uid=uid))
 
 
 def set_custom_user_claims(uid, custom_claims, app=None):
@@ -402,13 +399,10 @@ def set_custom_user_claims(uid, custom_claims, app=None):
 
     Raises:
         ValueError: If the specified user ID or the custom claims are invalid.
-        AuthError: If an error occurs while updating the user account.
+        FirebaseError: If an error occurs while updating the user account.
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        user_manager.update_user(uid, custom_claims=custom_claims)
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    user_manager.update_user(uid, custom_claims=custom_claims)
 
 
 def delete_user(uid, app=None):
@@ -420,13 +414,10 @@ def delete_user(uid, app=None):
 
     Raises:
         ValueError: If the user ID is None, empty or malformed.
-        AuthError: If an error occurs while deleting the user account.
+        FirebaseError: If an error occurs while deleting the user account.
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        user_manager.delete_user(uid)
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    user_manager.delete_user(uid)
 
 
 def import_users(users, hash_alg=None, app=None):

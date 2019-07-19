@@ -420,6 +420,7 @@ class APNSFcmOptions(object):
     def __init__(self, analytics_label=None):
         self.analytics_label = analytics_label
 
+
 class FcmOptions(object):
     """Options for features provided by SDK.
 
@@ -429,6 +430,7 @@ class FcmOptions(object):
 
     def __init__(self, analytics_label=None):
         self.analytics_label = analytics_label
+
 
 class _Validators(object):
     """A collection of data validation utilities.
@@ -485,6 +487,13 @@ class _Validators(object):
             raise ValueError('{0} must not contain non-string values.'.format(label))
         return value
 
+    @classmethod
+    def check_analytics_label(cls, label, value):
+        value = _Validators.check_string(label, value)
+        if value is not None and not re.match(r'^[a-zA-Z0-9-_.~%]{1,50}$', value):
+            raise ValueError('Malformed {}.'.format(label))
+        return value
+
 
 class MessageEncoder(json.JSONEncoder):
     """A custom JSONEncoder implementation for serializing Message instances into JSON."""
@@ -511,11 +520,26 @@ class MessageEncoder(json.JSONEncoder):
             'restricted_package_name': _Validators.check_string(
                 'AndroidConfig.restricted_package_name', android.restricted_package_name),
             'ttl': cls.encode_ttl(android.ttl),
+            'fcm_options': cls.encode_android_fcm_options(android.fcm_options),
         }
         result = cls.remove_null_values(result)
         priority = result.get('priority')
         if priority and priority not in ('high', 'normal'):
             raise ValueError('AndroidConfig.priority must be "high" or "normal".')
+        return result
+
+    @classmethod
+    def encode_android_fcm_options(cls, fcm_options):
+        """Encodes a AndroidFcmOptions instance into a json."""
+        if fcm_options is None:
+            return None
+        if not isinstance(fcm_options, AndroidFcmOptions):
+            raise ValueError('AndroidConfig.fcm_options must be an instance of '
+                             'AndroidFcmOptions class.')
+        result = {
+            'analytics_label': _Validators.check_analytics_label('AndroidFcmOptions.analytics_label', fcm_options.analytics_label),
+        }
+        result = cls.remove_null_values(result)
         return result
 
     @classmethod
@@ -696,6 +720,7 @@ class MessageEncoder(json.JSONEncoder):
             'headers': _Validators.check_string_dict(
                 'APNSConfig.headers', apns.headers),
             'payload': cls.encode_apns_payload(apns.payload),
+            'fcm_options': cls.encode_apns_fcm_options(apns.fcm_options),
         }
         return cls.remove_null_values(result)
 
@@ -712,6 +737,18 @@ class MessageEncoder(json.JSONEncoder):
         for key, value in payload.custom_data.items():
             result[key] = value
         return cls.remove_null_values(result)
+
+    @classmethod
+    def encode_apns_fcm_options(cls, fcm_options):
+        if fcm_options is None:
+            return None
+        if not isinstance(fcm_options, APNSFcmOptions):
+            raise ValueError('APNSConfig.fcm_options must be an instance of APNSFcmOptions class.')
+        result = {
+            'analytics_label': _Validators.check_analytics_label('APNSFcmOptions.analytics_label', fcm_options.analytics_label),
+        }
+        result = cls.remove_null_values(result)
+        return result
 
     @classmethod
     def encode_aps(cls, aps):
@@ -833,10 +870,23 @@ class MessageEncoder(json.JSONEncoder):
             'token': _Validators.check_string('Message.token', obj.token, non_empty=True),
             'topic': _Validators.check_string('Message.topic', obj.topic, non_empty=True),
             'webpush': MessageEncoder.encode_webpush(obj.webpush),
+            'fcm_options': MessageEncoder.encode_fcm_options(obj.fcm_options),
         }
         result['topic'] = MessageEncoder.sanitize_topic_name(result.get('topic'))
         result = MessageEncoder.remove_null_values(result)
         target_count = sum([t in result for t in ['token', 'topic', 'condition']])
         if target_count != 1:
             raise ValueError('Exactly one of token, topic or condition must be specified.')
+        return result
+
+    @classmethod
+    def encode_fcm_options(cls, fcm_options):
+        if fcm_options is None:
+            return None
+        if not isinstance(fcm_options, FcmOptions):
+            raise ValueError('Message.fcm_options must be an instance of FcmOptions class.')
+        result = {
+            'analytics_label': _Validators.check_analytics_label('FcmOptions.analytics_label', fcm_options.analytics_label),
+        }
+        result = cls.remove_null_values(result)
         return result

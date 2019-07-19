@@ -151,7 +151,7 @@ def send_multicast(multicast_message, dry_run=False, app=None):
         android=multicast_message.android,
         webpush=multicast_message.webpush,
         apns=multicast_message.apns,
-        fcm_options=multicast_message.fcmOptions,
+        fcm_options=multicast_message.fcm_options,
         token=token
     ) for token in multicast_message.tokens]
     return _get_messaging_service(app).send_all(messages, dry_run)

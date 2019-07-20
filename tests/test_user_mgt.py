@@ -1200,9 +1200,29 @@ class TestGenerateEmailActionLink(object):
         auth.generate_password_reset_link,
     ])
     def test_api_call_failure(self, user_mgt_app, func):
-        _instrument_user_manager(user_mgt_app, 500, '{"error":"dummy error"}')
-        with pytest.raises(auth.AuthError):
+        _instrument_user_manager(user_mgt_app, 500, '{"error":{"message": "UNEXPECTED_CODE"}}')
+        with pytest.raises(exceptions.InternalError) as excinfo:
             func('test@test.com', MOCK_ACTION_CODE_SETTINGS, app=user_mgt_app)
+        assert str(excinfo.value) == 'Error while calling Auth service (UNEXPECTED_CODE).'
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is not None
+
+    @pytest.mark.parametrize('func', [
+        auth.generate_sign_in_with_email_link,
+        auth.generate_email_verification_link,
+        auth.generate_password_reset_link,
+    ])
+    def test_invalid_dynamic_link(self, user_mgt_app, func):
+        resp = '{"error":{"message": "INVALID_DYNAMIC_LINK_DOMAIN: Because of this reason."}}'
+        _instrument_user_manager(user_mgt_app, 500, resp)
+        with pytest.raises(auth.InvalidDynamicLinkDomainError) as excinfo:
+            func('test@test.com', MOCK_ACTION_CODE_SETTINGS, app=user_mgt_app)
+        assert isinstance(excinfo.value, exceptions.InvalidArgumentError)
+        assert str(excinfo.value) == ('Dynamic link domain specified in ActionCodeSettings is '
+                                      'not authorized (INVALID_DYNAMIC_LINK_DOMAIN). Because '
+                                      'of this reason.')
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is not None
 
     @pytest.mark.parametrize('func', [
         auth.generate_sign_in_with_email_link,
@@ -1211,8 +1231,12 @@ class TestGenerateEmailActionLink(object):
     ])
     def test_api_call_no_link(self, user_mgt_app, func):
         _instrument_user_manager(user_mgt_app, 200, '{}')
-        with pytest.raises(auth.AuthError):
+        with pytest.raises(auth.UnexpectedResponseError) as excinfo:
             func('test@test.com', MOCK_ACTION_CODE_SETTINGS, app=user_mgt_app)
+        assert str(excinfo.value) == 'Failed to generate email action link.'
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is None
+        assert isinstance(excinfo.value, exceptions.UnknownError)
 
     @pytest.mark.parametrize('func', [
         auth.generate_sign_in_with_email_link,

@@ -42,6 +42,8 @@ __all__ = [
     'ErrorInfo',
     'ExportedUserRecord',
     'ImportUserRecord',
+    'InvalidDynamicLinkDomainError',
+    'InvalidIdTokenError',
     'ListUsersPage',
     'TokenSignError',
     'UidAlreadyExistsError',
@@ -80,6 +82,7 @@ ExportedUserRecord = _user_mgt.ExportedUserRecord
 ListUsersPage = _user_mgt.ListUsersPage
 UserImportHash = _user_import.UserImportHash
 ImportUserRecord = _user_import.ImportUserRecord
+InvalidDynamicLinkDomainError = _auth_utils.InvalidDynamicLinkDomainError
 InvalidIdTokenError = _auth_utils.InvalidIdTokenError
 TokenSignError = _token_gen.TokenSignError
 UidAlreadyExistsError = _auth_utils.UidAlreadyExistsError
@@ -465,14 +468,11 @@ def generate_password_reset_link(email, action_code_settings=None, app=None):
 
     Raises:
         ValueError: If the provided arguments are invalid
-        AuthError: If an error occurs while generating the link
+        FirebaseError: If an error occurs while generating the link
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        return user_manager.generate_email_action_link('PASSWORD_RESET', email,
-                                                       action_code_settings=action_code_settings)
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    return user_manager.generate_email_action_link(
+        'PASSWORD_RESET', email, action_code_settings=action_code_settings)
 
 
 def generate_email_verification_link(email, action_code_settings=None, app=None):
@@ -490,14 +490,11 @@ def generate_email_verification_link(email, action_code_settings=None, app=None)
 
     Raises:
         ValueError: If the provided arguments are invalid
-        AuthError: If an error occurs while generating the link
+        FirebaseError: If an error occurs while generating the link
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        return user_manager.generate_email_action_link('VERIFY_EMAIL', email,
-                                                       action_code_settings=action_code_settings)
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    return user_manager.generate_email_action_link(
+        'VERIFY_EMAIL', email, action_code_settings=action_code_settings)
 
 
 def generate_sign_in_with_email_link(email, action_code_settings, app=None):
@@ -515,14 +512,11 @@ def generate_sign_in_with_email_link(email, action_code_settings, app=None):
 
     Raises:
         ValueError: If the provided arguments are invalid
-        AuthError: If an error occurs while generating the link
+        FirebaseError: If an error occurs while generating the link
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        return user_manager.generate_email_action_link('EMAIL_SIGNIN', email,
-                                                       action_code_settings=action_code_settings)
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    return user_manager.generate_email_action_link(
+        'EMAIL_SIGNIN', email, action_code_settings=action_code_settings)
 
 
 def _check_jwt_revoked(verified_claims, error_code, label, app):

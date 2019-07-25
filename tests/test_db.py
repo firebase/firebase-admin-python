@@ -623,6 +623,40 @@ class TestDatabaseInitialization(object):
         with pytest.raises(ValueError):
             db.reference()
 
+    @pytest.mark.parametrize('url,host_override,expected_base_url,expected_params', [
+        # No host override: accepts production and emulator URLs.
+        ('https://test.firebaseio.com', None, 'https://test.firebaseio.com', {}),
+        ('https://test.firebaseio.com/', None, 'https://test.firebaseio.com', {}),
+        ('http://localhost:8000/?ns=test', None, 'http://localhost:8000', {'ns': 'test'}),
+
+        # With host override: extracts ns from URL but uses override_host for base URL.
+        ('https://test.firebaseio.com', 'localhost:9000', 'http://localhost:9000', {'ns': 'test'}),
+        ('https://test.firebaseio.com/', 'localhost:9000', 'http://localhost:9000', {'ns': 'test'}),
+        ('https://s-usc1c-nss-200.firebaseio.com/?ns=test', 'localhost:9000', 'http://localhost:9000', {'ns': 'test'}),
+        ('http://localhost:8000/?ns=test', 'localhost:9000', 'http://localhost:9000', {'ns': 'test'}),
+    ])
+    def test_parse_db_url(self, url, host_override, expected_base_url, expected_params):
+        base_url, params = db._DatabaseService._parse_db_url(url, host_override)
+        assert base_url == expected_base_url
+        assert params == expected_params
+
+    @pytest.mark.parametrize('url,host_override', [
+        ('', None),
+        (None, None),
+        (42, None),
+        ('test.firebaseio.com', None),  # Not a URL.
+        ('http://test.firebaseio.com', None),  # Use of non-HTTPs in production URLs.
+        ('ftp://test.firebaseio.com', None),  # Use of non-HTTPs in production URLs.
+        ('https://example.com', None),  # Invalid RTDB URL.
+        ('http://localhost:9000/', None),  # No ns specified.
+        ('http://localhost:9000/?ns=', None),  # No ns specified.
+        ('http://localhost:9000/?ns=test1&ns=test2', None),  # Two ns parameters specified.
+        ('ftp://localhost:9000/?ns=test', None),  # Neither HTTP or HTTPS.
+    ])
+    def test_parse_db_url_errors(self, url, host_override):
+        with pytest.raises(ValueError):
+            db._DatabaseService._parse_db_url(url, host_override)
+
     @pytest.mark.parametrize('url', [
         'https://test.firebaseio.com', 'https://test.firebaseio.com/'
     ])
@@ -633,7 +667,7 @@ class TestDatabaseInitialization(object):
         adapter = MockAdapter('{}', 200, recorder)
         ref._client.session.mount(url, adapter)
         assert ref._client.base_url == 'https://test.firebaseio.com'
-        assert ref._client.auth_override is None
+        assert 'auth_variable_override' not in ref._client.params
         assert ref._client.timeout is None
         assert ref.get() == {}
         assert len(recorder) == 1
@@ -658,7 +692,7 @@ class TestDatabaseInitialization(object):
         })
         ref = db.reference()
         assert ref._client.base_url == default_url
-        assert ref._client.auth_override is None
+        assert 'auth_variable_override' not in ref._client.params
         assert ref._client.timeout is None
         assert ref._client is db.reference()._client
         assert ref._client is db.reference(url=default_url)._client
@@ -666,7 +700,7 @@ class TestDatabaseInitialization(object):
         other_url = 'https://other.firebaseio.com'
         other_ref = db.reference(url=other_url)
         assert other_ref._client.base_url == other_url
-        assert other_ref._client.auth_override is None
+        assert 'auth_variable_override' not in ref._client.params
         assert other_ref._client.timeout is None
         assert other_ref._client is db.reference(url=other_url)._client
         assert other_ref._client is db.reference(url=other_url + '/')._client
@@ -682,10 +716,10 @@ class TestDatabaseInitialization(object):
         for ref in [default_ref, other_ref]:
             assert ref._client.timeout is None
             if override == {}:
-                assert ref._client.auth_override is None
+                assert 'auth_variable_override' not in ref._client.params
             else:
                 encoded = json.dumps(override, separators=(',', ':'))
-                assert ref._client.auth_override == 'auth_variable_override={0}'.format(encoded)
+                assert ref._client.params['auth_variable_override'] == encoded
 
     @pytest.mark.parametrize('override', [
         '', 'foo', 0, 1, True, False, list(), tuple(), _Object()])

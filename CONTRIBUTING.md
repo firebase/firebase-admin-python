@@ -195,6 +195,20 @@ Now you can invoke the integration test suite as follows:
 pytest integration/ --cert scripts/cert.json --apikey scripts/apikey.txt
 ```
 
+### Emulator-based Integration Testing
+
+Some integration tests can run against emulators. This allows local testing
+without using real projects or credentials. For now, only the RTDB Emulator
+is supported.
+
+First, run the RTDB emulator in the background and note the host and port.
+And now you can run the RTDB integration tests as follows, replacing the
+host and port as needed:
+
+```
+FIREBASE_DATABASE_EMULATOR_HOST=localhost:9000 pytest integration/test_db.py --project fake
+```
+
 ### Test Coverage
 
 To review the test coverage, run `pytest` with the `--cov` flag. To view a detailed line by line

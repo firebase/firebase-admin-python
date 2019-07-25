@@ -22,6 +22,7 @@ module uses the Firebase REST API underneath.
 
 import collections
 import json
+import os
 import sys
 import threading
 
@@ -30,6 +31,7 @@ import six
 from six.moves import urllib
 
 import firebase_admin
+from firebase_admin.credentials import FakeCredential
 from firebase_admin import _http_client
 from firebase_admin import _sseclient
 from firebase_admin import _utils
@@ -41,6 +43,7 @@ _RESERVED_FILTERS = ('$key', '$value', '$priority')
 _USER_AGENT = 'Firebase/HTTP/{0}/{1}.{2}/AdminPython'.format(
     firebase_admin.__version__, sys.version_info.major, sys.version_info.minor)
 _TRANSACTION_MAX_RETRIES = 25
+_EMULATOR_HOST_ENV_VAR = 'FIREBASE_DATABASE_EMULATOR_HOST'
 
 
 def reference(path='/', app=None, url=None):
@@ -768,46 +771,97 @@ class _DatabaseService(object):
     _DEFAULT_AUTH_OVERRIDE = '_admin_'
 
     def __init__(self, app):
-        self._credential = app.credential.get_credential()
+        self._credential = app.credential
         db_url = app.options.get('databaseURL')
         if db_url:
-            self._db_url = _DatabaseService._validate_url(db_url)
+            _DatabaseService._parse_db_url(db_url)  # Just for validation.
+            self._db_url = db_url
         else:
             self._db_url = None
         auth_override = _DatabaseService._get_auth_override(app)
         if auth_override != self._DEFAULT_AUTH_OVERRIDE and auth_override != {}:
-            encoded = json.dumps(auth_override, separators=(',', ':'))
-            self._auth_override = 'auth_variable_override={0}'.format(encoded)
+            self._auth_override = json.dumps(auth_override, separators=(',', ':'))
         else:
             self._auth_override = None
         self._timeout = app.options.get('httpTimeout')
         self._clients = {}
 
-    def get_client(self, base_url=None):
-        if base_url is None:
-            base_url = self._db_url
-        base_url = _DatabaseService._validate_url(base_url)
-        if base_url not in self._clients:
-            client = _Client(self._credential, base_url, self._auth_override, self._timeout)
-            self._clients[base_url] = client
-        return self._clients[base_url]
+    def get_client(self, db_url=None):
+        if db_url is None:
+            db_url = self._db_url
+
+        emulator_host = os.environ.get(_EMULATOR_HOST_ENV_VAR)
+        if emulator_host:
+            if '//' in emulator_host:
+                raise ValueError(
+                    'Invalid {0}: "{1}". It must follow format "host:port".'.format(
+                    _EMULATOR_HOST_ENV_VAR, emulator_host))
+            use_fake_creds = True
+            host_override = emulator_host
+        else:
+            use_fake_creds = False
+            host_override = None
+        base_url, params = _DatabaseService._parse_db_url(db_url, host_override)
+
+        if self._auth_override:
+            params['auth_variable_override'] = self._auth_override
+
+        client_cache_key = (base_url, json.dumps(params, sort_keys=True), use_fake_creds)
+        if client_cache_key not in self._clients:
+            credential = FakeCredential() if use_fake_creds else self._credential
+            client = _Client(credential.get_credential(), base_url, self._timeout, params)
+            self._clients[client_cache_key] = client
+        return self._clients[client_cache_key]
 
     @classmethod
-    def _validate_url(cls, url):
-        """Parses and validates a given database URL."""
+    def _parse_db_url(cls, url, host_override=None):
+        """Parses a database URL into (base_url, query_params) for REST APIs.
+
+        The input can be either a production URL (https://foo-bar.firebaseio.com/)
+        or an Emulator URL (http://localhost:8080/?ns=foo-bar). The resulting
+        base_url never includes query params. Any required query parameters will
+        be returned separately as a map (e.g. `{"ns": "foo-bar"}`).
+
+        If host_override is specified, the result base URL will use that
+        instead of the host in the input URL. The parsed ns name will be
+        moved to query_params if necessary.
+        """
         if not url or not isinstance(url, six.string_types):
             raise ValueError(
                 'Invalid database URL: "{0}". Database URL must be a non-empty '
                 'URL string.'.format(url))
+        ns = None
         parsed = urllib.parse.urlparse(url)
-        if parsed.scheme != 'https':
-            raise ValueError(
-                'Invalid database URL: "{0}". Database URL must be an HTTPS URL.'.format(url))
-        elif not parsed.netloc.endswith('.firebaseio.com'):
+        query_ns = urllib.parse.parse_qs(parsed.query).get('ns')
+        if query_ns and len(query_ns) == 1:
+            ns = query_ns[0]
+        if parsed.netloc.endswith('.firebaseio.com'):
+            # Handle production URL like https://foo-bar.firebaseio.com/
+            if parsed.scheme != 'https':
+                raise ValueError(
+                    'Invalid database URL: "{0}". Database URL must be an HTTPS URL.'.format(url))
+            base_url = 'https://{0}'.format(parsed.netloc)
+            if not ns:
+                ns = parsed.netloc.split('.')[0]
+        else:
+            # Handle emulator URL like http://localhost:8080/?ns=foo-bar
+            if parsed.scheme not in ['http', 'https']:
+                raise ValueError(
+                    'Invalid database URL: "{0}". Database URL must be an HTTPS URL.'.format(url))
+            base_url = '{0}://{1}'.format(parsed.scheme, parsed.netloc)
+
+        if not ns:
             raise ValueError(
                 'Invalid database URL: "{0}". Database URL must be a valid URL to a '
                 'Firebase Realtime Database instance.'.format(url))
-        return 'https://{0}'.format(parsed.netloc)
+        if host_override:
+            base_url = 'http://{0}'.format(host_override)
+        if base_url == 'https://{0}.firebaseio.com'.format(ns):
+            # ns can be inferred from the base_url. No need to add additional query params.
+            return base_url, {}
+        else:
+            # ?ns=foo is needed.
+            return base_url, {'ns': ns}
 
     @classmethod
     def _get_auth_override(cls, app):
@@ -833,7 +887,7 @@ class _Client(_http_client.JsonHttpClient):
     marshalling and unmarshalling of JSON data.
     """
 
-    def __init__(self, credential, base_url, auth_override, timeout):
+    def __init__(self, credential, base_url, timeout, params=None):
         """Creates a new _Client from the given parameters.
 
         This exists primarily to enable testing. For regular use, obtain _Client instances by
@@ -843,22 +897,21 @@ class _Client(_http_client.JsonHttpClient):
           credential: A Google credential that can be used to authenticate requests.
           base_url: A URL prefix to be added to all outgoing requests. This is typically the
               Firebase Realtime Database URL.
-          auth_override: The encoded auth_variable_override query parameter to be included in
-              outgoing requests.
           timeout: HTTP request timeout in seconds. If not set connections will never
               timeout, which is the default behavior of the underlying requests library.
+          params: Dict of query parameters to add to all outgoing requests.
         """
         _http_client.JsonHttpClient.__init__(
             self, credential=credential, base_url=base_url, headers={'User-Agent': _USER_AGENT})
         self.credential = credential
-        self.auth_override = auth_override
         self.timeout = timeout
+        self.params = params if params else {}
 
     def request(self, method, url, **kwargs):
         """Makes an HTTP call using the Python requests library.
 
-        Extends the request() method of the parent JsonHttpClient class. Handles auth overrides,
-        and low-level exceptions.
+        Extends the request() method of the parent JsonHttpClient class. Handles default
+        params like auth overrides, and low-level exceptions.
 
         Args:
           method: HTTP method name as a string (e.g. get, post).
@@ -872,13 +925,15 @@ class _Client(_http_client.JsonHttpClient):
         Raises:
           ApiCallError: If an error occurs while making the HTTP call.
         """
-        if self.auth_override:
-            params = kwargs.get('params')
-            if params:
-                params += '&{0}'.format(self.auth_override)
+        query = '&'.join('{0}={1}'.format(key, self.params[key]) for key in self.params)
+        extra_params = kwargs.get('params')
+        if extra_params:
+            if query:
+                query = extra_params + '&' + query
             else:
-                params = self.auth_override
-            kwargs['params'] = params
+                query = extra_params
+        kwargs['params'] = query
+
         if self.timeout:
             kwargs['timeout'] = self.timeout
         try:

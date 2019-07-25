@@ -26,6 +26,8 @@ def pytest_addoption(parser):
         '--cert', action='store', help='Service account certificate file for integration tests.')
     parser.addoption(
         '--apikey', action='store', help='API key file for integration tests.')
+    parser.addoption(
+        '--project', action='store', help='Fake Project ID for emulator-based integration tests.')
 
 def _get_cert_path(request):
     cert = request.config.getoption('--cert')
@@ -35,6 +37,9 @@ def _get_cert_path(request):
                      '"--cert" command-line option.')
 
 def integration_conf(request):
+    project_id = request.config.getoption('--project')
+    if project_id:
+        return credentials.FakeCredential(), project_id
     cert_path = _get_cert_path(request)
     with open(cert_path) as cert:
         project_id = json.load(cert).get('project_id')

@@ -199,3 +199,19 @@ class RefreshToken(Base):
         Returns:
           google.auth.credentials.Credentials: A Google Auth credential instance."""
         return self._g_credential
+
+
+class FakeCredential(Base):
+    """Provides fake credentials, which is only accepted in local emulators."""
+
+    def get_credential(self):
+        return _EmulatorAdminCredentials()
+
+
+class _EmulatorAdminCredentials(google.auth.credentials.Credentials):
+    def __init__(self):
+        google.auth.credentials.Credentials.__init__(self)
+        self.token = 'owner'
+
+    def refresh(self, request):
+        pass

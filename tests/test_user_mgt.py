@@ -351,11 +351,31 @@ class TestCreateUser(object):
         assert request == {'localId' : 'testuser'}
 
     def test_create_user_error(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
-        with pytest.raises(auth.AuthError) as excinfo:
+        _instrument_user_manager(user_mgt_app, 500, '{"error": {"message": "UNEXPECTED_CODE"}}')
+        with pytest.raises(exceptions.InternalError) as excinfo:
             auth.create_user(app=user_mgt_app)
-        assert excinfo.value.code == _user_mgt.USER_CREATE_ERROR
-        assert '{"error":"test"}' in str(excinfo.value)
+        assert str(excinfo.value) == 'Error while calling Auth service (UNEXPECTED_CODE).'
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is not None
+
+    def test_uid_already_exists(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 500, '{"error": {"message": "DUPLICATE_LOCAL_ID"}}')
+        with pytest.raises(auth.UidAlreadyExistsError) as excinfo:
+            auth.create_user(app=user_mgt_app)
+        assert isinstance(excinfo.value, exceptions.AlreadyExistsError)
+        assert str(excinfo.value) == ('The user with the provided uid already exists '
+                                      '(DUPLICATE_LOCAL_ID).')
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is not None
+
+    def test_create_user_unexpected_response(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 200, '{"error": "test"}')
+        with pytest.raises(auth.UnexpectedResponseError) as excinfo:
+            auth.create_user(app=user_mgt_app)
+        assert str(excinfo.value) == 'Failed to create new user.'
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is None
+        assert isinstance(excinfo.value, exceptions.UnknownError)
 
 
 class TestUpdateUser(object):
@@ -462,11 +482,21 @@ class TestUpdateUser(object):
         }
 
     def test_update_user_error(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
-        with pytest.raises(auth.AuthError) as excinfo:
+        _instrument_user_manager(user_mgt_app, 500, '{"error": {"message": "UNEXPECTED_CODE"}}')
+        with pytest.raises(exceptions.InternalError) as excinfo:
             auth.update_user('user', app=user_mgt_app)
-        assert excinfo.value.code == _user_mgt.USER_UPDATE_ERROR
-        assert '{"error":"test"}' in str(excinfo.value)
+        assert str(excinfo.value) == 'Error while calling Auth service (UNEXPECTED_CODE).'
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is not None
+
+    def test_update_user_unexpected_response(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 200, '{"error": "test"}')
+        with pytest.raises(auth.UnexpectedResponseError) as excinfo:
+            auth.update_user('user', app=user_mgt_app)
+        assert str(excinfo.value) == 'Failed to update user: user.'
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is None
+        assert isinstance(excinfo.value, exceptions.UnknownError)
 
     @pytest.mark.parametrize('arg', [1, 1.0])
     def test_update_user_valid_since(self, user_mgt_app, arg):
@@ -530,11 +560,12 @@ class TestSetCustomUserClaims(object):
         assert request == {'localId' : 'testuser', 'customAttributes' : json.dumps({})}
 
     def test_set_custom_user_claims_error(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
-        with pytest.raises(auth.AuthError) as excinfo:
+        _instrument_user_manager(user_mgt_app, 500, '{"error": {"message": "UNEXPECTED_CODE"}}')
+        with pytest.raises(exceptions.InternalError) as excinfo:
             auth.set_custom_user_claims('user', {}, app=user_mgt_app)
-        assert excinfo.value.code == _user_mgt.USER_UPDATE_ERROR
-        assert '{"error":"test"}' in str(excinfo.value)
+        assert str(excinfo.value) == 'Error while calling Auth service (UNEXPECTED_CODE).'
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is not None
 
 
 class TestDeleteUser(object):
@@ -550,11 +581,21 @@ class TestDeleteUser(object):
         auth.delete_user('testuser', user_mgt_app)
 
     def test_delete_user_error(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
-        with pytest.raises(auth.AuthError) as excinfo:
+        _instrument_user_manager(user_mgt_app, 500, '{"error": {"message": "UNEXPECTED_CODE"}}')
+        with pytest.raises(exceptions.InternalError) as excinfo:
             auth.delete_user('user', app=user_mgt_app)
-        assert excinfo.value.code == _user_mgt.USER_DELETE_ERROR
-        assert '{"error":"test"}' in str(excinfo.value)
+        assert str(excinfo.value) == 'Error while calling Auth service (UNEXPECTED_CODE).'
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is not None
+
+    def test_delete_user_unexpected_response(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 200, '{"error": "test"}')
+        with pytest.raises(auth.UnexpectedResponseError) as excinfo:
+            auth.delete_user('user', app=user_mgt_app)
+        assert str(excinfo.value) == 'Failed to delete user: user.'
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is None
+        assert isinstance(excinfo.value, exceptions.UnknownError)
 
 
 class TestListUsers(object):

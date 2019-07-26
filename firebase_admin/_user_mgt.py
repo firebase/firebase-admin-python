@@ -24,9 +24,6 @@ from firebase_admin import _auth_utils
 from firebase_admin import _user_import
 
 
-USER_CREATE_ERROR = 'USER_CREATE_ERROR'
-USER_UPDATE_ERROR = 'USER_UPDATE_ERROR'
-USER_DELETE_ERROR = 'USER_DELETE_ERROR'
 USER_IMPORT_ERROR = 'USER_IMPORT_ERROR'
 USER_DOWNLOAD_ERROR = 'LIST_USERS_ERROR'
 GENERATE_EMAIL_ACTION_LINK_ERROR = 'GENERATE_EMAIL_ACTION_LINK_ERROR'
@@ -531,13 +528,14 @@ class UserManager(object):
         }
         payload = {k: v for k, v in payload.items() if v is not None}
         try:
-            response = self._client.body('post', '/accounts', json=payload)
+            body, http_resp = self._client.body_and_response('post', '/accounts', json=payload)
         except requests.exceptions.RequestException as error:
-            self._handle_http_error(USER_CREATE_ERROR, 'Failed to create new user.', error)
+            raise _auth_utils.handle_auth_backend_error(error)
         else:
-            if not response or not response.get('localId'):
-                raise ApiCallError(USER_CREATE_ERROR, 'Failed to create new user.')
-            return response.get('localId')
+            if not body or not body.get('localId'):
+                raise _auth_utils.UnexpectedResponseError(
+                    'Failed to create new user.', http_response=http_resp)
+            return body.get('localId')
 
     def update_user(self, uid, display_name=_UNSPECIFIED, email=None, phone_number=_UNSPECIFIED,
                     photo_url=_UNSPECIFIED, password=None, disabled=None, email_verified=None,
@@ -581,26 +579,28 @@ class UserManager(object):
 
         payload = {k: v for k, v in payload.items() if v is not None}
         try:
-            response = self._client.body('post', '/accounts:update', json=payload)
+            body, http_resp = self._client.body_and_response(
+                'post', '/accounts:update', json=payload)
         except requests.exceptions.RequestException as error:
-            self._handle_http_error(
-                USER_UPDATE_ERROR, 'Failed to update user: {0}.'.format(uid), error)
+            raise _auth_utils.handle_auth_backend_error(error)
         else:
-            if not response or not response.get('localId'):
-                raise ApiCallError(USER_UPDATE_ERROR, 'Failed to update user: {0}.'.format(uid))
-            return response.get('localId')
+            if not body or not body.get('localId'):
+                raise _auth_utils.UnexpectedResponseError(
+                    'Failed to update user: {0}.'.format(uid), http_response=http_resp)
+            return body.get('localId')
 
     def delete_user(self, uid):
         """Deletes the user identified by the specified user ID."""
         _auth_utils.validate_uid(uid, required=True)
         try:
-            response = self._client.body('post', '/accounts:delete', json={'localId' : uid})
+            body, http_resp = self._client.body_and_response(
+                'post', '/accounts:delete', json={'localId' : uid})
         except requests.exceptions.RequestException as error:
-            self._handle_http_error(
-                USER_DELETE_ERROR, 'Failed to delete user: {0}.'.format(uid), error)
+            raise _auth_utils.handle_auth_backend_error(error)
         else:
-            if not response or not response.get('kind'):
-                raise ApiCallError(USER_DELETE_ERROR, 'Failed to delete user: {0}.'.format(uid))
+            if not body or not body.get('kind'):
+                raise _auth_utils.UnexpectedResponseError(
+                    'Failed to delete user: {0}.'.format(uid), http_response=http_resp)
 
     def import_users(self, users, hash_alg=None):
         """Imports the given list of users to Firebase Auth."""

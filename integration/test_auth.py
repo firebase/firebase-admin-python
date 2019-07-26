@@ -148,14 +148,12 @@ def test_get_non_existing_user_by_email():
     assert str(excinfo.value) == error_msg
 
 def test_update_non_existing_user():
-    with pytest.raises(auth.AuthError) as excinfo:
+    with pytest.raises(auth.UserNotFoundError):
         auth.update_user('non.existing')
-    assert 'USER_UPDATE_ERROR' in str(excinfo.value.code)
 
 def test_delete_non_existing_user():
-    with pytest.raises(auth.AuthError) as excinfo:
+    with pytest.raises(auth.UserNotFoundError):
         auth.delete_user('non.existing')
-    assert 'USER_DELETE_ERROR' in str(excinfo.value.code)
 
 @pytest.fixture
 def new_user():
@@ -258,9 +256,8 @@ def test_create_user(new_user):
     assert user.user_metadata.creation_timestamp > 0
     assert user.user_metadata.last_sign_in_timestamp is None
     assert len(user.provider_data) is 0
-    with pytest.raises(auth.AuthError) as excinfo:
+    with pytest.raises(auth.UidAlreadyExistsError):
         auth.create_user(uid=new_user.uid)
-    assert excinfo.value.code == 'USER_CREATE_ERROR'
 
 def test_update_user(new_user):
     _, email = _random_id()
@@ -329,9 +326,8 @@ def test_disable_user(new_user_with_params):
 def test_delete_user():
     user = auth.create_user()
     auth.delete_user(user.uid)
-    with pytest.raises(auth.AuthError) as excinfo:
+    with pytest.raises(auth.UserNotFoundError):
         auth.get_user(user.uid)
-    assert excinfo.value.code == 'USER_NOT_FOUND_ERROR'
 
 def test_revoke_refresh_tokens(new_user):
     user = auth.get_user(new_user.uid)

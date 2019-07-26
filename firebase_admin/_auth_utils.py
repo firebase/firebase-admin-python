@@ -193,6 +193,15 @@ def validate_action_type(action_type):
     return action_type
 
 
+class UidAlreadyExistsError(exceptions.AlreadyExistsError):
+    """The user with the provided uid already exists."""
+
+    default_message = 'The user with the provided uid already exists'
+
+    def __init__(self, message, cause, http_response=None):
+        exceptions.AlreadyExistsError.__init__(self, message, cause, http_response)
+
+
 class InvalidIdTokenError(exceptions.InvalidArgumentError):
     """The provided ID token is not a valid Firebase ID token."""
 
@@ -219,6 +228,7 @@ class UserNotFoundError(exceptions.NotFoundError):
 
 
 _CODE_TO_EXC_TYPE = {
+    'DUPLICATE_LOCAL_ID': UidAlreadyExistsError,
     'INVALID_ID_TOKEN': InvalidIdTokenError,
     'USER_NOT_FOUND': UserNotFoundError,
 }

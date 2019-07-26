@@ -20,7 +20,7 @@ function lintAllFiles () {
 }
 
 function lintChangedFiles () {
-  files=`git status -s $1 | grep -v "^D" | awk '{print $NF}' | grep .py$`
+  files=`git status -s $1 | (grep -v "^D") | awk '{print $NF}' | (grep .py$ || true)`
   for f in $files
   do
     echo "Running linter on $f"

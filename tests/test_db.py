@@ -632,8 +632,10 @@ class TestDatabaseInitialization(object):
         # With host override: extracts ns from URL but uses override_host for base URL.
         ('https://test.firebaseio.com', 'localhost:9000', 'http://localhost:9000', {'ns': 'test'}),
         ('https://test.firebaseio.com/', 'localhost:9000', 'http://localhost:9000', {'ns': 'test'}),
-        ('https://s-usc1c-nss-200.firebaseio.com/?ns=test', 'localhost:9000', 'http://localhost:9000', {'ns': 'test'}),
-        ('http://localhost:8000/?ns=test', 'localhost:9000', 'http://localhost:9000', {'ns': 'test'}),
+        ('https://s-usc1c-nss-200.firebaseio.com/?ns=test', 'localhost:9000',
+         'http://localhost:9000', {'ns': 'test'}),
+        ('http://localhost:8000/?ns=test', 'localhost:9000',
+         'http://localhost:9000', {'ns': 'test'}),
     ])
     def test_parse_db_url(self, url, host_override, expected_base_url, expected_params):
         base_url, params = db._DatabaseService._parse_db_url(url, host_override)

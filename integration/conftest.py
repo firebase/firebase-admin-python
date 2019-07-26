@@ -75,4 +75,3 @@ def api_key(request):
                          'command-line option.')
     with open(path) as keyfile:
         return keyfile.read().strip()
- 

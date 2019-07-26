@@ -787,6 +787,7 @@ class _DatabaseService(object):
         self._clients = {}
 
     def get_client(self, db_url=None):
+        """Creates a client based on the db_url. Clients may be cached."""
         if db_url is None:
             db_url = self._db_url
 
@@ -795,7 +796,7 @@ class _DatabaseService(object):
             if '//' in emulator_host:
                 raise ValueError(
                     'Invalid {0}: "{1}". It must follow format "host:port".'.format(
-                    _EMULATOR_HOST_ENV_VAR, emulator_host))
+                        _EMULATOR_HOST_ENV_VAR, emulator_host))
             use_fake_creds = True
             host_override = emulator_host
         else:
@@ -830,6 +831,7 @@ class _DatabaseService(object):
             raise ValueError(
                 'Invalid database URL: "{0}". Database URL must be a non-empty '
                 'URL string.'.format(url))
+        # pylint: disable=invalid-name
         ns = None
         parsed = urllib.parse.urlparse(url)
         query_ns = urllib.parse.parse_qs(parsed.query).get('ns')

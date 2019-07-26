@@ -731,10 +731,9 @@ class TestListUsers(object):
 
     def test_list_users_error(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 500, '{"error":"test"}')
-        with pytest.raises(auth.AuthError) as excinfo:
+        with pytest.raises(exceptions.InternalError) as excinfo:
             auth.list_users(app=user_mgt_app)
-        assert excinfo.value.code == _user_mgt.USER_DOWNLOAD_ERROR
-        assert '{"error":"test"}' in str(excinfo.value)
+        assert str(excinfo.value) == 'Unexpected error response: {"error":"test"}'
 
     def _check_page(self, page):
         assert isinstance(page, auth.ListUsersPage)
@@ -1075,6 +1074,25 @@ class TestImportUsers(object):
             'saltSeparator': _user_import.b64_encode(b'sep'),
         }
         self._check_rpc_calls(recorder, expected)
+
+    def test_import_users_http_error(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 401, '{"error": {"message": "ERROR_CODE"}}')
+        users = [
+            auth.ImportUserRecord(uid='user1'),
+            auth.ImportUserRecord(uid='user2'),
+        ]
+        with pytest.raises(exceptions.UnauthenticatedError) as excinfo:
+            auth.import_users(users, app=user_mgt_app)
+        assert str(excinfo.value) == 'Error while calling Auth service (ERROR_CODE).'
+
+    def test_import_users_unexpected_response(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 200, '"not dict"')
+        users = [
+            auth.ImportUserRecord(uid='user1'),
+            auth.ImportUserRecord(uid='user2'),
+        ]
+        with pytest.raises(auth.UnexpectedResponseError):
+            auth.import_users(users, app=user_mgt_app)
 
     def _check_rpc_calls(self, recorder, expected):
         assert len(recorder) == 1

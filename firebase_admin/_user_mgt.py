@@ -24,9 +24,6 @@ from firebase_admin import _auth_utils
 from firebase_admin import _user_import
 
 
-USER_IMPORT_ERROR = 'USER_IMPORT_ERROR'
-USER_DOWNLOAD_ERROR = 'LIST_USERS_ERROR'
-
 MAX_LIST_USERS_RESULTS = 1000
 MAX_IMPORT_USERS_SIZE = 1000
 

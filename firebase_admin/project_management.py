@@ -25,6 +25,7 @@ import requests
 import six
 
 import firebase_admin
+from firebase_admin import exceptions
 from firebase_admin import _http_client
 from firebase_admin import _utils
 
@@ -139,21 +140,6 @@ def _check_not_none(obj, field_name):
     return obj
 
 
-class ApiCallError(Exception):
-    """An error encountered while interacting with the Firebase Project Management Service."""
-
-    def __init__(self, message, error):
-        Exception.__init__(self, message)
-        self.detail = error
-
-
-class _PollingError(Exception):
-    """An error encountered during the polling of an app's creation status."""
-
-    def __init__(self, message):
-        Exception.__init__(self, message)
-
-
 class AndroidApp(object):
     """A reference to an Android app within a Firebase project.
 
@@ -185,7 +171,7 @@ class AndroidApp(object):
             AndroidAppMetadata: An ``AndroidAppMetadata`` instance.
 
         Raises:
-            ApiCallError: If an error occurs while communicating with the Firebase Project
+            FirebaseError: If an error occurs while communicating with the Firebase Project
                 Management Service.
         """
         return self._service.get_android_app_metadata(self._app_id)
@@ -200,7 +186,7 @@ class AndroidApp(object):
             NoneType: None.
 
         Raises:
-            ApiCallError: If an error occurs while communicating with the Firebase Project
+            FirebaseError: If an error occurs while communicating with the Firebase Project
                 Management Service.
         """
         return self._service.set_android_app_display_name(self._app_id, new_display_name)
@@ -216,7 +202,7 @@ class AndroidApp(object):
             list: A list of ``ShaCertificate`` instances.
 
         Raises:
-            ApiCallError: If an error occurs while communicating with the Firebase Project
+            FirebaseError: If an error occurs while communicating with the Firebase Project
                 Management Service.
         """
         return self._service.get_sha_certificates(self._app_id)
@@ -231,7 +217,7 @@ class AndroidApp(object):
             NoneType: None.
 
         Raises:
-            ApiCallError: If an error occurs while communicating with the Firebase Project
+            FirebaseError: If an error occurs while communicating with the Firebase Project
                 Management Service. (For example, if the certificate_to_add already exists.)
         """
         return self._service.add_sha_certificate(self._app_id, certificate_to_add)
@@ -246,7 +232,7 @@ class AndroidApp(object):
             NoneType: None.
 
         Raises:
-            ApiCallError: If an error occurs while communicating with the Firebase Project
+            FirebaseError: If an error occurs while communicating with the Firebase Project
                 Management Service. (For example, if the certificate_to_delete is not found.)
         """
         return self._service.delete_sha_certificate(certificate_to_delete)
@@ -283,7 +269,7 @@ class IosApp(object):
             IosAppMetadata: An ``IosAppMetadata`` instance.
 
         Raises:
-            ApiCallError: If an error occurs while communicating with the Firebase Project
+            FirebaseError: If an error occurs while communicating with the Firebase Project
                 Management Service.
         """
         return self._service.get_ios_app_metadata(self._app_id)
@@ -298,7 +284,7 @@ class IosApp(object):
             NoneType: None.
 
         Raises:
-            ApiCallError: If an error occurs while communicating with the Firebase Project
+            FirebaseError: If an error occurs while communicating with the Firebase Project
                 Management Service.
         """
         return self._service.set_ios_app_display_name(self._app_id, new_display_name)
@@ -478,22 +464,11 @@ class _ProjectManagementService(object):
     MAXIMUM_POLLING_ATTEMPTS = 8
     POLL_BASE_WAIT_TIME_SECONDS = 0.5
     POLL_EXPONENTIAL_BACKOFF_FACTOR = 1.5
-    ERROR_CODES = {
-        401: 'Request not authorized.',
-        403: 'Client does not have sufficient privileges.',
-        404: 'Failed to find the resource.',
-        409: 'The resource already exists.',
-        429: 'Request throttled out by the backend server.',
-        500: 'Internal server error.',
-        503: 'Backend servers are over capacity. Try again later.'
-    }
 
     ANDROID_APPS_RESOURCE_NAME = 'androidApps'
     ANDROID_APP_IDENTIFIER_NAME = 'packageName'
-    ANDROID_APP_IDENTIFIER_LABEL = 'Package name'
     IOS_APPS_RESOURCE_NAME = 'iosApps'
     IOS_APP_IDENTIFIER_NAME = 'bundleId'
-    IOS_APP_IDENTIFIER_LABEL = 'Bundle ID'
 
     def __init__(self, app):
         project_id = app.project_id
@@ -528,7 +503,7 @@ class _ProjectManagementService(object):
         """Retrieves detailed information about an Android or iOS app."""
         _check_is_nonempty_string(app_id, 'app_id')
         path = '/v1beta1/projects/-/{0}/{1}'.format(platform_resource_name, app_id)
-        response = self._make_request('get', path, app_id, 'App ID')
+        response = self._make_request('get', path)
         return metadata_class(
             response[identifier_name],
             name=response['name'],
@@ -553,7 +528,7 @@ class _ProjectManagementService(object):
         path = '/v1beta1/projects/-/{0}/{1}?updateMask=displayName'.format(
             platform_resource_name, app_id)
         request_body = {'displayName': new_display_name}
-        self._make_request('patch', path, app_id, 'App ID', json=request_body)
+        self._make_request('patch', path, json=request_body)
 
     def list_android_apps(self):
         return self._list_apps(
@@ -571,7 +546,7 @@ class _ProjectManagementService(object):
             self._project_id,
             platform_resource_name,
             _ProjectManagementService.MAXIMUM_LIST_APPS_PAGE_SIZE)
-        response = self._make_request('get', path, self._project_id, 'Project ID')
+        response = self._make_request('get', path)
         apps_list = []
         while True:
             apps = response.get('apps')
@@ -587,14 +562,13 @@ class _ProjectManagementService(object):
                 platform_resource_name,
                 next_page_token,
                 _ProjectManagementService.MAXIMUM_LIST_APPS_PAGE_SIZE)
-            response = self._make_request('get', path, self._project_id, 'Project ID')
+            response = self._make_request('get', path)
         return apps_list
 
     def create_android_app(self, package_name, display_name=None):
         return self._create_app(
             platform_resource_name=_ProjectManagementService.ANDROID_APPS_RESOURCE_NAME,
             identifier_name=_ProjectManagementService.ANDROID_APP_IDENTIFIER_NAME,
-            identifier_label=_ProjectManagementService.ANDROID_APP_IDENTIFIER_LABEL,
             identifier=package_name,
             display_name=display_name,
             app_class=AndroidApp)
@@ -603,7 +577,6 @@ class _ProjectManagementService(object):
         return self._create_app(
             platform_resource_name=_ProjectManagementService.IOS_APPS_RESOURCE_NAME,
             identifier_name=_ProjectManagementService.IOS_APP_IDENTIFIER_NAME,
-            identifier_label=_ProjectManagementService.IOS_APP_IDENTIFIER_LABEL,
             identifier=bundle_id,
             display_name=display_name,
             app_class=IosApp)
@@ -612,7 +585,6 @@ class _ProjectManagementService(object):
             self,
             platform_resource_name,
             identifier_name,
-            identifier_label,
             identifier,
             display_name,
             app_class):
@@ -622,15 +594,10 @@ class _ProjectManagementService(object):
         request_body = {identifier_name: identifier}
         if display_name:
             request_body['displayName'] = display_name
-        response = self._make_request('post', path, identifier, identifier_label, json=request_body)
+        response = self._make_request('post', path, json=request_body)
         operation_name = response['name']
-        try:
-            poll_response = self._poll_app_creation(operation_name)
-            return app_class(app_id=poll_response['appId'], service=self)
-        except _PollingError as error:
-            raise ApiCallError(
-                _ProjectManagementService._extract_message(operation_name, 'Operation name', error),
-                error)
+        poll_response = self._poll_app_creation(operation_name)
+        return app_class(app_id=poll_response['appId'], service=self)
 
     def _poll_app_creation(self, operation_name):
         """Polls the Long-Running Operation repeatedly until it is done with exponential backoff."""
@@ -640,16 +607,17 @@ class _ProjectManagementService(object):
             wait_time_seconds = delay_factor * _ProjectManagementService.POLL_BASE_WAIT_TIME_SECONDS
             time.sleep(wait_time_seconds)
             path = '/v1/{0}'.format(operation_name)
-            poll_response = self._make_request('get', path, operation_name, 'Operation name')
+            poll_response, http_response = self._body_and_response('get', path)
             done = poll_response.get('done')
             if done:
                 response = poll_response.get('response')
                 if response:
                     return response
                 else:
-                    raise _PollingError(
-                        'Polling finished, but the operation terminated in an error.')
-        raise _PollingError('Polling deadline exceeded.')
+                    raise exceptions.UnknownError(
+                        'Polling finished, but the operation terminated in an error.',
+                        http_response=http_response)
+        raise exceptions.DeadlineExceededError('Polling deadline exceeded.')
 
     def get_android_app_config(self, app_id):
         return self._get_app_config(
@@ -662,14 +630,14 @@ class _ProjectManagementService(object):
 
     def _get_app_config(self, platform_resource_name, app_id):
         path = '/v1beta1/projects/-/{0}/{1}/config'.format(platform_resource_name, app_id)
-        response = self._make_request('get', path, app_id, 'App ID')
+        response = self._make_request('get', path)
         # In Python 2.7, the base64 module works with strings, while in Python 3, it works with
         # bytes objects. This line works in both versions.
         return base64.standard_b64decode(response['configFileContents']).decode(encoding='utf-8')
 
     def get_sha_certificates(self, app_id):
         path = '/v1beta1/projects/-/androidApps/{0}/sha'.format(app_id)
-        response = self._make_request('get', path, app_id, 'App ID')
+        response = self._make_request('get', path)
         cert_list = response.get('certificates') or []
         return [ShaCertificate(sha_hash=cert['shaHash'], name=cert['name']) for cert in cert_list]
 
@@ -678,28 +646,20 @@ class _ProjectManagementService(object):
         sha_hash = _check_not_none(certificate_to_add, 'certificate_to_add').sha_hash
         cert_type = certificate_to_add.cert_type
         request_body = {'shaHash': sha_hash, 'certType': cert_type}
-        self._make_request('post', path, app_id, 'App ID', json=request_body)
+        self._make_request('post', path, json=request_body)
 
     def delete_sha_certificate(self, certificate_to_delete):
         name = _check_not_none(certificate_to_delete, 'certificate_to_delete').name
         path = '/v1beta1/{0}'.format(name)
-        self._make_request('delete', path, name, 'SHA ID')
+        self._make_request('delete', path)
 
-    def _make_request(self, method, url, resource_identifier, resource_identifier_label, json=None):
+    def _make_request(self, method, url, json=None):
+        body, _ = self._body_and_response(method, url, json)
+        return body
+
+    def _body_and_response(self, method, url, json=None):
         try:
-            return self._client.body(method=method, url=url, json=json, timeout=self._timeout)
+            return self._client.body_and_response(
+                method=method, url=url, json=json, timeout=self._timeout)
         except requests.exceptions.RequestException as error:
-            raise ApiCallError(
-                _ProjectManagementService._extract_message(
-                    resource_identifier, resource_identifier_label, error),
-                error)
-
-    @staticmethod
-    def _extract_message(identifier, identifier_label, error):
-        if not isinstance(error, requests.exceptions.RequestException) or error.response is None:
-            return '{0} "{1}": {2}'.format(identifier_label, identifier, str(error))
-        status = error.response.status_code
-        message = _ProjectManagementService.ERROR_CODES.get(status)
-        if message:
-            return '{0} "{1}": {2}'.format(identifier_label, identifier, message)
-        return '{0} "{1}": Error {2}.'.format(identifier_label, identifier, status)
+            raise _utils.handle_platform_error_from_requests(error)

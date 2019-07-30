@@ -20,6 +20,7 @@ import json
 import pytest
 
 import firebase_admin
+from firebase_admin import exceptions
 from firebase_admin import project_management
 from tests import testutils
 
@@ -196,6 +197,10 @@ IOS_APP_METADATA = project_management.IosAppMetadata(
     display_name='My iOS App',
     project_id='test-project-id')
 
+ALREADY_EXISTS_RESPONSE = ('{"error": {"status": "ALREADY_EXISTS", '
+                           '"message": "The resource already exists"}}')
+NOT_FOUND_RESPONSE = '{"error": {"message": "Failed to find the resource"}}'
+UNAVAILABLE_RESPONSE = '{"error": {"message": "Backend servers are over capacity"}}'
 
 class TestAndroidAppMetadata(object):
 
@@ -578,15 +583,16 @@ class TestCreateAndroidApp(BaseProjectManagementTest):
             recorder[2], 'GET', 'https://firebase.googleapis.com/v1/operations/abcdefg')
 
     def test_create_android_app_already_exists(self):
-        recorder = self._instrument_service(statuses=[409], responses=['some error response'])
+        recorder = self._instrument_service(statuses=[409], responses=[ALREADY_EXISTS_RESPONSE])
 
-        with pytest.raises(project_management.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.AlreadyExistsError) as excinfo:
             project_management.create_android_app(
                 package_name='com.hello.world.android',
                 display_name='My Android App')
 
         assert 'The resource already exists' in str(excinfo.value)
-        assert excinfo.value.detail is not None
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
         assert len(recorder) == 1
 
     def test_create_android_app_polling_rpc_error(self):
@@ -595,16 +601,17 @@ class TestCreateAndroidApp(BaseProjectManagementTest):
             responses=[
                 OPERATION_IN_PROGRESS_RESPONSE,  # Request to create Android app asynchronously.
                 OPERATION_IN_PROGRESS_RESPONSE,  # Creation operation is still not done.
-                'some error response',  # Error 503.
+                UNAVAILABLE_RESPONSE,  # Error 503.
             ])
 
-        with pytest.raises(project_management.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.UnavailableError) as excinfo:
             project_management.create_android_app(
                 package_name='com.hello.world.android',
                 display_name='My Android App')
 
         assert 'Backend servers are over capacity' in str(excinfo.value)
-        assert excinfo.value.detail is not None
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
         assert len(recorder) == 3
 
     def test_create_android_app_polling_failure(self):
@@ -616,13 +623,14 @@ class TestCreateAndroidApp(BaseProjectManagementTest):
                 OPERATION_FAILED_RESPONSE,  # Operation is finished, but terminated with an error.
             ])
 
-        with pytest.raises(project_management.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.UnknownError) as excinfo:
             project_management.create_android_app(
                 package_name='com.hello.world.android',
                 display_name='My Android App')
 
         assert 'Polling finished, but the operation terminated in an error' in str(excinfo.value)
-        assert excinfo.value.detail is not None
+        assert excinfo.value.cause is None
+        assert excinfo.value.http_response is not None
         assert len(recorder) == 3
 
     def test_create_android_app_polling_limit_exceeded(self):
@@ -635,13 +643,13 @@ class TestCreateAndroidApp(BaseProjectManagementTest):
                 OPERATION_IN_PROGRESS_RESPONSE,  # Creation Operation is still not done.
             ])
 
-        with pytest.raises(project_management.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.DeadlineExceededError) as excinfo:
             project_management.create_android_app(
                 package_name='com.hello.world.android',
                 display_name='My Android App')
 
         assert 'Polling deadline exceeded' in str(excinfo.value)
-        assert excinfo.value.detail is not None
+        assert excinfo.value.cause is None
         assert len(recorder) == 3
 
 
@@ -695,15 +703,16 @@ class TestCreateIosApp(BaseProjectManagementTest):
             recorder[2], 'GET', 'https://firebase.googleapis.com/v1/operations/abcdefg')
 
     def test_create_ios_app_already_exists(self):
-        recorder = self._instrument_service(statuses=[409], responses=['some error response'])
+        recorder = self._instrument_service(statuses=[409], responses=[ALREADY_EXISTS_RESPONSE])
 
-        with pytest.raises(project_management.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.AlreadyExistsError) as excinfo:
             project_management.create_ios_app(
                 bundle_id='com.hello.world.ios',
                 display_name='My iOS App')
 
         assert 'The resource already exists' in str(excinfo.value)
-        assert excinfo.value.detail is not None
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
         assert len(recorder) == 1
 
     def test_create_ios_app_polling_rpc_error(self):
@@ -712,16 +721,17 @@ class TestCreateIosApp(BaseProjectManagementTest):
             responses=[
                 OPERATION_IN_PROGRESS_RESPONSE,  # Request to create iOS app asynchronously.
                 OPERATION_IN_PROGRESS_RESPONSE,  # Creation operation is still not done.
-                'some error response',  # Error 503.
+                UNAVAILABLE_RESPONSE,  # Error 503.
             ])
 
-        with pytest.raises(project_management.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.UnavailableError) as excinfo:
             project_management.create_ios_app(
                 bundle_id='com.hello.world.ios',
                 display_name='My iOS App')
 
         assert 'Backend servers are over capacity' in str(excinfo.value)
-        assert excinfo.value.detail is not None
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
         assert len(recorder) == 3
 
     def test_create_ios_app_polling_failure(self):
@@ -733,13 +743,14 @@ class TestCreateIosApp(BaseProjectManagementTest):
                 OPERATION_FAILED_RESPONSE,  # Operation is finished, but terminated with an error.
             ])
 
-        with pytest.raises(project_management.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.UnknownError) as excinfo:
             project_management.create_ios_app(
                 bundle_id='com.hello.world.ios',
                 display_name='My iOS App')
 
         assert 'Polling finished, but the operation terminated in an error' in str(excinfo.value)
-        assert excinfo.value.detail is not None
+        assert excinfo.value.cause is None
+        assert excinfo.value.http_response is not None
         assert len(recorder) == 3
 
     def test_create_ios_app_polling_limit_exceeded(self):
@@ -752,13 +763,13 @@ class TestCreateIosApp(BaseProjectManagementTest):
                 OPERATION_IN_PROGRESS_RESPONSE,  # Creation Operation is still not done.
             ])
 
-        with pytest.raises(project_management.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.DeadlineExceededError) as excinfo:
             project_management.create_ios_app(
                 bundle_id='com.hello.world.ios',
                 display_name='My iOS App')
 
         assert 'Polling deadline exceeded' in str(excinfo.value)
-        assert excinfo.value.detail is not None
+        assert excinfo.value.cause is None
         assert len(recorder) == 3
 
 
@@ -779,13 +790,14 @@ class TestListAndroidApps(BaseProjectManagementTest):
         self._assert_request_is_correct(recorder[0], 'GET', TestListAndroidApps._LISTING_URL)
 
     def test_list_android_apps_rpc_error(self):
-        recorder = self._instrument_service(statuses=[503], responses=['some error response'])
+        recorder = self._instrument_service(statuses=[503], responses=[UNAVAILABLE_RESPONSE])
 
-        with pytest.raises(project_management.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.UnavailableError) as excinfo:
             project_management.list_android_apps()
 
         assert 'Backend servers are over capacity' in str(excinfo.value)
-        assert excinfo.value.detail is not None
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
         assert len(recorder) == 1
 
     def test_list_android_apps_empty_list(self):
@@ -813,13 +825,14 @@ class TestListAndroidApps(BaseProjectManagementTest):
     def test_list_android_apps_multiple_pages_rpc_error(self):
         recorder = self._instrument_service(
             statuses=[200, 503],
-            responses=[LIST_ANDROID_APPS_PAGE_1_RESPONSE, 'some error response'])
+            responses=[LIST_ANDROID_APPS_PAGE_1_RESPONSE, UNAVAILABLE_RESPONSE])
 
-        with pytest.raises(project_management.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.UnavailableError) as excinfo:
             project_management.list_android_apps()
 
         assert 'Backend servers are over capacity' in str(excinfo.value)
-        assert excinfo.value.detail is not None
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
         assert len(recorder) == 2
 
 
@@ -840,13 +853,14 @@ class TestListIosApps(BaseProjectManagementTest):
         self._assert_request_is_correct(recorder[0], 'GET', TestListIosApps._LISTING_URL)
 
     def test_list_ios_apps_rpc_error(self):
-        recorder = self._instrument_service(statuses=[503], responses=['some error response'])
+        recorder = self._instrument_service(statuses=[503], responses=[UNAVAILABLE_RESPONSE])
 
-        with pytest.raises(project_management.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.UnavailableError) as excinfo:
             project_management.list_ios_apps()
 
         assert 'Backend servers are over capacity' in str(excinfo.value)
-        assert excinfo.value.detail is not None
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
         assert len(recorder) == 1
 
     def test_list_ios_apps_empty_list(self):
@@ -874,13 +888,14 @@ class TestListIosApps(BaseProjectManagementTest):
     def test_list_ios_apps_multiple_pages_rpc_error(self):
         recorder = self._instrument_service(
             statuses=[200, 503],
-            responses=[LIST_IOS_APPS_PAGE_1_RESPONSE, 'some error response'])
+            responses=[LIST_IOS_APPS_PAGE_1_RESPONSE, UNAVAILABLE_RESPONSE])
 
-        with pytest.raises(project_management.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.UnavailableError) as excinfo:
             project_management.list_ios_apps()
 
         assert 'Backend servers are over capacity' in str(excinfo.value)
-        assert excinfo.value.detail is not None
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
         assert len(recorder) == 2
 
 
@@ -936,21 +951,24 @@ class TestAndroidApp(BaseProjectManagementTest):
         recorder = self._instrument_service(
             statuses=[428], responses=['precondition required error'])
 
-        with pytest.raises(project_management.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.UnknownError) as excinfo:
             android_app.get_metadata()
 
-        assert 'Error 428' in str(excinfo.value)
-        assert excinfo.value.detail is not None
+        message = 'Unexpected HTTP response with status: 428; body: precondition required error'
+        assert str(excinfo.value) == message
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
         assert len(recorder) == 1
 
     def test_get_metadata_not_found(self, android_app):
-        recorder = self._instrument_service(statuses=[404], responses=['some error response'])
+        recorder = self._instrument_service(statuses=[404], responses=[NOT_FOUND_RESPONSE])
 
-        with pytest.raises(project_management.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.NotFoundError) as excinfo:
             android_app.get_metadata()
 
         assert 'Failed to find the resource' in str(excinfo.value)
-        assert excinfo.value.detail is not None
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
         assert len(recorder) == 1
 
     def test_set_display_name(self, android_app):
@@ -965,14 +983,15 @@ class TestAndroidApp(BaseProjectManagementTest):
             recorder[0], 'PATCH', TestAndroidApp._SET_DISPLAY_NAME_URL, body)
 
     def test_set_display_name_not_found(self, android_app):
-        recorder = self._instrument_service(statuses=[404], responses=['some error response'])
+        recorder = self._instrument_service(statuses=[404], responses=[NOT_FOUND_RESPONSE])
         new_display_name = 'A new display name!'
 
-        with pytest.raises(project_management.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.NotFoundError) as excinfo:
             android_app.set_display_name(new_display_name)
 
         assert 'Failed to find the resource' in str(excinfo.value)
-        assert excinfo.value.detail is not None
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
         assert len(recorder) == 1
 
     def test_get_config(self, android_app):
@@ -985,13 +1004,14 @@ class TestAndroidApp(BaseProjectManagementTest):
         self._assert_request_is_correct(recorder[0], 'GET', TestAndroidApp._GET_CONFIG_URL)
 
     def test_get_config_not_found(self, android_app):
-        recorder = self._instrument_service(statuses=[404], responses=['some error response'])
+        recorder = self._instrument_service(statuses=[404], responses=[NOT_FOUND_RESPONSE])
 
-        with pytest.raises(project_management.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.NotFoundError) as excinfo:
             android_app.get_config()
 
         assert 'Failed to find the resource' in str(excinfo.value)
-        assert excinfo.value.detail is not None
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
         assert len(recorder) == 1
 
     def test_get_sha_certificates(self, android_app):
@@ -1005,13 +1025,14 @@ class TestAndroidApp(BaseProjectManagementTest):
         self._assert_request_is_correct(recorder[0], 'GET', TestAndroidApp._LIST_CERTS_URL)
 
     def test_get_sha_certificates_not_found(self, android_app):
-        recorder = self._instrument_service(statuses=[404], responses=['some error response'])
+        recorder = self._instrument_service(statuses=[404], responses=[NOT_FOUND_RESPONSE])
 
-        with pytest.raises(project_management.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.NotFoundError) as excinfo:
             android_app.get_sha_certificates()
 
         assert 'Failed to find the resource' in str(excinfo.value)
-        assert excinfo.value.detail is not None
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
         assert len(recorder) == 1
 
     def test_add_certificate_none_error(self, android_app):
@@ -1042,14 +1063,15 @@ class TestAndroidApp(BaseProjectManagementTest):
         self._assert_request_is_correct(recorder[0], 'POST', TestAndroidApp._ADD_CERT_URL, body)
 
     def test_add_sha_certificates_already_exists(self, android_app):
-        recorder = self._instrument_service(statuses=[409], responses=['some error response'])
+        recorder = self._instrument_service(statuses=[409], responses=[ALREADY_EXISTS_RESPONSE])
 
-        with pytest.raises(project_management.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.AlreadyExistsError) as excinfo:
             android_app.add_sha_certificate(
                 project_management.ShaCertificate('123456789a123456789a123456789a123456789a'))
 
         assert 'The resource already exists' in str(excinfo.value)
-        assert excinfo.value.detail is not None
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
         assert len(recorder) == 1
 
     def test_delete_certificate_none_error(self, android_app):
@@ -1075,13 +1097,14 @@ class TestAndroidApp(BaseProjectManagementTest):
             recorder[0], 'DELETE', TestAndroidApp._DELETE_SHA_256_CERT_URL)
 
     def test_delete_sha_certificates_not_found(self, android_app):
-        recorder = self._instrument_service(statuses=[404], responses=['some error response'])
+        recorder = self._instrument_service(statuses=[404], responses=[NOT_FOUND_RESPONSE])
 
-        with pytest.raises(project_management.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.NotFoundError) as excinfo:
             android_app.delete_sha_certificate(SHA_1_CERTIFICATE)
 
         assert 'Failed to find the resource' in str(excinfo.value)
-        assert excinfo.value.detail is not None
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
         assert len(recorder) == 1
 
     def test_raises_if_app_has_no_project_id(self):
@@ -1137,21 +1160,24 @@ class TestIosApp(BaseProjectManagementTest):
         recorder = self._instrument_service(
             statuses=[428], responses=['precondition required error'])
 
-        with pytest.raises(project_management.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.UnknownError) as excinfo:
             ios_app.get_metadata()
 
-        assert 'Error 428' in str(excinfo.value)
-        assert excinfo.value.detail is not None
+        message = 'Unexpected HTTP response with status: 428; body: precondition required error'
+        assert str(excinfo.value) == message
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
         assert len(recorder) == 1
 
     def test_get_metadata_not_found(self, ios_app):
-        recorder = self._instrument_service(statuses=[404], responses=['some error response'])
+        recorder = self._instrument_service(statuses=[404], responses=[NOT_FOUND_RESPONSE])
 
-        with pytest.raises(project_management.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.NotFoundError) as excinfo:
             ios_app.get_metadata()
 
         assert 'Failed to find the resource' in str(excinfo.value)
-        assert excinfo.value.detail is not None
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
         assert len(recorder) == 1
 
     def test_set_display_name(self, ios_app):
@@ -1166,14 +1192,15 @@ class TestIosApp(BaseProjectManagementTest):
             recorder[0], 'PATCH', TestIosApp._SET_DISPLAY_NAME_URL, body)
 
     def test_set_display_name_not_found(self, ios_app):
-        recorder = self._instrument_service(statuses=[404], responses=['some error response'])
+        recorder = self._instrument_service(statuses=[404], responses=[NOT_FOUND_RESPONSE])
         new_display_name = 'A new display name!'
 
-        with pytest.raises(project_management.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.NotFoundError) as excinfo:
             ios_app.set_display_name(new_display_name)
 
         assert 'Failed to find the resource' in str(excinfo.value)
-        assert excinfo.value.detail is not None
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
         assert len(recorder) == 1
 
     def test_get_config(self, ios_app):
@@ -1186,13 +1213,14 @@ class TestIosApp(BaseProjectManagementTest):
         self._assert_request_is_correct(recorder[0], 'GET', TestIosApp._GET_CONFIG_URL)
 
     def test_get_config_not_found(self, ios_app):
-        recorder = self._instrument_service(statuses=[404], responses=['some error response'])
+        recorder = self._instrument_service(statuses=[404], responses=[NOT_FOUND_RESPONSE])
 
-        with pytest.raises(project_management.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.NotFoundError) as excinfo:
             ios_app.get_config()
 
         assert 'Failed to find the resource' in str(excinfo.value)
-        assert excinfo.value.detail is not None
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
         assert len(recorder) == 1
 
     def test_raises_if_app_has_no_project_id(self):

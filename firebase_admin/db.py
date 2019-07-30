@@ -26,12 +26,12 @@ import os
 import sys
 import threading
 
+import google.auth
 import requests
 import six
 from six.moves import urllib
 
 import firebase_admin
-from firebase_admin.credentials import FakeCredential
 from firebase_admin import _http_client
 from firebase_admin import _sseclient
 from firebase_admin import _utils
@@ -809,8 +809,11 @@ class _DatabaseService(object):
 
         client_cache_key = (base_url, json.dumps(params, sort_keys=True), use_fake_creds)
         if client_cache_key not in self._clients:
-            credential = FakeCredential() if use_fake_creds else self._credential
-            client = _Client(credential.get_credential(), base_url, self._timeout, params)
+            if use_fake_creds:
+                credential = _EmulatorAdminCredentials()
+            else:
+                self._credential.get_credential()
+            client = _Client(credential, base_url, self._timeout, params)
             self._clients[client_cache_key] = client
         return self._clients[client_cache_key]
 
@@ -968,3 +971,12 @@ class _Client(_http_client.JsonHttpClient):
         except ValueError:
             pass
         return '{0}\nReason: {1}'.format(error, error.response.content.decode())
+
+
+class _EmulatorAdminCredentials(google.auth.credentials.Credentials):
+    def __init__(self):
+        google.auth.credentials.Credentials.__init__(self)
+        self.token = 'owner'
+
+    def refresh(self, request):
+        pass

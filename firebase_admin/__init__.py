@@ -215,7 +215,7 @@ class App(object):
         self._options = _AppOptions(options)
         self._lock = threading.RLock()
         self._services = {}
-        self._project_id = App._lookup_project_id(self._credential, self._options)
+        self._project_id = None  # Will be lazily-loaded when self.project_id is used.
 
     @classmethod
     def _lookup_project_id(cls, credential, options):
@@ -263,6 +263,8 @@ class App(object):
 
     @property
     def project_id(self):
+        if self._project_id is None:
+            self._project_id = App._lookup_project_id(self._credential, self._options)
         return self._project_id
 
     def _get_service(self, name, initializer):

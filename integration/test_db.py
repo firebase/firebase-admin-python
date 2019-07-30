@@ -15,6 +15,7 @@
 """Integration tests for firebase_admin.db module."""
 import collections
 import json
+import os
 
 import pytest
 import six
@@ -23,6 +24,23 @@ import firebase_admin
 from firebase_admin import db
 from integration import conftest
 from tests import testutils
+
+
+def integration_conf(request):
+    host_override = os.environ.get('FIREBASE_DATABASE_EMULATOR_HOST')
+    if host_override:
+        return None, 'fake-project-id'
+    else:
+        return conftest.integration_conf(request)
+
+
+@pytest.fixture(autouse=True, scope='module')
+def default_app(request):
+    cred, project_id = integration_conf(request)
+    ops = {
+        'databaseURL' : 'https://{0}.firebaseio.com'.format(project_id),
+    }
+    return firebase_admin.initialize_app(cred, ops)
 
 
 @pytest.fixture(scope='module')
@@ -304,7 +322,7 @@ class TestAdvancedQueries(object):
 @pytest.fixture(scope='module')
 def override_app(request, update_rules):
     del update_rules
-    cred, project_id = conftest.integration_conf(request)
+    cred, project_id = integration_conf(request)
     ops = {
         'databaseURL' : 'https://{0}.firebaseio.com'.format(project_id),
         'databaseAuthVariableOverride' : {'uid' : 'user1'}
@@ -316,7 +334,7 @@ def override_app(request, update_rules):
 @pytest.fixture(scope='module')
 def none_override_app(request, update_rules):
     del update_rules
-    cred, project_id = conftest.integration_conf(request)
+    cred, project_id = integration_conf(request)
     ops = {
         'databaseURL' : 'https://{0}.firebaseio.com'.format(project_id),
         'databaseAuthVariableOverride' : None

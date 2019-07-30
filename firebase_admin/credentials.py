@@ -123,26 +123,40 @@ class ApplicationDefault(Base):
     """A Google Application Default credential."""
 
     def __init__(self):
-        """Initializes the Application Default credentials for the current environment.
+        """Creates an instance that will use Application Default credentials.
 
-        Raises:
-          google.auth.exceptions.DefaultCredentialsError: If Application Default
-              credentials cannot be initialized in the current environment.
+        The credentials will be lazily initialized when get_credential() or
+        project_id() is called. See those methods for possible errors raised.
         """
         super(ApplicationDefault, self).__init__()
-        self._g_credential, self._project_id = google.auth.default(scopes=_scopes)
+        self._g_credential = None  # Will be lazily-loaded via _load_credential().
 
     def get_credential(self):
         """Returns the underlying Google credential.
 
+        Raises:
+          google.auth.exceptions.DefaultCredentialsError: If Application Default
+              credentials cannot be initialized in the current environment.
         Returns:
           google.auth.credentials.Credentials: A Google Auth credential instance."""
+        self._load_credential()
         return self._g_credential
 
     @property
     def project_id(self):
+        """Returns the project_id from the underlying Google credential.
+
+        Raises:
+          google.auth.exceptions.DefaultCredentialsError: If Application Default
+              credentials cannot be initialized in the current environment.
+        Returns:
+          str: The project id."""
+        self._load_credential()
         return self._project_id
 
+    def _load_credential(self):
+        if not self._g_credential:
+            self._g_credential, self._project_id = google.auth.default(scopes=_scopes)
 
 class RefreshToken(Base):
     """A credential initialized from an existing refresh token."""
@@ -199,19 +213,3 @@ class RefreshToken(Base):
         Returns:
           google.auth.credentials.Credentials: A Google Auth credential instance."""
         return self._g_credential
-
-
-class FakeCredential(Base):
-    """Provides fake credentials, which is only accepted in local emulators."""
-
-    def get_credential(self):
-        return _EmulatorAdminCredentials()
-
-
-class _EmulatorAdminCredentials(google.auth.credentials.Credentials):
-    def __init__(self):
-        google.auth.credentials.Credentials.__init__(self)
-        self.token = 'owner'
-
-    def refresh(self, request):
-        pass

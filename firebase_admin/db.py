@@ -812,7 +812,7 @@ class _DatabaseService(object):
             if use_fake_creds:
                 credential = _EmulatorAdminCredentials()
             else:
-                self._credential.get_credential()
+                credential = self._credential.get_credential()
             client = _Client(credential, base_url, self._timeout, params)
             self._clients[client_cache_key] = client
         return self._clients[client_cache_key]

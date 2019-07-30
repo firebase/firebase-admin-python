@@ -318,7 +318,7 @@ class TestFirebaseApp(object):
     def test_non_string_project_id(self):
         options = {'projectId': {'key': 'not a string'}}
         with pytest.raises(ValueError):
-            firebase_admin.initialize_app(CREDENTIAL, options=options)
+            app = firebase_admin.initialize_app(CREDENTIAL, options=options)
 
     def test_app_get(self, init_app):
         assert init_app is firebase_admin.get_app(init_app.name)

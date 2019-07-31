@@ -20,6 +20,7 @@ import random
 
 import pytest
 
+from firebase_admin import exceptions
 from firebase_admin import project_management
 
 
@@ -64,11 +65,12 @@ def ios_app(default_app):
 def test_create_android_app_already_exists(android_app):
     del android_app
 
-    with pytest.raises(project_management.ApiCallError) as excinfo:
+    with pytest.raises(exceptions.AlreadyExistsError) as excinfo:
         project_management.create_android_app(
             package_name=TEST_APP_PACKAGE_NAME, display_name=TEST_APP_DISPLAY_NAME_PREFIX)
-    assert 'The resource already exists' in str(excinfo.value)
-    assert excinfo.value.detail is not None
+    assert 'Requested entity already exists' in str(excinfo.value)
+    assert excinfo.value.cause is not None
+    assert excinfo.value.http_response is not None
 
 
 def test_android_set_display_name_and_get_metadata(android_app, project_id):
@@ -133,10 +135,11 @@ def test_android_sha_certificates(android_app):
         assert cert.name
 
     # Adding the same cert twice should cause an already-exists error.
-    with pytest.raises(project_management.ApiCallError) as excinfo:
+    with pytest.raises(exceptions.AlreadyExistsError) as excinfo:
         android_app.add_sha_certificate(project_management.ShaCertificate(SHA_256_HASH_2))
-    assert 'The resource already exists' in str(excinfo.value)
-    assert excinfo.value.detail is not None
+    assert 'Requested entity already exists' in str(excinfo.value)
+    assert excinfo.value.cause is not None
+    assert excinfo.value.http_response is not None
 
     # Delete all certs and assert that they have all been deleted successfully.
     for cert in cert_list:
@@ -145,20 +148,22 @@ def test_android_sha_certificates(android_app):
     assert android_app.get_sha_certificates() == []
 
     # Deleting a nonexistent cert should cause a not-found error.
-    with pytest.raises(project_management.ApiCallError) as excinfo:
+    with pytest.raises(exceptions.NotFoundError) as excinfo:
         android_app.delete_sha_certificate(cert_list[0])
-    assert 'Failed to find the resource' in str(excinfo.value)
-    assert excinfo.value.detail is not None
+    assert 'Requested entity was not found' in str(excinfo.value)
+    assert excinfo.value.cause is not None
+    assert excinfo.value.http_response is not None
 
 
 def test_create_ios_app_already_exists(ios_app):
     del ios_app
 
-    with pytest.raises(project_management.ApiCallError) as excinfo:
+    with pytest.raises(exceptions.AlreadyExistsError) as excinfo:
         project_management.create_ios_app(
             bundle_id=TEST_APP_BUNDLE_ID, display_name=TEST_APP_DISPLAY_NAME_PREFIX)
-    assert 'The resource already exists' in str(excinfo.value)
-    assert excinfo.value.detail is not None
+    assert 'Requested entity already exists' in str(excinfo.value)
+    assert excinfo.value.cause is not None
+    assert excinfo.value.http_response is not None
 
 
 def test_ios_set_display_name_and_get_metadata(ios_app, project_id):

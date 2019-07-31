@@ -623,26 +623,34 @@ class TestDatabaseInitialization(object):
         with pytest.raises(ValueError):
             db.reference()
 
-    @pytest.mark.parametrize('url,host_override,expected_base_url,expected_params', [
-        # No host override: accepts production and emulator URLs.
-        ('https://test.firebaseio.com', None, 'https://test.firebaseio.com', {}),
-        ('https://test.firebaseio.com/', None, 'https://test.firebaseio.com', {}),
-        ('http://localhost:8000/?ns=test', None, 'http://localhost:8000', {'ns': 'test'}),
+    @pytest.mark.parametrize(
+        'url,emulator_host,expected_base_url,expected_params,expected_use_fake_creds',
+        [
+            # Production URLs with no override:
+            ('https://test.firebaseio.com', None, 'https://test.firebaseio.com', {}, False),
+            ('https://test.firebaseio.com/', None, 'https://test.firebaseio.com', {}, False),
 
-        # With host override: extracts ns from URL but uses override_host for base URL.
-        ('https://test.firebaseio.com', 'localhost:9000', 'http://localhost:9000', {'ns': 'test'}),
-        ('https://test.firebaseio.com/', 'localhost:9000', 'http://localhost:9000', {'ns': 'test'}),
-        ('https://s-usc1c-nss-200.firebaseio.com/?ns=test', 'localhost:9000',
-         'http://localhost:9000', {'ns': 'test'}),
-        ('http://localhost:8000/?ns=test', 'localhost:9000',
-         'http://localhost:9000', {'ns': 'test'}),
-    ])
-    def test_parse_db_url(self, url, host_override, expected_base_url, expected_params):
-        base_url, params = db._DatabaseService._parse_db_url(url, host_override)
+            # Production URLs with emulator_host override:
+            ('https://test.firebaseio.com', 'localhost:9000',
+             'http://localhost:9000', {'ns': 'test'}, True),
+            ('https://test.firebaseio.com/', 'localhost:9000',
+             'http://localhost:9000', {'ns': 'test'}, True),
+
+            # Emulator URLs with no override.
+            ('http://localhost:8000/?ns=test', None, 'http://localhost:8000', {'ns': 'test'}, True),
+            # emulator_host is ignored when the original URL is already emulator.
+            ('http://localhost:8000/?ns=test', 'localhost:9999',
+             'http://localhost:8000', {'ns': 'test'}, True),
+        ]
+    )
+    def test_parse_db_url(self, url, emulator_host, expected_base_url,
+                          expected_params, expected_use_fake_creds):
+        base_url, params, use_fake_creds = db._DatabaseService._parse_db_url(url, emulator_host)
         assert base_url == expected_base_url
         assert params == expected_params
+        assert use_fake_creds == expected_use_fake_creds
 
-    @pytest.mark.parametrize('url,host_override', [
+    @pytest.mark.parametrize('url,emulator_host', [
         ('', None),
         (None, None),
         (42, None),
@@ -655,9 +663,9 @@ class TestDatabaseInitialization(object):
         ('http://localhost:9000/?ns=test1&ns=test2', None),  # Two ns parameters specified.
         ('ftp://localhost:9000/?ns=test', None),  # Neither HTTP or HTTPS.
     ])
-    def test_parse_db_url_errors(self, url, host_override):
+    def test_parse_db_url_errors(self, url, emulator_host):
         with pytest.raises(ValueError):
-            db._DatabaseService._parse_db_url(url, host_override)
+            db._DatabaseService._parse_db_url(url, emulator_host)
 
     @pytest.mark.parametrize('url', [
         'https://test.firebaseio.com', 'https://test.firebaseio.com/'

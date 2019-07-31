@@ -201,12 +201,10 @@ Some integration tests can run against emulators. This allows local testing
 without using real projects or credentials. For now, only the RTDB Emulator
 is supported.
 
-First, run the RTDB emulator in the background and note the host and port.
-And now you can run the RTDB integration tests as follows, replacing the
-host and port as needed:
+First, install the Firebase CLI, then run:
 
 ```
-FIREBASE_DATABASE_EMULATOR_HOST=localhost:9000 pytest integration/test_db.py --project fake
+firebase emulators:exec --only database --project fake-project-id 'pytest integration/test_db.py'
 ```
 
 ### Test Coverage

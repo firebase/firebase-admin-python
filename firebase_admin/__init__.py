@@ -254,7 +254,8 @@ class App(object):
             except AttributeError:
                 project_id = None
             if not project_id:
-                project_id = os.environ.get('GOOGLE_CLOUD_PROJECT', os.environ.get('GCLOUD_PROJECT'))
+                project_id = os.environ.get('GOOGLE_CLOUD_PROJECT',
+                                            os.environ.get('GCLOUD_PROJECT'))
             if project_id:
                 self._project_id = project_id
         return self._project_id

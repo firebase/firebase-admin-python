@@ -31,19 +31,21 @@ from firebase_admin import _utils
 
 
 _AUTH_ATTRIBUTE = '_auth'
-_ID_TOKEN_REVOKED = 'ID_TOKEN_REVOKED'
-_SESSION_COOKIE_REVOKED = 'SESSION_COOKIE_REVOKED'
 
 
 __all__ = [
     'ActionCodeSettings',
     'AuthError',
+    'CertificateFetchError',
     'DELETE_ATTRIBUTE',
     'ErrorInfo',
+    'ExpiredIdTokenError',
+    'ExpiredSessionCookieError',
     'ExportedUserRecord',
     'ImportUserRecord',
     'InvalidDynamicLinkDomainError',
     'InvalidIdTokenError',
+    'InvalidSessionCookieError',
     'ListUsersPage',
     'TokenSignError',
     'UidAlreadyExistsError',
@@ -76,17 +78,21 @@ __all__ = [
 ]
 
 ActionCodeSettings = _user_mgt.ActionCodeSettings
+CertificateFetchError = _token_gen.CertificateFetchError
 DELETE_ATTRIBUTE = _user_mgt.DELETE_ATTRIBUTE
 ErrorInfo = _user_import.ErrorInfo
+ExpiredIdTokenError = _token_gen.ExpiredIdTokenError
+ExpiredSessionCookieError = _token_gen.ExpiredSessionCookieError
 ExportedUserRecord = _user_mgt.ExportedUserRecord
-ListUsersPage = _user_mgt.ListUsersPage
-UserImportHash = _user_import.UserImportHash
 ImportUserRecord = _user_import.ImportUserRecord
 InvalidDynamicLinkDomainError = _auth_utils.InvalidDynamicLinkDomainError
 InvalidIdTokenError = _auth_utils.InvalidIdTokenError
+InvalidSessionCookieError = _token_gen.InvalidSessionCookieError
+ListUsersPage = _user_mgt.ListUsersPage
 TokenSignError = _token_gen.TokenSignError
 UidAlreadyExistsError = _auth_utils.UidAlreadyExistsError
 UnexpectedResponseError = _auth_utils.UnexpectedResponseError
+UserImportHash = _user_import.UserImportHash
 UserImportResult = _user_import.UserImportResult
 UserInfo = _user_mgt.UserInfo
 UserMetadata = _user_mgt.UserMetadata
@@ -149,9 +155,12 @@ def verify_id_token(id_token, app=None, check_revoked=False):
         dict: A dictionary of key-value pairs parsed from the decoded JWT.
 
     Raises:
-        ValueError: If the JWT was found to be invalid, or if the App's project ID cannot
-            be determined.
-        AuthError: If ``check_revoked`` is requested and the token was revoked.
+        ValueError: If ``id_token`` is a not a string or is empty.
+        InvalidIdTokenError: If ``id_token`` is not a valid Firebase ID token or if
+            ``check_revoked`` is ``True`` and the ID token has been revoked.
+        ExpiredIdTokenError: If the specified ID token has expired.
+        CertificateFetchError: If an error occurs while fetching the public key certificates
+            required to verify the ID token.
     """
     if not isinstance(check_revoked, bool):
         # guard against accidental wrong assignment.
@@ -160,7 +169,7 @@ def verify_id_token(id_token, app=None, check_revoked=False):
     token_verifier = _get_auth_service(app).token_verifier
     verified_claims = token_verifier.verify_id_token(id_token)
     if check_revoked:
-        _check_jwt_revoked(verified_claims, _ID_TOKEN_REVOKED, 'ID token', app)
+        _check_jwt_revoked(verified_claims, InvalidIdTokenError, 'ID token', app)
     return verified_claims
 
 
@@ -201,14 +210,17 @@ def verify_session_cookie(session_cookie, check_revoked=False, app=None):
         dict: A dictionary of key-value pairs parsed from the decoded JWT.
 
     Raises:
-        ValueError: If the cookie was found to be invalid, or if the App's project ID cannot
-            be determined.
-        AuthError: If ``check_revoked`` is requested and the cookie was revoked.
+        ValueError: If ``session_cookie`` is a not a string or is empty.
+        InvalidSessionCookieError: If ``session_cookie`` is not a valid Firebase session cookie or
+            if ``check_revoked`` is ``True`` and the cookie has been revoked.
+        ExpiredSessionCookieError: If the specified session cookie has expired.
+        CertificateFetchError: If an error occurs while fetching the public key certificates
+            required to verify the session cookie.
     """
     token_verifier = _get_auth_service(app).token_verifier
     verified_claims = token_verifier.verify_session_cookie(session_cookie)
     if check_revoked:
-        _check_jwt_revoked(verified_claims, _SESSION_COOKIE_REVOKED, 'session cookie', app)
+        _check_jwt_revoked(verified_claims, InvalidSessionCookieError, 'session cookie', app)
     return verified_claims
 
 
@@ -519,10 +531,10 @@ def generate_sign_in_with_email_link(email, action_code_settings, app=None):
         'EMAIL_SIGNIN', email, action_code_settings=action_code_settings)
 
 
-def _check_jwt_revoked(verified_claims, error_code, label, app):
+def _check_jwt_revoked(verified_claims, exc_type, label, app):
     user = get_user(verified_claims.get('uid'), app=app)
     if verified_claims.get('iat') * 1000 < user.tokens_valid_after_timestamp:
-        raise AuthError(error_code, 'The Firebase {0} has been revoked.'.format(label))
+        raise exc_type('The Firebase {0} has been revoked.'.format(label))
 
 
 class AuthError(Exception):

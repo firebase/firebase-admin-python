@@ -216,7 +216,7 @@ class InvalidIdTokenError(exceptions.InvalidArgumentError):
 
     default_message = 'The provided ID token is invalid'
 
-    def __init__(self, message, cause, http_response=None):
+    def __init__(self, message, cause=None, http_response=None):
         exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
 
 

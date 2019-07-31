@@ -217,12 +217,18 @@ class TokenVerifier(object):
             project_id=app.project_id, short_name='ID token',
             operation='verify_id_token()',
             doc_url='https://firebase.google.com/docs/auth/admin/verify-id-tokens',
-            cert_url=ID_TOKEN_CERT_URI, issuer=ID_TOKEN_ISSUER_PREFIX)
+            cert_url=ID_TOKEN_CERT_URI,
+            issuer=ID_TOKEN_ISSUER_PREFIX,
+            invalid_token_error=_auth_utils.InvalidIdTokenError,
+            expired_token_error=ExpiredIdTokenError)
         self.cookie_verifier = _JWTVerifier(
             project_id=app.project_id, short_name='session cookie',
             operation='verify_session_cookie()',
             doc_url='https://firebase.google.com/docs/auth/admin/verify-id-tokens',
-            cert_url=COOKIE_CERT_URI, issuer=COOKIE_ISSUER_PREFIX)
+            cert_url=COOKIE_CERT_URI,
+            issuer=COOKIE_ISSUER_PREFIX,
+            invalid_token_error=InvalidSessionCookieError,
+            expired_token_error=ExpiredSessionCookieError)
 
     def verify_id_token(self, id_token):
         return self.id_token_verifier.verify(id_token, self.request)
@@ -245,6 +251,8 @@ class _JWTVerifier(object):
             self.articled_short_name = 'an {0}'.format(self.short_name)
         else:
             self.articled_short_name = 'a {0}'.format(self.short_name)
+        self._invalid_token_error = kwargs.pop('invalid_token_error')
+        self._expired_token_error = kwargs.pop('expired_token_error')
 
     def verify(self, token, request):
         """Verifies the signature and data for the provided JWT."""
@@ -261,8 +269,7 @@ class _JWTVerifier(object):
                 'or set your Firebase project ID as an app option. Alternatively set the '
                 'GOOGLE_CLOUD_PROJECT environment variable.'.format(self.operation))
 
-        header = jwt.decode_header(token)
-        payload = jwt.decode(token, verify=False)
+        header, payload = self._decode_unverified(token)
         issuer = payload.get('iss')
         audience = payload.get('aud')
         subject = payload.get('sub')
@@ -275,12 +282,12 @@ class _JWTVerifier(object):
             'See {0} for details on how to retrieve {1}.'.format(self.url, self.short_name))
 
         error_message = None
-        if not header.get('kid'):
-            if audience == FIREBASE_AUDIENCE:
-                error_message = (
-                    '{0} expects {1}, but was given a custom '
-                    'token.'.format(self.operation, self.articled_short_name))
-            elif header.get('alg') == 'HS256' and payload.get(
+        if audience == FIREBASE_AUDIENCE:
+            error_message = (
+                '{0} expects {1}, but was given a custom '
+                'token.'.format(self.operation, self.articled_short_name))
+        elif not header.get('kid'):
+            if header.get('alg') == 'HS256' and payload.get(
                     'v') is 0 and 'uid' in payload.get('d', {}):
                 error_message = (
                     '{0} expects {1}, but was given a legacy custom '
@@ -315,15 +322,30 @@ class _JWTVerifier(object):
                 '{1}'.format(self.short_name, verify_id_token_msg))
 
         if error_message:
-            raise ValueError(error_message)
+            raise self._invalid_token_error(error_message)
 
-        verified_claims = google.oauth2.id_token.verify_token(
-            token,
-            request=request,
-            audience=self.project_id,
-            certs_url=self.cert_url)
-        verified_claims['uid'] = verified_claims['sub']
-        return verified_claims
+        try:
+            verified_claims = google.oauth2.id_token.verify_token(
+                token,
+                request=request,
+                audience=self.project_id,
+                certs_url=self.cert_url)
+            verified_claims['uid'] = verified_claims['sub']
+            return verified_claims
+        except google.auth.exceptions.TransportError as error:
+            raise CertificateFetchError(str(error), cause=error)
+        except ValueError as error:
+            if 'Token expired' in str(error):
+                raise self._expired_token_error(str(error), cause=error)
+            raise self._invalid_token_error(str(error), cause=error)
+
+    def _decode_unverified(self, token):
+        try:
+            header = jwt.decode_header(token)
+            payload = jwt.decode(token, verify=False)
+            return header, payload
+        except ValueError as error:
+            raise self._invalid_token_error(str(error), cause=error)
 
 
 class TokenSignError(exceptions.UnknownError):
@@ -331,3 +353,31 @@ class TokenSignError(exceptions.UnknownError):
 
     def __init__(self, message, cause):
         exceptions.UnknownError.__init__(self, message, cause)
+
+
+class CertificateFetchError(exceptions.UnknownError):
+    """Failed to fetch some public key certificates required to verify a token."""
+
+    def __init__(self, message, cause):
+        exceptions.UnknownError.__init__(self, message, cause)
+
+
+class ExpiredIdTokenError(_auth_utils.InvalidIdTokenError):
+    """The provided ID token is expired."""
+
+    def __init__(self, message, cause):
+        _auth_utils.InvalidIdTokenError.__init__(self, message, cause)
+
+
+class InvalidSessionCookieError(exceptions.InvalidArgumentError):
+    """The provided string is not a valid Firebase session cookie."""
+
+    def __init__(self, message, cause=None):
+        exceptions.InvalidArgumentError.__init__(self, message, cause)
+
+
+class ExpiredSessionCookieError(InvalidSessionCookieError):
+    """The provided session cookie is expired."""
+
+    def __init__(self, message, cause):
+        InvalidSessionCookieError.__init__(self, message, cause)

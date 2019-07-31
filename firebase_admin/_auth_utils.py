@@ -198,8 +198,17 @@ class UidAlreadyExistsError(exceptions.AlreadyExistsError):
 
     default_message = 'The user with the provided uid already exists'
 
-    def __init__(self, message, cause, http_response=None):
+    def __init__(self, message, cause, http_response):
         exceptions.AlreadyExistsError.__init__(self, message, cause, http_response)
+
+
+class InvalidDynamicLinkDomainError(exceptions.InvalidArgumentError):
+    """Dynamic link domain in ActionCodeSettings is not authorized."""
+
+    default_message = 'Dynamic link domain specified in ActionCodeSettings is not authorized'
+
+    def __init__(self, message, cause, http_response):
+        exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
 
 
 class InvalidIdTokenError(exceptions.InvalidArgumentError):
@@ -229,6 +238,7 @@ class UserNotFoundError(exceptions.NotFoundError):
 
 _CODE_TO_EXC_TYPE = {
     'DUPLICATE_LOCAL_ID': UidAlreadyExistsError,
+    'INVALID_DYNAMIC_LINK_DOMAIN': InvalidDynamicLinkDomainError,
     'INVALID_ID_TOKEN': InvalidIdTokenError,
     'USER_NOT_FOUND': UserNotFoundError,
 }

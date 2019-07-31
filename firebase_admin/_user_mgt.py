@@ -26,7 +26,6 @@ from firebase_admin import _user_import
 
 USER_IMPORT_ERROR = 'USER_IMPORT_ERROR'
 USER_DOWNLOAD_ERROR = 'LIST_USERS_ERROR'
-GENERATE_EMAIL_ACTION_LINK_ERROR = 'GENERATE_EMAIL_ACTION_LINK_ERROR'
 
 MAX_LIST_USERS_RESULTS = 1000
 MAX_IMPORT_USERS_SIZE = 1000
@@ -654,14 +653,15 @@ class UserManager(object):
             payload.update(encode_action_code_settings(action_code_settings))
 
         try:
-            response = self._client.body('post', '/accounts:sendOobCode', json=payload)
+            body, http_resp = self._client.body_and_response(
+                'post', '/accounts:sendOobCode', json=payload)
         except requests.exceptions.RequestException as error:
-            self._handle_http_error(GENERATE_EMAIL_ACTION_LINK_ERROR, 'Failed to generate link.',
-                                    error)
+            raise _auth_utils.handle_auth_backend_error(error)
         else:
-            if not response or not response.get('oobLink'):
-                raise ApiCallError(GENERATE_EMAIL_ACTION_LINK_ERROR, 'Failed to generate link.')
-            return response.get('oobLink')
+            if not body or not body.get('oobLink'):
+                raise _auth_utils.UnexpectedResponseError(
+                    'Failed to generate email action link.', http_response=http_resp)
+            return body.get('oobLink')
 
     def _handle_http_error(self, code, msg, error):
         if error.response is not None:

@@ -846,11 +846,11 @@ class _DatabaseService(object):
 
     @classmethod
     def _parse_production_url(cls, parsed_url, emulator_host):
-        # Handle production URL like https://foo-bar.firebaseio.com/
+        """Parses production URL like https://foo-bar.firebaseio.com/"""
         if parsed_url.scheme != 'https':
             raise ValueError(
                 'Invalid database URL scheme: "{0}". Database URL must be an HTTPS URL.'.format(
-                parsed_url.scheme))
+                    parsed_url.scheme))
         namespace = parsed_url.netloc.split('.')[0]
         if not namespace:
             raise ValueError(
@@ -865,7 +865,7 @@ class _DatabaseService(object):
 
     @classmethod
     def _parse_emulator_url(cls, parsed_url):
-        # Handle emulator URL like http://localhost:8080/?ns=foo-bar
+        """Parses emulator URL like http://localhost:8080/?ns=foo-bar"""
         query_ns = urllib.parse.parse_qs(parsed_url.query).get('ns')
         if parsed_url.scheme != 'http' or (not query_ns or len(query_ns) != 1 or not query_ns[0]):
             raise ValueError(

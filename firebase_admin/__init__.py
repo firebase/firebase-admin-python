@@ -239,6 +239,12 @@ class App(object):
 
     @property
     def project_id(self):
+        if not self._project_id_initialized:
+            self._project_id = self._lookup_project_id()
+            self._project_id_initialized = True
+        return self._project_id
+
+    def _lookup_project_id(self):
         """Looks up the Firebase project ID associated with an App.
 
         If a ``projectId`` is specified in app options, it is returned. Then tries to
@@ -249,12 +255,6 @@ class App(object):
         Returns:
             str: A project ID string or None.
         """
-        if not self._project_id_initialized:
-            self._project_id = self._lookup_project_id()
-            self._project_id_initialized = True
-        return self._project_id
-
-    def _lookup_project_id(self):
         project_id = self._options.get('projectId')
         if not project_id:
             try:

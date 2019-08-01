@@ -264,10 +264,8 @@ class App(object):
         if not project_id:
             project_id = os.environ.get('GOOGLE_CLOUD_PROJECT',
                                         os.environ.get('GCLOUD_PROJECT'))
-        if project_id:
-            return project_id
-        else:
-            return None
+        App._validate_project_id(self._options.get('projectId'))
+        return project_id
 
     def _get_service(self, name, initializer):
         """Returns the service instance identified by the given name.

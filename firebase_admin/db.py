@@ -800,81 +800,81 @@ class _DatabaseService(object):
         """Creates a client based on the db_url. Clients may be cached."""
         if db_url is None:
             db_url = self._db_url
-        base_url, params, use_fake_creds = \
-            _DatabaseService._parse_db_url(db_url, self._emulator_host)
+
+        base_url, namespace = _DatabaseService._parse_db_url(db_url, self._emulator_host)
+        if base_url == 'https://{0}.firebaseio.com'.format(namespace):
+            # Production base_url. No need to specify namespace in query params.
+            params = {}
+            credential = self._credential.get_credential()
+        else:
+            # Emulator base_url. Use fake credentials and specify ?ns=foo in query params.
+            credential = _EmulatorAdminCredentials()
+            params = {'ns': namespace}
         if self._auth_override:
             params['auth_variable_override'] = self._auth_override
 
         client_cache_key = (base_url, json.dumps(params, sort_keys=True))
         if client_cache_key not in self._clients:
-            if use_fake_creds:
-                credential = _EmulatorAdminCredentials()
-            else:
-                credential = self._credential.get_credential()
             client = _Client(credential, base_url, self._timeout, params)
             self._clients[client_cache_key] = client
         return self._clients[client_cache_key]
 
     @classmethod
     def _parse_db_url(cls, url, emulator_host=None):
-        """Parses a database URL into (base_url, query_params, use_fake_creds).
+        """Parses (base_url, namespace) from a database URL.
 
         The input can be either a production URL (https://foo-bar.firebaseio.com/)
-        or an Emulator URL (http://localhost:8080/?ns=foo-bar). The resulting
-        base_url never includes query params. Any required query parameters will
-        be returned separately as a map (e.g. `{"ns": "foo-bar"}`).
+        or an Emulator URL (http://localhost:8080/?ns=foo-bar). In case of Emulator
+        URL, the namespace is extracted from the query param ns. The resulting
+        base_url never includes query params.
 
         If url is a production URL and emulator_host is specified, the result
-        base URL will use emulator_host, with a ns query parameter indicating
-        the namespace, parsed from the production URL. emulator_host is ignored
-        if url is already an emulator URL. In either case, use_fake_creds will
-        be set to True.
+        base URL will use emulator_host instead. emulator_host is ignored
+        if url is already an emulator URL.
         """
         if not url or not isinstance(url, six.string_types):
             raise ValueError(
                 'Invalid database URL: "{0}". Database URL must be a non-empty '
                 'URL string.'.format(url))
         parsed_url = urllib.parse.urlparse(url)
-        use_fake_creds = False
         if parsed_url.netloc.endswith('.firebaseio.com'):
-            if parsed_url.scheme != 'https':
-                raise ValueError(
-                    'Invalid database URL: "{0}". Database URL must be an HTTPS URL.'.format(url))
-            # pylint: disable=invalid-name
-            base_url, namespace = cls._parse_production_url(parsed_url)
-            if emulator_host:
-                base_url = 'http://{0}'.format(emulator_host)
-                use_fake_creds = True
+            base_url, namespace = cls._parse_production_url(parsed_url, emulator_host)
         else:
-            use_fake_creds = True
             base_url, namespace = cls._parse_emulator_url(parsed_url)
 
-        if not base_url or not namespace:
-            raise ValueError(
-                'Invalid database URL: "{0}". Database URL must be a valid URL to a '
-                'Firebase Realtime Database instance.'.format(url))
-        if base_url == 'https://{0}.firebaseio.com'.format(namespace):
-            # namespace can be inferred from the base_url. No need for query params.
-            return base_url, {}, use_fake_creds
-        else:
-            # ?ns=foo is needed.
-            return base_url, {'ns': namespace}, use_fake_creds
+        return base_url, namespace
 
     @classmethod
-    def _parse_production_url(cls, parsed_url):
-        base_url = 'https://{0}'.format(parsed_url.netloc)
-        return base_url, parsed_url.netloc.split('.')[0]
+    def _parse_production_url(cls, parsed_url, emulator_host):
+        # Handle production URL like https://foo-bar.firebaseio.com/
+        if parsed_url.scheme != 'https':
+            raise ValueError(
+                'Invalid database URL scheme: "{0}". Database URL must be an HTTPS URL.'.format(
+                parsed_url.scheme))
+        namespace = parsed_url.netloc.split('.')[0]
+        if not namespace:
+            raise ValueError(
+                'Invalid database URL: "{0}". Database URL must be a valid URL to a '
+                'Firebase Realtime Database instance.'.format(parsed_url.geturl()))
+
+        if emulator_host:
+            base_url = 'http://{0}'.format(emulator_host)
+        else:
+            base_url = 'https://{0}'.format(parsed_url.netloc)
+        return base_url, namespace
 
     @classmethod
     def _parse_emulator_url(cls, parsed_url):
         # Handle emulator URL like http://localhost:8080/?ns=foo-bar
         query_ns = urllib.parse.parse_qs(parsed_url.query).get('ns')
-        if parsed_url.scheme == 'http':
-            if query_ns and len(query_ns) == 1 and query_ns[0]:
-                base_url = '{0}://{1}'.format(parsed_url.scheme, parsed_url.netloc)
-                return base_url, query_ns[0]
+        if parsed_url.scheme != 'http' or (not query_ns or len(query_ns) != 1 or not query_ns[0]):
+            raise ValueError(
+                'Invalid database URL: "{0}". Database URL must be a valid URL to a '
+                'Firebase Realtime Database instance.'.format(parsed_url.geturl()))
 
-        return None, None
+        namespace = query_ns[0]
+        base_url = '{0}://{1}'.format(parsed_url.scheme, parsed_url.netloc)
+        return base_url, namespace
 
     @classmethod
     def _get_auth_override(cls, app):

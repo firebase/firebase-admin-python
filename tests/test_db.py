@@ -624,31 +624,26 @@ class TestDatabaseInitialization(object):
             db.reference()
 
     @pytest.mark.parametrize(
-        'url,emulator_host,expected_base_url,expected_params,expected_use_fake_creds',
+        'url,emulator_host,expected_base_url,expected_namespace',
         [
             # Production URLs with no override:
-            ('https://test.firebaseio.com', None, 'https://test.firebaseio.com', {}, False),
-            ('https://test.firebaseio.com/', None, 'https://test.firebaseio.com', {}, False),
+            ('https://test.firebaseio.com', None, 'https://test.firebaseio.com', 'test'),
+            ('https://test.firebaseio.com/', None, 'https://test.firebaseio.com', 'test'),
 
             # Production URLs with emulator_host override:
-            ('https://test.firebaseio.com', 'localhost:9000',
-             'http://localhost:9000', {'ns': 'test'}, True),
-            ('https://test.firebaseio.com/', 'localhost:9000',
-             'http://localhost:9000', {'ns': 'test'}, True),
+            ('https://test.firebaseio.com', 'localhost:9000', 'http://localhost:9000', 'test'),
+            ('https://test.firebaseio.com/', 'localhost:9000', 'http://localhost:9000', 'test'),
 
             # Emulator URLs with no override.
-            ('http://localhost:8000/?ns=test', None, 'http://localhost:8000', {'ns': 'test'}, True),
+            ('http://localhost:8000/?ns=test', None, 'http://localhost:8000', 'test'),
             # emulator_host is ignored when the original URL is already emulator.
-            ('http://localhost:8000/?ns=test', 'localhost:9999',
-             'http://localhost:8000', {'ns': 'test'}, True),
+            ('http://localhost:8000/?ns=test', 'localhost:9999', 'http://localhost:8000', 'test'),
         ]
     )
-    def test_parse_db_url(self, url, emulator_host, expected_base_url,
-                          expected_params, expected_use_fake_creds):
-        base_url, params, use_fake_creds = db._DatabaseService._parse_db_url(url, emulator_host)
+    def test_parse_db_url(self, url, emulator_host, expected_base_url, expected_namespace):
+        base_url, namespace = db._DatabaseService._parse_db_url(url, emulator_host)
         assert base_url == expected_base_url
-        assert params == expected_params
-        assert use_fake_creds == expected_use_fake_creds
+        assert namespace == expected_namespace
 
     @pytest.mark.parametrize('url,emulator_host', [
         ('', None),

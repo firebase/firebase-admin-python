@@ -838,11 +838,9 @@ class _DatabaseService(object):
                 'URL string.'.format(url))
         parsed_url = urllib.parse.urlparse(url)
         if parsed_url.netloc.endswith('.firebaseio.com'):
-            base_url, namespace = cls._parse_production_url(parsed_url, emulator_host)
+            return cls._parse_production_url(parsed_url, emulator_host)
         else:
-            base_url, namespace = cls._parse_emulator_url(parsed_url)
-
-        return base_url, namespace
+            return cls._parse_emulator_url(parsed_url)
 
     @classmethod
     def _parse_production_url(cls, parsed_url, emulator_host):

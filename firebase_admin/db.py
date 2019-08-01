@@ -869,7 +869,7 @@ class _DatabaseService(object):
     def _parse_emulator_url(cls, parsed_url):
         # Handle emulator URL like http://localhost:8080/?ns=foo-bar
         query_ns = urllib.parse.parse_qs(parsed_url.query).get('ns')
-        if parsed_url.scheme in ['http', 'https']:
+        if parsed_url.scheme == 'http':
             if query_ns and len(query_ns) == 1 and query_ns[0]:
                 base_url = '{0}://{1}'.format(parsed_url.scheme, parsed_url.netloc)
                 return base_url, query_ns[0]

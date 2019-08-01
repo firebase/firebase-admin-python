@@ -44,7 +44,7 @@ def app(request):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def default_app(request):
+def default_app():
     # Overwrites the default_app fixture in conftest.py.
     # This test suite should not use the default app. Use the app fixture instead.
     pass

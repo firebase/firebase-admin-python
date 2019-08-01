@@ -216,13 +216,14 @@ class App(object):
         self._lock = threading.RLock()
         self._services = {}
 
-        # Validate project_id if specified. Otherwise, we will try to infer
-        # from credential and then environment variables later when accessed.
-        project_id = self._options.get('projectId')
+        App._validate_project_id(self._options.get('projectId'))
+        self._project_id_initialized = False
+
+    @classmethod
+    def _validate_project_id(cls, project_id):
         if project_id is not None and not isinstance(project_id, six.string_types):
             raise ValueError(
                 'Invalid project ID: "{0}". project ID must be a string.'.format(project_id))
-        self._project_id = project_id
 
     @property
     def name(self):
@@ -248,17 +249,25 @@ class App(object):
         Returns:
             str: A project ID string or None.
         """
-        if self._project_id is None:
+        if not self._project_id_initialized:
+            self._project_id = self._lookup_project_id()
+            self._project_id_initialized = True
+        return self._project_id
+
+    def _lookup_project_id(self):
+        project_id = self._options.get('projectId')
+        if not project_id:
             try:
                 project_id = self._credential.project_id
             except AttributeError:
-                project_id = None
-            if not project_id:
-                project_id = os.environ.get('GOOGLE_CLOUD_PROJECT',
-                                            os.environ.get('GCLOUD_PROJECT'))
-            if project_id:
-                self._project_id = project_id
-        return self._project_id
+                pass
+        if not project_id:
+            project_id = os.environ.get('GOOGLE_CLOUD_PROJECT',
+                                        os.environ.get('GCLOUD_PROJECT'))
+        if project_id:
+            return project_id
+        else:
+            return None
 
     def _get_service(self, name, initializer):
         """Returns the service instance identified by the given name.

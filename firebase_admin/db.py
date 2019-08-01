@@ -22,9 +22,11 @@ module uses the Firebase REST API underneath.
 
 import collections
 import json
+import os
 import sys
 import threading
 
+import google.auth
 import requests
 import six
 from six.moves import urllib
@@ -41,6 +43,7 @@ _RESERVED_FILTERS = ('$key', '$value', '$priority')
 _USER_AGENT = 'Firebase/HTTP/{0}/{1}.{2}/AdminPython'.format(
     firebase_admin.__version__, sys.version_info.major, sys.version_info.minor)
 _TRANSACTION_MAX_RETRIES = 25
+_EMULATOR_HOST_ENV_VAR = 'FIREBASE_DATABASE_EMULATOR_HOST'
 
 
 def reference(path='/', app=None, url=None):
@@ -768,46 +771,108 @@ class _DatabaseService(object):
     _DEFAULT_AUTH_OVERRIDE = '_admin_'
 
     def __init__(self, app):
-        self._credential = app.credential.get_credential()
+        self._credential = app.credential
         db_url = app.options.get('databaseURL')
         if db_url:
-            self._db_url = _DatabaseService._validate_url(db_url)
+            _DatabaseService._parse_db_url(db_url)  # Just for validation.
+            self._db_url = db_url
         else:
             self._db_url = None
         auth_override = _DatabaseService._get_auth_override(app)
         if auth_override != self._DEFAULT_AUTH_OVERRIDE and auth_override != {}:
-            encoded = json.dumps(auth_override, separators=(',', ':'))
-            self._auth_override = 'auth_variable_override={0}'.format(encoded)
+            self._auth_override = json.dumps(auth_override, separators=(',', ':'))
         else:
             self._auth_override = None
         self._timeout = app.options.get('httpTimeout')
         self._clients = {}
 
-    def get_client(self, base_url=None):
-        if base_url is None:
-            base_url = self._db_url
-        base_url = _DatabaseService._validate_url(base_url)
-        if base_url not in self._clients:
-            client = _Client(self._credential, base_url, self._auth_override, self._timeout)
-            self._clients[base_url] = client
-        return self._clients[base_url]
+        emulator_host = os.environ.get(_EMULATOR_HOST_ENV_VAR)
+        if emulator_host:
+            if '//' in emulator_host:
+                raise ValueError(
+                    'Invalid {0}: "{1}". It must follow format "host:port".'.format(
+                        _EMULATOR_HOST_ENV_VAR, emulator_host))
+            self._emulator_host = emulator_host
+        else:
+            self._emulator_host = None
+
+    def get_client(self, db_url=None):
+        """Creates a client based on the db_url. Clients may be cached."""
+        if db_url is None:
+            db_url = self._db_url
+
+        base_url, namespace = _DatabaseService._parse_db_url(db_url, self._emulator_host)
+        if base_url == 'https://{0}.firebaseio.com'.format(namespace):
+            # Production base_url. No need to specify namespace in query params.
+            params = {}
+            credential = self._credential.get_credential()
+        else:
+            # Emulator base_url. Use fake credentials and specify ?ns=foo in query params.
+            credential = _EmulatorAdminCredentials()
+            params = {'ns': namespace}
+        if self._auth_override:
+            params['auth_variable_override'] = self._auth_override
+
+        client_cache_key = (base_url, json.dumps(params, sort_keys=True))
+        if client_cache_key not in self._clients:
+            client = _Client(credential, base_url, self._timeout, params)
+            self._clients[client_cache_key] = client
+        return self._clients[client_cache_key]
 
     @classmethod
-    def _validate_url(cls, url):
-        """Parses and validates a given database URL."""
+    def _parse_db_url(cls, url, emulator_host=None):
+        """Parses (base_url, namespace) from a database URL.
+
+        The input can be either a production URL (https://foo-bar.firebaseio.com/)
+        or an Emulator URL (http://localhost:8080/?ns=foo-bar). In case of Emulator
+        URL, the namespace is extracted from the query param ns. The resulting
+        base_url never includes query params.
+
+        If url is a production URL and emulator_host is specified, the result
+        base URL will use emulator_host instead. emulator_host is ignored
+        if url is already an emulator URL.
+        """
         if not url or not isinstance(url, six.string_types):
             raise ValueError(
                 'Invalid database URL: "{0}". Database URL must be a non-empty '
                 'URL string.'.format(url))
-        parsed = urllib.parse.urlparse(url)
-        if parsed.scheme != 'https':
+        parsed_url = urllib.parse.urlparse(url)
+        if parsed_url.netloc.endswith('.firebaseio.com'):
+            return cls._parse_production_url(parsed_url, emulator_host)
+        else:
+            return cls._parse_emulator_url(parsed_url)
+
+    @classmethod
+    def _parse_production_url(cls, parsed_url, emulator_host):
+        """Parses production URL like https://foo-bar.firebaseio.com/"""
+        if parsed_url.scheme != 'https':
             raise ValueError(
-                'Invalid database URL: "{0}". Database URL must be an HTTPS URL.'.format(url))
-        elif not parsed.netloc.endswith('.firebaseio.com'):
+                'Invalid database URL scheme: "{0}". Database URL must be an HTTPS URL.'.format(
+                    parsed_url.scheme))
+        namespace = parsed_url.netloc.split('.')[0]
+        if not namespace:
             raise ValueError(
                 'Invalid database URL: "{0}". Database URL must be a valid URL to a '
-                'Firebase Realtime Database instance.'.format(url))
-        return 'https://{0}'.format(parsed.netloc)
+                'Firebase Realtime Database instance.'.format(parsed_url.geturl()))
+
+        if emulator_host:
+            base_url = 'http://{0}'.format(emulator_host)
+        else:
+            base_url = 'https://{0}'.format(parsed_url.netloc)
+        return base_url, namespace
+
+    @classmethod
+    def _parse_emulator_url(cls, parsed_url):
+        """Parses emulator URL like http://localhost:8080/?ns=foo-bar"""
+        query_ns = urllib.parse.parse_qs(parsed_url.query).get('ns')
+        if parsed_url.scheme != 'http' or (not query_ns or len(query_ns) != 1 or not query_ns[0]):
+            raise ValueError(
+                'Invalid database URL: "{0}". Database URL must be a valid URL to a '
+                'Firebase Realtime Database instance.'.format(parsed_url.geturl()))
+
+        namespace = query_ns[0]
+        base_url = '{0}://{1}'.format(parsed_url.scheme, parsed_url.netloc)
+        return base_url, namespace
 
     @classmethod
     def _get_auth_override(cls, app):
@@ -833,7 +898,7 @@ class _Client(_http_client.JsonHttpClient):
     marshalling and unmarshalling of JSON data.
     """
 
-    def __init__(self, credential, base_url, auth_override, timeout):
+    def __init__(self, credential, base_url, timeout, params=None):
         """Creates a new _Client from the given parameters.
 
         This exists primarily to enable testing. For regular use, obtain _Client instances by
@@ -843,22 +908,21 @@ class _Client(_http_client.JsonHttpClient):
           credential: A Google credential that can be used to authenticate requests.
           base_url: A URL prefix to be added to all outgoing requests. This is typically the
               Firebase Realtime Database URL.
-          auth_override: The encoded auth_variable_override query parameter to be included in
-              outgoing requests.
           timeout: HTTP request timeout in seconds. If not set connections will never
               timeout, which is the default behavior of the underlying requests library.
+          params: Dict of query parameters to add to all outgoing requests.
         """
         _http_client.JsonHttpClient.__init__(
             self, credential=credential, base_url=base_url, headers={'User-Agent': _USER_AGENT})
         self.credential = credential
-        self.auth_override = auth_override
         self.timeout = timeout
+        self.params = params if params else {}
 
     def request(self, method, url, **kwargs):
         """Makes an HTTP call using the Python requests library.
 
-        Extends the request() method of the parent JsonHttpClient class. Handles auth overrides,
-        and low-level exceptions.
+        Extends the request() method of the parent JsonHttpClient class. Handles default
+        params like auth overrides, and low-level exceptions.
 
         Args:
           method: HTTP method name as a string (e.g. get, post).
@@ -872,13 +936,15 @@ class _Client(_http_client.JsonHttpClient):
         Raises:
           ApiCallError: If an error occurs while making the HTTP call.
         """
-        if self.auth_override:
-            params = kwargs.get('params')
-            if params:
-                params += '&{0}'.format(self.auth_override)
+        query = '&'.join('{0}={1}'.format(key, self.params[key]) for key in self.params)
+        extra_params = kwargs.get('params')
+        if extra_params:
+            if query:
+                query = extra_params + '&' + query
             else:
-                params = self.auth_override
-            kwargs['params'] = params
+                query = extra_params
+        kwargs['params'] = query
+
         if self.timeout:
             kwargs['timeout'] = self.timeout
         try:
@@ -911,3 +977,12 @@ class _Client(_http_client.JsonHttpClient):
         except ValueError:
             pass
         return '{0}\nReason: {1}'.format(error, error.response.content.decode())
+
+
+class _EmulatorAdminCredentials(google.auth.credentials.Credentials):
+    def __init__(self):
+        google.auth.credentials.Credentials.__init__(self)
+        self.token = 'owner'
+
+    def refresh(self, request):
+        pass

@@ -35,7 +35,6 @@ _AUTH_ATTRIBUTE = '_auth'
 
 __all__ = [
     'ActionCodeSettings',
-    'AuthError',
     'CertificateFetchError',
     'DELETE_ATTRIBUTE',
     'ErrorInfo',
@@ -529,15 +528,6 @@ def _check_jwt_revoked(verified_claims, exc_type, label, app):
     user = get_user(verified_claims.get('uid'), app=app)
     if verified_claims.get('iat') * 1000 < user.tokens_valid_after_timestamp:
         raise exc_type('The Firebase {0} has been revoked.'.format(label))
-
-
-class AuthError(Exception):
-    """Represents an Exception encountered while invoking the Firebase auth API."""
-
-    def __init__(self, code, message, error=None):
-        Exception.__init__(self, message)
-        self.code = code
-        self.detail = error
 
 
 class _AuthService(object):

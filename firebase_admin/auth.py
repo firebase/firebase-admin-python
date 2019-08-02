@@ -320,14 +320,11 @@ def list_users(page_token=None, max_results=_user_mgt.MAX_LIST_USERS_RESULTS, ap
 
     Raises:
         ValueError: If max_results or page_token are invalid.
-        AuthError: If an error occurs while retrieving the user accounts.
+        FirebaseError: If an error occurs while retrieving the user accounts.
     """
     user_manager = _get_auth_service(app).user_manager
     def download(page_token, max_results):
-        try:
-            return user_manager.list_users(page_token, max_results)
-        except _user_mgt.ApiCallError as error:
-            raise AuthError(error.code, str(error), error.detail)
+        return user_manager.list_users(page_token, max_results)
     return ListUsersPage(download, page_token, max_results)
 
 
@@ -455,14 +452,11 @@ def import_users(users, hash_alg=None, app=None):
 
     Raises:
         ValueError: If the provided arguments are invalid.
-        AuthError: If an error occurs while importing users.
+        FirebaseError: If an error occurs while importing users.
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        result = user_manager.import_users(users, hash_alg)
-        return UserImportResult(result, len(users))
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    result = user_manager.import_users(users, hash_alg)
+    return UserImportResult(result, len(users))
 
 
 def generate_password_reset_link(email, action_code_settings=None, app=None):

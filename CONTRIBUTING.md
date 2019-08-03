@@ -195,6 +195,18 @@ Now you can invoke the integration test suite as follows:
 pytest integration/ --cert scripts/cert.json --apikey scripts/apikey.txt
 ```
 
+### Emulator-based Integration Testing
+
+Some integration tests can run against emulators. This allows local testing
+without using real projects or credentials. For now, only the RTDB Emulator
+is supported.
+
+First, install the Firebase CLI, then run:
+
+```
+firebase emulators:exec --only database --project fake-project-id 'pytest integration/test_db.py'
+```
+
 ### Test Coverage
 
 To review the test coverage, run `pytest` with the `--cov` flag. To view a detailed line by line

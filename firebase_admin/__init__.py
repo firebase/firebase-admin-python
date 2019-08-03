@@ -215,39 +215,15 @@ class App(object):
         self._options = _AppOptions(options)
         self._lock = threading.RLock()
         self._services = {}
-        self._project_id = App._lookup_project_id(self._credential, self._options)
+
+        App._validate_project_id(self._options.get('projectId'))
+        self._project_id_initialized = False
 
     @classmethod
-    def _lookup_project_id(cls, credential, options):
-        """Looks up the Firebase project ID associated with an App.
-
-        This method first inspects the app options for a ``projectId`` entry. Then it attempts to
-        get the project ID from the credential used to initialize the app. If that also fails,
-        attempts to look up the ``GOOGLE_CLOUD_PROJECT`` and ``GCLOUD_PROJECT`` environment
-        variables.
-
-        Args:
-            credential: A Firebase credential instance.
-            options: A Firebase AppOptions instance.
-
-        Returns:
-            str: A project ID string or None.
-
-        Raises:
-            ValueError: If a non-string project ID value is specified.
-        """
-        project_id = options.get('projectId')
-        if not project_id:
-            try:
-                project_id = credential.project_id
-            except AttributeError:
-                pass
-        if not project_id:
-            project_id = os.environ.get('GOOGLE_CLOUD_PROJECT', os.environ.get('GCLOUD_PROJECT'))
+    def _validate_project_id(cls, project_id):
         if project_id is not None and not isinstance(project_id, six.string_types):
             raise ValueError(
                 'Invalid project ID: "{0}". project ID must be a string.'.format(project_id))
-        return project_id
 
     @property
     def name(self):
@@ -263,7 +239,33 @@ class App(object):
 
     @property
     def project_id(self):
+        if not self._project_id_initialized:
+            self._project_id = self._lookup_project_id()
+            self._project_id_initialized = True
         return self._project_id
+
+    def _lookup_project_id(self):
+        """Looks up the Firebase project ID associated with an App.
+
+        If a ``projectId`` is specified in app options, it is returned. Then tries to
+        get the project ID from the credential used to initialize the app. If that also fails,
+        attempts to look up the ``GOOGLE_CLOUD_PROJECT`` and ``GCLOUD_PROJECT`` environment
+        variables.
+
+        Returns:
+            str: A project ID string or None.
+        """
+        project_id = self._options.get('projectId')
+        if not project_id:
+            try:
+                project_id = self._credential.project_id
+            except AttributeError:
+                pass
+        if not project_id:
+            project_id = os.environ.get('GOOGLE_CLOUD_PROJECT',
+                                        os.environ.get('GCLOUD_PROJECT'))
+        App._validate_project_id(self._options.get('projectId'))
+        return project_id
 
     def _get_service(self, name, initializer):
         """Returns the service instance identified by the given name.

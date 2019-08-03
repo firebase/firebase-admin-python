@@ -115,8 +115,11 @@ class TestApplicationDefault(object):
                              indirect=True)
     def test_nonexisting_path(self, app_default):
         del app_default
+        # This does not yet throw because the credentials are lazily loaded.
+        creds = credentials.ApplicationDefault()
+
         with pytest.raises(exceptions.DefaultCredentialsError):
-            credentials.ApplicationDefault()
+            creds.get_credential()  # This now throws.
 
 
 class TestRefreshToken(object):

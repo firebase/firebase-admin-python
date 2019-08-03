@@ -141,6 +141,15 @@ class TestMessageEncoder(object):
     def test_prefixed_topic(self):
         check_encoding(messaging.Message(topic='/topics/topic'), {'topic': 'topic'})
 
+    def test_fcm_options(self):
+        check_encoding(
+            messaging.Message(
+                topic='topic', fcm_options=messaging.FcmOptions('analytics_label_v1')),
+            {'topic': 'topic', 'fcm_options': {'analytics_label': 'analytics_label_v1'}})
+        check_encoding(
+            messaging.Message(topic='topic', fcm_options=messaging.FcmOptions()),
+            {'topic': 'topic'})
+
 
 class TestNotificationEncoder(object):
 
@@ -176,6 +185,47 @@ class TestNotificationEncoder(object):
         check_encoding(
             messaging.Message(topic='topic', notification=messaging.Notification('t')),
             {'topic': 'topic', 'notification': {'title': 't'}})
+
+
+class TestFcmOptionEncoder(object):
+
+    @pytest.mark.parametrize('label', [
+        '!',
+        'THIS_IS_LONGER_THAN_50_CHARACTERS_WHICH_IS_NOT_ALLOWED',
+        '',
+    ])
+    def test_invalid_fcm_options(self, label):
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(
+                topic='topic',
+                fcm_options=messaging.FcmOptions(label)
+            ))
+        expected = 'Malformed FcmOptions.analytics_label.'
+        assert str(excinfo.value) == expected
+
+    def test_fcm_options(self):
+        check_encoding(
+            messaging.Message(
+                topic='topic',
+                fcm_options=messaging.FcmOptions(),
+                android=messaging.AndroidConfig(fcm_options=messaging.AndroidFcmOptions()),
+                apns=messaging.APNSConfig(fcm_options=messaging.APNSFcmOptions())
+            ),
+            {'topic': 'topic'})
+        check_encoding(
+            messaging.Message(
+                topic='topic',
+                fcm_options=messaging.FcmOptions('message-label'),
+                android=messaging.AndroidConfig(
+                    fcm_options=messaging.AndroidFcmOptions('android-label')),
+                apns=messaging.APNSConfig(fcm_options=messaging.APNSFcmOptions('apns-label'))
+            ),
+            {
+                'topic': 'topic',
+                'fcm_options': {'analytics_label': 'message-label'},
+                'android': {'fcm_options': {'analytics_label': 'android-label'}},
+                'apns': {'fcm_options': {'analytics_label': 'apns-label'}},
+            })
 
 
 class TestAndroidConfigEncoder(object):
@@ -237,7 +287,8 @@ class TestAndroidConfigEncoder(object):
                 restricted_package_name='package',
                 priority='high',
                 ttl=123,
-                data={'k1': 'v1', 'k2': 'v2'}
+                data={'k1': 'v1', 'k2': 'v2'},
+                fcm_options=messaging.AndroidFcmOptions('analytics_label_v1')
             )
         )
         expected = {
@@ -250,6 +301,9 @@ class TestAndroidConfigEncoder(object):
                 'data': {
                     'k1': 'v1',
                     'k2': 'v2',
+                },
+                'fcm_options': {
+                    'analytics_label': 'analytics_label_v1',
                 },
             },
         }
@@ -505,7 +559,7 @@ class TestWebpushFcmOptionsEncoder(object):
         expected = {
             'topic': 'topic',
             'webpush': {
-                'fcmOptions': {
+                'fcm_options': {
                     'link': 'https://example',
                 },
             },
@@ -735,7 +789,10 @@ class TestAPNSConfigEncoder(object):
     def test_apns_config(self):
         msg = messaging.Message(
             topic='topic',
-            apns=messaging.APNSConfig(headers={'h1': 'v1', 'h2': 'v2'})
+            apns=messaging.APNSConfig(
+                headers={'h1': 'v1', 'h2': 'v2'},
+                fcm_options=messaging.APNSFcmOptions('analytics_label_v1')
+            ),
         )
         expected = {
             'topic': 'topic',
@@ -743,6 +800,9 @@ class TestAPNSConfigEncoder(object):
                 'headers': {
                     'h1': 'v1',
                     'h2': 'v2',
+                },
+                'fcm_options': {
+                    'analytics_label': 'analytics_label_v1',
                 },
             },
         }

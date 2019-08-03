@@ -24,6 +24,7 @@ import firebase_admin
 # [END import_sdk]
 from firebase_admin import credentials
 from firebase_admin import auth
+from firebase_admin import exceptions
 
 sys.path.append("lib")
 
@@ -31,6 +32,7 @@ def initialize_sdk_with_service_account():
     # [START initialize_sdk_with_service_account]
     import firebase_admin
     from firebase_admin import credentials
+    from firebase_admin import exceptions
 
     cred = credentials.Certificate('path/to/serviceAccountKey.json')
     default_app = firebase_admin.initialize_app(cred)
@@ -144,13 +146,12 @@ def verify_token_uid_check_revoke(id_token):
         decoded_token = auth.verify_id_token(id_token, check_revoked=True)
         # Token is valid and not revoked.
         uid = decoded_token['uid']
-    except auth.AuthError as exc:
-        if exc.code == 'ID_TOKEN_REVOKED':
-            # Token revoked, inform the user to reauthenticate or signOut().
-            pass
-        else:
-            # Token is invalid
-            pass
+    except auth.RevokedIdTokenError:
+        # Token revoked, inform the user to reauthenticate or signOut().
+        pass
+    except auth.InvalidIdTokenError:
+        # Token is invalid
+        pass
     # [END verify_token_id_check_revoked]
     firebase_admin.delete_app(default_app)
     return uid
@@ -322,7 +323,7 @@ def create_session_cookie(flask, app):
             response.set_cookie(
                 'session', session_cookie, expires=expires, httponly=True, secure=True)
             return response
-        except auth.AuthError:
+        except exceptions.FirebaseError:
             return flask.abort(401, 'Failed to create a session cookie')
     # [END session_login]
 
@@ -344,9 +345,9 @@ def check_auth_time(id_token, flask):
         # User did not sign in recently. To guard against ID token theft, require
         # re-authentication.
         return flask.abort(401, 'Recent sign in required')
-    except ValueError:
+    except auth.InvalidIdTokenError:
         return flask.abort(401, 'Invalid ID token')
-    except auth.AuthError:
+    except exceptions.FirebaseError:
         return flask.abort(401, 'Failed to create a session cookie')
     # [END check_auth_time]
 
@@ -359,16 +360,17 @@ def verfy_session_cookie(app, flask):
     @app.route('/profile', methods=['POST'])
     def access_restricted_content():
         session_cookie = flask.request.cookies.get('session')
+        if not session_cookie:
+            # Session cookie is unavailable. Force user to login.
+            return flask.redirect('/login')
+
         # Verify the session cookie. In this case an additional check is added to detect
         # if the user's Firebase session was revoked, user deleted/disabled, etc.
         try:
             decoded_claims = auth.verify_session_cookie(session_cookie, check_revoked=True)
             return serve_content_for_user(decoded_claims)
-        except ValueError:
-            # Session cookie is unavailable or invalid. Force user to login.
-            return flask.redirect('/login')
-        except auth.AuthError:
-            # Session revoked. Force user to login.
+        except auth.InvalidSessionCookieError:
+            # Session cookie is invalid, expired or revoked. Force user to login.
             return flask.redirect('/login')
     # [END session_verify]
 
@@ -385,11 +387,8 @@ def check_permissions(session_cookie, flask):
             return serve_content_for_admin(decoded_claims)
         else:
             return flask.abort(401, 'Insufficient permissions')
-    except ValueError:
-        # Session cookie is unavailable or invalid. Force user to login.
-        return flask.redirect('/login')
-    except auth.AuthError:
-        # Session revoked. Force user to login.
+    except auth.InvalidSessionCookieError:
+        # Session cookie is invalid, expired or revoked. Force user to login.
         return flask.redirect('/login')
     # [END session_verify_with_permission_check]
 
@@ -413,7 +412,7 @@ def clear_session_cookie_and_revoke(app, flask):
             response = flask.make_response(flask.redirect('/login'))
             response.set_cookie('session', expires=0)
             return response
-        except ValueError:
+        except auth.InvalidSessionCookieError:
             return flask.redirect('/login')
     # [END session_clear_and_revoke]
 
@@ -444,7 +443,7 @@ def import_users():
             result.success_count, result.failure_count))
         for err in result.errors:
             print('Failed to import {0} due to {1}'.format(users[err.index].uid, err.reason))
-    except auth.AuthError:
+    except exceptions.FirebaseError:
         # Some unrecoverable error occurred that prevented the operation from running.
         pass
     # [END import_users]
@@ -465,7 +464,7 @@ def import_with_hmac():
         result = auth.import_users(users, hash_alg=hash_alg)
         for err in result.errors:
             print('Failed to import user:', err.reason)
-    except auth.AuthError as error:
+    except exceptions.FirebaseError as error:
         print('Error importing users:', error)
     # [END import_with_hmac]
 
@@ -485,7 +484,7 @@ def import_with_pbkdf():
         result = auth.import_users(users, hash_alg=hash_alg)
         for err in result.errors:
             print('Failed to import user:', err.reason)
-    except auth.AuthError as error:
+    except exceptions.FirebaseError as error:
         print('Error importing users:', error)
     # [END import_with_pbkdf]
 
@@ -506,7 +505,7 @@ def import_with_standard_scrypt():
         result = auth.import_users(users, hash_alg=hash_alg)
         for err in result.errors:
             print('Failed to import user:', err.reason)
-    except auth.AuthError as error:
+    except exceptions.FirebaseError as error:
         print('Error importing users:', error)
     # [END import_with_standard_scrypt]
 
@@ -526,7 +525,7 @@ def import_with_bcrypt():
         result = auth.import_users(users, hash_alg=hash_alg)
         for err in result.errors:
             print('Failed to import user:', err.reason)
-    except auth.AuthError as error:
+    except exceptions.FirebaseError as error:
         print('Error importing users:', error)
     # [END import_with_bcrypt]
 
@@ -553,7 +552,7 @@ def import_with_scrypt():
         result = auth.import_users(users, hash_alg=hash_alg)
         for err in result.errors:
             print('Failed to import user:', err.reason)
-    except auth.AuthError as error:
+    except exceptions.FirebaseError as error:
         print('Error importing users:', error)
     # [END import_with_scrypt]
 
@@ -583,7 +582,7 @@ def import_without_password():
         result = auth.import_users(users)
         for err in result.errors:
             print('Failed to import user:', err.reason)
-    except auth.AuthError as error:
+    except exceptions.FirebaseError as error:
         print('Error importing users:', error)
     # [END import_without_password]
 

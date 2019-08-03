@@ -46,6 +46,8 @@ __all__ = [
     'InvalidIdTokenError',
     'InvalidSessionCookieError',
     'ListUsersPage',
+    'RevokedIdTokenError',
+    'RevokedSessionCookieError',
     'TokenSignError',
     'UidAlreadyExistsError',
     'UnexpectedResponseError',
@@ -88,6 +90,8 @@ InvalidDynamicLinkDomainError = _auth_utils.InvalidDynamicLinkDomainError
 InvalidIdTokenError = _auth_utils.InvalidIdTokenError
 InvalidSessionCookieError = _token_gen.InvalidSessionCookieError
 ListUsersPage = _user_mgt.ListUsersPage
+RevokedIdTokenError = _token_gen.RevokedIdTokenError
+RevokedSessionCookieError = _token_gen.RevokedSessionCookieError
 TokenSignError = _token_gen.TokenSignError
 UidAlreadyExistsError = _auth_utils.UidAlreadyExistsError
 UnexpectedResponseError = _auth_utils.UnexpectedResponseError
@@ -155,9 +159,9 @@ def verify_id_token(id_token, app=None, check_revoked=False):
 
     Raises:
         ValueError: If ``id_token`` is a not a string or is empty.
-        InvalidIdTokenError: If ``id_token`` is not a valid Firebase ID token or if
-            ``check_revoked`` is ``True`` and the ID token has been revoked.
+        InvalidIdTokenError: If ``id_token`` is not a valid Firebase ID token.
         ExpiredIdTokenError: If the specified ID token has expired.
+        RevokedIdTokenError: If ``check_revoked`` is ``True`` and the ID token has been revoked.
         CertificateFetchError: If an error occurs while fetching the public key certificates
             required to verify the ID token.
     """
@@ -168,7 +172,7 @@ def verify_id_token(id_token, app=None, check_revoked=False):
     token_verifier = _get_auth_service(app).token_verifier
     verified_claims = token_verifier.verify_id_token(id_token)
     if check_revoked:
-        _check_jwt_revoked(verified_claims, InvalidIdTokenError, 'ID token', app)
+        _check_jwt_revoked(verified_claims, RevokedIdTokenError, 'ID token', app)
     return verified_claims
 
 
@@ -210,16 +214,16 @@ def verify_session_cookie(session_cookie, check_revoked=False, app=None):
 
     Raises:
         ValueError: If ``session_cookie`` is a not a string or is empty.
-        InvalidSessionCookieError: If ``session_cookie`` is not a valid Firebase session cookie or
-            if ``check_revoked`` is ``True`` and the cookie has been revoked.
+        InvalidSessionCookieError: If ``session_cookie`` is not a valid Firebase session cookie.
         ExpiredSessionCookieError: If the specified session cookie has expired.
+        RevokedSessionCookieError: If ``check_revoked`` is ``True`` and the cookie has been revoked.
         CertificateFetchError: If an error occurs while fetching the public key certificates
             required to verify the session cookie.
     """
     token_verifier = _get_auth_service(app).token_verifier
     verified_claims = token_verifier.verify_session_cookie(session_cookie)
     if check_revoked:
-        _check_jwt_revoked(verified_claims, InvalidSessionCookieError, 'session cookie', app)
+        _check_jwt_revoked(verified_claims, RevokedSessionCookieError, 'session cookie', app)
     return verified_claims
 
 

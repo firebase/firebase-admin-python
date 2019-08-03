@@ -369,6 +369,13 @@ class ExpiredIdTokenError(_auth_utils.InvalidIdTokenError):
         _auth_utils.InvalidIdTokenError.__init__(self, message, cause)
 
 
+class RevokedIdTokenError(_auth_utils.InvalidIdTokenError):
+    """The provided ID token has been revoked."""
+
+    def __init__(self, message):
+        _auth_utils.InvalidIdTokenError.__init__(self, message)
+
+
 class InvalidSessionCookieError(exceptions.InvalidArgumentError):
     """The provided string is not a valid Firebase session cookie."""
 
@@ -381,3 +388,10 @@ class ExpiredSessionCookieError(InvalidSessionCookieError):
 
     def __init__(self, message, cause):
         InvalidSessionCookieError.__init__(self, message, cause)
+
+
+class RevokedSessionCookieError(InvalidSessionCookieError):
+    """The provided session cookie has been revoked."""
+
+    def __init__(self, message):
+        InvalidSessionCookieError.__init__(self, message)

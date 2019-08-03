@@ -351,7 +351,7 @@ def test_verify_id_token_revoked(new_user, api_key):
     # verify_id_token succeeded because it didn't check revoked.
     assert claims['iat'] * 1000 < user.tokens_valid_after_timestamp
 
-    with pytest.raises(auth.InvalidIdTokenError) as excinfo:
+    with pytest.raises(auth.RevokedIdTokenError) as excinfo:
         claims = auth.verify_id_token(id_token, check_revoked=True)
     assert str(excinfo.value) == 'The Firebase ID token has been revoked.'
 
@@ -372,7 +372,7 @@ def test_verify_session_cookie_revoked(new_user, api_key):
     # verify_session_cookie succeeded because it didn't check revoked.
     assert claims['iat'] * 1000 < user.tokens_valid_after_timestamp
 
-    with pytest.raises(auth.InvalidSessionCookieError) as excinfo:
+    with pytest.raises(auth.RevokedSessionCookieError) as excinfo:
         claims = auth.verify_session_cookie(session_cookie, check_revoked=True)
     assert str(excinfo.value) == 'The Firebase session cookie has been revoked.'
 

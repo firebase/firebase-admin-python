@@ -394,7 +394,7 @@ class TestVerifyIdToken(object):
     def test_revoked_token_check_revoked(self, user_mgt_app, revoked_tokens, id_token):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
         _instrument_user_manager(user_mgt_app, 200, revoked_tokens)
-        with pytest.raises(auth.InvalidIdTokenError) as excinfo:
+        with pytest.raises(auth.RevokedIdTokenError) as excinfo:
             auth.verify_id_token(id_token, app=user_mgt_app, check_revoked=True)
         assert str(excinfo.value) == 'The Firebase ID token has been revoked.'
 
@@ -520,7 +520,7 @@ class TestVerifySessionCookie(object):
     def test_revoked_cookie_check_revoked(self, user_mgt_app, revoked_tokens, cookie):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
         _instrument_user_manager(user_mgt_app, 200, revoked_tokens)
-        with pytest.raises(auth.InvalidSessionCookieError) as excinfo:
+        with pytest.raises(auth.RevokedSessionCookieError) as excinfo:
             auth.verify_session_cookie(cookie, app=user_mgt_app, check_revoked=True)
         assert str(excinfo.value) == 'The Firebase session cookie has been revoked.'
 

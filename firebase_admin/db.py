@@ -412,15 +412,12 @@ class Reference(object):
         tries = 0
         data, etag = self.get(etag=True)
         while tries < _TRANSACTION_MAX_RETRIES:
-            try:
-                new_data = transaction_update(data)
-                success, data, etag = self.set_if_unchanged(etag, new_data)
-                if success:
-                    return new_data
-                tries += 1
-            except Exception as error:
-                message = 'Transaction aborted by raising an exception: {0}'.format(error)
-                raise TransactionAbortedError(message, cause=error)
+            new_data = transaction_update(data)
+            success, data, etag = self.set_if_unchanged(etag, new_data)
+            if success:
+                return new_data
+            tries += 1
+
         raise TransactionAbortedError('Transaction aborted after failed retries.')
 
     def order_by_child(self, path):
@@ -628,15 +625,10 @@ class Query(object):
 
 
 class TransactionAbortedError(exceptions.AbortedError):
-    """A transaction was aborted.
+    """A transaction was aborted aftr exceeding the maximum number of retries."""
 
-    A transaction is aborted when the corresponding update function raises an exception, or when
-    the number of allowed retries is exceeded. In the former case, the original exception that
-    caused the transaction to abort can be accessed via the ``cause`` property.
-    """
-
-    def __init__(self, message, cause=None):
-        exceptions.AbortedError.__init__(self, message, cause)
+    def __init__(self, message):
+        exceptions.AbortedError.__init__(self, message)
 
 
 class _Sorter(object):

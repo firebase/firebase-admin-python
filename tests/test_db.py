@@ -457,11 +457,9 @@ class TestReference(object):
             del data
             raise ValueError('test error')
 
-        with pytest.raises(db.TransactionAbortedError) as excinfo:
+        with pytest.raises(ValueError) as excinfo:
             ref.transaction(transaction_update)
-        assert str(excinfo.value) == 'Transaction aborted by raising an exception: test error'
-        assert isinstance(excinfo.value.cause, ValueError)
-        assert excinfo.value.http_response is None
+        assert str(excinfo.value) == 'test error'
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
 

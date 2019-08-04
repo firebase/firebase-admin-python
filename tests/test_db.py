@@ -22,6 +22,7 @@ import pytest
 
 import firebase_admin
 from firebase_admin import db
+from firebase_admin import exceptions
 from firebase_admin import _sseclient
 from tests import testutils
 
@@ -62,6 +63,34 @@ class MockSSEClient(object):
 
 class _Object(object):
     pass
+
+
+class _RefOperations(object):
+
+    @classmethod
+    def get(cls, ref):
+        ref.get()
+
+    @classmethod
+    def push(cls, ref):
+        ref.push()
+
+    @classmethod
+    def set(cls, ref):
+        ref.set({'foo': 'bar'})
+
+    @classmethod
+    def delete(cls, ref):
+        ref.delete()
+
+    @classmethod
+    def query(cls, ref):
+        query = ref.order_by_key()
+        query.get()
+
+    @classmethod
+    def get_ops(cls):
+        return [cls.get, cls.push, cls.set, cls.delete, cls.query]
 
 
 class TestReferencePath(object):
@@ -132,6 +161,12 @@ class TestReference(object):
     valid_values = [
         '', 'foo', 0, 1, 100, 1.2, True, False, [], [1, 2], {}, {'foo' : 'bar'}
     ]
+    error_codes = {
+        400: exceptions.InvalidArgumentError,
+        401: exceptions.UnauthenticatedError,
+        404: exceptions.NotFoundError,
+        500: exceptions.InternalError,
+    }
 
     @classmethod
     def setup_class(cls):
@@ -449,21 +484,29 @@ class TestReference(object):
         else:
             assert ref.parent.path == parent
 
-    @pytest.mark.parametrize('error_code', [400, 401, 500])
-    def test_server_error(self, error_code):
+    @pytest.mark.parametrize('error_code', error_codes.keys())
+    @pytest.mark.parametrize('func', _RefOperations.get_ops())
+    def test_server_error(self, error_code, func):
         ref = db.reference('/test')
         self.instrument(ref, json.dumps({'error' : 'json error message'}), error_code)
-        with pytest.raises(db.ApiCallError) as excinfo:
-            ref.get()
-        assert 'Reason: json error message' in str(excinfo.value)
+        exc_type = self.error_codes[error_code]
+        with pytest.raises(exc_type) as excinfo:
+            func(ref)
+        assert str(excinfo.value) == 'json error message'
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
 
-    @pytest.mark.parametrize('error_code', [400, 401, 500])
-    def test_other_error(self, error_code):
+    @pytest.mark.parametrize('error_code', error_codes.keys())
+    @pytest.mark.parametrize('func', _RefOperations.get_ops())
+    def test_other_error(self, error_code, func):
         ref = db.reference('/test')
         self.instrument(ref, 'custom error message', error_code)
-        with pytest.raises(db.ApiCallError) as excinfo:
-            ref.get()
-        assert 'Reason: custom error message' in str(excinfo.value)
+        exc_type = self.error_codes[error_code]
+        with pytest.raises(exc_type) as excinfo:
+            func(ref)
+        assert str(excinfo.value) == 'Unexpected response from database: custom error message'
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
 
 
 class TestListenerRegistration(object):
@@ -481,9 +524,11 @@ class TestListenerRegistration(object):
             session.mount(test_url, adapter)
             def callback(_):
                 pass
-            with pytest.raises(db.ApiCallError) as excinfo:
+            with pytest.raises(exceptions.InternalError) as excinfo:
                 ref._listen_with_session(callback, session)
-            assert 'Reason: json error message' in str(excinfo.value)
+            assert str(excinfo.value) == 'json error message'
+            assert excinfo.value.cause is not None
+            assert excinfo.value.http_response is not None
         finally:
             testutils.cleanup_apps()
 

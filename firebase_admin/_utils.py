@@ -52,6 +52,7 @@ _HTTP_STATUS_TO_ERROR_CODE = {
     403: exceptions.PERMISSION_DENIED,
     404: exceptions.NOT_FOUND,
     409: exceptions.CONFLICT,
+    412: exceptions.FAILED_PRECONDITION,
     429: exceptions.RESOURCE_EXHAUSTED,
     500: exceptions.INTERNAL,
     503: exceptions.UNAVAILABLE,

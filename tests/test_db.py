@@ -32,14 +32,15 @@ class MockAdapter(testutils.MockAdapter):
 
     ETAG = '0'
 
-    def __init__(self, data, status, recorder):
+    def __init__(self, data, status, recorder, etag=ETAG):
         testutils.MockAdapter.__init__(self, data, status, recorder)
+        self._etag = etag
 
     def send(self, request, **kwargs):
         if_match = request.headers.get('if-match')
         if_none_match = request.headers.get('if-none-match')
         resp = super(MockAdapter, self).send(request, **kwargs)
-        resp.headers = {'ETag': MockAdapter.ETAG}
+        resp.headers = {'ETag': self._etag}
         if if_match and if_match != MockAdapter.ETAG:
             resp.status_code = 412
         elif if_none_match == MockAdapter.ETAG:
@@ -176,9 +177,9 @@ class TestReference(object):
     def teardown_class(cls):
         testutils.cleanup_apps()
 
-    def instrument(self, ref, payload, status=200):
+    def instrument(self, ref, payload, status=200, etag=MockAdapter.ETAG):
         recorder = []
-        adapter = MockAdapter(payload, status, recorder)
+        adapter = MockAdapter(payload, status, recorder, etag)
         ref._client.session.mount(self.test_url, adapter)
         return recorder
 
@@ -456,11 +457,26 @@ class TestReference(object):
             del data
             raise ValueError('test error')
 
-        with pytest.raises(ValueError) as excinfo:
+        with pytest.raises(db.TransactionAbortedError) as excinfo:
             ref.transaction(transaction_update)
-        assert str(excinfo.value) == 'test error'
+        assert str(excinfo.value) == 'Transaction aborted by raising an exception: test error'
+        assert isinstance(excinfo.value.cause, ValueError)
+        assert excinfo.value.http_response is None
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
+
+    def test_transaction_abort(self):
+        ref = db.reference('/test/count')
+        data = 42
+        recorder = self.instrument(ref, json.dumps(data), etag='1')
+
+        with pytest.raises(db.TransactionAbortedError) as excinfo:
+            ref.transaction(lambda x: x + 1 if x else 1)
+        assert isinstance(excinfo.value, exceptions.AbortedError)
+        assert str(excinfo.value) == 'Transaction aborted after failed retries.'
+        assert excinfo.value.cause is None
+        assert excinfo.value.http_response is None
+        assert len(recorder) == 1 + 25
 
     @pytest.mark.parametrize('func', [None, 0, 1, True, False, 'foo', dict(), list(), tuple()])
     def test_transaction_invalid_function(self, func):

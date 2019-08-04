@@ -294,7 +294,7 @@ class Reference(object):
             headers = self._client.headers(
                 'put', self._add_suffix(), json=value, headers={'if-match': expected_etag})
             return True, value, headers.get('ETag')
-        except exceptions.FirebaseError as error:
+        except exceptions.FailedPreconditionError as error:
             http_response = error.http_response
             if http_response is not None and 'ETag' in http_response.headers:
                 etag = http_response.headers['ETag']
@@ -412,11 +412,15 @@ class Reference(object):
         tries = 0
         data, etag = self.get(etag=True)
         while tries < _TRANSACTION_MAX_RETRIES:
-            new_data = transaction_update(data)
-            success, data, etag = self.set_if_unchanged(etag, new_data)
-            if success:
-                return new_data
-            tries += 1
+            try:
+                new_data = transaction_update(data)
+                success, data, etag = self.set_if_unchanged(etag, new_data)
+                if success:
+                    return new_data
+                tries += 1
+            except Exception as error:
+                message = 'Transaction aborted by raising an exception: {0}'.format(error)
+                raise TransactionAbortedError(message, cause=error)
         raise TransactionAbortedError('Transaction aborted after failed retries.')
 
     def order_by_child(self, path):
@@ -624,11 +628,15 @@ class Query(object):
 
 
 class TransactionAbortedError(exceptions.AbortedError):
-    """Represents an transaction aborted after exhausting all available retries."""
+    """A transaction was aborted.
 
-    def __init__(self, message):
-        exceptions.AbortedError.__init__(self, message)
+    A transaction is aborted when the corresponding update function raises an exception, or when
+    the number of allowed retries is exceeded. In the former case, the original exception that
+    caused the transaction to abort can be accessed via the ``cause`` property.
+    """
 
+    def __init__(self, message, cause=None):
+        exceptions.AbortedError.__init__(self, message, cause)
 
 
 class _Sorter(object):
@@ -962,12 +970,6 @@ class _Client(_http_client.JsonHttpClient):
         behavior of the Realtime Database REST API, parses the response to retrieve the error
         message. If the server has sent a non-JSON response, returns the full response
         as the error message.
-
-        Args:
-          response: An HTTP error response.
-
-        Returns:
-          str: A string error message extracted from the response.
         """
         message = None
         try:

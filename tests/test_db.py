@@ -66,34 +66,6 @@ class _Object(object):
     pass
 
 
-class _RefOperations(object):
-
-    @classmethod
-    def get(cls, ref):
-        ref.get()
-
-    @classmethod
-    def push(cls, ref):
-        ref.push()
-
-    @classmethod
-    def set(cls, ref):
-        ref.set({'foo': 'bar'})
-
-    @classmethod
-    def delete(cls, ref):
-        ref.delete()
-
-    @classmethod
-    def query(cls, ref):
-        query = ref.order_by_key()
-        query.get()
-
-    @classmethod
-    def get_ops(cls):
-        return [cls.get, cls.push, cls.set, cls.delete, cls.query]
-
-
 class TestReferencePath(object):
     """Test cases for Reference paths."""
 
@@ -153,6 +125,38 @@ class TestReferencePath(object):
         parent = db.Reference(path='/test')
         with pytest.raises(ValueError):
             parent.child(child)
+
+
+class _RefOperations(object):
+    """A collection of operations that can be performed using a ``db.Reference``.
+
+    This can be used to test any functionality that is common across multiple API calls.
+    """
+
+    @classmethod
+    def get(cls, ref):
+        ref.get()
+
+    @classmethod
+    def push(cls, ref):
+        ref.push()
+
+    @classmethod
+    def set(cls, ref):
+        ref.set({'foo': 'bar'})
+
+    @classmethod
+    def delete(cls, ref):
+        ref.delete()
+
+    @classmethod
+    def query(cls, ref):
+        query = ref.order_by_key()
+        query.get()
+
+    @classmethod
+    def get_ops(cls):
+        return [cls.get, cls.push, cls.set, cls.delete, cls.query]
 
 
 class TestReference(object):

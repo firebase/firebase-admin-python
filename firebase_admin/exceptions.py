@@ -38,7 +38,18 @@ DEADLINE_EXCEEDED = 'DEADLINE_EXCEEDED'
 
 
 class FirebaseError(Exception):
-    """Base class for all errors raised by the Admin SDK."""
+    """Base class for all errors raised by the Admin SDK.
+
+    Args:
+        code: A string error code that represents the type of the exception. Possible error
+            codes are defined in https://cloud.google.com/apis/design/errors#handling_errors.
+        message: A human-readable error message string.
+        cause: The exception that caused this error (optional).
+        http_response: If this error was caused by an HTTP error response, this property is
+            set to the ``requests.Response`` object that represents the HTTP response (optional).
+            See https://2.python-requests.org/en/master/api/#requests.Response for details of
+            this object.
+    """
 
     def __init__(self, code, message, cause=None, http_response=None):
         Exception.__init__(self, message)

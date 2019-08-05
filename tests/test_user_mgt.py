@@ -289,6 +289,12 @@ class TestGetUser(object):
 
 class TestCreateUser(object):
 
+    already_exists_errors = {
+        'DUPLICATE_EMAIL': auth.EmailAlreadyExistsError,
+        'DUPLICATE_LOCAL_ID': auth.UidAlreadyExistsError,
+        'PHONE_NUMBER_EXISTS': auth.PhoneNumberAlreadyExistsError,
+    }
+
     @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['a'*129])
     def test_invalid_uid(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
@@ -358,13 +364,15 @@ class TestCreateUser(object):
         assert excinfo.value.http_response is not None
         assert excinfo.value.cause is not None
 
-    def test_uid_already_exists(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 500, '{"error": {"message": "DUPLICATE_LOCAL_ID"}}')
-        with pytest.raises(auth.UidAlreadyExistsError) as excinfo:
+    @pytest.mark.parametrize('error_code', already_exists_errors.keys())
+    def test_user_already_exists(self, user_mgt_app, error_code):
+        resp = {'error': {'message': error_code}}
+        _instrument_user_manager(user_mgt_app, 500, json.dumps(resp))
+        exc_type = self.already_exists_errors[error_code]
+        with pytest.raises(exc_type) as excinfo:
             auth.create_user(app=user_mgt_app)
         assert isinstance(excinfo.value, exceptions.AlreadyExistsError)
-        assert str(excinfo.value) == ('The user with the provided uid already exists '
-                                      '(DUPLICATE_LOCAL_ID).')
+        assert str(excinfo.value) == '{0} ({1}).'.format(exc_type.default_message, error_code)
         assert excinfo.value.http_response is not None
         assert excinfo.value.cause is not None
 

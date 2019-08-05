@@ -202,6 +202,15 @@ class UidAlreadyExistsError(exceptions.AlreadyExistsError):
         exceptions.AlreadyExistsError.__init__(self, message, cause, http_response)
 
 
+class EmailAlreadyExistsError(exceptions.AlreadyExistsError):
+    """The user with the provided email already exists."""
+
+    default_message = 'The user with the provided email already exists'
+
+    def __init__(self, message, cause, http_response):
+        exceptions.AlreadyExistsError.__init__(self, message, cause, http_response)
+
+
 class InvalidDynamicLinkDomainError(exceptions.InvalidArgumentError):
     """Dynamic link domain in ActionCodeSettings is not authorized."""
 
@@ -218,6 +227,15 @@ class InvalidIdTokenError(exceptions.InvalidArgumentError):
 
     def __init__(self, message, cause=None, http_response=None):
         exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
+
+
+class PhoneNumberAlreadyExistsError(exceptions.AlreadyExistsError):
+    """The user with the provided phone number already exists."""
+
+    default_message = 'The user with the provided phone number already exists'
+
+    def __init__(self, message, cause, http_response):
+        exceptions.AlreadyExistsError.__init__(self, message, cause, http_response)
 
 
 class UnexpectedResponseError(exceptions.UnknownError):
@@ -237,9 +255,11 @@ class UserNotFoundError(exceptions.NotFoundError):
 
 
 _CODE_TO_EXC_TYPE = {
+    'DUPLICATE_EMAIL': EmailAlreadyExistsError,
     'DUPLICATE_LOCAL_ID': UidAlreadyExistsError,
     'INVALID_DYNAMIC_LINK_DOMAIN': InvalidDynamicLinkDomainError,
     'INVALID_ID_TOKEN': InvalidIdTokenError,
+    'PHONE_NUMBER_EXISTS': PhoneNumberAlreadyExistsError,
     'USER_NOT_FOUND': UserNotFoundError,
 }
 

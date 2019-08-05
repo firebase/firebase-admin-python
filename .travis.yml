@@ -13,7 +13,8 @@ jobs:
       script: ./lint.sh all
 
 before_install:
-  - curl -sL https://firebase.tools | flags="install-binary-release" bash
+  - which awk
+  - curl -sL https://firebase.tools | flags="install-binary-release" bash -x
 script:
   - pytest
   - firebase emulators:exec --only database --project fake-project-id 'pytest integration/test_db.py'

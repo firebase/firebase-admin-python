@@ -46,6 +46,15 @@ MOCK_REQUEST = testutils.MockRequest(200, MOCK_PUBLIC_CERTS)
 
 INVALID_STRINGS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
 INVALID_BOOLS = [None, '', 'foo', 0, 1, list(), tuple(), dict()]
+INVALID_JWT_ARGS = {
+    'NoneToken': None,
+    'EmptyToken': '',
+    'BoolToken': True,
+    'IntToken': 1,
+    'ListToken': [],
+    'EmptyDictToken': {},
+    'NonEmptyDictToken': {'a': 1},
+}
 
 # Fixture for mocking a HTTP server
 httpserver = plugin.httpserver
@@ -363,13 +372,6 @@ class TestVerifyIdToken(object):
             'iat': int(time.time()) - 10000,
             'exp': int(time.time()) - 3600
         }),
-        'NoneToken': None,
-        'EmptyToken': '',
-        'BoolToken': True,
-        'IntToken': 1,
-        'ListToken': [],
-        'EmptyDictToken': {},
-        'NonEmptyDictToken': {'a': 1},
         'BadFormatToken': 'foobar'
     }
 
@@ -392,9 +394,8 @@ class TestVerifyIdToken(object):
     def test_revoked_token_check_revoked(self, user_mgt_app, revoked_tokens, id_token):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
         _instrument_user_manager(user_mgt_app, 200, revoked_tokens)
-        with pytest.raises(auth.AuthError) as excinfo:
+        with pytest.raises(auth.RevokedIdTokenError) as excinfo:
             auth.verify_id_token(id_token, app=user_mgt_app, check_revoked=True)
-        assert excinfo.value.code == 'ID_TOKEN_REVOKED'
         assert str(excinfo.value) == 'The Firebase ID token has been revoked.'
 
     @pytest.mark.parametrize('arg', INVALID_BOOLS)
@@ -411,11 +412,30 @@ class TestVerifyIdToken(object):
         assert claims['admin'] is True
         assert claims['uid'] == claims['sub']
 
+    @pytest.mark.parametrize('id_token', INVALID_JWT_ARGS.values(), ids=list(INVALID_JWT_ARGS))
+    def test_invalid_arg(self, user_mgt_app, id_token):
+        _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
+        with pytest.raises(ValueError) as excinfo:
+            auth.verify_id_token(id_token, app=user_mgt_app)
+        assert 'Illegal ID token provided' in str(excinfo.value)
+
     @pytest.mark.parametrize('id_token', invalid_tokens.values(), ids=list(invalid_tokens))
     def test_invalid_token(self, user_mgt_app, id_token):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
-        with pytest.raises(ValueError):
+        with pytest.raises(auth.InvalidIdTokenError) as excinfo:
             auth.verify_id_token(id_token, app=user_mgt_app)
+        assert isinstance(excinfo.value, exceptions.InvalidArgumentError)
+        assert excinfo.value.http_response is None
+
+    def test_expired_token(self, user_mgt_app):
+        _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
+        id_token = self.invalid_tokens['ExpiredToken']
+        with pytest.raises(auth.ExpiredIdTokenError) as excinfo:
+            auth.verify_id_token(id_token, app=user_mgt_app)
+        assert isinstance(excinfo.value, auth.InvalidIdTokenError)
+        assert 'Token expired' in str(excinfo.value)
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is None
 
     def test_project_id_option(self):
         app = firebase_admin.initialize_app(
@@ -440,13 +460,19 @@ class TestVerifyIdToken(object):
     def test_custom_token(self, auth_app):
         id_token = auth.create_custom_token(MOCK_UID, app=auth_app)
         _overwrite_cert_request(auth_app, MOCK_REQUEST)
-        with pytest.raises(ValueError):
+        with pytest.raises(auth.InvalidIdTokenError) as excinfo:
             auth.verify_id_token(id_token, app=auth_app)
+        message = 'verify_id_token() expects an ID token, but was given a custom token.'
+        assert str(excinfo.value) == message
 
     def test_certificate_request_failure(self, user_mgt_app):
         _overwrite_cert_request(user_mgt_app, testutils.MockRequest(404, 'not found'))
-        with pytest.raises(google.auth.exceptions.TransportError):
+        with pytest.raises(auth.CertificateFetchError) as excinfo:
             auth.verify_id_token(TEST_ID_TOKEN, app=user_mgt_app)
+        assert 'Could not fetch certificates' in str(excinfo.value)
+        assert isinstance(excinfo.value, exceptions.UnknownError)
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is None
 
 
 class TestVerifySessionCookie(object):
@@ -471,13 +497,6 @@ class TestVerifySessionCookie(object):
             'iat': int(time.time()) - 10000,
             'exp': int(time.time()) - 3600
         }),
-        'NoneCookie': None,
-        'EmptyCookie': '',
-        'BoolCookie': True,
-        'IntCookie': 1,
-        'ListCookie': [],
-        'EmptyDictCookie': {},
-        'NonEmptyDictCookie': {'a': 1},
         'BadFormatCookie': 'foobar',
         'IDToken': TEST_ID_TOKEN,
     }
@@ -501,9 +520,8 @@ class TestVerifySessionCookie(object):
     def test_revoked_cookie_check_revoked(self, user_mgt_app, revoked_tokens, cookie):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
         _instrument_user_manager(user_mgt_app, 200, revoked_tokens)
-        with pytest.raises(auth.AuthError) as excinfo:
+        with pytest.raises(auth.RevokedSessionCookieError) as excinfo:
             auth.verify_session_cookie(cookie, app=user_mgt_app, check_revoked=True)
-        assert excinfo.value.code == 'SESSION_COOKIE_REVOKED'
         assert str(excinfo.value) == 'The Firebase session cookie has been revoked.'
 
     @pytest.mark.parametrize('cookie', valid_cookies.values(), ids=list(valid_cookies))
@@ -514,11 +532,30 @@ class TestVerifySessionCookie(object):
         assert claims['admin'] is True
         assert claims['uid'] == claims['sub']
 
+    @pytest.mark.parametrize('cookie', INVALID_JWT_ARGS.values(), ids=list(INVALID_JWT_ARGS))
+    def test_invalid_args(self, user_mgt_app, cookie):
+        _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
+        with pytest.raises(ValueError) as excinfo:
+            auth.verify_session_cookie(cookie, app=user_mgt_app)
+        assert 'Illegal session cookie provided' in str(excinfo.value)
+
     @pytest.mark.parametrize('cookie', invalid_cookies.values(), ids=list(invalid_cookies))
     def test_invalid_cookie(self, user_mgt_app, cookie):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
-        with pytest.raises(ValueError):
+        with pytest.raises(auth.InvalidSessionCookieError) as excinfo:
             auth.verify_session_cookie(cookie, app=user_mgt_app)
+        assert isinstance(excinfo.value, exceptions.InvalidArgumentError)
+        assert excinfo.value.http_response is None
+
+    def test_expired_cookie(self, user_mgt_app):
+        _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
+        cookie = self.invalid_cookies['ExpiredCookie']
+        with pytest.raises(auth.ExpiredSessionCookieError) as excinfo:
+            auth.verify_session_cookie(cookie, app=user_mgt_app)
+        assert isinstance(excinfo.value, auth.InvalidSessionCookieError)
+        assert 'Token expired' in str(excinfo.value)
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is None
 
     def test_project_id_option(self):
         app = firebase_admin.initialize_app(
@@ -540,13 +577,17 @@ class TestVerifySessionCookie(object):
     def test_custom_token(self, auth_app):
         custom_token = auth.create_custom_token(MOCK_UID, app=auth_app)
         _overwrite_cert_request(auth_app, MOCK_REQUEST)
-        with pytest.raises(ValueError):
+        with pytest.raises(auth.InvalidSessionCookieError):
             auth.verify_session_cookie(custom_token, app=auth_app)
 
     def test_certificate_request_failure(self, user_mgt_app):
         _overwrite_cert_request(user_mgt_app, testutils.MockRequest(404, 'not found'))
-        with pytest.raises(google.auth.exceptions.TransportError):
+        with pytest.raises(auth.CertificateFetchError) as excinfo:
             auth.verify_session_cookie(TEST_SESSION_COOKIE, app=user_mgt_app)
+        assert 'Could not fetch certificates' in str(excinfo.value)
+        assert isinstance(excinfo.value, exceptions.UnknownError)
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is None
 
 
 class TestCertificateCaching(object):

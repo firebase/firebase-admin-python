@@ -37,6 +37,7 @@ __all__ = [
     'ActionCodeSettings',
     'CertificateFetchError',
     'DELETE_ATTRIBUTE',
+    'EmailAlreadyExistsError',
     'ErrorInfo',
     'ExpiredIdTokenError',
     'ExpiredSessionCookieError',
@@ -46,6 +47,7 @@ __all__ = [
     'InvalidIdTokenError',
     'InvalidSessionCookieError',
     'ListUsersPage',
+    'PhoneNumberAlreadyExistsError',
     'RevokedIdTokenError',
     'RevokedSessionCookieError',
     'TokenSignError',
@@ -81,6 +83,7 @@ __all__ = [
 ActionCodeSettings = _user_mgt.ActionCodeSettings
 CertificateFetchError = _token_gen.CertificateFetchError
 DELETE_ATTRIBUTE = _user_mgt.DELETE_ATTRIBUTE
+EmailAlreadyExistsError = _auth_utils.EmailAlreadyExistsError
 ErrorInfo = _user_import.ErrorInfo
 ExpiredIdTokenError = _token_gen.ExpiredIdTokenError
 ExpiredSessionCookieError = _token_gen.ExpiredSessionCookieError
@@ -90,6 +93,7 @@ InvalidDynamicLinkDomainError = _auth_utils.InvalidDynamicLinkDomainError
 InvalidIdTokenError = _auth_utils.InvalidIdTokenError
 InvalidSessionCookieError = _token_gen.InvalidSessionCookieError
 ListUsersPage = _user_mgt.ListUsersPage
+PhoneNumberAlreadyExistsError = _auth_utils.PhoneNumberAlreadyExistsError
 RevokedIdTokenError = _token_gen.RevokedIdTokenError
 RevokedSessionCookieError = _token_gen.RevokedSessionCookieError
 TokenSignError = _token_gen.TokenSignError

@@ -34,10 +34,6 @@ class Sentinel(object):
         self.description = description
 
 
-# Use this internally, until sentinels are available in the public API.
-_UNSPECIFIED = Sentinel('No value specified')
-
-
 DELETE_ATTRIBUTE = Sentinel('Value used to delete an attribute from a user profile')
 
 
@@ -524,9 +520,9 @@ class UserManager(object):
                     'Failed to create new user.', http_response=http_resp)
             return body.get('localId')
 
-    def update_user(self, uid, display_name=_UNSPECIFIED, email=None, phone_number=_UNSPECIFIED,
-                    photo_url=_UNSPECIFIED, password=None, disabled=None, email_verified=None,
-                    valid_since=None, custom_claims=_UNSPECIFIED):
+    def update_user(self, uid, display_name=None, email=None, phone_number=None,
+                    photo_url=None, password=None, disabled=None, email_verified=None,
+                    valid_since=None, custom_claims=None):
         """Updates an existing user account with the specified properties"""
         payload = {
             'localId': _auth_utils.validate_uid(uid, required=True),
@@ -538,27 +534,27 @@ class UserManager(object):
         }
 
         remove = []
-        if display_name is not _UNSPECIFIED:
-            if display_name is None or display_name is DELETE_ATTRIBUTE:
+        if display_name is not None:
+            if display_name is DELETE_ATTRIBUTE:
                 remove.append('DISPLAY_NAME')
             else:
                 payload['displayName'] = _auth_utils.validate_display_name(display_name)
-        if photo_url is not _UNSPECIFIED:
-            if photo_url is None or photo_url is DELETE_ATTRIBUTE:
+        if photo_url is not None:
+            if photo_url is DELETE_ATTRIBUTE:
                 remove.append('PHOTO_URL')
             else:
                 payload['photoUrl'] = _auth_utils.validate_photo_url(photo_url)
         if remove:
             payload['deleteAttribute'] = remove
 
-        if phone_number is not _UNSPECIFIED:
-            if phone_number is None or phone_number is DELETE_ATTRIBUTE:
+        if phone_number is not None:
+            if phone_number is DELETE_ATTRIBUTE:
                 payload['deleteProvider'] = ['phone']
             else:
                 payload['phoneNumber'] = _auth_utils.validate_phone(phone_number)
 
-        if custom_claims is not _UNSPECIFIED:
-            if custom_claims is None or custom_claims is DELETE_ATTRIBUTE:
+        if custom_claims is not None:
+            if custom_claims is DELETE_ATTRIBUTE:
                 custom_claims = {}
             json_claims = json.dumps(custom_claims) if isinstance(
                 custom_claims, dict) else custom_claims

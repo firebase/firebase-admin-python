@@ -465,16 +465,6 @@ class TestUpdateUser(object):
         request = json.loads(recorder[0].body.decode())
         assert request == {'localId' : 'testuser', 'customAttributes' : json.dumps({})}
 
-    def test_update_user_delete_fields_with_none(self, user_mgt_app):
-        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
-        user_mgt.update_user('testuser', display_name=None, photo_url=None, phone_number=None)
-        request = json.loads(recorder[0].body.decode())
-        assert request == {
-            'localId' : 'testuser',
-            'deleteAttribute' : ['DISPLAY_NAME', 'PHOTO_URL'],
-            'deleteProvider' : ['phone'],
-        }
-
     def test_update_user_delete_fields(self, user_mgt_app):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
         user_mgt.update_user(
@@ -561,9 +551,9 @@ class TestSetCustomUserClaims(object):
         request = json.loads(recorder[0].body.decode())
         assert request == {'localId' : 'testuser', 'customAttributes' : claims}
 
-    def test_set_custom_user_claims_none(self, user_mgt_app):
+    def test_set_custom_user_claims_remove(self, user_mgt_app):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
-        auth.set_custom_user_claims('testuser', None, app=user_mgt_app)
+        auth.set_custom_user_claims('testuser', auth.DELETE_ATTRIBUTE, app=user_mgt_app)
         request = json.loads(recorder[0].body.decode())
         assert request == {'localId' : 'testuser', 'customAttributes' : json.dumps({})}
 

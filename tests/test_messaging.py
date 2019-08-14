@@ -1209,6 +1209,72 @@ class TestApsAlertEncoder(object):
         }
         check_encoding(msg, expected)
 
+    def test_aps_alert_custom_data_merge(self):
+        msg = messaging.Message(
+            topic='topic',
+            apns=messaging.APNSConfig(
+                payload=messaging.APNSPayload(
+                    aps=messaging.Aps(
+                        alert=messaging.ApsAlert(
+                            title='t',
+                            subtitle='st',
+                            custom_data={'k1': 'v1', 'k2': 'v2'}
+                        )
+                    ),
+                )
+            )
+        )
+        expected = {
+            'topic': 'topic',
+            'apns': {
+                'payload': {
+                    'aps': {
+                        'alert': {
+                            'title': 't',
+                            'subtitle': 'st',
+                            'k1': 'v1',
+                            'k2': 'v2'
+                        },
+                    },
+                }
+            },
+        }
+        check_encoding(msg, expected)
+
+    def test_aps_alert_custom_data_override(self):
+        msg = messaging.Message(
+            topic='topic',
+            apns=messaging.APNSConfig(
+                payload=messaging.APNSPayload(
+                    aps=messaging.Aps(
+                        alert=messaging.ApsAlert(
+                            title='t',
+                            subtitle='st',
+                            launch_image='li',
+                            custom_data={'launch-image': ['li1', 'li2']}
+                        )
+                    ),
+                )
+            )
+        )
+        expected = {
+            'topic': 'topic',
+            'apns': {
+                'payload': {
+                    'aps': {
+                        'alert': {
+                            'title': 't',
+                            'subtitle': 'st',
+                            'launch-image': [
+                                'li1',
+                                'li2'
+                            ]
+                        },
+                    },
+                }
+            },
+        }
+        check_encoding(msg, expected)
 
 class TestTimeout(object):
 

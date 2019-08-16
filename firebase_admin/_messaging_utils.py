@@ -394,10 +394,13 @@ class ApsAlert(object):
         action_loc_key: Key of the text in the app's string resources to use to localize the
             action button text (optional).
         launch_image: Image for the notification action (optional).
+        custom_data: A dict of custom key-value pairs to be included in the ApsAlert dictionary
+            (optional)
     """
 
     def __init__(self, title=None, subtitle=None, body=None, loc_key=None, loc_args=None,
-                 title_loc_key=None, title_loc_args=None, action_loc_key=None, launch_image=None):
+                 title_loc_key=None, title_loc_args=None, action_loc_key=None, launch_image=None,
+                 custom_data=None):
         self.title = title
         self.subtitle = subtitle
         self.body = body
@@ -407,6 +410,7 @@ class ApsAlert(object):
         self.title_loc_args = title_loc_args
         self.action_loc_key = action_loc_key
         self.launch_image = launch_image
+        self.custom_data = custom_data
 
 
 class APNSFcmOptions(object):
@@ -835,6 +839,14 @@ class MessageEncoder(json.JSONEncoder):
         if result.get('title-loc-args') and not result.get('title-loc-key'):
             raise ValueError(
                 'ApsAlert.title_loc_key is required when specifying title_loc_args.')
+        if alert.custom_data is not None:
+            if not isinstance(alert.custom_data, dict):
+                raise ValueError('ApsAlert.custom_data must be a dict.')
+            for key, val in alert.custom_data.items():
+                _Validators.check_string('ApsAlert.custom_data key', key)
+                # allow specifying key override because Apple could update API so that key
+                # could have unexpected value type
+                result[key] = val
         return cls.remove_null_values(result)
 
     @classmethod

@@ -16,7 +16,6 @@
 
 import json
 import pytest
-import six
 
 import firebase_admin
 from firebase_admin import exceptions
@@ -98,7 +97,6 @@ class TestGetModel(object):
         assert model._data['displayName'] == DISPLAY_NAME_1
 
     def test_get_model_validation_errors(self):
-        _, recorder = self._instrument_mlkit_service()
         #Empty model-id
         with pytest.raises(ValueError) as err:
             mlkit.get_model('')

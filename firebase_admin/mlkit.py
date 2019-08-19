@@ -49,6 +49,11 @@ def get_model(model_id, app=None):
     return Model(mlkit_service.get_model(model_id))
 
 
+def delete_model(model_id, app=None):
+    mlkit_service = _get_mlkit_service(app)
+    mlkit_service.delete_model(model_id)
+
+
 class Model(object):
     """A Firebase ML Kit Model object."""
     def __init__(self, data):
@@ -65,6 +70,13 @@ class Model(object):
         return not self.__eq__(other)
 
     #TODO(ifielker): define the Model properties etc
+
+
+def _validate_model_id(model_id):
+    if not isinstance(model_id, six.string_types):
+        raise TypeError('Model ID must be a string.')
+    if not re.match(r'^[A-Za-z0-9_-]{1,60}$', model_id):
+        raise ValueError('Model ID format is invalid.')
 
 
 class _MLKitService(object):
@@ -84,11 +96,15 @@ class _MLKitService(object):
             base_url=self._project_url)
 
     def get_model(self, model_id):
-        if not isinstance(model_id, six.string_types):
-            raise TypeError('Model ID must be a string.')
-        if not re.match(r'^[A-Za-z0-9_-]{1,60}$', model_id):
-            raise ValueError('Model ID format is invalid.')
+        _validate_model_id(model_id)
         try:
             return self._client.body('get', url='models/{0}'.format(model_id))
+        except requests.exceptions.RequestException as error:
+            raise _utils.handle_platform_error_from_requests(error)
+
+    def delete_model(self, model_id):
+        _validate_model_id(model_id)
+        try:
+            self._client.body('delete', url='models/{0}'.format(model_id))
         except requests.exceptions.RequestException as error:
             raise _utils.handle_platform_error_from_requests(error)

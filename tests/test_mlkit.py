@@ -48,6 +48,13 @@ ERROR_JSON = {
 }
 _ERROR_RESPONSE = json.dumps(ERROR_JSON)
 
+invalid_model_id_args = [
+    ('', ValueError, 'Model ID format is invalid.'),
+    ('&_*#@:/?', ValueError, 'Model ID format is invalid.'),
+    (None, TypeError, 'Model ID must be a string.'),
+    (12345, TypeError, 'Model ID must be a string.'),
+]
+
 def check_error(err, err_type, msg):
     assert isinstance(err, err_type)
     assert str(err) == msg
@@ -98,26 +105,11 @@ class TestGetModel(object):
         assert model._data['name'] == MODEL_NAME_1
         assert model._data['displayName'] == DISPLAY_NAME_1
 
-    def test_get_model_validation_errors(self):
-        #Empty model-id
-        with pytest.raises(ValueError) as err:
-            mlkit.get_model('')
-        check_error(err.value, ValueError, 'Model ID format is invalid.')
-
-        #None model-id
-        with pytest.raises(TypeError) as err:
-            mlkit.get_model(None)
-        check_error(err.value, TypeError, 'Model ID must be a string.')
-
-        #Wrong type
-        with pytest.raises(TypeError) as err:
-            mlkit.get_model(12345)
-        check_error(err.value, TypeError, 'Model ID must be a string.')
-
-        #Invalid characters
-        with pytest.raises(ValueError) as err:
-            mlkit.get_model('&_*#@:/?')
-        check_error(err.value, ValueError, 'Model ID format is invalid.')
+    @pytest.mark.parametrize('model_id, exc_type, error_message', invalid_model_id_args)
+    def test_get_model_validation_errors(self, model_id, exc_type, error_message):
+        with pytest.raises(exc_type) as err:
+            mlkit.get_model(model_id)
+        check_error(err.value, exc_type, error_message)
 
     def test_get_model_error(self):
         recorder = instrument_mlkit_service(status=404, payload=_ERROR_RESPONSE)
@@ -157,26 +149,11 @@ class TestDeleteModel(object):
         assert recorder[0].method == 'DELETE'
         assert recorder[0].url == TestDeleteModel._url(PROJECT_ID, MODEL_ID_1)
 
-    def test_delete_model_validation_errors(self):
-        #Empty model-id
-        with pytest.raises(ValueError) as err:
-            mlkit.delete_model('')
-        check_error(err.value, ValueError, 'Model ID format is invalid.')
-
-        #None model-id
-        with pytest.raises(TypeError) as err:
-            mlkit.delete_model(None)
-        check_error(err.value, TypeError, 'Model ID must be a string.')
-
-        #Wrong type
-        with pytest.raises(TypeError) as err:
-            mlkit.delete_model(12345)
-        check_error(err.value, TypeError, 'Model ID must be a string.')
-
-        #Invalid characters
-        with pytest.raises(ValueError) as err:
-            mlkit.delete_model('&_*#@:/?')
-        check_error(err.value, ValueError, 'Model ID format is invalid.')
+    @pytest.mark.parametrize('model_id, exc_type, error_message', invalid_model_id_args)
+    def test_delete_model_validation_errors(self, model_id, exc_type, error_message):
+        with pytest.raises(exc_type) as err:
+            mlkit.delete_model(model_id)
+        check_error(err.value, exc_type, error_message)
 
     def test_delete_model_error(self):
         recorder = instrument_mlkit_service(status=404, payload=_ERROR_RESPONSE)

@@ -78,6 +78,7 @@ def _validate_model_id(model_id):
     if not re.match(r'^[A-Za-z0-9_-]{1,60}$', model_id):
         raise ValueError('Model ID format is invalid.')
 
+
 class _MLKitService(object):
     """Firebase MLKit service."""
 

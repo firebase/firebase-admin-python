@@ -36,13 +36,15 @@ pip install firebase-admin
 
 Please refer to the [CONTRIBUTING page](./CONTRIBUTING.md) for more information
 about how you can contribute to this project. We welcome bug reports, feature
-requests, code review feedback, and also pull requests. 
+requests, code review feedback, and also pull requests.
 
 
 ## Supported Python Versions
 
-We support Python 2.7 and Python 3.3+. Firebase Admin Python SDK is also tested
-on PyPy and [Google App Engine](https://cloud.google.com/appengine/) environments.
+We currently support Python 2.7 and Python 3.4+. However, Python 2.7 support is
+being phased out, and the developers are advised to use latest Python 3.
+Firebase Admin Python SDK is also tested on PyPy and
+[Google App Engine](https://cloud.google.com/appengine/) environments.
 
 
 ## Documentation

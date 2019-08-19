@@ -15,6 +15,8 @@ jobs:
 before_install:
   - nvm install 8 && npm install -g firebase-tools
 script:
+  - netstat -l
+  - lsof -i :9000
   - pytest
   - firebase emulators:exec --only database --project fake-project-id 'pytest integration/test_db.py'
 cache:

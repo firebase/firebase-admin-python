@@ -79,7 +79,9 @@ class _MLKitService(object):
                 'Project ID is required to access MLKit service. Either set the '
                 'projectId option, or use service account credentials.')
         self._project_url = _MLKitService.PROJECT_URL.format(project_id)
-        self._client = _http_client.JsonHttpClient(credential=app.credential.get_credential())
+        self._client = _http_client.JsonHttpClient(
+            credential=app.credential.get_credential(),
+            base_url=self._project_url)
 
     def get_model(self, model_id):
         if not isinstance(model_id, six.string_types):
@@ -87,8 +89,6 @@ class _MLKitService(object):
         if not re.match(r'^[A-Za-z0-9_-]{1,60}$', model_id):
             raise ValueError('Model ID format is invalid.')
         try:
-            return self._client.body(
-                'get',
-                url=self._project_url + 'models/{0}'.format(model_id))
+            return self._client.body('get', url='models/{0}'.format(model_id))
         except requests.exceptions.RequestException as error:
             raise _utils.handle_platform_error_from_requests(error)

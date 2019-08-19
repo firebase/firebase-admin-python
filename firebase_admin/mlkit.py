@@ -27,7 +27,9 @@ from firebase_admin import _http_client
 from firebase_admin import _utils
 from firebase_admin import exceptions
 
+
 _MLKIT_ATTRIBUTE = '_mlkit'
+
 
 def _get_mlkit_service(app):
     """ Returns an _MLKitService instance for an App.
@@ -43,9 +45,11 @@ def _get_mlkit_service(app):
     """
     return _utils.get_app_service(app, _MLKIT_ATTRIBUTE, _MLKitService)
 
+
 def get_model(model_id, app=None):
     mlkit_service = _get_mlkit_service(app)
     return Model(mlkit_service.get_model(model_id))
+
 
 class Model(object):
     """A Firebase ML Kit Model object."""
@@ -64,10 +68,10 @@ class Model(object):
 
     #TODO(ifielker): define the Model properties etc
 
+
 class _MLKitService(object):
     """Firebase MLKit service."""
 
-    BASE_URL = 'https://mlkit.googleapis.com/v1beta1/'
     PROJECT_URL = 'https://mlkit.googleapis.com/v1beta1/projects/{0}/'
 
     def __init__(self, app):
@@ -79,29 +83,14 @@ class _MLKitService(object):
         self._project_url = _MLKitService.PROJECT_URL.format(project_id)
         self._client = _http_client.JsonHttpClient(credential=app.credential.get_credential())
 
-    def _request(self, method, urlpath, **kwargs):
-        """Makes an HTTP call using the Python requests library.
-
-        Args:
-            method: HTTP method name as a string (e.g. get, post, patch, delete).
-            urlpath: URL path to the endpoint. This will be appended to the
-                server's base project URL.
-            kwargs: An additional set of keyword arguments to be passed into requests
-                API (e.g. json, params)
-
-        Returns:
-          dict: The parsed JSON response.
-        """
-        return self._client.body(method, url=self._project_url + urlpath, **kwargs)
-
     def get_model(self, model_id):
-        if not model_id:
-            raise ValueError('Model Id is required for GetModel.')
         if not isinstance(model_id, six.string_types):
-            raise TypeError('Model Id must be a string.')
+            raise TypeError('Model ID must be a string.')
         if not re.match(r'^[A-Za-z0-9_-]{1,60}$', model_id):
-            raise ValueError('Model Id format is invalid.')
+            raise ValueError('Model ID format is invalid.')
         try:
-            return self._request('get', 'models/{0}'.format(model_id))
+            return self._client.body(
+                'get',
+                url=self._project_url + 'models/{0}'.format(model_id))
         except requests.exceptions.RequestException as error:
-            raise _utils.handle_requests_error(error)
+            raise _utils.handle_platform_error_from_requests(error)

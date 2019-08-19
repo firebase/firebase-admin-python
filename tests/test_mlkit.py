@@ -23,6 +23,8 @@ from firebase_admin import exceptions
 from firebase_admin import mlkit
 from tests import testutils
 
+BASE_URL = 'https://mlkit.googleapis.com/v1beta1/'
+
 PROJECT_ID = 'myProject1'
 MODEL_ID_1 = 'modelId1'
 MODEL_NAME_1 = 'projects/{0}/models/{1}'.format(PROJECT_ID, MODEL_ID_1)
@@ -64,14 +66,15 @@ class TestGetModel(object):
         assert str(err) == msg
 
     @staticmethod
-    def check_firebase_error(err, code, status):
+    def check_firebase_error(err, code, status, msg):
         assert isinstance(err, exceptions.FirebaseError)
         assert err.code == code
         assert err.http_response is not None
         assert err.http_response.status_code == status
+        assert str(err) == msg
 
     def _get_url(self, project_id, model_id):
-        return mlkit._MLKitService.BASE_URL + 'projects/{0}/models/{1}'.format(project_id, model_id)
+        return BASE_URL + 'projects/{0}/models/{1}'.format(project_id, model_id)
 
     def _instrument_mlkit_service(self, app=None, status=200, payload=_DEFAULT_RESPONSE):
         if not app:
@@ -99,23 +102,28 @@ class TestGetModel(object):
         #Empty model-id
         with pytest.raises(ValueError) as err:
             mlkit.get_model('')
-        self.check_error(err.value, ValueError, 'Model Id is required for GetModel.')
+        self.check_error(err.value, ValueError, 'Model ID format is invalid.')
+
+        #None model-id
+        with pytest.raises(TypeError) as err:
+            mlkit.get_model(None)
+        self.check_error(err.value, TypeError, 'Model ID must be a string.')
 
         #Wrong type
         with pytest.raises(TypeError) as err:
             mlkit.get_model(12345)
-        self.check_error(err.value, TypeError, 'Model Id must be a string.')
+        self.check_error(err.value, TypeError, 'Model ID must be a string.')
 
         #Invalid characters
         with pytest.raises(ValueError) as err:
             mlkit.get_model('&_*#@:/?')
-        self.check_error(err.value, ValueError, 'Model Id format is invalid.')
+        self.check_error(err.value, ValueError, 'Model ID format is invalid.')
 
     def test_get_model_error(self):
         _, recorder = self._instrument_mlkit_service(status=404, payload=_ERROR_RESPONSE)
         with pytest.raises(exceptions.NotFoundError) as err:
             mlkit.get_model(MODEL_ID_1)
-        self.check_firebase_error(err.value, ERROR_STATUS, ERROR_CODE)
+        self.check_firebase_error(err.value, ERROR_STATUS, ERROR_CODE, ERROR_MSG)
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
         assert recorder[0].url == self._get_url(PROJECT_ID, MODEL_ID_1)

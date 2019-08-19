@@ -19,11 +19,13 @@ deleting, publishing and unpublishing Firebase ML Kit models.
 """
 
 import re
+import requests
 import six
 
 import firebase_admin
 from firebase_admin import _http_client
 from firebase_admin import _utils
+from firebase_admin import exceptions
 
 _MLKIT_ATTRIBUTE = '_mlkit'
 
@@ -50,6 +52,15 @@ class Model(object):
     def __init__(self, data):
         """Created from a data dictionary."""
         self._data = data
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self._data == other._data
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     #TODO(ifielker): define the Model properties etc
 
@@ -87,7 +98,7 @@ class _MLKitService(object):
         if not model_id:
             raise ValueError('Model Id is required for GetModel.')
         if not isinstance(model_id, six.string_types):
-            raise TypeError('Model Id must be a string')
+            raise TypeError('Model Id must be a string.')
         if not re.match(r'^[A-Za-z0-9_-]{1,60}$', model_id):
             raise ValueError('Model Id format is invalid.')
         try:

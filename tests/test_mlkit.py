@@ -25,13 +25,26 @@ from tests import testutils
 
 PROJECT_ID = 'myProject1'
 MODEL_ID_1 = 'modelId1'
+MODEL_NAME_1 = 'projects/{0}/models/{1}'.format(PROJECT_ID, MODEL_ID_1)
 DISPLAY_NAME_1 = 'displayName1'
 MODEL_JSON_1 = {
-    'name:': 'projects/{0}/models/{1}'.format(PROJECT_ID, MODEL_ID_1),
+    'name': MODEL_NAME_1,
     'displayName': DISPLAY_NAME_1
 }
 MODEL_1 = mlkit.Model(MODEL_JSON_1)
 _DEFAULT_RESPONSE = json.dumps(MODEL_JSON_1)
+
+ERROR_CODE = 404
+ERROR_MSG = 'The resource was not found'
+ERROR_STATUS = 'NOT_FOUND'
+ERROR_JSON = {
+    'error': {
+        'code': ERROR_CODE,
+        'message': ERROR_MSG,
+        'status': ERROR_STATUS
+    }
+}
+_ERROR_RESPONSE = json.dumps(ERROR_JSON)
 
 
 class TestGetModel(object):
@@ -44,6 +57,18 @@ class TestGetModel(object):
     @classmethod
     def teardown_class(cls):
         testutils.cleanup_apps()
+
+    @staticmethod
+    def check_error(err, errType, msg):
+        assert isinstance(err, errType)
+        assert str(err) == msg
+
+    @staticmethod
+    def check_firebase_error(err, code, status):
+        assert isinstance(err, exceptions.FirebaseError)
+        assert err.code == code
+        assert err.http_response is not None
+        assert err.http_response.status_code == status
 
     def _get_url(self, project_id, model_id):
         return mlkit._MLKitService.BASE_URL + 'projects/{0}/models/{1}'.format(project_id, model_id)
@@ -65,9 +90,43 @@ class TestGetModel(object):
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
         assert recorder[0].url == self._get_url(PROJECT_ID, MODEL_ID_1)
-        #assert json.loads(recorder[0].body.decode()) == MODEL_JSON_1
+        assert model == MODEL_1
+        assert model._data['name'] == MODEL_NAME_1
+        assert model._data['displayName'] == DISPLAY_NAME_1
 
-    #TODO(ifielker): test_get_model_error, test_get_model_no_project_id etc
+    def test_get_model_validation_errors(self):
+        _, recorder = self._instrument_mlkit_service()
+        #Empty model-id
+        with pytest.raises(ValueError) as err:
+            mlkit.get_model('')
+        self.check_error(err.value, ValueError, 'Model Id is required for GetModel.')
+
+        #Wrong type
+        with pytest.raises(TypeError) as err:
+            mlkit.get_model(12345)
+        self.check_error(err.value, TypeError, 'Model Id must be a string.')
+
+        #Invalid characters
+        with pytest.raises(ValueError) as err:
+            mlkit.get_model('&_*#@:/?')
+        self.check_error(err.value, ValueError, 'Model Id format is invalid.')
+
+    def test_get_model_error(self):
+        _, recorder = self._instrument_mlkit_service(status=404, payload=_ERROR_RESPONSE)
+        with pytest.raises(exceptions.NotFoundError) as err:
+            mlkit.get_model(MODEL_ID_1)
+        self.check_firebase_error(err.value, ERROR_STATUS, ERROR_CODE)
+        assert len(recorder) == 1
+        assert recorder[0].method == 'GET'
+        assert recorder[0].url == self._get_url(PROJECT_ID, MODEL_ID_1)
+
+    def test_no_project_id(self):
+        def evaluate():
+            app = firebase_admin.initialize_app(testutils.MockCredential(), name='no_project_id')
+            with pytest.raises(ValueError):
+                mlkit.get_model(MODEL_ID_1, app)
+        testutils.run_without_project_id(evaluate)
+
 
 
 

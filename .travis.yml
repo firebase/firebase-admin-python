@@ -16,7 +16,6 @@ before_install:
   - nvm install 8 && npm install -g firebase-tools
 script:
   - pytest
-  - firebase emulators:exec --only database --project fake-project-id 'pytest integration/test_db.py'
 cache:
   pip: true
   npm: true

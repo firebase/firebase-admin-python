@@ -59,8 +59,8 @@ class TestGetModel(object):
         testutils.cleanup_apps()
 
     @staticmethod
-    def check_error(err, errType, msg):
-        assert isinstance(err, errType)
+    def check_error(err, err_type, msg):
+        assert isinstance(err, err_type)
         assert str(err) == msg
 
     @staticmethod
@@ -126,7 +126,3 @@ class TestGetModel(object):
             with pytest.raises(ValueError):
                 mlkit.get_model(MODEL_ID_1, app)
         testutils.run_without_project_id(evaluate)
-
-
-
-

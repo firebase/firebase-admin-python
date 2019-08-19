@@ -55,7 +55,7 @@ class Model(object):
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
-            return self._data == other._data
+            return self._data == other._data # pylint: disable=protected-access
         else:
             return False
 
@@ -105,4 +105,3 @@ class _MLKitService(object):
             return self._request('get', 'models/{0}'.format(model_id))
         except requests.exceptions.RequestException as error:
             raise _utils.handle_requests_error(error)
-

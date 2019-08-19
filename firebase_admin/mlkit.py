@@ -22,10 +22,8 @@ import re
 import requests
 import six
 
-import firebase_admin
 from firebase_admin import _http_client
 from firebase_admin import _utils
-from firebase_admin import exceptions
 
 
 _MLKIT_ATTRIBUTE = '_mlkit'

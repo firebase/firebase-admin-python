@@ -566,25 +566,6 @@ class TestWebpushFCMOptionsEncoder(object):
         }
         check_encoding(msg, expected)
 
-    def test_deprecated_fcm_options(self):
-        msg = messaging.Message(
-            topic='topic',
-            webpush=messaging.WebpushConfig(
-                fcm_options=messaging.WebpushFcmOptions(
-                    link='https://example',
-                ),
-            )
-        )
-        expected = {
-            'topic': 'topic',
-            'webpush': {
-                'fcm_options': {
-                    'link': 'https://example',
-                },
-            },
-        }
-        check_encoding(msg, expected)
-
 
 class TestWebpushNotificationEncoder(object):
 

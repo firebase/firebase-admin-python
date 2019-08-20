@@ -81,7 +81,6 @@ MulticastMessage = _messaging_utils.MulticastMessage
 Notification = _messaging_utils.Notification
 WebpushConfig = _messaging_utils.WebpushConfig
 WebpushFCMOptions = _messaging_utils.WebpushFCMOptions
-WebpushFcmOptions = _messaging_utils.WebpushFCMOptions
 WebpushNotification = _messaging_utils.WebpushNotification
 WebpushNotificationAction = _messaging_utils.WebpushNotificationAction
 

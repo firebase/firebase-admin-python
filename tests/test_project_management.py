@@ -173,10 +173,10 @@ TEST_APP_CONFIG_RESPONSE = json.dumps({
     'configFileContents': TEST_APP_ENCODED_CONFIG,
 })
 
-SHA_1_CERTIFICATE = project_management.ShaCertificate(
+SHA_1_CERTIFICATE = project_management.SHACertificate(
     '123456789a123456789a123456789a123456789a',
     'projects/-/androidApps/1:12345678:android:deadbeef/sha/name1')
-SHA_256_CERTIFICATE = project_management.ShaCertificate(
+SHA_256_CERTIFICATE = project_management.SHACertificate(
     '123456789a123456789a123456789a123456789a123456789a123456789a1234',
     'projects/-/androidApps/1:12345678:android:deadbeef/sha/name256')
 GET_SHA_CERTIFICATES_RESPONSE = json.dumps({'certificates': [
@@ -190,7 +190,7 @@ ANDROID_APP_METADATA = project_management.AndroidAppMetadata(
     app_id='1:12345678:android:deadbeef',
     display_name='My Android App',
     project_id='test-project-id')
-IOS_APP_METADATA = project_management.IosAppMetadata(
+IOS_APP_METADATA = project_management.IOSAppMetadata(
     bundle_id='com.hello.world.ios',
     name='projects/test-project-id/iosApps/1:12345678:ios:ca5cade5',
     app_id='1:12345678:android:deadbeef',
@@ -315,12 +315,12 @@ class TestAndroidAppMetadata(object):
         assert ANDROID_APP_METADATA.project_id == 'test-project-id'
 
 
-class TestIosAppMetadata(object):
+class TestIOSAppMetadata(object):
 
     def test_create_ios_app_metadata_errors(self):
         # bundle_id must be a non-empty string.
         with pytest.raises(ValueError):
-            project_management.IosAppMetadata(
+            project_management.IOSAppMetadata(
                 bundle_id='',
                 name='projects/test-project-id/iosApps/1:12345678:ios:ca5cade5',
                 app_id='1:12345678:android:deadbeef',
@@ -328,7 +328,7 @@ class TestIosAppMetadata(object):
                 project_id='test-project-id')
         # name must be a non-empty string.
         with pytest.raises(ValueError):
-            project_management.IosAppMetadata(
+            project_management.IOSAppMetadata(
                 bundle_id='com.hello.world.ios',
                 name='',
                 app_id='1:12345678:android:deadbeef',
@@ -336,7 +336,7 @@ class TestIosAppMetadata(object):
                 project_id='test-project-id')
         # app_id must be a non-empty string.
         with pytest.raises(ValueError):
-            project_management.IosAppMetadata(
+            project_management.IOSAppMetadata(
                 bundle_id='com.hello.world.ios',
                 name='projects/test-project-id/iosApps/1:12345678:ios:ca5cade5',
                 app_id='',
@@ -344,7 +344,7 @@ class TestIosAppMetadata(object):
                 project_id='test-project-id')
         # display_name must be a string or None.
         with pytest.raises(ValueError):
-            project_management.IosAppMetadata(
+            project_management.IOSAppMetadata(
                 bundle_id='com.hello.world.ios',
                 name='projects/test-project-id/iosApps/1:12345678:ios:ca5cade5',
                 app_id='1:12345678:android:deadbeef',
@@ -352,7 +352,7 @@ class TestIosAppMetadata(object):
                 project_id='test-project-id')
         # project_id must be a nonempty string.
         with pytest.raises(ValueError):
-            project_management.IosAppMetadata(
+            project_management.IOSAppMetadata(
                 bundle_id='com.hello.world.ios',
                 name='projects/test-project-id/iosApps/1:12345678:ios:ca5cade5',
                 app_id='1:12345678:android:deadbeef',
@@ -361,37 +361,37 @@ class TestIosAppMetadata(object):
 
     def test_ios_app_metadata_eq_and_hash(self):
         metadata_1 = IOS_APP_METADATA
-        metadata_2 = project_management.IosAppMetadata(
+        metadata_2 = project_management.IOSAppMetadata(
             bundle_id='different',
             name='projects/test-project-id/iosApps/1:12345678:ios:ca5cade5',
             app_id='1:12345678:android:deadbeef',
             display_name='My iOS App',
             project_id='test-project-id')
-        metadata_3 = project_management.IosAppMetadata(
+        metadata_3 = project_management.IOSAppMetadata(
             bundle_id='com.hello.world.ios',
             name='different',
             app_id='1:12345678:android:deadbeef',
             display_name='My iOS App',
             project_id='test-project-id')
-        metadata_4 = project_management.IosAppMetadata(
+        metadata_4 = project_management.IOSAppMetadata(
             bundle_id='com.hello.world.ios',
             name='projects/test-project-id/iosApps/1:12345678:ios:ca5cade5',
             app_id='different',
             display_name='My iOS App',
             project_id='test-project-id')
-        metadata_5 = project_management.IosAppMetadata(
+        metadata_5 = project_management.IOSAppMetadata(
             bundle_id='com.hello.world.ios',
             name='projects/test-project-id/iosApps/1:12345678:ios:ca5cade5',
             app_id='1:12345678:android:deadbeef',
             display_name='different',
             project_id='test-project-id')
-        metadata_6 = project_management.IosAppMetadata(
+        metadata_6 = project_management.IOSAppMetadata(
             bundle_id='com.hello.world.ios',
             name='projects/test-project-id/iosApps/1:12345678:ios:ca5cade5',
             app_id='1:12345678:android:deadbeef',
             display_name='My iOS App',
             project_id='different')
-        metadata_7 = project_management.IosAppMetadata(
+        metadata_7 = project_management.IOSAppMetadata(
             bundle_id='com.hello.world.ios',
             name='projects/test-project-id/iosApps/1:12345678:ios:ca5cade5',
             app_id='1:12345678:android:deadbeef',
@@ -427,40 +427,40 @@ class TestIosAppMetadata(object):
         assert IOS_APP_METADATA.project_id == 'test-project-id'
 
 
-class TestShaCertificate(object):
+class TestSHACertificate(object):
     def test_create_sha_certificate_errors(self):
         # sha_hash cannot be None.
         with pytest.raises(ValueError):
-            project_management.ShaCertificate(sha_hash=None)
+            project_management.SHACertificate(sha_hash=None)
         # sha_hash must be a string.
         with pytest.raises(ValueError):
-            project_management.ShaCertificate(sha_hash=0x123456789a123456789a123456789a123456789a)
+            project_management.SHACertificate(sha_hash=0x123456789a123456789a123456789a123456789a)
         # sha_hash must be a valid SHA-1 or SHA-256 hash.
         with pytest.raises(ValueError):
-            project_management.ShaCertificate(sha_hash='123456789a123456789')
+            project_management.SHACertificate(sha_hash='123456789a123456789')
         with pytest.raises(ValueError):
-            project_management.ShaCertificate(sha_hash='123456789a123456789a123456789a123456oops')
+            project_management.SHACertificate(sha_hash='123456789a123456789a123456789a123456oops')
 
     def test_sha_certificate_eq(self):
-        sha_cert_1 = project_management.ShaCertificate(
+        sha_cert_1 = project_management.SHACertificate(
             '123456789a123456789a123456789a123456789a',
             'projects/-/androidApps/1:12345678:android:deadbeef/sha/name1')
         # sha_hash is different from sha_cert_1, but name is the same.
-        sha_cert_2 = project_management.ShaCertificate(
+        sha_cert_2 = project_management.SHACertificate(
             '0000000000000000000000000000000000000000',
             'projects/-/androidApps/1:12345678:android:deadbeef/sha/name1')
         # name is different from sha_cert_1, but sha_hash is the same.
-        sha_cert_3 = project_management.ShaCertificate(
+        sha_cert_3 = project_management.SHACertificate(
             '123456789a123456789a123456789a123456789a', None)
         # name is different from sha_cert_1, but sha_hash is the same.
-        sha_cert_4 = project_management.ShaCertificate(
+        sha_cert_4 = project_management.SHACertificate(
             '123456789a123456789a123456789a123456789a', 'projects/-/androidApps/{0}/sha/notname1')
         # sha_hash and cert_type are different from sha_cert_1, but name is the same.
-        sha_cert_5 = project_management.ShaCertificate(
+        sha_cert_5 = project_management.SHACertificate(
             '123456789a123456789a123456789a123456789a123456789a123456789a1234',
             'projects/-/androidApps/{0}/sha/name1')
         # Exactly the same as sha_cert_1.
-        sha_cert_6 = project_management.ShaCertificate(
+        sha_cert_6 = project_management.SHACertificate(
             '123456789a123456789a123456789a123456789a',
             'projects/-/androidApps/1:12345678:android:deadbeef/sha/name1')
         not_a_sha_cert = {
@@ -653,7 +653,7 @@ class TestCreateAndroidApp(BaseProjectManagementTest):
         assert len(recorder) == 3
 
 
-class TestCreateIosApp(BaseProjectManagementTest):
+class TestCreateIOSApp(BaseProjectManagementTest):
     _CREATION_URL = 'https://firebase.googleapis.com/v1beta1/projects/test-project-id/iosApps'
 
     def test_create_ios_app_without_display_name(self):
@@ -671,7 +671,7 @@ class TestCreateIosApp(BaseProjectManagementTest):
         assert ios_app.app_id == '1:12345678:ios:ca5cade5'
         assert len(recorder) == 3
         body = {'bundleId': 'com.hello.world.ios'}
-        self._assert_request_is_correct(recorder[0], 'POST', TestCreateIosApp._CREATION_URL, body)
+        self._assert_request_is_correct(recorder[0], 'POST', TestCreateIOSApp._CREATION_URL, body)
         self._assert_request_is_correct(
             recorder[1], 'GET', 'https://firebase.googleapis.com/v1/operations/abcdefg')
         self._assert_request_is_correct(
@@ -696,7 +696,7 @@ class TestCreateIosApp(BaseProjectManagementTest):
             'bundleId': 'com.hello.world.ios',
             'displayName': 'My iOS App',
         }
-        self._assert_request_is_correct(recorder[0], 'POST', TestCreateIosApp._CREATION_URL, body)
+        self._assert_request_is_correct(recorder[0], 'POST', TestCreateIOSApp._CREATION_URL, body)
         self._assert_request_is_correct(
             recorder[1], 'GET', 'https://firebase.googleapis.com/v1/operations/abcdefg')
         self._assert_request_is_correct(
@@ -836,7 +836,7 @@ class TestListAndroidApps(BaseProjectManagementTest):
         assert len(recorder) == 2
 
 
-class TestListIosApps(BaseProjectManagementTest):
+class TestListIOSApps(BaseProjectManagementTest):
     _LISTING_URL = ('https://firebase.googleapis.com/v1beta1/projects/test-project-id/'
                     'iosApps?pageSize=100')
     _LISTING_PAGE_2_URL = ('https://firebase.googleapis.com/v1beta1/projects/test-project-id/'
@@ -850,7 +850,7 @@ class TestListIosApps(BaseProjectManagementTest):
         expected_app_ids = set(['1:12345678:ios:ca5cade5', '1:12345678:ios:ca5cade5cafe'])
         assert set(app.app_id for app in ios_apps) == expected_app_ids
         assert len(recorder) == 1
-        self._assert_request_is_correct(recorder[0], 'GET', TestListIosApps._LISTING_URL)
+        self._assert_request_is_correct(recorder[0], 'GET', TestListIOSApps._LISTING_URL)
 
     def test_list_ios_apps_rpc_error(self):
         recorder = self._instrument_service(statuses=[503], responses=[UNAVAILABLE_RESPONSE])
@@ -870,7 +870,7 @@ class TestListIosApps(BaseProjectManagementTest):
 
         assert ios_apps == []
         assert len(recorder) == 1
-        self._assert_request_is_correct(recorder[0], 'GET', TestListIosApps._LISTING_URL)
+        self._assert_request_is_correct(recorder[0], 'GET', TestListIOSApps._LISTING_URL)
 
     def test_list_ios_apps_multiple_pages(self):
         recorder = self._instrument_service(
@@ -882,8 +882,8 @@ class TestListIosApps(BaseProjectManagementTest):
         expected_app_ids = set(['1:12345678:ios:ca5cade5', '1:12345678:ios:ca5cade5cafe'])
         assert set(app.app_id for app in ios_apps) == expected_app_ids
         assert len(recorder) == 2
-        self._assert_request_is_correct(recorder[0], 'GET', TestListIosApps._LISTING_URL)
-        self._assert_request_is_correct(recorder[1], 'GET', TestListIosApps._LISTING_PAGE_2_URL)
+        self._assert_request_is_correct(recorder[0], 'GET', TestListIOSApps._LISTING_URL)
+        self._assert_request_is_correct(recorder[1], 'GET', TestListIOSApps._LISTING_PAGE_2_URL)
 
     def test_list_ios_apps_multiple_pages_rpc_error(self):
         recorder = self._instrument_service(
@@ -1043,7 +1043,7 @@ class TestAndroidApp(BaseProjectManagementTest):
         recorder = self._instrument_service(statuses=[200], responses=[json.dumps({})])
 
         android_app.add_sha_certificate(
-            project_management.ShaCertificate('123456789a123456789a123456789a123456789a'))
+            project_management.SHACertificate('123456789a123456789a123456789a123456789a'))
 
         assert len(recorder) == 1
         body = {'shaHash': '123456789a123456789a123456789a123456789a', 'certType': 'SHA_1'}
@@ -1052,7 +1052,7 @@ class TestAndroidApp(BaseProjectManagementTest):
     def test_add_sha_256_certificate(self, android_app):
         recorder = self._instrument_service(statuses=[200], responses=[json.dumps({})])
 
-        android_app.add_sha_certificate(project_management.ShaCertificate(
+        android_app.add_sha_certificate(project_management.SHACertificate(
             '123456789a123456789a123456789a123456789a123456789a123456789a1234'))
 
         assert len(recorder) == 1
@@ -1067,7 +1067,7 @@ class TestAndroidApp(BaseProjectManagementTest):
 
         with pytest.raises(exceptions.AlreadyExistsError) as excinfo:
             android_app.add_sha_certificate(
-                project_management.ShaCertificate('123456789a123456789a123456789a123456789a'))
+                project_management.SHACertificate('123456789a123456789a123456789a123456789a'))
 
         assert 'The resource already exists' in str(excinfo.value)
         assert excinfo.value.cause is not None
@@ -1117,7 +1117,7 @@ class TestAndroidApp(BaseProjectManagementTest):
         testutils.run_without_project_id(evaluate)
 
 
-class TestIosApp(BaseProjectManagementTest):
+class TestIOSApp(BaseProjectManagementTest):
     _GET_METADATA_URL = ('https://firebase.googleapis.com/v1beta1/projects/-/iosApps/'
                          '1:12345678:ios:ca5cade5')
     _SET_DISPLAY_NAME_URL = ('https://firebase.googleapis.com/v1beta1/projects/-/iosApps/'
@@ -1141,7 +1141,7 @@ class TestIosApp(BaseProjectManagementTest):
         assert metadata.project_id == 'test-project-id'
         assert metadata.bundle_id == 'com.hello.world.ios'
         assert len(recorder) == 1
-        self._assert_request_is_correct(recorder[0], 'GET', TestIosApp._GET_METADATA_URL)
+        self._assert_request_is_correct(recorder[0], 'GET', TestIOSApp._GET_METADATA_URL)
 
     def test_get_metadata(self, ios_app):
         recorder = self._instrument_service(statuses=[200], responses=[IOS_APP_METADATA_RESPONSE])
@@ -1154,7 +1154,7 @@ class TestIosApp(BaseProjectManagementTest):
         assert metadata.project_id == 'test-project-id'
         assert metadata.bundle_id == 'com.hello.world.ios'
         assert len(recorder) == 1
-        self._assert_request_is_correct(recorder[0], 'GET', TestIosApp._GET_METADATA_URL)
+        self._assert_request_is_correct(recorder[0], 'GET', TestIOSApp._GET_METADATA_URL)
 
     def test_get_metadata_unknown_error(self, ios_app):
         recorder = self._instrument_service(
@@ -1189,7 +1189,7 @@ class TestIosApp(BaseProjectManagementTest):
         assert len(recorder) == 1
         body = {'displayName': new_display_name}
         self._assert_request_is_correct(
-            recorder[0], 'PATCH', TestIosApp._SET_DISPLAY_NAME_URL, body)
+            recorder[0], 'PATCH', TestIOSApp._SET_DISPLAY_NAME_URL, body)
 
     def test_set_display_name_not_found(self, ios_app):
         recorder = self._instrument_service(statuses=[404], responses=[NOT_FOUND_RESPONSE])
@@ -1210,7 +1210,7 @@ class TestIosApp(BaseProjectManagementTest):
 
         assert config == 'hello world'
         assert len(recorder) == 1
-        self._assert_request_is_correct(recorder[0], 'GET', TestIosApp._GET_CONFIG_URL)
+        self._assert_request_is_correct(recorder[0], 'GET', TestIOSApp._GET_CONFIG_URL)
 
     def test_get_config_not_found(self, ios_app):
         recorder = self._instrument_service(statuses=[404], responses=[NOT_FOUND_RESPONSE])

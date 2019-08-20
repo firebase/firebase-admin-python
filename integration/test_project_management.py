@@ -32,8 +32,8 @@ SHA_1_HASH_1 = '123456789a123456789a123456789a123456789a'
 SHA_1_HASH_2 = 'aaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbb'
 SHA_256_HASH_1 = '123456789a123456789a123456789a123456789a123456789a123456789a1234'
 SHA_256_HASH_2 = 'cafef00dba5eba11b01dfaceacc01adeda7aba5eca55e77e0b57ac1e5ca1ab1e'
-SHA_1 = project_management.ShaCertificate.SHA_1
-SHA_256 = project_management.ShaCertificate.SHA_256
+SHA_1 = project_management.SHACertificate.SHA_1
+SHA_256 = project_management.SHACertificate.SHA_256
 
 
 def _starts_with(display_name, prefix):
@@ -120,10 +120,10 @@ def test_android_sha_certificates(android_app):
         android_app.delete_sha_certificate(cert)
 
     # Add four different certs and assert that they have all been added successfully.
-    android_app.add_sha_certificate(project_management.ShaCertificate(SHA_1_HASH_1))
-    android_app.add_sha_certificate(project_management.ShaCertificate(SHA_1_HASH_2))
-    android_app.add_sha_certificate(project_management.ShaCertificate(SHA_256_HASH_1))
-    android_app.add_sha_certificate(project_management.ShaCertificate(SHA_256_HASH_2))
+    android_app.add_sha_certificate(project_management.SHACertificate(SHA_1_HASH_1))
+    android_app.add_sha_certificate(project_management.SHACertificate(SHA_1_HASH_2))
+    android_app.add_sha_certificate(project_management.SHACertificate(SHA_256_HASH_1))
+    android_app.add_sha_certificate(project_management.SHACertificate(SHA_256_HASH_2))
 
     cert_list = android_app.get_sha_certificates()
 
@@ -136,7 +136,7 @@ def test_android_sha_certificates(android_app):
 
     # Adding the same cert twice should cause an already-exists error.
     with pytest.raises(exceptions.AlreadyExistsError) as excinfo:
-        android_app.add_sha_certificate(project_management.ShaCertificate(SHA_256_HASH_2))
+        android_app.add_sha_certificate(project_management.SHACertificate(SHA_256_HASH_2))
     assert 'Requested entity already exists' in str(excinfo.value)
     assert excinfo.value.cause is not None
     assert excinfo.value.http_response is not None

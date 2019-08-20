@@ -383,6 +383,7 @@ class TestListModels(object):
     def test_list_models_stop_iteration(self):
         recorder = instrument_mlkit_service(status=200, payload=_ONE_PAGE_LIST_RESPONSE)
         page = mlkit.list_models()
+        assert len(recorder) == 1
         assert len(page.models) == 3
         iterator = page.iterate_all()
         models = [model for model in iterator]

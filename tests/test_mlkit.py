@@ -336,6 +336,7 @@ class TestListModels(object):
     def test_list_single_page(self):
         recorder = instrument_mlkit_service(status=200, payload=_LAST_PAGE_LIST_RESPONSE)
         models_page = mlkit.list_models()
+        assert len(recorder) == 1
         assert models_page.next_page_token == ''
         assert models_page.has_next_page is False
         assert models_page.get_next_page() is None
@@ -346,6 +347,7 @@ class TestListModels(object):
         # Page 1
         recorder = instrument_mlkit_service(status=200, payload=_DEFAULT_LIST_RESPONSE)
         page = mlkit.list_models()
+        assert len(recorder) == 1
         assert len(page.models) == 2
         assert page.next_page_token == NEXT_PAGE_TOKEN
         assert page.has_next_page is True
@@ -353,6 +355,7 @@ class TestListModels(object):
         # Page 2
         recorder = instrument_mlkit_service(status=200, payload=_LAST_PAGE_LIST_RESPONSE)
         page_2 = page.get_next_page()
+        assert len(recorder) == 1
         assert len(page_2.models) == 1
         assert page_2.next_page_token == ''
         assert page_2.has_next_page is False
@@ -391,6 +394,7 @@ class TestListModels(object):
     def test_list_models_no_models(self):
         recorder = instrument_mlkit_service(status=200, payload=_NO_MODELS_LIST_RESPONSE)
         page = mlkit.list_models()
+        assert len(recorder) == 1
         assert len(page.models) == 0
         models = [model for model in page.iterate_all()]
         assert len(models) == 0

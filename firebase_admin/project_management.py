@@ -58,9 +58,9 @@ def ios_app(app_id, app=None):
         app: An App instance (optional).
 
     Returns:
-        IosApp: An ``IosApp`` instance.
+        IOSApp: An ``IOSApp`` instance.
     """
-    return IosApp(app_id=app_id, service=_get_project_management_service(app))
+    return IOSApp(app_id=app_id, service=_get_project_management_service(app))
 
 
 def list_android_apps(app=None):
@@ -83,7 +83,7 @@ def list_ios_apps(app=None):
         app: An App instance (optional).
 
     Returns:
-        list: a list of ``IosApp`` instances referring to each iOS app in the Firebase project.
+        list: a list of ``IOSApp`` instances referring to each iOS app in the Firebase project.
     """
     return _get_project_management_service(app).list_ios_apps()
 
@@ -111,7 +111,7 @@ def create_ios_app(bundle_id, display_name=None, app=None):
         app: An App instance (optional).
 
     Returns:
-        IosApp: An ``IosApp`` instance that is a reference to the newly created app.
+        IOSApp: An ``IOSApp`` instance that is a reference to the newly created app.
     """
     return _get_project_management_service(app).create_ios_app(bundle_id, display_name)
 
@@ -199,7 +199,7 @@ class AndroidApp(object):
         """Retrieves the entire list of SHA certificates associated with this Android app.
 
         Returns:
-            list: A list of ``ShaCertificate`` instances.
+            list: A list of ``SHACertificate`` instances.
 
         Raises:
             FirebaseError: If an error occurs while communicating with the Firebase Project
@@ -238,7 +238,7 @@ class AndroidApp(object):
         return self._service.delete_sha_certificate(certificate_to_delete)
 
 
-class IosApp(object):
+class IOSApp(object):
     """A reference to an iOS app within a Firebase project.
 
     Note: Unless otherwise specified, all methods defined in this class make an RPC.
@@ -266,7 +266,7 @@ class IosApp(object):
         """Retrieves detailed information about this iOS app.
 
         Returns:
-            IosAppMetadata: An ``IosAppMetadata`` instance.
+            IOSAppMetadata: An ``IOSAppMetadata`` instance.
 
         Raises:
             FirebaseError: If an error occurs while communicating with the Firebase Project
@@ -359,12 +359,12 @@ class AndroidAppMetadata(_AppMetadata):
             (self._name, self.app_id, self.display_name, self.project_id, self.package_name))
 
 
-class IosAppMetadata(_AppMetadata):
+class IOSAppMetadata(_AppMetadata):
     """iOS-specific information about an iOS Firebase app."""
 
     def __init__(self, bundle_id, name, app_id, display_name, project_id):
         """Clients should not instantiate this class directly."""
-        super(IosAppMetadata, self).__init__(name, app_id, display_name, project_id)
+        super(IOSAppMetadata, self).__init__(name, app_id, display_name, project_id)
         self._bundle_id = _check_is_nonempty_string(bundle_id, 'bundle_id')
 
     @property
@@ -373,7 +373,7 @@ class IosAppMetadata(_AppMetadata):
         return self._bundle_id
 
     def __eq__(self, other):
-        return super(IosAppMetadata, self).__eq__(other) and self.bundle_id == other.bundle_id
+        return super(IOSAppMetadata, self).__eq__(other) and self.bundle_id == other.bundle_id
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -382,7 +382,7 @@ class IosAppMetadata(_AppMetadata):
         return hash((self._name, self.app_id, self.display_name, self.project_id, self.bundle_id))
 
 
-class ShaCertificate(object):
+class SHACertificate(object):
     """Represents a SHA-1 or SHA-256 certificate associated with an Android app."""
 
     SHA_1 = 'SHA_1'
@@ -392,7 +392,7 @@ class ShaCertificate(object):
     _SHA_256_RE = re.compile('^[0-9A-Fa-f]{64}$')
 
     def __init__(self, sha_hash, name=None):
-        """Creates a new ShaCertificate instance.
+        """Creates a new SHACertificate instance.
 
         Args:
             sha_hash: A string; the certificate hash for the Android app.
@@ -407,10 +407,10 @@ class ShaCertificate(object):
         _check_is_nonempty_string_or_none(name, 'name')
         self._name = name
         self._sha_hash = sha_hash.lower()
-        if ShaCertificate._SHA_1_RE.match(sha_hash):
-            self._cert_type = ShaCertificate.SHA_1
-        elif ShaCertificate._SHA_256_RE.match(sha_hash):
-            self._cert_type = ShaCertificate.SHA_256
+        if SHACertificate._SHA_1_RE.match(sha_hash):
+            self._cert_type = SHACertificate.SHA_1
+        elif SHACertificate._SHA_256_RE.match(sha_hash):
+            self._cert_type = SHACertificate.SHA_256
         else:
             raise ValueError(
                 'The supplied certificate hash is neither a valid SHA-1 nor SHA_256 hash.')
@@ -444,7 +444,7 @@ class ShaCertificate(object):
         return self._cert_type
 
     def __eq__(self, other):
-        if not isinstance(other, ShaCertificate):
+        if not isinstance(other, SHACertificate):
             return False
         return (self.name == other.name and self.sha_hash == other.sha_hash and
                 self.cert_type == other.cert_type)
@@ -496,7 +496,7 @@ class _ProjectManagementService(object):
         return self._get_app_metadata(
             platform_resource_name=_ProjectManagementService.IOS_APPS_RESOURCE_NAME,
             identifier_name=_ProjectManagementService.IOS_APP_IDENTIFIER_NAME,
-            metadata_class=IosAppMetadata,
+            metadata_class=IOSAppMetadata,
             app_id=app_id)
 
     def _get_app_metadata(self, platform_resource_name, identifier_name, metadata_class, app_id):
@@ -538,7 +538,7 @@ class _ProjectManagementService(object):
     def list_ios_apps(self):
         return self._list_apps(
             platform_resource_name=_ProjectManagementService.IOS_APPS_RESOURCE_NAME,
-            app_class=IosApp)
+            app_class=IOSApp)
 
     def _list_apps(self, platform_resource_name, app_class):
         """Lists all the Android or iOS apps within the Firebase project."""
@@ -579,7 +579,7 @@ class _ProjectManagementService(object):
             identifier_name=_ProjectManagementService.IOS_APP_IDENTIFIER_NAME,
             identifier=bundle_id,
             display_name=display_name,
-            app_class=IosApp)
+            app_class=IOSApp)
 
     def _create_app(
             self,
@@ -639,7 +639,7 @@ class _ProjectManagementService(object):
         path = '/v1beta1/projects/-/androidApps/{0}/sha'.format(app_id)
         response = self._make_request('get', path)
         cert_list = response.get('certificates') or []
-        return [ShaCertificate(sha_hash=cert['shaHash'], name=cert['name']) for cert in cert_list]
+        return [SHACertificate(sha_hash=cert['shaHash'], name=cert['name']) for cert in cert_list]
 
     def add_sha_certificate(self, app_id, certificate_to_add):
         path = '/v1beta1/projects/-/androidApps/{0}/sha'.format(app_id)

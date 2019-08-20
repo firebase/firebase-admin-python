@@ -33,10 +33,10 @@ _MESSAGING_ATTRIBUTE = '_messaging'
 
 __all__ = [
     'AndroidConfig',
-    'AndroidFcmOptions',
+    'AndroidFCMOptions',
     'AndroidNotification',
     'APNSConfig',
-    'APNSFcmOptions',
+    'APNSFCMOptions',
     'APNSPayload',
     'ApiCallError',
     'Aps',
@@ -44,14 +44,14 @@ __all__ = [
     'BatchResponse',
     'CriticalSound',
     'ErrorInfo',
-    'FcmOptions',
+    'FCMOptions',
     'Message',
     'MulticastMessage',
     'Notification',
     'SendResponse',
     'TopicManagementResponse',
     'WebpushConfig',
-    'WebpushFcmOptions',
+    'WebpushFCMOptions',
     'WebpushNotification',
     'WebpushNotificationAction',
 
@@ -64,20 +64,21 @@ __all__ = [
 
 
 AndroidConfig = _messaging_utils.AndroidConfig
-AndroidFcmOptions = _messaging_utils.AndroidFcmOptions
+AndroidFCMOptions = _messaging_utils.AndroidFCMOptions
 AndroidNotification = _messaging_utils.AndroidNotification
 APNSConfig = _messaging_utils.APNSConfig
-APNSFcmOptions = _messaging_utils.APNSFcmOptions
+APNSFCMOptions = _messaging_utils.APNSFCMOptions
 APNSPayload = _messaging_utils.APNSPayload
 Aps = _messaging_utils.Aps
 ApsAlert = _messaging_utils.ApsAlert
 CriticalSound = _messaging_utils.CriticalSound
-FcmOptions = _messaging_utils.FcmOptions
+FCMOptions = _messaging_utils.FCMOptions
 Message = _messaging_utils.Message
 MulticastMessage = _messaging_utils.MulticastMessage
 Notification = _messaging_utils.Notification
 WebpushConfig = _messaging_utils.WebpushConfig
-WebpushFcmOptions = _messaging_utils.WebpushFcmOptions
+WebpushFCMOptions = _messaging_utils.WebpushFCMOptions
+WebpushFcmOptions = _messaging_utils.WebpushFCMOptions
 WebpushNotification = _messaging_utils.WebpushNotification
 WebpushNotificationAction = _messaging_utils.WebpushNotificationAction
 

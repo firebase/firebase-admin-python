@@ -144,10 +144,10 @@ class TestMessageEncoder(object):
     def test_fcm_options(self):
         check_encoding(
             messaging.Message(
-                topic='topic', fcm_options=messaging.FcmOptions('analytics_label_v1')),
+                topic='topic', fcm_options=messaging.FCMOptions('analytics_label_v1')),
             {'topic': 'topic', 'fcm_options': {'analytics_label': 'analytics_label_v1'}})
         check_encoding(
-            messaging.Message(topic='topic', fcm_options=messaging.FcmOptions()),
+            messaging.Message(topic='topic', fcm_options=messaging.FCMOptions()),
             {'topic': 'topic'})
 
 
@@ -198,27 +198,27 @@ class TestFcmOptionEncoder(object):
         with pytest.raises(ValueError) as excinfo:
             check_encoding(messaging.Message(
                 topic='topic',
-                fcm_options=messaging.FcmOptions(label)
+                fcm_options=messaging.FCMOptions(label)
             ))
-        expected = 'Malformed FcmOptions.analytics_label.'
+        expected = 'Malformed FCMOptions.analytics_label.'
         assert str(excinfo.value) == expected
 
     def test_fcm_options(self):
         check_encoding(
             messaging.Message(
                 topic='topic',
-                fcm_options=messaging.FcmOptions(),
-                android=messaging.AndroidConfig(fcm_options=messaging.AndroidFcmOptions()),
-                apns=messaging.APNSConfig(fcm_options=messaging.APNSFcmOptions())
+                fcm_options=messaging.FCMOptions(),
+                android=messaging.AndroidConfig(fcm_options=messaging.AndroidFCMOptions()),
+                apns=messaging.APNSConfig(fcm_options=messaging.APNSFCMOptions())
             ),
             {'topic': 'topic'})
         check_encoding(
             messaging.Message(
                 topic='topic',
-                fcm_options=messaging.FcmOptions('message-label'),
+                fcm_options=messaging.FCMOptions('message-label'),
                 android=messaging.AndroidConfig(
-                    fcm_options=messaging.AndroidFcmOptions('android-label')),
-                apns=messaging.APNSConfig(fcm_options=messaging.APNSFcmOptions('apns-label'))
+                    fcm_options=messaging.AndroidFCMOptions('android-label')),
+                apns=messaging.APNSConfig(fcm_options=messaging.APNSFCMOptions('apns-label'))
             ),
             {
                 'topic': 'topic',
@@ -288,7 +288,7 @@ class TestAndroidConfigEncoder(object):
                 priority='high',
                 ttl=123,
                 data={'k1': 'v1', 'k2': 'v2'},
-                fcm_options=messaging.AndroidFcmOptions('analytics_label_v1')
+                fcm_options=messaging.AndroidFCMOptions('analytics_label_v1')
             )
         )
         expected = {
@@ -521,7 +521,7 @@ class TestWebpushConfigEncoder(object):
         check_encoding(msg, expected)
 
 
-class TestWebpushFcmOptionsEncoder(object):
+class TestWebpushFCMOptionsEncoder(object):
 
     @pytest.mark.parametrize('data', NON_OBJECT_ARGS)
     def test_invalid_webpush_fcm_options(self, data):
@@ -531,7 +531,7 @@ class TestWebpushFcmOptionsEncoder(object):
 
     @pytest.mark.parametrize('data', NON_STRING_ARGS)
     def test_invalid_link_type(self, data):
-        options = messaging.WebpushFcmOptions(link=data)
+        options = messaging.WebpushFCMOptions(link=data)
         with pytest.raises(ValueError) as excinfo:
             check_encoding(messaging.Message(
                 topic='topic', webpush=messaging.WebpushConfig(fcm_options=options)))
@@ -540,14 +540,33 @@ class TestWebpushFcmOptionsEncoder(object):
 
     @pytest.mark.parametrize('data', ['', 'foo', 'http://example'])
     def test_invalid_link_format(self, data):
-        options = messaging.WebpushFcmOptions(link=data)
+        options = messaging.WebpushFCMOptions(link=data)
         with pytest.raises(ValueError) as excinfo:
             check_encoding(messaging.Message(
                 topic='topic', webpush=messaging.WebpushConfig(fcm_options=options)))
-        expected = 'WebpushFcmOptions.link must be a HTTPS URL.'
+        expected = 'WebpushFCMOptions.link must be a HTTPS URL.'
         assert str(excinfo.value) == expected
 
-    def test_webpush_notification(self):
+    def test_webpush_options(self):
+        msg = messaging.Message(
+            topic='topic',
+            webpush=messaging.WebpushConfig(
+                fcm_options=messaging.WebpushFCMOptions(
+                    link='https://example',
+                ),
+            )
+        )
+        expected = {
+            'topic': 'topic',
+            'webpush': {
+                'fcm_options': {
+                    'link': 'https://example',
+                },
+            },
+        }
+        check_encoding(msg, expected)
+
+    def test_deprecated_fcm_options(self):
         msg = messaging.Message(
             topic='topic',
             webpush=messaging.WebpushConfig(
@@ -791,7 +810,7 @@ class TestAPNSConfigEncoder(object):
             topic='topic',
             apns=messaging.APNSConfig(
                 headers={'h1': 'v1', 'h2': 'v2'},
-                fcm_options=messaging.APNSFcmOptions('analytics_label_v1')
+                fcm_options=messaging.APNSFCMOptions('analytics_label_v1')
             ),
         )
         expected = {
@@ -1230,6 +1249,72 @@ class TestApsAlertEncoder(object):
         }
         check_encoding(msg, expected)
 
+    def test_aps_alert_custom_data_merge(self):
+        msg = messaging.Message(
+            topic='topic',
+            apns=messaging.APNSConfig(
+                payload=messaging.APNSPayload(
+                    aps=messaging.Aps(
+                        alert=messaging.ApsAlert(
+                            title='t',
+                            subtitle='st',
+                            custom_data={'k1': 'v1', 'k2': 'v2'}
+                        )
+                    ),
+                )
+            )
+        )
+        expected = {
+            'topic': 'topic',
+            'apns': {
+                'payload': {
+                    'aps': {
+                        'alert': {
+                            'title': 't',
+                            'subtitle': 'st',
+                            'k1': 'v1',
+                            'k2': 'v2'
+                        },
+                    },
+                }
+            },
+        }
+        check_encoding(msg, expected)
+
+    def test_aps_alert_custom_data_override(self):
+        msg = messaging.Message(
+            topic='topic',
+            apns=messaging.APNSConfig(
+                payload=messaging.APNSPayload(
+                    aps=messaging.Aps(
+                        alert=messaging.ApsAlert(
+                            title='t',
+                            subtitle='st',
+                            launch_image='li',
+                            custom_data={'launch-image': ['li1', 'li2']}
+                        )
+                    ),
+                )
+            )
+        )
+        expected = {
+            'topic': 'topic',
+            'apns': {
+                'payload': {
+                    'aps': {
+                        'alert': {
+                            'title': 't',
+                            'subtitle': 'st',
+                            'launch-image': [
+                                'li1',
+                                'li2'
+                            ]
+                        },
+                    },
+                }
+            },
+        }
+        check_encoding(msg, expected)
 
 class TestTimeout(object):
 

@@ -51,8 +51,8 @@ RESERVED_CLAIMS = set([
     'acr', 'amr', 'at_hash', 'aud', 'auth_time', 'azp', 'cnf', 'c_hash',
     'exp', 'firebase', 'iat', 'iss', 'jti', 'nbf', 'nonce', 'sub'
 ])
-METADATA_SERVICE_URL = ('http://metadata/computeMetadata/v1/instance/service-accounts/'
-                        'default/email')
+METADATA_SERVICE_URL = ('http://metadata.google.internal/computeMetadata/v1/instance/'
+                        'service-accounts/default/email')
 
 
 class _SigningProvider(object):

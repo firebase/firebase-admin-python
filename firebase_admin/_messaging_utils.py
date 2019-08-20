@@ -38,7 +38,7 @@ class Message(object):
         android: An instance of ``messaging.AndroidConfig`` (optional).
         webpush: An instance of ``messaging.WebpushConfig`` (optional).
         apns: An instance of ``messaging.ApnsConfig`` (optional).
-        fcm_options: An instance of ``messaging.FcmOptions`` (optional).
+        fcm_options: An instance of ``messaging.FCMOptions`` (optional).
         token: The registration token of the device to which the message should be sent (optional).
         topic: Name of the FCM topic to which the message should be sent (optional). Topic name
             may contain the ``/topics/`` prefix.
@@ -69,7 +69,7 @@ class MulticastMessage(object):
         android: An instance of ``messaging.AndroidConfig`` (optional).
         webpush: An instance of ``messaging.WebpushConfig`` (optional).
         apns: An instance of ``messaging.ApnsConfig`` (optional).
-        fcm_options: An instance of ``messaging.FcmOptions`` (optional).
+        fcm_options: An instance of ``messaging.FCMOptions`` (optional).
     """
     def __init__(self, tokens, data=None, notification=None, android=None, webpush=None, apns=None,
                  fcm_options=None):
@@ -114,7 +114,7 @@ class AndroidConfig(object):
         data: A dictionary of data fields (optional). All keys and values in the dictionary must be
             strings. When specified, overrides any data fields set via ``Message.data``.
         notification: A ``messaging.AndroidNotification`` to be included in the message (optional).
-        fcm_options: A ``messaging.AndroidFcmOptions`` to be included in the message (optional).
+        fcm_options: A ``messaging.AndroidFCMOptions`` to be included in the message (optional).
     """
 
     def __init__(self, collapse_key=None, priority=None, ttl=None, restricted_package_name=None,
@@ -174,7 +174,7 @@ class AndroidNotification(object):
         self.channel_id = channel_id
 
 
-class AndroidFcmOptions(object):
+class AndroidFCMOptions(object):
     """Options for features provided by the FCM SDK for Android.
 
     Args:
@@ -195,7 +195,7 @@ class WebpushConfig(object):
         data: A dictionary of data fields (optional). All keys and values in the dictionary must be
             strings. When specified, overrides any data fields set via ``Message.data``.
         notification: A ``messaging.WebpushNotification`` to be included in the message (optional).
-        fcm_options: A ``messaging.WebpushFcmOptions`` instance to be included in the message
+        fcm_options: A ``messaging.WebpushFCMOptions`` instance to be included in the message
             (optional).
 
     .. _Webpush Specification: https://tools.ietf.org/html/rfc8030#section-5
@@ -280,7 +280,7 @@ class WebpushNotification(object):
         self.custom_data = custom_data
 
 
-class WebpushFcmOptions(object):
+class WebpushFCMOptions(object):
     """Options for features provided by the FCM SDK for Web.
 
     Args:
@@ -300,7 +300,7 @@ class APNSConfig(object):
     Args:
         headers: A dictionary of headers (optional).
         payload: A ``messaging.APNSPayload`` to be included in the message (optional).
-        fcm_options: A ``messaging.APNSFcmOptions`` instance to be included in the message
+        fcm_options: A ``messaging.APNSFCMOptions`` instance to be included in the message
             (optional).
 
     .. _APNS Documentation: https://developer.apple.com/library/content/documentation\
@@ -396,10 +396,13 @@ class ApsAlert(object):
         action_loc_key: Key of the text in the app's string resources to use to localize the
             action button text (optional).
         launch_image: Image for the notification action (optional).
+        custom_data: A dict of custom key-value pairs to be included in the ApsAlert dictionary
+            (optional)
     """
 
     def __init__(self, title=None, subtitle=None, body=None, loc_key=None, loc_args=None,
-                 title_loc_key=None, title_loc_args=None, action_loc_key=None, launch_image=None):
+                 title_loc_key=None, title_loc_args=None, action_loc_key=None, launch_image=None,
+                 custom_data=None):
         self.title = title
         self.subtitle = subtitle
         self.body = body
@@ -409,9 +412,10 @@ class ApsAlert(object):
         self.title_loc_args = title_loc_args
         self.action_loc_key = action_loc_key
         self.launch_image = launch_image
+        self.custom_data = custom_data
 
 
-class APNSFcmOptions(object):
+class APNSFCMOptions(object):
     """Options for features provided by the FCM SDK for iOS.
 
     Args:
@@ -423,7 +427,7 @@ class APNSFcmOptions(object):
         self.analytics_label = analytics_label
 
 
-class FcmOptions(object):
+class FCMOptions(object):
     """Options for features provided by SDK.
 
     Args:
@@ -533,15 +537,15 @@ class MessageEncoder(json.JSONEncoder):
 
     @classmethod
     def encode_android_fcm_options(cls, fcm_options):
-        """Encodes a AndroidFcmOptions instance into a json."""
+        """Encodes an AndroidFCMOptions instance into a json."""
         if fcm_options is None:
             return None
-        if not isinstance(fcm_options, AndroidFcmOptions):
+        if not isinstance(fcm_options, AndroidFCMOptions):
             raise ValueError('AndroidConfig.fcm_options must be an instance of '
-                             'AndroidFcmOptions class.')
+                             'AndroidFCMOptions class.')
         result = {
             'analytics_label': _Validators.check_analytics_label(
-                'AndroidFcmOptions.analytics_label', fcm_options.analytics_label),
+                'AndroidFCMOptions.analytics_label', fcm_options.analytics_label),
         }
         result = cls.remove_null_values(result)
         return result
@@ -701,7 +705,7 @@ class MessageEncoder(json.JSONEncoder):
 
     @classmethod
     def encode_webpush_fcm_options(cls, options):
-        """Encodes a WebpushFcmOptions instance into JSON."""
+        """Encodes a WebpushFCMOptions instance into JSON."""
         if options is None:
             return None
         result = {
@@ -710,7 +714,7 @@ class MessageEncoder(json.JSONEncoder):
         result = cls.remove_null_values(result)
         link = result.get('link')
         if link is not None and not link.startswith('https://'):
-            raise ValueError('WebpushFcmOptions.link must be a HTTPS URL.')
+            raise ValueError('WebpushFCMOptions.link must be a HTTPS URL.')
         return result
 
     @classmethod
@@ -744,14 +748,14 @@ class MessageEncoder(json.JSONEncoder):
 
     @classmethod
     def encode_apns_fcm_options(cls, fcm_options):
-        """Encodes an APNSFcmOptions instance into JSON."""
+        """Encodes an APNSFCMOptions instance into JSON."""
         if fcm_options is None:
             return None
-        if not isinstance(fcm_options, APNSFcmOptions):
-            raise ValueError('APNSConfig.fcm_options must be an instance of APNSFcmOptions class.')
+        if not isinstance(fcm_options, APNSFCMOptions):
+            raise ValueError('APNSConfig.fcm_options must be an instance of APNSFCMOptions class.')
         result = {
             'analytics_label': _Validators.check_analytics_label(
-                'APNSFcmOptions.analytics_label', fcm_options.analytics_label),
+                'APNSFCMOptions.analytics_label', fcm_options.analytics_label),
         }
         result = cls.remove_null_values(result)
         return result
@@ -837,6 +841,14 @@ class MessageEncoder(json.JSONEncoder):
         if result.get('title-loc-args') and not result.get('title-loc-key'):
             raise ValueError(
                 'ApsAlert.title_loc_key is required when specifying title_loc_args.')
+        if alert.custom_data is not None:
+            if not isinstance(alert.custom_data, dict):
+                raise ValueError('ApsAlert.custom_data must be a dict.')
+            for key, val in alert.custom_data.items():
+                _Validators.check_string('ApsAlert.custom_data key', key)
+                # allow specifying key override because Apple could update API so that key
+                # could have unexpected value type
+                result[key] = val
         return cls.remove_null_values(result)
 
     @classmethod
@@ -887,14 +899,14 @@ class MessageEncoder(json.JSONEncoder):
 
     @classmethod
     def encode_fcm_options(cls, fcm_options):
-        """Encodes an FcmOptions instance into JSON."""
+        """Encodes an FCMOptions instance into JSON."""
         if fcm_options is None:
             return None
-        if not isinstance(fcm_options, FcmOptions):
-            raise ValueError('Message.fcm_options must be an instance of FcmOptions class.')
+        if not isinstance(fcm_options, FCMOptions):
+            raise ValueError('Message.fcm_options must be an instance of FCMOptions class.')
         result = {
             'analytics_label': _Validators.check_analytics_label(
-                'FcmOptions.analytics_label', fcm_options.analytics_label),
+                'FCMOptions.analytics_label', fcm_options.analytics_label),
         }
         result = cls.remove_null_values(result)
         return result

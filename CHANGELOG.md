@@ -4,7 +4,6 @@
 
 # v2.18.0
 
-
 - [added] Added support for specifying the analytics label for notifications.
 - [added] Added support for arbitrary key-value pairs in `messaging.ApsAlert`.
 - [changed] The `WebpushFcmOptions` type is now deprecated. Developers should use

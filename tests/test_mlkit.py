@@ -54,17 +54,17 @@ MODEL_JSON_3 = {
 }
 MODEL_3 = mlkit.Model(MODEL_JSON_3)
 
-_EMPTY_RESPONSE = json.dumps({})
-_DEFAULT_GET_RESPONSE = json.dumps(MODEL_JSON_1)
-_NO_MODELS_LIST_RESPONSE = json.dumps({})
-_DEFAULT_LIST_RESPONSE = json.dumps({
+EMPTY_RESPONSE = json.dumps({})
+DEFAULT_GET_RESPONSE = json.dumps(MODEL_JSON_1)
+NO_MODELS_LIST_RESPONSE = json.dumps({})
+DEFAULT_LIST_RESPONSE = json.dumps({
     'models': [MODEL_JSON_1, MODEL_JSON_2],
     'nextPageToken': NEXT_PAGE_TOKEN
 })
-_LAST_PAGE_LIST_RESPONSE = json.dumps({
+LAST_PAGE_LIST_RESPONSE = json.dumps({
     'models': [MODEL_JSON_3]
 })
-_ONE_PAGE_LIST_RESPONSE = json.dumps({
+ONE_PAGE_LIST_RESPONSE = json.dumps({
     'models': [MODEL_JSON_1, MODEL_JSON_2, MODEL_JSON_3],
 })
 
@@ -78,7 +78,7 @@ ERROR_JSON_NOT_FOUND = {
         'status': ERROR_STATUS_NOT_FOUND
     }
 }
-_ERROR_RESPONSE_NOT_FOUND = json.dumps(ERROR_JSON_NOT_FOUND)
+ERROR_RESPONSE_NOT_FOUND = json.dumps(ERROR_JSON_NOT_FOUND)
 
 ERROR_CODE_BAD_REQUEST = 400
 ERROR_MSG_BAD_REQUEST = 'Invalid Argument'
@@ -90,8 +90,7 @@ ERROR_JSON_BAD_REQUEST = {
         'status': ERROR_STATUS_BAD_REQUEST
     }
 }
-_ERROR_RESPONSE_BAD_REQUEST = json.dumps(ERROR_JSON_BAD_REQUEST)
-
+ERROR_RESPONSE_BAD_REQUEST = json.dumps(ERROR_JSON_BAD_REQUEST)
 
 invalid_model_id_args = [
     ('', ValueError, 'Model ID format is invalid.'),
@@ -100,7 +99,7 @@ invalid_model_id_args = [
     (12345, TypeError, 'Model ID must be a string.'),
 ]
 PAGE_SIZE_VALUE_ERROR_MSG = 'Page size must be a positive integer between ' \
-                            '1 and {0}'.format(mlkit.MAX_PAGE_SIZE)
+                            '1 and {0}'.format(mlkit._MAX_PAGE_SIZE)
 invalid_page_size_args = [
     ('abc', TypeError, 'Page size must be a number or None.'),
     (4.2, TypeError, 'Page size must be a number or None.'),
@@ -109,7 +108,7 @@ invalid_page_size_args = [
     (True, TypeError, 'Page size must be a number or None.'),
     (-1, ValueError, PAGE_SIZE_VALUE_ERROR_MSG),
     (0, ValueError, PAGE_SIZE_VALUE_ERROR_MSG),
-    (mlkit.MAX_PAGE_SIZE + 1, ValueError, PAGE_SIZE_VALUE_ERROR_MSG)
+    (mlkit._MAX_PAGE_SIZE + 1, ValueError, PAGE_SIZE_VALUE_ERROR_MSG)
 ]
 invalid_string_or_none_args = [0, -1, 4.2, 0x10, False, list(), dict()]
 
@@ -155,7 +154,7 @@ class TestGetModel(object):
         return BASE_URL + 'projects/{0}/models/{1}'.format(project_id, model_id)
 
     def test_get_model(self):
-        recorder = instrument_mlkit_service(status=200, payload=_DEFAULT_GET_RESPONSE)
+        recorder = instrument_mlkit_service(status=200, payload=DEFAULT_GET_RESPONSE)
         model = mlkit.get_model(MODEL_ID_1)
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
@@ -171,7 +170,7 @@ class TestGetModel(object):
         check_error(err.value, exc_type, error_message)
 
     def test_get_model_error(self):
-        recorder = instrument_mlkit_service(status=404, payload=_ERROR_RESPONSE_NOT_FOUND)
+        recorder = instrument_mlkit_service(status=404, payload=ERROR_RESPONSE_NOT_FOUND)
         with pytest.raises(exceptions.NotFoundError) as err:
             mlkit.get_model(MODEL_ID_1)
         check_firebase_error(
@@ -207,7 +206,7 @@ class TestDeleteModel(object):
         return BASE_URL + 'projects/{0}/models/{1}'.format(project_id, model_id)
 
     def test_delete_model(self):
-        recorder = instrument_mlkit_service(status=200, payload=_EMPTY_RESPONSE)
+        recorder = instrument_mlkit_service(status=200, payload=EMPTY_RESPONSE)
         mlkit.delete_model(MODEL_ID_1) # no response for delete
         assert len(recorder) == 1
         assert recorder[0].method == 'DELETE'
@@ -220,7 +219,7 @@ class TestDeleteModel(object):
         check_error(err.value, exc_type, error_message)
 
     def test_delete_model_error(self):
-        recorder = instrument_mlkit_service(status=404, payload=_ERROR_RESPONSE_NOT_FOUND)
+        recorder = instrument_mlkit_service(status=404, payload=ERROR_RESPONSE_NOT_FOUND)
         with pytest.raises(exceptions.NotFoundError) as err:
             mlkit.delete_model(MODEL_ID_1)
         check_firebase_error(
@@ -264,7 +263,7 @@ class TestListModels(object):
             assert isinstance(model, mlkit.Model)
 
     def test_list_models_no_args(self):
-        recorder = instrument_mlkit_service(status=200, payload=_DEFAULT_LIST_RESPONSE)
+        recorder = instrument_mlkit_service(status=200, payload=DEFAULT_LIST_RESPONSE)
         models_page = mlkit.list_models()
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
@@ -276,7 +275,7 @@ class TestListModels(object):
         assert models_page.models[1] == MODEL_2
 
     def test_list_models_with_all_args(self):
-        recorder = instrument_mlkit_service(status=200, payload=_LAST_PAGE_LIST_RESPONSE)
+        recorder = instrument_mlkit_service(status=200, payload=LAST_PAGE_LIST_RESPONSE)
         models_page = mlkit.list_models(
             'display_name=displayName3',
             page_size=10,
@@ -313,7 +312,7 @@ class TestListModels(object):
         check_error(err.value, TypeError, 'Page token must be a string or None.')
 
     def test_list_models_error(self):
-        recorder = instrument_mlkit_service(status=400, payload=_ERROR_RESPONSE_BAD_REQUEST)
+        recorder = instrument_mlkit_service(status=400, payload=ERROR_RESPONSE_BAD_REQUEST)
         with pytest.raises(exceptions.InvalidArgumentError) as err:
             mlkit.list_models()
         check_firebase_error(
@@ -334,7 +333,7 @@ class TestListModels(object):
         testutils.run_without_project_id(evaluate)
 
     def test_list_single_page(self):
-        recorder = instrument_mlkit_service(status=200, payload=_LAST_PAGE_LIST_RESPONSE)
+        recorder = instrument_mlkit_service(status=200, payload=LAST_PAGE_LIST_RESPONSE)
         models_page = mlkit.list_models()
         assert len(recorder) == 1
         assert models_page.next_page_token == ''
@@ -345,7 +344,7 @@ class TestListModels(object):
 
     def test_list_multiple_pages(self):
         # Page 1
-        recorder = instrument_mlkit_service(status=200, payload=_DEFAULT_LIST_RESPONSE)
+        recorder = instrument_mlkit_service(status=200, payload=DEFAULT_LIST_RESPONSE)
         page = mlkit.list_models()
         assert len(recorder) == 1
         assert len(page.models) == 2
@@ -353,7 +352,7 @@ class TestListModels(object):
         assert page.has_next_page is True
 
         # Page 2
-        recorder = instrument_mlkit_service(status=200, payload=_LAST_PAGE_LIST_RESPONSE)
+        recorder = instrument_mlkit_service(status=200, payload=LAST_PAGE_LIST_RESPONSE)
         page_2 = page.get_next_page()
         assert len(recorder) == 1
         assert len(page_2.models) == 1
@@ -363,7 +362,7 @@ class TestListModels(object):
 
     def test_list_models_paged_iteration(self):
         # Page 1
-        recorder = instrument_mlkit_service(status=200, payload=_DEFAULT_LIST_RESPONSE)
+        recorder = instrument_mlkit_service(status=200, payload=DEFAULT_LIST_RESPONSE)
         page = mlkit.list_models()
         assert page.next_page_token == NEXT_PAGE_TOKEN
         assert page.has_next_page is True
@@ -374,14 +373,14 @@ class TestListModels(object):
         assert len(recorder) == 1
 
         # Page 2
-        recorder = instrument_mlkit_service(status=200, payload=_LAST_PAGE_LIST_RESPONSE)
+        recorder = instrument_mlkit_service(status=200, payload=LAST_PAGE_LIST_RESPONSE)
         model = next(iterator)
         assert model.display_name == DISPLAY_NAME_3
         with pytest.raises(StopIteration):
             next(iterator)
 
     def test_list_models_stop_iteration(self):
-        recorder = instrument_mlkit_service(status=200, payload=_ONE_PAGE_LIST_RESPONSE)
+        recorder = instrument_mlkit_service(status=200, payload=ONE_PAGE_LIST_RESPONSE)
         page = mlkit.list_models()
         assert len(recorder) == 1
         assert len(page.models) == 3
@@ -393,7 +392,7 @@ class TestListModels(object):
         assert len(models) == 3
 
     def test_list_models_no_models(self):
-        recorder = instrument_mlkit_service(status=200, payload=_NO_MODELS_LIST_RESPONSE)
+        recorder = instrument_mlkit_service(status=200, payload=NO_MODELS_LIST_RESPONSE)
         page = mlkit.list_models()
         assert len(recorder) == 1
         assert len(page.models) == 0

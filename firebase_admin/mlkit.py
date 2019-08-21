@@ -27,7 +27,7 @@ from firebase_admin import _utils
 
 
 _MLKIT_ATTRIBUTE = '_mlkit'
-MAX_PAGE_SIZE = 100
+_MAX_PAGE_SIZE = 100
 
 
 def _get_mlkit_service(app):
@@ -145,10 +145,10 @@ class ListModelsPage(object):
         Returns:
             iterator: An iterator of Model instances.
         """
-        return ModelIterator(self)
+        return _ModelIterator(self)
 
 
-class ModelIterator(object):
+class _ModelIterator(object):
     """An iterator that allows iterating over models, one at a time.
 
     This implementation loads a page of models into memory, and iterates on them.
@@ -197,9 +197,9 @@ def _validate_page_size(page_size):
         if type(page_size) is not int: # pylint: disable=unidiomatic-typecheck
             # Specifically type() to disallow boolean which is a subtype of int
             raise TypeError('Page size must be a number or None.')
-        if page_size < 1 or page_size > MAX_PAGE_SIZE:
+        if page_size < 1 or page_size > _MAX_PAGE_SIZE:
             raise ValueError('Page size must be a positive integer between '
-                             '1 and {0}'.format(MAX_PAGE_SIZE))
+                             '1 and {0}'.format(_MAX_PAGE_SIZE))
 
 
 def _validate_page_token(page_token):

@@ -89,11 +89,13 @@ class Notification(object):
     Args:
         title: Title of the notification (optional).
         body: Body of the notification (optional).
+        image: Image url of the notification (optional)
     """
 
-    def __init__(self, title=None, body=None):
+    def __init__(self, title=None, body=None, image=None):
         self.title = title
         self.body = body
+        self.image = image
 
 
 class AndroidConfig(object):
@@ -153,11 +155,12 @@ class AndroidNotification(object):
         title_loc_args: A list of resource keys that will be used in place of the format specifiers
             in ``title_loc_key`` (optional).
         channel_id: channel_id of the notification (optional).
+        image: Image url of the notification (optional).
     """
 
     def __init__(self, title=None, body=None, icon=None, color=None, sound=None, tag=None,
                  click_action=None, body_loc_key=None, body_loc_args=None, title_loc_key=None,
-                 title_loc_args=None, channel_id=None):
+                 title_loc_args=None, channel_id=None, image=None):
         self.title = title
         self.body = body
         self.icon = icon
@@ -170,6 +173,7 @@ class AndroidNotification(object):
         self.title_loc_key = title_loc_key
         self.title_loc_args = title_loc_args
         self.channel_id = channel_id
+        self.image = image
 
 
 class AndroidFCMOptions(object):
@@ -600,6 +604,9 @@ class MessageEncoder(json.JSONEncoder):
                 'AndroidNotification.title_loc_key', notification.title_loc_key),
             'channel_id': _Validators.check_string(
                 'AndroidNotification.channel_id', notification.channel_id),
+            'image': _Validators.check_string(
+                'image', notification.image
+            )
         }
         result = cls.remove_null_values(result)
         color = result.get('color')
@@ -858,6 +865,7 @@ class MessageEncoder(json.JSONEncoder):
         result = {
             'body': _Validators.check_string('Notification.body', notification.body),
             'title': _Validators.check_string('Notification.title', notification.title),
+            'image': _Validators.check_string('Notification.image', notification.image)
         }
         return cls.remove_null_values(result)
 

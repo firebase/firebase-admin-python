@@ -858,6 +858,7 @@ class MessageEncoder(json.JSONEncoder):
 
     @classmethod
     def encode_notification(cls, notification):
+        """Encodes an Notification instance into JSON."""
         if notification is None:
             return None
         if not isinstance(notification, Notification):

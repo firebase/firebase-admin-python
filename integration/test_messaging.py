@@ -27,14 +27,16 @@ _REGISTRATION_TOKEN = ('fGw0qy4TGgk:APA91bGtWGjuhp4WRhHXgbabIYp1jxEKI08ofj_v1bKh
 def test_send():
     msg = messaging.Message(
         topic='foo-bar',
-        notification=messaging.Notification('test-title', 'test-body', 'https://images.unsplash.com/photo-1494438639946'
-                                                                       '-1ebd1d20bf85?fit=crop&w=900&q=60'),
+        notification=messaging.Notification('test-title', 'test-body',
+                                            'https://images.unsplash.com/photo-1494438639946'
+                                            '-1ebd1d20bf85?fit=crop&w=900&q=60'),
         android=messaging.AndroidConfig(
             restricted_package_name='com.google.firebase.demos',
             notification=messaging.AndroidNotification(
                 title='android-title',
                 body='android-body',
-                image='https://images.unsplash.com/photo-1494438639946-1ebd1d20bf85?fit=crop&w=900&q=60'
+                image='https://images.unsplash.com/'
+                      'photo-1494438639946-1ebd1d20bf85?fit=crop&w=900&q=60'
             )
         ),
         apns=messaging.APNSConfig(payload=messaging.APNSPayload(

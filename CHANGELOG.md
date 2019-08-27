@@ -5,6 +5,16 @@
 - [changed] Updated the `firebase_admin.instance_id` module to use the new
   shared exception types. The type `instance_id.ApiCallError` was removed.
 
+# v2.18.0
+
+- [added] Added support for specifying the analytics label for notifications.
+- [added] Added support for arbitrary key-value pairs in `messaging.ApsAlert`.
+- [changed] The `WebpushFcmOptions` type is now deprecated. Developers should use
+  the PEP8 compliant type name `WebpushFCMOptions` instead.
+- [added] Developers can now test their Database API calls by directing the
+  SDK traffic to the RTDB emulator. Set the `FIREBASE_DATABASE_EMULATOR_HOST`
+  environment variable to specify the emulator endpoint in `host:port` format.
+
 # v2.17.0
 
 - [added] Added new `send_all()` and `send_multicast()` APIs to the

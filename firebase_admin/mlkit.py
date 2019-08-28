@@ -80,7 +80,7 @@ class Model(object):
         if model_format is not None:
             _validate_model_format(model_format)
             if isinstance(model_format, TFLiteFormat):
-                self._data['tfliteModel'] = model_format.get_json()
+                self._data['tfliteModel'] = model_format.as_dict()
             else:
                 raise TypeError('Unsupported model format type.')
 
@@ -180,16 +180,16 @@ class Model(object):
     def model_format(self, model_format):
         if not isinstance(model_format, TFLiteFormat):
             raise TypeError('Unsupported model format type.')
-        self._data['tfliteModel'] = model_format.get_json()
+        self._data['tfliteModel'] = model_format.as_dict()
         return self
 
-    def get_json(self):
+    def as_dict(self):
         return self._data
 
 
 class ModelFormat(object):
     """Abstract base class representing a Model Format such as TFLite."""
-    def get_json(self):
+    def as_dict(self):
         raise NotImplementedError
 
 
@@ -203,7 +203,7 @@ class TFLiteFormat(ModelFormat):
                 raise TypeError('Model source must be a ModelSource object.')
             # Set based on specific sub type
             if isinstance(model_source, TFLiteGCSModelSource):
-                self._data['gcsTfliteUri'] = model_source.get_json()
+                self._data['gcsTfliteUri'] = model_source.as_dict()
             else:
                 raise TypeError('Unsupported model source type.')
 
@@ -226,7 +226,7 @@ class TFLiteFormat(ModelFormat):
     def model_source(self, model_source):
         if model_source is not None:
             if isinstance(model_source, TFLiteGCSModelSource):
-                self._data['gcsTfliteUri'] = model_source.get_json()
+                self._data['gcsTfliteUri'] = model_source.as_dict()
             else:
                 raise TypeError('Unsupported model source type.')
 
@@ -234,13 +234,13 @@ class TFLiteFormat(ModelFormat):
     def size_bytes(self):
         return self._data.get('sizeBytes')
 
-    def get_json(self):
+    def as_dict(self):
         return self._data
 
 
 class TFLiteModelSource(object):
     """Abstract base class representing a model source for TFLite format models."""
-    def get_json(self):
+    def as_dict(self):
         raise NotImplementedError
 
 
@@ -266,7 +266,7 @@ class TFLiteGCSModelSource(TFLiteModelSource):
     def gcs_tflite_uri(self, gcs_tflite_uri):
         self._gcs_tflite_uri = _validate_gcs_tflite_uri(gcs_tflite_uri)
 
-    def get_json(self):
+    def as_dict(self):
         return self._gcs_tflite_uri
 
     #TODO(ifielker): implement from_saved_model etc.

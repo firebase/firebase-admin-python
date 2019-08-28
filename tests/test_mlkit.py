@@ -269,7 +269,7 @@ class TestModel(object):
         assert model.tags == TAGS
         assert model.locked is True
         assert model.model_format is None
-        assert model.get_json() == FULL_MODEL_ERR_STATE_LRO_JSON
+        assert model.as_dict() == FULL_MODEL_ERR_STATE_LRO_JSON
 
     def test_model_success_published(self):
         model = mlkit.Model(**FULL_MODEL_PUBLISHED_JSON)
@@ -284,14 +284,14 @@ class TestModel(object):
         assert model.tags == TAGS
         assert model.locked is False
         assert model.model_format == TFLITE_FORMAT
-        assert model.get_json() == FULL_MODEL_PUBLISHED_JSON
+        assert model.as_dict() == FULL_MODEL_PUBLISHED_JSON
 
     def test_model_keyword_based_creation_and_setters(self):
         model = mlkit.Model(display_name=DISPLAY_NAME_1, tags=TAGS, model_format=TFLITE_FORMAT)
         assert model.display_name == DISPLAY_NAME_1
         assert model.tags == TAGS
         assert model.model_format == TFLITE_FORMAT
-        assert model.get_json() == {
+        assert model.as_dict() == {
             'displayName': DISPLAY_NAME_1,
             'tags': TAGS,
             'tfliteModel': TFLITE_FORMAT_JSON
@@ -300,7 +300,7 @@ class TestModel(object):
         model.display_name = DISPLAY_NAME_2
         model.tags = TAGS_2
         model.model_format = TFLITE_FORMAT_2
-        assert model.get_json() == {
+        assert model.as_dict() == {
             'displayName': DISPLAY_NAME_2,
             'tags': TAGS_2,
             'tfliteModel': TFLITE_FORMAT_JSON_2
@@ -310,7 +310,7 @@ class TestModel(object):
         model_source = mlkit.TFLiteGCSModelSource(gcs_tflite_uri=GCS_TFLITE_URI)
         model_format = mlkit.TFLiteFormat(model_source=model_source)
         model = mlkit.Model(display_name=DISPLAY_NAME_1, model_format=model_format)
-        assert model.get_json() == {
+        assert model.as_dict() == {
             'displayName': DISPLAY_NAME_1,
             'tfliteModel': {
                 'gcsTfliteUri': GCS_TFLITE_URI
@@ -321,13 +321,13 @@ class TestModel(object):
         model_source = mlkit.TFLiteGCSModelSource(GCS_TFLITE_URI)
         model_source.gcs_tflite_uri = GCS_TFLITE_URI_2
         assert model_source.gcs_tflite_uri == GCS_TFLITE_URI_2
-        assert model_source.get_json() == GCS_TFLITE_URI_2
+        assert model_source.as_dict() == GCS_TFLITE_URI_2
 
     def test_model_format_setters(self):
         model_format = mlkit.TFLiteFormat(model_source=GCS_TFLITE_MODEL_SOURCE)
         model_format.model_source = GCS_TFLITE_MODEL_SOURCE_2
         assert model_format.model_source == GCS_TFLITE_MODEL_SOURCE_2
-        assert model_format.get_json() == {
+        assert model_format.as_dict() == {
             'gcsTfliteUri': GCS_TFLITE_URI_2
         }
 

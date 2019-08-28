@@ -111,6 +111,7 @@ class Model(object):
 
     @property
     def create_time(self):
+        """Returns the creation timestamp"""
         create_time = self._data.get('createTime')
         if not create_time:
             return None
@@ -125,6 +126,7 @@ class Model(object):
 
     @property
     def update_time(self):
+        """Returns the last update timestamp"""
         update_time = self._data.get('updateTime')
         if not update_time:
             return None

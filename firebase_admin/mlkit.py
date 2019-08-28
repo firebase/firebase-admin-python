@@ -30,6 +30,10 @@ from firebase_admin import _utils
 
 _MLKIT_ATTRIBUTE = '_mlkit'
 _MAX_PAGE_SIZE = 100
+# These are coincidentally the same. They are not related.
+_MODEL_ID_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,60}$')
+_DISPLAY_NAME_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,60}$')
+_TAG_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,60}$')
 
 
 def _get_mlkit_service(app):
@@ -77,7 +81,6 @@ class Model(object):
                 self._data['tfliteModel'] = model_format.get_json()
             else:
                 raise TypeError('Unsupported model format type.')
-
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -374,14 +377,12 @@ def _validate_and_parse_name(name):
 
 
 def _validate_model_id(model_id):
-    if not isinstance(model_id, six.string_types):
-        raise TypeError('Model ID must be a string.')
-    if not re.match(r'^[A-Za-z0-9_-]{1,60}$', model_id):
+    if not _MODEL_ID_PATTERN.match(model_id):
         raise ValueError('Model ID format is invalid.')
 
 
 def _validate_display_name(display_name):
-    if not re.match(r'^[A-Za-z0-9_-]{1,60}$', display_name):
+    if not _DISPLAY_NAME_PATTERN.match(display_name):
         raise ValueError('Display name format is invalid.')
     return display_name
 
@@ -390,7 +391,7 @@ def _validate_tags(tags):
     if not isinstance(tags, list) or not \
         all(isinstance(tag, six.string_types) for tag in tags):
         raise TypeError('Tags must be a list of strings.')
-    if not all(re.match(r'^[A-Za-z0-9_-]{1,60}$', tag) for tag in tags):
+    if not all(_TAG_PATTERN.match(tag) for tag in tags):
         raise ValueError('Tag format is invalid.')
     return tags
 
@@ -403,7 +404,7 @@ def _validate_gcs_tflite_uri(uri):
     return uri
 
 def _validate_model_format(model_format):
-    if model_format is not None:
+    if model_format:
         if not isinstance(model_format, ModelFormat):
             raise TypeError('Model format must be a ModelFormat object.')
     return model_format

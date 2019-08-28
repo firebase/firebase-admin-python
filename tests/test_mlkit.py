@@ -210,8 +210,8 @@ invalid_gcs_tflite_uri_args = [
 invalid_model_id_args = [
     ('', ValueError, 'Model ID format is invalid.'),
     ('&_*#@:/?', ValueError, 'Model ID format is invalid.'),
-    (None, TypeError, 'Model ID must be a string.'),
-    (12345, TypeError, 'Model ID must be a string.'),
+    (None, TypeError, 'expected string or buffer'),
+    (12345, TypeError, 'expected string or buffer'),
 ]
 PAGE_SIZE_VALUE_ERROR_MSG = 'Page size must be a positive integer between ' \
                             '1 and {0}'.format(mlkit._MAX_PAGE_SIZE)

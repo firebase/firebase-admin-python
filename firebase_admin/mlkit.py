@@ -30,10 +30,12 @@ from firebase_admin import _utils
 
 _MLKIT_ATTRIBUTE = '_mlkit'
 _MAX_PAGE_SIZE = 100
-# These are coincidentally the same. They are not related.
 _MODEL_ID_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,60}$')
 _DISPLAY_NAME_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,60}$')
 _TAG_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,60}$')
+_GCS_TFLITE_URI_PATTERN = re.compile(r'^gs://[a-z0-9_.-]{3,63}/.+')
+_RESOURCE_NAME_PATTERN = re.compile(
+    r'^projects/(?P<project_id>[^/]+)/models/(?P<model_id>[A-Za-z0-9_-]{1,60})$')
 
 
 def _get_mlkit_service(app):
@@ -366,11 +368,7 @@ def _validate_and_parse_name(name):
     # The resource name is added automatically from API call responses.
     # The only way it could be invalid is if someone tries to
     # create a model from a dictionary manually and does it incorrectly.
-    if not isinstance(name, six.string_types):
-        raise TypeError('Model resource name must be a string.')
-    matcher = re.match(
-        r'^projects/(?P<project_id>[^/]+)/models/(?P<model_id>[A-Za-z0-9_-]{1,60})$',
-        name)
+    matcher = _RESOURCE_NAME_PATTERN.match(name)
     if not matcher:
         raise ValueError('Model resource name format is invalid.')
     return matcher.group('project_id'), matcher.group('model_id')
@@ -399,7 +397,7 @@ def _validate_tags(tags):
 def _validate_gcs_tflite_uri(uri):
     # GCS Bucket naming rules are complex. The regex is not comprehensive.
     # See https://cloud.google.com/storage/docs/naming for full details.
-    if not re.match(r'^gs://[a-z0-9_.-]{3,63}/.+', uri):
+    if not _GCS_TFLITE_URI_PATTERN.match(uri):
         raise ValueError('GCS TFLite URI format is invalid.')
     return uri
 

@@ -173,9 +173,9 @@ ERROR_JSON_BAD_REQUEST = {
 ERROR_RESPONSE_BAD_REQUEST = json.dumps(ERROR_JSON_BAD_REQUEST)
 
 invalid_display_name_args = [
-    ('', ValueError, 'Display name format is invalid.'),
-    ('&_*#@:/?', ValueError, 'Display name format is invalid.'),
-    (12345, TypeError, 'expected string or buffer')
+    ('', ValueError),
+    ('&_*#@:/?', ValueError),
+    (12345, TypeError)
 ]
 invalid_tags_args = [
     ('tag1', TypeError, 'Tags must be a list of strings.'),
@@ -195,23 +195,22 @@ invalid_model_source_args = [
     (mlkit.TFLiteModelSource(), 'Unsupported model source type.'),
 
 ]
-GCS_TFLITE_VALUE_ERR_MSG = 'GCS TFLite URI format is invalid.'
 invalid_gcs_tflite_uri_args = [
-    (123, TypeError, 'expected string or buffer'),
-    ('abc', ValueError, GCS_TFLITE_VALUE_ERR_MSG),
-    ('gs://NO_CAPITALS', ValueError, GCS_TFLITE_VALUE_ERR_MSG),
-    ('gs://abc/', ValueError, GCS_TFLITE_VALUE_ERR_MSG),
-    ('gs://aa/model.tflite', ValueError, GCS_TFLITE_VALUE_ERR_MSG),
-    ('gs://@#$%/model.tflite', ValueError, GCS_TFLITE_VALUE_ERR_MSG),
-    ('gs://invalid space/model.tflite', ValueError, GCS_TFLITE_VALUE_ERR_MSG),
+    (123, TypeError),
+    ('abc', ValueError),
+    ('gs://NO_CAPITALS', ValueError),
+    ('gs://abc/', ValueError),
+    ('gs://aa/model.tflite', ValueError),
+    ('gs://@#$%/model.tflite', ValueError),
+    ('gs://invalid space/model.tflite', ValueError),
     ('gs://sixty-four-characters_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/model.tflite',
-     ValueError, GCS_TFLITE_VALUE_ERR_MSG)
+     ValueError)
 ]
 invalid_model_id_args = [
-    ('', ValueError, 'Model ID format is invalid.'),
-    ('&_*#@:/?', ValueError, 'Model ID format is invalid.'),
-    (None, TypeError, 'expected string or buffer'),
-    (12345, TypeError, 'expected string or buffer'),
+    ('', ValueError),
+    ('&_*#@:/?', ValueError),
+    (None, TypeError),
+    (12345, TypeError),
 ]
 PAGE_SIZE_VALUE_ERROR_MSG = 'Page size must be a positive integer between ' \
                             '1 and {0}'.format(mlkit._MAX_PAGE_SIZE)
@@ -228,9 +227,10 @@ invalid_page_size_args = [
 invalid_string_or_none_args = [0, -1, 4.2, 0x10, False, list(), dict()]
 
 
-def check_error(err, err_type, msg):
+def check_error(err, err_type, msg=None):
     assert isinstance(err, err_type)
-    assert str(err) == msg
+    if msg:
+        assert str(err) == msg
 
 
 def check_firebase_error(err, code, status, msg):
@@ -331,11 +331,11 @@ class TestModel(object):
             'gcsTfliteUri': GCS_TFLITE_URI_2
         }
 
-    @pytest.mark.parametrize('display_name, exc_type, error_message', invalid_display_name_args)
-    def test_model_display_name_validation_errors(self, display_name, exc_type, error_message):
+    @pytest.mark.parametrize('display_name, exc_type', invalid_display_name_args)
+    def test_model_display_name_validation_errors(self, display_name, exc_type):
         with pytest.raises(exc_type) as err:
             mlkit.Model(display_name=display_name)
-        check_error(err.value, exc_type, error_message)
+        check_error(err.value, exc_type)
 
     @pytest.mark.parametrize('tags, exc_type, error_message', invalid_tags_args)
     def test_model_tags_validation_errors(self, tags, exc_type, error_message):
@@ -355,11 +355,11 @@ class TestModel(object):
             mlkit.TFLiteFormat(model_source=model_source)
         check_error(err.value, TypeError, error_message)
 
-    @pytest.mark.parametrize('uri, exc_type, error_message', invalid_gcs_tflite_uri_args)
-    def test_gcs_tflite_source_validation_errors(self, uri, exc_type, error_message):
+    @pytest.mark.parametrize('uri, exc_type', invalid_gcs_tflite_uri_args)
+    def test_gcs_tflite_source_validation_errors(self, uri, exc_type):
         with pytest.raises(exc_type) as err:
             mlkit.TFLiteGCSModelSource(gcs_tflite_uri=uri)
-        check_error(err.value, exc_type, error_message)
+        check_error(err.value, exc_type)
 
 class TestGetModel(object):
     """Tests mlkit.get_model."""
@@ -386,11 +386,11 @@ class TestGetModel(object):
         assert model.model_id == MODEL_ID_1
         assert model.display_name == DISPLAY_NAME_1
 
-    @pytest.mark.parametrize('model_id, exc_type, error_message', invalid_model_id_args)
-    def test_get_model_validation_errors(self, model_id, exc_type, error_message):
+    @pytest.mark.parametrize('model_id, exc_type', invalid_model_id_args)
+    def test_get_model_validation_errors(self, model_id, exc_type):
         with pytest.raises(exc_type) as err:
             mlkit.get_model(model_id)
-        check_error(err.value, exc_type, error_message)
+        check_error(err.value, exc_type)
 
     def test_get_model_error(self):
         recorder = instrument_mlkit_service(status=404, payload=ERROR_RESPONSE_NOT_FOUND)
@@ -436,11 +436,11 @@ class TestDeleteModel(object):
         assert recorder[0].method == 'DELETE'
         assert recorder[0].url == TestDeleteModel._url(PROJECT_ID, MODEL_ID_1)
 
-    @pytest.mark.parametrize('model_id, exc_type, error_message', invalid_model_id_args)
-    def test_delete_model_validation_errors(self, model_id, exc_type, error_message):
+    @pytest.mark.parametrize('model_id, exc_type', invalid_model_id_args)
+    def test_delete_model_validation_errors(self, model_id, exc_type):
         with pytest.raises(exc_type) as err:
             mlkit.delete_model(model_id)
-        check_error(err.value, exc_type, error_message)
+        check_error(err.value, exc_type)
 
     def test_delete_model_error(self):
         recorder = instrument_mlkit_service(status=404, payload=ERROR_RESPONSE_NOT_FOUND)

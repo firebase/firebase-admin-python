@@ -49,7 +49,7 @@ def _get_mlkit_service(app):
 
 def get_model(model_id, app=None):
     mlkit_service = _get_mlkit_service(app)
-    return Model(mlkit_service.get_model(model_id))
+    return Model(**mlkit_service.get_model(model_id))
 
 
 def list_models(list_filter=None, page_size=None, page_token=None, app=None):
@@ -65,18 +65,12 @@ def delete_model(model_id, app=None):
 
 class Model(object):
     """A Firebase ML Kit Model object."""
-    def __init__(self, data=None, display_name=None, tags=None, model_format=None):
-        """Created from a data dictionary."""
-        if data is not None and isinstance(data, dict):
-            self._data = data
-        else:
-            self._data = {}
+    def __init__(self, display_name=None, tags=None, model_format=None, **kwargs):
+        self._data = kwargs
         if display_name is not None:
-            _validate_display_name(display_name)
-            self._data['displayName'] = display_name
+            self._data['displayName'] = _validate_display_name(display_name)
         if tags is not None:
-            _validate_tags(tags)
-            self._data['tags'] = tags
+            self._data['tags'] = _validate_tags(tags)
         if model_format is not None:
             _validate_model_format(model_format)
             if isinstance(model_format, TFLiteFormat):
@@ -107,27 +101,36 @@ class Model(object):
 
     @display_name.setter
     def display_name(self, display_name):
-        _validate_display_name(display_name)
-        self._data['displayName'] = display_name
+        self._data['displayName'] = _validate_display_name(display_name)
         return self
 
     @property
     def create_time(self):
-        if self._data.get('createTime') and \
-           self._data.get('createTime').get('seconds') and \
-           isinstance(self._data.get('createTime').get('seconds'), numbers.Number):
-            return datetime.datetime.fromtimestamp(
-                float(self._data.get('createTime').get('seconds')))
-        return None
+        create_time = self._data.get('createTime')
+        if not create_time:
+            return None
+
+        seconds = create_time.get('seconds')
+        if not seconds:
+            return None
+        if not isinstance(seconds, numbers.Number):
+            return None
+
+        return datetime.datetime.fromtimestamp(float(seconds))
 
     @property
     def update_time(self):
-        if self._data.get('updateTime') and \
-           self._data.get('updateTime').get('seconds') and \
-           isinstance(self._data.get('updateTime').get('seconds'), numbers.Number):
-            return datetime.datetime.fromtimestamp(
-                float(self._data.get('updateTime').get('seconds')))
-        return None
+        update_time = self._data.get('updateTime')
+        if not update_time:
+            return None
+
+        seconds = update_time.get('seconds')
+        if not seconds:
+            return None
+        if not isinstance(seconds, numbers.Number):
+            return None
+
+        return datetime.datetime.fromtimestamp(float(seconds))
 
     @property
     def validation_error(self):
@@ -154,8 +157,7 @@ class Model(object):
 
     @tags.setter
     def tags(self, tags):
-        _validate_tags(tags)
-        self._data['tags'] = tags
+        self._data['tags'] = _validate_tags(tags)
         return self
 
     @property
@@ -166,7 +168,7 @@ class Model(object):
     @property
     def model_format(self):
         if self._data.get('tfliteModel'):
-            return TFLiteFormat(self._data.get('tfliteModel'))
+            return TFLiteFormat(**self._data.get('tfliteModel'))
         return None
 
     @model_format.setter
@@ -188,11 +190,8 @@ class ModelFormat(object):
 
 class TFLiteFormat(ModelFormat):
     """Model format representing a TFLite model."""
-    def __init__(self, data=None, model_source=None):
-        if (data is not None) and isinstance(data, dict):
-            self._data = data
-        else:
-            self._data = {}
+    def __init__(self, model_source=None, **kwargs):
+        self._data = kwargs
         if model_source is not None:
             # Check for correct base type
             if not isinstance(model_source, TFLiteModelSource):
@@ -202,7 +201,6 @@ class TFLiteFormat(ModelFormat):
                 self._data['gcsTfliteUri'] = model_source.get_json()
             else:
                 raise TypeError('Unsupported model source type.')
-
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -227,7 +225,6 @@ class TFLiteFormat(ModelFormat):
             else:
                 raise TypeError('Unsupported model source type.')
 
-
     @property
     def size_bytes(self):
         return self._data.get('sizeBytes')
@@ -245,8 +242,7 @@ class TFLiteModelSource(object):
 class TFLiteGCSModelSource(TFLiteModelSource):
     """TFLite model source representing a tflite model file stored in GCS."""
     def __init__(self, gcs_tflite_uri):
-        _validate_gcs_tflite_uri(gcs_tflite_uri)
-        self._gcs_tflite_uri = gcs_tflite_uri
+        self._gcs_tflite_uri = _validate_gcs_tflite_uri(gcs_tflite_uri)
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -263,13 +259,13 @@ class TFLiteGCSModelSource(TFLiteModelSource):
 
     @gcs_tflite_uri.setter
     def gcs_tflite_uri(self, gcs_tflite_uri):
-        _validate_gcs_tflite_uri(gcs_tflite_uri)
-        self._gcs_tflite_uri = gcs_tflite_uri
+        self._gcs_tflite_uri = _validate_gcs_tflite_uri(gcs_tflite_uri)
 
     def get_json(self):
         return self._gcs_tflite_uri
 
     #TODO(ifielker): implement from_saved_model etc.
+
 
 class ListModelsPage(object):
     """Represents a page of models in a firebase project.
@@ -289,7 +285,7 @@ class ListModelsPage(object):
     @property
     def models(self):
         """A list of Models from this page."""
-        return [Model(model) for model in self._list_response.get('models', [])]
+        return [Model(**model) for model in self._list_response.get('models', [])]
 
     @property
     def list_filter(self):
@@ -389,6 +385,7 @@ def _validate_display_name(display_name):
         raise TypeError('Display name must be a string.')
     if not re.match(r'^[A-Za-z0-9_-]{1,60}$', display_name):
         raise ValueError('Display name format is invalid.')
+    return display_name
 
 
 def _validate_tags(tags):
@@ -397,20 +394,21 @@ def _validate_tags(tags):
         raise TypeError('Tags must be a list of strings.')
     if not all(re.match(r'^[A-Za-z0-9_-]{1,60}$', tag) for tag in tags):
         raise ValueError('Tag format is invalid.')
+    return tags
 
 
 def _validate_gcs_tflite_uri(uri):
-    if not isinstance(uri, six.string_types):
-        raise TypeError('Gcs TFLite URI must be a string.')
     # GCS Bucket naming rules are complex. The regex is not comprehensive.
     # See https://cloud.google.com/storage/docs/naming for full details.
     if not re.match(r'^gs://[a-z0-9_.-]{3,63}/.+', uri):
         raise ValueError('GCS TFLite URI format is invalid.')
+    return uri
 
 def _validate_model_format(model_format):
     if model_format is not None:
         if not isinstance(model_format, ModelFormat):
             raise TypeError('Model format must be a ModelFormat object.')
+    return model_format
 
 def _validate_list_filter(list_filter):
     if list_filter is not None:

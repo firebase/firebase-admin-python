@@ -54,7 +54,7 @@ MODEL_JSON_1 = {
     'name': MODEL_NAME_1,
     'displayName': DISPLAY_NAME_1
 }
-MODEL_1 = mlkit.Model(MODEL_JSON_1)
+MODEL_1 = mlkit.Model(**MODEL_JSON_1)
 
 MODEL_ID_2 = 'modelId2'
 MODEL_NAME_2 = 'projects/{0}/models/{1}'.format(PROJECT_ID, MODEL_ID_2)
@@ -63,7 +63,7 @@ MODEL_JSON_2 = {
     'name': MODEL_NAME_2,
     'displayName': DISPLAY_NAME_2
 }
-MODEL_2 = mlkit.Model(MODEL_JSON_2)
+MODEL_2 = mlkit.Model(**MODEL_JSON_2)
 
 MODEL_ID_3 = 'modelId3'
 MODEL_NAME_3 = 'projects/{0}/models/{1}'.format(PROJECT_ID, MODEL_ID_3)
@@ -72,7 +72,7 @@ MODEL_JSON_3 = {
     'name': MODEL_NAME_3,
     'displayName': DISPLAY_NAME_3
 }
-MODEL_3 = mlkit.Model(MODEL_JSON_3)
+MODEL_3 = mlkit.Model(**MODEL_JSON_3)
 
 MODEL_STATE_PUBLISHED_JSON = {
     'published': True
@@ -101,7 +101,7 @@ TFLITE_FORMAT_JSON = {
     'gcsTfliteUri': GCS_TFLITE_URI,
     'sizeBytes': '1234567'
 }
-TFLITE_FORMAT = mlkit.TFLiteFormat(TFLITE_FORMAT_JSON)
+TFLITE_FORMAT = mlkit.TFLiteFormat(**TFLITE_FORMAT_JSON)
 
 GCS_TFLITE_URI_2 = 'gs://my_bucket/mymodel2.tflite'
 GCS_TFLITE_MODEL_SOURCE_2 = mlkit.TFLiteGCSModelSource(GCS_TFLITE_URI_2)
@@ -109,7 +109,7 @@ TFLITE_FORMAT_JSON_2 = {
     'gcsTfliteUri': GCS_TFLITE_URI_2,
     'sizeBytes': '2345678'
 }
-TFLITE_FORMAT_2 = mlkit.TFLiteFormat(TFLITE_FORMAT_JSON_2)
+TFLITE_FORMAT_2 = mlkit.TFLiteFormat(**TFLITE_FORMAT_JSON_2)
 
 FULL_MODEL_ERR_STATE_LRO_JSON = {
     'name': MODEL_NAME_1,
@@ -122,8 +122,6 @@ FULL_MODEL_ERR_STATE_LRO_JSON = {
     'tags': TAGS,
     'activeOperations': [OPERATION_NOT_DONE_JSON_1],
 }
-FULL_MODEL_ERR_STATE_LRO = mlkit.Model(FULL_MODEL_ERR_STATE_LRO_JSON)
-
 FULL_MODEL_PUBLISHED_JSON = {
     'name': MODEL_NAME_1,
     'displayName': DISPLAY_NAME_1,
@@ -135,7 +133,6 @@ FULL_MODEL_PUBLISHED_JSON = {
     'tags': TAGS,
     'tfliteModel': TFLITE_FORMAT_JSON
 }
-FULL_MODEL_PUBLISHED = mlkit.Model(FULL_MODEL_PUBLISHED_JSON)
 
 EMPTY_RESPONSE = json.dumps({})
 DEFAULT_GET_RESPONSE = json.dumps(MODEL_JSON_1)
@@ -198,6 +195,18 @@ invalid_model_source_args = [
     (mlkit.TFLiteModelSource(), 'Unsupported model source type.'),
 
 ]
+GCS_TFLITE_VALUE_ERR_MSG = 'GCS TFLite URI format is invalid.'
+invalid_gcs_tflite_uri_args = [
+    (123, TypeError, 'expected string or buffer'),
+    ('abc', ValueError, GCS_TFLITE_VALUE_ERR_MSG),
+    ('gs://NO_CAPITALS', ValueError, GCS_TFLITE_VALUE_ERR_MSG),
+    ('gs://abc/', ValueError, GCS_TFLITE_VALUE_ERR_MSG),
+    ('gs://aa/model.tflite', ValueError, GCS_TFLITE_VALUE_ERR_MSG),
+    ('gs://@#$%/model.tflite', ValueError, GCS_TFLITE_VALUE_ERR_MSG),
+    ('gs://invalid space/model.tflite', ValueError, GCS_TFLITE_VALUE_ERR_MSG),
+    ('gs://sixty-four-characters_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/model.tflite',
+     ValueError, GCS_TFLITE_VALUE_ERR_MSG)
+]
 invalid_model_id_args = [
     ('', ValueError, 'Model ID format is invalid.'),
     ('&_*#@:/?', ValueError, 'Model ID format is invalid.'),
@@ -248,32 +257,34 @@ class TestModel(object):
     """Tests mlkit.Model class."""
 
     def test_model_success_err_state_lro(self):
-        assert FULL_MODEL_ERR_STATE_LRO.model_id == MODEL_ID_1
-        assert FULL_MODEL_ERR_STATE_LRO.display_name == DISPLAY_NAME_1
-        assert FULL_MODEL_ERR_STATE_LRO.create_time == CREATE_TIME_DATETIME
-        assert FULL_MODEL_ERR_STATE_LRO.update_time == UPDATE_TIME_DATETIME
-        assert FULL_MODEL_ERR_STATE_LRO.validation_error == VALIDATION_ERROR_MSG
-        assert FULL_MODEL_ERR_STATE_LRO.published is False
-        assert FULL_MODEL_ERR_STATE_LRO.etag == ETAG
-        assert FULL_MODEL_ERR_STATE_LRO.model_hash == MODEL_HASH
-        assert FULL_MODEL_ERR_STATE_LRO.tags == TAGS
-        assert FULL_MODEL_ERR_STATE_LRO.locked is True
-        assert FULL_MODEL_ERR_STATE_LRO.model_format is None
-        assert FULL_MODEL_ERR_STATE_LRO.get_json() == FULL_MODEL_ERR_STATE_LRO_JSON
+        model = mlkit.Model(**FULL_MODEL_ERR_STATE_LRO_JSON)
+        assert model.model_id == MODEL_ID_1
+        assert model.display_name == DISPLAY_NAME_1
+        assert model.create_time == CREATE_TIME_DATETIME
+        assert model.update_time == UPDATE_TIME_DATETIME
+        assert model.validation_error == VALIDATION_ERROR_MSG
+        assert model.published is False
+        assert model.etag == ETAG
+        assert model.model_hash == MODEL_HASH
+        assert model.tags == TAGS
+        assert model.locked is True
+        assert model.model_format is None
+        assert model.get_json() == FULL_MODEL_ERR_STATE_LRO_JSON
 
     def test_model_success_published(self):
-        assert FULL_MODEL_PUBLISHED.model_id == MODEL_ID_1
-        assert FULL_MODEL_PUBLISHED.display_name == DISPLAY_NAME_1
-        assert FULL_MODEL_PUBLISHED.create_time == CREATE_TIME_DATETIME
-        assert FULL_MODEL_PUBLISHED.update_time == UPDATE_TIME_DATETIME
-        assert FULL_MODEL_PUBLISHED.validation_error is None
-        assert FULL_MODEL_PUBLISHED.published is True
-        assert FULL_MODEL_PUBLISHED.etag == ETAG
-        assert FULL_MODEL_PUBLISHED.model_hash == MODEL_HASH
-        assert FULL_MODEL_PUBLISHED.tags == TAGS
-        assert FULL_MODEL_PUBLISHED.locked is False
-        assert FULL_MODEL_PUBLISHED.model_format == TFLITE_FORMAT
-        assert FULL_MODEL_PUBLISHED.get_json() == FULL_MODEL_PUBLISHED_JSON
+        model = mlkit.Model(**FULL_MODEL_PUBLISHED_JSON)
+        assert model.model_id == MODEL_ID_1
+        assert model.display_name == DISPLAY_NAME_1
+        assert model.create_time == CREATE_TIME_DATETIME
+        assert model.update_time == UPDATE_TIME_DATETIME
+        assert model.validation_error is None
+        assert model.published is True
+        assert model.etag == ETAG
+        assert model.model_hash == MODEL_HASH
+        assert model.tags == TAGS
+        assert model.locked is False
+        assert model.model_format == TFLITE_FORMAT
+        assert model.get_json() == FULL_MODEL_PUBLISHED_JSON
 
     def test_model_keyword_based_creation_and_setters(self):
         model = mlkit.Model(display_name=DISPLAY_NAME_1, tags=TAGS, model_format=TFLITE_FORMAT)
@@ -343,6 +354,12 @@ class TestModel(object):
         with pytest.raises(TypeError) as err:
             mlkit.TFLiteFormat(model_source=model_source)
         check_error(err.value, TypeError, error_message)
+
+    @pytest.mark.parametrize('uri, exc_type, error_message', invalid_gcs_tflite_uri_args)
+    def test_gcs_tflite_source_validation_errors(self, uri, exc_type, error_message):
+        with pytest.raises(exc_type) as err:
+            mlkit.TFLiteGCSModelSource(gcs_tflite_uri=uri)
+        check_error(err.value, exc_type, error_message)
 
 class TestGetModel(object):
     """Tests mlkit.get_model."""

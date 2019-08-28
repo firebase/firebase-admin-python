@@ -175,7 +175,7 @@ ERROR_RESPONSE_BAD_REQUEST = json.dumps(ERROR_JSON_BAD_REQUEST)
 invalid_display_name_args = [
     ('', ValueError, 'Display name format is invalid.'),
     ('&_*#@:/?', ValueError, 'Display name format is invalid.'),
-    (12345, TypeError, 'Display name must be a string.')
+    (12345, TypeError, 'expected string or buffer')
 ]
 invalid_tags_args = [
     ('tag1', TypeError, 'Tags must be a list of strings.'),

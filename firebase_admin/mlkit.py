@@ -381,8 +381,6 @@ def _validate_model_id(model_id):
 
 
 def _validate_display_name(display_name):
-    if not isinstance(display_name, six.string_types):
-        raise TypeError('Display name must be a string.')
     if not re.match(r'^[A-Za-z0-9_-]{1,60}$', display_name):
         raise ValueError('Display name format is invalid.')
     return display_name

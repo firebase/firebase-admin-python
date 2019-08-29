@@ -55,7 +55,7 @@ def _get_mlkit_service(app):
 
 def get_model(model_id, app=None):
     mlkit_service = _get_mlkit_service(app)
-    return Model(**mlkit_service.get_model(model_id))
+    return Model.from_dict(mlkit_service.get_model(model_id))
 
 
 def list_models(list_filter=None, page_size=None, page_token=None, app=None):
@@ -73,23 +73,31 @@ class Model(object):
     """A Firebase ML Kit Model object.
 
     Args:
-        display_name: String - The display name of your model - used to identify your model in code.
+        display_name: The display name of your model - used to identify your model in code.
         tags: Optional list of strings associated with your model. Can be used in list queries.
         model_format: A subclass of ModelFormat. (e.g. TFLiteFormat) Specifies the model details.
-        kwargs: A set of keywords returned by an API response.
     """
-    def __init__(self, display_name=None, tags=None, model_format=None, **kwargs):
-        self._data = kwargs
+    def __init__(self, display_name=None, tags=None, model_format=None):
+        self._data = {}
         self._model_format = None
-        tflite_format = self._data.pop('tfliteModel', None)
-        if tflite_format:
-            self._model_format = TFLiteFormat(**tflite_format)
+
         if display_name is not None:
             self.display_name = display_name
         if tags is not None:
             self.tags = tags
         if model_format is not None:
             self.model_format = model_format
+
+    @classmethod
+    def from_dict(cls, data):
+        data_copy = dict(data)
+        tflite_format = None
+        tflite_format_data = data_copy.pop('tfliteModel', None)
+        if tflite_format_data:
+            tflite_format = TFLiteFormat.from_dict(tflite_format_data)
+        model = Model(model_format=tflite_format)
+        model._data = data_copy  # pylint: disable=protected-access
+        return model
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -120,11 +128,7 @@ class Model(object):
     @property
     def create_time(self):
         """Returns the creation timestamp"""
-        create_time = self._data.get('createTime')
-        if not create_time:
-            return None
-
-        seconds = create_time.get('seconds')
+        seconds = self._data.get('createTime', {}).get('seconds')
         if not isinstance(seconds, numbers.Number):
             return None
 
@@ -133,11 +137,7 @@ class Model(object):
     @property
     def update_time(self):
         """Returns the last update timestamp"""
-        update_time = self._data.get('updateTime')
-        if not update_time:
-            return None
-
-        seconds = update_time.get('seconds')
+        seconds = self._data.get('updateTime', {}).get('seconds')
         if not isinstance(seconds, numbers.Number):
             return None
 
@@ -204,16 +204,24 @@ class TFLiteFormat(ModelFormat):
         model_source: A TFLiteModelSource sub class. Specifies the details of the model source.
         kwargs: A set of keywords returned by an API response
     """
-    def __init__(self, model_source=None, **kwargs):
-        self._data = kwargs
+    def __init__(self, model_source=None):
+        self._data = {}
         self._model_source = None
-
-        gcs_tflite_uri = self._data.pop('gcsTfliteUri', None)
-        if gcs_tflite_uri:
-            self._model_source = TFLiteGCSModelSource(gcs_tflite_uri=gcs_tflite_uri)
 
         if model_source is not None:
             self.model_source = model_source
+
+    @classmethod
+    def from_dict(cls, data):
+        data_copy = dict(data)
+        model_source = None
+        gcs_tflite_uri = data_copy.pop('gcsTfliteUri', None)
+        if gcs_tflite_uri:
+            model_source = TFLiteGCSModelSource(gcs_tflite_uri=gcs_tflite_uri)
+        tflite_format = TFLiteFormat(model_source=model_source)
+        tflite_format._data = data_copy # pylint: disable=protected-access
+        return tflite_format
+
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -299,7 +307,7 @@ class ListModelsPage(object):
     @property
     def models(self):
         """A list of Models from this page."""
-        return [Model(**model) for model in self._list_response.get('models', [])]
+        return [Model.from_dict(model) for model in self._list_response.get('models', [])]
 
     @property
     def list_filter(self):

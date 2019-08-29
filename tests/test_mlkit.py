@@ -54,7 +54,7 @@ MODEL_JSON_1 = {
     'name': MODEL_NAME_1,
     'displayName': DISPLAY_NAME_1
 }
-MODEL_1 = mlkit.Model(**MODEL_JSON_1)
+MODEL_1 = mlkit.Model.from_dict(MODEL_JSON_1)
 
 MODEL_ID_2 = 'modelId2'
 MODEL_NAME_2 = 'projects/{0}/models/{1}'.format(PROJECT_ID, MODEL_ID_2)
@@ -63,7 +63,7 @@ MODEL_JSON_2 = {
     'name': MODEL_NAME_2,
     'displayName': DISPLAY_NAME_2
 }
-MODEL_2 = mlkit.Model(**MODEL_JSON_2)
+MODEL_2 = mlkit.Model.from_dict(MODEL_JSON_2)
 
 MODEL_ID_3 = 'modelId3'
 MODEL_NAME_3 = 'projects/{0}/models/{1}'.format(PROJECT_ID, MODEL_ID_3)
@@ -72,7 +72,7 @@ MODEL_JSON_3 = {
     'name': MODEL_NAME_3,
     'displayName': DISPLAY_NAME_3
 }
-MODEL_3 = mlkit.Model(**MODEL_JSON_3)
+MODEL_3 = mlkit.Model.from_dict(MODEL_JSON_3)
 
 MODEL_STATE_PUBLISHED_JSON = {
     'published': True
@@ -102,7 +102,7 @@ TFLITE_FORMAT_JSON = {
     'gcsTfliteUri': GCS_TFLITE_URI,
     'sizeBytes': '1234567'
 }
-TFLITE_FORMAT = mlkit.TFLiteFormat(**TFLITE_FORMAT_JSON)
+TFLITE_FORMAT = mlkit.TFLiteFormat.from_dict(TFLITE_FORMAT_JSON)
 
 GCS_TFLITE_URI_2 = 'gs://my_bucket/mymodel2.tflite'
 GCS_TFLITE_URI_JSON_2 = {'gcsTfliteUri': GCS_TFLITE_URI_2}
@@ -111,7 +111,7 @@ TFLITE_FORMAT_JSON_2 = {
     'gcsTfliteUri': GCS_TFLITE_URI_2,
     'sizeBytes': '2345678'
 }
-TFLITE_FORMAT_2 = mlkit.TFLiteFormat(**TFLITE_FORMAT_JSON_2)
+TFLITE_FORMAT_2 = mlkit.TFLiteFormat.from_dict(TFLITE_FORMAT_JSON_2)
 
 FULL_MODEL_ERR_STATE_LRO_JSON = {
     'name': MODEL_NAME_1,
@@ -215,7 +215,7 @@ class TestModel(object):
     """Tests mlkit.Model class."""
 
     def test_model_success_err_state_lro(self):
-        model = mlkit.Model(**FULL_MODEL_ERR_STATE_LRO_JSON)
+        model = mlkit.Model.from_dict(FULL_MODEL_ERR_STATE_LRO_JSON)
         assert model.model_id == MODEL_ID_1
         assert model.display_name == DISPLAY_NAME_1
         assert model.create_time == CREATE_TIME_DATETIME
@@ -230,7 +230,7 @@ class TestModel(object):
         assert model.as_dict() == FULL_MODEL_ERR_STATE_LRO_JSON
 
     def test_model_success_published(self):
-        model = mlkit.Model(**FULL_MODEL_PUBLISHED_JSON)
+        model = mlkit.Model.from_dict(FULL_MODEL_PUBLISHED_JSON)
         assert model.model_id == MODEL_ID_1
         assert model.display_name == DISPLAY_NAME_1
         assert model.create_time == CREATE_TIME_DATETIME
@@ -354,6 +354,7 @@ class TestModel(object):
         with pytest.raises(exc_type) as err:
             mlkit.TFLiteGCSModelSource(gcs_tflite_uri=uri)
         check_error(err.value, exc_type)
+
 
 class TestGetModel(object):
     """Tests mlkit.get_model."""

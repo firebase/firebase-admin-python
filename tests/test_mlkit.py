@@ -96,6 +96,7 @@ OPERATION_NOT_DONE_JSON_1 = {
 }
 
 GCS_TFLITE_URI = 'gs://my_bucket/mymodel.tflite'
+GCS_TFLITE_URI_JSON = {'gcsTfliteUri': GCS_TFLITE_URI}
 GCS_TFLITE_MODEL_SOURCE = mlkit.TFLiteGCSModelSource(GCS_TFLITE_URI)
 TFLITE_FORMAT_JSON = {
     'gcsTfliteUri': GCS_TFLITE_URI,
@@ -104,6 +105,7 @@ TFLITE_FORMAT_JSON = {
 TFLITE_FORMAT = mlkit.TFLiteFormat(**TFLITE_FORMAT_JSON)
 
 GCS_TFLITE_URI_2 = 'gs://my_bucket/mymodel2.tflite'
+GCS_TFLITE_URI_JSON_2 = {'gcsTfliteUri': GCS_TFLITE_URI_2}
 GCS_TFLITE_MODEL_SOURCE_2 = mlkit.TFLiteGCSModelSource(GCS_TFLITE_URI_2)
 TFLITE_FORMAT_JSON_2 = {
     'gcsTfliteUri': GCS_TFLITE_URI_2,
@@ -172,40 +174,6 @@ ERROR_JSON_BAD_REQUEST = {
 }
 ERROR_RESPONSE_BAD_REQUEST = json.dumps(ERROR_JSON_BAD_REQUEST)
 
-invalid_display_name_args = [
-    ('', ValueError),
-    ('&_*#@:/?', ValueError),
-    (12345, TypeError)
-]
-invalid_tags_args = [
-    ('tag1', TypeError, 'Tags must be a list of strings.'),
-    (123, TypeError, 'Tags must be a list of strings.'),
-    (['tag1', 123, 'tag2'], TypeError, 'Tags must be a list of strings.'),
-    (['tag1', '@#$%^&'], ValueError, 'Tag format is invalid.'),
-    (['', 'tag2'], ValueError, 'Tag format is invalid.'),
-    (['sixty-one_characters_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-      'tag2'], ValueError, 'Tag format is invalid.')
-]
-invalid_model_format_args = [
-    (123, 'Model format must be a ModelFormat object.'),
-    (mlkit.ModelFormat(), 'Unsupported model format type.')
-]
-invalid_model_source_args = [
-    (123, 'Model source must be a ModelSource object.'),
-    (mlkit.TFLiteModelSource(), 'Unsupported model source type.'),
-
-]
-invalid_gcs_tflite_uri_args = [
-    (123, TypeError),
-    ('abc', ValueError),
-    ('gs://NO_CAPITALS', ValueError),
-    ('gs://abc/', ValueError),
-    ('gs://aa/model.tflite', ValueError),
-    ('gs://@#$%/model.tflite', ValueError),
-    ('gs://invalid space/model.tflite', ValueError),
-    ('gs://sixty-four-characters_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/model.tflite',
-     ValueError)
-]
 invalid_model_id_args = [
     ('', ValueError),
     ('&_*#@:/?', ValueError),
@@ -214,16 +182,6 @@ invalid_model_id_args = [
 ]
 PAGE_SIZE_VALUE_ERROR_MSG = 'Page size must be a positive integer between ' \
                             '1 and {0}'.format(mlkit._MAX_PAGE_SIZE)
-invalid_page_size_args = [
-    ('abc', TypeError, 'Page size must be a number or None.'),
-    (4.2, TypeError, 'Page size must be a number or None.'),
-    (list(), TypeError, 'Page size must be a number or None.'),
-    (dict(), TypeError, 'Page size must be a number or None.'),
-    (True, TypeError, 'Page size must be a number or None.'),
-    (-1, ValueError, PAGE_SIZE_VALUE_ERROR_MSG),
-    (0, ValueError, PAGE_SIZE_VALUE_ERROR_MSG),
-    (mlkit._MAX_PAGE_SIZE + 1, ValueError, PAGE_SIZE_VALUE_ERROR_MSG)
-]
 invalid_string_or_none_args = [0, -1, 4.2, 0x10, False, list(), dict()]
 
 
@@ -321,41 +279,77 @@ class TestModel(object):
         model_source = mlkit.TFLiteGCSModelSource(GCS_TFLITE_URI)
         model_source.gcs_tflite_uri = GCS_TFLITE_URI_2
         assert model_source.gcs_tflite_uri == GCS_TFLITE_URI_2
-        assert model_source.as_dict() == GCS_TFLITE_URI_2
+        assert model_source.as_dict() == GCS_TFLITE_URI_JSON_2
 
     def test_model_format_setters(self):
         model_format = mlkit.TFLiteFormat(model_source=GCS_TFLITE_MODEL_SOURCE)
         model_format.model_source = GCS_TFLITE_MODEL_SOURCE_2
         assert model_format.model_source == GCS_TFLITE_MODEL_SOURCE_2
         assert model_format.as_dict() == {
-            'gcsTfliteUri': GCS_TFLITE_URI_2
+            'tfliteModel': {
+                'gcsTfliteUri': GCS_TFLITE_URI_2
+            }
         }
 
-    @pytest.mark.parametrize('display_name, exc_type', invalid_display_name_args)
+    @pytest.mark.parametrize('display_name, exc_type', [
+        ('', ValueError),
+        ('&_*#@:/?', ValueError),
+        (12345, TypeError)
+    ])
     def test_model_display_name_validation_errors(self, display_name, exc_type):
         with pytest.raises(exc_type) as err:
             mlkit.Model(display_name=display_name)
         check_error(err.value, exc_type)
 
-    @pytest.mark.parametrize('tags, exc_type, error_message', invalid_tags_args)
+    @pytest.mark.parametrize('tags, exc_type, error_message', [
+        ('tag1', TypeError, 'Tags must be a list of strings.'),
+        (123, TypeError, 'Tags must be a list of strings.'),
+        (['tag1', 123, 'tag2'], TypeError, 'Tags must be a list of strings.'),
+        (['tag1', '@#$%^&'], ValueError, 'Tag format is invalid.'),
+        (['', 'tag2'], ValueError, 'Tag format is invalid.'),
+        (['sixty-one_characters_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+          'tag2'], ValueError, 'Tag format is invalid.')
+    ])
     def test_model_tags_validation_errors(self, tags, exc_type, error_message):
         with pytest.raises(exc_type) as err:
             mlkit.Model(tags=tags)
         check_error(err.value, exc_type, error_message)
 
-    @pytest.mark.parametrize('model_format, error_message', invalid_model_format_args)
-    def test_model_format_validation_errors(self, model_format, error_message):
+    @pytest.mark.parametrize('model_format', [
+        123,
+        "abc",
+        {},
+        [],
+        True
+    ])
+    def test_model_format_validation_errors(self, model_format):
         with pytest.raises(TypeError) as err:
             mlkit.Model(model_format=model_format)
-        check_error(err.value, TypeError, error_message)
+        check_error(err.value, TypeError, 'Model format must be a ModelFormat object.')
 
-    @pytest.mark.parametrize('model_source, error_message', invalid_model_source_args)
-    def test_model_source_validation_errors(self, model_source, error_message):
+    @pytest.mark.parametrize('model_source', [
+        123,
+        "abc",
+        {},
+        [],
+        True
+    ])
+    def test_model_source_validation_errors(self, model_source):
         with pytest.raises(TypeError) as err:
             mlkit.TFLiteFormat(model_source=model_source)
-        check_error(err.value, TypeError, error_message)
+        check_error(err.value, TypeError, 'Model source must be a TFLiteModelSource object.')
 
-    @pytest.mark.parametrize('uri, exc_type', invalid_gcs_tflite_uri_args)
+    @pytest.mark.parametrize('uri, exc_type', [
+        (123, TypeError),
+        ('abc', ValueError),
+        ('gs://NO_CAPITALS', ValueError),
+        ('gs://abc/', ValueError),
+        ('gs://aa/model.tflite', ValueError),
+        ('gs://@#$%/model.tflite', ValueError),
+        ('gs://invalid space/model.tflite', ValueError),
+        ('gs://sixty-four-characters_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/model.tflite',
+         ValueError)
+    ])
     def test_gcs_tflite_source_validation_errors(self, uri, exc_type):
         with pytest.raises(exc_type) as err:
             mlkit.TFLiteGCSModelSource(gcs_tflite_uri=uri)
@@ -523,7 +517,16 @@ class TestListModels(object):
             mlkit.list_models(list_filter=list_filter)
         check_error(err.value, TypeError, 'List filter must be a string or None.')
 
-    @pytest.mark.parametrize('page_size, exc_type, error_message', invalid_page_size_args)
+    @pytest.mark.parametrize('page_size, exc_type, error_message', [
+        ('abc', TypeError, 'Page size must be a number or None.'),
+        (4.2, TypeError, 'Page size must be a number or None.'),
+        (list(), TypeError, 'Page size must be a number or None.'),
+        (dict(), TypeError, 'Page size must be a number or None.'),
+        (True, TypeError, 'Page size must be a number or None.'),
+        (-1, ValueError, PAGE_SIZE_VALUE_ERROR_MSG),
+        (0, ValueError, PAGE_SIZE_VALUE_ERROR_MSG),
+        (mlkit._MAX_PAGE_SIZE + 1, ValueError, PAGE_SIZE_VALUE_ERROR_MSG)
+    ])
     def test_list_models_page_size_validation(self, page_size, exc_type, error_message):
         with pytest.raises(exc_type) as err:
             mlkit.list_models(page_size=page_size)

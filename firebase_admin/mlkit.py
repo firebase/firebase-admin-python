@@ -70,23 +70,31 @@ def delete_model(model_id, app=None):
 
 
 class Model(object):
-    """A Firebase ML Kit Model object."""
+    """A Firebase ML Kit Model object.
+
+    Args:
+        display_name: String - The display name of your model - used to identify your model in code.
+        tags: Optional list of strings associated with your model. Can be used in list queries.
+        model_format: A subclass of ModelFormat. (e.g. TFLiteFormat) Specifies the model details.
+        kwargs: A set of keywords returned by an API response.
+    """
     def __init__(self, display_name=None, tags=None, model_format=None, **kwargs):
         self._data = kwargs
+        self._model_format = None
+        tflite_format = self._data.pop('tfliteModel', None)
+        if tflite_format:
+            self._model_format = TFLiteFormat(**tflite_format)
         if display_name is not None:
-            self._data['displayName'] = _validate_display_name(display_name)
+            self.display_name = display_name
         if tags is not None:
-            self._data['tags'] = _validate_tags(tags)
+            self.tags = tags
         if model_format is not None:
-            _validate_model_format(model_format)
-            if isinstance(model_format, TFLiteFormat):
-                self._data['tfliteModel'] = model_format.as_dict()
-            else:
-                raise TypeError('Unsupported model format type.')
+            self.model_format = model_format
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
-            return self._data == other._data # pylint: disable=protected-access
+            # pylint: disable=protected-access
+            return self._data == other._data and self._model_format == other._model_format
         else:
             return False
 
@@ -117,8 +125,6 @@ class Model(object):
             return None
 
         seconds = create_time.get('seconds')
-        if not seconds:
-            return None
         if not isinstance(seconds, numbers.Number):
             return None
 
@@ -132,8 +138,6 @@ class Model(object):
             return None
 
         seconds = update_time.get('seconds')
-        if not seconds:
-            return None
         if not isinstance(seconds, numbers.Number):
             return None
 
@@ -141,14 +145,11 @@ class Model(object):
 
     @property
     def validation_error(self):
-        return self._data.get('state') and \
-               self._data.get('state').get('validationError') and \
-               self._data.get('state').get('validationError').get('message')
+        return self._data.get('state', {}).get('validationError', {}).get('message')
 
     @property
     def published(self):
-        return bool(self._data.get('state') and
-                    self._data.get('state').get('published'))
+        return bool(self._data.get('state', {}).get('published'))
 
     @property
     def etag(self):
@@ -174,19 +175,20 @@ class Model(object):
 
     @property
     def model_format(self):
-        if self._data.get('tfliteModel'):
-            return TFLiteFormat(**self._data.get('tfliteModel'))
-        return None
+        return self._model_format
 
     @model_format.setter
     def model_format(self, model_format):
-        if not isinstance(model_format, TFLiteFormat):
-            raise TypeError('Unsupported model format type.')
-        self._data['tfliteModel'] = model_format.as_dict()
+        if model_format is not None:
+            _validate_model_format(model_format)
+        self._model_format = model_format  #Can be None
         return self
 
     def as_dict(self):
-        return self._data
+        copy = dict(self._data)
+        if self._model_format:
+            copy.update(self._model_format.as_dict())
+        return copy
 
 
 class ModelFormat(object):
@@ -196,22 +198,27 @@ class ModelFormat(object):
 
 
 class TFLiteFormat(ModelFormat):
-    """Model format representing a TFLite model."""
+    """Model format representing a TFLite model.
+
+    Args:
+        model_source: A TFLiteModelSource sub class. Specifies the details of the model source.
+        kwargs: A set of keywords returned by an API response
+    """
     def __init__(self, model_source=None, **kwargs):
         self._data = kwargs
+        self._model_source = None
+
+        gcs_tflite_uri = self._data.pop('gcsTfliteUri', None)
+        if gcs_tflite_uri:
+            self._model_source = TFLiteGCSModelSource(gcs_tflite_uri=gcs_tflite_uri)
+
         if model_source is not None:
-            # Check for correct base type
-            if not isinstance(model_source, TFLiteModelSource):
-                raise TypeError('Model source must be a ModelSource object.')
-            # Set based on specific sub type
-            if isinstance(model_source, TFLiteGCSModelSource):
-                self._data['gcsTfliteUri'] = model_source.as_dict()
-            else:
-                raise TypeError('Unsupported model source type.')
+            self.model_source = model_source
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
-            return self._data == other._data # pylint: disable=protected-access
+            # pylint: disable=protected-access
+            return self._data == other._data and self._model_source == other._model_source
         else:
             return False
 
@@ -220,24 +227,24 @@ class TFLiteFormat(ModelFormat):
 
     @property
     def model_source(self):
-        if self._data.get('gcsTfliteUri'):
-            return TFLiteGCSModelSource(self._data.get('gcsTfliteUri'))
-        return None
+        return self._model_source
 
     @model_source.setter
     def model_source(self, model_source):
         if model_source is not None:
-            if isinstance(model_source, TFLiteGCSModelSource):
-                self._data['gcsTfliteUri'] = model_source.as_dict()
-            else:
-                raise TypeError('Unsupported model source type.')
+            if not isinstance(model_source, TFLiteModelSource):
+                raise TypeError('Model source must be a TFLiteModelSource object.')
+        self._model_source = model_source # Can be None
 
     @property
     def size_bytes(self):
         return self._data.get('sizeBytes')
 
     def as_dict(self):
-        return self._data
+        copy = dict(self._data)
+        if self._model_source:
+            copy.update(self._model_source.as_dict())
+        return {'tfliteModel': copy}
 
 
 class TFLiteModelSource(object):
@@ -269,7 +276,7 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         self._gcs_tflite_uri = _validate_gcs_tflite_uri(gcs_tflite_uri)
 
     def as_dict(self):
-        return self._gcs_tflite_uri
+        return {"gcsTfliteUri": self._gcs_tflite_uri}
 
     #TODO(ifielker): implement from_saved_model etc.
 
@@ -404,9 +411,8 @@ def _validate_gcs_tflite_uri(uri):
     return uri
 
 def _validate_model_format(model_format):
-    if model_format:
-        if not isinstance(model_format, ModelFormat):
-            raise TypeError('Model format must be a ModelFormat object.')
+    if not isinstance(model_format, ModelFormat):
+        raise TypeError('Model format must be a ModelFormat object.')
     return model_format
 
 def _validate_list_filter(list_filter):

@@ -202,7 +202,6 @@ class TFLiteFormat(ModelFormat):
 
     Args:
         model_source: A TFLiteModelSource sub class. Specifies the details of the model source.
-        kwargs: A set of keywords returned by an API response
     """
     def __init__(self, model_source=None):
         self._data = {}

@@ -441,10 +441,9 @@ class TestCreateModel(object):
             'operations/project/{0}/model/{1}/operation/123'.format(project_id, model_id)
 
     def test_create_model_immediate_done(self):
-        recorder = instrument_mlkit_service(status=200, payload=OPERATION_DONE_RESPONSE)
+        instrument_mlkit_service(status=200, payload=OPERATION_DONE_RESPONSE)
         model = mlkit.create_model(MODEL_1)
         assert model == CREATED_MODEL_1
-        assert len(recorder) == 1
 
     def test_create_model_with_get_operation(self):
         create_recorder = instrument_mlkit_service(

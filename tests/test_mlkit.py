@@ -113,6 +113,46 @@ TFLITE_FORMAT_JSON_2 = {
 }
 TFLITE_FORMAT_2 = mlkit.TFLiteFormat.from_dict(TFLITE_FORMAT_JSON_2)
 
+CREATED_MODEL_JSON_1 = {
+    'name': MODEL_NAME_1,
+    'displayName': DISPLAY_NAME_1,
+    'createTime': CREATE_TIME_JSON,
+    'updateTime': UPDATE_TIME_JSON,
+    'state': MODEL_STATE_ERROR_JSON,
+    'etag': ETAG,
+    'modelHash': MODEL_HASH,
+    'tags': TAGS,
+}
+CREATED_MODEL_1 = mlkit.Model.from_dict(CREATED_MODEL_JSON_1)
+
+OPERATION_DONE_MODEL_JSON_1 = {
+    'name': 'operations/project/{0}/model/{1}/operation/123'.format(PROJECT_ID, MODEL_ID_1),
+    'done': True,
+    'response': CREATED_MODEL_JSON_1
+}
+
+OPERATION_MALFORMED_JSON_1 = {
+    'name': 'operations/project/{0}/model/{1}/operation/123'.format(PROJECT_ID, MODEL_ID_1),
+    'done': True,
+    # if done is true then either response or error should be populated
+}
+
+OPERATION_MISSING_NAME = {
+    'done': False
+}
+
+OPERATION_ERROR_CODE = 400
+OPERATION_ERROR_MSG = "Invalid argument"
+OPERATION_ERROR_EXPECTED_STATUS = 'INVALID_ARGUMENT'
+OPERATION_ERROR_JSON_1 = {
+    'name': 'operations/project/{0}/model/{1}/operation/123'.format(PROJECT_ID, MODEL_ID_1),
+    'done': True,
+    'error': {
+        'code': OPERATION_ERROR_CODE,
+        'message': OPERATION_ERROR_MSG,
+    }
+}
+
 FULL_MODEL_ERR_STATE_LRO_JSON = {
     'name': MODEL_NAME_1,
     'displayName': DISPLAY_NAME_1,
@@ -137,6 +177,11 @@ FULL_MODEL_PUBLISHED_JSON = {
 }
 
 EMPTY_RESPONSE = json.dumps({})
+OPERATION_NOT_DONE_RESPONSE = json.dumps(OPERATION_NOT_DONE_JSON_1)
+OPERATION_DONE_RESPONSE = json.dumps(OPERATION_DONE_MODEL_JSON_1)
+OPERATION_ERROR_RESPONSE = json.dumps(OPERATION_ERROR_JSON_1)
+OPERATION_MALFORMED_RESPONSE = json.dumps(OPERATION_MALFORMED_JSON_1)
+OPERATION_MISSING_NAME_RESPONSE = json.dumps(OPERATION_MISSING_NAME)
 DEFAULT_GET_RESPONSE = json.dumps(MODEL_JSON_1)
 NO_MODELS_LIST_RESPONSE = json.dumps({})
 DEFAULT_LIST_RESPONSE = json.dumps({
@@ -185,29 +230,47 @@ PAGE_SIZE_VALUE_ERROR_MSG = 'Page size must be a positive integer between ' \
 invalid_string_or_none_args = [0, -1, 4.2, 0x10, False, list(), dict()]
 
 
+# For validation type errors
 def check_error(err, err_type, msg=None):
-    assert isinstance(err, err_type)
+    err_value = err.value
+    assert isinstance(err_value, err_type)
     if msg:
-        assert str(err) == msg
+        assert str(err_value) == msg
 
 
+# For errors that are returned in an operation
+def check_operation_error(err, code, msg):
+    err_value = err.value
+    assert isinstance(err_value, exceptions.FirebaseError)
+    assert err_value.code == code
+    assert str(err_value) == msg
+
+
+# For rpc errors
 def check_firebase_error(err, code, status, msg):
-    assert isinstance(err, exceptions.FirebaseError)
-    assert err.code == code
-    assert err.http_response is not None
-    assert err.http_response.status_code == status
-    assert str(err) == msg
+    err_value = err.value
+    assert isinstance(err_value, exceptions.FirebaseError)
+    assert err_value.code == code
+    assert err_value.http_response is not None
+    assert err_value.http_response.status_code == status
+    assert str(err_value) == msg
 
 
-def instrument_mlkit_service(app=None, status=200, payload=None):
+def instrument_mlkit_service(app=None, status=200, uri=None, payload=None):
     if not app:
         app = firebase_admin.get_app()
     mlkit_service = mlkit._get_mlkit_service(app)
     recorder = []
-    mlkit_service._client.session.mount(
-        'https://mlkit.googleapis.com',
-        testutils.MockAdapter(payload, status, recorder)
-    )
+    if uri is None or uri is 'projects':
+        mlkit_service._client.session.mount(
+            'https://mlkit.googleapis.com/',
+            testutils.MockAdapter(payload, status, recorder)
+        )
+    elif uri is 'operations':
+        mlkit_service._operation_client.session.mount(
+            'https://mlkit.googleapis.com/',
+            testutils.MockAdapter(payload, status, recorder)
+        )
     return recorder
 
 
@@ -299,7 +362,7 @@ class TestModel(object):
     def test_model_display_name_validation_errors(self, display_name, exc_type):
         with pytest.raises(exc_type) as err:
             mlkit.Model(display_name=display_name)
-        check_error(err.value, exc_type)
+        check_error(err, exc_type)
 
     @pytest.mark.parametrize('tags, exc_type, error_message', [
         ('tag1', TypeError, 'Tags must be a list of strings.'),
@@ -313,7 +376,7 @@ class TestModel(object):
     def test_model_tags_validation_errors(self, tags, exc_type, error_message):
         with pytest.raises(exc_type) as err:
             mlkit.Model(tags=tags)
-        check_error(err.value, exc_type, error_message)
+        check_error(err, exc_type, error_message)
 
     @pytest.mark.parametrize('model_format', [
         123,
@@ -325,7 +388,7 @@ class TestModel(object):
     def test_model_format_validation_errors(self, model_format):
         with pytest.raises(TypeError) as err:
             mlkit.Model(model_format=model_format)
-        check_error(err.value, TypeError, 'Model format must be a ModelFormat object.')
+        check_error(err, TypeError, 'Model format must be a ModelFormat object.')
 
     @pytest.mark.parametrize('model_source', [
         123,
@@ -337,7 +400,7 @@ class TestModel(object):
     def test_model_source_validation_errors(self, model_source):
         with pytest.raises(TypeError) as err:
             mlkit.TFLiteFormat(model_source=model_source)
-        check_error(err.value, TypeError, 'Model source must be a TFLiteModelSource object.')
+        check_error(err, TypeError, 'Model source must be a TFLiteModelSource object.')
 
     @pytest.mark.parametrize('uri, exc_type', [
         (123, TypeError),
@@ -353,7 +416,131 @@ class TestModel(object):
     def test_gcs_tflite_source_validation_errors(self, uri, exc_type):
         with pytest.raises(exc_type) as err:
             mlkit.TFLiteGCSModelSource(gcs_tflite_uri=uri)
-        check_error(err.value, exc_type)
+        check_error(err, exc_type)
+
+
+class TestCreateModel(object):
+    """Tests mlkit.create_model."""
+    @classmethod
+    def setup_class(cls):
+        cred = testutils.MockCredential()
+        firebase_admin.initialize_app(cred, {'projectId': PROJECT_ID})
+        mlkit._MLKitService.OPERATION_POLL_DELAY_SECONDS = 0.1  # shorter for test
+
+    @classmethod
+    def teardown_class(cls):
+        testutils.cleanup_apps()
+
+    @staticmethod
+    def _url(project_id):
+        return BASE_URL + 'projects/{0}/models'.format(project_id)
+
+    @staticmethod
+    def _op_url(project_id, model_id):
+        return BASE_URL + \
+            'operations/project/{0}/model/{1}/operation/123'.format(project_id, model_id)
+
+    def test_create_model_immediate_done(self):
+        recorder = instrument_mlkit_service(status=200, payload=OPERATION_DONE_RESPONSE)
+        model = mlkit.create_model(MODEL_1)
+        assert model == CREATED_MODEL_1
+
+    def test_create_model_with_get_operation(self):
+        create_recorder = instrument_mlkit_service(
+            status=200, uri='projects', payload=OPERATION_NOT_DONE_RESPONSE)
+        operation_recorder = instrument_mlkit_service(
+            status=200, uri='operations', payload=OPERATION_DONE_RESPONSE)
+        model = mlkit.create_model(MODEL_1)
+        assert model == CREATED_MODEL_1
+        assert len(create_recorder) == 1
+        assert create_recorder[0].method == 'POST'
+        assert create_recorder[0].url == TestCreateModel._url(PROJECT_ID)
+        assert len(operation_recorder) == 1
+        assert operation_recorder[0].method == 'GET'
+        assert operation_recorder[0].url == TestCreateModel._op_url(PROJECT_ID, MODEL_ID_1)
+
+    def test_create_model_operation_error(self):
+        recorder = instrument_mlkit_service(status=200, payload=OPERATION_ERROR_RESPONSE)
+        with pytest.raises(Exception) as err:
+            mlkit.create_model(MODEL_1)
+        # The http request succeeded, the operation returned contains a create failure
+        check_operation_error(err, OPERATION_ERROR_EXPECTED_STATUS, OPERATION_ERROR_MSG)
+
+    def test_create_model_malformed_operation(self):
+        recorder = instrument_mlkit_service(status=200, payload=OPERATION_MALFORMED_RESPONSE)
+        with pytest.raises(ValueError) as err:
+            mlkit.create_model(MODEL_1)
+        check_error(err, ValueError, 'Operation is malformed.')
+
+    def test_create_model_rpc_error_create(self):
+        create_recorder = instrument_mlkit_service(
+            status=400, uri='projects', payload=ERROR_RESPONSE_BAD_REQUEST)
+        with pytest.raises(Exception) as err:
+            mlkit.create_model(MODEL_1)
+        check_firebase_error(
+            err,
+            ERROR_STATUS_BAD_REQUEST,
+            ERROR_CODE_BAD_REQUEST,
+            ERROR_MSG_BAD_REQUEST
+        )
+        assert len(create_recorder) == 1
+
+    def test_create_model_rpc_error_operation(self):
+        create_recorder = instrument_mlkit_service(
+            status=200, uri='projects', payload=OPERATION_NOT_DONE_RESPONSE)
+        operation_recorder = instrument_mlkit_service(
+            status=400, uri='operations', payload=ERROR_RESPONSE_BAD_REQUEST)
+        with pytest.raises(Exception) as err:
+            mlkit.create_model(MODEL_1)
+        check_firebase_error(
+            err,
+            ERROR_STATUS_BAD_REQUEST,
+            ERROR_CODE_BAD_REQUEST,
+            ERROR_MSG_BAD_REQUEST
+        )
+        assert len(create_recorder) == 1
+        assert len(operation_recorder) == 1
+
+    @pytest.mark.parametrize('model', [
+        'abc',
+        4.2,
+        list(),
+        dict(),
+        True,
+        -1,
+        0,
+        None
+    ])
+    def test_create_model_not_model(self, model):
+        with pytest.raises(Exception) as err:
+            mlkit.create_model(model)
+        check_error(err, TypeError, 'Model must be an mlkit.Model.')
+
+    def test_create_model_missing_display_name(self):
+        with pytest.raises(Exception) as err:
+            mlkit.create_model(mlkit.Model.from_dict({}))
+        check_error(err, ValueError, 'Model must have a display name.')
+
+    def test_create_model_missing_op_name(self):
+        recorder = instrument_mlkit_service(status=200, payload=OPERATION_MISSING_NAME_RESPONSE)
+        with pytest.raises(Exception) as err:
+            mlkit.create_model(MODEL_1)
+        check_error(err, TypeError)
+
+    @pytest.mark.parametrize('op_name', [
+        'abc',
+        '123',
+        'projects/operations/project/1234/model/abc/operation/123',
+        'operations/project/model/abc/operation/123',
+        'operations/project/123/model/$#@/operation/123',
+        'operations/project/1234/model/abc/operation/123/extrathing',
+    ])
+    def test_create_model_invalid_op_name(self, op_name):
+        payload = json.dumps({'name': op_name})
+        recorder = instrument_mlkit_service(status=200, payload=payload)
+        with pytest.raises(Exception) as err:
+            mlkit.create_model(MODEL_1)
+        check_error(err, ValueError, 'Operation name format is invalid.')
 
 
 class TestGetModel(object):
@@ -385,14 +572,14 @@ class TestGetModel(object):
     def test_get_model_validation_errors(self, model_id, exc_type):
         with pytest.raises(exc_type) as err:
             mlkit.get_model(model_id)
-        check_error(err.value, exc_type)
+        check_error(err, exc_type)
 
     def test_get_model_error(self):
         recorder = instrument_mlkit_service(status=404, payload=ERROR_RESPONSE_NOT_FOUND)
         with pytest.raises(exceptions.NotFoundError) as err:
             mlkit.get_model(MODEL_ID_1)
         check_firebase_error(
-            err.value,
+            err,
             ERROR_STATUS_NOT_FOUND,
             ERROR_CODE_NOT_FOUND,
             ERROR_MSG_NOT_FOUND
@@ -435,14 +622,14 @@ class TestDeleteModel(object):
     def test_delete_model_validation_errors(self, model_id, exc_type):
         with pytest.raises(exc_type) as err:
             mlkit.delete_model(model_id)
-        check_error(err.value, exc_type)
+        check_error(err, exc_type)
 
     def test_delete_model_error(self):
         recorder = instrument_mlkit_service(status=404, payload=ERROR_RESPONSE_NOT_FOUND)
         with pytest.raises(exceptions.NotFoundError) as err:
             mlkit.delete_model(MODEL_ID_1)
         check_firebase_error(
-            err.value,
+            err,
             ERROR_STATUS_NOT_FOUND,
             ERROR_CODE_NOT_FOUND,
             ERROR_MSG_NOT_FOUND
@@ -516,7 +703,7 @@ class TestListModels(object):
     def test_list_models_list_filter_validation(self, list_filter):
         with pytest.raises(TypeError) as err:
             mlkit.list_models(list_filter=list_filter)
-        check_error(err.value, TypeError, 'List filter must be a string or None.')
+        check_error(err, TypeError, 'List filter must be a string or None.')
 
     @pytest.mark.parametrize('page_size, exc_type, error_message', [
         ('abc', TypeError, 'Page size must be a number or None.'),
@@ -531,20 +718,20 @@ class TestListModels(object):
     def test_list_models_page_size_validation(self, page_size, exc_type, error_message):
         with pytest.raises(exc_type) as err:
             mlkit.list_models(page_size=page_size)
-        check_error(err.value, exc_type, error_message)
+        check_error(err, exc_type, error_message)
 
     @pytest.mark.parametrize('page_token', invalid_string_or_none_args)
     def test_list_models_page_token_validation(self, page_token):
         with pytest.raises(TypeError) as err:
             mlkit.list_models(page_token=page_token)
-        check_error(err.value, TypeError, 'Page token must be a string or None.')
+        check_error(err, TypeError, 'Page token must be a string or None.')
 
     def test_list_models_error(self):
         recorder = instrument_mlkit_service(status=400, payload=ERROR_RESPONSE_BAD_REQUEST)
         with pytest.raises(exceptions.InvalidArgumentError) as err:
             mlkit.list_models()
         check_firebase_error(
-            err.value,
+            err,
             ERROR_STATUS_BAD_REQUEST,
             ERROR_CODE_BAD_REQUEST,
             ERROR_MSG_BAD_REQUEST

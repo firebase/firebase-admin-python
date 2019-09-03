@@ -444,6 +444,7 @@ class TestCreateModel(object):
         recorder = instrument_mlkit_service(status=200, payload=OPERATION_DONE_RESPONSE)
         model = mlkit.create_model(MODEL_1)
         assert model == CREATED_MODEL_1
+        assert len(recorder) == 1
 
     def test_create_model_with_get_operation(self):
         create_recorder = instrument_mlkit_service(
@@ -460,14 +461,14 @@ class TestCreateModel(object):
         assert operation_recorder[0].url == TestCreateModel._op_url(PROJECT_ID, MODEL_ID_1)
 
     def test_create_model_operation_error(self):
-        recorder = instrument_mlkit_service(status=200, payload=OPERATION_ERROR_RESPONSE)
+        instrument_mlkit_service(status=200, payload=OPERATION_ERROR_RESPONSE)
         with pytest.raises(Exception) as err:
             mlkit.create_model(MODEL_1)
         # The http request succeeded, the operation returned contains a create failure
         check_operation_error(err, OPERATION_ERROR_EXPECTED_STATUS, OPERATION_ERROR_MSG)
 
     def test_create_model_malformed_operation(self):
-        recorder = instrument_mlkit_service(status=200, payload=OPERATION_MALFORMED_RESPONSE)
+        instrument_mlkit_service(status=200, payload=OPERATION_MALFORMED_RESPONSE)
         with pytest.raises(ValueError) as err:
             mlkit.create_model(MODEL_1)
         check_error(err, ValueError, 'Operation is malformed.')
@@ -522,7 +523,7 @@ class TestCreateModel(object):
         check_error(err, ValueError, 'Model must have a display name.')
 
     def test_create_model_missing_op_name(self):
-        recorder = instrument_mlkit_service(status=200, payload=OPERATION_MISSING_NAME_RESPONSE)
+        instrument_mlkit_service(status=200, payload=OPERATION_MISSING_NAME_RESPONSE)
         with pytest.raises(Exception) as err:
             mlkit.create_model(MODEL_1)
         check_error(err, TypeError)
@@ -537,7 +538,7 @@ class TestCreateModel(object):
     ])
     def test_create_model_invalid_op_name(self, op_name):
         payload = json.dumps({'name': op_name})
-        recorder = instrument_mlkit_service(status=200, payload=payload)
+        instrument_mlkit_service(status=200, payload=payload)
         with pytest.raises(Exception) as err:
             mlkit.create_model(MODEL_1)
         check_error(err, ValueError, 'Operation name format is invalid.')

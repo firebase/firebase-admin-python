@@ -535,6 +535,14 @@ class _MLKitService(object):
             raise _utils.handle_platform_error_from_requests(error)
 
     def handle_operation(self, operation):
+        """Handles long running operations.
+
+        Args:
+            operation: The operation to handle.
+
+        Returns
+            dict: A dictionary of the returned model properties.
+        """
         if not isinstance(operation, dict):
             raise TypeError('Operation must be a dictionary.')
         op_name = operation.get('name')

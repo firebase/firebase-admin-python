@@ -28,6 +28,7 @@ import six
 
 from firebase_admin import _http_client
 from firebase_admin import _utils
+from firebase_admin import exceptions
 
 
 _MLKIT_ATTRIBUTE = '_mlkit'
@@ -58,22 +59,59 @@ def _get_mlkit_service(app):
 
 
 def create_model(model, app=None):
+    """Creates a model in Firebase ML Kit.
+
+    Args:
+        model: An mlkit.Model to create.
+        app: A Firebase app instance (or None to use the default app).
+
+    Returns:
+        Model: The model that was created in Firebase ML Kit.
+    """
     mlkit_service = _get_mlkit_service(app)
     return Model.from_dict(mlkit_service.create_model(model))
 
 
 def get_model(model_id, app=None):
+    """Gets a model from Firebase ML Kit.
+
+    Args:
+        model_id: The id of the model to get.
+        app: A Firebase app instance (or None to use the default app).
+
+    Returns:
+     Model: The requested model.
+    """
     mlkit_service = _get_mlkit_service(app)
     return Model.from_dict(mlkit_service.get_model(model_id))
 
 
 def list_models(list_filter=None, page_size=None, page_token=None, app=None):
+    """Lists models from Firebase ML Kit.
+
+    Args:
+        list_filter: a list filter string such as "tags:'tag_1'". None will return all models.
+        page_size: A number between 1 and 100 inclusive that specifies the maximum
+            number of models to return per page. None for default.
+        page_token: A next page token returned from a previous page of results. None
+            for first page of results.
+        app: A Firebase app instance (or None to use the default app).
+
+    Returns:
+        ListModelsPage: A (filtered) list of models.
+    """
     mlkit_service = _get_mlkit_service(app)
     return ListModelsPage(
         mlkit_service.list_models, list_filter, page_size, page_token)
 
 
 def delete_model(model_id, app=None):
+    """Deletes a model from Firebase ML Kit.
+
+    Args:
+        model_id: The id of the model you wish to delete.
+        app: A Firebase app instance (or None to use the default app).
+    """
     mlkit_service = _get_mlkit_service(app)
     mlkit_service.delete_model(model_id)
 
@@ -471,6 +509,9 @@ class _MLKitService(object):
     PROJECT_URL = 'https://mlkit.googleapis.com/v1beta1/projects/{0}/'
     OPERATION_URL = 'https://mlkit.googleapis.com/v1beta1/'
     OPERATION_POLL_DELAY_SECONDS = 30
+    MAX_POLLING_ATTEMPTS = 10
+    POLL_EXPONENTIAL_BACKOFF_FACTOR = 2
+    POLL_BASE_WAIT_TIME_SECONDS = 1
 
     def __init__(self, app):
         project_id = app.project_id
@@ -499,7 +540,7 @@ class _MLKitService(object):
         op_name = operation.get('name')
         _validate_operation_name(op_name)
 
-        while True:
+        for current_attempt in range(_MLKitService.MAX_POLLING_ATTEMPTS):
             if operation.get('done'):
                 if operation.get('response'):
                     return operation.get('response')
@@ -509,10 +550,16 @@ class _MLKitService(object):
                     # A 'done' operation must have either a response or an error.
                     raise ValueError('Operation is malformed.')
             else:
-                # We just got this operation wait 30s before getting another
+                # We just got this operation. Wait before getting another
                 # so we don't exceed the GetOperation maximum request rate.
-                time.sleep(_MLKitService.OPERATION_POLL_DELAY_SECONDS)
+                delay_factor = pow(
+                    _MLKitService.POLL_EXPONENTIAL_BACKOFF_FACTOR, current_attempt)
+                wait_time_seconds = delay_factor * _MLKitService.POLL_BASE_WAIT_TIME_SECONDS
+                time.sleep(wait_time_seconds)
                 operation = self.get_operation(op_name)
+        # Model validation took too long for the SDK to wait. The backend request
+        # is still running. Call ListModels with a displayName filter later to find it.s
+        raise exceptions.DeadlineExceededError('Polling deadline exceeded.')
 
     def create_model(self, model):
         _validate_model(model)

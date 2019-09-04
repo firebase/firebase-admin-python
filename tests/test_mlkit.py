@@ -231,46 +231,47 @@ invalid_string_or_none_args = [0, -1, 4.2, 0x10, False, list(), dict()]
 
 
 # For validation type errors
-def check_error(err, err_type, msg=None):
-    err_value = err.value
-    assert isinstance(err_value, err_type)
+def check_error(excinfo, err_type, msg=None):
+    err = excinfo.value
+    assert isinstance(err, err_type)
     if msg:
-        assert str(err_value) == msg
+        assert str(err) == msg
 
 
 # For errors that are returned in an operation
-def check_operation_error(err, code, msg):
-    err_value = err.value
-    assert isinstance(err_value, exceptions.FirebaseError)
-    assert err_value.code == code
-    assert str(err_value) == msg
+def check_operation_error(excinfo, code, msg):
+    err = excinfo.value
+    assert isinstance(err, exceptions.FirebaseError)
+    assert err.code == code
+    assert str(err) == msg
 
 
 # For rpc errors
-def check_firebase_error(err, code, status, msg):
-    err_value = err.value
-    assert isinstance(err_value, exceptions.FirebaseError)
-    assert err_value.code == code
-    assert err_value.http_response is not None
-    assert err_value.http_response.status_code == status
-    assert str(err_value) == msg
+def check_firebase_error(excinfo, code, status, msg):
+    err = excinfo.value
+    assert isinstance(err, exceptions.FirebaseError)
+    assert err.code == code
+    assert err.http_response is not None
+    assert err.http_response.status_code == status
+    assert str(err) == msg
 
 
-def instrument_mlkit_service(app=None, status=200, uri=None, payload=None):
+def instrument_mlkit_service(app=None, status=200, operations=False, payload=None):
     if not app:
         app = firebase_admin.get_app()
     mlkit_service = mlkit._get_mlkit_service(app)
     recorder = []
-    if uri is None or uri is 'projects':
-        mlkit_service._client.session.mount(
-            'https://mlkit.googleapis.com/',
-            testutils.MockAdapter(payload, status, recorder)
-        )
-    elif uri is 'operations':
+    if operations:
         mlkit_service._operation_client.session.mount(
             'https://mlkit.googleapis.com/',
             testutils.MockAdapter(payload, status, recorder)
         )
+    else:
+        mlkit_service._client.session.mount(
+            'https://mlkit.googleapis.com/',
+            testutils.MockAdapter(payload, status, recorder)
+        )
+
     return recorder
 
 
@@ -440,16 +441,16 @@ class TestCreateModel(object):
         return BASE_URL + \
             'operations/project/{0}/model/{1}/operation/123'.format(project_id, model_id)
 
-    def test_create_model_immediate_done(self):
+    def test_immediate_done(self):
         instrument_mlkit_service(status=200, payload=OPERATION_DONE_RESPONSE)
         model = mlkit.create_model(MODEL_1)
         assert model == CREATED_MODEL_1
 
-    def test_create_model_with_get_operation(self):
+    def test_with_get_operation(self):
         create_recorder = instrument_mlkit_service(
-            status=200, uri='projects', payload=OPERATION_NOT_DONE_RESPONSE)
+            status=200, payload=OPERATION_NOT_DONE_RESPONSE)
         operation_recorder = instrument_mlkit_service(
-            status=200, uri='operations', payload=OPERATION_DONE_RESPONSE)
+            status=200, operations=True, payload=OPERATION_DONE_RESPONSE)
         model = mlkit.create_model(MODEL_1)
         assert model == CREATED_MODEL_1
         assert len(create_recorder) == 1
@@ -459,22 +460,22 @@ class TestCreateModel(object):
         assert operation_recorder[0].method == 'GET'
         assert operation_recorder[0].url == TestCreateModel._op_url(PROJECT_ID, MODEL_ID_1)
 
-    def test_create_model_operation_error(self):
+    def test_operation_error(self):
         instrument_mlkit_service(status=200, payload=OPERATION_ERROR_RESPONSE)
         with pytest.raises(Exception) as err:
             mlkit.create_model(MODEL_1)
         # The http request succeeded, the operation returned contains a create failure
         check_operation_error(err, OPERATION_ERROR_EXPECTED_STATUS, OPERATION_ERROR_MSG)
 
-    def test_create_model_malformed_operation(self):
+    def test_malformed_operation(self):
         instrument_mlkit_service(status=200, payload=OPERATION_MALFORMED_RESPONSE)
         with pytest.raises(ValueError) as err:
             mlkit.create_model(MODEL_1)
         check_error(err, ValueError, 'Operation is malformed.')
 
-    def test_create_model_rpc_error_create(self):
+    def test_rpc_error_create(self):
         create_recorder = instrument_mlkit_service(
-            status=400, uri='projects', payload=ERROR_RESPONSE_BAD_REQUEST)
+            status=400, payload=ERROR_RESPONSE_BAD_REQUEST)
         with pytest.raises(Exception) as err:
             mlkit.create_model(MODEL_1)
         check_firebase_error(
@@ -485,11 +486,11 @@ class TestCreateModel(object):
         )
         assert len(create_recorder) == 1
 
-    def test_create_model_rpc_error_operation(self):
+    def test_rpc_error_operation(self):
         create_recorder = instrument_mlkit_service(
-            status=200, uri='projects', payload=OPERATION_NOT_DONE_RESPONSE)
+            status=200, payload=OPERATION_NOT_DONE_RESPONSE)
         operation_recorder = instrument_mlkit_service(
-            status=400, uri='operations', payload=ERROR_RESPONSE_BAD_REQUEST)
+            status=400, operations=True, payload=ERROR_RESPONSE_BAD_REQUEST)
         with pytest.raises(Exception) as err:
             mlkit.create_model(MODEL_1)
         check_firebase_error(
@@ -511,17 +512,17 @@ class TestCreateModel(object):
         0,
         None
     ])
-    def test_create_model_not_model(self, model):
+    def test_not_model(self, model):
         with pytest.raises(Exception) as err:
             mlkit.create_model(model)
         check_error(err, TypeError, 'Model must be an mlkit.Model.')
 
-    def test_create_model_missing_display_name(self):
+    def test_missing_display_name(self):
         with pytest.raises(Exception) as err:
             mlkit.create_model(mlkit.Model.from_dict({}))
         check_error(err, ValueError, 'Model must have a display name.')
 
-    def test_create_model_missing_op_name(self):
+    def test_missing_op_name(self):
         instrument_mlkit_service(status=200, payload=OPERATION_MISSING_NAME_RESPONSE)
         with pytest.raises(Exception) as err:
             mlkit.create_model(MODEL_1)
@@ -535,7 +536,7 @@ class TestCreateModel(object):
         'operations/project/123/model/$#@/operation/123',
         'operations/project/1234/model/abc/operation/123/extrathing',
     ])
-    def test_create_model_invalid_op_name(self, op_name):
+    def test_invalid_op_name(self, op_name):
         payload = json.dumps({'name': op_name})
         instrument_mlkit_service(status=200, payload=payload)
         with pytest.raises(Exception) as err:

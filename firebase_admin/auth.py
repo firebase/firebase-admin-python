@@ -146,7 +146,7 @@ def verify_id_token(id_token, app=None, check_revoked=False):
     if not isinstance(check_revoked, bool):
         # guard against accidental wrong assignment.
         raise ValueError('Illegal check_revoked argument. Argument must be of type '
-                         ' bool, but given "{0}".'.format(type(app)))
+                         ' bool, but given "{0}".'.format(type(check_revoked)))
     token_verifier = _get_auth_service(app).token_verifier
     verified_claims = token_verifier.verify_id_token(id_token)
     if check_revoked:

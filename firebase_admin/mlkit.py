@@ -540,8 +540,12 @@ class _MLKitService(object):
         Args:
             operation: The operation to handle.
 
-        Returns
+        Returns:
             dict: A dictionary of the returned model properties.
+
+        Raises:
+            TypeError: if the operation is not a dictionary.
+            ValueError: If the operation is malformed.
         """
         if not isinstance(operation, dict):
             raise TypeError('Operation must be a dictionary.')
@@ -565,8 +569,6 @@ class _MLKitService(object):
                 wait_time_seconds = delay_factor * _MLKitService.POLL_BASE_WAIT_TIME_SECONDS
                 time.sleep(wait_time_seconds)
                 operation = self.get_operation(op_name)
-        # Model validation took too long for the SDK to wait. The backend request
-        # is still running. Call ListModels with a displayName filter later to find it.s
         raise exceptions.DeadlineExceededError('Polling deadline exceeded.')
 
     def create_model(self, model):

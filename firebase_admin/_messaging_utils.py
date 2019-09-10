@@ -423,10 +423,12 @@ class APNSFCMOptions(object):
     Args:
         analytics_label: contains additional options for features provided by the FCM iOS SDK
             (optional).
+        image: contains the URL of an image that is going to be displayed in a notification (optional).
     """
 
-    def __init__(self, analytics_label=None):
+    def __init__(self, analytics_label=None, image=None):
         self.analytics_label = analytics_label
+        self.image = image
 
 
 class FCMOptions(object):
@@ -761,6 +763,7 @@ class MessageEncoder(json.JSONEncoder):
         result = {
             'analytics_label': _Validators.check_analytics_label(
                 'APNSFCMOptions.analytics_label', fcm_options.analytics_label),
+            'image': _Validators.check_string('APNSFCMOptions.image', fcm_options.image)
         }
         result = cls.remove_null_values(result)
         return result

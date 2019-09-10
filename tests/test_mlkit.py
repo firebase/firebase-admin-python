@@ -299,14 +299,16 @@ def instrument_mlkit_service(status=200, payload=None, operations=False, app=Non
     session_url = 'https://mlkit.googleapis.com/v1beta1/'
 
     if isinstance(status, list):
-        adapter = testutils.MockMultiRequestAdapter(payload, status, recorder)
+        adapter = testutils.MockMultiRequestAdapter
     else:
-        adapter = testutils.MockAdapter(payload, status, recorder)
+        adapter = testutils.MockAdapter
 
     if operations:
-        mlkit_service._operation_client.session.mount(session_url, adapter)
+        mlkit_service._operation_client.session.mount(
+            session_url, adapter(payload, status, recorder))
     else:
-        mlkit_service._client.session.mount(session_url, adapter)
+        mlkit_service._client.session.mount(
+            session_url, adapter(payload, status, recorder))
     return recorder
 
 

@@ -197,13 +197,19 @@ class TestFcmOptionEncoder(object):
                 fcm_options=messaging.FCMOptions('message-label'),
                 android=messaging.AndroidConfig(
                     fcm_options=messaging.AndroidFCMOptions('android-label')),
-                apns=messaging.APNSConfig(fcm_options=messaging.APNSFCMOptions('apns-label'))
+                apns=messaging.APNSConfig(fcm_options=
+                                          messaging.APNSFCMOptions(
+                                              analytics_label='apns-label',
+                                              image='https://images.unsplash.com/photo-14944386399'
+                                                    '46-1ebd1d20bf85?fit=crop&w=900&q=60'))
             ),
             {
                 'topic': 'topic',
                 'fcm_options': {'analytics_label': 'message-label'},
                 'android': {'fcm_options': {'analytics_label': 'android-label'}},
-                'apns': {'fcm_options': {'analytics_label': 'apns-label'}},
+                'apns': {'fcm_options': {'analytics_label': 'apns-label',
+                                         'image': 'https://images.unsplash.com/photo-14944386399'
+                                                  '46-1ebd1d20bf85?fit=crop&w=900&q=60'}},
             })
 
 

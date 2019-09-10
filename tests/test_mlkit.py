@@ -296,34 +296,17 @@ def instrument_mlkit_service(status=200, payload=None, operations=False, app=Non
         app = firebase_admin.get_app()
     mlkit_service = mlkit._get_mlkit_service(app)
     recorder = []
-    if operations:
-        mlkit_service._operation_client.session.mount(
-            'https://mlkit.googleapis.com/v1beta1/',
-            testutils.MockAdapter(payload, status, recorder)
-        )
-    else:
-        mlkit_service._client.session.mount(
-            'https://mlkit.googleapis.com/v1beta1/',
-            testutils.MockAdapter(payload, status, recorder)
-        )
-    return recorder
+    session_url = 'https://mlkit.googleapis.com/v1beta1/'
 
-
-def instrument_mlkit_service_multi(statuses, payloads, operations=False, app=None):
-    if not app:
-        app = firebase_admin.get_app()
-    mlkit_service = mlkit._get_mlkit_service(app)
-    recorder = []
-    if operations:
-        mlkit_service._operation_client.session.mount(
-            'https://mlkit.googleapis.com/v1beta1/',
-            testutils.MockMultiRequestAdapter(payloads, statuses, recorder)
-        )
+    if isinstance(status, list):
+        adapter = testutils.MockMultiRequestAdapter(payload, status, recorder)
     else:
-        mlkit_service._client.session.mount(
-            'https://mlkit.googleapis.com/v1beta1/',
-            testutils.MockMultiRequestAdapter(payloads, statuses, recorder)
-        )
+        adapter = testutils.MockAdapter(payload, status, recorder)
+
+    if operations:
+        mlkit_service._operation_client.session.mount(session_url, adapter)
+    else:
+        mlkit_service._client.session.mount(session_url, adapter)
     return recorder
 
 
@@ -554,9 +537,9 @@ class TestCreateModel(object):
         assert operation_recorder[0].url == TestCreateModel._op_url(PROJECT_ID, MODEL_ID_1)
 
     def test_with_get_returns_locked(self):
-        recorder = instrument_mlkit_service_multi(
-            statuses=[200, 200],
-            payloads=[OPERATION_NOT_DONE_RESPONSE, LOCKED_MODEL_2_RESPONSE])
+        recorder = instrument_mlkit_service(
+            status=[200, 200],
+            payload=[OPERATION_NOT_DONE_RESPONSE, LOCKED_MODEL_2_RESPONSE])
         operation_recorder = instrument_mlkit_service(
             status=200, operations=True, payload=OPERATION_NOT_DONE_RESPONSE)
 

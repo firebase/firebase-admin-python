@@ -423,7 +423,8 @@ class APNSFCMOptions(object):
     Args:
         analytics_label: contains additional options for features provided by the FCM iOS SDK
             (optional).
-        image: contains the URL of an image that is going to be displayed in a notification (optional).
+        image: contains the URL of an image that is going to be displayed in a notification
+            (optional).
     """
 
     def __init__(self, analytics_label=None, image=None):

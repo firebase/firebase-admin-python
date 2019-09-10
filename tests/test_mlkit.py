@@ -486,12 +486,14 @@ class TestModel(object):
         assert recorder[0].url == TestModel._op_url(PROJECT_ID, MODEL_ID_1)
 
     def test_wait_for_unlocked_timeout(self):
-        instrument_mlkit_service(status=200, operations=True, payload=OPERATION_NOT_DONE_RESPONSE)
-        mlkit._MLKitService.POLL_BASE_WAIT_TIME_SECONDS = 5  # longer for timeout
+        recorder = instrument_mlkit_service(
+            status=200, operations=True, payload=OPERATION_NOT_DONE_RESPONSE)
+        mlkit._MLKitService.POLL_BASE_WAIT_TIME_SECONDS = 3 # longer so timeout applies immediately
         model = mlkit.Model.from_dict(LOCKED_MODEL_JSON_1)
         with pytest.raises(Exception) as excinfo:
-            model.wait_for_unlocked(max_time_seconds=3)
+            model.wait_for_unlocked(max_time_seconds=0.1)
         check_error(excinfo, exceptions.DeadlineExceededError, 'Polling max time exceeded.')
+        assert len(recorder) == 1
 
 
 class TestCreateModel(object):
@@ -524,37 +526,17 @@ class TestCreateModel(object):
         model = mlkit.create_model(MODEL_1)
         assert model == CREATED_MODEL_1
 
-    def test_with_get_operation(self):
-        create_recorder = instrument_mlkit_service(
-            status=200, payload=OPERATION_NOT_DONE_RESPONSE)
-        operation_recorder = instrument_mlkit_service(
-            status=200, operations=True, payload=OPERATION_DONE_RESPONSE)
-        model = mlkit.create_model(MODEL_1)
-        assert model == CREATED_MODEL_1
-        assert len(create_recorder) == 1
-        assert create_recorder[0].method == 'POST'
-        assert create_recorder[0].url == TestCreateModel._url(PROJECT_ID)
-        assert len(operation_recorder) == 1
-        assert operation_recorder[0].method == 'GET'
-        assert operation_recorder[0].url == TestCreateModel._op_url(PROJECT_ID, MODEL_ID_1)
-
-    def test_with_get_returns_locked(self):
+    def test_returns_locked(self):
         recorder = instrument_mlkit_service(
             status=[200, 200],
             payload=[OPERATION_NOT_DONE_RESPONSE, LOCKED_MODEL_2_RESPONSE])
-        operation_recorder = instrument_mlkit_service(
-            status=200, operations=True, payload=OPERATION_NOT_DONE_RESPONSE)
-
         expected_model = mlkit.Model.from_dict(LOCKED_MODEL_JSON_2)
         model = mlkit.create_model(MODEL_1)
 
         assert model == expected_model
         assert len(recorder) == 2
-        assert len(operation_recorder) == 1
         assert recorder[0].method == 'POST'
         assert recorder[0].url == TestCreateModel._url(PROJECT_ID)
-        assert operation_recorder[0].method == 'GET'
-        assert operation_recorder[0].url == TestCreateModel._op_url(PROJECT_ID, MODEL_ID_1)
         assert recorder[1].method == 'GET'
         assert recorder[1].url == TestCreateModel._get_url(PROJECT_ID, MODEL_ID_1)
 
@@ -583,22 +565,6 @@ class TestCreateModel(object):
             ERROR_MSG_BAD_REQUEST
         )
         assert len(create_recorder) == 1
-
-    def test_rpc_error_operation(self):
-        create_recorder = instrument_mlkit_service(
-            status=200, payload=OPERATION_NOT_DONE_RESPONSE)
-        operation_recorder = instrument_mlkit_service(
-            status=400, operations=True, payload=ERROR_RESPONSE_BAD_REQUEST)
-        with pytest.raises(Exception) as excinfo:
-            mlkit.create_model(MODEL_1)
-        check_firebase_error(
-            excinfo,
-            ERROR_STATUS_BAD_REQUEST,
-            ERROR_CODE_BAD_REQUEST,
-            ERROR_MSG_BAD_REQUEST
-        )
-        assert len(create_recorder) == 1
-        assert len(operation_recorder) == 1
 
     @pytest.mark.parametrize('model', [
         'abc',

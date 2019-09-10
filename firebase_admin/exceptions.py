@@ -15,16 +15,16 @@
 """Firebase Exceptions module.
 
 This module defines the base types for exceptions and the platform-wide error codes as outlined in
-https://cloud.google.com/apis/deesign/errors.
+https://cloud.google.com/apis/design/errors.
 
 :class:`FirebaseError` is the parent class of all exceptions raised by the Admin SDK. It contains
 the ``code``, ``http_response`` and ``cause`` properties common to all Firebase exception types.
 Each exception also carries a message that outlines what went wrong. This can be logged for
 audit or debugging purposes.
 
-When calling an Admin SDK API, developers may catch the parent ``FirebaseError`` and
-inspect its ``code`` to implement fine-grained error handling. Alternatively, developers may
-catch one or more subtypes of ``FirebaseError``. Under normal conditions, any given API may raise
+When calling an Admin SDK API, developers can catch the parent ``FirebaseError`` and
+inspect its ``code`` to implement fine-grained error handling. Alternatively, developers can
+catch one or more subtypes of ``FirebaseError``. Under normal conditions, any given API can raise
 only a small subset of the available exception subtypes. However, the SDK also exposes rare error
 conditions like connection timeouts and other I/O errors as instances of ``FirebaseError``.
 Therefore it is always a good idea to have a handler specified for ``FirebaseError``, after all the

@@ -551,9 +551,10 @@ class TestSetCustomUserClaims(object):
         request = json.loads(recorder[0].body.decode())
         assert request == {'localId' : 'testuser', 'customAttributes' : claims}
 
-    def test_set_custom_user_claims_remove(self, user_mgt_app):
+    @pytest.mark.parametrize('claims', [None, auth.DELETE_ATTRIBUTE])
+    def test_set_custom_user_claims_remove(self, user_mgt_app, claims):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
-        auth.set_custom_user_claims('testuser', auth.DELETE_ATTRIBUTE, app=user_mgt_app)
+        auth.set_custom_user_claims('testuser', claims, app=user_mgt_app)
         request = json.loads(recorder[0].body.decode())
         assert request == {'localId' : 'testuser', 'customAttributes' : json.dumps({})}
 

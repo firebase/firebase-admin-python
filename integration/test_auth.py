@@ -310,9 +310,9 @@ def test_update_custom_user_claims(new_user):
 def test_disable_user(new_user_with_params):
     user = auth.update_user(
         new_user_with_params.uid,
-        display_name=None,
-        photo_url=None,
-        phone_number=None,
+        display_name=auth.DELETE_ATTRIBUTE,
+        photo_url=auth.DELETE_ATTRIBUTE,
+        phone_number=auth.DELETE_ATTRIBUTE,
         disabled=True)
     assert user.uid == new_user_with_params.uid
     assert user.email == new_user_with_params.email

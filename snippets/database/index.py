@@ -214,7 +214,7 @@ def run_transaction():
     try:
         new_vote_count = upvotes_ref.transaction(increment_votes)
         print('Transaction completed')
-    except db.TransactionError:
+    except db.TransactionAbortedError:
         print('Transaction failed to commit')
     # [END transaction]
 

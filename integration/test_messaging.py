@@ -16,6 +16,9 @@
 
 import re
 
+import pytest
+
+from firebase_admin import exceptions
 from firebase_admin import messaging
 
 
@@ -51,6 +54,22 @@ def test_send():
     msg_id = messaging.send(msg, dry_run=True)
     assert re.match('^projects/.*/messages/.*$', msg_id)
 
+def test_send_invalid_token():
+    msg = messaging.Message(
+        token=_REGISTRATION_TOKEN,
+        notification=messaging.Notification('test-title', 'test-body')
+    )
+    with pytest.raises(messaging.SenderIdMismatchError):
+        messaging.send(msg, dry_run=True)
+
+def test_send_malformed_token():
+    msg = messaging.Message(
+        token='not-a-token',
+        notification=messaging.Notification('test-title', 'test-body')
+    )
+    with pytest.raises(exceptions.InvalidArgumentError):
+        messaging.send(msg, dry_run=True)
+
 def test_send_all():
     messages = [
         messaging.Message(
@@ -79,7 +98,7 @@ def test_send_all():
 
     response = batch_response.responses[2]
     assert response.success is False
-    assert response.exception is not None
+    assert isinstance(response.exception, exceptions.InvalidArgumentError)
     assert response.message_id is None
 
 def test_send_one_hundred():

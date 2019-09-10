@@ -17,15 +17,37 @@
 import pytest
 
 import firebase_admin
+from firebase_admin import exceptions
 from firebase_admin import instance_id
 from tests import testutils
 
 
 http_errors = {
-    404: 'Instance ID "test_iid": Failed to find the instance ID.',
-    409: 'Instance ID "test_iid": Already deleted.',
-    429: 'Instance ID "test_iid": Request throttled out by the backend server.',
-    500: 'Instance ID "test_iid": Internal server error.',
+    400: (
+        'Instance ID "test_iid": Malformed instance ID argument.',
+        exceptions.InvalidArgumentError),
+    401: (
+        'Instance ID "test_iid": Request not authorized.',
+        exceptions.UnauthenticatedError),
+    403: (
+        ('Instance ID "test_iid": Project does not match instance ID or the client does not have '
+         'sufficient privileges.'),
+        exceptions.PermissionDeniedError),
+    404: (
+        'Instance ID "test_iid": Failed to find the instance ID.',
+        exceptions.NotFoundError),
+    409: (
+        'Instance ID "test_iid": Already deleted.',
+        exceptions.ConflictError),
+    429: (
+        'Instance ID "test_iid": Request throttled out by the backend server.',
+        exceptions.ResourceExhaustedError),
+    500: (
+        'Instance ID "test_iid": Internal server error.',
+        exceptions.InternalError),
+    503: (
+        'Instance ID "test_iid": Backend servers are over capacity. Try again later.',
+        exceptions.UnavailableError),
 }
 
 class TestDeleteInstanceId(object):
@@ -74,11 +96,17 @@ class TestDeleteInstanceId(object):
         cred = testutils.MockCredential()
         app = firebase_admin.initialize_app(cred, {'projectId': 'explicit-project-id'})
         _, recorder = self._instrument_iid_service(app, status, 'some error')
-        with pytest.raises(instance_id.ApiCallError) as excinfo:
+        msg, exc = http_errors.get(status)
+        with pytest.raises(exc) as excinfo:
             instance_id.delete_instance_id('test_iid')
-        assert str(excinfo.value) == http_errors.get(status)
-        assert excinfo.value.detail is not None
-        assert len(recorder) == 1
+        assert str(excinfo.value) == msg
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
+        if status != 401:
+            assert len(recorder) == 1
+        else:
+            # 401 responses are automatically retried by google-auth
+            assert len(recorder) == 3
         assert recorder[0].method == 'DELETE'
         assert recorder[0].url == self._get_url('explicit-project-id', 'test_iid')
 
@@ -86,12 +114,13 @@ class TestDeleteInstanceId(object):
         cred = testutils.MockCredential()
         app = firebase_admin.initialize_app(cred, {'projectId': 'explicit-project-id'})
         _, recorder = self._instrument_iid_service(app, 501, 'some error')
-        with pytest.raises(instance_id.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.UnknownError) as excinfo:
             instance_id.delete_instance_id('test_iid')
         url = self._get_url('explicit-project-id', 'test_iid')
-        message = '501 Server Error: None for url: {0}'.format(url)
+        message = 'Instance ID "test_iid": 501 Server Error: None for url: {0}'.format(url)
         assert str(excinfo.value) == message
-        assert excinfo.value.detail is not None
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
         assert len(recorder) == 1
         assert recorder[0].method == 'DELETE'
         assert recorder[0].url == url

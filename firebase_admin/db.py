@@ -32,6 +32,7 @@ import six
 from six.moves import urllib
 
 import firebase_admin
+from firebase_admin import exceptions
 from firebase_admin import _http_client
 from firebase_admin import _sseclient
 from firebase_admin import _utils
@@ -209,7 +210,7 @@ class Reference(object):
 
         Raises:
           ValueError: If both ``etag`` and ``shallow`` are set to True.
-          ApiCallError: If an error occurs while communicating with the remote database server.
+          FirebaseError: If an error occurs while communicating with the remote database server.
         """
         if etag:
             if shallow:
@@ -236,7 +237,7 @@ class Reference(object):
 
         Raises:
           ValueError: If the ETag is not a string.
-          ApiCallError: If an error occurs while communicating with the remote database server.
+          FirebaseError: If an error occurs while communicating with the remote database server.
         """
         if not isinstance(etag, six.string_types):
             raise ValueError('ETag must be a string.')
@@ -258,7 +259,7 @@ class Reference(object):
         Raises:
           ValueError: If the provided value is None.
           TypeError: If the value is not JSON-serializable.
-          ApiCallError: If an error occurs while communicating with the remote database server.
+          FirebaseError: If an error occurs while communicating with the remote database server.
         """
         if value is None:
             raise ValueError('Value must not be None.')
@@ -281,7 +282,7 @@ class Reference(object):
 
         Raises:
           ValueError: If the value is None, or if expected_etag is not a string.
-          ApiCallError: If an error occurs while communicating with the remote database server.
+          FirebaseError: If an error occurs while communicating with the remote database server.
         """
         # pylint: disable=missing-raises-doc
         if not isinstance(expected_etag, six.string_types):
@@ -293,11 +294,11 @@ class Reference(object):
             headers = self._client.headers(
                 'put', self._add_suffix(), json=value, headers={'if-match': expected_etag})
             return True, value, headers.get('ETag')
-        except ApiCallError as error:
-            detail = error.detail
-            if detail.response is not None and 'ETag' in detail.response.headers:
-                etag = detail.response.headers['ETag']
-                snapshot = detail.response.json()
+        except exceptions.FailedPreconditionError as error:
+            http_response = error.http_response
+            if http_response is not None and 'ETag' in http_response.headers:
+                etag = http_response.headers['ETag']
+                snapshot = http_response.json()
                 return False, snapshot, etag
             else:
                 raise error
@@ -317,7 +318,7 @@ class Reference(object):
         Raises:
           ValueError: If the value is None.
           TypeError: If the value is not JSON-serializable.
-          ApiCallError: If an error occurs while communicating with the remote database server.
+          FirebaseError: If an error occurs while communicating with the remote database server.
         """
         if value is None:
             raise ValueError('Value must not be None.')
@@ -333,7 +334,7 @@ class Reference(object):
 
         Raises:
           ValueError: If value is empty or not a dictionary.
-          ApiCallError: If an error occurs while communicating with the remote database server.
+          FirebaseError: If an error occurs while communicating with the remote database server.
         """
         if not value or not isinstance(value, dict):
             raise ValueError('Value argument must be a non-empty dictionary.')
@@ -345,7 +346,7 @@ class Reference(object):
         """Deletes this node from the database.
 
         Raises:
-          ApiCallError: If an error occurs while communicating with the remote database server.
+          FirebaseError: If an error occurs while communicating with the remote database server.
         """
         self._client.request('delete', self._add_suffix())
 
@@ -371,7 +372,7 @@ class Reference(object):
           ListenerRegistration: An object that can be used to stop the event listener.
 
         Raises:
-          ApiCallError: If an error occurs while starting the initial HTTP connection.
+          FirebaseError: If an error occurs while starting the initial HTTP connection.
         """
         session = _sseclient.KeepAuthSession(self._client.credential)
         return self._listen_with_session(callback, session)
@@ -387,9 +388,9 @@ class Reference(object):
         value of this reference into a new value. If another client writes to this location before
         the new value is successfully saved, the update function is called again with the new
         current value, and the write will be retried. In case of repeated failures, this method
-        will retry the transaction up to 25 times before giving up and raising a TransactionError.
-        The update function may also force an early abort by raising an exception instead of
-        returning a value.
+        will retry the transaction up to 25 times before giving up and raising a
+        TransactionAbortedError. The update function may also force an early abort by raising an
+        exception instead of returning a value.
 
         Args:
           transaction_update: A function which will be passed the current data stored at this
@@ -402,7 +403,7 @@ class Reference(object):
           object: New value of the current database Reference (only if the transaction commits).
 
         Raises:
-          TransactionError: If the transaction aborts after exhausting all retry attempts.
+          TransactionAbortedError: If the transaction aborts after exhausting all retry attempts.
           ValueError: If transaction_update is not a function.
         """
         if not callable(transaction_update):
@@ -416,7 +417,8 @@ class Reference(object):
             if success:
                 return new_data
             tries += 1
-        raise TransactionError('Transaction aborted after failed retries.')
+
+        raise TransactionAbortedError('Transaction aborted after failed retries.')
 
     def order_by_child(self, path):
         """Returns a Query that orders data by child values.
@@ -468,7 +470,7 @@ class Reference(object):
             sse = _sseclient.SSEClient(url, session)
             return ListenerRegistration(callback, sse)
         except requests.exceptions.RequestException as error:
-            raise ApiCallError(_Client.extract_error_message(error), error)
+            raise _Client.handle_rtdb_error(error)
 
 
 class Query(object):
@@ -614,7 +616,7 @@ class Query(object):
           object: Decoded JSON result of the Query.
 
         Raises:
-          ApiCallError: If an error occurs while communicating with the remote database server.
+          FirebaseError: If an error occurs while communicating with the remote database server.
         """
         result = self._client.body('get', self._pathurl, params=self._querystr)
         if isinstance(result, (dict, list)) and self._order_by != '$priority':
@@ -622,20 +624,11 @@ class Query(object):
         return result
 
 
-class ApiCallError(Exception):
-    """Represents an Exception encountered while invoking the Firebase database server API."""
-
-    def __init__(self, message, error):
-        Exception.__init__(self, message)
-        self.detail = error
-
-
-class TransactionError(Exception):
-    """Represents an Exception encountered while performing a transaction."""
+class TransactionAbortedError(exceptions.AbortedError):
+    """A transaction was aborted aftr exceeding the maximum number of retries."""
 
     def __init__(self, message):
-        Exception.__init__(self, message)
-
+        exceptions.AbortedError.__init__(self, message)
 
 
 class _Sorter(object):
@@ -934,7 +927,7 @@ class _Client(_http_client.JsonHttpClient):
           Response: An HTTP response object.
 
         Raises:
-          ApiCallError: If an error occurs while making the HTTP call.
+          FirebaseError: If an error occurs while making the HTTP call.
         """
         query = '&'.join('{0}={1}'.format(key, self.params[key]) for key in self.params)
         extra_params = kwargs.get('params')
@@ -950,33 +943,39 @@ class _Client(_http_client.JsonHttpClient):
         try:
             return super(_Client, self).request(method, url, **kwargs)
         except requests.exceptions.RequestException as error:
-            raise ApiCallError(_Client.extract_error_message(error), error)
+            raise _Client.handle_rtdb_error(error)
 
     @classmethod
-    def extract_error_message(cls, error):
-        """Extracts an error message from an exception.
+    def handle_rtdb_error(cls, error):
+        """Converts an error encountered while calling RTDB into a FirebaseError."""
+        if error.response is None:
+            return _utils.handle_requests_error(error)
 
-        If the server has not sent any response, simply converts the exception into a string.
+        message = cls._extract_error_message(error.response)
+        return _utils.handle_requests_error(error, message=message)
+
+    @classmethod
+    def _extract_error_message(cls, response):
+        """Extracts an error message from an error response.
+
         If the server has sent a JSON response with an 'error' field, which is the typical
         behavior of the Realtime Database REST API, parses the response to retrieve the error
         message. If the server has sent a non-JSON response, returns the full response
         as the error message.
-
-        Args:
-          error: An exception raised by the requests library.
-
-        Returns:
-          str: A string error message extracted from the exception.
         """
-        if error.response is None:
-            return str(error)
+        message = None
         try:
-            data = error.response.json()
+            # RTDB error format: {"error": "text message"}
+            data = response.json()
             if isinstance(data, dict):
-                return '{0}\nReason: {1}'.format(error, data.get('error', 'unknown'))
+                message = data.get('error')
         except ValueError:
             pass
-        return '{0}\nReason: {1}'.format(error, error.response.content.decode())
+
+        if not message:
+            message = 'Unexpected response from database: {0}'.format(response.content.decode())
+
+        return message
 
 
 class _EmulatorAdminCredentials(google.auth.credentials.Credentials):

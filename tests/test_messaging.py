@@ -23,6 +23,7 @@ import six
 from googleapiclient.http import HttpMockSequence
 
 import firebase_admin
+from firebase_admin import exceptions
 from firebase_admin import messaging
 from tests import testutils
 
@@ -31,13 +32,33 @@ NON_STRING_ARGS = [list(), tuple(), dict(), True, False, 1, 0]
 NON_DICT_ARGS = ['', list(), tuple(), True, False, 1, 0, {1: 'foo'}, {'foo': 1}]
 NON_OBJECT_ARGS = [list(), tuple(), dict(), 'foo', 0, 1, True, False]
 NON_LIST_ARGS = ['', tuple(), dict(), True, False, 1, 0, [1], ['foo', 1]]
-HTTP_ERRORS = [400, 404, 500]
+HTTP_ERROR_CODES = {
+    400: exceptions.InvalidArgumentError,
+    403: exceptions.PermissionDeniedError,
+    404: exceptions.NotFoundError,
+    500: exceptions.InternalError,
+    503: exceptions.UnavailableError,
+}
+FCM_ERROR_CODES = {
+    'APNS_AUTH_ERROR': messaging.ThirdPartyAuthError,
+    'QUOTA_EXCEEDED': messaging.QuotaExceededError,
+    'SENDER_ID_MISMATCH': messaging.SenderIdMismatchError,
+    'THIRD_PARTY_AUTH_ERROR': messaging.ThirdPartyAuthError,
+    'UNREGISTERED': messaging.UnregisteredError,
+}
 
 
 def check_encoding(msg, expected=None):
     encoded = messaging._MessagingService.encode_message(msg)
     if expected:
         assert encoded == expected
+
+def check_exception(exception, message, status):
+    assert isinstance(exception, exceptions.FirebaseError)
+    assert str(exception) == message
+    assert exception.cause is not None
+    assert exception.http_response is not None
+    assert exception.http_response.status_code == status
 
 
 class TestMulticastMessage(object):
@@ -537,25 +558,6 @@ class TestWebpushFCMOptionsEncoder(object):
             topic='topic',
             webpush=messaging.WebpushConfig(
                 fcm_options=messaging.WebpushFCMOptions(
-                    link='https://example',
-                ),
-            )
-        )
-        expected = {
-            'topic': 'topic',
-            'webpush': {
-                'fcm_options': {
-                    'link': 'https://example',
-                },
-            },
-        }
-        check_encoding(msg, expected)
-
-    def test_deprecated_fcm_options(self):
-        msg = messaging.Message(
-            topic='topic',
-            webpush=messaging.WebpushConfig(
-                fcm_options=messaging.WebpushFcmOptions(
                     link='https://example',
                 ),
             )
@@ -1409,15 +1411,14 @@ class TestSend(object):
         body = {'message': messaging._MessagingService.encode_message(msg)}
         assert json.loads(recorder[0].body.decode()) == body
 
-    @pytest.mark.parametrize('status', HTTP_ERRORS)
-    def test_send_error(self, status):
+    @pytest.mark.parametrize('status,exc_type', HTTP_ERROR_CODES.items())
+    def test_send_error(self, status, exc_type):
         _, recorder = self._instrument_messaging_service(status=status, payload='{}')
         msg = messaging.Message(topic='foo')
-        with pytest.raises(messaging.ApiCallError) as excinfo:
+        with pytest.raises(exc_type) as excinfo:
             messaging.send(msg)
         expected = 'Unexpected HTTP response with status: {0}; body: {{}}'.format(status)
-        assert str(excinfo.value) == expected
-        assert str(excinfo.value.code) == messaging._MessagingService.UNKNOWN_ERROR
+        check_exception(excinfo.value, expected, status)
         assert len(recorder) == 1
         assert recorder[0].method == 'POST'
         assert recorder[0].url == self._get_url('explicit-project-id')
@@ -1426,7 +1427,7 @@ class TestSend(object):
         body = {'message': messaging._MessagingService.JSON_ENCODER.default(msg)}
         assert json.loads(recorder[0].body.decode()) == body
 
-    @pytest.mark.parametrize('status', HTTP_ERRORS)
+    @pytest.mark.parametrize('status', HTTP_ERROR_CODES)
     def test_send_detailed_error(self, status):
         payload = json.dumps({
             'error': {
@@ -1436,17 +1437,16 @@ class TestSend(object):
         })
         _, recorder = self._instrument_messaging_service(status=status, payload=payload)
         msg = messaging.Message(topic='foo')
-        with pytest.raises(messaging.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.InvalidArgumentError) as excinfo:
             messaging.send(msg)
-        assert str(excinfo.value) == 'test error'
-        assert str(excinfo.value.code) == 'invalid-argument'
+        check_exception(excinfo.value, 'test error', status)
         assert len(recorder) == 1
         assert recorder[0].method == 'POST'
         assert recorder[0].url == self._get_url('explicit-project-id')
         body = {'message': messaging._MessagingService.JSON_ENCODER.default(msg)}
         assert json.loads(recorder[0].body.decode()) == body
 
-    @pytest.mark.parametrize('status', HTTP_ERRORS)
+    @pytest.mark.parametrize('status', HTTP_ERROR_CODES)
     def test_send_canonical_error_code(self, status):
         payload = json.dumps({
             'error': {
@@ -1456,18 +1456,18 @@ class TestSend(object):
         })
         _, recorder = self._instrument_messaging_service(status=status, payload=payload)
         msg = messaging.Message(topic='foo')
-        with pytest.raises(messaging.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.NotFoundError) as excinfo:
             messaging.send(msg)
-        assert str(excinfo.value) == 'test error'
-        assert str(excinfo.value.code) == 'registration-token-not-registered'
+        check_exception(excinfo.value, 'test error', status)
         assert len(recorder) == 1
         assert recorder[0].method == 'POST'
         assert recorder[0].url == self._get_url('explicit-project-id')
         body = {'message': messaging._MessagingService.JSON_ENCODER.default(msg)}
         assert json.loads(recorder[0].body.decode()) == body
 
-    @pytest.mark.parametrize('status', HTTP_ERRORS)
-    def test_send_fcm_error_code(self, status):
+    @pytest.mark.parametrize('status', HTTP_ERROR_CODES)
+    @pytest.mark.parametrize('fcm_error_code, exc_type', FCM_ERROR_CODES.items())
+    def test_send_fcm_error_code(self, status, fcm_error_code, exc_type):
         payload = json.dumps({
             'error': {
                 'status': 'INVALID_ARGUMENT',
@@ -1475,17 +1475,41 @@ class TestSend(object):
                 'details': [
                     {
                         '@type': 'type.googleapis.com/google.firebase.fcm.v1.FcmError',
-                        'errorCode': 'UNREGISTERED',
+                        'errorCode': fcm_error_code,
                     },
                 ],
             }
         })
         _, recorder = self._instrument_messaging_service(status=status, payload=payload)
         msg = messaging.Message(topic='foo')
-        with pytest.raises(messaging.ApiCallError) as excinfo:
+        with pytest.raises(exc_type) as excinfo:
             messaging.send(msg)
-        assert str(excinfo.value) == 'test error'
-        assert str(excinfo.value.code) == 'registration-token-not-registered'
+        check_exception(excinfo.value, 'test error', status)
+        assert len(recorder) == 1
+        assert recorder[0].method == 'POST'
+        assert recorder[0].url == self._get_url('explicit-project-id')
+        body = {'message': messaging._MessagingService.JSON_ENCODER.default(msg)}
+        assert json.loads(recorder[0].body.decode()) == body
+
+    @pytest.mark.parametrize('status', HTTP_ERROR_CODES)
+    def test_send_unknown_fcm_error_code(self, status):
+        payload = json.dumps({
+            'error': {
+                'status': 'INVALID_ARGUMENT',
+                'message': 'test error',
+                'details': [
+                    {
+                        '@type': 'type.googleapis.com/google.firebase.fcm.v1.FcmError',
+                        'errorCode': 'SOME_UNKNOWN_CODE',
+                    },
+                ],
+            }
+        })
+        _, recorder = self._instrument_messaging_service(status=status, payload=payload)
+        msg = messaging.Message(topic='foo')
+        with pytest.raises(exceptions.InvalidArgumentError) as excinfo:
+            messaging.send(msg)
+        check_exception(excinfo.value, 'test error', status)
         assert len(recorder) == 1
         assert recorder[0].method == 'POST'
         assert recorder[0].url == self._get_url('explicit-project-id')
@@ -1569,7 +1593,7 @@ class TestSendAll(TestBatch):
         assert all([r.success for r in batch_response.responses])
         assert not any([r.exception for r in batch_response.responses])
 
-    @pytest.mark.parametrize('status', HTTP_ERRORS)
+    @pytest.mark.parametrize('status', HTTP_ERROR_CODES)
     def test_send_all_detailed_error(self, status):
         success_payload = json.dumps({'name': 'message-id'})
         error_payload = json.dumps({
@@ -1592,12 +1616,11 @@ class TestSendAll(TestBatch):
         error_response = batch_response.responses[1]
         assert error_response.message_id is None
         assert error_response.success is False
-        assert error_response.exception is not None
         exception = error_response.exception
-        assert str(exception) == 'test error'
-        assert str(exception.code) == 'invalid-argument'
+        assert isinstance(exception, exceptions.InvalidArgumentError)
+        check_exception(exception, 'test error', status)
 
-    @pytest.mark.parametrize('status', HTTP_ERRORS)
+    @pytest.mark.parametrize('status', HTTP_ERROR_CODES)
     def test_send_all_canonical_error_code(self, status):
         success_payload = json.dumps({'name': 'message-id'})
         error_payload = json.dumps({
@@ -1620,13 +1643,13 @@ class TestSendAll(TestBatch):
         error_response = batch_response.responses[1]
         assert error_response.message_id is None
         assert error_response.success is False
-        assert error_response.exception is not None
         exception = error_response.exception
-        assert str(exception) == 'test error'
-        assert str(exception.code) == 'registration-token-not-registered'
+        assert isinstance(exception, exceptions.NotFoundError)
+        check_exception(exception, 'test error', status)
 
-    @pytest.mark.parametrize('status', HTTP_ERRORS)
-    def test_send_all_fcm_error_code(self, status):
+    @pytest.mark.parametrize('status', HTTP_ERROR_CODES)
+    @pytest.mark.parametrize('fcm_error_code, exc_type', FCM_ERROR_CODES.items())
+    def test_send_all_fcm_error_code(self, status, fcm_error_code, exc_type):
         success_payload = json.dumps({'name': 'message-id'})
         error_payload = json.dumps({
             'error': {
@@ -1635,7 +1658,7 @@ class TestSendAll(TestBatch):
                 'details': [
                     {
                         '@type': 'type.googleapis.com/google.firebase.fcm.v1.FcmError',
-                        'errorCode': 'UNREGISTERED',
+                        'errorCode': fcm_error_code,
                     },
                 ],
             }
@@ -1654,22 +1677,20 @@ class TestSendAll(TestBatch):
         error_response = batch_response.responses[1]
         assert error_response.message_id is None
         assert error_response.success is False
-        assert error_response.exception is not None
         exception = error_response.exception
-        assert str(exception) == 'test error'
-        assert str(exception.code) == 'registration-token-not-registered'
+        assert isinstance(exception, exc_type)
+        check_exception(exception, 'test error', status)
 
-    @pytest.mark.parametrize('status', HTTP_ERRORS)
-    def test_send_all_batch_error(self, status):
+    @pytest.mark.parametrize('status, exc_type', HTTP_ERROR_CODES.items())
+    def test_send_all_batch_error(self, status, exc_type):
         _ = self._instrument_batch_messaging_service(status=status, payload='{}')
         msg = messaging.Message(topic='foo')
-        with pytest.raises(messaging.ApiCallError) as excinfo:
+        with pytest.raises(exc_type) as excinfo:
             messaging.send_all([msg])
         expected = 'Unexpected HTTP response with status: {0}; body: {{}}'.format(status)
-        assert str(excinfo.value) == expected
-        assert str(excinfo.value.code) == messaging._MessagingService.UNKNOWN_ERROR
+        check_exception(excinfo.value, expected, status)
 
-    @pytest.mark.parametrize('status', HTTP_ERRORS)
+    @pytest.mark.parametrize('status', HTTP_ERROR_CODES)
     def test_send_all_batch_detailed_error(self, status):
         payload = json.dumps({
             'error': {
@@ -1679,12 +1700,11 @@ class TestSendAll(TestBatch):
         })
         _ = self._instrument_batch_messaging_service(status=status, payload=payload)
         msg = messaging.Message(topic='foo')
-        with pytest.raises(messaging.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.InvalidArgumentError) as excinfo:
             messaging.send_all([msg])
-        assert str(excinfo.value) == 'test error'
-        assert str(excinfo.value.code) == 'invalid-argument'
+        check_exception(excinfo.value, 'test error', status)
 
-    @pytest.mark.parametrize('status', HTTP_ERRORS)
+    @pytest.mark.parametrize('status', HTTP_ERROR_CODES)
     def test_send_all_batch_canonical_error_code(self, status):
         payload = json.dumps({
             'error': {
@@ -1694,12 +1714,11 @@ class TestSendAll(TestBatch):
         })
         _ = self._instrument_batch_messaging_service(status=status, payload=payload)
         msg = messaging.Message(topic='foo')
-        with pytest.raises(messaging.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.NotFoundError) as excinfo:
             messaging.send_all([msg])
-        assert str(excinfo.value) == 'test error'
-        assert str(excinfo.value.code) == 'registration-token-not-registered'
+        check_exception(excinfo.value, 'test error', status)
 
-    @pytest.mark.parametrize('status', HTTP_ERRORS)
+    @pytest.mark.parametrize('status', HTTP_ERROR_CODES)
     def test_send_all_batch_fcm_error_code(self, status):
         payload = json.dumps({
             'error': {
@@ -1715,10 +1734,9 @@ class TestSendAll(TestBatch):
         })
         _ = self._instrument_batch_messaging_service(status=status, payload=payload)
         msg = messaging.Message(topic='foo')
-        with pytest.raises(messaging.ApiCallError) as excinfo:
+        with pytest.raises(messaging.UnregisteredError) as excinfo:
             messaging.send_all([msg])
-        assert str(excinfo.value) == 'test error'
-        assert str(excinfo.value.code) == 'registration-token-not-registered'
+        check_exception(excinfo.value, 'test error', status)
 
 
 class TestSendMulticast(TestBatch):
@@ -1750,7 +1768,7 @@ class TestSendMulticast(TestBatch):
         assert all([r.success for r in batch_response.responses])
         assert not any([r.exception for r in batch_response.responses])
 
-    @pytest.mark.parametrize('status', HTTP_ERRORS)
+    @pytest.mark.parametrize('status', HTTP_ERROR_CODES)
     def test_send_multicast_detailed_error(self, status):
         success_payload = json.dumps({'name': 'message-id'})
         error_payload = json.dumps({
@@ -1775,10 +1793,10 @@ class TestSendMulticast(TestBatch):
         assert error_response.success is False
         assert error_response.exception is not None
         exception = error_response.exception
-        assert str(exception) == 'test error'
-        assert str(exception.code) == 'invalid-argument'
+        assert isinstance(exception, exceptions.InvalidArgumentError)
+        check_exception(exception, 'test error', status)
 
-    @pytest.mark.parametrize('status', HTTP_ERRORS)
+    @pytest.mark.parametrize('status', HTTP_ERROR_CODES)
     def test_send_multicast_canonical_error_code(self, status):
         success_payload = json.dumps({'name': 'message-id'})
         error_payload = json.dumps({
@@ -1803,10 +1821,10 @@ class TestSendMulticast(TestBatch):
         assert error_response.success is False
         assert error_response.exception is not None
         exception = error_response.exception
-        assert str(exception) == 'test error'
-        assert str(exception.code) == 'registration-token-not-registered'
+        assert isinstance(exception, exceptions.NotFoundError)
+        check_exception(exception, 'test error', status)
 
-    @pytest.mark.parametrize('status', HTTP_ERRORS)
+    @pytest.mark.parametrize('status', HTTP_ERROR_CODES)
     def test_send_multicast_fcm_error_code(self, status):
         success_payload = json.dumps({'name': 'message-id'})
         error_payload = json.dumps({
@@ -1837,20 +1855,19 @@ class TestSendMulticast(TestBatch):
         assert error_response.success is False
         assert error_response.exception is not None
         exception = error_response.exception
-        assert str(exception) == 'test error'
-        assert str(exception.code) == 'registration-token-not-registered'
+        assert isinstance(exception, messaging.UnregisteredError)
+        check_exception(exception, 'test error', status)
 
-    @pytest.mark.parametrize('status', HTTP_ERRORS)
-    def test_send_multicast_batch_error(self, status):
+    @pytest.mark.parametrize('status, exc_type', HTTP_ERROR_CODES.items())
+    def test_send_multicast_batch_error(self, status, exc_type):
         _ = self._instrument_batch_messaging_service(status=status, payload='{}')
         msg = messaging.MulticastMessage(tokens=['foo'])
-        with pytest.raises(messaging.ApiCallError) as excinfo:
+        with pytest.raises(exc_type) as excinfo:
             messaging.send_multicast(msg)
         expected = 'Unexpected HTTP response with status: {0}; body: {{}}'.format(status)
-        assert str(excinfo.value) == expected
-        assert str(excinfo.value.code) == messaging._MessagingService.UNKNOWN_ERROR
+        check_exception(excinfo.value, expected, status)
 
-    @pytest.mark.parametrize('status', HTTP_ERRORS)
+    @pytest.mark.parametrize('status', HTTP_ERROR_CODES)
     def test_send_multicast_batch_detailed_error(self, status):
         payload = json.dumps({
             'error': {
@@ -1860,12 +1877,11 @@ class TestSendMulticast(TestBatch):
         })
         _ = self._instrument_batch_messaging_service(status=status, payload=payload)
         msg = messaging.MulticastMessage(tokens=['foo'])
-        with pytest.raises(messaging.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.InvalidArgumentError) as excinfo:
             messaging.send_multicast(msg)
-        assert str(excinfo.value) == 'test error'
-        assert str(excinfo.value.code) == 'invalid-argument'
+        check_exception(excinfo.value, 'test error', status)
 
-    @pytest.mark.parametrize('status', HTTP_ERRORS)
+    @pytest.mark.parametrize('status', HTTP_ERROR_CODES)
     def test_send_multicast_batch_canonical_error_code(self, status):
         payload = json.dumps({
             'error': {
@@ -1875,12 +1891,11 @@ class TestSendMulticast(TestBatch):
         })
         _ = self._instrument_batch_messaging_service(status=status, payload=payload)
         msg = messaging.MulticastMessage(tokens=['foo'])
-        with pytest.raises(messaging.ApiCallError) as excinfo:
+        with pytest.raises(exceptions.NotFoundError) as excinfo:
             messaging.send_multicast(msg)
-        assert str(excinfo.value) == 'test error'
-        assert str(excinfo.value.code) == 'registration-token-not-registered'
+        check_exception(excinfo.value, 'test error', status)
 
-    @pytest.mark.parametrize('status', HTTP_ERRORS)
+    @pytest.mark.parametrize('status', HTTP_ERROR_CODES)
     def test_send_multicast_batch_fcm_error_code(self, status):
         payload = json.dumps({
             'error': {
@@ -1896,10 +1911,9 @@ class TestSendMulticast(TestBatch):
         })
         _ = self._instrument_batch_messaging_service(status=status, payload=payload)
         msg = messaging.MulticastMessage(tokens=['foo'])
-        with pytest.raises(messaging.ApiCallError) as excinfo:
+        with pytest.raises(messaging.UnregisteredError) as excinfo:
             messaging.send_multicast(msg)
-        assert str(excinfo.value) == 'test error'
-        assert str(excinfo.value.code) == 'registration-token-not-registered'
+        check_exception(excinfo.value, 'test error', status)
 
 
 class TestTopicManagement(object):
@@ -1977,30 +1991,24 @@ class TestTopicManagement(object):
         assert recorder[0].url == self._get_url('iid/v1:batchAdd')
         assert json.loads(recorder[0].body.decode()) == args[2]
 
-    @pytest.mark.parametrize('status', HTTP_ERRORS)
-    def test_subscribe_to_topic_error(self, status):
+    @pytest.mark.parametrize('status, exc_type', HTTP_ERROR_CODES.items())
+    def test_subscribe_to_topic_error(self, status, exc_type):
         _, recorder = self._instrument_iid_service(
             status=status, payload=self._DEFAULT_ERROR_RESPONSE)
-        with pytest.raises(messaging.ApiCallError) as excinfo:
+        with pytest.raises(exc_type) as excinfo:
             messaging.subscribe_to_topic('foo', 'test-topic')
         assert str(excinfo.value) == 'error_reason'
-        code = messaging._MessagingService.IID_ERROR_CODES.get(
-            status, messaging._MessagingService.UNKNOWN_ERROR)
-        assert excinfo.value.code == code
         assert len(recorder) == 1
         assert recorder[0].method == 'POST'
         assert recorder[0].url == self._get_url('iid/v1:batchAdd')
 
-    @pytest.mark.parametrize('status', HTTP_ERRORS)
-    def test_subscribe_to_topic_non_json_error(self, status):
+    @pytest.mark.parametrize('status, exc_type', HTTP_ERROR_CODES.items())
+    def test_subscribe_to_topic_non_json_error(self, status, exc_type):
         _, recorder = self._instrument_iid_service(status=status, payload='not json')
-        with pytest.raises(messaging.ApiCallError) as excinfo:
+        with pytest.raises(exc_type) as excinfo:
             messaging.subscribe_to_topic('foo', 'test-topic')
         reason = 'Unexpected HTTP response with status: {0}; body: not json'.format(status)
-        code = messaging._MessagingService.IID_ERROR_CODES.get(
-            status, messaging._MessagingService.UNKNOWN_ERROR)
         assert str(excinfo.value) == reason
-        assert excinfo.value.code == code
         assert len(recorder) == 1
         assert recorder[0].method == 'POST'
         assert recorder[0].url == self._get_url('iid/v1:batchAdd')
@@ -2015,30 +2023,24 @@ class TestTopicManagement(object):
         assert recorder[0].url == self._get_url('iid/v1:batchRemove')
         assert json.loads(recorder[0].body.decode()) == args[2]
 
-    @pytest.mark.parametrize('status', HTTP_ERRORS)
-    def test_unsubscribe_from_topic_error(self, status):
+    @pytest.mark.parametrize('status, exc_type', HTTP_ERROR_CODES.items())
+    def test_unsubscribe_from_topic_error(self, status, exc_type):
         _, recorder = self._instrument_iid_service(
             status=status, payload=self._DEFAULT_ERROR_RESPONSE)
-        with pytest.raises(messaging.ApiCallError) as excinfo:
+        with pytest.raises(exc_type) as excinfo:
             messaging.unsubscribe_from_topic('foo', 'test-topic')
         assert str(excinfo.value) == 'error_reason'
-        code = messaging._MessagingService.IID_ERROR_CODES.get(
-            status, messaging._MessagingService.UNKNOWN_ERROR)
-        assert excinfo.value.code == code
         assert len(recorder) == 1
         assert recorder[0].method == 'POST'
         assert recorder[0].url == self._get_url('iid/v1:batchRemove')
 
-    @pytest.mark.parametrize('status', HTTP_ERRORS)
-    def test_unsubscribe_from_topic_non_json_error(self, status):
+    @pytest.mark.parametrize('status, exc_type', HTTP_ERROR_CODES.items())
+    def test_unsubscribe_from_topic_non_json_error(self, status, exc_type):
         _, recorder = self._instrument_iid_service(status=status, payload='not json')
-        with pytest.raises(messaging.ApiCallError) as excinfo:
+        with pytest.raises(exc_type) as excinfo:
             messaging.unsubscribe_from_topic('foo', 'test-topic')
         reason = 'Unexpected HTTP response with status: {0}; body: not json'.format(status)
-        code = messaging._MessagingService.IID_ERROR_CODES.get(
-            status, messaging._MessagingService.UNKNOWN_ERROR)
         assert str(excinfo.value) == reason
-        assert excinfo.value.code == code
         assert len(recorder) == 1
         assert recorder[0].method == 'POST'
         assert recorder[0].url == self._get_url('iid/v1:batchRemove')

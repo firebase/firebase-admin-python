@@ -1,6 +1,9 @@
 # Unreleased
 
--
+- [added] Added the new `firebase_admin.exceptions` module containing the
+  base exception types and global error codes.
+- [changed] Updated the `firebase_admin.instance_id` module to use the new
+  shared exception types. The type `instance_id.ApiCallError` was removed.
 
 # v2.18.0
 

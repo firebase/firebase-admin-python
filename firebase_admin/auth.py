@@ -22,6 +22,7 @@ creating and managing user accounts in Firebase projects.
 import time
 
 import firebase_admin
+from firebase_admin import _auth_utils
 from firebase_admin import _http_client
 from firebase_admin import _token_gen
 from firebase_admin import _user_import
@@ -30,22 +31,33 @@ from firebase_admin import _utils
 
 
 _AUTH_ATTRIBUTE = '_auth'
-_ID_TOKEN_REVOKED = 'ID_TOKEN_REVOKED'
-_SESSION_COOKIE_REVOKED = 'SESSION_COOKIE_REVOKED'
 
 
 __all__ = [
     'ActionCodeSettings',
-    'AuthError',
+    'CertificateFetchError',
     'DELETE_ATTRIBUTE',
+    'EmailAlreadyExistsError',
     'ErrorInfo',
+    'ExpiredIdTokenError',
+    'ExpiredSessionCookieError',
     'ExportedUserRecord',
     'ImportUserRecord',
+    'InvalidDynamicLinkDomainError',
+    'InvalidIdTokenError',
+    'InvalidSessionCookieError',
     'ListUsersPage',
+    'PhoneNumberAlreadyExistsError',
+    'RevokedIdTokenError',
+    'RevokedSessionCookieError',
+    'TokenSignError',
+    'UidAlreadyExistsError',
+    'UnexpectedResponseError',
     'UserImportHash',
     'UserImportResult',
     'UserInfo',
     'UserMetadata',
+    'UserNotFoundError',
     'UserProvider',
     'UserRecord',
 
@@ -69,15 +81,29 @@ __all__ = [
 ]
 
 ActionCodeSettings = _user_mgt.ActionCodeSettings
+CertificateFetchError = _token_gen.CertificateFetchError
 DELETE_ATTRIBUTE = _user_mgt.DELETE_ATTRIBUTE
+EmailAlreadyExistsError = _auth_utils.EmailAlreadyExistsError
 ErrorInfo = _user_import.ErrorInfo
+ExpiredIdTokenError = _token_gen.ExpiredIdTokenError
+ExpiredSessionCookieError = _token_gen.ExpiredSessionCookieError
 ExportedUserRecord = _user_mgt.ExportedUserRecord
-ListUsersPage = _user_mgt.ListUsersPage
-UserImportHash = _user_import.UserImportHash
 ImportUserRecord = _user_import.ImportUserRecord
+InvalidDynamicLinkDomainError = _auth_utils.InvalidDynamicLinkDomainError
+InvalidIdTokenError = _auth_utils.InvalidIdTokenError
+InvalidSessionCookieError = _token_gen.InvalidSessionCookieError
+ListUsersPage = _user_mgt.ListUsersPage
+PhoneNumberAlreadyExistsError = _auth_utils.PhoneNumberAlreadyExistsError
+RevokedIdTokenError = _token_gen.RevokedIdTokenError
+RevokedSessionCookieError = _token_gen.RevokedSessionCookieError
+TokenSignError = _token_gen.TokenSignError
+UidAlreadyExistsError = _auth_utils.UidAlreadyExistsError
+UnexpectedResponseError = _auth_utils.UnexpectedResponseError
+UserImportHash = _user_import.UserImportHash
 UserImportResult = _user_import.UserImportResult
 UserInfo = _user_mgt.UserInfo
 UserMetadata = _user_mgt.UserMetadata
+UserNotFoundError = _auth_utils.UserNotFoundError
 UserProvider = _user_import.UserProvider
 UserRecord = _user_mgt.UserRecord
 
@@ -115,13 +141,10 @@ def create_custom_token(uid, developer_claims=None, app=None):
 
     Raises:
         ValueError: If input parameters are invalid.
-        AuthError: If an error occurs while creating the token using the remote IAM service.
+        TokenSignError: If an error occurs while signing the token using the remote IAM service.
     """
     token_generator = _get_auth_service(app).token_generator
-    try:
-        return token_generator.create_custom_token(uid, developer_claims)
-    except _token_gen.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    return token_generator.create_custom_token(uid, developer_claims)
 
 
 def verify_id_token(id_token, app=None, check_revoked=False):
@@ -139,9 +162,12 @@ def verify_id_token(id_token, app=None, check_revoked=False):
         dict: A dictionary of key-value pairs parsed from the decoded JWT.
 
     Raises:
-        ValueError: If the JWT was found to be invalid, or if the App's project ID cannot
-            be determined.
-        AuthError: If ``check_revoked`` is requested and the token was revoked.
+        ValueError: If ``id_token`` is a not a string or is empty.
+        InvalidIdTokenError: If ``id_token`` is not a valid Firebase ID token.
+        ExpiredIdTokenError: If the specified ID token has expired.
+        RevokedIdTokenError: If ``check_revoked`` is ``True`` and the ID token has been revoked.
+        CertificateFetchError: If an error occurs while fetching the public key certificates
+            required to verify the ID token.
     """
     if not isinstance(check_revoked, bool):
         # guard against accidental wrong assignment.
@@ -150,7 +176,7 @@ def verify_id_token(id_token, app=None, check_revoked=False):
     token_verifier = _get_auth_service(app).token_verifier
     verified_claims = token_verifier.verify_id_token(id_token)
     if check_revoked:
-        _check_jwt_revoked(verified_claims, _ID_TOKEN_REVOKED, 'ID token', app)
+        _check_jwt_revoked(verified_claims, RevokedIdTokenError, 'ID token', app)
     return verified_claims
 
 
@@ -170,13 +196,10 @@ def create_session_cookie(id_token, expires_in, app=None):
 
     Raises:
         ValueError: If input parameters are invalid.
-        AuthError: If an error occurs while creating the cookie.
+        FirebaseError: If an error occurs while creating the cookie.
     """
     token_generator = _get_auth_service(app).token_generator
-    try:
-        return token_generator.create_session_cookie(id_token, expires_in)
-    except _token_gen.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    return token_generator.create_session_cookie(id_token, expires_in)
 
 
 def verify_session_cookie(session_cookie, check_revoked=False, app=None):
@@ -194,14 +217,17 @@ def verify_session_cookie(session_cookie, check_revoked=False, app=None):
         dict: A dictionary of key-value pairs parsed from the decoded JWT.
 
     Raises:
-        ValueError: If the cookie was found to be invalid, or if the App's project ID cannot
-            be determined.
-        AuthError: If ``check_revoked`` is requested and the cookie was revoked.
+        ValueError: If ``session_cookie`` is a not a string or is empty.
+        InvalidSessionCookieError: If ``session_cookie`` is not a valid Firebase session cookie.
+        ExpiredSessionCookieError: If the specified session cookie has expired.
+        RevokedSessionCookieError: If ``check_revoked`` is ``True`` and the cookie has been revoked.
+        CertificateFetchError: If an error occurs while fetching the public key certificates
+            required to verify the session cookie.
     """
     token_verifier = _get_auth_service(app).token_verifier
     verified_claims = token_verifier.verify_session_cookie(session_cookie)
     if check_revoked:
-        _check_jwt_revoked(verified_claims, _SESSION_COOKIE_REVOKED, 'session cookie', app)
+        _check_jwt_revoked(verified_claims, RevokedSessionCookieError, 'session cookie', app)
     return verified_claims
 
 
@@ -233,15 +259,12 @@ def get_user(uid, app=None):
 
     Raises:
         ValueError: If the user ID is None, empty or malformed.
-        AuthError: If an error occurs while retrieving the user or if the specified user ID
-            does not exist.
+        UserNotFoundError: If the specified user ID does not exist.
+        FirebaseError: If an error occurs while retrieving the user.
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        response = user_manager.get_user(uid=uid)
-        return UserRecord(response)
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    response = user_manager.get_user(uid=uid)
+    return UserRecord(response)
 
 
 def get_user_by_email(email, app=None):
@@ -256,15 +279,12 @@ def get_user_by_email(email, app=None):
 
     Raises:
         ValueError: If the email is None, empty or malformed.
-        AuthError: If an error occurs while retrieving the user or no user exists by the specified
-            email address.
+        UserNotFoundError: If no user exists by the specified email address.
+        FirebaseError: If an error occurs while retrieving the user.
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        response = user_manager.get_user(email=email)
-        return UserRecord(response)
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    response = user_manager.get_user(email=email)
+    return UserRecord(response)
 
 
 def get_user_by_phone_number(phone_number, app=None):
@@ -279,15 +299,12 @@ def get_user_by_phone_number(phone_number, app=None):
 
     Raises:
         ValueError: If the phone number is None, empty or malformed.
-        AuthError: If an error occurs while retrieving the user or no user exists by the specified
-            phone number.
+        UserNotFoundError: If no user exists by the specified phone number.
+        FirebaseError: If an error occurs while retrieving the user.
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        response = user_manager.get_user(phone_number=phone_number)
-        return UserRecord(response)
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    response = user_manager.get_user(phone_number=phone_number)
+    return UserRecord(response)
 
 
 def list_users(page_token=None, max_results=_user_mgt.MAX_LIST_USERS_RESULTS, app=None):
@@ -310,14 +327,11 @@ def list_users(page_token=None, max_results=_user_mgt.MAX_LIST_USERS_RESULTS, ap
 
     Raises:
         ValueError: If max_results or page_token are invalid.
-        AuthError: If an error occurs while retrieving the user accounts.
+        FirebaseError: If an error occurs while retrieving the user accounts.
     """
     user_manager = _get_auth_service(app).user_manager
     def download(page_token, max_results):
-        try:
-            return user_manager.list_users(page_token, max_results)
-        except _user_mgt.ApiCallError as error:
-            raise AuthError(error.code, str(error), error.detail)
+        return user_manager.list_users(page_token, max_results)
     return ListUsersPage(download, page_token, max_results)
 
 
@@ -341,15 +355,12 @@ def create_user(**kwargs):
 
     Raises:
         ValueError: If the specified user properties are invalid.
-        AuthError: If an error occurs while creating the user account.
+        FirebaseError: If an error occurs while creating the user account.
     """
     app = kwargs.pop('app', None)
     user_manager = _get_auth_service(app).user_manager
-    try:
-        uid = user_manager.create_user(**kwargs)
-        return UserRecord(user_manager.get_user(uid=uid))
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    uid = user_manager.create_user(**kwargs)
+    return UserRecord(user_manager.get_user(uid=uid))
 
 
 def update_user(uid, **kwargs):
@@ -381,15 +392,12 @@ def update_user(uid, **kwargs):
 
     Raises:
         ValueError: If the specified user ID or properties are invalid.
-        AuthError: If an error occurs while updating the user account.
+        FirebaseError: If an error occurs while updating the user account.
     """
     app = kwargs.pop('app', None)
     user_manager = _get_auth_service(app).user_manager
-    try:
-        user_manager.update_user(uid, **kwargs)
-        return UserRecord(user_manager.get_user(uid=uid))
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    user_manager.update_user(uid, **kwargs)
+    return UserRecord(user_manager.get_user(uid=uid))
 
 
 def set_custom_user_claims(uid, custom_claims, app=None):
@@ -410,13 +418,10 @@ def set_custom_user_claims(uid, custom_claims, app=None):
 
     Raises:
         ValueError: If the specified user ID or the custom claims are invalid.
-        AuthError: If an error occurs while updating the user account.
+        FirebaseError: If an error occurs while updating the user account.
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        user_manager.update_user(uid, custom_claims=custom_claims)
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    user_manager.update_user(uid, custom_claims=custom_claims)
 
 
 def delete_user(uid, app=None):
@@ -428,13 +433,10 @@ def delete_user(uid, app=None):
 
     Raises:
         ValueError: If the user ID is None, empty or malformed.
-        AuthError: If an error occurs while deleting the user account.
+        FirebaseError: If an error occurs while deleting the user account.
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        user_manager.delete_user(uid)
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    user_manager.delete_user(uid)
 
 
 def import_users(users, hash_alg=None, app=None):
@@ -457,14 +459,11 @@ def import_users(users, hash_alg=None, app=None):
 
     Raises:
         ValueError: If the provided arguments are invalid.
-        AuthError: If an error occurs while importing users.
+        FirebaseError: If an error occurs while importing users.
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        result = user_manager.import_users(users, hash_alg)
-        return UserImportResult(result, len(users))
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    result = user_manager.import_users(users, hash_alg)
+    return UserImportResult(result, len(users))
 
 
 def generate_password_reset_link(email, action_code_settings=None, app=None):
@@ -482,14 +481,11 @@ def generate_password_reset_link(email, action_code_settings=None, app=None):
 
     Raises:
         ValueError: If the provided arguments are invalid
-        AuthError: If an error occurs while generating the link
+        FirebaseError: If an error occurs while generating the link
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        return user_manager.generate_email_action_link('PASSWORD_RESET', email,
-                                                       action_code_settings=action_code_settings)
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    return user_manager.generate_email_action_link(
+        'PASSWORD_RESET', email, action_code_settings=action_code_settings)
 
 
 def generate_email_verification_link(email, action_code_settings=None, app=None):
@@ -507,14 +503,11 @@ def generate_email_verification_link(email, action_code_settings=None, app=None)
 
     Raises:
         ValueError: If the provided arguments are invalid
-        AuthError: If an error occurs while generating the link
+        FirebaseError: If an error occurs while generating the link
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        return user_manager.generate_email_action_link('VERIFY_EMAIL', email,
-                                                       action_code_settings=action_code_settings)
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    return user_manager.generate_email_action_link(
+        'VERIFY_EMAIL', email, action_code_settings=action_code_settings)
 
 
 def generate_sign_in_with_email_link(email, action_code_settings, app=None):
@@ -532,29 +525,17 @@ def generate_sign_in_with_email_link(email, action_code_settings, app=None):
 
     Raises:
         ValueError: If the provided arguments are invalid
-        AuthError: If an error occurs while generating the link
+        FirebaseError: If an error occurs while generating the link
     """
     user_manager = _get_auth_service(app).user_manager
-    try:
-        return user_manager.generate_email_action_link('EMAIL_SIGNIN', email,
-                                                       action_code_settings=action_code_settings)
-    except _user_mgt.ApiCallError as error:
-        raise AuthError(error.code, str(error), error.detail)
+    return user_manager.generate_email_action_link(
+        'EMAIL_SIGNIN', email, action_code_settings=action_code_settings)
 
 
-def _check_jwt_revoked(verified_claims, error_code, label, app):
+def _check_jwt_revoked(verified_claims, exc_type, label, app):
     user = get_user(verified_claims.get('uid'), app=app)
     if verified_claims.get('iat') * 1000 < user.tokens_valid_after_timestamp:
-        raise AuthError(error_code, 'The Firebase {0} has been revoked.'.format(label))
-
-
-class AuthError(Exception):
-    """Represents an Exception encountered while invoking the Firebase auth API."""
-
-    def __init__(self, code, message, error=None):
-        Exception.__init__(self, message)
-        self.code = code
-        self.detail = error
+        raise exc_type('The Firebase {0} has been revoked.'.format(label))
 
 
 class _AuthService(object):

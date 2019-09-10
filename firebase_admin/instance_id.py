@@ -53,14 +53,6 @@ def delete_instance_id(instance_id, app=None):
     _get_iid_service(app).delete_instance_id(instance_id)
 
 
-class ApiCallError(Exception):
-    """Represents an Exception encountered while invoking the Firebase instance ID service."""
-
-    def __init__(self, message, error):
-        Exception.__init__(self, message)
-        self.detail = error
-
-
 class _InstanceIdService(object):
     """Provides methods for interacting with the remote instance ID service."""
 
@@ -94,14 +86,15 @@ class _InstanceIdService(object):
         try:
             self._client.request('delete', path)
         except requests.exceptions.RequestException as error:
-            raise ApiCallError(self._extract_message(instance_id, error), error)
+            msg = self._extract_message(instance_id, error)
+            raise _utils.handle_requests_error(error, msg)
 
     def _extract_message(self, instance_id, error):
         if error.response is None:
-            return str(error)
+            return None
         status = error.response.status_code
         msg = self.error_codes.get(status)
         if msg:
             return 'Instance ID "{0}": {1}'.format(instance_id, msg)
         else:
-            return str(error)
+            return 'Instance ID "{0}": {1}'.format(instance_id, error)

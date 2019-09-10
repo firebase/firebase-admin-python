@@ -20,6 +20,9 @@ import re
 import six
 from six.moves import urllib
 
+from firebase_admin import exceptions
+from firebase_admin import _utils
+
 
 MAX_CLAIMS_PAYLOAD_SIZE = 1000
 RESERVED_CLAIMS = set([
@@ -188,3 +191,121 @@ def validate_action_type(action_type):
         raise ValueError('Invalid action type provided action_type: {0}. \
             Valid values are {1}'.format(action_type, ', '.join(VALID_EMAIL_ACTION_TYPES)))
     return action_type
+
+
+class UidAlreadyExistsError(exceptions.AlreadyExistsError):
+    """The user with the provided uid already exists."""
+
+    default_message = 'The user with the provided uid already exists'
+
+    def __init__(self, message, cause, http_response):
+        exceptions.AlreadyExistsError.__init__(self, message, cause, http_response)
+
+
+class EmailAlreadyExistsError(exceptions.AlreadyExistsError):
+    """The user with the provided email already exists."""
+
+    default_message = 'The user with the provided email already exists'
+
+    def __init__(self, message, cause, http_response):
+        exceptions.AlreadyExistsError.__init__(self, message, cause, http_response)
+
+
+class InvalidDynamicLinkDomainError(exceptions.InvalidArgumentError):
+    """Dynamic link domain in ActionCodeSettings is not authorized."""
+
+    default_message = 'Dynamic link domain specified in ActionCodeSettings is not authorized'
+
+    def __init__(self, message, cause, http_response):
+        exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
+
+
+class InvalidIdTokenError(exceptions.InvalidArgumentError):
+    """The provided ID token is not a valid Firebase ID token."""
+
+    default_message = 'The provided ID token is invalid'
+
+    def __init__(self, message, cause=None, http_response=None):
+        exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
+
+
+class PhoneNumberAlreadyExistsError(exceptions.AlreadyExistsError):
+    """The user with the provided phone number already exists."""
+
+    default_message = 'The user with the provided phone number already exists'
+
+    def __init__(self, message, cause, http_response):
+        exceptions.AlreadyExistsError.__init__(self, message, cause, http_response)
+
+
+class UnexpectedResponseError(exceptions.UnknownError):
+    """Backend service responded with an unexpected or malformed response."""
+
+    def __init__(self, message, cause=None, http_response=None):
+        exceptions.UnknownError.__init__(self, message, cause, http_response)
+
+
+class UserNotFoundError(exceptions.NotFoundError):
+    """No user record found for the specified identifier."""
+
+    default_message = 'No user record found for the given identifier'
+
+    def __init__(self, message, cause=None, http_response=None):
+        exceptions.NotFoundError.__init__(self, message, cause, http_response)
+
+
+_CODE_TO_EXC_TYPE = {
+    'DUPLICATE_EMAIL': EmailAlreadyExistsError,
+    'DUPLICATE_LOCAL_ID': UidAlreadyExistsError,
+    'INVALID_DYNAMIC_LINK_DOMAIN': InvalidDynamicLinkDomainError,
+    'INVALID_ID_TOKEN': InvalidIdTokenError,
+    'PHONE_NUMBER_EXISTS': PhoneNumberAlreadyExistsError,
+    'USER_NOT_FOUND': UserNotFoundError,
+}
+
+
+def handle_auth_backend_error(error):
+    """Converts a requests error received from the Firebase Auth service into a FirebaseError."""
+    if error.response is None:
+        raise _utils.handle_requests_error(error)
+
+    code, custom_message = _parse_error_body(error.response)
+    if not code:
+        msg = 'Unexpected error response: {0}'.format(error.response.content.decode())
+        raise _utils.handle_requests_error(error, message=msg)
+
+    exc_type = _CODE_TO_EXC_TYPE.get(code)
+    msg = _build_error_message(code, exc_type, custom_message)
+    if not exc_type:
+        return _utils.handle_requests_error(error, message=msg)
+
+    return exc_type(msg, cause=error, http_response=error.response)
+
+
+def _parse_error_body(response):
+    """Parses the given error response to extract Auth error code and message."""
+    error_dict = {}
+    try:
+        parsed_body = response.json()
+        if isinstance(parsed_body, dict):
+            error_dict = parsed_body.get('error', {})
+    except ValueError:
+        pass
+
+    # Auth error response format: {"error": {"message": "AUTH_ERROR_CODE: Optional text"}}
+    code = error_dict.get('message') if isinstance(error_dict, dict) else None
+    custom_message = None
+    if code:
+        separator = code.find(':')
+        if separator != -1:
+            custom_message = code[separator + 1:].strip()
+            code = code[:separator]
+
+    return code, custom_message
+
+
+def _build_error_message(code, exc_type, custom_message):
+    default_message = exc_type.default_message if (
+        exc_type and hasattr(exc_type, 'default_message')) else 'Error while calling Auth service'
+    ext = ' {0}'.format(custom_message) if custom_message else ''
+    return '{0} ({1}).{2}'.format(default_message, code, ext)

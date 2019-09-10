@@ -295,7 +295,7 @@ class SendResponse(object):
 
     @property
     def exception(self):
-        """A FirebaseError if an error occurs while sending the message to the FCM service."""
+        """A ``FirebaseError`` if an error occurs while sending the message to the FCM service."""
         return self._exception
 
 

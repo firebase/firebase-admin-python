@@ -501,9 +501,7 @@ class TestModel(object):
         assert recorder[0].url == TestModel._op_url(PROJECT_ID, MODEL_ID_1)
 
     def test_wait_for_unlocked_timeout(self):
-        recorder = instrument_mlkit_service(status=200,
-                                            operations=True,
-                                            payload=OPERATION_NOT_DONE_RESPONSE)
+        instrument_mlkit_service(status=200, operations=True, payload=OPERATION_NOT_DONE_RESPONSE)
         mlkit._MLKitService.POLL_BASE_WAIT_TIME_SECONDS = 5  # longer for timeout
         model = mlkit.Model.from_dict(LOCKED_MODEL_JSON_1)
         with pytest.raises(Exception) as excinfo:

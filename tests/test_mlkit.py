@@ -250,15 +250,33 @@ ERROR_JSON_BAD_REQUEST = {
 }
 ERROR_RESPONSE_BAD_REQUEST = json.dumps(ERROR_JSON_BAD_REQUEST)
 
-invalid_model_id_args = [
+INVALID_MODEL_ID_ARGS = [
     ('', ValueError),
     ('&_*#@:/?', ValueError),
     (None, TypeError),
     (12345, TypeError),
 ]
+INVALID_MODEL_ARGS = [
+    'abc',
+    4.2,
+    list(),
+    dict(),
+    True,
+    -1,
+    0,
+    None
+]
+INVALID_OP_NAME_ARGS = [
+    'abc',
+    '123',
+    'projects/operations/project/1234/model/abc/operation/123',
+    'operations/project/model/abc/operation/123',
+    'operations/project/123/model/$#@/operation/123',
+    'operations/project/1234/model/abc/operation/123/extrathing',
+]
 PAGE_SIZE_VALUE_ERROR_MSG = 'Page size must be a positive integer between ' \
                             '1 and {0}'.format(mlkit._MAX_PAGE_SIZE)
-invalid_string_or_none_args = [0, -1, 4.2, 0x10, False, list(), dict()]
+INVALID_STRING_OR_NONE_ARGS = [0, -1, 4.2, 0x10, False, list(), dict()]
 
 
 # For validation type errors
@@ -569,16 +587,7 @@ class TestCreateModel(object):
         )
         assert len(create_recorder) == 1
 
-    @pytest.mark.parametrize('model', [
-        'abc',
-        4.2,
-        list(),
-        dict(),
-        True,
-        -1,
-        0,
-        None
-    ])
+    @pytest.mark.parametrize('model', INVALID_MODEL_ARGS)
     def test_not_model(self, model):
         with pytest.raises(Exception) as excinfo:
             mlkit.create_model(model)
@@ -595,14 +604,7 @@ class TestCreateModel(object):
             mlkit.create_model(MODEL_1)
         check_error(excinfo, TypeError)
 
-    @pytest.mark.parametrize('op_name', [
-        'abc',
-        '123',
-        'projects/operations/project/1234/model/abc/operation/123',
-        'operations/project/model/abc/operation/123',
-        'operations/project/123/model/$#@/operation/123',
-        'operations/project/1234/model/abc/operation/123/extrathing',
-    ])
+    @pytest.mark.parametrize('op_name', INVALID_OP_NAME_ARGS)
     def test_invalid_op_name(self, op_name):
         payload = json.dumps({'name': op_name})
         instrument_mlkit_service(status=200, payload=payload)
@@ -684,16 +686,7 @@ class TestUpdateModel(object):
         )
         assert len(create_recorder) == 1
 
-    @pytest.mark.parametrize('model', [
-        'abc',
-        4.2,
-        list(),
-        dict(),
-        True,
-        -1,
-        0,
-        None
-    ])
+    @pytest.mark.parametrize('model', INVALID_MODEL_ARGS)
     def test_not_model(self, model):
         with pytest.raises(Exception) as excinfo:
             mlkit.update_model(model)
@@ -710,14 +703,7 @@ class TestUpdateModel(object):
             mlkit.update_model(MODEL_1)
         check_error(excinfo, TypeError)
 
-    @pytest.mark.parametrize('op_name', [
-        'abc',
-        '123',
-        'projects/operations/project/1234/model/abc/operation/123',
-        'operations/project/model/abc/operation/123',
-        'operations/project/123/model/$#@/operation/123',
-        'operations/project/1234/model/abc/operation/123/extrathing',
-    ])
+    @pytest.mark.parametrize('op_name', INVALID_OP_NAME_ARGS)
     def test_invalid_op_name(self, op_name):
         payload = json.dumps({'name': op_name})
         instrument_mlkit_service(status=200, payload=payload)
@@ -751,7 +737,7 @@ class TestGetModel(object):
         assert model.model_id == MODEL_ID_1
         assert model.display_name == DISPLAY_NAME_1
 
-    @pytest.mark.parametrize('model_id, exc_type', invalid_model_id_args)
+    @pytest.mark.parametrize('model_id, exc_type', INVALID_MODEL_ID_ARGS)
     def test_get_model_validation_errors(self, model_id, exc_type):
         with pytest.raises(exc_type) as excinfo:
             mlkit.get_model(model_id)
@@ -801,7 +787,7 @@ class TestDeleteModel(object):
         assert recorder[0].method == 'DELETE'
         assert recorder[0].url == TestDeleteModel._url(PROJECT_ID, MODEL_ID_1)
 
-    @pytest.mark.parametrize('model_id, exc_type', invalid_model_id_args)
+    @pytest.mark.parametrize('model_id, exc_type', INVALID_MODEL_ID_ARGS)
     def test_delete_model_validation_errors(self, model_id, exc_type):
         with pytest.raises(exc_type) as excinfo:
             mlkit.delete_model(model_id)
@@ -882,7 +868,7 @@ class TestListModels(object):
         assert models_page.models[0] == MODEL_3
         assert not models_page.has_next_page
 
-    @pytest.mark.parametrize('list_filter', invalid_string_or_none_args)
+    @pytest.mark.parametrize('list_filter', INVALID_STRING_OR_NONE_ARGS)
     def test_list_models_list_filter_validation(self, list_filter):
         with pytest.raises(TypeError) as excinfo:
             mlkit.list_models(list_filter=list_filter)
@@ -903,7 +889,7 @@ class TestListModels(object):
             mlkit.list_models(page_size=page_size)
         check_error(excinfo, exc_type, error_message)
 
-    @pytest.mark.parametrize('page_token', invalid_string_or_none_args)
+    @pytest.mark.parametrize('page_token', INVALID_STRING_OR_NONE_ARGS)
     def test_list_models_page_token_validation(self, page_token):
         with pytest.raises(TypeError) as excinfo:
             mlkit.list_models(page_token=page_token)

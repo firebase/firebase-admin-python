@@ -421,6 +421,8 @@ def set_custom_user_claims(uid, custom_claims, app=None):
         FirebaseError: If an error occurs while updating the user account.
     """
     user_manager = _get_auth_service(app).user_manager
+    if custom_claims is None:
+        custom_claims = DELETE_ATTRIBUTE
     user_manager.update_user(uid, custom_claims=custom_claims)
 
 

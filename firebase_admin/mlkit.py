@@ -244,9 +244,8 @@ class Model(object):
         op_name = self._data.get('activeOperations')[0].get('name')
         model_dict = mlkit_service.handle_operation(
             mlkit_service.get_operation(op_name),
-            polling=True,
-            max_time_seconds=max_time_seconds,
-            always_return_model=False)
+            wait_for_operation=True,
+            max_time_seconds=max_time_seconds)
         self._update_from_dict(model_dict)
 
     @property
@@ -570,9 +569,8 @@ class _MLKitService(object):
             raise _utils.handle_platform_error_from_requests(error)
 
     def _exponential_backoff(self, current_attempt, stop_time):
-        """Sleeps for the appropriate amount of time. Or thows deadline exceeded."""
-        delay_factor = pow(
-            _MLKitService.POLL_EXPONENTIAL_BACKOFF_FACTOR, current_attempt)
+        """Sleeps for the appropriate amount of time. Or throws deadline exceeded."""
+        delay_factor = pow(_MLKitService.POLL_EXPONENTIAL_BACKOFF_FACTOR, current_attempt)
         wait_time_seconds = delay_factor * _MLKitService.POLL_BASE_WAIT_TIME_SECONDS
 
         if stop_time is not None:
@@ -584,17 +582,15 @@ class _MLKitService(object):
         time.sleep(wait_time_seconds)
 
 
-    def handle_operation(self, operation, polling=False, max_time_seconds=None,
-                         always_return_model=True):
+    def handle_operation(self, operation, wait_for_operation=False, max_time_seconds=None):
         """Handles long running operations.
 
         Args:
             operation: The operation to handle.
-            polling: Should we allow polling for the operation to complete.
+            wait_for_operation: Should we allow polling for the operation to complete.
+                If no polling is requested, a locked model will be returned instead.
             max_time_seconds: The maximum seconds to try polling for operation complete.
                 (None for no limit)
-            always_return_model: If true, returns a locked Model instead of raising deadline
-                exceeded exceptions.
 
         Returns:
             dict: A dictionary of the returned model properties.
@@ -613,15 +609,10 @@ class _MLKitService(object):
         start_time = datetime.datetime.now()
         stop_time = (None if max_time_seconds is None else
                      start_time + datetime.timedelta(seconds=max_time_seconds))
-        while polling and not operation.get('done'):
+        while wait_for_operation and not operation.get('done'):
             # We just got this operation. Wait before getting another
             # so we don't exceed the GetOperation maximum request rate.
-            try:
-                self._exponential_backoff(current_attempt, stop_time)
-            except exceptions.DeadlineExceededError as err:
-                if always_return_model:
-                    return get_model(model_id).as_dict()
-                raise err
+            self._exponential_backoff(current_attempt, stop_time)
             operation = self.get_operation(op_name)
             current_attempt += 1
 
@@ -630,12 +621,11 @@ class _MLKitService(object):
                 return operation.get('response')
             elif operation.get('error'):
                 raise _utils.handle_operation_error(operation.get('error'))
-            else:
-                # A 'done' operation must have either a response or an error.
-                raise ValueError('Operation is malformed.')
-        elif always_return_model:
-            return get_model(model_id).as_dict()
+            # A 'done' operation must have either a response or an error.
+            raise ValueError('Operation is malformed.')
 
+        # If the operation is not complete or timed out, return a locked model instead
+        return get_model(model_id).as_dict()
 
 
     def create_model(self, model):

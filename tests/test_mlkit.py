@@ -745,7 +745,7 @@ class TestPublishUnpublish(object):
         assert len(recorder) == 1
         assert recorder[0].method == 'PATCH'
         assert recorder[0].url == TestPublishUnpublish._url(PROJECT_ID, MODEL_ID_1)
-        body = json.loads(recorder[0].body)
+        body = json.loads(recorder[0].body.decode())
         assert body.get('model', {}).get('state', {}).get('published', None) is published
         assert body.get('updateMask', {}) == 'state.published'
 

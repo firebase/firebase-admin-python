@@ -87,6 +87,34 @@ def update_model(model, app=None):
     return Model.from_dict(mlkit_service.update_model(model), app=app)
 
 
+def publish_model(model_id, app=None):
+    """Publishes a model in Firebase ML Kit.
+
+    Args:
+        model_id: The id of the model to publish.
+        app: A Firebase app instance (or None to use the default app).
+
+    Returns:
+        Model: The published model.
+    """
+    mlkit_service = _get_mlkit_service(app)
+    return Model.from_dict(mlkit_service.set_published(model_id, publish=True), app=app)
+
+
+def unpublish_model(model_id, app=None):
+    """Unpublishes a model in Firebase ML Kit.
+
+    Args:
+        model_id: The id of the model to unpublish.
+        app: A Firebase app instance (or None to use the default app).
+
+    Returns:
+        Model: The unpublished model.
+    """
+    mlkit_service = _get_mlkit_service(app)
+    return Model.from_dict(mlkit_service.set_published(model_id, publish=False), app=app)
+
+
 def get_model(model_id, app=None):
     """Gets a model from Firebase ML Kit.
 
@@ -562,12 +590,12 @@ class _MLKitService(object):
     POLL_BASE_WAIT_TIME_SECONDS = 3
 
     def __init__(self, app):
-        project_id = app.project_id
-        if not project_id:
+        self._project_id = app.project_id
+        if not self._project_id:
             raise ValueError(
                 'Project ID is required to access MLKit service. Either set the '
                 'projectId option, or use service account credentials.')
-        self._project_url = _MLKitService.PROJECT_URL.format(project_id)
+        self._project_url = _MLKitService.PROJECT_URL.format(self._project_id)
         self._client = _http_client.JsonHttpClient(
             credential=app.credential.get_credential(),
             base_url=self._project_url)
@@ -594,7 +622,6 @@ class _MLKitService(object):
             else:
                 wait_time_seconds = min(wait_time_seconds, max_seconds_left - 1)
         time.sleep(wait_time_seconds)
-
 
     def handle_operation(self, operation, wait_for_operation=False, max_time_seconds=None):
         """Handles long running operations.
@@ -658,6 +685,17 @@ class _MLKitService(object):
                 self._client.body('patch', url='models/{0}'.format(model.model_id), json=data))
         except requests.exceptions.RequestException as error:
             raise _utils.handle_platform_error_from_requests(error)
+
+    def set_published(self, model_id, publish):
+        _validate_model_id(model_id)
+        model_name = 'projects/{0}/models/{1}'.format(self._project_id, model_id)
+        model = Model.from_dict({
+            'name': model_name,
+            'state': {
+                'published': publish
+            }
+        })
+        return self.update_model(model, update_mask='state.published')
 
     def get_model(self, model_id):
         _validate_model_id(model_id)

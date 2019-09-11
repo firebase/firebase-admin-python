@@ -73,6 +73,20 @@ def create_model(model, app=None):
     return Model.from_dict(mlkit_service.create_model(model), app=app)
 
 
+def update_model(model, app=None):
+    """Updates a model in Firebase ML Kit.
+
+    Args:
+        model: The mlkit.Model to update.
+        app: A Firebase app instance (or None to use the default app).
+
+    Returns:
+        Model: The updated model.
+    """
+    mlkit_service = _get_mlkit_service(app)
+    return Model.from_dict(mlkit_service.update_model(model), app=app)
+
+
 def get_model(model_id, app=None):
     """Gets a model from Firebase ML Kit.
 
@@ -469,10 +483,10 @@ def _validate_and_parse_name(name):
     return matcher.group('project_id'), matcher.group('model_id')
 
 
-def _validate_model(model):
+def _validate_model(model, update_mask=None):
     if not isinstance(model, Model):
         raise TypeError('Model must be an mlkit.Model.')
-    if not model.display_name:
+    if update_mask is None and not model.display_name:
         raise ValueError('Model must have a display name.')
 
 
@@ -631,6 +645,17 @@ class _MLKitService(object):
         try:
             return self.handle_operation(
                 self._client.body('post', url='models', json=model.as_dict()))
+        except requests.exceptions.RequestException as error:
+            raise _utils.handle_platform_error_from_requests(error)
+
+    def update_model(self, model, update_mask=None):
+        _validate_model(model, update_mask)
+        data = {'model': model.as_dict()}
+        if update_mask is not None:
+            data['updateMask'] = update_mask
+        try:
+            return self.handle_operation(
+                self._client.body('patch', url='models/{0}'.format(model.model_id), json=data))
         except requests.exceptions.RequestException as error:
             raise _utils.handle_platform_error_from_requests(error)
 

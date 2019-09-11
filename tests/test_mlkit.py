@@ -29,16 +29,24 @@ PROJECT_ID = 'myProject1'
 PAGE_TOKEN = 'pageToken'
 NEXT_PAGE_TOKEN = 'nextPageToken'
 CREATE_TIME_SECONDS = 1566426374
+CREATE_TIME_SECONDS_2 = 1566426385
 CREATE_TIME_JSON = {
     'seconds': CREATE_TIME_SECONDS
 }
 CREATE_TIME_DATETIME = datetime.datetime.fromtimestamp(CREATE_TIME_SECONDS)
+CREATE_TIME_JSON_2 = {
+    'seconds': CREATE_TIME_SECONDS_2
+}
 
 UPDATE_TIME_SECONDS = 1566426678
+UPDATE_TIME_SECONDS_2 = 1566426691
 UPDATE_TIME_JSON = {
     'seconds': UPDATE_TIME_SECONDS
 }
 UPDATE_TIME_DATETIME = datetime.datetime.fromtimestamp(UPDATE_TIME_SECONDS)
+UPDATE_TIME_JSON_2 = {
+    'seconds': UPDATE_TIME_SECONDS_2
+}
 ETAG = '33a64df551425fcc55e4d42a148795d9f25f89d4'
 MODEL_HASH = '987987a98b98798d098098e09809fc0893897'
 TAG_1 = 'Tag1'
@@ -86,8 +94,9 @@ MODEL_STATE_ERROR_JSON = {
     }
 }
 
+OPERATION_NAME_1 = 'operations/project/{0}/model/{1}/operation/123'.format(PROJECT_ID, MODEL_ID_1)
 OPERATION_NOT_DONE_JSON_1 = {
-    'name': 'operations/project/{0}/model/{1}/operation/123'.format(PROJECT_ID, MODEL_ID_1),
+    'name': OPERATION_NAME_1,
     'metadata': {
         '@type': 'type.googleapis.com/google.firebase.ml.v1beta1.ModelOperationMetadata',
         'name': 'projects/{0}/models/{1}'.format(PROJECT_ID, MODEL_ID_1),
@@ -113,6 +122,64 @@ TFLITE_FORMAT_JSON_2 = {
 }
 TFLITE_FORMAT_2 = mlkit.TFLiteFormat.from_dict(TFLITE_FORMAT_JSON_2)
 
+CREATED_MODEL_JSON_1 = {
+    'name': MODEL_NAME_1,
+    'displayName': DISPLAY_NAME_1,
+    'createTime': CREATE_TIME_JSON,
+    'updateTime': UPDATE_TIME_JSON,
+    'state': MODEL_STATE_ERROR_JSON,
+    'etag': ETAG,
+    'modelHash': MODEL_HASH,
+    'tags': TAGS,
+}
+CREATED_MODEL_1 = mlkit.Model.from_dict(CREATED_MODEL_JSON_1)
+
+LOCKED_MODEL_JSON_1 = {
+    'name': MODEL_NAME_1,
+    'displayName': DISPLAY_NAME_1,
+    'createTime': CREATE_TIME_JSON,
+    'updateTime': UPDATE_TIME_JSON,
+    'tags': TAGS,
+    'activeOperations': [OPERATION_NOT_DONE_JSON_1]
+}
+
+LOCKED_MODEL_JSON_2 = {
+    'name': MODEL_NAME_1,
+    'displayName': DISPLAY_NAME_2,
+    'createTime': CREATE_TIME_JSON_2,
+    'updateTime': UPDATE_TIME_JSON_2,
+    'tags': TAGS_2,
+    'activeOperations': [OPERATION_NOT_DONE_JSON_1]
+}
+
+OPERATION_DONE_MODEL_JSON_1 = {
+    'name': OPERATION_NAME_1,
+    'done': True,
+    'response': CREATED_MODEL_JSON_1
+}
+
+OPERATION_MALFORMED_JSON_1 = {
+    'name': OPERATION_NAME_1,
+    'done': True,
+    # if done is true then either response or error should be populated
+}
+
+OPERATION_MISSING_NAME = {
+    'done': False
+}
+
+OPERATION_ERROR_CODE = 400
+OPERATION_ERROR_MSG = "Invalid argument"
+OPERATION_ERROR_EXPECTED_STATUS = 'INVALID_ARGUMENT'
+OPERATION_ERROR_JSON_1 = {
+    'name': OPERATION_NAME_1,
+    'done': True,
+    'error': {
+        'code': OPERATION_ERROR_CODE,
+        'message': OPERATION_ERROR_MSG,
+    }
+}
+
 FULL_MODEL_ERR_STATE_LRO_JSON = {
     'name': MODEL_NAME_1,
     'displayName': DISPLAY_NAME_1,
@@ -135,9 +202,22 @@ FULL_MODEL_PUBLISHED_JSON = {
     'tags': TAGS,
     'tfliteModel': TFLITE_FORMAT_JSON
 }
+FULL_MODEL_PUBLISHED = mlkit.Model.from_dict(FULL_MODEL_PUBLISHED_JSON)
+OPERATION_DONE_FULL_MODEL_PUBLISHED_JSON = {
+    'name': OPERATION_NAME_1,
+    'done': True,
+    'response': FULL_MODEL_PUBLISHED_JSON
+}
 
 EMPTY_RESPONSE = json.dumps({})
+OPERATION_NOT_DONE_RESPONSE = json.dumps(OPERATION_NOT_DONE_JSON_1)
+OPERATION_DONE_RESPONSE = json.dumps(OPERATION_DONE_MODEL_JSON_1)
+OPERATION_DONE_PUBLISHED_RESPONSE = json.dumps(OPERATION_DONE_FULL_MODEL_PUBLISHED_JSON)
+OPERATION_ERROR_RESPONSE = json.dumps(OPERATION_ERROR_JSON_1)
+OPERATION_MALFORMED_RESPONSE = json.dumps(OPERATION_MALFORMED_JSON_1)
+OPERATION_MISSING_NAME_RESPONSE = json.dumps(OPERATION_MISSING_NAME)
 DEFAULT_GET_RESPONSE = json.dumps(MODEL_JSON_1)
+LOCKED_MODEL_2_RESPONSE = json.dumps(LOCKED_MODEL_JSON_2)
 NO_MODELS_LIST_RESPONSE = json.dumps({})
 DEFAULT_LIST_RESPONSE = json.dumps({
     'models': [MODEL_JSON_1, MODEL_JSON_2],
@@ -185,13 +265,25 @@ PAGE_SIZE_VALUE_ERROR_MSG = 'Page size must be a positive integer between ' \
 invalid_string_or_none_args = [0, -1, 4.2, 0x10, False, list(), dict()]
 
 
-def check_error(err, err_type, msg=None):
+# For validation type errors
+def check_error(excinfo, err_type, msg=None):
+    err = excinfo.value
     assert isinstance(err, err_type)
     if msg:
         assert str(err) == msg
 
 
-def check_firebase_error(err, code, status, msg):
+# For errors that are returned in an operation
+def check_operation_error(excinfo, code, msg):
+    err = excinfo.value
+    assert isinstance(err, exceptions.FirebaseError)
+    assert err.code == code
+    assert str(err) == msg
+
+
+# For rpc errors
+def check_firebase_error(excinfo, code, status, msg):
+    err = excinfo.value
     assert isinstance(err, exceptions.FirebaseError)
     assert err.code == code
     assert err.http_response is not None
@@ -199,20 +291,43 @@ def check_firebase_error(err, code, status, msg):
     assert str(err) == msg
 
 
-def instrument_mlkit_service(app=None, status=200, payload=None):
+def instrument_mlkit_service(status=200, payload=None, operations=False, app=None):
     if not app:
         app = firebase_admin.get_app()
     mlkit_service = mlkit._get_mlkit_service(app)
     recorder = []
-    mlkit_service._client.session.mount(
-        'https://mlkit.googleapis.com',
-        testutils.MockAdapter(payload, status, recorder)
-    )
+    session_url = 'https://mlkit.googleapis.com/v1beta1/'
+
+    if isinstance(status, list):
+        adapter = testutils.MockMultiRequestAdapter
+    else:
+        adapter = testutils.MockAdapter
+
+    if operations:
+        mlkit_service._operation_client.session.mount(
+            session_url, adapter(payload, status, recorder))
+    else:
+        mlkit_service._client.session.mount(
+            session_url, adapter(payload, status, recorder))
     return recorder
 
 
 class TestModel(object):
     """Tests mlkit.Model class."""
+    @classmethod
+    def setup_class(cls):
+        cred = testutils.MockCredential()
+        firebase_admin.initialize_app(cred, {'projectId': PROJECT_ID})
+        mlkit._MLKitService.POLL_BASE_WAIT_TIME_SECONDS = 0.1  # shorter for test
+
+    @classmethod
+    def teardown_class(cls):
+        testutils.cleanup_apps()
+
+    @staticmethod
+    def _op_url(project_id, model_id):
+        return BASE_URL + \
+            'operations/project/{0}/model/{1}/operation/123'.format(project_id, model_id)
 
     def test_model_success_err_state_lro(self):
         model = mlkit.Model.from_dict(FULL_MODEL_ERR_STATE_LRO_JSON)
@@ -297,9 +412,9 @@ class TestModel(object):
         (12345, TypeError)
     ])
     def test_model_display_name_validation_errors(self, display_name, exc_type):
-        with pytest.raises(exc_type) as err:
+        with pytest.raises(exc_type) as excinfo:
             mlkit.Model(display_name=display_name)
-        check_error(err.value, exc_type)
+        check_error(excinfo, exc_type)
 
     @pytest.mark.parametrize('tags, exc_type, error_message', [
         ('tag1', TypeError, 'Tags must be a list of strings.'),
@@ -311,9 +426,9 @@ class TestModel(object):
           'tag2'], ValueError, 'Tag format is invalid.')
     ])
     def test_model_tags_validation_errors(self, tags, exc_type, error_message):
-        with pytest.raises(exc_type) as err:
+        with pytest.raises(exc_type) as excinfo:
             mlkit.Model(tags=tags)
-        check_error(err.value, exc_type, error_message)
+        check_error(excinfo, exc_type, error_message)
 
     @pytest.mark.parametrize('model_format', [
         123,
@@ -323,9 +438,9 @@ class TestModel(object):
         True
     ])
     def test_model_format_validation_errors(self, model_format):
-        with pytest.raises(TypeError) as err:
+        with pytest.raises(TypeError) as excinfo:
             mlkit.Model(model_format=model_format)
-        check_error(err.value, TypeError, 'Model format must be a ModelFormat object.')
+        check_error(excinfo, TypeError, 'Model format must be a ModelFormat object.')
 
     @pytest.mark.parametrize('model_source', [
         123,
@@ -335,9 +450,9 @@ class TestModel(object):
         True
     ])
     def test_model_source_validation_errors(self, model_source):
-        with pytest.raises(TypeError) as err:
+        with pytest.raises(TypeError) as excinfo:
             mlkit.TFLiteFormat(model_source=model_source)
-        check_error(err.value, TypeError, 'Model source must be a TFLiteModelSource object.')
+        check_error(excinfo, TypeError, 'Model source must be a TFLiteModelSource object.')
 
     @pytest.mark.parametrize('uri, exc_type', [
         (123, TypeError),
@@ -351,9 +466,153 @@ class TestModel(object):
          ValueError)
     ])
     def test_gcs_tflite_source_validation_errors(self, uri, exc_type):
-        with pytest.raises(exc_type) as err:
+        with pytest.raises(exc_type) as excinfo:
             mlkit.TFLiteGCSModelSource(gcs_tflite_uri=uri)
-        check_error(err.value, exc_type)
+        check_error(excinfo, exc_type)
+
+    def test_wait_for_unlocked_not_locked(self):
+        model = mlkit.Model(display_name="not_locked")
+        model.wait_for_unlocked()
+
+    def test_wait_for_unlocked(self):
+        recorder = instrument_mlkit_service(status=200,
+                                            operations=True,
+                                            payload=OPERATION_DONE_PUBLISHED_RESPONSE)
+        model = mlkit.Model.from_dict(LOCKED_MODEL_JSON_1)
+        model.wait_for_unlocked()
+        assert model == FULL_MODEL_PUBLISHED
+        assert len(recorder) == 1
+        assert recorder[0].method == 'GET'
+        assert recorder[0].url == TestModel._op_url(PROJECT_ID, MODEL_ID_1)
+
+    def test_wait_for_unlocked_timeout(self):
+        recorder = instrument_mlkit_service(
+            status=200, operations=True, payload=OPERATION_NOT_DONE_RESPONSE)
+        mlkit._MLKitService.POLL_BASE_WAIT_TIME_SECONDS = 3 # longer so timeout applies immediately
+        model = mlkit.Model.from_dict(LOCKED_MODEL_JSON_1)
+        with pytest.raises(Exception) as excinfo:
+            model.wait_for_unlocked(max_time_seconds=0.1)
+        check_error(excinfo, exceptions.DeadlineExceededError, 'Polling max time exceeded.')
+        assert len(recorder) == 1
+
+
+class TestCreateModel(object):
+    """Tests mlkit.create_model."""
+    @classmethod
+    def setup_class(cls):
+        cred = testutils.MockCredential()
+        firebase_admin.initialize_app(cred, {'projectId': PROJECT_ID})
+        mlkit._MLKitService.POLL_BASE_WAIT_TIME_SECONDS = 0.1  # shorter for test
+
+    @classmethod
+    def teardown_class(cls):
+        testutils.cleanup_apps()
+
+    @staticmethod
+    def _url(project_id):
+        return BASE_URL + 'projects/{0}/models'.format(project_id)
+
+    @staticmethod
+    def _op_url(project_id, model_id):
+        return BASE_URL + \
+            'operations/project/{0}/model/{1}/operation/123'.format(project_id, model_id)
+
+    @staticmethod
+    def _get_url(project_id, model_id):
+        return BASE_URL + 'projects/{0}/models/{1}'.format(project_id, model_id)
+
+    def test_immediate_done(self):
+        instrument_mlkit_service(status=200, payload=OPERATION_DONE_RESPONSE)
+        model = mlkit.create_model(MODEL_1)
+        assert model == CREATED_MODEL_1
+
+    def test_returns_locked(self):
+        recorder = instrument_mlkit_service(
+            status=[200, 200],
+            payload=[OPERATION_NOT_DONE_RESPONSE, LOCKED_MODEL_2_RESPONSE])
+        expected_model = mlkit.Model.from_dict(LOCKED_MODEL_JSON_2)
+        model = mlkit.create_model(MODEL_1)
+
+        assert model == expected_model
+        assert len(recorder) == 2
+        assert recorder[0].method == 'POST'
+        assert recorder[0].url == TestCreateModel._url(PROJECT_ID)
+        assert recorder[1].method == 'GET'
+        assert recorder[1].url == TestCreateModel._get_url(PROJECT_ID, MODEL_ID_1)
+
+    def test_operation_error(self):
+        instrument_mlkit_service(status=200, payload=OPERATION_ERROR_RESPONSE)
+        with pytest.raises(Exception) as excinfo:
+            mlkit.create_model(MODEL_1)
+        # The http request succeeded, the operation returned contains a create failure
+        check_operation_error(excinfo, OPERATION_ERROR_EXPECTED_STATUS, OPERATION_ERROR_MSG)
+
+    def test_malformed_operation(self):
+        recorder = instrument_mlkit_service(
+            status=[200, 200],
+            payload=[OPERATION_MALFORMED_RESPONSE, LOCKED_MODEL_2_RESPONSE])
+        expected_model = mlkit.Model.from_dict(LOCKED_MODEL_JSON_2)
+        model = mlkit.create_model(MODEL_1)
+        assert model == expected_model
+        assert len(recorder) == 2
+        assert recorder[0].method == 'POST'
+        assert recorder[0].url == TestCreateModel._url(PROJECT_ID)
+        assert recorder[1].method == 'GET'
+        assert recorder[1].url == TestCreateModel._get_url(PROJECT_ID, MODEL_ID_1)
+
+    def test_rpc_error_create(self):
+        create_recorder = instrument_mlkit_service(
+            status=400, payload=ERROR_RESPONSE_BAD_REQUEST)
+        with pytest.raises(Exception) as excinfo:
+            mlkit.create_model(MODEL_1)
+        check_firebase_error(
+            excinfo,
+            ERROR_STATUS_BAD_REQUEST,
+            ERROR_CODE_BAD_REQUEST,
+            ERROR_MSG_BAD_REQUEST
+        )
+        assert len(create_recorder) == 1
+
+    @pytest.mark.parametrize('model', [
+        'abc',
+        4.2,
+        list(),
+        dict(),
+        True,
+        -1,
+        0,
+        None
+    ])
+    def test_not_model(self, model):
+        with pytest.raises(Exception) as excinfo:
+            mlkit.create_model(model)
+        check_error(excinfo, TypeError, 'Model must be an mlkit.Model.')
+
+    def test_missing_display_name(self):
+        with pytest.raises(Exception) as excinfo:
+            mlkit.create_model(mlkit.Model.from_dict({}))
+        check_error(excinfo, ValueError, 'Model must have a display name.')
+
+    def test_missing_op_name(self):
+        instrument_mlkit_service(status=200, payload=OPERATION_MISSING_NAME_RESPONSE)
+        with pytest.raises(Exception) as excinfo:
+            mlkit.create_model(MODEL_1)
+        check_error(excinfo, TypeError)
+
+    @pytest.mark.parametrize('op_name', [
+        'abc',
+        '123',
+        'projects/operations/project/1234/model/abc/operation/123',
+        'operations/project/model/abc/operation/123',
+        'operations/project/123/model/$#@/operation/123',
+        'operations/project/1234/model/abc/operation/123/extrathing',
+    ])
+    def test_invalid_op_name(self, op_name):
+        payload = json.dumps({'name': op_name})
+        instrument_mlkit_service(status=200, payload=payload)
+        with pytest.raises(Exception) as excinfo:
+            mlkit.create_model(MODEL_1)
+        check_error(excinfo, ValueError, 'Operation name format is invalid.')
 
 
 class TestGetModel(object):
@@ -383,16 +642,16 @@ class TestGetModel(object):
 
     @pytest.mark.parametrize('model_id, exc_type', invalid_model_id_args)
     def test_get_model_validation_errors(self, model_id, exc_type):
-        with pytest.raises(exc_type) as err:
+        with pytest.raises(exc_type) as excinfo:
             mlkit.get_model(model_id)
-        check_error(err.value, exc_type)
+        check_error(excinfo, exc_type)
 
     def test_get_model_error(self):
         recorder = instrument_mlkit_service(status=404, payload=ERROR_RESPONSE_NOT_FOUND)
-        with pytest.raises(exceptions.NotFoundError) as err:
+        with pytest.raises(exceptions.NotFoundError) as excinfo:
             mlkit.get_model(MODEL_ID_1)
         check_firebase_error(
-            err.value,
+            excinfo,
             ERROR_STATUS_NOT_FOUND,
             ERROR_CODE_NOT_FOUND,
             ERROR_MSG_NOT_FOUND
@@ -433,16 +692,16 @@ class TestDeleteModel(object):
 
     @pytest.mark.parametrize('model_id, exc_type', invalid_model_id_args)
     def test_delete_model_validation_errors(self, model_id, exc_type):
-        with pytest.raises(exc_type) as err:
+        with pytest.raises(exc_type) as excinfo:
             mlkit.delete_model(model_id)
-        check_error(err.value, exc_type)
+        check_error(excinfo, exc_type)
 
     def test_delete_model_error(self):
         recorder = instrument_mlkit_service(status=404, payload=ERROR_RESPONSE_NOT_FOUND)
-        with pytest.raises(exceptions.NotFoundError) as err:
+        with pytest.raises(exceptions.NotFoundError) as excinfo:
             mlkit.delete_model(MODEL_ID_1)
         check_firebase_error(
-            err.value,
+            excinfo,
             ERROR_STATUS_NOT_FOUND,
             ERROR_CODE_NOT_FOUND,
             ERROR_MSG_NOT_FOUND
@@ -514,9 +773,9 @@ class TestListModels(object):
 
     @pytest.mark.parametrize('list_filter', invalid_string_or_none_args)
     def test_list_models_list_filter_validation(self, list_filter):
-        with pytest.raises(TypeError) as err:
+        with pytest.raises(TypeError) as excinfo:
             mlkit.list_models(list_filter=list_filter)
-        check_error(err.value, TypeError, 'List filter must be a string or None.')
+        check_error(excinfo, TypeError, 'List filter must be a string or None.')
 
     @pytest.mark.parametrize('page_size, exc_type, error_message', [
         ('abc', TypeError, 'Page size must be a number or None.'),
@@ -529,22 +788,22 @@ class TestListModels(object):
         (mlkit._MAX_PAGE_SIZE + 1, ValueError, PAGE_SIZE_VALUE_ERROR_MSG)
     ])
     def test_list_models_page_size_validation(self, page_size, exc_type, error_message):
-        with pytest.raises(exc_type) as err:
+        with pytest.raises(exc_type) as excinfo:
             mlkit.list_models(page_size=page_size)
-        check_error(err.value, exc_type, error_message)
+        check_error(excinfo, exc_type, error_message)
 
     @pytest.mark.parametrize('page_token', invalid_string_or_none_args)
     def test_list_models_page_token_validation(self, page_token):
-        with pytest.raises(TypeError) as err:
+        with pytest.raises(TypeError) as excinfo:
             mlkit.list_models(page_token=page_token)
-        check_error(err.value, TypeError, 'Page token must be a string or None.')
+        check_error(excinfo, TypeError, 'Page token must be a string or None.')
 
     def test_list_models_error(self):
         recorder = instrument_mlkit_service(status=400, payload=ERROR_RESPONSE_BAD_REQUEST)
-        with pytest.raises(exceptions.InvalidArgumentError) as err:
+        with pytest.raises(exceptions.InvalidArgumentError) as excinfo:
             mlkit.list_models()
         check_firebase_error(
-            err.value,
+            excinfo,
             ERROR_STATUS_BAD_REQUEST,
             ERROR_CODE_BAD_REQUEST,
             ERROR_MSG_BAD_REQUEST

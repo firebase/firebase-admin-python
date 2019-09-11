@@ -106,6 +106,27 @@ def handle_platform_error_from_requests(error, handle_func=None):
     return exc if exc else _handle_func_requests(error, message, error_dict)
 
 
+def handle_operation_error(error):
+    """Constructs a ``FirebaseError`` from the given operation error.
+
+    Args:
+        error: An error returned by a long running operation.
+
+    Returns:
+        FirebaseError: A ``FirebaseError`` that can be raised to the user code.
+    """
+    if not isinstance(error, dict):
+        return exceptions.UnknownError(
+            message='Unknown error while making a remote service call: {0}'.format(error),
+            cause=error)
+
+    status_code = error.get('code')
+    message = error.get('message')
+    error_code = _http_status_to_error_code(status_code)
+    err_type = _error_code_to_exception_type(error_code)
+    return err_type(message=message)
+
+
 def _handle_func_requests(error, message, error_dict):
     """Constructs a ``FirebaseError`` from the given GCP error.
 

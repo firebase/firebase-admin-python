@@ -277,10 +277,11 @@ INVALID_OP_NAME_ARGS = [
 PAGE_SIZE_VALUE_ERROR_MSG = 'Page size must be a positive integer between ' \
                             '1 and {0}'.format(mlkit._MAX_PAGE_SIZE)
 INVALID_STRING_OR_NONE_ARGS = [0, -1, 4.2, 0x10, False, list(), dict()]
-PUBISH_AND_UNPUBLISH_ARGS = [
+PUBLISH_AND_UNPUBLISH_VALUE_ARGS = [
     (mlkit.publish_model, True),
     (mlkit.unpublish_model, False)
 ]
+PUBLISH_AND_UNPUBLISH_ARGS = [mlkit.publish_model, mlkit.unpublish_model]
 
 # For validation type errors
 def check_error(excinfo, err_type, msg=None):
@@ -715,7 +716,6 @@ class TestUpdateModel(object):
         check_error(excinfo, ValueError, 'Operation name format is invalid.')
 
 
-
 class TestPublishUnpublish(object):
     """Tests mlkit.publish_model and mlkit.unpublish_model."""
     @classmethod
@@ -737,7 +737,7 @@ class TestPublishUnpublish(object):
         return BASE_URL + \
             'operations/project/{0}/model/{1}/operation/123'.format(project_id, model_id)
 
-    @pytest.mark.parametrize('publish_function, published', PUBISH_AND_UNPUBLISH_ARGS)
+    @pytest.mark.parametrize('publish_function, published', PUBLISH_AND_UNPUBLISH_VALUE_ARGS)
     def test_immediate_done(self, publish_function, published):
         recorder = instrument_mlkit_service(status=200, payload=OPERATION_DONE_RESPONSE)
         model = publish_function(MODEL_ID_1)
@@ -749,8 +749,8 @@ class TestPublishUnpublish(object):
         assert body.get('model', {}).get('state', {}).get('published', None) is published
         assert body.get('updateMask', {}) == 'state.published'
 
-    @pytest.mark.parametrize('publish_function, published', PUBISH_AND_UNPUBLISH_ARGS)
-    def test_returns_locked(self, publish_function, published):
+    @pytest.mark.parametrize('publish_function', PUBLISH_AND_UNPUBLISH_ARGS)
+    def test_returns_locked(self, publish_function):
         recorder = instrument_mlkit_service(
             status=[200, 200],
             payload=[OPERATION_NOT_DONE_RESPONSE, LOCKED_MODEL_2_RESPONSE])
@@ -764,16 +764,16 @@ class TestPublishUnpublish(object):
         assert recorder[1].method == 'GET'
         assert recorder[1].url == TestPublishUnpublish._url(PROJECT_ID, MODEL_ID_1)
 
-    @pytest.mark.parametrize('publish_function, published', PUBISH_AND_UNPUBLISH_ARGS)
-    def test_operation_error(self, publish_function, published):
+    @pytest.mark.parametrize('publish_function', PUBLISH_AND_UNPUBLISH_ARGS)
+    def test_operation_error(self, publish_function):
         instrument_mlkit_service(status=200, payload=OPERATION_ERROR_RESPONSE)
         with pytest.raises(Exception) as excinfo:
             publish_function(MODEL_ID_1)
         # The http request succeeded, the operation returned contains an update failure
         check_operation_error(excinfo, OPERATION_ERROR_EXPECTED_STATUS, OPERATION_ERROR_MSG)
 
-    @pytest.mark.parametrize('publish_function, published', PUBISH_AND_UNPUBLISH_ARGS)
-    def test_malformed_operation(self, publish_function, published):
+    @pytest.mark.parametrize('publish_function', PUBLISH_AND_UNPUBLISH_ARGS)
+    def test_malformed_operation(self, publish_function):
         recorder = instrument_mlkit_service(
             status=[200, 200],
             payload=[OPERATION_MALFORMED_RESPONSE, LOCKED_MODEL_2_RESPONSE])
@@ -786,12 +786,12 @@ class TestPublishUnpublish(object):
         assert recorder[1].method == 'GET'
         assert recorder[1].url == TestPublishUnpublish._url(PROJECT_ID, MODEL_ID_1)
 
-    @pytest.mark.parametrize('publish_function, published', PUBISH_AND_UNPUBLISH_ARGS)
-    def test_rpc_error(self, publish_function, published):
+    @pytest.mark.parametrize('publish_function', PUBLISH_AND_UNPUBLISH_ARGS)
+    def test_rpc_error(self, publish_function):
         create_recorder = instrument_mlkit_service(
             status=400, payload=ERROR_RESPONSE_BAD_REQUEST)
         with pytest.raises(Exception) as excinfo:
-            model = publish_function(MODEL_ID_1)
+            publish_function(MODEL_ID_1)
         check_firebase_error(
             excinfo,
             ERROR_STATUS_BAD_REQUEST,

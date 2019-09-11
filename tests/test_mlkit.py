@@ -548,10 +548,17 @@ class TestCreateModel(object):
         check_operation_error(excinfo, OPERATION_ERROR_EXPECTED_STATUS, OPERATION_ERROR_MSG)
 
     def test_malformed_operation(self):
-        instrument_mlkit_service(status=200, payload=OPERATION_MALFORMED_RESPONSE)
-        with pytest.raises(ValueError) as excinfo:
-            mlkit.create_model(MODEL_1)
-        check_error(excinfo, ValueError, 'Operation is malformed.')
+        recorder = instrument_mlkit_service(
+            status=[200, 200],
+            payload=[OPERATION_MALFORMED_RESPONSE, LOCKED_MODEL_2_RESPONSE])
+        expected_model = mlkit.Model.from_dict(LOCKED_MODEL_JSON_2)
+        model = mlkit.create_model(MODEL_1)
+        assert model == expected_model
+        assert len(recorder) == 2
+        assert recorder[0].method == 'POST'
+        assert recorder[0].url == TestCreateModel._url(PROJECT_ID)
+        assert recorder[1].method == 'GET'
+        assert recorder[1].url == TestCreateModel._get_url(PROJECT_ID, MODEL_ID_1)
 
     def test_rpc_error_create(self):
         create_recorder = instrument_mlkit_service(

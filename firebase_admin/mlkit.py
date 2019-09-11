@@ -621,10 +621,8 @@ class _MLKitService(object):
                 return operation.get('response')
             elif operation.get('error'):
                 raise _utils.handle_operation_error(operation.get('error'))
-            # A 'done' operation must have either a response or an error.
-            raise ValueError('Operation is malformed.')
 
-        # If the operation is not complete or timed out, return a locked model instead
+        # If the operation is not complete or timed out, return a (locked) model instead
         return get_model(model_id).as_dict()
 
 

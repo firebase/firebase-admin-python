@@ -98,7 +98,7 @@ def publish_model(model_id, app=None):
         Model: The published model.
     """
     mlkit_service = _get_mlkit_service(app)
-    return Model.from_dict(mlkit_service.publish_model(model_id, publish=True), app=app)
+    return Model.from_dict(mlkit_service.set_published(model_id, publish=True), app=app)
 
 
 def unpublish_model(model_id, app=None):
@@ -112,7 +112,7 @@ def unpublish_model(model_id, app=None):
         Model: The unpublished model.
     """
     mlkit_service = _get_mlkit_service(app)
-    return Model.from_dict(mlkit_service.publish_model(model_id, publish=False), app=app)
+    return Model.from_dict(mlkit_service.set_published(model_id, publish=False), app=app)
 
 
 def get_model(model_id, app=None):
@@ -686,7 +686,7 @@ class _MLKitService(object):
         except requests.exceptions.RequestException as error:
             raise _utils.handle_platform_error_from_requests(error)
 
-    def publish_model(self, model_id, publish):
+    def set_published(self, model_id, publish):
         _validate_model_id(model_id)
         model_name = 'projects/{0}/models/{1}'.format(self._project_id, model_id)
         model = Model.from_dict({

@@ -18,6 +18,8 @@ This module contains functions for creating, updating, getting, listing,
 deleting, publishing and unpublishing Firebase ML Kit models.
 """
 
+
+
 import datetime
 import numbers
 import re
@@ -30,6 +32,12 @@ from firebase_admin import _http_client
 from firebase_admin import _utils
 from firebase_admin import exceptions
 
+# pylint: disable=import-error,no-name-in-module
+try:
+    from firebase_admin import storage
+    GCS_ENABLED = True
+except ImportError:
+    GCS_ENABLED = False
 
 _MLKIT_ATTRIBUTE = '_mlkit'
 _MAX_PAGE_SIZE = 100
@@ -379,7 +387,10 @@ class TFLiteModelSource(object):
 
 class TFLiteGCSModelSource(TFLiteModelSource):
     """TFLite model source representing a tflite model file stored in GCS."""
-    def __init__(self, gcs_tflite_uri):
+    BLOB_NAME = 'Firebase/MLKit/Models/{0}'
+
+    def __init__(self, gcs_tflite_uri, app=None):
+        self._app = app
         self._gcs_tflite_uri = _validate_gcs_tflite_uri(gcs_tflite_uri)
 
     def __eq__(self, other):
@@ -391,6 +402,32 @@ class TFLiteGCSModelSource(TFLiteModelSource):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    @classmethod
+    def from_tflite_model(cls, model_file_name, bucket_name=None, app=None):
+        """Uploads the model file to an existing Google Cloud Services bucket.
+
+        Args:
+            model_file_name: The name of the model file.
+            bucket_name: The name of an existing bucket. None to use the default bucket configured
+                in the app.
+            app: A Firebase app instance (or None to use the default app).
+
+        Returns:
+            TFLiteGCSModelSource: The source created from the model_file
+
+        Raises:
+            ImportError: If the Cloud Storage Library has not been installed.
+        """
+        if not GCS_ENABLED:
+            raise ImportError('Failed to import the Cloud Storage library for Python. Make sure '
+                              'to install the "google-cloud-storage" module.')
+        bucket = storage.bucket(bucket_name, app=app)
+        blob_name = BLOB_NAME.format(model_file_name)
+        blob = bucket.blob(blob_name)
+        blob.upload_from_filename(model_file_name)
+        return TFLiteGCSModelSource(gcs_tflite_uri='gs://{0}/{1}'.format(bucket.name, blob_name),
+                                    app=app)
+
     @property
     def gcs_tflite_uri(self):
         return self._gcs_tflite_uri
@@ -401,6 +438,7 @@ class TFLiteGCSModelSource(TFLiteModelSource):
 
     def as_dict(self):
         return {"gcsTfliteUri": self._gcs_tflite_uri}
+
 
     #TODO(ifielker): implement from_saved_model etc.
 

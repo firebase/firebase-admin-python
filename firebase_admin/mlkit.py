@@ -422,7 +422,7 @@ class TFLiteGCSModelSource(TFLiteModelSource):
             raise ImportError('Failed to import the Cloud Storage library for Python. Make sure '
                               'to install the "google-cloud-storage" module.')
         bucket = storage.bucket(bucket_name, app=app)
-        blob_name = BLOB_NAME.format(model_file_name)
+        blob_name = TFLiteGCSModelSource.BLOB_NAME.format(model_file_name)
         blob = bucket.blob(blob_name)
         blob.upload_from_filename(model_file_name)
         return TFLiteGCSModelSource(gcs_tflite_uri='gs://{0}/{1}'.format(bucket.name, blob_name),

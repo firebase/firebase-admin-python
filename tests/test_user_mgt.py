@@ -292,6 +292,7 @@ class TestCreateUser(object):
     already_exists_errors = {
         'DUPLICATE_EMAIL': auth.EmailAlreadyExistsError,
         'DUPLICATE_LOCAL_ID': auth.UidAlreadyExistsError,
+        'EMAIL_EXISTS': auth.EmailAlreadyExistsError,
         'PHONE_NUMBER_EXISTS': auth.PhoneNumberAlreadyExistsError,
     }
 

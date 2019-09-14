@@ -1,5 +1,10 @@
 # Unreleased
 
+-
+
+# v3.0.0
+
+
 - [added] Added the new `firebase_admin.exceptions` module containing the
   base exception types and global error codes.
 - [changed] Updated the `firebase_admin.instance_id` module to use the new

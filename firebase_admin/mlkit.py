@@ -44,7 +44,8 @@ _MAX_PAGE_SIZE = 100
 _MODEL_ID_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,60}$')
 _DISPLAY_NAME_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,60}$')
 _TAG_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,60}$')
-_GCS_TFLITE_URI_PATTERN = re.compile(r'^gs://[a-z0-9_.-]{3,63}/.+')
+_GCS_TFLITE_URI_PATTERN = re.compile(
+    r'^gs://(?P<bucket_name>[a-z0-9_.-]{3,63})/(?P<blob_name>.+)$')
 _RESOURCE_NAME_PATTERN = re.compile(
     r'^projects/(?P<project_id>[^/]+)/models/(?P<model_id>[A-Za-z0-9_-]{1,60})$')
 _OPERATION_NAME_PATTERN = re.compile(
@@ -309,16 +310,16 @@ class Model(object):
         self._model_format = model_format  #Can be None
         return self
 
-    def as_dict(self):
+    def as_dict(self, for_upload=False):
         copy = dict(self._data)
         if self._model_format:
-            copy.update(self._model_format.as_dict())
+            copy.update(self._model_format.as_dict(for_upload=for_upload))
         return copy
 
 
 class ModelFormat(object):
     """Abstract base class representing a Model Format such as TFLite."""
-    def as_dict(self):
+    def as_dict(self, for_upload=False):
         raise NotImplementedError
 
 
@@ -372,22 +373,55 @@ class TFLiteFormat(ModelFormat):
     def size_bytes(self):
         return self._data.get('sizeBytes')
 
-    def as_dict(self):
+    def as_dict(self, for_upload=False):
         copy = dict(self._data)
         if self._model_source:
-            copy.update(self._model_source.as_dict())
+            copy.update(self._model_source.as_dict(for_upload=for_upload))
         return {'tfliteModel': copy}
 
 
 class TFLiteModelSource(object):
     """Abstract base class representing a model source for TFLite format models."""
-    def as_dict(self):
+    def as_dict(self, for_upload=False):
         raise NotImplementedError
+
+
+class _CloudStorageClient(object):
+    """Cloud Storage helper class"""
+
+    GCS_URI = 'gs://{0}/{1}'
+    BLOB_NAME = 'Firebase/MLKit/Models/{0}'
+
+    def __init__(self):
+        if not GCS_ENABLED:
+            raise ImportError('Failed to import the Cloud Storage library for Python. Make sure '
+                              'to install the "google-cloud-storage" module.')
+
+    @staticmethod
+    def upload(bucket_name, model_file_name, app):
+        bucket = storage.bucket(bucket_name, app=app)
+        blob_name = _CloudStorageClient.BLOB_NAME.format(model_file_name)
+        blob = bucket.blob(blob_name)
+        blob.upload_from_filename(model_file_name)
+        return GCS_URI.format(bucket.name, blob_name)
+
+    @staticmethod
+    def sign_uri(gcs_tflite_uri, app):
+        """Makes the gcs_tflite_uri readable for GET for 10 minutes."""
+        bucket_name, blob_name = _parse_gcs_tflite_uri(gcs_tflite_uri)
+        bucket = storage.bucket(bucket_name, app=app)
+        blob = bucket.blob(blob_name)
+        return blob.generate_signed_url(
+            version='v4',
+            expiration=datetime.timedelta(minutes=10),
+            method='GET'
+        )
 
 
 class TFLiteGCSModelSource(TFLiteModelSource):
     """TFLite model source representing a tflite model file stored in GCS."""
-    BLOB_NAME = 'Firebase/MLKit/Models/{0}'
+
+    _STORAGE_CLIENT = _CloudStorageClient()
 
     def __init__(self, gcs_tflite_uri, app=None):
         self._app = app
@@ -403,7 +437,7 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         return not self.__eq__(other)
 
     @classmethod
-    def from_tflite_model(cls, model_file_name, bucket_name=None, app=None):
+    def from_tflite_model_file(cls, model_file_name, bucket_name=None, app=None):
         """Uploads the model file to an existing Google Cloud Services bucket.
 
         Args:
@@ -418,15 +452,8 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         Raises:
             ImportError: If the Cloud Storage Library has not been installed.
         """
-        if not GCS_ENABLED:
-            raise ImportError('Failed to import the Cloud Storage library for Python. Make sure '
-                              'to install the "google-cloud-storage" module.')
-        bucket = storage.bucket(bucket_name, app=app)
-        blob_name = TFLiteGCSModelSource.BLOB_NAME.format(model_file_name)
-        blob = bucket.blob(blob_name)
-        blob.upload_from_filename(model_file_name)
-        return TFLiteGCSModelSource(gcs_tflite_uri='gs://{0}/{1}'.format(bucket.name, blob_name),
-                                    app=app)
+        gcs_uri = TFLiteGCSModelSource._STORAGE_CLIENT.upload(bucket_name, model_file_name, app)
+        return TFLiteGCSModelSource(gcs_tflite_uri=gcs_uri, app=app)
 
     @property
     def gcs_tflite_uri(self):
@@ -436,7 +463,14 @@ class TFLiteGCSModelSource(TFLiteModelSource):
     def gcs_tflite_uri(self, gcs_tflite_uri):
         self._gcs_tflite_uri = _validate_gcs_tflite_uri(gcs_tflite_uri)
 
-    def as_dict(self):
+    def _get_signed_gcs_tflite_uri(self):
+        """Signs the GCS uri, so the model file can be uploaded to Firebase ML Kit and verified."""
+        return TFLiteGCSModelSource._STORAGE_CLIENT.sign_uri(self._gcs_tflite_uri, self._app)
+
+    def as_dict(self, for_upload=False):
+        if for_upload:
+            return {"gcsTfliteUri": self._get_signed_gcs_tflite_uri()}
+
         return {"gcsTfliteUri": self._gcs_tflite_uri}
 
 
@@ -591,6 +625,15 @@ def _validate_gcs_tflite_uri(uri):
     return uri
 
 
+def _parse_gcs_tflite_uri(uri):
+    # GCS Bucket naming rules are complex. The regex is not comprehensive.
+    # See https://cloud.google.com/storage/docs/naming for full details.
+    matcher = _GCS_TFLITE_URI_PATTERN.match(uri)
+    if not matcher:
+        raise ValueError('GCS TFLite URI format is invalid.')
+    return matcher.group('bucket_name'), matcher.group('blob_name')
+
+
 def _validate_model_format(model_format):
     if not isinstance(model_format, ModelFormat):
         raise TypeError('Model format must be a ModelFormat object.')
@@ -709,13 +752,13 @@ class _MLKitService(object):
         _validate_model(model)
         try:
             return self.handle_operation(
-                self._client.body('post', url='models', json=model.as_dict()))
+                self._client.body('post', url='models', json=model.as_dict(for_upload=True)))
         except requests.exceptions.RequestException as error:
             raise _utils.handle_platform_error_from_requests(error)
 
     def update_model(self, model, update_mask=None):
         _validate_model(model, update_mask)
-        data = {'model': model.as_dict()}
+        data = {'model': model.as_dict(for_upload=True)}
         if update_mask is not None:
             data['updateMask'] = update_mask
         try:

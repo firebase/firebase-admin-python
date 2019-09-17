@@ -486,7 +486,8 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         converter = tf.lite.TFLiteConverter.from_saved_model(saved_model_dir)
         tflite_model = converter.convert()
         open("firebase_mlkit_model.tflite", "wb").write(tflite_model)
-        return TFLiteGCSModelSource.from_tflite_model_file("firebase_mlkit_model.tflite", bucket_name, app)
+        return TFLiteGCSModelSource.from_tflite_model_file(
+            "firebase_mlkit_model.tflite", bucket_name, app)
 
     @classmethod
     def from_keras_model(cls, keras_model, bucket_name=None, app=None):
@@ -513,7 +514,8 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         converter = tf.lite.TFLiteConverter.from_keras_model_file(keras_file)
         tflite_model = converter.convert()
         open("firebase_mlkit_model.tflite", "wb").write(tflite_model)
-        return TFLiteGCSModelSource.from_tflite_model_file("firebase_mlkit_model.tflite", bucket_name, app)
+        return TFLiteGCSModelSource.from_tflite_model_file(
+            "firebase_mlkit_model.tflite", bucket_name, app)
 
     @property
     def gcs_tflite_uri(self):

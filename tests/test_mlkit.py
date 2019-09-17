@@ -333,7 +333,8 @@ def instrument_mlkit_service(status=200, payload=None, operations=False, app=Non
 class _TestStorageClient(object):
     @staticmethod
     def upload(bucket_name, model_file_name, app):
-        pass
+        blob_name = mlkit._CloudStorageClient.BLOB_NAME.format(model_file_name)
+        return mlkit._CloudStorageClient.GCS_URI.format(bucket_name, blob_name)
 
     @staticmethod
     def sign_uri(gcs_tflite_uri, app):
@@ -416,6 +417,13 @@ class TestModel(object):
             'tfliteModel': {
                 'gcsTfliteUri': GCS_TFLITE_URI
             }
+        }
+
+    def test_source_creation_from_tflite_file(self):
+        model_source = mlkit.TFLiteGCSModelSource.from_tflite_model_file(
+            "my_model.tflite", "my_bucket")
+        assert model_source.as_dict() == {
+            'gcsTfliteUri': 'gs://my_bucket/Firebase/MLKit/Models/my_model.tflite'
         }
 
     def test_model_source_setters(self):

@@ -400,10 +400,23 @@ class _CloudStorageClient(object):
     BLOB_NAME = 'Firebase/MLKit/Models/{0}'
 
     @staticmethod
-    def upload(bucket_name, model_file_name, app):
+    def _assert_gcs_enabled():
         if not GCS_ENABLED:
             raise ImportError('Failed to import the Cloud Storage library for Python. Make sure '
                               'to install the "google-cloud-storage" module.')
+
+    @staticmethod
+    def _parse_gcs_tflite_uri(uri):
+        # GCS Bucket naming rules are complex. The regex is not comprehensive.
+        # See https://cloud.google.com/storage/docs/naming for full details.
+        matcher = _GCS_TFLITE_URI_PATTERN.match(uri)
+        if not matcher:
+            raise ValueError('GCS TFLite URI format is invalid.')
+        return matcher.group('bucket_name'), matcher.group('blob_name')
+
+    @staticmethod
+    def upload(bucket_name, model_file_name, app):
+        _CloudStorageClient._assert_gcs_enabled()
         bucket = storage.bucket(bucket_name, app=app)
         blob_name = _CloudStorageClient.BLOB_NAME.format(model_file_name)
         blob = bucket.blob(blob_name)
@@ -412,11 +425,9 @@ class _CloudStorageClient(object):
 
     @staticmethod
     def sign_uri(gcs_tflite_uri, app):
-        """Makes the gcs_tflite_uri readable for GET for 10 minutes."""
-        if not GCS_ENABLED:
-            raise ImportError('Failed to import the Cloud Storage library for Python. Make sure '
-                              'to install the "google-cloud-storage" module.')
-        bucket_name, blob_name = _parse_gcs_tflite_uri(gcs_tflite_uri)
+        """Makes the gcs_tflite_uri readable for GET for 10 minutes via signed_uri."""
+        _CloudStorageClient._assert_gcs_enabled()
+        bucket_name, blob_name = _CloudStorageClient._parse_gcs_tflite_uri(gcs_tflite_uri)
         bucket = storage.bucket(bucket_name, app=app)
         blob = bucket.blob(blob_name)
         return blob.generate_signed_url(
@@ -446,7 +457,7 @@ class TFLiteGCSModelSource(TFLiteModelSource):
 
     @classmethod
     def from_tflite_model_file(cls, model_file_name, bucket_name=None, app=None):
-        """Uploads the model file to an existing Google Cloud Services bucket.
+        """Uploads the model file to an existing Google Cloud Storage bucket.
 
         Args:
             model_file_name: The name of the model file.
@@ -463,14 +474,22 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         gcs_uri = TFLiteGCSModelSource._STORAGE_CLIENT.upload(bucket_name, model_file_name, app)
         return TFLiteGCSModelSource(gcs_tflite_uri=gcs_uri, app=app)
 
+    @staticmethod
+    def _assert_tf_version_1_enabled():
+        if not TF_ENABLED:
+            raise ImportError('Failed to import the tensorflow library for Python. Make sure '
+                              'to install the tensorflow module.')
+        if not tf.VERSION.startswith('1.'):
+            raise ImportError('Expected tensorflow version 1')
+
     @classmethod
     def from_saved_model(cls, saved_model_dir, bucket_name=None, app=None):
         """Creates a Tensor Flow Lite model from the saved model, and uploads the model to GCS.
 
         Args:
             saved_model_dir: The saved model directory.
-            bucket_name: Optional. The name of the bucket to store the uploaded tflite file.
-                (or None to use the default bucket)
+            bucket_name: The name of an existing bucket. None to use the default bucket configured
+                in the app.
             app: Optional. A Firebase app instance (or None to use the default app)
 
         Returns:
@@ -479,10 +498,7 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         Raises:
             ImportError: If the Tensor Flow or Cloud Storage Libraries have not been installed.
         """
-        if not TF_ENABLED:
-            raise ImportError('Failed to import the tensorflow library for Python. Make sure '
-                              'to install the tensorflow module.')
-        #TODO(ifielker): Do we need to worry about tf version?
+        TFLiteGCSModelSource._assert_tf_version_1_enabled()
         converter = tf.lite.TFLiteConverter.from_saved_model(saved_model_dir)
         tflite_model = converter.convert()
         open("firebase_mlkit_model.tflite", "wb").write(tflite_model)
@@ -495,8 +511,8 @@ class TFLiteGCSModelSource(TFLiteModelSource):
 
         Args:
             keras_model: A tf.keras model.
-            bucket_name: Optional. The name of the bucket to store the uploaded tflite file.
-                (or None to use the default bucket)
+            bucket_name: The name of an existing bucket. None to use the default bucket configured
+                in the app.
             app: Optional. A Firebase app instance (or None to use the default app)
 
         Returns:
@@ -505,10 +521,7 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         Raises:
             ImportError: If the Tensor Flow or Cloud Storage Libraries have not been installed.
         """
-        if not TF_ENABLED:
-            raise ImportError('Failed to import the tensorflow library for Python. Make sure '
-                              'to install the tensorflow module.')
-        #TODO(ifielker): Do we need to worry about tf version?
+        TFLiteGCSModelSource._assert_tf_version_1_enabled()
         keras_file = "keras_model.h5"
         tf.keras.models.save_model(keras_model, keras_file)
         converter = tf.lite.TFLiteConverter.from_keras_model_file(keras_file)
@@ -685,15 +698,6 @@ def _validate_gcs_tflite_uri(uri):
     if not _GCS_TFLITE_URI_PATTERN.match(uri):
         raise ValueError('GCS TFLite URI format is invalid.')
     return uri
-
-
-def _parse_gcs_tflite_uri(uri):
-    # GCS Bucket naming rules are complex. The regex is not comprehensive.
-    # See https://cloud.google.com/storage/docs/naming for full details.
-    matcher = _GCS_TFLITE_URI_PATTERN.match(uri)
-    if not matcher:
-        raise ValueError('GCS TFLite URI format is invalid.')
-    return matcher.group('bucket_name'), matcher.group('blob_name')
 
 
 def _validate_model_format(model_format):

@@ -103,7 +103,9 @@ OPERATION_NOT_DONE_JSON_1 = {
     }
 }
 
-GCS_TFLITE_URI = 'gs://my_bucket/mymodel.tflite'
+GCS_BUCKET_NAME = 'my_bucket'
+GCS_BLOB_NAME = 'mymodel.tflite'
+GCS_TFLITE_URI = 'gs://{0}/{1}'.format(GCS_BUCKET_NAME, GCS_BLOB_NAME)
 GCS_TFLITE_URI_JSON = {'gcsTfliteUri': GCS_TFLITE_URI}
 GCS_TFLITE_MODEL_SOURCE = mlkit.TFLiteGCSModelSource(GCS_TFLITE_URI)
 TFLITE_FORMAT_JSON = {
@@ -112,9 +114,9 @@ TFLITE_FORMAT_JSON = {
 }
 TFLITE_FORMAT = mlkit.TFLiteFormat.from_dict(TFLITE_FORMAT_JSON)
 
-GCS_TFLITE_SIGNED_URI = 'gs://test_bucket/test_blob?signing_information'
-GCS_TFLITE_SIGNED_URI_JSON = {'gcsTfliteUri': GCS_TFLITE_URI}
-GCS_TFLITE_SIGNED_MODEL_SOURCE = mlkit.TFLiteGCSModelSource(GCS_TFLITE_SIGNED_URI)
+GCS_TFLITE_SIGNED_URI_PATTERN = (
+    'https://storage.googleapis.com/{0}/{1}?X-Goog-Algorithm=GOOG4-RSA-SHA256&foo')
+GCS_TFLITE_SIGNED_URI = GCS_TFLITE_SIGNED_URI_PATTERN.format(GCS_BUCKET_NAME, GCS_BLOB_NAME)
 
 GCS_TFLITE_URI_2 = 'gs://my_bucket/mymodel2.tflite'
 GCS_TFLITE_URI_JSON_2 = {'gcsTfliteUri': GCS_TFLITE_URI_2}
@@ -338,8 +340,9 @@ class _TestStorageClient(object):
 
     @staticmethod
     def sign_uri(gcs_tflite_uri, app):
-        del gcs_tflite_uri, app # unused variables
-        return GCS_TFLITE_SIGNED_URI
+        del app # unused variable
+        bucket_name, blob_name = mlkit._CloudStorageClient._parse_gcs_tflite_uri(gcs_tflite_uri)
+        return GCS_TFLITE_SIGNED_URI_PATTERN.format(bucket_name, blob_name)
 
 class TestModel(object):
     """Tests mlkit.Model class."""
@@ -453,6 +456,15 @@ class TestModel(object):
                 'gcsTfliteUri': GCS_TFLITE_SIGNED_URI
             }
         }
+
+    @pytest.mark.parametrize('helper_func', [
+        mlkit.TFLiteGCSModelSource.from_keras_model,
+        mlkit.TFLiteGCSModelSource.from_saved_model
+    ])
+    def test_tf_not_enabled(self, helper_func):
+        with pytest.raises(ImportError) as excinfo:
+            helper_func(None)
+        check_error(excinfo, ImportError)
 
     @pytest.mark.parametrize('display_name, exc_type', [
         ('', ValueError),

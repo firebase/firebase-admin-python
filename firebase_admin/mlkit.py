@@ -19,7 +19,6 @@ deleting, publishing and unpublishing Firebase ML Kit models.
 """
 
 
-
 import datetime
 import numbers
 import re
@@ -35,16 +34,16 @@ from firebase_admin import exceptions
 # pylint: disable=import-error,no-name-in-module
 try:
     from firebase_admin import storage
-    GCS_ENABLED = True
+    _GCS_ENABLED = True
 except ImportError:
-    GCS_ENABLED = False
+    _GCS_ENABLED = False
 
 # pylint: disable=import-error,no-name-in-module
 try:
     import tensorflow as tf
-    TF_ENABLED = True
+    _TF_ENABLED = True
 except ImportError:
-    TF_ENABLED = False
+    _TF_ENABLED = False
 
 _MLKIT_ATTRIBUTE = '_mlkit'
 _MAX_PAGE_SIZE = 100
@@ -401,7 +400,7 @@ class _CloudStorageClient(object):
 
     @staticmethod
     def _assert_gcs_enabled():
-        if not GCS_ENABLED:
+        if not _GCS_ENABLED:
             raise ImportError('Failed to import the Cloud Storage library for Python. Make sure '
                               'to install the "google-cloud-storage" module.')
 
@@ -476,11 +475,11 @@ class TFLiteGCSModelSource(TFLiteModelSource):
 
     @staticmethod
     def _assert_tf_version_1_enabled():
-        if not TF_ENABLED:
+        if not _TF_ENABLED:
             raise ImportError('Failed to import the tensorflow library for Python. Make sure '
                               'to install the tensorflow module.')
         if not tf.VERSION.startswith('1.'):
-            raise ImportError('Expected tensorflow version 1')
+            raise ImportError('Expected tensorflow version 1.x, but found {0}'.format(tf.VERSION))
 
     @classmethod
     def from_saved_model(cls, saved_model_dir, bucket_name=None, app=None):
@@ -501,9 +500,9 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         TFLiteGCSModelSource._assert_tf_version_1_enabled()
         converter = tf.lite.TFLiteConverter.from_saved_model(saved_model_dir)
         tflite_model = converter.convert()
-        open("firebase_mlkit_model.tflite", "wb").write(tflite_model)
+        open('firebase_mlkit_model.tflite', 'wb').write(tflite_model)
         return TFLiteGCSModelSource.from_tflite_model_file(
-            "firebase_mlkit_model.tflite", bucket_name, app)
+            'firebase_mlkit_model.tflite', bucket_name, app)
 
     @classmethod
     def from_keras_model(cls, keras_model, bucket_name=None, app=None):
@@ -522,13 +521,13 @@ class TFLiteGCSModelSource(TFLiteModelSource):
             ImportError: If the Tensor Flow or Cloud Storage Libraries have not been installed.
         """
         TFLiteGCSModelSource._assert_tf_version_1_enabled()
-        keras_file = "keras_model.h5"
+        keras_file = 'keras_model.h5'
         tf.keras.models.save_model(keras_model, keras_file)
         converter = tf.lite.TFLiteConverter.from_keras_model_file(keras_file)
         tflite_model = converter.convert()
-        open("firebase_mlkit_model.tflite", "wb").write(tflite_model)
+        open('firebase_mlkit_model.tflite', 'wb').write(tflite_model)
         return TFLiteGCSModelSource.from_tflite_model_file(
-            "firebase_mlkit_model.tflite", bucket_name, app)
+            'firebase_mlkit_model.tflite', bucket_name, app)
 
     @property
     def gcs_tflite_uri(self):
@@ -544,12 +543,9 @@ class TFLiteGCSModelSource(TFLiteModelSource):
 
     def as_dict(self, for_upload=False):
         if for_upload:
-            return {"gcsTfliteUri": self._get_signed_gcs_tflite_uri()}
+            return {'gcsTfliteUri': self._get_signed_gcs_tflite_uri()}
 
-        return {"gcsTfliteUri": self._gcs_tflite_uri}
-
-
-    #TODO(ifielker): implement from_saved_model etc.
+        return {'gcsTfliteUri': self._gcs_tflite_uri}
 
 
 class ListModelsPage(object):

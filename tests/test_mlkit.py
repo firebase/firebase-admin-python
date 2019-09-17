@@ -462,6 +462,7 @@ class TestModel(object):
         mlkit.TFLiteGCSModelSource.from_saved_model
     ])
     def test_tf_not_enabled(self, helper_func):
+        mlkit._TF_ENABLED = False # for reliability
         with pytest.raises(ImportError) as excinfo:
             helper_func(None)
         check_error(excinfo, ImportError)

@@ -21,7 +21,6 @@ import pytest
 import firebase_admin
 from firebase_admin import exceptions
 from firebase_admin import mlkit
-from firebase_admin import storage
 from tests import testutils
 
 BASE_URL = 'https://mlkit.googleapis.com/v1beta1/'
@@ -333,11 +332,13 @@ def instrument_mlkit_service(status=200, payload=None, operations=False, app=Non
 class _TestStorageClient(object):
     @staticmethod
     def upload(bucket_name, model_file_name, app):
+        del app # unused variable
         blob_name = mlkit._CloudStorageClient.BLOB_NAME.format(model_file_name)
         return mlkit._CloudStorageClient.GCS_URI.format(bucket_name, blob_name)
 
     @staticmethod
     def sign_uri(gcs_tflite_uri, app):
+        del gcs_tflite_uri, app # unused variables
         return GCS_TFLITE_SIGNED_URI
 
 class TestModel(object):

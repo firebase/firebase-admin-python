@@ -408,7 +408,7 @@ class _CloudStorageClient(object):
         blob_name = _CloudStorageClient.BLOB_NAME.format(model_file_name)
         blob = bucket.blob(blob_name)
         blob.upload_from_filename(model_file_name)
-        return GCS_URI.format(bucket.name, blob_name)
+        return _CloudStorageClient.GCS_URI.format(bucket.name, blob_name)
 
     @staticmethod
     def sign_uri(gcs_tflite_uri, app):
@@ -486,7 +486,7 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         converter = tf.lite.TFLiteConverter.from_saved_model(saved_model_dir)
         tflite_model = converter.convert()
         open("firebase_mlkit_model.tflite", "wb").write(tflite_model)
-        return from_tflite_model_file("firebase_mlkit_model.tflite", bucket_name, app)
+        return TFLiteGCSModelSource.from_tflite_model_file("firebase_mlkit_model.tflite", bucket_name, app)
 
     @classmethod
     def from_keras_model(cls, keras_model, bucket_name=None, app=None):
@@ -513,7 +513,7 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         converter = tf.lite.TFLiteConverter.from_keras_model_file(keras_file)
         tflite_model = converter.convert()
         open("firebase_mlkit_model.tflite", "wb").write(tflite_model)
-        return from_tflite_model_file("firebase_mlkit_model.tflite", bucket_name, app)
+        return TFLiteGCSModelSource.from_tflite_model_file("firebase_mlkit_model.tflite", bucket_name, app)
 
     @property
     def gcs_tflite_uri(self):

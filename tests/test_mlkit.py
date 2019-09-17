@@ -103,7 +103,9 @@ OPERATION_NOT_DONE_JSON_1 = {
     }
 }
 
-GCS_TFLITE_URI = 'gs://my_bucket/mymodel.tflite'
+GCS_BUCKET_NAME = 'my_bucket'
+GCS_BLOB_NAME = 'mymodel.tflite'
+GCS_TFLITE_URI = 'gs://{0}/{1}'.format(GCS_BUCKET_NAME, GCS_BLOB_NAME)
 GCS_TFLITE_URI_JSON = {'gcsTfliteUri': GCS_TFLITE_URI}
 GCS_TFLITE_MODEL_SOURCE = mlkit.TFLiteGCSModelSource(GCS_TFLITE_URI)
 TFLITE_FORMAT_JSON = {
@@ -111,6 +113,10 @@ TFLITE_FORMAT_JSON = {
     'sizeBytes': '1234567'
 }
 TFLITE_FORMAT = mlkit.TFLiteFormat.from_dict(TFLITE_FORMAT_JSON)
+
+GCS_TFLITE_SIGNED_URI_PATTERN = (
+    'https://storage.googleapis.com/{0}/{1}?X-Goog-Algorithm=GOOG4-RSA-SHA256&foo')
+GCS_TFLITE_SIGNED_URI = GCS_TFLITE_SIGNED_URI_PATTERN.format(GCS_BUCKET_NAME, GCS_BLOB_NAME)
 
 GCS_TFLITE_URI_2 = 'gs://my_bucket/mymodel2.tflite'
 GCS_TFLITE_URI_JSON_2 = {'gcsTfliteUri': GCS_TFLITE_URI_2}
@@ -325,6 +331,18 @@ def instrument_mlkit_service(status=200, payload=None, operations=False, app=Non
             session_url, adapter(payload, status, recorder))
     return recorder
 
+class _TestStorageClient(object):
+    @staticmethod
+    def upload(bucket_name, model_file_name, app):
+        del app # unused variable
+        blob_name = mlkit._CloudStorageClient.BLOB_NAME.format(model_file_name)
+        return mlkit._CloudStorageClient.GCS_URI.format(bucket_name, blob_name)
+
+    @staticmethod
+    def sign_uri(gcs_tflite_uri, app):
+        del app # unused variable
+        bucket_name, blob_name = mlkit._CloudStorageClient._parse_gcs_tflite_uri(gcs_tflite_uri)
+        return GCS_TFLITE_SIGNED_URI_PATTERN.format(bucket_name, blob_name)
 
 class TestModel(object):
     """Tests mlkit.Model class."""
@@ -333,6 +351,7 @@ class TestModel(object):
         cred = testutils.MockCredential()
         firebase_admin.initialize_app(cred, {'projectId': PROJECT_ID})
         mlkit._MLKitService.POLL_BASE_WAIT_TIME_SECONDS = 0.1  # shorter for test
+        mlkit.TFLiteGCSModelSource._STORAGE_CLIENT = _TestStorageClient()
 
     @classmethod
     def teardown_class(cls):
@@ -404,6 +423,13 @@ class TestModel(object):
             }
         }
 
+    def test_source_creation_from_tflite_file(self):
+        model_source = mlkit.TFLiteGCSModelSource.from_tflite_model_file(
+            "my_model.tflite", "my_bucket")
+        assert model_source.as_dict() == {
+            'gcsTfliteUri': 'gs://my_bucket/Firebase/MLKit/Models/my_model.tflite'
+        }
+
     def test_model_source_setters(self):
         model_source = mlkit.TFLiteGCSModelSource(GCS_TFLITE_URI)
         model_source.gcs_tflite_uri = GCS_TFLITE_URI_2
@@ -419,6 +445,27 @@ class TestModel(object):
                 'gcsTfliteUri': GCS_TFLITE_URI_2
             }
         }
+
+    def test_model_as_dict_for_upload(self):
+        model_source = mlkit.TFLiteGCSModelSource(gcs_tflite_uri=GCS_TFLITE_URI)
+        model_format = mlkit.TFLiteFormat(model_source=model_source)
+        model = mlkit.Model(display_name=DISPLAY_NAME_1, model_format=model_format)
+        assert model.as_dict(for_upload=True) == {
+            'displayName': DISPLAY_NAME_1,
+            'tfliteModel': {
+                'gcsTfliteUri': GCS_TFLITE_SIGNED_URI
+            }
+        }
+
+    @pytest.mark.parametrize('helper_func', [
+        mlkit.TFLiteGCSModelSource.from_keras_model,
+        mlkit.TFLiteGCSModelSource.from_saved_model
+    ])
+    def test_tf_not_enabled(self, helper_func):
+        mlkit._TF_ENABLED = False # for reliability
+        with pytest.raises(ImportError) as excinfo:
+            helper_func(None)
+        check_error(excinfo, ImportError)
 
     @pytest.mark.parametrize('display_name, exc_type', [
         ('', ValueError),
@@ -802,6 +849,7 @@ class TestPublishUnpublish(object):
             ERROR_MSG_BAD_REQUEST
         )
         assert len(create_recorder) == 1
+
 
 class TestGetModel(object):
     """Tests mlkit.get_model."""

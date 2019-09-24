@@ -80,13 +80,13 @@ class TestMessageStr(object):
         assert str(messaging.Message(token='value')) == '{"token": "value"}'
         assert str(messaging.Message(topic='value')) == '{"topic": "value"}'
         assert str(messaging.Message(condition='value')
-                   ) == '{"condition": "value"}'
+                  ) == '{"condition": "value"}'
 
     def test_data_message(self):
         assert str(messaging.Message(topic='topic', data={})
-                   ) == '{"topic": "topic"}'
+                  ) == '{"topic": "topic"}'
         assert str(messaging.Message(topic='topic', data={
-                   'k1': 'v1', 'k2': 'v2'})) == '{"data": {"k1": "v1", "k2": "v2"}, "topic": "topic"}'
+            'k1': 'v1', 'k2': 'v2'})) == '{"data": {"k1": "v1", "k2": "v2"}, "topic": "topic"}'
 
 
 class TestMulticastMessage(object):

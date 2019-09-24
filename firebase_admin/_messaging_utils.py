@@ -58,7 +58,7 @@ class Message(object):
         self.condition = condition
 
     def __str__(self):
-        return json.dumps(MessageEncoder().default(self))
+        return json.dumps(self, cls=MessageEncoder, sort_keys=True)
 
 
 class MulticastMessage(object):

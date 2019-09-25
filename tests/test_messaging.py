@@ -61,6 +61,34 @@ def check_exception(exception, message, status):
     assert exception.http_response.status_code == status
 
 
+class TestMessageStr(object):
+
+    @pytest.mark.parametrize('msg', [
+        messaging.Message(),
+        messaging.Message(topic='topic', token='token'),
+        messaging.Message(topic='topic', condition='condition'),
+        messaging.Message(condition='condition', token='token'),
+        messaging.Message(topic='topic', token='token', condition='condition'),
+    ])
+    def test_invalid_target_message(self, msg):
+        with pytest.raises(ValueError) as excinfo:
+            str(msg)
+        assert str(
+            excinfo.value) == 'Exactly one of token, topic or condition must be specified.'
+
+    def test_empty_message(self):
+        assert str(messaging.Message(token='value')) == '{"token": "value"}'
+        assert str(messaging.Message(topic='value')) == '{"topic": "value"}'
+        assert str(messaging.Message(condition='value')
+                  ) == '{"condition": "value"}'
+
+    def test_data_message(self):
+        assert str(messaging.Message(topic='topic', data={})
+                  ) == '{"topic": "topic"}'
+        assert str(messaging.Message(topic='topic', data={
+            'k1': 'v1', 'k2': 'v2'})) == '{"data": {"k1": "v1", "k2": "v2"}, "topic": "topic"}'
+
+
 class TestMulticastMessage(object):
 
     @pytest.mark.parametrize('tokens', NON_LIST_ARGS)

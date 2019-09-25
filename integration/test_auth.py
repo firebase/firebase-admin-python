@@ -228,8 +228,14 @@ def test_list_users(new_user_list):
             assert isinstance(user, auth.ExportedUserRecord)
             if user.uid in new_user_list:
                 fetched.append(user.uid)
-                assert user.password_hash is not None
-                assert user.password_salt is not None
+                assert user.password_hash is not None, (
+                    "Missing password_hash field. A common cause would be forgetting to add the " +
+                    "'Firebase Authentication Admin' permission. See instructions in " +
+                    "CONTRIBUTING.md")
+                assert user.password_salt is not None, (
+                    "Missing password_salt field. A common cause would be forgetting to add the " +
+                    "'Firebase Authentication Admin' permission. See instructions in " +
+                    "CONTRIBUTING.md")
         page = page.get_next_page()
     assert len(fetched) == len(new_user_list)
 
@@ -239,8 +245,12 @@ def test_list_users(new_user_list):
         assert isinstance(user, auth.ExportedUserRecord)
         if user.uid in new_user_list:
             fetched.append(user.uid)
-            assert user.password_hash is not None
-            assert user.password_salt is not None
+            assert user.password_hash is not None, (
+                "Missing password_hash field. A common cause would be forgetting to add the " +
+                "'Firebase Authentication Admin' permission. See instructions in CONTRIBUTING.md")
+            assert user.password_salt is not None, (
+                "Missing password_salt field. A common cause would be forgetting to add the " +
+                "'Firebase Authentication Admin' permission. See instructions in CONTRIBUTING.md")
     assert len(fetched) == len(new_user_list)
 
 def test_create_user(new_user):

@@ -14,8 +14,8 @@
 
 """Firebase user management sub module."""
 
+import base64
 import json
-
 import requests
 import six
 from six.moves import urllib
@@ -26,6 +26,7 @@ from firebase_admin import _user_import
 
 MAX_LIST_USERS_RESULTS = 1000
 MAX_IMPORT_USERS_SIZE = 1000
+B64_REDACTED = base64.b64encode("REDACTED")
 
 
 class Sentinel(object):
@@ -257,9 +258,17 @@ class ExportedUserRecord(UserRecord):
         If the Firebase Auth hashing algorithm (SCRYPT) was used to create the user account, this
         is the base64-encoded password hash of the user. If a different hashing algorithm was
         used to create this user, as is typical when migrating from another Auth system, this
-        is an empty string. If no password is set, this is ``None``.
+        is an empty string. If no password is set, or if the service account doesn't have permission
+        to read the password, then this is ``None``.
         """
-        return self._data.get('passwordHash')
+        password_hash = self._data.get('passwordHash')
+
+        # If the password hash is redacted (probably due to missing permissions) then clear it out,
+        # similar to how the salt is returned. (Otherwise, it *looks* like a b64-encoded hash is
+        # present, which is confusing.)
+        if password_hash == B64_REDACTED:
+            return None
+        return password_hash
 
     @property
     def password_salt(self):
@@ -268,7 +277,8 @@ class ExportedUserRecord(UserRecord):
         If the Firebase Auth hashing algorithm (SCRYPT) was used to create the user account, this
         is the base64-encoded password salt of the user. If a different hashing algorithm was
         used to create this user, as is typical when migrating from another Auth system, this is
-        an empty string. If no password is set, this is ``None``.
+        an empty string. If no password is set, or if the service account doesn't have permission to
+        read the password, then this is ``None``.
         """
         return self._data.get('salt')
 

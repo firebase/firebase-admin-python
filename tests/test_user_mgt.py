@@ -14,6 +14,7 @@
 
 """Test cases for the firebase_admin._user_mgt module."""
 
+import base64
 import json
 import time
 
@@ -151,6 +152,13 @@ class TestUserRecord(object):
         assert user.uid == 'user'
         assert user.password_hash == ''
         assert user.password_salt == ''
+
+    def test_redacted_passwords_cleared(self):
+        user = auth.ExportedUserRecord({
+            'localId': 'user',
+            'passwordHash': base64.b64encode(b'REDACTED'),
+        })
+        assert user.password_hash is None
 
     def test_custom_claims(self):
         user = auth.UserRecord({

@@ -220,6 +220,10 @@ def test_get_user(new_user_with_params):
     assert provider_ids == ['password', 'phone']
 
 def test_list_users(new_user_list):
+    err_msg_template = (
+        'Missing {field} field. A common cause would be forgetting to add the "Firebase ' +
+        'Authentication Admin" permission. See instructions in CONTRIBUTING.md')
+
     fetched = []
     # Test exporting all user accounts.
     page = auth.list_users()
@@ -228,8 +232,10 @@ def test_list_users(new_user_list):
             assert isinstance(user, auth.ExportedUserRecord)
             if user.uid in new_user_list:
                 fetched.append(user.uid)
-                assert user.password_hash is not None
-                assert user.password_salt is not None
+                assert user.password_hash is not None, (
+                    err_msg_template.format(field='password_hash'))
+                assert user.password_salt is not None, (
+                    err_msg_template.format(field='password_salt'))
         page = page.get_next_page()
     assert len(fetched) == len(new_user_list)
 
@@ -239,8 +245,10 @@ def test_list_users(new_user_list):
         assert isinstance(user, auth.ExportedUserRecord)
         if user.uid in new_user_list:
             fetched.append(user.uid)
-            assert user.password_hash is not None
-            assert user.password_salt is not None
+            assert user.password_hash is not None, (
+                err_msg_template.format(field='password_hash'))
+            assert user.password_salt is not None, (
+                err_msg_template.format(field='password_salt'))
     assert len(fetched) == len(new_user_list)
 
 def test_create_user(new_user):

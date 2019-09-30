@@ -156,7 +156,7 @@ class TestUserRecord(object):
     def test_redacted_passwords_cleared(self):
         user = auth.ExportedUserRecord({
             'localId': 'user',
-            'passwordHash': base64.b64encode('REDACTED'),
+            'passwordHash': base64.b64encode(b'REDACTED'),
         })
         assert user.password_hash is None
 

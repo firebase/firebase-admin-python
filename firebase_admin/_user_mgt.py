@@ -26,7 +26,7 @@ from firebase_admin import _user_import
 
 MAX_LIST_USERS_RESULTS = 1000
 MAX_IMPORT_USERS_SIZE = 1000
-B64_REDACTED = base64.b64encode("REDACTED")
+B64_REDACTED = base64.b64encode(b'REDACTED')
 
 
 class Sentinel(object):

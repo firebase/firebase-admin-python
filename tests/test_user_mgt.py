@@ -744,7 +744,8 @@ class TestListUsers(object):
         assert str(excinfo.value) == 'Unexpected error response: {"error":"test"}'
 
     def test_permission_error(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 400, '{"error": {"message": "INSUFFICIENT_PERMISSION"}}')
+        _instrument_user_manager(
+            user_mgt_app, 400, '{"error": {"message": "INSUFFICIENT_PERMISSION"}}')
         with pytest.raises(auth.InsufficientPermissionError) as excinfo:
             auth.list_users(app=user_mgt_app)
         assert isinstance(excinfo.value, exceptions.PermissionDeniedError)

@@ -743,6 +743,20 @@ class TestListUsers(object):
             auth.list_users(app=user_mgt_app)
         assert str(excinfo.value) == 'Unexpected error response: {"error":"test"}'
 
+    def test_permission_error(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 400, '{"error": {"message": "INSUFFICIENT_PERMISSION"}}')
+        with pytest.raises(auth.InsufficientPermissionError) as excinfo:
+            auth.list_users(app=user_mgt_app)
+        assert isinstance(excinfo.value, exceptions.PermissionDeniedError)
+        msg = ('The credential used to initialize the SDK has insufficient '
+               'permissions to perform the requested operation. See '
+               'https://firebase.google.com/docs/admin/setup for details '
+               'on how to initialize the Admin SDK with appropriate permissions '
+               '(INSUFFICIENT_PERMISSION).')
+        assert str(excinfo.value) == msg
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is not None
+
     def _check_page(self, page):
         assert isinstance(page, auth.ListUsersPage)
         index = 0

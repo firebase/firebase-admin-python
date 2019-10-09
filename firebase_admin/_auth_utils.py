@@ -211,6 +211,18 @@ class EmailAlreadyExistsError(exceptions.AlreadyExistsError):
         exceptions.AlreadyExistsError.__init__(self, message, cause, http_response)
 
 
+class InsufficientPermissionError(exceptions.PermissionDeniedError):
+    """The credential used to initialize the SDK lacks required permissions."""
+
+    default_message = ('The credential used to initialize the SDK has insufficient '
+                       'permissions to perform the requested operation. See '
+                       'https://firebase.google.com/docs/admin/setup for details '
+                       'on how to initialize the Admin SDK with appropriate permissions')
+
+    def __init__(self, message, cause, http_response):
+        exceptions.PermissionDeniedError.__init__(self, message, cause, http_response)
+
+
 class InvalidDynamicLinkDomainError(exceptions.InvalidArgumentError):
     """Dynamic link domain in ActionCodeSettings is not authorized."""
 
@@ -258,6 +270,7 @@ _CODE_TO_EXC_TYPE = {
     'DUPLICATE_EMAIL': EmailAlreadyExistsError,
     'DUPLICATE_LOCAL_ID': UidAlreadyExistsError,
     'EMAIL_EXISTS': EmailAlreadyExistsError,
+    'INSUFFICIENT_PERMISSION': InsufficientPermissionError,
     'INVALID_DYNAMIC_LINK_DOMAIN': InvalidDynamicLinkDomainError,
     'INVALID_ID_TOKEN': InvalidIdTokenError,
     'PHONE_NUMBER_EXISTS': PhoneNumberAlreadyExistsError,

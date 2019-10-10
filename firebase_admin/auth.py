@@ -43,6 +43,7 @@ __all__ = [
     'ExpiredSessionCookieError',
     'ExportedUserRecord',
     'ImportUserRecord',
+    'InsufficientPermissionError',
     'InvalidDynamicLinkDomainError',
     'InvalidIdTokenError',
     'InvalidSessionCookieError',
@@ -89,6 +90,7 @@ ExpiredIdTokenError = _token_gen.ExpiredIdTokenError
 ExpiredSessionCookieError = _token_gen.ExpiredSessionCookieError
 ExportedUserRecord = _user_mgt.ExportedUserRecord
 ImportUserRecord = _user_import.ImportUserRecord
+InsufficientPermissionError = _auth_utils.InsufficientPermissionError
 InvalidDynamicLinkDomainError = _auth_utils.InvalidDynamicLinkDomainError
 InvalidIdTokenError = _auth_utils.InvalidIdTokenError
 InvalidSessionCookieError = _token_gen.InvalidSessionCookieError

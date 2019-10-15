@@ -114,22 +114,17 @@ if [[ $(git status --porcelain) ]]; then
 fi
 
 
-##################################
-#  UPDATE VERSION AND CHANGELOG  #
-##################################
+####################
+#  UPDATE VERSION  #
+####################
 
 HOST=$(uname)
-echo "[INFO] Updating __about__.py and CHANGELOG.md"
+echo "[INFO] Updating __about__.py"
 if [ $HOST == "Darwin" ]; then
     sed -i "" -e "s/__version__ = '$CUR_VERSION'/__version__ = '$VERSION'/" "../firebase_admin/__about__.py"
-    sed -i "" -e "1 s/# Unreleased//" "../CHANGELOG.md"
 else
     sed -i -e "s/__version__ = '$CUR_VERSION'/__version__ = '$VERSION'/" "../firebase_admin/__about__.py"
-    sed -i -e "1 s/# Unreleased//" "../CHANGELOG.md"
 fi
-
-echo -e "# Unreleased\n\n-\n\n# v${VERSION}" | cat - ../CHANGELOG.md > TEMP_CHANGELOG.md
-mv TEMP_CHANGELOG.md ../CHANGELOG.md
 
 
 ##################

@@ -44,6 +44,7 @@ __all__ = [
     'CriticalSound',
     'ErrorInfo',
     'FCMOptions',
+    'LightSettings',
     'Message',
     'MulticastMessage',
     'Notification',
@@ -76,6 +77,7 @@ Aps = _messaging_utils.Aps
 ApsAlert = _messaging_utils.ApsAlert
 CriticalSound = _messaging_utils.CriticalSound
 FCMOptions = _messaging_utils.FCMOptions
+LightSettings = _messaging_utils.LightSettings
 Message = _messaging_utils.Message
 MulticastMessage = _messaging_utils.MulticastMessage
 Notification = _messaging_utils.Notification

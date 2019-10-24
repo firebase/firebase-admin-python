@@ -15,6 +15,7 @@
 """Integration tests for firebase_admin.messaging module."""
 
 import re
+from datetime import datetime
 
 import pytest
 
@@ -39,7 +40,15 @@ def test_send():
                 title='android-title',
                 body='android-body',
                 image='https://images.unsplash.com/'
-                      'photo-1494438639946-1ebd1d20bf85?fit=crop&w=900&q=60'
+                      'photo-1494438639946-1ebd1d20bf85?fit=crop&w=900&q=60',
+                event_timestamp=datetime.now(),
+                priority='high', vibrate_timings_millis=[100, 200, 300, 400],
+                visibility='public', light_settings=messaging.LightSettings(
+                    color='#aabbcc',
+                    light_off_duration_millis=200,
+                    light_on_duration_millis=300
+                ),
+                notification_count=1
             )
         ),
         apns=messaging.APNSConfig(payload=messaging.APNSPayload(

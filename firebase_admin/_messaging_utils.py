@@ -161,11 +161,67 @@ class AndroidNotification(object):
             in ``title_loc_key`` (optional).
         channel_id: channel_id of the notification (optional).
         image: Image url of the notification (optional).
+        ticker: Sets the "ticker" text, which is sent to accessibility services. Prior to API
+            level 21 (Lollipop), sets the text that is displayed in the status bar when the
+            notification first arrives (optional).
+        sticky: When set to ``false`` or unset, the notification is automatically dismissed when the
+            user clicks it in the panel. When set to ``True``, the notification persists even when
+            the user clicks it (optional).
+        event_timestamp: For notifications that inform users about events with an absolute time
+            reference, sets the time that the event in the notification occurred. Notifications
+            in the panel are sorted by this time (optional).
+        local_only: Set whether or not this notification is relevant only to the current device.
+            Some notifications can be bridged to other devices for remote display, such as a Wear OS
+            watch. This hint can be set to recommend this notification not be bridged (optional).
+            See Wear OS guides:
+            https://developer.android.com/training/wearables/notifications/bridger#existing-method-of-preventing-bridging
+        priority: Set the relative priority for this notification. Low-priority notifications may be
+            hidden from the user in certain situations. Note this priority differs from
+            ``AndroidMessagePriority``. This priority is processed by the client after the message
+            has been delivered. Whereas ``AndroidMessagePriority`` is an FCM concept that controls
+            when the message is delivered (optional). Must be one of ``default``, ``min``, ``low``,
+            ``high``, ``max`` or ``normal``.
+        vibrate_timings_millis: Set the vibration pattern to use. Pass in an array of seconds
+            to turn the vibrator on or off (optional). The first value indicates the duration to
+            wait before turning the vibrator on. The next value indicates the duration to keep the
+            vibrator on. Subsequent values alternate between duration to turn the vibrator off and
+            to turn the vibrator on. If ``vibrate_timings_millis`` is set and
+            ``default_vibrate_timings`` is set to ``True``, the default value is used instead of the
+            user-specified ``vibrate_timings_millis``.
+        default_vibrate_timings: If set to ``True``, use the Android framework's default vibrate
+            pattern for the notification (optional). Default values are specified in ``config.xml``
+            https://android.googlesource.com/platform/frameworks/base/+/master/core/res/res/values/config.xml.
+            If ``default_vibrate_timings`` is set to ``True`` and ``vibrate_timings`` is also set,
+            the default value is used instead of the user-specified ``vibrate_timings``.
+        default_sound: If set to ``True``, use the Android framework's default sound for the
+            notification (optional). Default values are specified in ``config.xml``
+            https://android.googlesource.com/platform/frameworks/base/+/master/core/res/res/values/config.xml
+        light_settings: Settings to control the notification's LED blinking rate and color if LED is
+            available on the device. The total blinking time is controlled by the OS (optional).
+        default_light_settings: If set to ``True``, use the Android framework's default LED light
+            settings for the notification. Default values are specified in ``config.xml``
+            https://android.googlesource.com/platform/frameworks/base/+/master/core/res/res/values/config.xml.
+            If ``default_light_settings`` is set to ``True`` and ``light_settings`` is also set, the
+            user-specified ``light_settings`` is used instead of the default value.
+        visibility: Set the visibility of the notification. Must be either ``private``, ``public``,
+            or ``secret``. If unspecified, default to ``private``.
+        notification_count: Sets the number of items this notification represents. May be displayed
+            as a badge count for Launchers that support badging. See ``NotificationBadge``
+            https://developer.android.com/training/notify-user/badges. For example, this might be
+            useful if you're using just one notification to represent multiple new messages but you
+            want the count here to represent the number of total new messages. If zero or
+            unspecified, systems that support badging use the default, which is to increment a
+            number displayed on the long-press menu each time a new notification arrives.
+
+
     """
 
     def __init__(self, title=None, body=None, icon=None, color=None, sound=None, tag=None,
                  click_action=None, body_loc_key=None, body_loc_args=None, title_loc_key=None,
-                 title_loc_args=None, channel_id=None, image=None):
+                 title_loc_args=None, channel_id=None, image=None, ticker=None, sticky=None,
+                 event_timestamp=None, local_only=None, priority=None, vibrate_timings_millis=None,
+                 default_vibrate_timings=None, default_sound=None, light_settings=None,
+                 default_light_settings=None, visibility=None, notification_count=None):
         self.title = title
         self.body = body
         self.icon = icon
@@ -179,6 +235,36 @@ class AndroidNotification(object):
         self.title_loc_args = title_loc_args
         self.channel_id = channel_id
         self.image = image
+        self.ticker = ticker
+        self.sticky = sticky
+        self.event_timestamp = event_timestamp
+        self.local_only = local_only
+        self.priority = priority
+        self.vibrate_timings_millis = vibrate_timings_millis
+        self.default_vibrate_timings = default_vibrate_timings
+        self.default_sound = default_sound
+        self.light_settings = light_settings
+        self.default_light_settings = default_light_settings
+        self.visibility = visibility
+        self.notification_count = notification_count
+
+
+class LightSettings(object):
+    """Represents settings to control notification LED that can be included in a
+    ``messaging.AndroidNotification``.
+
+    Args:
+        color: Set color of the LED in ``#rrggbb`` or ``#rrggbbaa`` format (required).
+        light_on_duration_millis: Along with ``light_off_duration``, define the blink rate of LED
+            flashes (required).
+        light_off_duration_millis: Along with ``light_on_duration``, define the blink rate of LED
+            flashes (required).
+    """
+    def __init__(self, color=None, light_on_duration_millis=None,
+                 light_off_duration_millis=None):
+        self.color = color
+        self.light_on_duration_millis = light_on_duration_millis
+        self.light_off_duration_millis = light_off_duration_millis
 
 
 class AndroidFCMOptions(object):
@@ -504,11 +590,32 @@ class _Validators(object):
         return value
 
     @classmethod
+    def check_number_list(cls, label, value):
+        """Checks if the given value is a list comprised only of numbers."""
+        if value is None or value == []:
+            return None
+        if not isinstance(value, list):
+            raise ValueError('{0} must be a list of numbers.'.format(label))
+        non_number = [k for k in value if not isinstance(k, numbers.Number)]
+        if non_number:
+            raise ValueError('{0} must not contain non-number values.'.format(label))
+        return value
+
+    @classmethod
     def check_analytics_label(cls, label, value):
         """Checks if the given value is a valid analytics label."""
         value = _Validators.check_string(label, value)
         if value is not None and not re.match(r'^[a-zA-Z0-9-_.~%]{1,50}$', value):
             raise ValueError('Malformed {}.'.format(label))
+        return value
+
+    @classmethod
+    def check_datetime(cls, label, value):
+        """Checks if the given value is a datetime."""
+        if value is None:
+            return None
+        if not isinstance(value, datetime.datetime):
+            raise ValueError('{0} must be a datetime.'.format(label))
         return value
 
 
@@ -580,6 +687,32 @@ class MessageEncoder(json.JSONEncoder):
         return '{0}s'.format(seconds)
 
     @classmethod
+    def encode_milliseconds(cls, label, msec):
+        """Encodes a duration in milliseconds into a string."""
+        if msec is None:
+            return None
+        if isinstance(msec, numbers.Number):
+            msec = datetime.timedelta(milliseconds=msec)
+        if not isinstance(msec, datetime.timedelta):
+            raise ValueError('{0} must be a duration in milliseconds or an instance of '
+                             'datetime.timedelta.'.format(label))
+        total_seconds = msec.total_seconds()
+        if total_seconds < 0:
+            raise ValueError('{0} must not be negative.'.format(label))
+        seconds = int(math.floor(total_seconds))
+        nanos = int((total_seconds - seconds) * 1e9)
+        if nanos:
+            return '{0}.{1}s'.format(seconds, str(nanos).zfill(9))
+        return '{0}s'.format(seconds)
+
+    @classmethod
+    def encode_boolean(cls, value):
+        """Encodes a boolean into JSON."""
+        if value is None:
+            return None
+        return 1 if value else 0
+
+    @classmethod
     def encode_android_notification(cls, notification):
         """Encodes an AndroidNotification instance into JSON."""
         if notification is None:
@@ -613,19 +746,104 @@ class MessageEncoder(json.JSONEncoder):
             'channel_id': _Validators.check_string(
                 'AndroidNotification.channel_id', notification.channel_id),
             'image': _Validators.check_string(
-                'image', notification.image
-            )
+                'image', notification.image),
+            'ticker': _Validators.check_string(
+                'AndroidNotification.ticker', notification.ticker),
+            'sticky': cls.encode_boolean(notification.sticky),
+            'event_time': _Validators.check_datetime(
+                'AndroidNotification.event_timestamp', notification.event_timestamp),
+            'local_only': cls.encode_boolean(notification.local_only),
+            'notification_priority': _Validators.check_string(
+                'AndroidNotification.priority', notification.priority, non_empty=True),
+            'vibrate_timings': _Validators.check_number_list(
+                'AndroidNotification.vibrate_timings_millis', notification.vibrate_timings_millis),
+            'default_vibrate_timings': cls.encode_boolean(notification.default_vibrate_timings),
+            'default_sound': cls.encode_boolean(notification.default_sound),
+            'default_light_settings': cls.encode_boolean(notification.default_light_settings),
+            'light_settings': cls.encode_light_settings(notification.light_settings),
+            'visibility': _Validators.check_string(
+                'AndroidNotification.visibility', notification.visibility, non_empty=True),
+            'notification_count': _Validators.check_number(
+                'AndroidNotification.notification_count', notification.notification_count)
         }
         result = cls.remove_null_values(result)
         color = result.get('color')
         if color and not re.match(r'^#[0-9a-fA-F]{6}$', color):
-            raise ValueError('AndroidNotification.color must be in the form #RRGGBB.')
+            raise ValueError(
+                'AndroidNotification.color must be in the form #RRGGBB.')
         if result.get('body_loc_args') and not result.get('body_loc_key'):
             raise ValueError(
                 'AndroidNotification.body_loc_key is required when specifying body_loc_args.')
         if result.get('title_loc_args') and not result.get('title_loc_key'):
             raise ValueError(
                 'AndroidNotification.title_loc_key is required when specifying title_loc_args.')
+
+        event_time = result.get('event_time')
+        if event_time:
+            result['event_time'] = str(event_time.isoformat()) + 'Z'
+
+        priority = result.get('notification_priority')
+        if priority and priority not in ('min', 'low', 'default', 'high', 'max'):
+            raise ValueError('AndroidNotification.priority must be "default", "min", "low", "high" '
+                             'or "max".')
+        if priority:
+            result['notification_priority'] = 'PRIORITY_' + priority.upper()
+
+        visibility = result.get('visibility')
+        if visibility and visibility not in ('private', 'public', 'secret'):
+            raise ValueError(
+                'AndroidNotification.visibility must be "private", "public" or "secret".')
+        if visibility:
+            result['visibility'] = visibility.upper()
+
+        vibrate_timings_millis = result.get('vibrate_timings')
+        if vibrate_timings_millis:
+            vibrate_timings_secs = []
+            for msec in vibrate_timings_millis:
+                formated_string = cls.encode_milliseconds(
+                    'AndroidNotification.vibrate_timings_millis', msec)
+                vibrate_timings_secs.append(formated_string)
+            result['vibrate_timings'] = vibrate_timings_secs
+        return result
+
+    @classmethod
+    def encode_light_settings(cls, light_settings):
+        """Encodes a LightSettings instance into JSON."""
+        if light_settings is None:
+            return None
+        if not isinstance(light_settings, LightSettings):
+            raise ValueError(
+                'AndroidNotification.light_settings must be an instance of LightSettings class.')
+        result = {
+            'color': _Validators.check_string(
+                'LightSettings.color', light_settings.color, non_empty=True),
+            'light_on_duration': cls.encode_milliseconds(
+                'LightSettings.light_on_duration_millis', light_settings.light_on_duration_millis),
+            'light_off_duration': cls.encode_milliseconds(
+                'LightSettings.light_off_duration_millis',
+                light_settings.light_off_duration_millis),
+        }
+        result = cls.remove_null_values(result)
+        color = result.get('color')
+        if not color:
+            raise ValueError('LightSettings.color is required.')
+        light_on_duration = result.get('light_on_duration')
+        if not light_on_duration:
+            raise ValueError(
+                'LightSettings.light_on_duration_millis is required.')
+        light_off_duration = result.get('light_off_duration')
+        if not light_off_duration:
+            raise ValueError(
+                'LightSettings.light_off_duration_millis is required.')
+
+        if not re.match(r'^#[0-9a-fA-F]{6}$', color) and not re.match(r'^#[0-9a-fA-F]{8}$', color):
+            raise ValueError(
+                'LightSettings.color must be in the form #aabbcc or aabbccdd.')
+        if len(color) == 7:
+            color = (color+'FF')
+        rgba = [int(color[i:i + 2], 16) / 255. for i in (1, 3, 5, 7)]
+        result['color'] = {'red': rgba[0], 'green': rgba[1],
+                           'blue': rgba[2], 'alpha': rgba[3]}
         return result
 
     @classmethod

@@ -933,31 +933,35 @@ class TestUserImportHash(object):
         with pytest.raises(ValueError):
             func(key=key)
 
-    @pytest.mark.parametrize('func,name', [
-        (auth.UserImportHash.sha512, 'SHA512'),
-        (auth.UserImportHash.sha256, 'SHA256'),
-        (auth.UserImportHash.sha1, 'SHA1'),
-        (auth.UserImportHash.md5, 'MD5'),
-        (auth.UserImportHash.pbkdf_sha1, 'PBKDF_SHA1'),
-        (auth.UserImportHash.pbkdf2_sha256, 'PBKDF2_SHA256'),
+    @pytest.mark.parametrize('func,name,rounds', [
+        (auth.UserImportHash.md5, 'MD5', [0, 8192]),
+        (auth.UserImportHash.sha1, 'SHA1', [1, 8192]),
+        (auth.UserImportHash.sha256, 'SHA256', [1, 8192]),
+        (auth.UserImportHash.sha512, 'SHA512', [1, 8192]),
+        (auth.UserImportHash.pbkdf_sha1, 'PBKDF_SHA1', [0, 120000]),
+        (auth.UserImportHash.pbkdf2_sha256, 'PBKDF2_SHA256', [0, 120000]),
     ])
-    def test_basic(self, func, name):
-        basic = func(rounds=10)
-        expected = {
-            'hashAlgorithm': name,
-            'rounds': 10,
-        }
-        assert basic.to_dict() == expected
+    def test_basic(self, func, name, rounds):
+        for rnds in rounds:
+            basic = func(rounds=rnds)
+            expected = {
+                'hashAlgorithm': name,
+                'rounds': rnds,
+            }
+            assert basic.to_dict() == expected
 
-    @pytest.mark.parametrize('func', [
-        auth.UserImportHash.sha512, auth.UserImportHash.sha256,
-        auth.UserImportHash.sha1, auth.UserImportHash.md5,
-        auth.UserImportHash.pbkdf_sha1, auth.UserImportHash.pbkdf2_sha256,
+    @pytest.mark.parametrize('func,rounds', [
+        (auth.UserImportHash.md5, INVALID_INTS + [-1, 8193]),
+        (auth.UserImportHash.sha1, INVALID_INTS + [0, 8193]),
+        (auth.UserImportHash.sha256, INVALID_INTS + [0, 8193]),
+        (auth.UserImportHash.sha512, INVALID_INTS + [0, 8193]),
+        (auth.UserImportHash.pbkdf_sha1, INVALID_INTS + [-1, 120001]),
+        (auth.UserImportHash.pbkdf2_sha256, INVALID_INTS + [-1, 120001]),
     ])
-    @pytest.mark.parametrize('rounds', INVALID_INTS + [120001])
     def test_invalid_basic(self, func, rounds):
-        with pytest.raises(ValueError):
-            func(rounds=rounds)
+        for rnds in rounds:
+            with pytest.raises(ValueError):
+                func(rounds=rnds)
 
     def test_scrypt(self):
         scrypt = auth.UserImportHash.scrypt(

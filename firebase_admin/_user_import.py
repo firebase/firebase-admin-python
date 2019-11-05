@@ -283,11 +283,6 @@ class UserImportHash(object):
         return UserImportHash(name, data)
 
     @classmethod
-    def _basic_hash(cls, name, rounds):
-        data = {'rounds': _auth_utils.validate_int(rounds, 'rounds', 0, 120000)}
-        return UserImportHash(name, data)
-
-    @classmethod
     def hmac_sha512(cls, key):
         """Creates a new HMAC SHA512 algorithm instance.
 
@@ -340,48 +335,56 @@ class UserImportHash(object):
         """Creates a new MD5 algorithm instance.
 
         Args:
-            rounds: Number of rounds. Must be an integer between 0 and 120000.
+            rounds: Number of rounds. Must be an integer between 0 and 8192.
 
         Returns:
             UserImportHash: A new ``UserImportHash``.
         """
-        return cls._basic_hash('MD5', rounds)
+        return UserImportHash(
+            'MD5',
+            {'rounds': _auth_utils.validate_int(rounds, 'rounds', 0, 8192)})
 
     @classmethod
     def sha1(cls, rounds):
         """Creates a new SHA1 algorithm instance.
 
         Args:
-            rounds: Number of rounds. Must be an integer between 0 and 120000.
+            rounds: Number of rounds. Must be an integer between 1 and 8192.
 
         Returns:
             UserImportHash: A new ``UserImportHash``.
         """
-        return cls._basic_hash('SHA1', rounds)
+        return UserImportHash(
+            'SHA1',
+            {'rounds': _auth_utils.validate_int(rounds, 'rounds', 1, 8192)})
 
     @classmethod
     def sha256(cls, rounds):
         """Creates a new SHA256 algorithm instance.
 
         Args:
-            rounds: Number of rounds. Must be an integer between 0 and 120000.
+            rounds: Number of rounds. Must be an integer between 1 and 8192.
 
         Returns:
             UserImportHash: A new ``UserImportHash``.
         """
-        return cls._basic_hash('SHA256', rounds)
+        return UserImportHash(
+            'SHA256',
+            {'rounds': _auth_utils.validate_int(rounds, 'rounds', 1, 8192)})
 
     @classmethod
     def sha512(cls, rounds):
         """Creates a new SHA512 algorithm instance.
 
         Args:
-            rounds: Number of rounds. Must be an integer between 0 and 120000.
+            rounds: Number of rounds. Must be an integer between 1 and 8192.
 
         Returns:
             UserImportHash: A new ``UserImportHash``.
         """
-        return cls._basic_hash('SHA512', rounds)
+        return UserImportHash(
+            'SHA512',
+            {'rounds': _auth_utils.validate_int(rounds, 'rounds', 1, 8192)})
 
     @classmethod
     def pbkdf_sha1(cls, rounds):
@@ -393,7 +396,9 @@ class UserImportHash(object):
         Returns:
             UserImportHash: A new ``UserImportHash``.
         """
-        return cls._basic_hash('PBKDF_SHA1', rounds)
+        return UserImportHash(
+            'PBKDF_SHA1',
+            {'rounds': _auth_utils.validate_int(rounds, 'rounds', 0, 120000)})
 
     @classmethod
     def pbkdf2_sha256(cls, rounds):
@@ -405,7 +410,9 @@ class UserImportHash(object):
         Returns:
             UserImportHash: A new ``UserImportHash``.
         """
-        return cls._basic_hash('PBKDF2_SHA256', rounds)
+        return UserImportHash(
+            'PBKDF2_SHA256',
+            {'rounds': _auth_utils.validate_int(rounds, 'rounds', 0, 120000)})
 
     @classmethod
     def scrypt(cls, key, rounds, memory_cost, salt_separator=None):

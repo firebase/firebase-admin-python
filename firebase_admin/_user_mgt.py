@@ -332,6 +332,85 @@ class ListUsersPage:
         return _UserIterator(self)
 
 
+class DeleteUsersResult:
+    """Represents the result of the ``auth.delete_users()`` API."""
+
+    def __init__(self, result, total):
+        """Constructs a DeleteUsersResult.
+
+        Args:
+          result: BatchDeleteAccountsResponse: The proto response, wrapped in a
+              BatchDeleteAccountsResponse instance.
+          total: integer: Total number of deletion attempts.
+        """
+        errors = result.errors
+        self._success_count = total - len(errors)
+        self._failure_count = len(errors)
+        self._errors = errors
+
+    @property
+    def success_count(self):
+        """Returns the number of users that were deleted successfully (possibly
+        zero).
+
+        Users that did not exist prior to calling delete_users() will be
+        considered to be successfully deleted.
+        """
+        return self._success_count
+
+    @property
+    def failure_count(self):
+        """Returns the number of users that failed to be deleted (possibly
+        zero).
+        """
+        return self._failure_count
+
+    @property
+    def errors(self):
+        """A list of ``auth.BatchDeleteErrorInfo`` instances describing the
+        errors that were encountered during the deletion. Length of this list
+        is equal to `failure_count`.
+        """
+        return self._errors
+
+
+class BatchDeleteErrorInfo:
+    """Represents an error that occurred while attempting to delete a batch of
+    users.
+    """
+
+    def __init__(self, err):
+        """Constructs a BatchDeleteErrorInfo instance, corresponding to the
+        json representing the BatchDeleteErrorInfo proto.
+
+        Args:
+            err: A dictionary with 'index', 'local_id' and 'message' fields,
+                representing the BatchDeleteErrorInfo dictionary that's
+                returned by the server.
+        """
+        self.index = err.get('index', 0)
+        self.local_id = err.get('local_id', "")
+        self.message = err.get('message', "")
+
+
+class BatchDeleteAccountsResponse:
+    """Represents the results of a delete_users() call."""
+
+    def __init__(self, errors=None):
+        """Constructs a BatchDeleteAccountsResponse instance, corresponseing to
+        the json representing the BatchDeleteAccountsResponse proto.
+
+        Args:
+            errors: List of dictionaries, with each dictionary representing a
+                BatchDeleteErrorInfo instance as returned by the server. None
+                implies an empty list.
+        """
+        if errors:
+            self.errors = [BatchDeleteErrorInfo(err) for err in errors]
+        else:
+            self.errors = []
+
+
 class ProviderUserInfo(UserInfo):
     """Contains metadata regarding how a user is known by a particular identity provider."""
 
@@ -637,6 +716,45 @@ class UserManager:
             if not body or not body.get('kind'):
                 raise _auth_utils.UnexpectedResponseError(
                     'Failed to delete user: {0}.'.format(uid), http_response=http_resp)
+
+    def delete_users(self, uids, force_delete=False):
+        """Deletes the users identified by the specified user ids.
+
+        Args:
+            uids: A list of strings indicating the uids of the users to be deleted.
+                Must have <= 1000 entries.
+            force_delete: Optional parameter that indicates if users should be
+                deleted, even if they're not disabled. Defaults to False.
+
+
+        Returns:
+            BatchDeleteAccountsResponse: Server's proto response, wrapped in a
+                python object.
+
+        Raises:
+            ValueError: If any of the identifiers are invalid or if more than 1000
+                identifiers are specified.
+        """
+        if not uids:
+            return BatchDeleteAccountsResponse()
+
+        if len(uids) > 100:
+            raise ValueError("`uids` paramter must have <= 100 entries.")
+        for uid in uids:
+            _auth_utils.validate_uid(uid, required=True)
+
+        try:
+            body, http_resp = self._client.body_and_response(
+                'post', '/accounts:batchDelete',
+                json={'localIds': uids, 'force': force_delete})
+        except requests.exceptions.RequestException as error:
+            raise _auth_utils.handle_auth_backend_error(error)
+        else:
+            if not isinstance(body, dict):
+                raise _auth_utils.UnexpectedResponseError(
+                    'Unexpected response from server while attempting to delete users.',
+                    http_response=http_resp)
+            return BatchDeleteAccountsResponse(body.get('errors', []))
 
     def import_users(self, users, hash_alg=None):
         """Imports the given list of users to Firebase Auth."""

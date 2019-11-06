@@ -653,6 +653,47 @@ class TestDeleteUser:
         assert isinstance(excinfo.value, exceptions.UnknownError)
 
 
+class TestDeleteUsers:
+
+    def test_empty_list(self, user_mgt_app):
+        delete_users_result = auth.delete_users([], app=user_mgt_app)
+        assert delete_users_result.success_count == 0
+        assert delete_users_result.failure_count == 0
+        assert len(delete_users_result.errors) == 0
+
+    def test_too_many_identifiers_should_fail(self, user_mgt_app):
+        ids = ['id' + str(i) for i in range(101)]
+        with pytest.raises(ValueError):
+            auth.delete_users(ids, app=user_mgt_app)
+
+    def test_invalid_id_should_fail(self, user_mgt_app):
+        ids = ['too long ' + '.'*128]
+        with pytest.raises(ValueError):
+            auth.delete_users(ids, app=user_mgt_app)
+
+    def test_should_index_errors_correctly_in_results(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 200, """{
+            "errors": [{
+                "index": 0,
+                "localId": "uid1",
+                "message": "NOT_DISABLED : Disable the account before batch deletion."
+            }, {
+                "index": 2,
+                "localId": "uid3",
+                "message": "something awful"
+            }]
+        }""")
+
+        delete_users_result = auth.delete_users(['uid1', 'uid2', 'uid3', 'uid4'], app=user_mgt_app)
+        assert delete_users_result.success_count == 2
+        assert delete_users_result.failure_count == 2
+        assert len(delete_users_result.errors) == 2
+        assert delete_users_result.errors[0].index == 0
+        assert delete_users_result.errors[0].message.startswith('NOT_DISABLED')
+        assert delete_users_result.errors[1].index == 2
+        assert delete_users_result.errors[1].message == 'something awful'
+
+
 class TestListUsers:
 
     @pytest.mark.parametrize('arg', [None, 'foo', list(), dict(), 0, -1, 1001, False])

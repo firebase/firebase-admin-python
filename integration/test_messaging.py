@@ -101,17 +101,17 @@ def test_send_all():
     assert isinstance(response.exception, exceptions.InvalidArgumentError)
     assert response.message_id is None
 
-def test_send_one_hundred():
+def test_send_all_500():
     messages = []
-    for msg_number in range(100):
+    for msg_number in range(500):
         topic = 'foo-bar-{0}'.format(msg_number % 10)
         messages.append(messaging.Message(topic=topic))
 
     batch_response = messaging.send_all(messages, dry_run=True)
 
-    assert batch_response.success_count == 100
+    assert batch_response.success_count == 500
     assert batch_response.failure_count == 0
-    assert len(batch_response.responses) == 100
+    assert len(batch_response.responses) == 500
     for response in batch_response.responses:
         assert response.success is True
         assert response.exception is None

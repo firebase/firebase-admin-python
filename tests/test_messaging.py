@@ -102,15 +102,18 @@ class TestMulticastMessage(object):
             expected = 'MulticastMessage.tokens must be a list of strings.'
             assert str(excinfo.value) == expected
 
-    def test_tokens_over_one_hundred(self):
+    def test_tokens_over_500(self):
         with pytest.raises(ValueError) as excinfo:
-            messaging.MulticastMessage(tokens=['token' for _ in range(0, 101)])
-        expected = 'MulticastMessage.tokens must not contain more than 100 tokens.'
+            messaging.MulticastMessage(tokens=['token' for _ in range(0, 501)])
+        expected = 'MulticastMessage.tokens must not contain more than 500 tokens.'
         assert str(excinfo.value) == expected
 
     def test_tokens_type(self):
-        messaging.MulticastMessage(tokens=['token'])
-        messaging.MulticastMessage(tokens=['token' for _ in range(0, 100)])
+        message = messaging.MulticastMessage(tokens=['token'])
+        assert len(message.tokens) == 1
+
+        message = messaging.MulticastMessage(tokens=['token' for _ in range(0, 500)])
+        assert len(message.tokens) == 500
 
 
 class TestMessageEncoder(object):
@@ -1598,14 +1601,14 @@ class TestSendAll(TestBatch):
             expected = 'Message must be an instance of messaging.Message class.'
             assert str(excinfo.value) == expected
         else:
-            expected = 'Messages must be an list of messaging.Message instances.'
+            expected = 'messages must be a list of messaging.Message instances.'
             assert str(excinfo.value) == expected
 
-    def test_invalid_over_one_hundred(self):
+    def test_invalid_over_500(self):
         msg = messaging.Message(topic='foo')
         with pytest.raises(ValueError) as excinfo:
-            messaging.send_all([msg for _ in range(0, 101)])
-        expected = 'send_all messages must not contain more than 100 messages.'
+            messaging.send_all([msg for _ in range(0, 501)])
+        expected = 'messages must not contain more than 500 elements.'
         assert str(excinfo.value) == expected
 
     def test_send_all(self):

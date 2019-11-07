@@ -77,8 +77,8 @@ class MulticastMessage(object):
     def __init__(self, tokens, data=None, notification=None, android=None, webpush=None, apns=None,
                  fcm_options=None):
         _Validators.check_string_list('MulticastMessage.tokens', tokens)
-        if len(tokens) > 100:
-            raise ValueError('MulticastMessage.tokens must not contain more than 100 tokens.')
+        if len(tokens) > 500:
+            raise ValueError('MulticastMessage.tokens must not contain more than 500 tokens.')
         self.tokens = tokens
         self.data = data
         self.notification = notification

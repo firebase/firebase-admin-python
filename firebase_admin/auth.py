@@ -24,6 +24,7 @@ import time
 import firebase_admin
 from firebase_admin import _auth_utils
 from firebase_admin import _http_client
+from firebase_admin import _identifier
 from firebase_admin import _token_gen
 from firebase_admin import _user_import
 from firebase_admin import _user_mgt
@@ -62,6 +63,10 @@ __all__ = [
     'UserProvider',
     'UserRecord',
 
+    'UidIdentifier',
+    'EmailIdentifier',
+    'PhoneIdentifier',
+
     'create_custom_token',
     'create_session_cookie',
     'create_user',
@@ -72,6 +77,7 @@ __all__ = [
     'get_user',
     'get_user_by_email',
     'get_user_by_phone_number',
+    'get_users',
     'import_users',
     'list_users',
     'revoke_refresh_tokens',
@@ -108,6 +114,10 @@ UserMetadata = _user_mgt.UserMetadata
 UserNotFoundError = _auth_utils.UserNotFoundError
 UserProvider = _user_import.UserProvider
 UserRecord = _user_mgt.UserRecord
+
+UidIdentifier = _identifier.UidIdentifier
+EmailIdentifier = _identifier.EmailIdentifier
+PhoneIdentifier = _identifier.PhoneIdentifier
 
 
 def _get_auth_service(app):
@@ -307,6 +317,40 @@ def get_user_by_phone_number(phone_number, app=None):
     user_manager = _get_auth_service(app).user_manager
     response = user_manager.get_user(phone_number=phone_number)
     return UserRecord(response)
+
+
+def get_users(identifiers, app=None):
+    """Gets the user data corresponding to the specified identifiers.
+
+    There are no ordering guarantees; in particular, the nth entry in the
+    result list is not guaranteed to correspond to the nth entry in the input
+    parameters list.
+
+    If a given user doesn't exist, then no entry will be returned for it in the
+    results, implying that the results list may have fewer entries than the
+    identifiers list.
+
+    Only a maximum of 100 identifiers may be supplied. If more than 100
+    identifiers are supplied, this method will immediately raise a ValueError.
+
+    Args:
+        identifiers (list[Identifier]): A list of ``Identifier`` instances used
+            to indicate which user records should be returned. Must have <= 100
+            entries.
+        app: An App instance (optional).
+
+    Returns:
+        list[UserRecord]: A list of ``UserRecord`` instances corresponding to the
+        specified identifiers. This could be empty if no users were
+        successfully looked up.
+
+    Raises:
+        ValueError: If any of the identifiers are invalid or if more than 100
+            identifiers are specified.
+    """
+    user_manager = _get_auth_service(app).user_manager
+    response = user_manager.get_users(identifiers=identifiers)
+    return [UserRecord(data) for data in response]
 
 
 def list_users(page_token=None, max_results=_user_mgt.MAX_LIST_USERS_RESULTS, app=None):

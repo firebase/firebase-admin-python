@@ -21,6 +21,7 @@ from urllib import parse
 import requests
 
 from firebase_admin import _auth_utils
+from firebase_admin import _identifier
 from firebase_admin import _user_import
 
 
@@ -482,6 +483,51 @@ class UserManager:
                     'No user record found for the provided {0}: {1}.'.format(key_type, key),
                     http_response=http_resp)
             return body['users'][0]
+
+    def get_users(self, identifiers):
+        """Looks up multiple users by their identifiers (uid, email, etc.)
+
+        Args:
+            identifiers: UserIdentifier[]: The identifiers indicating the user
+                to be looked up. Must have <= 100 entries.
+
+        Returns:
+            list[dict[string, string]]: List of dicts representing the json
+            UserInfo responses from the server.
+
+        Raises:
+            ValueError: If any of the identifiers are invalid or if more than
+                100 identifiers are specified.
+        """
+        if not identifiers:
+            return []
+        if len(identifiers) > 100:
+            raise ValueError('`identifiers` parameter must have <= 100 entries.')
+
+        payload = {}
+        for identifier in identifiers:
+            if isinstance(identifier, _identifier.UidIdentifier):
+                _auth_utils.validate_uid(identifier.uid, required=True)
+                payload['localId'] = payload.get('localId', []) + [identifier.uid]
+            elif isinstance(identifier, _identifier.EmailIdentifier):
+                _auth_utils.validate_email(identifier.email, required=True)
+                payload['email'] = payload.get('email', []) + [identifier.email]
+            elif isinstance(identifier, _identifier.PhoneIdentifier):
+                _auth_utils.validate_phone(identifier.phone_number, required=True)
+                payload['phoneNumber'] = payload.get('phoneNumber', []) + [identifier.phone_number]
+            else:
+                raise ValueError('Invalid argument `identifiers`. Unrecognized type.')
+
+        try:
+            body, http_resp = self._client.body_and_response(
+                'post', '/accounts:lookup', json=payload)
+        except requests.exceptions.RequestException as error:
+            raise _auth_utils.handle_auth_backend_error(error)
+        else:
+            if not http_resp.ok:
+                raise _auth_utils.UnexpectedResponseError(
+                    'Failed to get users.', http_response=http_resp)
+            return body.get('users', [])
 
     def list_users(self, page_token=None, max_results=MAX_LIST_USERS_RESULTS):
         """Retrieves a batch of users."""

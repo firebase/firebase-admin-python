@@ -17,6 +17,7 @@ import base64
 import datetime
 import random
 import time
+from typing import List
 from urllib import parse
 import uuid
 
@@ -189,6 +190,23 @@ def new_user_list():
         auth.delete_user(uid)
 
 @pytest.fixture
+def new_user_record_list() -> List[auth.UserRecord]:
+    uid1, email1 = _random_id()
+    uid2, email2 = _random_id()
+    uid3, email3 = _random_id()
+    users = [
+        auth.create_user(
+            uid=uid1, email=email1, password='password', phone_number=_random_phone()),
+        auth.create_user(
+            uid=uid2, email=email2, password='password', phone_number=_random_phone()),
+        auth.create_user(
+            uid=uid3, email=email3, password='password', phone_number=_random_phone()),
+    ]
+    yield users
+    for user in users:
+        auth.delete_user(user.uid)
+
+@pytest.fixture
 def new_user_email_unverified():
     random_id, email = _random_id()
     user = auth.create_user(
@@ -218,6 +236,59 @@ def test_get_user(new_user_with_params):
     assert len(user.provider_data) == 2
     provider_ids = sorted([provider.provider_id for provider in user.provider_data])
     assert provider_ids == ['password', 'phone']
+
+class TestGetUsers:
+    @staticmethod
+    def _map_user_record_to_uid_email_phones(user_record):
+        return {
+            'uid': user_record.uid,
+            'email': user_record.email,
+            'phone_number': user_record.phone_number
+        }
+
+    def test_returns_users_by_various_identifier_types_in_a_single_call(self, new_user_record_list):
+        users = auth.get_users([
+            auth.UidIdentifier(new_user_record_list[0].uid),
+            auth.EmailIdentifier(new_user_record_list[1].email),
+            auth.PhoneIdentifier(new_user_record_list[2].phone_number)])
+        actual = sorted(
+            list(map(self._map_user_record_to_uid_email_phones, users)),
+            key=lambda user: user['uid'])
+        expected = sorted(
+            list(map(self._map_user_record_to_uid_email_phones, new_user_record_list)),
+            key=lambda user: user['uid'])
+
+        assert actual == expected
+
+    def test_returns_found_users_and_ignores_non_existing_users(self, new_user_record_list):
+        users = auth.get_users([
+            auth.UidIdentifier(new_user_record_list[0].uid),
+            auth.UidIdentifier('uid_that_doesnt_exist'),
+            auth.UidIdentifier(new_user_record_list[2].uid)])
+        actual = sorted(
+            list(map(self._map_user_record_to_uid_email_phones, users)),
+            key=lambda user: user['uid'])
+        expected = sorted(
+            list(map(
+                self._map_user_record_to_uid_email_phones,
+                [new_user_record_list[0], new_user_record_list[2]])),
+            key=lambda user: user['uid'])
+
+        assert actual == expected
+
+    def test_returns_nothing_when_queried_for_only_non_existing_users(self):
+        users = auth.get_users([auth.UidIdentifier('non-existing user')])
+
+        assert users == []
+
+    def test_de_dups_duplicate_users(self, new_user):
+        users = auth.get_users([
+            auth.UidIdentifier(new_user.uid),
+            auth.UidIdentifier(new_user.uid)])
+        actual = list(map(self._map_user_record_to_uid_email_phones, users))
+        expected = list(map(self._map_user_record_to_uid_email_phones, [new_user]))
+        assert actual == expected
+
 
 def test_list_users(new_user_list):
     err_msg_template = (

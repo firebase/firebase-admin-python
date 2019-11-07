@@ -301,6 +301,47 @@ class TestGetUser:
         assert excinfo.value.cause is not None
 
 
+class TestGetUsers:
+
+    def test_should_reject_when_given_more_than_100_identifiers(self, user_mgt_app):
+        identifiers = [auth.UidIdentifier('id' + str(i)) for i in range(101)]
+        with pytest.raises(ValueError):
+            auth.get_users(identifiers, app=user_mgt_app)
+
+    def test_should_return_no_results_when_given_no_identifiers(self, user_mgt_app):
+        assert auth.get_users([], app=user_mgt_app) == []
+
+    def test_should_return_no_results_when_given_identifiers_that_do_not_exist(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 200, '{}')
+        user_records = auth.get_users(
+            [auth.UidIdentifier('id that doesnt exist')],
+            app=user_mgt_app)
+        assert user_records == []
+
+    def test_should_be_rejected_when_given_an_invalid_uid(self, user_mgt_app):
+        with pytest.raises(ValueError):
+            auth.get_users([auth.UidIdentifier('too long ' + '.'*128)], app=user_mgt_app)
+
+    def test_should_be_rejected_when_given_an_invalid_email(self, user_mgt_app):
+        with pytest.raises(ValueError):
+            auth.get_users([auth.EmailIdentifier('invalid email addr')], app=user_mgt_app)
+
+    def test_should_be_rejected_when_given_an_invalid_phone_number(self, user_mgt_app):
+        with pytest.raises(ValueError):
+            auth.get_users([auth.PhoneIdentifier('invalid phone number')], app=user_mgt_app)
+
+    def test_should_be_rejected_when_given_a_single_bad_identifier(self, user_mgt_app):
+        identifiers = [
+            auth.UidIdentifier('valid_id1'),
+            auth.UidIdentifier('valid_id2'),
+            auth.UidIdentifier('invalid id; too long. ' + '.'*128),
+            auth.UidIdentifier('valid_id4'),
+            auth.UidIdentifier('valid_id5')]
+
+        with pytest.raises(ValueError):
+            auth.get_users(identifiers, app=user_mgt_app)
+
+
 class TestCreateUser:
 
     already_exists_errors = {

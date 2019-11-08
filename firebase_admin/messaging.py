@@ -24,6 +24,7 @@ from googleapiclient import _auth
 
 import firebase_admin
 from firebase_admin import _http_client
+from firebase_admin import _messaging_encoder
 from firebase_admin import _messaging_utils
 from firebase_admin import _utils
 
@@ -308,7 +309,7 @@ class _MessagingService(object):
     FCM_BATCH_URL = 'https://fcm.googleapis.com/batch'
     IID_URL = 'https://iid.googleapis.com'
     IID_HEADERS = {'access_token_auth': 'true'}
-    JSON_ENCODER = _messaging_utils.MessageEncoder()
+    JSON_ENCODER = _messaging_encoder.MessageEncoder()
 
     FCM_ERROR_TYPES = {
         'APNS_AUTH_ERROR': ThirdPartyAuthError,

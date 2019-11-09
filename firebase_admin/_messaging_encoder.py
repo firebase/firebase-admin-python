@@ -25,7 +25,70 @@ import six
 import firebase_admin._messaging_utils as _messaging_utils
 
 
-class Validators(object):
+class Message(object):
+    """A message that can be sent via Firebase Cloud Messaging.
+
+    Contains payload information as well as recipient information. In particular, the message must
+    contain exactly one of token, topic or condition fields.
+
+    Args:
+        data: A dictionary of data fields (optional). All keys and values in the dictionary must be
+            strings.
+        notification: An instance of ``messaging.Notification`` (optional).
+        android: An instance of ``messaging.AndroidConfig`` (optional).
+        webpush: An instance of ``messaging.WebpushConfig`` (optional).
+        apns: An instance of ``messaging.ApnsConfig`` (optional).
+        fcm_options: An instance of ``messaging.FCMOptions`` (optional).
+        token: The registration token of the device to which the message should be sent (optional).
+        topic: Name of the FCM topic to which the message should be sent (optional). Topic name
+            may contain the ``/topics/`` prefix.
+        condition: The FCM condition to which the message should be sent (optional).
+    """
+
+    def __init__(self, data=None, notification=None, android=None, webpush=None, apns=None,
+                 fcm_options=None, token=None, topic=None, condition=None):
+        self.data = data
+        self.notification = notification
+        self.android = android
+        self.webpush = webpush
+        self.apns = apns
+        self.fcm_options = fcm_options
+        self.token = token
+        self.topic = topic
+        self.condition = condition
+
+    def __str__(self):
+        return json.dumps(self, cls=MessageEncoder, sort_keys=True)
+
+
+class MulticastMessage(object):
+    """A message that can be sent to multiple tokens via Firebase Cloud Messaging.
+
+    Args:
+        tokens: A list of registration tokens of targeted devices.
+        data: A dictionary of data fields (optional). All keys and values in the dictionary must be
+            strings.
+        notification: An instance of ``messaging.Notification`` (optional).
+        android: An instance of ``messaging.AndroidConfig`` (optional).
+        webpush: An instance of ``messaging.WebpushConfig`` (optional).
+        apns: An instance of ``messaging.ApnsConfig`` (optional).
+        fcm_options: An instance of ``messaging.FCMOptions`` (optional).
+    """
+    def __init__(self, tokens, data=None, notification=None, android=None, webpush=None, apns=None,
+                 fcm_options=None):
+        _Validators.check_string_list('MulticastMessage.tokens', tokens)
+        if len(tokens) > 500:
+            raise ValueError('MulticastMessage.tokens must not contain more than 500 tokens.')
+        self.tokens = tokens
+        self.data = data
+        self.notification = notification
+        self.android = android
+        self.webpush = webpush
+        self.apns = apns
+        self.fcm_options = fcm_options
+
+
+class _Validators(object):
     """A collection of data validation utilities.
 
     Methods provided in this class raise ValueErrors if any validations fail.
@@ -95,7 +158,7 @@ class Validators(object):
     @classmethod
     def check_analytics_label(cls, label, value):
         """Checks if the given value is a valid analytics label."""
-        value = Validators.check_string(label, value)
+        value = _Validators.check_string(label, value)
         if value is not None and not re.match(r'^[a-zA-Z0-9-_.~%]{1,50}$', value):
             raise ValueError('Malformed {}.'.format(label))
         return value
@@ -125,14 +188,14 @@ class MessageEncoder(json.JSONEncoder):
         if not isinstance(android, _messaging_utils.AndroidConfig):
             raise ValueError('Message.android must be an instance of AndroidConfig class.')
         result = {
-            'collapse_key': Validators.check_string(
+            'collapse_key': _Validators.check_string(
                 'AndroidConfig.collapse_key', android.collapse_key),
-            'data': Validators.check_string_dict(
+            'data': _Validators.check_string_dict(
                 'AndroidConfig.data', android.data),
             'notification': cls.encode_android_notification(android.notification),
-            'priority': Validators.check_string(
+            'priority': _Validators.check_string(
                 'AndroidConfig.priority', android.priority, non_empty=True),
-            'restricted_package_name': Validators.check_string(
+            'restricted_package_name': _Validators.check_string(
                 'AndroidConfig.restricted_package_name', android.restricted_package_name),
             'ttl': cls.encode_ttl(android.ttl),
             'fcm_options': cls.encode_android_fcm_options(android.fcm_options),
@@ -152,7 +215,7 @@ class MessageEncoder(json.JSONEncoder):
             raise ValueError('AndroidConfig.fcm_options must be an instance of '
                              'AndroidFCMOptions class.')
         result = {
-            'analytics_label': Validators.check_analytics_label(
+            'analytics_label': _Validators.check_analytics_label(
                 'AndroidFCMOptions.analytics_label', fcm_options.analytics_label),
         }
         result = cls.remove_null_values(result)
@@ -212,49 +275,49 @@ class MessageEncoder(json.JSONEncoder):
             raise ValueError('AndroidConfig.notification must be an instance of '
                              'AndroidNotification class.')
         result = {
-            'body': Validators.check_string(
+            'body': _Validators.check_string(
                 'AndroidNotification.body', notification.body),
-            'body_loc_args': Validators.check_string_list(
+            'body_loc_args': _Validators.check_string_list(
                 'AndroidNotification.body_loc_args', notification.body_loc_args),
-            'body_loc_key': Validators.check_string(
+            'body_loc_key': _Validators.check_string(
                 'AndroidNotification.body_loc_key', notification.body_loc_key),
-            'click_action': Validators.check_string(
+            'click_action': _Validators.check_string(
                 'AndroidNotification.click_action', notification.click_action),
-            'color': Validators.check_string(
+            'color': _Validators.check_string(
                 'AndroidNotification.color', notification.color, non_empty=True),
-            'icon': Validators.check_string(
+            'icon': _Validators.check_string(
                 'AndroidNotification.icon', notification.icon),
-            'sound': Validators.check_string(
+            'sound': _Validators.check_string(
                 'AndroidNotification.sound', notification.sound),
-            'tag': Validators.check_string(
+            'tag': _Validators.check_string(
                 'AndroidNotification.tag', notification.tag),
-            'title': Validators.check_string(
+            'title': _Validators.check_string(
                 'AndroidNotification.title', notification.title),
-            'title_loc_args': Validators.check_string_list(
+            'title_loc_args': _Validators.check_string_list(
                 'AndroidNotification.title_loc_args', notification.title_loc_args),
-            'title_loc_key': Validators.check_string(
+            'title_loc_key': _Validators.check_string(
                 'AndroidNotification.title_loc_key', notification.title_loc_key),
-            'channel_id': Validators.check_string(
+            'channel_id': _Validators.check_string(
                 'AndroidNotification.channel_id', notification.channel_id),
-            'image': Validators.check_string(
+            'image': _Validators.check_string(
                 'image', notification.image),
-            'ticker': Validators.check_string(
+            'ticker': _Validators.check_string(
                 'AndroidNotification.ticker', notification.ticker),
             'sticky': cls.encode_boolean(notification.sticky),
-            'event_time': Validators.check_datetime(
+            'event_time': _Validators.check_datetime(
                 'AndroidNotification.event_timestamp', notification.event_timestamp),
             'local_only': cls.encode_boolean(notification.local_only),
-            'notification_priority': Validators.check_string(
+            'notification_priority': _Validators.check_string(
                 'AndroidNotification.priority', notification.priority, non_empty=True),
-            'vibrate_timings': Validators.check_number_list(
+            'vibrate_timings': _Validators.check_number_list(
                 'AndroidNotification.vibrate_timings_millis', notification.vibrate_timings_millis),
             'default_vibrate_timings': cls.encode_boolean(notification.default_vibrate_timings),
             'default_sound': cls.encode_boolean(notification.default_sound),
             'default_light_settings': cls.encode_boolean(notification.default_light_settings),
             'light_settings': cls.encode_light_settings(notification.light_settings),
-            'visibility': Validators.check_string(
+            'visibility': _Validators.check_string(
                 'AndroidNotification.visibility', notification.visibility, non_empty=True),
-            'notification_count': Validators.check_number(
+            'notification_count': _Validators.check_number(
                 'AndroidNotification.notification_count', notification.notification_count)
         }
         result = cls.remove_null_values(result)
@@ -306,7 +369,7 @@ class MessageEncoder(json.JSONEncoder):
             raise ValueError(
                 'AndroidNotification.light_settings must be an instance of LightSettings class.')
         result = {
-            'color': Validators.check_string(
+            'color': _Validators.check_string(
                 'LightSettings.color', light_settings.color, non_empty=True),
             'light_on_duration': cls.encode_milliseconds(
                 'LightSettings.light_on_duration_millis', light_settings.light_on_duration_millis),
@@ -345,9 +408,9 @@ class MessageEncoder(json.JSONEncoder):
         if not isinstance(webpush, _messaging_utils.WebpushConfig):
             raise ValueError('Message.webpush must be an instance of WebpushConfig class.')
         result = {
-            'data': Validators.check_string_dict(
+            'data': _Validators.check_string_dict(
                 'WebpushConfig.data', webpush.data),
-            'headers': Validators.check_string_dict(
+            'headers': _Validators.check_string_dict(
                 'WebpushConfig.headers', webpush.headers),
             'notification': cls.encode_webpush_notification(webpush.notification),
             'fcm_options': cls.encode_webpush_fcm_options(webpush.fcm_options),
@@ -364,27 +427,27 @@ class MessageEncoder(json.JSONEncoder):
                              'WebpushNotification class.')
         result = {
             'actions': cls.encode_webpush_notification_actions(notification.actions),
-            'badge': Validators.check_string(
+            'badge': _Validators.check_string(
                 'WebpushNotification.badge', notification.badge),
-            'body': Validators.check_string(
+            'body': _Validators.check_string(
                 'WebpushNotification.body', notification.body),
             'data': notification.data,
-            'dir': Validators.check_string(
+            'dir': _Validators.check_string(
                 'WebpushNotification.direction', notification.direction),
-            'icon': Validators.check_string(
+            'icon': _Validators.check_string(
                 'WebpushNotification.icon', notification.icon),
-            'image': Validators.check_string(
+            'image': _Validators.check_string(
                 'WebpushNotification.image', notification.image),
-            'lang': Validators.check_string(
+            'lang': _Validators.check_string(
                 'WebpushNotification.language', notification.language),
             'renotify': notification.renotify,
             'requireInteraction': notification.require_interaction,
             'silent': notification.silent,
-            'tag': Validators.check_string(
+            'tag': _Validators.check_string(
                 'WebpushNotification.tag', notification.tag),
-            'timestamp': Validators.check_number(
+            'timestamp': _Validators.check_number(
                 'WebpushNotification.timestamp_millis', notification.timestamp_millis),
-            'title': Validators.check_string(
+            'title': _Validators.check_string(
                 'WebpushNotification.title', notification.title),
             'vibrate': notification.vibrate,
         }
@@ -415,11 +478,11 @@ class MessageEncoder(json.JSONEncoder):
                 raise ValueError('WebpushConfig.notification.actions must be a list of '
                                  'WebpushNotificationAction instances.')
             result = {
-                'action': Validators.check_string(
+                'action': _Validators.check_string(
                     'WebpushNotificationAction.action', action.action),
-                'title': Validators.check_string(
+                'title': _Validators.check_string(
                     'WebpushNotificationAction.title', action.title),
-                'icon': Validators.check_string(
+                'icon': _Validators.check_string(
                     'WebpushNotificationAction.icon', action.icon),
             }
             results.append(cls.remove_null_values(result))
@@ -431,7 +494,7 @@ class MessageEncoder(json.JSONEncoder):
         if options is None:
             return None
         result = {
-            'link': Validators.check_string('WebpushConfig.fcm_options.link', options.link),
+            'link': _Validators.check_string('WebpushConfig.fcm_options.link', options.link),
         }
         result = cls.remove_null_values(result)
         link = result.get('link')
@@ -447,7 +510,7 @@ class MessageEncoder(json.JSONEncoder):
         if not isinstance(apns, _messaging_utils.APNSConfig):
             raise ValueError('Message.apns must be an instance of APNSConfig class.')
         result = {
-            'headers': Validators.check_string_dict(
+            'headers': _Validators.check_string_dict(
                 'APNSConfig.headers', apns.headers),
             'payload': cls.encode_apns_payload(apns.payload),
             'fcm_options': cls.encode_apns_fcm_options(apns.fcm_options),
@@ -476,9 +539,9 @@ class MessageEncoder(json.JSONEncoder):
         if not isinstance(fcm_options, _messaging_utils.APNSFCMOptions):
             raise ValueError('APNSConfig.fcm_options must be an instance of APNSFCMOptions class.')
         result = {
-            'analytics_label': Validators.check_analytics_label(
+            'analytics_label': _Validators.check_analytics_label(
                 'APNSFCMOptions.analytics_label', fcm_options.analytics_label),
-            'image': Validators.check_string('APNSFCMOptions.image', fcm_options.image)
+            'image': _Validators.check_string('APNSFCMOptions.image', fcm_options.image)
         }
         result = cls.remove_null_values(result)
         return result
@@ -490,10 +553,10 @@ class MessageEncoder(json.JSONEncoder):
             raise ValueError('APNSPayload.aps must be an instance of Aps class.')
         result = {
             'alert': cls.encode_aps_alert(aps.alert),
-            'badge': Validators.check_number('Aps.badge', aps.badge),
+            'badge': _Validators.check_number('Aps.badge', aps.badge),
             'sound': cls.encode_aps_sound(aps.sound),
-            'category': Validators.check_string('Aps.category', aps.category),
-            'thread-id': Validators.check_string('Aps.thread_id', aps.thread_id),
+            'category': _Validators.check_string('Aps.category', aps.category),
+            'thread-id': _Validators.check_string('Aps.thread_id', aps.thread_id),
         }
         if aps.content_available is True:
             result['content-available'] = 1
@@ -503,7 +566,7 @@ class MessageEncoder(json.JSONEncoder):
             if not isinstance(aps.custom_data, dict):
                 raise ValueError('Aps.custom_data must be a dict.')
             for key, val in aps.custom_data.items():
-                Validators.check_string('Aps.custom_data key', key)
+                _Validators.check_string('Aps.custom_data key', key)
                 if key in result:
                     raise ValueError('Multiple specifications for {0} in Aps.'.format(key))
                 result[key] = val
@@ -520,8 +583,8 @@ class MessageEncoder(json.JSONEncoder):
             raise ValueError(
                 'Aps.sound must be a non-empty string or an instance of CriticalSound class.')
         result = {
-            'name': Validators.check_string('CriticalSound.name', sound.name, non_empty=True),
-            'volume': Validators.check_number('CriticalSound.volume', sound.volume),
+            'name': _Validators.check_string('CriticalSound.name', sound.name, non_empty=True),
+            'volume': _Validators.check_number('CriticalSound.volume', sound.volume),
         }
         if sound.critical:
             result['critical'] = 1
@@ -542,20 +605,20 @@ class MessageEncoder(json.JSONEncoder):
         if not isinstance(alert, _messaging_utils.ApsAlert):
             raise ValueError('Aps.alert must be a string or an instance of ApsAlert class.')
         result = {
-            'title': Validators.check_string('ApsAlert.title', alert.title),
-            'subtitle': Validators.check_string('ApsAlert.subtitle', alert.subtitle),
-            'body': Validators.check_string('ApsAlert.body', alert.body),
-            'title-loc-key': Validators.check_string(
+            'title': _Validators.check_string('ApsAlert.title', alert.title),
+            'subtitle': _Validators.check_string('ApsAlert.subtitle', alert.subtitle),
+            'body': _Validators.check_string('ApsAlert.body', alert.body),
+            'title-loc-key': _Validators.check_string(
                 'ApsAlert.title_loc_key', alert.title_loc_key),
-            'title-loc-args': Validators.check_string_list(
+            'title-loc-args': _Validators.check_string_list(
                 'ApsAlert.title_loc_args', alert.title_loc_args),
-            'loc-key': Validators.check_string(
+            'loc-key': _Validators.check_string(
                 'ApsAlert.loc_key', alert.loc_key),
-            'loc-args': Validators.check_string_list(
+            'loc-args': _Validators.check_string_list(
                 'ApsAlert.loc_args', alert.loc_args),
-            'action-loc-key': Validators.check_string(
+            'action-loc-key': _Validators.check_string(
                 'ApsAlert.action_loc_key', alert.action_loc_key),
-            'launch-image': Validators.check_string(
+            'launch-image': _Validators.check_string(
                 'ApsAlert.launch_image', alert.launch_image),
         }
         if result.get('loc-args') and not result.get('loc-key'):
@@ -568,7 +631,7 @@ class MessageEncoder(json.JSONEncoder):
             if not isinstance(alert.custom_data, dict):
                 raise ValueError('ApsAlert.custom_data must be a dict.')
             for key, val in alert.custom_data.items():
-                Validators.check_string('ApsAlert.custom_data key', key)
+                _Validators.check_string('ApsAlert.custom_data key', key)
                 # allow specifying key override because Apple could update API so that key
                 # could have unexpected value type
                 result[key] = val
@@ -582,9 +645,9 @@ class MessageEncoder(json.JSONEncoder):
         if not isinstance(notification, _messaging_utils.Notification):
             raise ValueError('Message.notification must be an instance of Notification class.')
         result = {
-            'body': Validators.check_string('Notification.body', notification.body),
-            'title': Validators.check_string('Notification.title', notification.title),
-            'image': Validators.check_string('Notification.image', notification.image)
+            'body': _Validators.check_string('Notification.body', notification.body),
+            'title': _Validators.check_string('Notification.title', notification.title),
+            'image': _Validators.check_string('Notification.image', notification.image)
         }
         return cls.remove_null_values(result)
 
@@ -601,17 +664,17 @@ class MessageEncoder(json.JSONEncoder):
         return topic
 
     def default(self, obj): # pylint: disable=method-hidden
-        if not isinstance(obj, _messaging_utils.Message):
+        if not isinstance(obj, Message):
             return json.JSONEncoder.default(self, obj)
         result = {
             'android': MessageEncoder.encode_android(obj.android),
             'apns': MessageEncoder.encode_apns(obj.apns),
-            'condition': Validators.check_string(
+            'condition': _Validators.check_string(
                 'Message.condition', obj.condition, non_empty=True),
-            'data': Validators.check_string_dict('Message.data', obj.data),
+            'data': _Validators.check_string_dict('Message.data', obj.data),
             'notification': MessageEncoder.encode_notification(obj.notification),
-            'token': Validators.check_string('Message.token', obj.token, non_empty=True),
-            'topic': Validators.check_string('Message.topic', obj.topic, non_empty=True),
+            'token': _Validators.check_string('Message.token', obj.token, non_empty=True),
+            'topic': _Validators.check_string('Message.topic', obj.topic, non_empty=True),
             'webpush': MessageEncoder.encode_webpush(obj.webpush),
             'fcm_options': MessageEncoder.encode_fcm_options(obj.fcm_options),
         }
@@ -630,7 +693,7 @@ class MessageEncoder(json.JSONEncoder):
         if not isinstance(fcm_options, _messaging_utils.FCMOptions):
             raise ValueError('Message.fcm_options must be an instance of FCMOptions class.')
         result = {
-            'analytics_label': Validators.check_analytics_label(
+            'analytics_label': _Validators.check_analytics_label(
                 'FCMOptions.analytics_label', fcm_options.analytics_label),
         }
         result = cls.remove_null_values(result)

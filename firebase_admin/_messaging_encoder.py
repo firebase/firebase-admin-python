@@ -337,27 +337,27 @@ class MessageEncoder(json.JSONEncoder):
             result['event_time'] = str(event_time.isoformat()) + 'Z'
 
         priority = result.get('notification_priority')
-        if priority and priority not in ('min', 'low', 'default', 'high', 'max'):
-            raise ValueError('AndroidNotification.priority must be "default", "min", "low", "high" '
-                             'or "max".')
         if priority:
+            if priority not in ('min', 'low', 'default', 'high', 'max'):
+                raise ValueError('AndroidNotification.priority must be "default", "min", "low", '
+                                 '"high" or "max".')
             result['notification_priority'] = 'PRIORITY_' + priority.upper()
 
         visibility = result.get('visibility')
-        if visibility and visibility not in ('private', 'public', 'secret'):
-            raise ValueError(
-                'AndroidNotification.visibility must be "private", "public" or "secret".')
         if visibility:
+            if visibility not in ('private', 'public', 'secret'):
+                raise ValueError(
+                    'AndroidNotification.visibility must be "private", "public" or "secret".')
             result['visibility'] = visibility.upper()
 
         vibrate_timings_millis = result.get('vibrate_timings')
         if vibrate_timings_millis:
-            vibrate_timings_secs = []
+            vibrate_timing_strings = []
             for msec in vibrate_timings_millis:
                 formated_string = cls.encode_milliseconds(
                     'AndroidNotification.vibrate_timings_millis', msec)
-                vibrate_timings_secs.append(formated_string)
-            result['vibrate_timings'] = vibrate_timings_secs
+                vibrate_timing_strings.append(formated_string)
+            result['vibrate_timings'] = vibrate_timing_strings
         return result
 
     @classmethod
@@ -378,24 +378,25 @@ class MessageEncoder(json.JSONEncoder):
                 light_settings.light_off_duration_millis),
         }
         result = cls.remove_null_values(result)
-        color = result.get('color')
-        if not color:
-            raise ValueError('LightSettings.color is required.')
         light_on_duration = result.get('light_on_duration')
         if not light_on_duration:
             raise ValueError(
                 'LightSettings.light_on_duration_millis is required.')
+
         light_off_duration = result.get('light_off_duration')
         if not light_off_duration:
             raise ValueError(
                 'LightSettings.light_off_duration_millis is required.')
 
+        color = result.get('color')
+        if not color:
+            raise ValueError('LightSettings.color is required.')
         if not re.match(r'^#[0-9a-fA-F]{6}$', color) and not re.match(r'^#[0-9a-fA-F]{8}$', color):
             raise ValueError(
                 'LightSettings.color must be in the form #RRGGBB or #RRGGBBAA.')
         if len(color) == 7:
             color = (color+'FF')
-        rgba = [int(color[i:i + 2], 16) / 255. for i in (1, 3, 5, 7)]
+        rgba = [int(color[i:i + 2], 16) / 255.0 for i in (1, 3, 5, 7)]
         result['color'] = {'red': rgba[0], 'green': rgba[1],
                            'blue': rgba[2], 'alpha': rgba[3]}
         return result

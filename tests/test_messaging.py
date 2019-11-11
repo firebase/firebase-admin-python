@@ -32,6 +32,7 @@ NON_STRING_ARGS = [list(), tuple(), dict(), True, False, 1, 0]
 NON_DICT_ARGS = ['', list(), tuple(), True, False, 1, 0, {1: 'foo'}, {'foo': 1}]
 NON_OBJECT_ARGS = [list(), tuple(), dict(), 'foo', 0, 1, True, False]
 NON_LIST_ARGS = ['', tuple(), dict(), True, False, 1, 0, [1], ['foo', 1]]
+NON_UNUM_ARGS = ['1.23s', list(), tuple(), dict(), -1.23]
 HTTP_ERROR_CODES = {
     400: exceptions.InvalidArgumentError,
     403: exceptions.PermissionDeniedError,
@@ -292,7 +293,7 @@ class TestAndroidConfigEncoder(object):
         else:
             assert str(excinfo.value) == 'AndroidConfig.priority must be a non-empty string.'
 
-    @pytest.mark.parametrize('data', ['1.23s', list(), tuple(), dict(), -1.23])
+    @pytest.mark.parametrize('data', NON_UNUM_ARGS)
     def test_invalid_ttl(self, data):
         with pytest.raises(ValueError) as excinfo:
             check_encoding(messaging.Message(
@@ -479,60 +480,51 @@ class TestAndroidNotificationEncoder(object):
         excinfo = self._check_notification(notification)
         assert str(excinfo.value) == 'AndroidNotification.channel_id must be a string.'
 
-    @pytest.mark.parametrize('data', NON_STRING_ARGS)
-    def test_invalid_event_timestamp(self, data):
-        notification = messaging.AndroidNotification(event_timestamp=data)
+    @pytest.mark.parametrize('timestamp', [100, '', 'foo', {}, [], list(), dict()])
+    def test_invalid_event_timestamp(self, timestamp):
+        notification = messaging.AndroidNotification(event_timestamp=timestamp)
         excinfo = self._check_notification(notification)
         expected = 'AndroidNotification.event_timestamp must be a datetime.'
         assert str(excinfo.value) == expected
 
-    @pytest.mark.parametrize('data', NON_STRING_ARGS + ['', 'topic', 'priority', 'foo'])
-    def test_invalid_priority(self, data):
-        notification = messaging.AndroidNotification(priority=data)
+    @pytest.mark.parametrize('priority', NON_STRING_ARGS + ['foo'])
+    def test_invalid_priority(self, priority):
+        notification = messaging.AndroidNotification(priority=priority)
         excinfo = self._check_notification(notification)
-        if isinstance(data, six.string_types):
-            if not data:
+        if isinstance(priority, six.string_types):
+            if not priority:
                 expected = 'AndroidNotification.priority must be a non-empty string.'
             else:
                 expected = ('AndroidNotification.priority must be "default", "min", "low", "high" '
                             'or "max".')
-            assert str(excinfo.value) == expected
         else:
             expected = 'AndroidNotification.priority must be a non-empty string.'
-            assert str(excinfo.value) == expected
+        assert str(excinfo.value) == expected
 
-    @pytest.mark.parametrize('data', NON_STRING_ARGS + ['', 'topic', 'priority', 'foo'])
-    def test_invalid_visibility(self, data):
-        notification = messaging.AndroidNotification(visibility=data)
+    @pytest.mark.parametrize('visibility', NON_STRING_ARGS + ['', 'topic', 'priority', 'foo'])
+    def test_invalid_visibility(self, visibility):
+        notification = messaging.AndroidNotification(visibility=visibility)
         excinfo = self._check_notification(notification)
-        if isinstance(data, six.string_types):
-            if not data:
+        if isinstance(visibility, six.string_types):
+            if not visibility:
                 expected = 'AndroidNotification.visibility must be a non-empty string.'
             else:
                 expected = ('AndroidNotification.visibility must be "private", "public" or'
                             ' "secret".')
-            assert str(excinfo.value) == expected
         else:
             expected = 'AndroidNotification.visibility must be a non-empty string.'
-            assert str(excinfo.value) == expected
+        assert str(excinfo.value) == expected
 
-    @pytest.mark.parametrize('data', ['', 1, True, 'msec', ['500', 500], [0, 'abc']])
-    def test_invalid_vibrate_timings_millis(self, data):
-        notification = messaging.AndroidNotification(vibrate_timings_millis=data)
+    @pytest.mark.parametrize('vibrate_timings', ['', 1, True, 'msec', ['500', 500], [0, 'abc']])
+    def test_invalid_vibrate_timings_millis(self, vibrate_timings):
+        notification = messaging.AndroidNotification(vibrate_timings_millis=vibrate_timings)
         excinfo = self._check_notification(notification)
-        if isinstance(data, list):
+        if isinstance(vibrate_timings, list):
             expected = ('AndroidNotification.vibrate_timings_millis must not contain non-number '
                         'values.')
-            assert str(excinfo.value) == expected
         else:
             expected = 'AndroidNotification.vibrate_timings_millis must be a list of numbers.'
-            assert str(excinfo.value) == expected
-
-    @pytest.mark.parametrize('data', ['', 'foo', list(), tuple(), dict()])
-    def test_invalid_notification_count(self, data):
-        notification = messaging.AndroidNotification(notification_count=data)
-        excinfo = self._check_notification(notification)
-        assert str(excinfo.value) == 'AndroidNotification.notification_count must be a number.'
+        assert str(excinfo.value) == expected
 
     def test_negative_vibrate_timings_millis(self):
         notification = messaging.AndroidNotification(
@@ -540,6 +532,12 @@ class TestAndroidNotificationEncoder(object):
         excinfo = self._check_notification(notification)
         expected = 'AndroidNotification.vibrate_timings_millis must not be negative.'
         assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('notification_count', ['', 'foo', list(), tuple(), dict()])
+    def test_invalid_notification_count(self, notification_count):
+        notification = messaging.AndroidNotification(notification_count=notification_count)
+        excinfo = self._check_notification(notification)
+        assert str(excinfo.value) == 'AndroidNotification.notification_count must be a number.'
 
     def test_android_notification(self):
         msg = messaging.Message(
@@ -628,27 +626,27 @@ class TestLightSettingsEncoder(object):
         assert str(excinfo.value) == expected
 
     def test_no_color(self):
-        light_settings = messaging.LightSettings(light_on_duration_millis=200,
+        light_settings = messaging.LightSettings(color=None, light_on_duration_millis=200,
                                                  light_off_duration_millis=200)
         excinfo = self._check_light_settings(light_settings)
         expected = 'LightSettings.color is required.'
         assert str(excinfo.value) == expected
 
     def test_no_light_on_duration_millis(self):
-        light_settings = messaging.LightSettings(color='#aabbcc',
+        light_settings = messaging.LightSettings(color='#aabbcc', light_on_duration_millis=None,
                                                  light_off_duration_millis=200)
         excinfo = self._check_light_settings(light_settings)
         expected = 'LightSettings.light_on_duration_millis is required.'
         assert str(excinfo.value) == expected
 
     def test_no_light_off_duration_millis(self):
-        light_settings = messaging.LightSettings(color='#aabbcc',
-                                                 light_on_duration_millis=200)
+        light_settings = messaging.LightSettings(color='#aabbcc', light_on_duration_millis=200,
+                                                 light_off_duration_millis=None)
         excinfo = self._check_light_settings(light_settings)
         expected = 'LightSettings.light_off_duration_millis is required.'
         assert str(excinfo.value) == expected
 
-    @pytest.mark.parametrize('data', ['1.23s', list(), tuple(), dict(), -1.23])
+    @pytest.mark.parametrize('data', NON_UNUM_ARGS)
     def test_invalid_light_off_duration_millis(self, data):
         light_settings = messaging.LightSettings(color='#aabbcc',
                                                  light_on_duration_millis=200,
@@ -662,7 +660,7 @@ class TestLightSettingsEncoder(object):
                                           'duration in milliseconds or '
                                           'an instance of datetime.timedelta.')
 
-    @pytest.mark.parametrize('data', ['1.23s', list(), tuple(), dict(), -1.23])
+    @pytest.mark.parametrize('data', NON_UNUM_ARGS)
     def test_invalid_light_on_duration_millis(self, data):
         light_settings = messaging.LightSettings(color='#aabbcc',
                                                  light_on_duration_millis=data,

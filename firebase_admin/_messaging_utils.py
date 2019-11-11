@@ -97,8 +97,9 @@ class AndroidNotification(object):
             user clicks it in the panel. When set to ``True``, the notification persists even when
             the user clicks it (optional).
         event_timestamp: For notifications that inform users about events with an absolute time
-            reference, sets the time that the event in the notification occurred. Notifications
-            in the panel are sorted by this time (optional).
+            reference, sets the time that the event in the notification occurred as a
+            ``datetime.datetime`` instance. Notifications in the panel are sorted by this time
+            (optional).
         local_only: Set whether or not this notification is relevant only to the current device.
             Some notifications can be bridged to other devices for remote display, such as a Wear OS
             watch. This hint can be set to recommend this notification not be bridged (optional).
@@ -110,13 +111,12 @@ class AndroidNotification(object):
             has been delivered. Whereas ``AndroidMessagePriority`` is an FCM concept that controls
             when the message is delivered (optional). Must be one of ``default``, ``min``, ``low``,
             ``high``, ``max`` or ``normal``.
-        vibrate_timings_millis: Set the vibration pattern to use. Pass in an array of seconds
-            to turn the vibrator on or off (optional). The first value indicates the duration to
-            wait before turning the vibrator on. The next value indicates the duration to keep the
-            vibrator on. Subsequent values alternate between duration to turn the vibrator off and
-            to turn the vibrator on. If ``vibrate_timings_millis`` is set and
-            ``default_vibrate_timings`` is set to ``True``, the default value is used instead of the
-            user-specified ``vibrate_timings_millis``.
+        vibrate_timings_millis: Sets the vibration pattern to use. Pass in an array of milliseconds
+            to turn the vibrator on or off. The first value indicates the duration to wait before
+            turning the vibrator on. The next value indicates the duration to keep the vibrator on.
+            Subsequent values alternate between duration to turn the vibrator off and to turn the
+            vibrator on. If ``vibrate_timings`` is set and ``default_vibrate_timings`` is set to
+            ``True``, the default value is used instead of the user-specified ``vibrate_timings``.
         default_vibrate_timings: If set to ``True``, use the Android framework's default vibrate
             pattern for the notification (optional). Default values are specified in ``config.xml``
             https://android.googlesource.com/platform/frameworks/base/+/master/core/res/res/values/config.xml.
@@ -183,14 +183,14 @@ class LightSettings(object):
     ``messaging.AndroidNotification``.
 
     Args:
-        color: Set color of the LED in ``#rrggbb`` or ``#rrggbbaa`` format (required).
+        color: Set color of the LED in ``#rrggbb`` or ``#rrggbbaa`` format.
         light_on_duration_millis: Along with ``light_off_duration``, define the blink rate of LED
-            flashes (required).
+            flashes.
         light_off_duration_millis: Along with ``light_on_duration``, define the blink rate of LED
-            flashes (required).
+            flashes.
     """
-    def __init__(self, color=None, light_on_duration_millis=None,
-                 light_off_duration_millis=None):
+    def __init__(self, color, light_on_duration_millis,
+                 light_off_duration_millis):
         self.color = color
         self.light_on_duration_millis = light_on_duration_millis
         self.light_off_duration_millis = light_off_duration_millis

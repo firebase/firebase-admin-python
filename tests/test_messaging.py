@@ -682,8 +682,8 @@ class TestLightSettingsEncoder(object):
                                                light_off_duration_millis=200)
         excinfo = self._check_light_settings(notification)
         if isinstance(data, six.string_types):
-            assert str(excinfo.value) == ('LightSettings.color must be in the form #aabbcc or '
-                                          'aabbccdd.')
+            assert str(excinfo.value) == ('LightSettings.color must be in the form #RRGGBB or '
+                                          '#RRGGBBAA.')
         else:
             assert str(
                 excinfo.value) == 'LightSettings.color must be a non-empty string.'

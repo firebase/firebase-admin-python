@@ -90,7 +90,7 @@ class AndroidNotification(object):
             in ``title_loc_key`` (optional).
         channel_id: channel_id of the notification (optional).
         image: Image url of the notification (optional).
-        ticker: Sets the "ticker" text, which is sent to accessibility services. Prior to API
+        ticker: Sets the ``ticker`` text, which is sent to accessibility services. Prior to API
             level 21 (Lollipop), sets the text that is displayed in the status bar when the
             notification first arrives (optional).
         sticky: When set to ``false`` or unset, the notification is automatically dismissed when the

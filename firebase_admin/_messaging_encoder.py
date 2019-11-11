@@ -392,7 +392,7 @@ class MessageEncoder(json.JSONEncoder):
 
         if not re.match(r'^#[0-9a-fA-F]{6}$', color) and not re.match(r'^#[0-9a-fA-F]{8}$', color):
             raise ValueError(
-                'LightSettings.color must be in the form #aabbcc or aabbccdd.')
+                'LightSettings.color must be in the form #RRGGBB or #RRGGBBAA.')
         if len(color) == 7:
             color = (color+'FF')
         rgba = [int(color[i:i + 2], 16) / 255. for i in (1, 3, 5, 7)]

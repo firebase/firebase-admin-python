@@ -91,7 +91,7 @@ class MulticastMessage(object):
 class _Validators(object):
     """A collection of data validation utilities.
 
-    Methods provided in this class raise ValueErrors if any validations fail.
+    Methods provided in this class raise ``ValueErrors`` if any validations fail.
     """
 
     @classmethod
@@ -174,7 +174,7 @@ class _Validators(object):
 
 
 class MessageEncoder(json.JSONEncoder):
-    """A custom JSONEncoder implementation for serializing Message instances into JSON."""
+    """A custom ``JSONEncoder`` implementation for serializing Message instances into JSON."""
 
     @classmethod
     def remove_null_values(cls, dict_value):
@@ -182,7 +182,7 @@ class MessageEncoder(json.JSONEncoder):
 
     @classmethod
     def encode_android(cls, android):
-        """Encodes an AndroidConfig instance into JSON."""
+        """Encodes an ``AndroidConfig`` instance into JSON."""
         if android is None:
             return None
         if not isinstance(android, _messaging_utils.AndroidConfig):
@@ -208,7 +208,7 @@ class MessageEncoder(json.JSONEncoder):
 
     @classmethod
     def encode_android_fcm_options(cls, fcm_options):
-        """Encodes an AndroidFCMOptions instance into a json."""
+        """Encodes an ``AndroidFCMOptions`` instance into JSON."""
         if fcm_options is None:
             return None
         if not isinstance(fcm_options, _messaging_utils.AndroidFCMOptions):
@@ -223,7 +223,7 @@ class MessageEncoder(json.JSONEncoder):
 
     @classmethod
     def encode_ttl(cls, ttl):
-        """Encodes a AndroidConfig TTL duration into a string."""
+        """Encodes an ``AndroidConfig`` ``TTL`` duration into a string."""
         if ttl is None:
             return None
         if isinstance(ttl, numbers.Number):
@@ -268,7 +268,7 @@ class MessageEncoder(json.JSONEncoder):
 
     @classmethod
     def encode_android_notification(cls, notification):
-        """Encodes an AndroidNotification instance into JSON."""
+        """Encodes an ``AndroidNotification`` instance into JSON."""
         if notification is None:
             return None
         if not isinstance(notification, _messaging_utils.AndroidNotification):
@@ -362,7 +362,7 @@ class MessageEncoder(json.JSONEncoder):
 
     @classmethod
     def encode_light_settings(cls, light_settings):
-        """Encodes a LightSettings instance into JSON."""
+        """Encodes a ``LightSettings`` instance into JSON."""
         if light_settings is None:
             return None
         if not isinstance(light_settings, _messaging_utils.LightSettings):
@@ -403,7 +403,7 @@ class MessageEncoder(json.JSONEncoder):
 
     @classmethod
     def encode_webpush(cls, webpush):
-        """Encodes a WebpushConfig instance into JSON."""
+        """Encodes a ``WebpushConfig`` instance into JSON."""
         if webpush is None:
             return None
         if not isinstance(webpush, _messaging_utils.WebpushConfig):
@@ -420,7 +420,7 @@ class MessageEncoder(json.JSONEncoder):
 
     @classmethod
     def encode_webpush_notification(cls, notification):
-        """Encodes a WebpushNotification instance into JSON."""
+        """Encodes a ``WebpushNotification`` instance into JSON."""
         if notification is None:
             return None
         if not isinstance(notification, _messaging_utils.WebpushNotification):
@@ -467,7 +467,7 @@ class MessageEncoder(json.JSONEncoder):
 
     @classmethod
     def encode_webpush_notification_actions(cls, actions):
-        """Encodes a list of WebpushNotificationActions into JSON."""
+        """Encodes a list of ``WebpushNotificationActions`` into JSON."""
         if actions is None:
             return None
         if not isinstance(actions, list):
@@ -491,7 +491,7 @@ class MessageEncoder(json.JSONEncoder):
 
     @classmethod
     def encode_webpush_fcm_options(cls, options):
-        """Encodes a WebpushFCMOptions instance into JSON."""
+        """Encodes a ``WebpushFCMOptions`` instance into JSON."""
         if options is None:
             return None
         result = {
@@ -505,7 +505,7 @@ class MessageEncoder(json.JSONEncoder):
 
     @classmethod
     def encode_apns(cls, apns):
-        """Encodes an APNSConfig instance into JSON."""
+        """Encodes an ``APNSConfig`` instance into JSON."""
         if apns is None:
             return None
         if not isinstance(apns, _messaging_utils.APNSConfig):
@@ -520,7 +520,7 @@ class MessageEncoder(json.JSONEncoder):
 
     @classmethod
     def encode_apns_payload(cls, payload):
-        """Encodes an APNSPayload instance into JSON."""
+        """Encodes an ``APNSPayload`` instance into JSON."""
         if payload is None:
             return None
         if not isinstance(payload, _messaging_utils.APNSPayload):
@@ -534,7 +534,7 @@ class MessageEncoder(json.JSONEncoder):
 
     @classmethod
     def encode_apns_fcm_options(cls, fcm_options):
-        """Encodes an APNSFCMOptions instance into JSON."""
+        """Encodes an ``APNSFCMOptions`` instance into JSON."""
         if fcm_options is None:
             return None
         if not isinstance(fcm_options, _messaging_utils.APNSFCMOptions):
@@ -549,7 +549,7 @@ class MessageEncoder(json.JSONEncoder):
 
     @classmethod
     def encode_aps(cls, aps):
-        """Encodes an Aps instance into JSON."""
+        """Encodes an ``Aps`` instance into JSON."""
         if not isinstance(aps, _messaging_utils.Aps):
             raise ValueError('APNSPayload.aps must be an instance of Aps class.')
         result = {
@@ -598,7 +598,7 @@ class MessageEncoder(json.JSONEncoder):
 
     @classmethod
     def encode_aps_alert(cls, alert):
-        """Encodes an ApsAlert instance into JSON."""
+        """Encodes an ``ApsAlert`` instance into JSON."""
         if alert is None:
             return None
         if isinstance(alert, six.string_types):
@@ -640,7 +640,7 @@ class MessageEncoder(json.JSONEncoder):
 
     @classmethod
     def encode_notification(cls, notification):
-        """Encodes an Notification instance into JSON."""
+        """Encodes a ``Notification`` instance into JSON."""
         if notification is None:
             return None
         if not isinstance(notification, _messaging_utils.Notification):
@@ -688,7 +688,7 @@ class MessageEncoder(json.JSONEncoder):
 
     @classmethod
     def encode_fcm_options(cls, fcm_options):
-        """Encodes an FCMOptions instance into JSON."""
+        """Encodes an ``FCMOptions`` instance into JSON."""
         if fcm_options is None:
             return None
         if not isinstance(fcm_options, _messaging_utils.FCMOptions):

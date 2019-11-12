@@ -100,13 +100,13 @@ class AndroidNotification(object):
             reference, sets the time that the event in the notification occurred as a
             ``datetime.datetime`` instance. Notifications in the panel are sorted by this time
             (optional).
-        local_only: Set whether or not this notification is relevant only to the current device.
+        local_only: Sets whether or not this notification is relevant only to the current device.
             Some notifications can be bridged to other devices for remote display, such as a Wear OS
             watch. This hint can be set to recommend this notification not be bridged (optional).
             See Wear OS guides:
             https://developer.android.com/training/wearables/notifications/bridger#existing-method-of-preventing-bridging
-        priority: Set the relative priority for this notification. Low-priority notifications may be
-            hidden from the user in certain situations. Note this priority differs from
+        priority: Sets the relative priority for this notification. Low-priority notifications may
+            be hidden from the user in certain situations. Note this priority differs from
             ``AndroidMessagePriority``. This priority is processed by the client after the message
             has been delivered. Whereas ``AndroidMessagePriority`` is an FCM concept that controls
             when the message is delivered (optional). Must be one of ``default``, ``min``, ``low``,
@@ -132,7 +132,7 @@ class AndroidNotification(object):
             https://android.googlesource.com/platform/frameworks/base/+/master/core/res/res/values/config.xml.
             If ``default_light_settings`` is set to ``True`` and ``light_settings`` is also set, the
             user-specified ``light_settings`` is used instead of the default value.
-        visibility: Set the visibility of the notification. Must be either ``private``, ``public``,
+        visibility: Sets the visibility of the notification. Must be either ``private``, ``public``,
             or ``secret``. If unspecified, default to ``private``.
         notification_count: Sets the number of items this notification represents. May be displayed
             as a badge count for Launchers that support badging. See ``NotificationBadge``
@@ -183,10 +183,10 @@ class LightSettings(object):
     ``messaging.AndroidNotification``.
 
     Args:
-        color: Set color of the LED in ``#rrggbb`` or ``#rrggbbaa`` format.
-        light_on_duration_millis: Along with ``light_off_duration``, define the blink rate of LED
+        color: Sets the color of the LED in ``#rrggbb`` or ``#rrggbbaa`` format.
+        light_on_duration_millis: Along with ``light_off_duration``, defines the blink rate of LED
             flashes.
-        light_off_duration_millis: Along with ``light_on_duration``, define the blink rate of LED
+        light_off_duration_millis: Along with ``light_on_duration``, defines the blink rate of LED
             flashes.
     """
     def __init__(self, color, light_on_duration_millis,

@@ -32,7 +32,7 @@ NON_STRING_ARGS = [list(), tuple(), dict(), True, False, 1, 0]
 NON_DICT_ARGS = ['', list(), tuple(), True, False, 1, 0, {1: 'foo'}, {'foo': 1}]
 NON_OBJECT_ARGS = [list(), tuple(), dict(), 'foo', 0, 1, True, False]
 NON_LIST_ARGS = ['', tuple(), dict(), True, False, 1, 0, [1], ['foo', 1]]
-NON_UNUM_ARGS = ['1.23s', list(), tuple(), dict(), -1.23]
+NON_UINT_ARGS = ['1.23s', list(), tuple(), dict(), -1.23]
 HTTP_ERROR_CODES = {
     400: exceptions.InvalidArgumentError,
     403: exceptions.PermissionDeniedError,
@@ -293,7 +293,7 @@ class TestAndroidConfigEncoder(object):
         else:
             assert str(excinfo.value) == 'AndroidConfig.priority must be a non-empty string.'
 
-    @pytest.mark.parametrize('data', NON_UNUM_ARGS)
+    @pytest.mark.parametrize('data', NON_UINT_ARGS)
     def test_invalid_ttl(self, data):
         with pytest.raises(ValueError) as excinfo:
             check_encoding(messaging.Message(
@@ -501,7 +501,7 @@ class TestAndroidNotificationEncoder(object):
             expected = 'AndroidNotification.priority must be a non-empty string.'
         assert str(excinfo.value) == expected
 
-    @pytest.mark.parametrize('visibility', NON_STRING_ARGS + ['', 'topic', 'priority', 'foo'])
+    @pytest.mark.parametrize('visibility', NON_STRING_ARGS + ['foo'])
     def test_invalid_visibility(self, visibility):
         notification = messaging.AndroidNotification(visibility=visibility)
         excinfo = self._check_notification(notification)
@@ -646,7 +646,7 @@ class TestLightSettingsEncoder(object):
         expected = 'LightSettings.light_off_duration_millis is required.'
         assert str(excinfo.value) == expected
 
-    @pytest.mark.parametrize('data', NON_UNUM_ARGS)
+    @pytest.mark.parametrize('data', NON_UINT_ARGS)
     def test_invalid_light_off_duration_millis(self, data):
         light_settings = messaging.LightSettings(color='#aabbcc',
                                                  light_on_duration_millis=200,
@@ -660,7 +660,7 @@ class TestLightSettingsEncoder(object):
                                           'duration in milliseconds or '
                                           'an instance of datetime.timedelta.')
 
-    @pytest.mark.parametrize('data', NON_UNUM_ARGS)
+    @pytest.mark.parametrize('data', NON_UINT_ARGS)
     def test_invalid_light_on_duration_millis(self, data):
         light_settings = messaging.LightSettings(color='#aabbcc',
                                                  light_on_duration_millis=data,

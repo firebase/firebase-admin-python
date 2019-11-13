@@ -32,6 +32,7 @@ NON_STRING_ARGS = [list(), tuple(), dict(), True, False, 1, 0]
 NON_DICT_ARGS = ['', list(), tuple(), True, False, 1, 0, {1: 'foo'}, {'foo': 1}]
 NON_OBJECT_ARGS = [list(), tuple(), dict(), 'foo', 0, 1, True, False]
 NON_LIST_ARGS = ['', tuple(), dict(), True, False, 1, 0, [1], ['foo', 1]]
+NON_UINT_ARGS = ['1.23s', list(), tuple(), dict(), -1.23]
 HTTP_ERROR_CODES = {
     400: exceptions.InvalidArgumentError,
     403: exceptions.PermissionDeniedError,
@@ -292,7 +293,7 @@ class TestAndroidConfigEncoder(object):
         else:
             assert str(excinfo.value) == 'AndroidConfig.priority must be a non-empty string.'
 
-    @pytest.mark.parametrize('data', ['1.23s', list(), tuple(), dict(), -1.23])
+    @pytest.mark.parametrize('data', NON_UINT_ARGS)
     def test_invalid_ttl(self, data):
         with pytest.raises(ValueError) as excinfo:
             check_encoding(messaging.Message(
@@ -474,10 +475,69 @@ class TestAndroidNotificationEncoder(object):
         assert str(excinfo.value) == expected
 
     @pytest.mark.parametrize('data', NON_STRING_ARGS)
-    def test_invalid_channek_id(self, data):
+    def test_invalid_channel_id(self, data):
         notification = messaging.AndroidNotification(channel_id=data)
         excinfo = self._check_notification(notification)
         assert str(excinfo.value) == 'AndroidNotification.channel_id must be a string.'
+
+    @pytest.mark.parametrize('timestamp', [100, '', 'foo', {}, [], list(), dict()])
+    def test_invalid_event_timestamp(self, timestamp):
+        notification = messaging.AndroidNotification(event_timestamp=timestamp)
+        excinfo = self._check_notification(notification)
+        expected = 'AndroidNotification.event_timestamp must be a datetime.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('priority', NON_STRING_ARGS + ['foo'])
+    def test_invalid_priority(self, priority):
+        notification = messaging.AndroidNotification(priority=priority)
+        excinfo = self._check_notification(notification)
+        if isinstance(priority, six.string_types):
+            if not priority:
+                expected = 'AndroidNotification.priority must be a non-empty string.'
+            else:
+                expected = ('AndroidNotification.priority must be "default", "min", "low", "high" '
+                            'or "max".')
+        else:
+            expected = 'AndroidNotification.priority must be a non-empty string.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('visibility', NON_STRING_ARGS + ['foo'])
+    def test_invalid_visibility(self, visibility):
+        notification = messaging.AndroidNotification(visibility=visibility)
+        excinfo = self._check_notification(notification)
+        if isinstance(visibility, six.string_types):
+            if not visibility:
+                expected = 'AndroidNotification.visibility must be a non-empty string.'
+            else:
+                expected = ('AndroidNotification.visibility must be "private", "public" or'
+                            ' "secret".')
+        else:
+            expected = 'AndroidNotification.visibility must be a non-empty string.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('vibrate_timings', ['', 1, True, 'msec', ['500', 500], [0, 'abc']])
+    def test_invalid_vibrate_timings_millis(self, vibrate_timings):
+        notification = messaging.AndroidNotification(vibrate_timings_millis=vibrate_timings)
+        excinfo = self._check_notification(notification)
+        if isinstance(vibrate_timings, list):
+            expected = ('AndroidNotification.vibrate_timings_millis must not contain non-number '
+                        'values.')
+        else:
+            expected = 'AndroidNotification.vibrate_timings_millis must be a list of numbers.'
+        assert str(excinfo.value) == expected
+
+    def test_negative_vibrate_timings_millis(self):
+        notification = messaging.AndroidNotification(
+            vibrate_timings_millis=[100, -20, 15])
+        excinfo = self._check_notification(notification)
+        expected = 'AndroidNotification.vibrate_timings_millis must not be negative.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('notification_count', ['', 'foo', list(), tuple(), dict()])
+    def test_invalid_notification_count(self, notification_count):
+        notification = messaging.AndroidNotification(notification_count=notification_count)
+        excinfo = self._check_notification(notification)
+        assert str(excinfo.value) == 'AndroidNotification.notification_count must be a number.'
 
     def test_android_notification(self):
         msg = messaging.Message(
@@ -486,7 +546,17 @@ class TestAndroidNotificationEncoder(object):
                 notification=messaging.AndroidNotification(
                     title='t', body='b', icon='i', color='#112233', sound='s', tag='t',
                     click_action='ca', title_loc_key='tlk', body_loc_key='blk',
-                    title_loc_args=['t1', 't2'], body_loc_args=['b1', 'b2'], channel_id='c'
+                    title_loc_args=['t1', 't2'], body_loc_args=['b1', 'b2'], channel_id='c',
+                    ticker='ticker', sticky=True,
+                    event_timestamp=datetime.datetime(2019, 10, 20, 15, 12, 23, 123),
+                    local_only=False,
+                    priority='high', vibrate_timings_millis=[100, 50, 250],
+                    default_vibrate_timings=False, default_sound=True,
+                    light_settings=messaging.LightSettings(
+                        color='#AABBCCDD', light_on_duration_millis=200,
+                        light_off_duration_millis=300,
+                    ),
+                    default_light_settings=False, visibility='public', notification_count=1,
                 )
             )
         )
@@ -505,7 +575,142 @@ class TestAndroidNotificationEncoder(object):
                     'body_loc_key': 'blk',
                     'title_loc_args': ['t1', 't2'],
                     'body_loc_args': ['b1', 'b2'],
-                    'channel_id' : 'c',
+                    'channel_id': 'c',
+                    'ticker': 'ticker',
+                    'sticky': 1,
+                    'event_time': '2019-10-20T15:12:23.000123Z',
+                    'local_only': 0,
+                    'notification_priority': 'PRIORITY_HIGH',
+                    'vibrate_timings': ['0.100000000s', '0.050000000s', '0.250000000s'],
+                    'default_vibrate_timings': 0,
+                    'default_sound': 1,
+                    'light_settings': {
+                        'color': {
+                            'red': 0.6666666666666666,
+                            'green': 0.7333333333333333,
+                            'blue': 0.8,
+                            'alpha': 0.8666666666666667,
+                        },
+                        'light_on_duration': '0.200000000s',
+                        'light_off_duration': '0.300000000s',
+                    },
+                    'default_light_settings': 0,
+                    'visibility': 'PUBLIC',
+                    'notification_count': 1,
+                },
+            },
+        }
+        check_encoding(msg, expected)
+
+
+class TestLightSettingsEncoder(object):
+
+    def _check_light_settings(self, light_settings):
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(
+                topic='topic', android=messaging.AndroidConfig(
+                    notification=messaging.AndroidNotification(
+                        light_settings=light_settings
+                    ))))
+        return excinfo
+
+    @pytest.mark.parametrize('data', NON_OBJECT_ARGS)
+    def test_invalid_light_settings(self, data):
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(
+                topic='topic', android=messaging.AndroidConfig(
+                    notification=messaging.AndroidNotification(
+                        light_settings=data
+                    ))))
+        expected = 'AndroidNotification.light_settings must be an instance of LightSettings class.'
+        assert str(excinfo.value) == expected
+
+    def test_no_color(self):
+        light_settings = messaging.LightSettings(color=None, light_on_duration_millis=200,
+                                                 light_off_duration_millis=200)
+        excinfo = self._check_light_settings(light_settings)
+        expected = 'LightSettings.color is required.'
+        assert str(excinfo.value) == expected
+
+    def test_no_light_on_duration_millis(self):
+        light_settings = messaging.LightSettings(color='#aabbcc', light_on_duration_millis=None,
+                                                 light_off_duration_millis=200)
+        excinfo = self._check_light_settings(light_settings)
+        expected = 'LightSettings.light_on_duration_millis is required.'
+        assert str(excinfo.value) == expected
+
+    def test_no_light_off_duration_millis(self):
+        light_settings = messaging.LightSettings(color='#aabbcc', light_on_duration_millis=200,
+                                                 light_off_duration_millis=None)
+        excinfo = self._check_light_settings(light_settings)
+        expected = 'LightSettings.light_off_duration_millis is required.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', NON_UINT_ARGS)
+    def test_invalid_light_off_duration_millis(self, data):
+        light_settings = messaging.LightSettings(color='#aabbcc',
+                                                 light_on_duration_millis=200,
+                                                 light_off_duration_millis=data)
+        excinfo = self._check_light_settings(light_settings)
+        if isinstance(data, numbers.Number):
+            assert str(excinfo.value) == ('LightSettings.light_off_duration_millis must not be '
+                                          'negative.')
+        else:
+            assert str(excinfo.value) == ('LightSettings.light_off_duration_millis must be a '
+                                          'duration in milliseconds or '
+                                          'an instance of datetime.timedelta.')
+
+    @pytest.mark.parametrize('data', NON_UINT_ARGS)
+    def test_invalid_light_on_duration_millis(self, data):
+        light_settings = messaging.LightSettings(color='#aabbcc',
+                                                 light_on_duration_millis=data,
+                                                 light_off_duration_millis=200)
+        excinfo = self._check_light_settings(light_settings)
+        if isinstance(data, numbers.Number):
+            assert str(excinfo.value) == ('LightSettings.light_on_duration_millis must not be '
+                                          'negative.')
+        else:
+            assert str(excinfo.value) == ('LightSettings.light_on_duration_millis must be a '
+                                          'duration in milliseconds or '
+                                          'an instance of datetime.timedelta.')
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS + ['foo', '#xxyyzz', '112233', '#11223'])
+    def test_invalid_color(self, data):
+        notification = messaging.LightSettings(color=data, light_on_duration_millis=300,
+                                               light_off_duration_millis=200)
+        excinfo = self._check_light_settings(notification)
+        if isinstance(data, six.string_types):
+            assert str(excinfo.value) == ('LightSettings.color must be in the form #RRGGBB or '
+                                          '#RRGGBBAA.')
+        else:
+            assert str(
+                excinfo.value) == 'LightSettings.color must be a non-empty string.'
+
+    def test_light_settings(self):
+        msg = messaging.Message(
+            topic='topic', android=messaging.AndroidConfig(
+                notification=messaging.AndroidNotification(
+                    light_settings=messaging.LightSettings(
+                        color="#aabbcc",
+                        light_on_duration_millis=200,
+                        light_off_duration_millis=300,
+                    )
+                ))
+        )
+        expected = {
+            'topic': 'topic',
+            'android': {
+                'notification': {
+                    'light_settings': {
+                        'color': {
+                            'red': 0.6666666666666666,
+                            'green': 0.7333333333333333,
+                            'blue': 0.8,
+                            'alpha': 1,
+                        },
+                        'light_on_duration': '0.200000000s',
+                        'light_off_duration': '0.300000000s',
+                    }
                 },
             },
         }

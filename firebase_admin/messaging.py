@@ -24,6 +24,7 @@ from googleapiclient import _auth
 
 import firebase_admin
 from firebase_admin import _http_client
+from firebase_admin import _messaging_encoder
 from firebase_admin import _messaging_utils
 from firebase_admin import _utils
 
@@ -44,6 +45,7 @@ __all__ = [
     'CriticalSound',
     'ErrorInfo',
     'FCMOptions',
+    'LightSettings',
     'Message',
     'MulticastMessage',
     'Notification',
@@ -76,8 +78,9 @@ Aps = _messaging_utils.Aps
 ApsAlert = _messaging_utils.ApsAlert
 CriticalSound = _messaging_utils.CriticalSound
 FCMOptions = _messaging_utils.FCMOptions
-Message = _messaging_utils.Message
-MulticastMessage = _messaging_utils.MulticastMessage
+LightSettings = _messaging_utils.LightSettings
+Message = _messaging_encoder.Message
+MulticastMessage = _messaging_encoder.MulticastMessage
 Notification = _messaging_utils.Notification
 WebpushConfig = _messaging_utils.WebpushConfig
 WebpushFCMOptions = _messaging_utils.WebpushFCMOptions
@@ -306,7 +309,7 @@ class _MessagingService(object):
     FCM_BATCH_URL = 'https://fcm.googleapis.com/batch'
     IID_URL = 'https://iid.googleapis.com'
     IID_HEADERS = {'access_token_auth': 'true'}
-    JSON_ENCODER = _messaging_utils.MessageEncoder()
+    JSON_ENCODER = _messaging_encoder.MessageEncoder()
 
     FCM_ERROR_TYPES = {
         'APNS_AUTH_ERROR': ThirdPartyAuthError,

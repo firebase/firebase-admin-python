@@ -318,8 +318,8 @@ class Model(object):
 
     @property
     def model_format(self):
-        """The model's ``ModelFormat`` object, which represents the model's format
-        and storage location"""
+        """The model's ``ModelFormat`` object, which represents the model's
+        format and storage location."""
         return self._model_format
 
     @model_format.setter
@@ -382,7 +382,7 @@ class TFLiteFormat(ModelFormat):
 
     @property
     def model_source(self):
-        """The TF Lite model's location"""
+        """The TF Lite model's location."""
         return self._model_source
 
     @model_source.setter
@@ -394,7 +394,7 @@ class TFLiteFormat(ModelFormat):
 
     @property
     def size_bytes(self):
-        """The size in bytes of the TF Lite model"""
+        """The size in bytes of the TF Lite model."""
         return self._data.get('sizeBytes')
 
     def as_dict(self, for_upload=False):
@@ -435,7 +435,7 @@ class _CloudStorageClient(object):
 
     @staticmethod
     def upload(bucket_name, model_file_name, app):
-        """Upload a model file to the specified Storage bucket"""
+        """Upload a model file to the specified Storage bucket."""
         _CloudStorageClient._assert_gcs_enabled()
         bucket = storage.bucket(bucket_name, app=app)
         blob_name = _CloudStorageClient.BLOB_NAME.format(model_file_name)
@@ -552,7 +552,7 @@ class TFLiteGCSModelSource(TFLiteModelSource):
 
     @property
     def gcs_tflite_uri(self):
-        """URI of the model file in Cloud Storage"""
+        """URI of the model file in Cloud Storage."""
         return self._gcs_tflite_uri
 
     @gcs_tflite_uri.setter
@@ -601,7 +601,7 @@ class ListModelsPage(object):
 
     @property
     def next_page_token(self):
-        """Token identifying the next page of results"""
+        """Token identifying the next page of results."""
         return self._list_response.get('nextPageToken', '')
 
     @property

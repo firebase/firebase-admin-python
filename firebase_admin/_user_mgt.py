@@ -659,6 +659,33 @@ class UserManager(object):
                     'Failed to generate email action link.', http_response=http_resp)
             return body.get('oobLink')
 
+    def send_email_action_link(self, action_type, email, action_code_settings=None):
+        """Sends an email of the given action type
+
+        Args:
+            action_type: String. Valid values ['VERIFY_EMAIL', 'EMAIL_SIGNIN', 'PASSWORD_RESET']
+            email: Email of the user to whom the email will be sent
+            action_code_settings: ``ActionCodeSettings`` object or dict (optional). Defines whether
+                the link is to be handled by a mobile app and the additional state information to be
+                passed in the deep link, etc.
+
+        Raises:
+            FirebaseError: If an error occurs while generating the link
+            ValueError: If the provided arguments are invalid
+        """
+        payload = {
+            'requestType': _auth_utils.validate_action_type(action_type),
+            'email': _auth_utils.validate_email(email)
+        }
+
+        if action_code_settings:
+            payload.update(encode_action_code_settings(action_code_settings))
+        try:
+            self._client.body_and_response(
+                'post', '/accounts:sendOobCode', json=payload)
+        except requests.exceptions.RequestException as error:
+            raise _auth_utils.handle_auth_backend_error(error)
+
 
 class _UserIterator(object):
     """An iterator that allows iterating over user accounts, one at a time.

@@ -93,7 +93,7 @@ class AndroidNotification(object):
         ticker: Sets the ``ticker`` text, which is sent to accessibility services. Prior to API
             level 21 (Lollipop), sets the text that is displayed in the status bar when the
             notification first arrives (optional).
-        sticky: When set to ``false`` or unset, the notification is automatically dismissed when the
+        sticky: When set to ``False`` or unset, the notification is automatically dismissed when the
             user clicks it in the panel. When set to ``True``, the notification persists even when
             the user clicks it (optional).
         event_timestamp: For notifications that inform users about events with an absolute time

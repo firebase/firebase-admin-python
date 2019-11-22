@@ -45,6 +45,11 @@ def test_send():
                 priority='high',
                 vibrate_timings_millis=[100, 200, 300, 400],
                 visibility='public',
+                sticky=True,
+                local_only=False,
+                default_vibrate_timings=False,
+                default_sound=True,
+                default_light_settings=False,
                 light_settings=messaging.LightSettings(
                     color='#aabbcc',
                     light_off_duration_millis=200,

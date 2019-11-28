@@ -810,28 +810,36 @@ class _MLKitService(object):
         """
         if not isinstance(operation, dict):
             raise TypeError('Operation must be a dictionary.')
-        op_name = operation.get('name')
-        _, model_id = _validate_and_parse_operation_name(op_name)
-
-        current_attempt = 0
-        start_time = datetime.datetime.now()
-        stop_time = (None if max_time_seconds is None else
-                     start_time + datetime.timedelta(seconds=max_time_seconds))
-        while wait_for_operation and not operation.get('done'):
-            # We just got this operation. Wait before getting another
-            # so we don't exceed the GetOperation maximum request rate.
-            self._exponential_backoff(current_attempt, stop_time)
-            operation = self.get_operation(op_name)
-            current_attempt += 1
 
         if operation.get('done'):
+            # Operations which are immediately done don't have an operation name
             if operation.get('response'):
                 return operation.get('response')
             elif operation.get('error'):
                 raise _utils.handle_operation_error(operation.get('error'))
+            raise exceptions.UnknownError(message='Internal Error: Malformed Operation.')
+        else:
+            op_name = operation.get('name')
+            _, model_id = _validate_and_parse_operation_name(op_name)
+            current_attempt = 0
+            start_time = datetime.datetime.now()
+            stop_time = (None if max_time_seconds is None else
+                        start_time + datetime.timedelta(seconds=max_time_seconds))
+            while wait_for_operation and not operation.get('done'):
+                # We just got this operation. Wait before getting another
+                # so we don't exceed the GetOperation maximum request rate.
+                self._exponential_backoff(current_attempt, stop_time)
+                operation = self.get_operation(op_name)
+                current_attempt += 1
 
-        # If the operation is not complete or timed out, return a (locked) model instead
-        return get_model(model_id).as_dict()
+            if operation.get('done'):
+                if operation.get('response'):
+                    return operation.get('response')
+                elif operation.get('error'):
+                    raise _utils.handle_operation_error(operation.get('error'))
+
+            # If the operation is not complete or timed out, return a (locked) model instead
+            return get_model(model_id).as_dict()
 
 
     def create_model(self, model):

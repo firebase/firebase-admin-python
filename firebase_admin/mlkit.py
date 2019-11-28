@@ -824,7 +824,7 @@ class _MLKitService(object):
             current_attempt = 0
             start_time = datetime.datetime.now()
             stop_time = (None if max_time_seconds is None else
-                        start_time + datetime.timedelta(seconds=max_time_seconds))
+                         start_time + datetime.timedelta(seconds=max_time_seconds))
             while wait_for_operation and not operation.get('done'):
                 # We just got this operation. Wait before getting another
                 # so we don't exceed the GetOperation maximum request rate.

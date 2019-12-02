@@ -200,6 +200,7 @@ class Model(object):
         data_copy = dict(data)
         tflite_format = None
         tflite_format_data = data_copy.pop('tfliteModel', None)
+        data_copy.pop('@type', None)  # Returned by Operations. (Not needed)
         if tflite_format_data:
             tflite_format = TFLiteFormat.from_dict(tflite_format_data)
         model = Model(model_format=tflite_format)

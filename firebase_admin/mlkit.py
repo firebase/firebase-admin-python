@@ -499,7 +499,7 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         if not _TF_ENABLED:
             raise ImportError('Failed to import the tensorflow library for Python. Make sure '
                               'to install the tensorflow module.')
-        if not tf.version.VERSION.startswith('1.') and not tf.Version.startswith('2.'):
+        if not tf.version.VERSION.startswith('1.') and not tf.version.VERSION.startswith('2.'):
             raise ImportError('Expected tensorflow version 1.x or 2.x, but found {0}'
                               .format(tf.version.VERSION))
 

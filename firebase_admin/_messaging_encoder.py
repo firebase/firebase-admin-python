@@ -260,13 +260,6 @@ class MessageEncoder(json.JSONEncoder):
         return '{0}s'.format(seconds)
 
     @classmethod
-    def encode_boolean(cls, value):
-        """Encodes a boolean into JSON."""
-        if value is None:
-            return None
-        return 1 if value else 0
-
-    @classmethod
     def encode_android_notification(cls, notification):
         """Encodes an ``AndroidNotification`` instance into JSON."""
         if notification is None:
@@ -303,17 +296,17 @@ class MessageEncoder(json.JSONEncoder):
                 'image', notification.image),
             'ticker': _Validators.check_string(
                 'AndroidNotification.ticker', notification.ticker),
-            'sticky': cls.encode_boolean(notification.sticky),
+            'sticky': notification.sticky,
             'event_time': _Validators.check_datetime(
                 'AndroidNotification.event_timestamp', notification.event_timestamp),
-            'local_only': cls.encode_boolean(notification.local_only),
+            'local_only': notification.local_only,
             'notification_priority': _Validators.check_string(
                 'AndroidNotification.priority', notification.priority, non_empty=True),
             'vibrate_timings': _Validators.check_number_list(
                 'AndroidNotification.vibrate_timings_millis', notification.vibrate_timings_millis),
-            'default_vibrate_timings': cls.encode_boolean(notification.default_vibrate_timings),
-            'default_sound': cls.encode_boolean(notification.default_sound),
-            'default_light_settings': cls.encode_boolean(notification.default_light_settings),
+            'default_vibrate_timings': notification.default_vibrate_timings,
+            'default_sound': notification.default_sound,
+            'default_light_settings': notification.default_light_settings,
             'light_settings': cls.encode_light_settings(notification.light_settings),
             'visibility': _Validators.check_string(
                 'AndroidNotification.visibility', notification.visibility, non_empty=True),

@@ -495,12 +495,30 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         return TFLiteGCSModelSource(gcs_tflite_uri=gcs_uri, app=app)
 
     @staticmethod
-    def _assert_tf_version_1_enabled():
+    def _assert_tf_enabled():
         if not _TF_ENABLED:
             raise ImportError('Failed to import the tensorflow library for Python. Make sure '
                               'to install the tensorflow module.')
-        if not tf.VERSION.startswith('1.'):
-            raise ImportError('Expected tensorflow version 1.x, but found {0}'.format(tf.VERSION))
+        if not tf.version.VERSION.startswith('1.') and not tf.Version.startswith('2.'):
+            raise ImportError('Expected tensorflow version 1.x or 2.x, but found {0}'
+                              .format(tf.version.VERSION))
+
+    @staticmethod
+    def _tf_convert_from_saved_model(saved_model_dir):
+        # Same for both v1.x and v2.x
+        converter = tf.lite.TFLiteConverter.from_saved_model(saved_model_dir)
+        return converter.convert()
+
+    @staticmethod
+    def _tf_convert_from_keras_model(keras_model):
+        if tf.version.VERSION.startswith('1.'):
+            keras_file = 'firebase_keras_model.h5'
+            tf.keras.models.save_model(keras_model, keras_file)
+            converter = tf.lite.TFLiteConverter.from_keras_model_file(keras_file)
+            return converter.convert()
+        else:
+            converter = tf.lite.TFLiteConverter.from_keras_model(keras_model)
+            return converter.convert()
 
     @classmethod
     def from_saved_model(cls, saved_model_dir, bucket_name=None, app=None):
@@ -518,9 +536,8 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         Raises:
             ImportError: If the Tensor Flow or Cloud Storage Libraries have not been installed.
         """
-        TFLiteGCSModelSource._assert_tf_version_1_enabled()
-        converter = tf.lite.TFLiteConverter.from_saved_model(saved_model_dir)
-        tflite_model = converter.convert()
+        TFLiteGCSModelSource._assert_tf_enabled()
+        tflite_model = TFLiteGCSModelSource._tf_convert_from_saved_model(saved_model_dir)
         open('firebase_mlkit_model.tflite', 'wb').write(tflite_model)
         return TFLiteGCSModelSource.from_tflite_model_file(
             'firebase_mlkit_model.tflite', bucket_name, app)
@@ -541,11 +558,8 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         Raises:
             ImportError: If the Tensor Flow or Cloud Storage Libraries have not been installed.
         """
-        TFLiteGCSModelSource._assert_tf_version_1_enabled()
-        keras_file = 'keras_model.h5'
-        tf.keras.models.save_model(keras_model, keras_file)
-        converter = tf.lite.TFLiteConverter.from_keras_model_file(keras_file)
-        tflite_model = converter.convert()
+        TFLiteGCSModelSource._assert_tf_enabled()
+        tflite_model = TFLiteGCSModelSource._tf_convert_from_keras_model(keras_model)
         open('firebase_mlkit_model.tflite', 'wb').write(tflite_model)
         return TFLiteGCSModelSource.from_tflite_model_file(
             'firebase_mlkit_model.tflite', bucket_name, app)

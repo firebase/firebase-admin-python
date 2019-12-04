@@ -27,6 +27,7 @@ import requests
 import six
 
 
+from six.moves import urllib
 from firebase_admin import _http_client
 from firebase_admin import _utils
 from firebase_admin import exceptions
@@ -899,16 +900,17 @@ class _MLKitService(object):
         _validate_list_filter(list_filter)
         _validate_page_size(page_size)
         _validate_page_token(page_token)
-        path = 'models'
-        joiner = '?'
+        params = {}
         if list_filter:
-            path = path + joiner + 'filter={0}'.format(list_filter)
-            joiner = '&'
+            params['filter'] = list_filter
         if page_size:
-            path = path + joiner + 'page_size={0}'.format(page_size)
-            joiner = '&'
+            params['page_size'] = page_size
         if page_token:
-            path = path + joiner + 'page_token={0}'.format(page_token)
+            params['page_token'] = page_token
+        path = 'models'
+        if params != {}:
+            param_str = urllib.parse.urlencode(sorted(params.items()), True)
+            path = path + '?' + param_str
         try:
             return self._client.body('get', url=path)
         except requests.exceptions.RequestException as error:

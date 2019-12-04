@@ -977,12 +977,10 @@ class TestListModels(object):
             page_token=PAGE_TOKEN)
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
-        assert recorder[0].url == TestListModels._url(PROJECT_ID)
-        assert json.loads(recorder[0].body.decode()) == {
-            'list_filter': 'display_name=displayName3',
-            'page_size': 10,
-            'page_token': PAGE_TOKEN
-        }
+        assert recorder[0].url == (
+            TestListModels._url(PROJECT_ID) +
+            '?listFilter=\'display_name=displayName3\'&pageSize=10&pageToken={0}'
+            .format(PAGE_TOKEN))
         assert isinstance(models_page, mlkit.ListModelsPage)
         assert len(models_page.models) == 1
         assert models_page.models[0] == MODEL_3

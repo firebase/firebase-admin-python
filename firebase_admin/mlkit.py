@@ -899,15 +899,18 @@ class _MLKitService(object):
         _validate_list_filter(list_filter)
         _validate_page_size(page_size)
         _validate_page_token(page_token)
-        payload = {}
+        path = 'models'
+        joiner = '?'
         if list_filter:
-            payload['list_filter'] = list_filter
+            path = path + joiner + 'listFilter=\'{0}\''.format(list_filter)
+            joiner = '&'
         if page_size:
-            payload['page_size'] = page_size
+            path = path + joiner + 'pageSize={0}'.format(page_size)
+            joiner = '&'
         if page_token:
-            payload['page_token'] = page_token
+            path = path + joiner + 'pageToken={0}'.format(page_token)
         try:
-            return self._client.body('get', url='models', json=payload)
+            return self._client.body('get', url=path)
         except requests.exceptions.RequestException as error:
             raise _utils.handle_platform_error_from_requests(error)
 

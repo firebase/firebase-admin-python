@@ -902,7 +902,7 @@ class _MLKitService(object):
         path = 'models'
         joiner = '?'
         if list_filter:
-            path = path + joiner + 'list_filter=\'{0}\''.format(list_filter)
+            path = path + joiner + 'filter=\'{0}\''.format(list_filter)
             joiner = '&'
         if page_size:
             path = path + joiner + 'page_size={0}'.format(page_size)

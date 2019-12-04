@@ -979,7 +979,7 @@ class TestListModels(object):
         assert recorder[0].method == 'GET'
         assert recorder[0].url == (
             TestListModels._url(PROJECT_ID) +
-            '?listFilter=\'display_name=displayName3\'&pageSize=10&pageToken={0}'
+            '?list_filter=\'display_name=displayName3\'&page_size=10&page_token={0}'
             .format(PAGE_TOKEN))
         assert isinstance(models_page, mlkit.ListModelsPage)
         assert len(models_page.models) == 1

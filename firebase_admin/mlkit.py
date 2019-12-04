@@ -902,13 +902,13 @@ class _MLKitService(object):
         path = 'models'
         joiner = '?'
         if list_filter:
-            path = path + joiner + 'listFilter=\'{0}\''.format(list_filter)
+            path = path + joiner + 'list_filter=\'{0}\''.format(list_filter)
             joiner = '&'
         if page_size:
-            path = path + joiner + 'pageSize={0}'.format(page_size)
+            path = path + joiner + 'page_size={0}'.format(page_size)
             joiner = '&'
         if page_token:
-            path = path + joiner + 'pageToken={0}'.format(page_token)
+            path = path + joiner + 'page_token={0}'.format(page_token)
         try:
             return self._client.body('get', url=path)
         except requests.exceptions.RequestException as error:

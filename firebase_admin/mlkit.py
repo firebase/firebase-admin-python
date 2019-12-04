@@ -867,12 +867,12 @@ class _MLKitService(object):
 
     def update_model(self, model, update_mask=None):
         _validate_model(model, update_mask)
-        data = {'model': model.as_dict(for_upload=True)}
+        path = 'models/{0}'.format(model.model_id)
         if update_mask is not None:
-            data['updateMask'] = update_mask
+            path = path + '?updateMask={0}'.format(update_mask)
         try:
             return self.handle_operation(
-                self._client.body('patch', url='models/{0}'.format(model.model_id), json=data))
+                self._client.body('patch', url=path, json=model.as_dict(for_upload=True)))
         except requests.exceptions.RequestException as error:
             raise _utils.handle_platform_error_from_requests(error)
 

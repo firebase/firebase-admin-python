@@ -763,7 +763,12 @@ class TestPublishUnpublish(object):
         testutils.cleanup_apps()
 
     @staticmethod
-    def _url(project_id, model_id):
+    def _update_url(project_id, model_id):
+        update_url = 'projects/{0}/models/{1}?updateMask=state.published'
+        return BASE_URL + update_url.format(project_id, model_id)
+
+    @staticmethod
+    def _get_url(project_id, model_id):
         return BASE_URL + 'projects/{0}/models/{1}'.format(project_id, model_id)
 
     @staticmethod
@@ -778,10 +783,9 @@ class TestPublishUnpublish(object):
         assert model == CREATED_UPDATED_MODEL_1
         assert len(recorder) == 1
         assert recorder[0].method == 'PATCH'
-        assert recorder[0].url == TestPublishUnpublish._url(PROJECT_ID, MODEL_ID_1)
+        assert recorder[0].url == TestPublishUnpublish._update_url(PROJECT_ID, MODEL_ID_1)
         body = json.loads(recorder[0].body.decode())
-        assert body.get('model', {}).get('state', {}).get('published', None) is published
-        assert body.get('updateMask', {}) == 'state.published'
+        assert body.get('state', {}).get('published', None) is published
 
     @pytest.mark.parametrize('publish_function', PUBLISH_UNPUBLISH_FUNCS)
     def test_returns_locked(self, publish_function):
@@ -794,9 +798,9 @@ class TestPublishUnpublish(object):
         assert model == expected_model
         assert len(recorder) == 2
         assert recorder[0].method == 'PATCH'
-        assert recorder[0].url == TestPublishUnpublish._url(PROJECT_ID, MODEL_ID_1)
+        assert recorder[0].url == TestPublishUnpublish._update_url(PROJECT_ID, MODEL_ID_1)
         assert recorder[1].method == 'GET'
-        assert recorder[1].url == TestPublishUnpublish._url(PROJECT_ID, MODEL_ID_1)
+        assert recorder[1].url == TestPublishUnpublish._get_url(PROJECT_ID, MODEL_ID_1)
 
     @pytest.mark.parametrize('publish_function', PUBLISH_UNPUBLISH_FUNCS)
     def test_operation_error(self, publish_function):

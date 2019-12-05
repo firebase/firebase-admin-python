@@ -909,6 +909,7 @@ class _MLKitService(object):
             params['page_token'] = page_token
         path = 'models'
         if params != {}:
+            # pylint: disable=too-many-function-args
             param_str = urllib.parse.urlencode(sorted(params.items()), True)
             path = path + '?' + param_str
         try:

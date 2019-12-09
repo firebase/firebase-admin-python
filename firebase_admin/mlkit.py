@@ -513,6 +513,7 @@ class TFLiteGCSModelSource(TFLiteModelSource):
 
     @staticmethod
     def _tf_convert_from_keras_model(keras_model):
+        # Version 1.x conversion function takes a model file. Version 2.x takes the model itself.
         if tf.version.VERSION.startswith('1.'):
             keras_file = 'firebase_keras_model.h5'
             tf.keras.models.save_model(keras_model, keras_file)
@@ -908,7 +909,7 @@ class _MLKitService(object):
         if page_token:
             params['page_token'] = page_token
         path = 'models'
-        if params != {}:
+        if params:
             # pylint: disable=too-many-function-args
             param_str = urllib.parse.urlencode(sorted(params.items()), True)
             path = path + '?' + param_str

@@ -158,23 +158,21 @@ LOCKED_MODEL_JSON_2 = {
 }
 
 OPERATION_DONE_MODEL_JSON_1 = {
-    'name': OPERATION_NAME_1,
     'done': True,
     'response': CREATED_UPDATED_MODEL_JSON_1
 }
 OPERATION_MALFORMED_JSON_1 = {
-    'name': OPERATION_NAME_1,
     'done': True,
     # if done is true then either response or error should be populated
 }
 OPERATION_MISSING_NAME = {
+    # Name is required if the operation is not done.
     'done': False
 }
 OPERATION_ERROR_CODE = 400
 OPERATION_ERROR_MSG = "Invalid argument"
 OPERATION_ERROR_EXPECTED_STATUS = 'INVALID_ARGUMENT'
 OPERATION_ERROR_JSON_1 = {
-    'name': OPERATION_NAME_1,
     'done': True,
     'error': {
         'code': OPERATION_ERROR_CODE,
@@ -609,17 +607,10 @@ class TestCreateModel(object):
         check_operation_error(excinfo, OPERATION_ERROR_EXPECTED_STATUS, OPERATION_ERROR_MSG)
 
     def test_malformed_operation(self):
-        recorder = instrument_mlkit_service(
-            status=[200, 200],
-            payload=[OPERATION_MALFORMED_RESPONSE, LOCKED_MODEL_2_RESPONSE])
-        expected_model = mlkit.Model.from_dict(LOCKED_MODEL_JSON_2)
-        model = mlkit.create_model(MODEL_1)
-        assert model == expected_model
-        assert len(recorder) == 2
-        assert recorder[0].method == 'POST'
-        assert recorder[0].url == TestCreateModel._url(PROJECT_ID)
-        assert recorder[1].method == 'GET'
-        assert recorder[1].url == TestCreateModel._get_url(PROJECT_ID, MODEL_ID_1)
+        instrument_mlkit_service(status=200, payload=OPERATION_MALFORMED_RESPONSE)
+        with pytest.raises(Exception) as excinfo:
+            mlkit.create_model(MODEL_1)
+        check_error(excinfo, exceptions.UnknownError, 'Internal Error: Malformed Operation.')
 
     def test_rpc_error_create(self):
         create_recorder = instrument_mlkit_service(
@@ -708,17 +699,10 @@ class TestUpdateModel(object):
         check_operation_error(excinfo, OPERATION_ERROR_EXPECTED_STATUS, OPERATION_ERROR_MSG)
 
     def test_malformed_operation(self):
-        recorder = instrument_mlkit_service(
-            status=[200, 200],
-            payload=[OPERATION_MALFORMED_RESPONSE, LOCKED_MODEL_2_RESPONSE])
-        expected_model = mlkit.Model.from_dict(LOCKED_MODEL_JSON_2)
-        model = mlkit.update_model(MODEL_1)
-        assert model == expected_model
-        assert len(recorder) == 2
-        assert recorder[0].method == 'PATCH'
-        assert recorder[0].url == TestUpdateModel._url(PROJECT_ID, MODEL_ID_1)
-        assert recorder[1].method == 'GET'
-        assert recorder[1].url == TestUpdateModel._url(PROJECT_ID, MODEL_ID_1)
+        instrument_mlkit_service(status=200, payload=OPERATION_MALFORMED_RESPONSE)
+        with pytest.raises(Exception) as excinfo:
+            mlkit.update_model(MODEL_1)
+        check_error(excinfo, exceptions.UnknownError, 'Internal Error: Malformed Operation.')
 
     def test_rpc_error(self):
         create_recorder = instrument_mlkit_service(
@@ -779,7 +763,13 @@ class TestPublishUnpublish(object):
         testutils.cleanup_apps()
 
     @staticmethod
-    def _url(project_id, model_id):
+    def _update_url(project_id, model_id):
+        update_url = 'projects/{0}/models/{1}?updateMask=state.published'.format(
+            project_id, model_id)
+        return BASE_URL + update_url
+
+    @staticmethod
+    def _get_url(project_id, model_id):
         return BASE_URL + 'projects/{0}/models/{1}'.format(project_id, model_id)
 
     @staticmethod
@@ -794,10 +784,9 @@ class TestPublishUnpublish(object):
         assert model == CREATED_UPDATED_MODEL_1
         assert len(recorder) == 1
         assert recorder[0].method == 'PATCH'
-        assert recorder[0].url == TestPublishUnpublish._url(PROJECT_ID, MODEL_ID_1)
+        assert recorder[0].url == TestPublishUnpublish._update_url(PROJECT_ID, MODEL_ID_1)
         body = json.loads(recorder[0].body.decode())
-        assert body.get('model', {}).get('state', {}).get('published', None) is published
-        assert body.get('updateMask', {}) == 'state.published'
+        assert body.get('state', {}).get('published', None) is published
 
     @pytest.mark.parametrize('publish_function', PUBLISH_UNPUBLISH_FUNCS)
     def test_returns_locked(self, publish_function):
@@ -810,9 +799,9 @@ class TestPublishUnpublish(object):
         assert model == expected_model
         assert len(recorder) == 2
         assert recorder[0].method == 'PATCH'
-        assert recorder[0].url == TestPublishUnpublish._url(PROJECT_ID, MODEL_ID_1)
+        assert recorder[0].url == TestPublishUnpublish._update_url(PROJECT_ID, MODEL_ID_1)
         assert recorder[1].method == 'GET'
-        assert recorder[1].url == TestPublishUnpublish._url(PROJECT_ID, MODEL_ID_1)
+        assert recorder[1].url == TestPublishUnpublish._get_url(PROJECT_ID, MODEL_ID_1)
 
     @pytest.mark.parametrize('publish_function', PUBLISH_UNPUBLISH_FUNCS)
     def test_operation_error(self, publish_function):
@@ -824,17 +813,10 @@ class TestPublishUnpublish(object):
 
     @pytest.mark.parametrize('publish_function', PUBLISH_UNPUBLISH_FUNCS)
     def test_malformed_operation(self, publish_function):
-        recorder = instrument_mlkit_service(
-            status=[200, 200],
-            payload=[OPERATION_MALFORMED_RESPONSE, LOCKED_MODEL_2_RESPONSE])
-        expected_model = mlkit.Model.from_dict(LOCKED_MODEL_JSON_2)
-        model = publish_function(MODEL_ID_1)
-        assert model == expected_model
-        assert len(recorder) == 2
-        assert recorder[0].method == 'PATCH'
-        assert recorder[0].url == TestPublishUnpublish._url(PROJECT_ID, MODEL_ID_1)
-        assert recorder[1].method == 'GET'
-        assert recorder[1].url == TestPublishUnpublish._url(PROJECT_ID, MODEL_ID_1)
+        instrument_mlkit_service(status=200, payload=OPERATION_MALFORMED_RESPONSE)
+        with pytest.raises(Exception) as excinfo:
+            publish_function(MODEL_ID_1)
+        check_error(excinfo, exceptions.UnknownError, 'Internal Error: Malformed Operation.')
 
     @pytest.mark.parametrize('publish_function', PUBLISH_UNPUBLISH_FUNCS)
     def test_rpc_error(self, publish_function):
@@ -996,12 +978,10 @@ class TestListModels(object):
             page_token=PAGE_TOKEN)
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
-        assert recorder[0].url == TestListModels._url(PROJECT_ID)
-        assert json.loads(recorder[0].body.decode()) == {
-            'list_filter': 'display_name=displayName3',
-            'page_size': 10,
-            'page_token': PAGE_TOKEN
-        }
+        assert recorder[0].url == (
+            TestListModels._url(PROJECT_ID) +
+            '?filter=display_name%3DdisplayName3&page_size=10&page_token={0}'
+            .format(PAGE_TOKEN))
         assert isinstance(models_page, mlkit.ListModelsPage)
         assert len(models_page.models) == 1
         assert models_page.models[0] == MODEL_3

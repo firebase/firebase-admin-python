@@ -27,6 +27,7 @@ import requests
 import six
 
 
+from six.moves import urllib
 from firebase_admin import _http_client
 from firebase_admin import _utils
 from firebase_admin import exceptions
@@ -200,6 +201,7 @@ class Model(object):
         data_copy = dict(data)
         tflite_format = None
         tflite_format_data = data_copy.pop('tfliteModel', None)
+        data_copy.pop('@type', None)  # Returned by Operations. (Not needed)
         if tflite_format_data:
             tflite_format = TFLiteFormat.from_dict(tflite_format_data)
         model = Model(model_format=tflite_format)
@@ -495,12 +497,31 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         return TFLiteGCSModelSource(gcs_tflite_uri=gcs_uri, app=app)
 
     @staticmethod
-    def _assert_tf_version_1_enabled():
+    def _assert_tf_enabled():
         if not _TF_ENABLED:
             raise ImportError('Failed to import the tensorflow library for Python. Make sure '
                               'to install the tensorflow module.')
-        if not tf.VERSION.startswith('1.'):
-            raise ImportError('Expected tensorflow version 1.x, but found {0}'.format(tf.VERSION))
+        if not tf.version.VERSION.startswith('1.') and not tf.version.VERSION.startswith('2.'):
+            raise ImportError('Expected tensorflow version 1.x or 2.x, but found {0}'
+                              .format(tf.version.VERSION))
+
+    @staticmethod
+    def _tf_convert_from_saved_model(saved_model_dir):
+        # Same for both v1.x and v2.x
+        converter = tf.lite.TFLiteConverter.from_saved_model(saved_model_dir)
+        return converter.convert()
+
+    @staticmethod
+    def _tf_convert_from_keras_model(keras_model):
+        # Version 1.x conversion function takes a model file. Version 2.x takes the model itself.
+        if tf.version.VERSION.startswith('1.'):
+            keras_file = 'firebase_keras_model.h5'
+            tf.keras.models.save_model(keras_model, keras_file)
+            converter = tf.lite.TFLiteConverter.from_keras_model_file(keras_file)
+            return converter.convert()
+        else:
+            converter = tf.lite.TFLiteConverter.from_keras_model(keras_model)
+            return converter.convert()
 
     @classmethod
     def from_saved_model(cls, saved_model_dir, bucket_name=None, app=None):
@@ -518,9 +539,8 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         Raises:
             ImportError: If the Tensor Flow or Cloud Storage Libraries have not been installed.
         """
-        TFLiteGCSModelSource._assert_tf_version_1_enabled()
-        converter = tf.lite.TFLiteConverter.from_saved_model(saved_model_dir)
-        tflite_model = converter.convert()
+        TFLiteGCSModelSource._assert_tf_enabled()
+        tflite_model = TFLiteGCSModelSource._tf_convert_from_saved_model(saved_model_dir)
         open('firebase_mlkit_model.tflite', 'wb').write(tflite_model)
         return TFLiteGCSModelSource.from_tflite_model_file(
             'firebase_mlkit_model.tflite', bucket_name, app)
@@ -541,11 +561,8 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         Raises:
             ImportError: If the Tensor Flow or Cloud Storage Libraries have not been installed.
         """
-        TFLiteGCSModelSource._assert_tf_version_1_enabled()
-        keras_file = 'keras_model.h5'
-        tf.keras.models.save_model(keras_model, keras_file)
-        converter = tf.lite.TFLiteConverter.from_keras_model_file(keras_file)
-        tflite_model = converter.convert()
+        TFLiteGCSModelSource._assert_tf_enabled()
+        tflite_model = TFLiteGCSModelSource._tf_convert_from_keras_model(keras_model)
         open('firebase_mlkit_model.tflite', 'wb').write(tflite_model)
         return TFLiteGCSModelSource.from_tflite_model_file(
             'firebase_mlkit_model.tflite', bucket_name, app)
@@ -852,12 +869,12 @@ class _MLKitService(object):
 
     def update_model(self, model, update_mask=None):
         _validate_model(model, update_mask)
-        data = {'model': model.as_dict(for_upload=True)}
+        path = 'models/{0}'.format(model.model_id)
         if update_mask is not None:
-            data['updateMask'] = update_mask
+            path = path + '?updateMask={0}'.format(update_mask)
         try:
             return self.handle_operation(
-                self._client.body('patch', url='models/{0}'.format(model.model_id), json=data))
+                self._client.body('patch', url=path, json=model.as_dict(for_upload=True)))
         except requests.exceptions.RequestException as error:
             raise _utils.handle_platform_error_from_requests(error)
 
@@ -884,15 +901,20 @@ class _MLKitService(object):
         _validate_list_filter(list_filter)
         _validate_page_size(page_size)
         _validate_page_token(page_token)
-        payload = {}
+        params = {}
         if list_filter:
-            payload['list_filter'] = list_filter
+            params['filter'] = list_filter
         if page_size:
-            payload['page_size'] = page_size
+            params['page_size'] = page_size
         if page_token:
-            payload['page_token'] = page_token
+            params['page_token'] = page_token
+        path = 'models'
+        if params:
+            # pylint: disable=too-many-function-args
+            param_str = urllib.parse.urlencode(sorted(params.items()), True)
+            path = path + '?' + param_str
         try:
-            return self._client.body('get', url='models', json=payload)
+            return self._client.body('get', url=path)
         except requests.exceptions.RequestException as error:
             raise _utils.handle_platform_error_from_requests(error)
 

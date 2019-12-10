@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Firebase ML Kit module.
+"""Firebase ML module.
 
 This module contains functions for creating, updating, getting, listing,
-deleting, publishing and unpublishing Firebase ML Kit models.
+deleting, publishing and unpublishing Firebase ML models.
 """
 
 
@@ -46,7 +46,7 @@ try:
 except ImportError:
     _TF_ENABLED = False
 
-_MLKIT_ATTRIBUTE = '_mlkit'
+_ML_ATTRIBUTE = '_ml'
 _MAX_PAGE_SIZE = 100
 _MODEL_ID_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,60}$')
 _DISPLAY_NAME_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,60}$')
@@ -60,51 +60,51 @@ _OPERATION_NAME_PATTERN = re.compile(
     r'/operation/[^/]+$')
 
 
-def _get_mlkit_service(app):
-    """ Returns an _MLKitService instance for an App.
+def _get_ml_service(app):
+    """ Returns an _MLService instance for an App.
 
     Args:
       app: A Firebase App instance (or None to use the default App).
 
     Returns:
-      _MLKitService: An _MLKitService for the specified App instance.
+      _MLService: An _MLService for the specified App instance.
 
     Raises:
       ValueError: If the app argument is invalid.
     """
-    return _utils.get_app_service(app, _MLKIT_ATTRIBUTE, _MLKitService)
+    return _utils.get_app_service(app, _ML_ATTRIBUTE, _MLService)
 
 
 def create_model(model, app=None):
-    """Creates a model in Firebase ML Kit.
+    """Creates a model in Firebase ML.
 
     Args:
-        model: An mlkit.Model to create.
+        model: An ml.Model to create.
         app: A Firebase app instance (or None to use the default app).
 
     Returns:
-        Model: The model that was created in Firebase ML Kit.
+        Model: The model that was created in Firebase ML.
     """
-    mlkit_service = _get_mlkit_service(app)
-    return Model.from_dict(mlkit_service.create_model(model), app=app)
+    ml_service = _get_ml_service(app)
+    return Model.from_dict(ml_service.create_model(model), app=app)
 
 
 def update_model(model, app=None):
-    """Updates a model in Firebase ML Kit.
+    """Updates a model in Firebase ML.
 
     Args:
-        model: The mlkit.Model to update.
+        model: The ml.Model to update.
         app: A Firebase app instance (or None to use the default app).
 
     Returns:
         Model: The updated model.
     """
-    mlkit_service = _get_mlkit_service(app)
-    return Model.from_dict(mlkit_service.update_model(model), app=app)
+    ml_service = _get_ml_service(app)
+    return Model.from_dict(ml_service.update_model(model), app=app)
 
 
 def publish_model(model_id, app=None):
-    """Publishes a model in Firebase ML Kit.
+    """Publishes a model in Firebase ML.
 
     Args:
         model_id: The id of the model to publish.
@@ -113,12 +113,12 @@ def publish_model(model_id, app=None):
     Returns:
         Model: The published model.
     """
-    mlkit_service = _get_mlkit_service(app)
-    return Model.from_dict(mlkit_service.set_published(model_id, publish=True), app=app)
+    ml_service = _get_ml_service(app)
+    return Model.from_dict(ml_service.set_published(model_id, publish=True), app=app)
 
 
 def unpublish_model(model_id, app=None):
-    """Unpublishes a model in Firebase ML Kit.
+    """Unpublishes a model in Firebase ML.
 
     Args:
         model_id: The id of the model to unpublish.
@@ -127,12 +127,12 @@ def unpublish_model(model_id, app=None):
     Returns:
         Model: The unpublished model.
     """
-    mlkit_service = _get_mlkit_service(app)
-    return Model.from_dict(mlkit_service.set_published(model_id, publish=False), app=app)
+    ml_service = _get_ml_service(app)
+    return Model.from_dict(ml_service.set_published(model_id, publish=False), app=app)
 
 
 def get_model(model_id, app=None):
-    """Gets a model from Firebase ML Kit.
+    """Gets a model from Firebase ML.
 
     Args:
         model_id: The id of the model to get.
@@ -141,12 +141,12 @@ def get_model(model_id, app=None):
     Returns:
      Model: The requested model.
     """
-    mlkit_service = _get_mlkit_service(app)
-    return Model.from_dict(mlkit_service.get_model(model_id), app=app)
+    ml_service = _get_ml_service(app)
+    return Model.from_dict(ml_service.get_model(model_id), app=app)
 
 
 def list_models(list_filter=None, page_size=None, page_token=None, app=None):
-    """Lists models from Firebase ML Kit.
+    """Lists models from Firebase ML.
 
     Args:
         list_filter: a list filter string such as "tags:'tag_1'". None will return all models.
@@ -159,24 +159,24 @@ def list_models(list_filter=None, page_size=None, page_token=None, app=None):
     Returns:
         ListModelsPage: A (filtered) list of models.
     """
-    mlkit_service = _get_mlkit_service(app)
+    ml_service = _get_ml_service(app)
     return ListModelsPage(
-        mlkit_service.list_models, list_filter, page_size, page_token, app=app)
+        ml_service.list_models, list_filter, page_size, page_token, app=app)
 
 
 def delete_model(model_id, app=None):
-    """Deletes a model from Firebase ML Kit.
+    """Deletes a model from Firebase ML.
 
     Args:
         model_id: The id of the model you wish to delete.
         app: A Firebase app instance (or None to use the default app).
     """
-    mlkit_service = _get_mlkit_service(app)
-    mlkit_service.delete_model(model_id)
+    ml_service = _get_ml_service(app)
+    ml_service.delete_model(model_id)
 
 
 class Model(object):
-    """A Firebase ML Kit Model object.
+    """A Firebase ML Model object.
 
     Args:
         display_name: The display name of your model - used to identify your model in code.
@@ -310,10 +310,10 @@ class Model(object):
         """
         if not self.locked:
             return
-        mlkit_service = _get_mlkit_service(self._app)
+        ml_service = _get_ml_service(self._app)
         op_name = self._data.get('activeOperations')[0].get('name')
-        model_dict = mlkit_service.handle_operation(
-            mlkit_service.get_operation(op_name),
+        model_dict = ml_service.handle_operation(
+            ml_service.get_operation(op_name),
             wait_for_operation=True,
             max_time_seconds=max_time_seconds)
         self._update_from_dict(model_dict)
@@ -418,7 +418,7 @@ class _CloudStorageClient(object):
     """Cloud Storage helper class"""
 
     GCS_URI = 'gs://{0}/{1}'
-    BLOB_NAME = 'Firebase/MLKit/Models/{0}'
+    BLOB_NAME = 'Firebase/ML/Models/{0}'
 
     @staticmethod
     def _assert_gcs_enabled():
@@ -541,9 +541,9 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         """
         TFLiteGCSModelSource._assert_tf_enabled()
         tflite_model = TFLiteGCSModelSource._tf_convert_from_saved_model(saved_model_dir)
-        open('firebase_mlkit_model.tflite', 'wb').write(tflite_model)
+        open('firebase_ml_model.tflite', 'wb').write(tflite_model)
         return TFLiteGCSModelSource.from_tflite_model_file(
-            'firebase_mlkit_model.tflite', bucket_name, app)
+            'firebase_ml_model.tflite', bucket_name, app)
 
     @classmethod
     def from_keras_model(cls, keras_model, bucket_name=None, app=None):
@@ -563,9 +563,9 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         """
         TFLiteGCSModelSource._assert_tf_enabled()
         tflite_model = TFLiteGCSModelSource._tf_convert_from_keras_model(keras_model)
-        open('firebase_mlkit_model.tflite', 'wb').write(tflite_model)
+        open('firebase_ml_model.tflite', 'wb').write(tflite_model)
         return TFLiteGCSModelSource.from_tflite_model_file(
-            'firebase_mlkit_model.tflite', bucket_name, app)
+            'firebase_ml_model.tflite', bucket_name, app)
 
     @property
     def gcs_tflite_uri(self):
@@ -577,7 +577,7 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         self._gcs_tflite_uri = _validate_gcs_tflite_uri(gcs_tflite_uri)
 
     def _get_signed_gcs_tflite_uri(self):
-        """Signs the GCS uri, so the model file can be uploaded to Firebase ML Kit and verified."""
+        """Signs the GCS uri, so the model file can be uploaded to Firebase ML and verified."""
         return TFLiteGCSModelSource._STORAGE_CLIENT.sign_uri(self._gcs_tflite_uri, self._app)
 
     def as_dict(self, for_upload=False):
@@ -697,7 +697,7 @@ def _validate_and_parse_name(name):
 
 def _validate_model(model, update_mask=None):
     if not isinstance(model, Model):
-        raise TypeError('Model must be an mlkit.Model.')
+        raise TypeError('Model must be an ml.Model.')
     if update_mask is None and not model.display_name:
         raise ValueError('Model must have a display name.')
 
@@ -765,8 +765,8 @@ def _validate_page_token(page_token):
             raise TypeError('Page token must be a string or None.')
 
 
-class _MLKitService(object):
-    """Firebase MLKit service."""
+class _MLService(object):
+    """Firebase ML service."""
 
     PROJECT_URL = 'https://mlkit.googleapis.com/v1beta1/projects/{0}/'
     OPERATION_URL = 'https://mlkit.googleapis.com/v1beta1/'
@@ -777,15 +777,15 @@ class _MLKitService(object):
         self._project_id = app.project_id
         if not self._project_id:
             raise ValueError(
-                'Project ID is required to access MLKit service. Either set the '
+                'Project ID is required to access ML service. Either set the '
                 'projectId option, or use service account credentials.')
-        self._project_url = _MLKitService.PROJECT_URL.format(self._project_id)
+        self._project_url = _MLService.PROJECT_URL.format(self._project_id)
         self._client = _http_client.JsonHttpClient(
             credential=app.credential.get_credential(),
             base_url=self._project_url)
         self._operation_client = _http_client.JsonHttpClient(
             credential=app.credential.get_credential(),
-            base_url=_MLKitService.OPERATION_URL)
+            base_url=_MLService.OPERATION_URL)
 
     def get_operation(self, op_name):
         _validate_and_parse_operation_name(op_name)
@@ -796,8 +796,8 @@ class _MLKitService(object):
 
     def _exponential_backoff(self, current_attempt, stop_time):
         """Sleeps for the appropriate amount of time. Or throws deadline exceeded."""
-        delay_factor = pow(_MLKitService.POLL_EXPONENTIAL_BACKOFF_FACTOR, current_attempt)
-        wait_time_seconds = delay_factor * _MLKitService.POLL_BASE_WAIT_TIME_SECONDS
+        delay_factor = pow(_MLService.POLL_EXPONENTIAL_BACKOFF_FACTOR, current_attempt)
+        wait_time_seconds = delay_factor * _MLService.POLL_BASE_WAIT_TIME_SECONDS
 
         if stop_time is not None:
             max_seconds_left = (stop_time - datetime.datetime.now()).total_seconds()
@@ -897,7 +897,7 @@ class _MLKitService(object):
             raise _utils.handle_platform_error_from_requests(error)
 
     def list_models(self, list_filter, page_size, page_token):
-        """ lists Firebase ML Kit models."""
+        """ lists Firebase ML models."""
         _validate_list_filter(list_filter)
         _validate_page_size(page_size)
         _validate_page_token(page_token)

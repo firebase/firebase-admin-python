@@ -764,8 +764,9 @@ class TestPublishUnpublish(object):
 
     @staticmethod
     def _update_url(project_id, model_id):
-        update_url = 'projects/{0}/models/{1}?updateMask=state.published'
-        return BASE_URL + update_url.format(project_id, model_id)
+        update_url = 'projects/{0}/models/{1}?updateMask=state.published'.format(
+            project_id, model_id)
+        return BASE_URL + update_url
 
     @staticmethod
     def _get_url(project_id, model_id):

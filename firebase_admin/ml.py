@@ -543,7 +543,8 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         """
         TFLiteGCSModelSource._assert_tf_enabled()
         tflite_model = TFLiteGCSModelSource._tf_convert_from_saved_model(saved_model_dir)
-        open(model_file_name, 'wb').write(tflite_model)
+        with open(model_file_name, 'wb') as model_file:
+            model_file.write(tflite_model)
         return TFLiteGCSModelSource.from_tflite_model_file(model_file_name, bucket_name, app)
 
     @classmethod
@@ -566,7 +567,8 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         """
         TFLiteGCSModelSource._assert_tf_enabled()
         tflite_model = TFLiteGCSModelSource._tf_convert_from_keras_model(keras_model)
-        open(model_file_name, 'wb').write(tflite_model)
+        with open(model_file_name, 'wb') as model_file:
+            model_file.write(tflite_model)
         return TFLiteGCSModelSource.from_tflite_model_file(model_file_name, bucket_name, app)
 
     @property

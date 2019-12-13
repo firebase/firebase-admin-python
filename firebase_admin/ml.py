@@ -524,7 +524,8 @@ class TFLiteGCSModelSource(TFLiteModelSource):
             return converter.convert()
 
     @classmethod
-    def from_saved_model(cls, saved_model_dir, model_file_name='firebase_ml_model.tflite', bucket_name=None, app=None):
+    def from_saved_model(cls, saved_model_dir, model_file_name='firebase_ml_model.tflite',
+                         bucket_name=None, app=None):
         """Creates a Tensor Flow Lite model from the saved model, and uploads the model to GCS.
 
         Args:
@@ -546,7 +547,8 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         return TFLiteGCSModelSource.from_tflite_model_file(model_file_name, bucket_name, app)
 
     @classmethod
-    def from_keras_model(cls, keras_model, model_file_name='firebase_ml_model.tflite', bucket_name=None, app=None):
+    def from_keras_model(cls, keras_model, model_file_name='firebase_ml_model.tflite',
+                         bucket_name=None, app=None):
         """Creates a Tensor Flow Lite model from the keras model, and uploads the model to GCS.
 
         Args:

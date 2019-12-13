@@ -51,7 +51,6 @@ _MAX_PAGE_SIZE = 100
 _MODEL_ID_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,60}$')
 _DISPLAY_NAME_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,60}$')
 _TAG_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,60}$')
-_MODEL_FILE_NAME_PATTERN = re.compile(r'^[A-Za-z0-9_]{1,60}.tflite$')
 _GCS_TFLITE_URI_PATTERN = re.compile(
     r'^gs://(?P<bucket_name>[a-z0-9_.-]{3,63})/(?P<blob_name>.+)$')
 _RESOURCE_NAME_PATTERN = re.compile(
@@ -524,14 +523,8 @@ class TFLiteGCSModelSource(TFLiteModelSource):
             converter = tf.lite.TFLiteConverter.from_keras_model(keras_model)
             return converter.convert()
 
-    @staticmethod
-    def _validate_model_file_name(file_name):
-        if not _MODEL_FILE_NAME_PATTERN.match(file_name):
-            raise ValueError('Model file name format is invalid.')
-        return file_name
-
     @classmethod
-    def from_saved_model(cls, saved_model_dir, model_file_name='firebase_mlkit_model.tflite', bucket_name=None, app=None):
+    def from_saved_model(cls, saved_model_dir, model_file_name='firebase_ml_model.tflite', bucket_name=None, app=None):
         """Creates a Tensor Flow Lite model from the saved model, and uploads the model to GCS.
 
         Args:
@@ -547,18 +540,18 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         Raises:
             ImportError: If the Tensor Flow or Cloud Storage Libraries have not been installed.
         """
-        file_name = TFLiteGCSModelSource._validate_model_file_name(model_file_name)
         TFLiteGCSModelSource._assert_tf_enabled()
         tflite_model = TFLiteGCSModelSource._tf_convert_from_saved_model(saved_model_dir)
-        open(file_name, 'wb').write(tflite_model)
-        return TFLiteGCSModelSource.from_tflite_model_file(file_name, bucket_name, app)
+        open(model_file_name, 'wb').write(tflite_model)
+        return TFLiteGCSModelSource.from_tflite_model_file(model_file_name, bucket_name, app)
 
     @classmethod
-    def from_keras_model(cls, keras_model, bucket_name=None, app=None):
+    def from_keras_model(cls, keras_model, model_file_name='firebase_ml_model.tflite', bucket_name=None, app=None):
         """Creates a Tensor Flow Lite model from the keras model, and uploads the model to GCS.
 
         Args:
             keras_model: A tf.keras model.
+            model_file_name: The name that the tflite model will be saved as in Cloud Storage.
             bucket_name: The name of an existing bucket. None to use the default bucket configured
                 in the app.
             app: Optional. A Firebase app instance (or None to use the default app)
@@ -571,9 +564,8 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         """
         TFLiteGCSModelSource._assert_tf_enabled()
         tflite_model = TFLiteGCSModelSource._tf_convert_from_keras_model(keras_model)
-        open('firebase_ml_model.tflite', 'wb').write(tflite_model)
-        return TFLiteGCSModelSource.from_tflite_model_file(
-            'firebase_ml_model.tflite', bucket_name, app)
+        open(model_file_name, 'wb').write(tflite_model)
+        return TFLiteGCSModelSource.from_tflite_model_file(model_file_name, bucket_name, app)
 
     @property
     def gcs_tflite_uri(self):

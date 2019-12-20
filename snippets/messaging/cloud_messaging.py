@@ -225,7 +225,7 @@ def unsubscribe_from_topic():
 def send_all():
     registration_token = 'YOUR_REGISTRATION_TOKEN'
     # [START send_all]
-    # Create a list containing up to 100 messages.
+    # Create a list containing up to 500 messages.
     messages = [
         messaging.Message(
             notification=messaging.Notification('Price drop', '5% off all electronics'),

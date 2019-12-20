@@ -247,7 +247,7 @@ def send_all():
 
 def send_multicast():
     # [START send_multicast]
-    # Create a list containing up to 100 registration tokens.
+    # Create a list containing up to 500 registration tokens.
     # These registration tokens come from the client FCM SDKs.
     registration_tokens = [
         'YOUR_REGISTRATION_TOKEN_1',

@@ -337,8 +337,11 @@ def list_users(page_token=None, max_results=_user_mgt.MAX_LIST_USERS_RESULTS, ap
     return ListUsersPage(download, page_token, max_results)
 
 
-def create_user(**kwargs):
+def create_user(**kwargs): # pylint: disable=differing-param-doc
     """Creates a new user account with the specified properties.
+
+    Args:
+        kwargs: A series of keyword arguments (optional).
 
     Keyword Args:
         uid: User ID to assign to the newly created user (optional).
@@ -365,7 +368,7 @@ def create_user(**kwargs):
     return UserRecord(user_manager.get_user(uid=uid))
 
 
-def update_user(uid, **kwargs):
+def update_user(uid, **kwargs): # pylint: disable=differing-param-doc
     """Updates an existing user account with the specified properties.
 
     Args:
@@ -542,7 +545,7 @@ def _check_jwt_revoked(verified_claims, exc_type, label, app):
         raise exc_type('The Firebase {0} has been revoked.'.format(label))
 
 
-class _AuthService(object):
+class _AuthService:
     """Firebase Authentication service."""
 
     ID_TOOLKIT_URL = 'https://identitytoolkit.googleapis.com/v1/projects/'

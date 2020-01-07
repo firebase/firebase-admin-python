@@ -54,7 +54,7 @@ def bucket(name=None, app=None):
     return client.bucket(name)
 
 
-class _StorageClient(object):
+class _StorageClient:
     """Holds a Google Cloud Storage client instance."""
 
     def __init__(self, credentials, project, default_bucket):
@@ -77,7 +77,7 @@ class _StorageClient(object):
                 'Storage bucket name not specified. Specify the bucket name via the '
                 '"storageBucket" option when initializing the App, or specify the bucket '
                 'name explicitly when calling the storage.bucket() function.')
-        elif not bucket_name or not isinstance(bucket_name, six.string_types):
+        if not bucket_name or not isinstance(bucket_name, six.string_types):
             raise ValueError(
                 'Invalid storage bucket name: "{0}". Bucket name must be a non-empty '
                 'string.'.format(bucket_name))

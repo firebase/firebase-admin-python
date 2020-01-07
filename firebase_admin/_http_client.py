@@ -32,7 +32,7 @@ DEFAULT_RETRY_CONFIG = retry.Retry(
     raise_on_status=False, backoff_factor=0.5)
 
 
-class HttpClient(object):
+class HttpClient:
     """Base HTTP client used to make HTTP calls.
 
     HttpClient maintains an HTTP session, and handles request authentication and retries if

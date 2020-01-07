@@ -84,7 +84,7 @@ def _instrument(client, payload, status=200):
     return recorder
 
 
-class TestHttpRetry(object):
+class TestHttpRetry:
     """Unit tests for the default HTTP retry configuration."""
 
     ENTITY_ENCLOSING_METHODS = ['post', 'put', 'patch']

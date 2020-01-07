@@ -41,7 +41,7 @@ Contains the access token string and the expiry time. The expirty time is expose
 """
 
 
-class Base(object):
+class Base:
     """Provides OAuth2 access tokens for accessing Firebase services."""
 
     def get_access_token(self):

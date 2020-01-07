@@ -103,6 +103,7 @@ def validate_provider_id(provider_id, required=True):
     return provider_id
 
 def validate_photo_url(photo_url, required=False):
+    """Parses and validates the given URL string."""
     if photo_url is None and not required:
         return None
     if not isinstance(photo_url, six.string_types) or not photo_url:
@@ -118,6 +119,7 @@ def validate_photo_url(photo_url, required=False):
         raise ValueError('Malformed photo URL: "{0}".'.format(photo_url))
 
 def validate_timestamp(timestamp, label, required=False):
+    """Validates the given timestamp value. Timestamps must be positive integers."""
     if timestamp is None and not required:
         return None
     if isinstance(timestamp, bool):
@@ -181,7 +183,7 @@ def validate_custom_claims(custom_claims, required=False):
     if len(invalid_claims) > 1:
         joined = ', '.join(sorted(invalid_claims))
         raise ValueError('Claims "{0}" are reserved, and must not be set.'.format(joined))
-    elif len(invalid_claims) == 1:
+    if len(invalid_claims) == 1:
         raise ValueError(
             'Claim "{0}" is reserved, and must not be set.'.format(invalid_claims.pop()))
     return claims_str

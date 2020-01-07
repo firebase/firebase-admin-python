@@ -55,7 +55,7 @@ METADATA_SERVICE_URL = ('http://metadata.google.internal/computeMetadata/v1/inst
                         'service-accounts/default/email')
 
 
-class _SigningProvider(object):
+class _SigningProvider:
     """Stores a reference to a google.auth.crypto.Signer."""
 
     def __init__(self, signer, signer_email):
@@ -80,7 +80,7 @@ class _SigningProvider(object):
         return _SigningProvider(signer, service_account)
 
 
-class TokenGenerator(object):
+class TokenGenerator:
     """Generates custom tokens and session cookies."""
 
     def __init__(self, app, client):
@@ -207,7 +207,7 @@ class TokenGenerator(object):
             return body.get('sessionCookie')
 
 
-class TokenVerifier(object):
+class TokenVerifier:
     """Verifies ID tokens and session cookies."""
 
     def __init__(self, app):
@@ -237,7 +237,7 @@ class TokenVerifier(object):
         return self.cookie_verifier.verify(cookie, self.request)
 
 
-class _JWTVerifier(object):
+class _JWTVerifier:
     """Verifies Firebase JWTs (ID tokens or session cookies)."""
 
     def __init__(self, **kwargs):
@@ -288,7 +288,7 @@ class _JWTVerifier(object):
                 'token.'.format(self.operation, self.articled_short_name))
         elif not header.get('kid'):
             if header.get('alg') == 'HS256' and payload.get(
-                    'v') is 0 and 'uid' in payload.get('d', {}):
+                    'v') == 0 and 'uid' in payload.get('d', {}):
                 error_message = (
                     '{0} expects {1}, but was given a legacy custom '
                     'token.'.format(self.operation, self.articled_short_name))

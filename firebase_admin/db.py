@@ -81,7 +81,7 @@ def _parse_path(path):
     return [seg for seg in path.split('/') if seg]
 
 
-class Event(object):
+class Event:
     """Represents a realtime update event received from the database."""
 
     def __init__(self, sse_event):
@@ -104,7 +104,7 @@ class Event(object):
         return self._sse_event.event_type
 
 
-class ListenerRegistration(object):
+class ListenerRegistration:
     """Represents the addition of an event listener to a database reference."""
 
     def __init__(self, callback, sse):
@@ -138,7 +138,7 @@ class ListenerRegistration(object):
         self._thread.join()
 
 
-class Reference(object):
+class Reference:
     """Reference represents a node in the Firebase realtime database."""
 
     def __init__(self, **kwargs):
@@ -218,9 +218,9 @@ class Reference(object):
             headers, data = self._client.headers_and_body(
                 'get', self._add_suffix(), headers={'X-Firebase-ETag' : 'true'})
             return data, headers.get('ETag')
-        else:
-            params = 'shallow=true' if shallow else None
-            return self._client.body('get', self._add_suffix(), params=params)
+
+        params = 'shallow=true' if shallow else None
+        return self._client.body('get', self._add_suffix(), params=params)
 
     def get_if_changed(self, etag):
         """Gets data in this location only if the specified ETag does not match.
@@ -245,8 +245,8 @@ class Reference(object):
         resp = self._client.request('get', self._add_suffix(), headers={'if-none-match': etag})
         if resp.status_code == 304:
             return False, None, None
-        else:
-            return True, resp.json(), resp.headers.get('ETag')
+
+        return True, resp.json(), resp.headers.get('ETag')
 
     def set(self, value):
         """Sets the data at this location to the given value.
@@ -300,8 +300,8 @@ class Reference(object):
                 etag = http_response.headers['ETag']
                 snapshot = http_response.json()
                 return False, snapshot, etag
-            else:
-                raise error
+
+            raise error
 
     def push(self, value=''):
         """Creates a new child node.
@@ -473,7 +473,7 @@ class Reference(object):
             raise _Client.handle_rtdb_error(error)
 
 
-class Query(object):
+class Query:
     """Represents a complex query that can be executed on a Reference.
 
     Complex queries can consist of up to 2 components: a required ordering constraint, and an
@@ -631,7 +631,7 @@ class TransactionAbortedError(exceptions.AbortedError):
         exceptions.AbortedError.__init__(self, message)
 
 
-class _Sorter(object):
+class _Sorter:
     """Helper class for sorting query results."""
 
     def __init__(self, results, order_by):
@@ -648,11 +648,11 @@ class _Sorter(object):
     def get(self):
         if self.dict_input:
             return collections.OrderedDict([(e.key, e.value) for e in self.sort_entries])
-        else:
-            return [e.value for e in self.sort_entries]
+
+        return [e.value for e in self.sort_entries]
 
 
-class _SortEntry(object):
+class _SortEntry:
     """A wrapper that is capable of sorting items in a dictionary."""
 
     _type_none = 0
@@ -665,7 +665,7 @@ class _SortEntry(object):
     def __init__(self, key, value, order_by):
         self._key = key
         self._value = value
-        if order_by == '$key' or order_by == '$priority':
+        if order_by in ('$key', '$priority'):
             self._index = key
         elif order_by == '$value':
             self._index = value
@@ -698,16 +698,16 @@ class _SortEntry(object):
         """
         if index is None:
             return cls._type_none
-        elif isinstance(index, bool) and not index:
+        if isinstance(index, bool) and not index:
             return cls._type_bool_false
-        elif isinstance(index, bool) and index:
+        if isinstance(index, bool) and index:
             return cls._type_bool_true
-        elif isinstance(index, (int, float)):
+        if isinstance(index, (int, float)):
             return cls._type_numeric
-        elif isinstance(index, six.string_types):
+        if isinstance(index, six.string_types):
             return cls._type_string
-        else:
-            return cls._type_object
+
+        return cls._type_object
 
     @classmethod
     def _extract_child(cls, value, path):
@@ -737,10 +737,10 @@ class _SortEntry(object):
 
         if self_key < other_key:
             return -1
-        elif self_key > other_key:
+        if self_key > other_key:
             return 1
-        else:
-            return 0
+
+        return 0
 
     def __lt__(self, other):
         return self._compare(other) < 0
@@ -755,10 +755,10 @@ class _SortEntry(object):
         return self._compare(other) >= 0
 
     def __eq__(self, other):
-        return self._compare(other) is 0
+        return self._compare(other) == 0
 
 
-class _DatabaseService(object):
+class _DatabaseService:
     """Service that maintains a collection of database clients."""
 
     _DEFAULT_AUTH_OVERRIDE = '_admin_'
@@ -772,7 +772,7 @@ class _DatabaseService(object):
         else:
             self._db_url = None
         auth_override = _DatabaseService._get_auth_override(app)
-        if auth_override != self._DEFAULT_AUTH_OVERRIDE and auth_override != {}:
+        if auth_override not in (self._DEFAULT_AUTH_OVERRIDE, {}):
             self._auth_override = json.dumps(auth_override, separators=(',', ':'))
         else:
             self._auth_override = None
@@ -832,8 +832,8 @@ class _DatabaseService(object):
         parsed_url = urllib.parse.urlparse(url)
         if parsed_url.netloc.endswith('.firebaseio.com'):
             return cls._parse_production_url(parsed_url, emulator_host)
-        else:
-            return cls._parse_emulator_url(parsed_url)
+
+        return cls._parse_emulator_url(parsed_url)
 
     @classmethod
     def _parse_production_url(cls, parsed_url, emulator_host):
@@ -875,8 +875,8 @@ class _DatabaseService(object):
         if not isinstance(auth_override, dict):
             raise ValueError('Invalid databaseAuthVariableOverride option: "{0}". Override '
                              'value must be a dict or None.'.format(auth_override))
-        else:
-            return auth_override
+
+        return auth_override
 
     def close(self):
         for value in self._clients.values():

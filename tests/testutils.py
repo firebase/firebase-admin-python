@@ -88,7 +88,7 @@ class MockRequest(transport.Request):
         self.response = MockResponse(status, response)
         self.log = []
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs): # pylint: disable=arguments-differ
         self.log.append((args, kwargs))
         return self.response
 
@@ -100,7 +100,7 @@ class MockFailedRequest(transport.Request):
         self.error = error
         self.log = []
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs): # pylint: disable=arguments-differ
         self.log.append((args, kwargs))
         raise self.error
 
@@ -139,7 +139,7 @@ class MockMultiRequestAdapter(adapters.HTTPAdapter):
         self._statuses = list(statuses)
         self._recorder = recorder
 
-    def send(self, request, **kwargs):
+    def send(self, request, **kwargs): # pylint: disable=arguments-differ
         request._extra_kwargs = kwargs
         self._recorder.append(request)
         resp = models.Response()

@@ -53,7 +53,7 @@ def delete_instance_id(instance_id, app=None):
     _get_iid_service(app).delete_instance_id(instance_id)
 
 
-class _InstanceIdService(object):
+class _InstanceIdService:
     """Provides methods for interacting with the remote instance ID service."""
 
     error_codes = {
@@ -96,5 +96,5 @@ class _InstanceIdService(object):
         msg = self.error_codes.get(status)
         if msg:
             return 'Instance ID "{0}": {1}'.format(instance_id, msg)
-        else:
-            return 'Instance ID "{0}": {1}'.format(instance_id, error)
+
+        return 'Instance ID "{0}": {1}'.format(instance_id, error)

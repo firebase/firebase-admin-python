@@ -50,7 +50,7 @@ http_errors = {
         exceptions.UnavailableError),
 }
 
-class TestDeleteInstanceId(object):
+class TestDeleteInstanceId:
 
     def teardown_method(self):
         testutils.cleanup_apps()
@@ -132,4 +132,4 @@ class TestDeleteInstanceId(object):
         _, recorder = self._instrument_iid_service(app)
         with pytest.raises(ValueError):
             instance_id.delete_instance_id(iid)
-        assert len(recorder) is 0
+        assert len(recorder) == 0

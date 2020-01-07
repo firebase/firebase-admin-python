@@ -54,7 +54,7 @@ def client(app=None):
     return fs_client.get()
 
 
-class _FirestoreClient(object):
+class _FirestoreClient:
     """Holds a Google Cloud Firestore client instance."""
 
     def __init__(self, credentials, project):

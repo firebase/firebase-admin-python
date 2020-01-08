@@ -19,7 +19,6 @@ import time
 
 import cachecontrol
 import requests
-import six
 from google.auth import credentials
 from google.auth import iam
 from google.auth import jwt
@@ -149,7 +148,7 @@ class TokenGenerator:
                                          ', '.join(disallowed_keys)))
                 raise ValueError(error_message)
 
-        if not uid or not isinstance(uid, six.string_types) or len(uid) > 128:
+        if not uid or not isinstance(uid, str) or len(uid) > 128:
             raise ValueError('uid must be a string between 1 and 128 characters.')
 
         signing_provider = self.signing_provider
@@ -174,8 +173,8 @@ class TokenGenerator:
 
     def create_session_cookie(self, id_token, expires_in):
         """Creates a session cookie from the provided ID token."""
-        id_token = id_token.decode('utf-8') if isinstance(id_token, six.binary_type) else id_token
-        if not isinstance(id_token, six.text_type) or not id_token:
+        id_token = id_token.decode('utf-8') if isinstance(id_token, bytes) else id_token
+        if not isinstance(id_token, str) or not id_token:
             raise ValueError(
                 'Illegal ID token provided: {0}. ID token must be a non-empty '
                 'string.'.format(id_token))
@@ -256,8 +255,8 @@ class _JWTVerifier:
 
     def verify(self, token, request):
         """Verifies the signature and data for the provided JWT."""
-        token = token.encode('utf-8') if isinstance(token, six.text_type) else token
-        if not isinstance(token, six.binary_type) or not token:
+        token = token.encode('utf-8') if isinstance(token, str) else token
+        if not isinstance(token, bytes) or not token:
             raise ValueError(
                 'Illegal {0} provided: {1}. {0} must be a non-empty '
                 'string.'.format(self.short_name, token))
@@ -308,7 +307,7 @@ class _JWTVerifier:
                 'Firebase {0} has incorrect "iss" (issuer) claim. Expected "{1}" but '
                 'got "{2}". {3} {4}'.format(self.short_name, expected_issuer, issuer,
                                             project_id_match_msg, verify_id_token_msg))
-        elif subject is None or not isinstance(subject, six.string_types):
+        elif subject is None or not isinstance(subject, str):
             error_message = (
                 'Firebase {0} has no "sub" (subject) claim. '
                 '{1}'.format(self.short_name, verify_id_token_msg))

@@ -18,7 +18,6 @@ import json
 import os
 
 import pytest
-import six
 
 import firebase_admin
 from firebase_admin import db
@@ -113,7 +112,7 @@ class TestReadOperations:
         value, etag = testref.get(etag=True)
         assert isinstance(value, dict)
         assert testdata == value
-        assert isinstance(etag, six.string_types)
+        assert isinstance(etag, str)
 
     def test_get_shallow(self, testref):
         value = testref.get(shallow=True)
@@ -124,7 +123,7 @@ class TestReadOperations:
         success, data, etag = testref.get_if_changed('wrong_etag')
         assert success is True
         assert data == testdata
-        assert isinstance(etag, six.string_types)
+        assert isinstance(etag, str)
         assert testref.get_if_changed(etag) == (False, None, None)
 
     def test_get_child_value(self, testref, testdata):
@@ -211,7 +210,7 @@ class TestWriteOperations:
         success, data, etag = edward.set_if_unchanged('invalid-etag', update_data)
         assert success is False
         assert data == push_data
-        assert isinstance(etag, six.string_types)
+        assert isinstance(etag, str)
 
         success, data, new_etag = edward.set_if_unchanged(etag, update_data)
         assert success is True

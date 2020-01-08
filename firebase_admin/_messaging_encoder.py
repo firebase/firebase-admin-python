@@ -20,8 +20,6 @@ import math
 import numbers
 import re
 
-import six
-
 import firebase_admin._messaging_utils as _messaging_utils
 
 
@@ -99,7 +97,7 @@ class _Validators:
         """Checks if the given value is a string."""
         if value is None:
             return None
-        if not isinstance(value, six.string_types):
+        if not isinstance(value, str):
             if non_empty:
                 raise ValueError('{0} must be a non-empty string.'.format(label))
             raise ValueError('{0} must be a string.'.format(label))
@@ -122,10 +120,10 @@ class _Validators:
             return None
         if not isinstance(value, dict):
             raise ValueError('{0} must be a dictionary.'.format(label))
-        non_str = [k for k in value if not isinstance(k, six.string_types)]
+        non_str = [k for k in value if not isinstance(k, str)]
         if non_str:
             raise ValueError('{0} must not contain non-string keys.'.format(label))
-        non_str = [v for v in value.values() if not isinstance(v, six.string_types)]
+        non_str = [v for v in value.values() if not isinstance(v, str)]
         if non_str:
             raise ValueError('{0} must not contain non-string values.'.format(label))
         return value
@@ -137,7 +135,7 @@ class _Validators:
             return None
         if not isinstance(value, list):
             raise ValueError('{0} must be a list of strings.'.format(label))
-        non_str = [k for k in value if not isinstance(k, six.string_types)]
+        non_str = [k for k in value if not isinstance(k, str)]
         if non_str:
             raise ValueError('{0} must not contain non-string values.'.format(label))
         return value
@@ -570,7 +568,7 @@ class MessageEncoder(json.JSONEncoder):
         """Encodes an APNs sound configuration into JSON."""
         if sound is None:
             return None
-        if sound and isinstance(sound, six.string_types):
+        if sound and isinstance(sound, str):
             return sound
         if not isinstance(sound, _messaging_utils.CriticalSound):
             raise ValueError(
@@ -593,7 +591,7 @@ class MessageEncoder(json.JSONEncoder):
         """Encodes an ``ApsAlert`` instance into JSON."""
         if alert is None:
             return None
-        if isinstance(alert, six.string_types):
+        if isinstance(alert, str):
             return alert
         if not isinstance(alert, _messaging_utils.ApsAlert):
             raise ValueError('Aps.alert must be a string or an instance of ApsAlert class.')

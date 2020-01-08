@@ -25,8 +25,6 @@ except ImportError:
     raise ImportError('Failed to import the Cloud Storage library for Python. Make sure '
                       'to install the "google-cloud-storage" module.')
 
-import six
-
 from firebase_admin import _utils
 
 
@@ -77,7 +75,7 @@ class _StorageClient:
                 'Storage bucket name not specified. Specify the bucket name via the '
                 '"storageBucket" option when initializing the App, or specify the bucket '
                 'name explicitly when calling the storage.bucket() function.')
-        if not bucket_name or not isinstance(bucket_name, six.string_types):
+        if not bucket_name or not isinstance(bucket_name, str):
             raise ValueError(
                 'Invalid storage bucket name: "{0}". Bucket name must be a non-empty '
                 'string.'.format(bucket_name))

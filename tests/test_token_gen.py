@@ -26,7 +26,6 @@ import google.auth.exceptions
 import google.oauth2.id_token
 import pytest
 from pytest_localserver import plugin
-import six
 
 import firebase_admin
 from firebase_admin import auth
@@ -68,7 +67,7 @@ def _merge_jwt_claims(defaults, overrides):
     return defaults
 
 def _verify_custom_token(custom_token, expected_claims):
-    assert isinstance(custom_token, six.binary_type)
+    assert isinstance(custom_token, bytes)
     token = google.oauth2.id_token.verify_token(
         custom_token,
         testutils.MockRequest(200, MOCK_PUBLIC_CERTS),

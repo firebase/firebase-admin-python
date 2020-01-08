@@ -16,9 +16,7 @@
 
 import json
 import re
-
-import six
-from six.moves import urllib
+from urllib import parse
 
 from firebase_admin import exceptions
 from firebase_admin import _utils
@@ -35,7 +33,7 @@ VALID_EMAIL_ACTION_TYPES = set(['VERIFY_EMAIL', 'EMAIL_SIGNIN', 'PASSWORD_RESET'
 def validate_uid(uid, required=False):
     if uid is None and not required:
         return None
-    if not isinstance(uid, six.string_types) or not uid or len(uid) > 128:
+    if not isinstance(uid, str) or not uid or len(uid) > 128:
         raise ValueError(
             'Invalid uid: "{0}". The uid must be a non-empty string with no more than 128 '
             'characters.'.format(uid))
@@ -44,7 +42,7 @@ def validate_uid(uid, required=False):
 def validate_email(email, required=False):
     if email is None and not required:
         return None
-    if not isinstance(email, six.string_types) or not email:
+    if not isinstance(email, str) or not email:
         raise ValueError(
             'Invalid email: "{0}". Email must be a non-empty string.'.format(email))
     parts = email.split('@')
@@ -61,7 +59,7 @@ def validate_phone(phone, required=False):
     """
     if phone is None and not required:
         return None
-    if not isinstance(phone, six.string_types) or not phone:
+    if not isinstance(phone, str) or not phone:
         raise ValueError('Invalid phone number: "{0}". Phone number must be a non-empty '
                          'string.'.format(phone))
     if not phone.startswith('+') or not re.search('[a-zA-Z0-9]', phone):
@@ -72,7 +70,7 @@ def validate_phone(phone, required=False):
 def validate_password(password, required=False):
     if password is None and not required:
         return None
-    if not isinstance(password, six.string_types) or len(password) < 6:
+    if not isinstance(password, str) or len(password) < 6:
         raise ValueError(
             'Invalid password string. Password must be a string at least 6 characters long.')
     return password
@@ -80,14 +78,14 @@ def validate_password(password, required=False):
 def validate_bytes(value, label, required=False):
     if value is None and not required:
         return None
-    if not isinstance(value, six.binary_type) or not value:
+    if not isinstance(value, bytes) or not value:
         raise ValueError('{0} must be a non-empty byte sequence.'.format(label))
     return value
 
 def validate_display_name(display_name, required=False):
     if display_name is None and not required:
         return None
-    if not isinstance(display_name, six.string_types) or not display_name:
+    if not isinstance(display_name, str) or not display_name:
         raise ValueError(
             'Invalid display name: "{0}". Display name must be a non-empty '
             'string.'.format(display_name))
@@ -96,7 +94,7 @@ def validate_display_name(display_name, required=False):
 def validate_provider_id(provider_id, required=True):
     if provider_id is None and not required:
         return None
-    if not isinstance(provider_id, six.string_types) or not provider_id:
+    if not isinstance(provider_id, str) or not provider_id:
         raise ValueError(
             'Invalid provider ID: "{0}". Provider ID must be a non-empty '
             'string.'.format(provider_id))
@@ -106,12 +104,12 @@ def validate_photo_url(photo_url, required=False):
     """Parses and validates the given URL string."""
     if photo_url is None and not required:
         return None
-    if not isinstance(photo_url, six.string_types) or not photo_url:
+    if not isinstance(photo_url, str) or not photo_url:
         raise ValueError(
             'Invalid photo URL: "{0}". Photo URL must be a non-empty '
             'string.'.format(photo_url))
     try:
-        parsed = urllib.parse.urlparse(photo_url)
+        parsed = parse.urlparse(photo_url)
         if not parsed.netloc:
             raise ValueError('Malformed photo URL: "{0}".'.format(photo_url))
         return photo_url

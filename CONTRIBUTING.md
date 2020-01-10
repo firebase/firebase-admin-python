@@ -85,7 +85,7 @@ information on using pull requests.
 
 ### Initial Setup
 
-You need Python 2.7 or Python 3.4+ to build and test the code in this repo.
+You need Python 3.4+ to build and test the code in this repo.
 
 We recommend using [pip](https://pypi.python.org/pypi/pip) for installing the necessary tools and
 project dependencies. Most recent versions of Python ship with pip. If your development environment
@@ -226,53 +226,6 @@ pytest --cov --cov-report html
 ```
 and point your browser to
 `file:///<dir>/htmlcov/index.html` (where `dir` is the location from which the report was created).
-
-
-### Testing in Different Environments
-
-Sometimes we want to run unit tests in multiple environments (e.g. different Python versions), and
-ensure that the SDK works as expected in each of them. We use
-[tox](https://tox.readthedocs.io/en/latest/) for this purpose.
-
-But before you can invoke tox, you must set up all the necessary target environments on your
-workstation. The easiest and cleanest way to achieve this is by using a tool like
-[pyenv](https://github.com/pyenv/pyenv). Refer to the
-[pyenv documentation](https://github.com/pyenv/pyenv#installation) for instructions on how to
-install it. This generally involves installing some binaries as well as modifying a system level
-configuration file such as `.bash_profile`. Once pyenv is installed, you can install multiple
-versions of Python as follows:
-
-```
-pyenv install 2.7.6        # install Python 2.7.6
-pyenv install 3.3.0        # install Python 3.3.0
-pyenv install pypy2-5.6.0  # install pypy2
-```
-
-Refer to the [`tox.ini`](tox.ini) file for a list of target environments that we usually test.
-Use pyenv to install all the required Python versions on your workstation. Verify that they are
-installed by running the following command:
-
-```
-pyenv versions
-```
-
-To make all the required Python versions available to tox for testing, run the `pyenv local` command
-with all the Python versions as arguments. The following example shows how to make Python versions
-2.7.6, 3.3.0 and pypy2 available to tox.
-
-```
-pyenv local 2.7.6 3.3.0 pypy2-5.6.0
-```
-
-Once your system is fully set up, you can execute the following command from the root of the
-repository to launch tox:
-
-```
-tox
-```
-
-This command will read the list of target environments from `tox.ini`, and execute tests in each of
-those environments. It will also generate a code coverage report at the end of the execution.
 
 ### Repo Organization
 

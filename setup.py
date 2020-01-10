@@ -22,8 +22,8 @@ from setuptools import setup
 
 
 (major, minor) = (sys.version_info.major, sys.version_info.minor)
-if (major == 2 and minor < 7) or (major == 3 and minor < 4):
-    print('firebase_admin requires python2 >= 2.7 or python3 >= 3.4', file=sys.stderr)
+if major != 3 or minor < 4:
+    print('firebase_admin requires python >= 3.4', file=sys.stderr)
     sys.exit(1)
 
 # Read in the package metadata per recommendations from:
@@ -56,13 +56,11 @@ setup(
     keywords='firebase cloud development',
     install_requires=install_requires,
     packages=['firebase_admin'],
-    python_requires='>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*',
+    python_requires='>=3.4',
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'Topic :: Software Development :: Build Tools',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',

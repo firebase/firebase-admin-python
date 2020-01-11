@@ -1562,7 +1562,7 @@ class TestTimeout(object):
         msg = messaging.Message(topic='foo')
         messaging.send(msg)
         assert len(self.recorder) == 1
-        assert self.recorder[0]._extra_kwargs['timeout'] == 4
+        assert self.recorder[0]._extra_kwargs['timeout'] == pytest.approx(4, 0.001)
 
     def test_topic_management_timeout(self):
         self.fcm_service._client.session.mount(
@@ -1574,7 +1574,7 @@ class TestTimeout(object):
         )
         messaging.subscribe_to_topic(['1'], 'a')
         assert len(self.recorder) == 1
-        assert self.recorder[0]._extra_kwargs['timeout'] == 4
+        assert self.recorder[0]._extra_kwargs['timeout'] == pytest.approx(4, 0.001)
 
 
 class TestSend(object):

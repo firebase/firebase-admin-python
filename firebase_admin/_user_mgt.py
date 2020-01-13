@@ -532,7 +532,8 @@ class UserManager(object):
 
     def update_user(self, uid, display_name=None, email=None, phone_number=None,
                     photo_url=None, password=None, disabled=None, email_verified=None,
-                    valid_since=None, custom_claims=None):
+                    valid_since=None, custom_claims=None, link_provider=None,
+                    delete_provider_ids=None):
         """Updates an existing user account with the specified properties"""
         payload = {
             'localId': _auth_utils.validate_uid(uid, required=True),
@@ -541,6 +542,8 @@ class UserManager(object):
             'validSince': _auth_utils.validate_timestamp(valid_since, 'valid_since'),
             'emailVerified': bool(email_verified) if email_verified is not None else None,
             'disableUser': bool(disabled) if disabled is not None else None,
+            'linkProviderUserInfo': link_provider.to_dict() if link_provider is not None else None,
+            'deleteProvider': _auth_utils.validate_provider_ids(delete_provider_ids, required=False),
         }
 
         remove = []
@@ -559,7 +562,10 @@ class UserManager(object):
 
         if phone_number is not None:
             if phone_number is DELETE_ATTRIBUTE:
-                payload['deleteProvider'] = ['phone']
+                if payload['deleteProvider'] is None:
+                    payload['deleteProvider'] = ['phone']
+                else:
+                    payload['deleteProvider'].append('phone')
             else:
                 payload['phoneNumber'] = _auth_utils.validate_phone(phone_number)
 

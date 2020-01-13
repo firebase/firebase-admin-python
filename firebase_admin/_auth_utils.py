@@ -102,6 +102,16 @@ def validate_provider_id(provider_id, required=True):
             'string.'.format(provider_id))
     return provider_id
 
+def validate_provider_ids(provider_ids, required=False):
+    if provider_ids is None:
+        if required:
+            raise ValueError('Invalid provider IDs. The list must be non-empty.')
+        else:
+            return None
+    for provider_id in provider_ids:
+        validate_provider_id(provider_id, True)
+    return provider_ids
+
 def validate_photo_url(photo_url, required=False):
     if photo_url is None and not required:
         return None

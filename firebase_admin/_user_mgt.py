@@ -468,6 +468,24 @@ class UserManager:
         elif 'phone_number' in kwargs:
             key, key_type = kwargs.pop('phone_number'), 'phone number'
             payload = {'phoneNumber' : [_auth_utils.validate_phone(key, required=True)]}
+        elif 'provider_id' in kwargs and 'provider_uid' in kwargs:
+            provider_id = kwargs.pop('provider_id')
+            provider_uid = kwargs.pop('provider_uid')
+            if provider_id == 'phone':
+                key, key_type = provider_uid, 'phone number'
+                payload = {'phoneNumber' : [_auth_utils.validate_phone(key, required=True)]}
+            elif provider_id == 'password':
+                key, key_type = provider_uid, 'email'
+                payload = {'email' : [_auth_utils.validate_email(key, required=True)]}
+            else:
+                key, key_type = {
+                    'provider_id': provider_id, 'provider_uid': provider_uid
+                }, 'provider_user_id'
+                payload = {
+                    'federated_user_id' : [{
+                        'provider_id': _auth_utils.validate_provider_id(key['provider_id']),
+                        'raw_id': _auth_utils.validate_provider_id(key['provider_uid'])}]
+                }
         else:
             raise TypeError('Unsupported keyword arguments: {0}.'.format(kwargs))
 

@@ -178,6 +178,27 @@ def new_user_with_params():
     auth.delete_user(user.uid)
 
 @pytest.fixture
+def imported_user_with_params():
+    random_id, email = _random_id()
+    phone = _random_phone()
+    user = auth.ImportUserRecord(
+        uid=random_id,
+        email=email,
+        phone_number=phone,
+        display_name='Random User',
+        photo_url='https://example.com/photo.png',
+        user_metadata=auth.UserMetadata(100, 150),
+        password_hash=b'password', password_salt=b'NaCl', custom_claims={'admin': True},
+        email_verified=True,
+        disabled=False,
+        provider_data=[auth.UserProvider(uid='test', provider_id='google.com')])
+    hash_alg = auth.UserImportHash.scrypt(
+        b'key', rounds=8, memory_cost=14, salt_separator=b'sep')
+    auth.import_users([user], hash_alg=hash_alg)
+    yield user
+    auth.delete_user(user.uid)
+
+@pytest.fixture
 def new_user_list():
     users = [
         auth.create_user(password='password').uid,
@@ -200,24 +221,33 @@ def new_user_email_unverified():
     yield user
     auth.delete_user(user.uid)
 
-def test_get_user(new_user_with_params):
-    user = auth.get_user(new_user_with_params.uid)
-    assert user.uid == new_user_with_params.uid
+def test_get_user(imported_user_with_params):
+    user = auth.get_user(imported_user_with_params.uid)
+    assert user.uid == imported_user_with_params.uid
     assert user.display_name == 'Random User'
-    assert user.email == new_user_with_params.email
-    assert user.phone_number == new_user_with_params.phone_number
+    assert user.email == imported_user_with_params.email
+    assert user.phone_number == imported_user_with_params.phone_number
     assert user.photo_url == 'https://example.com/photo.png'
     assert user.email_verified is True
     assert user.disabled is False
-
-    user = auth.get_user_by_email(new_user_with_params.email)
-    assert user.uid == new_user_with_params.uid
-    user = auth.get_user_by_phone_number(new_user_with_params.phone_number)
-    assert user.uid == new_user_with_params.uid
-
-    assert len(user.provider_data) == 2
+    assert len(user.provider_data) == 3
     provider_ids = sorted([provider.provider_id for provider in user.provider_data])
-    assert provider_ids == ['password', 'phone']
+    assert provider_ids == ['google.com', 'password', 'phone']
+
+    user = auth.get_user_by_email(imported_user_with_params.email)
+    assert user.uid == imported_user_with_params.uid
+
+    user = auth.get_user_by_phone_number(imported_user_with_params.phone_number)
+    assert user.uid == imported_user_with_params.uid
+
+    user = auth.get_user_by_provider_user_id('phone', imported_user_with_params.phone_number)
+    assert user.uid == imported_user_with_params.uid
+
+    user = auth.get_user_by_provider_user_id('password', imported_user_with_params.email)
+    assert user.uid == imported_user_with_params.uid
+
+    user = auth.get_user_by_provider_user_id('google.com', 'test')
+    assert user.uid == imported_user_with_params.uid
 
 def test_list_users(new_user_list):
     err_msg_template = (

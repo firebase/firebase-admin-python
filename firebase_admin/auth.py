@@ -72,6 +72,7 @@ __all__ = [
     'get_user',
     'get_user_by_email',
     'get_user_by_phone_number',
+    'get_user_by_provider_user_id',
     'import_users',
     'list_users',
     'revoke_refresh_tokens',
@@ -308,6 +309,28 @@ def get_user_by_phone_number(phone_number, app=None):
     response = user_manager.get_user(phone_number=phone_number)
     return UserRecord(response)
 
+def get_user_by_provider_user_id(provider_id, provider_uid, app=None):
+    """Gets the user data corresponding to the specified provider identifier.
+
+    Args:
+        provider_id: Identifier for the given provider, for example,
+            "google.com" for the Google provider.
+        provider_uid: The user identifier with the given provider.
+        app: An App instance (optional).
+
+    Returns:
+        UserRecord: A UserRecord instance.
+
+    Raises:
+        ValueError: If the given provider identifier is None or empty, or if
+        the given provider user identifier is None or empty.
+        UserNotFoundError: If no user exists by the specified identifiers.
+        FirebaseError: If an error occurs while retrieving the user.
+    """
+    user_manager = _get_auth_service(app).user_manager
+    response = user_manager.get_user(
+        provider_id=provider_id, provider_uid=provider_uid)
+    return UserRecord(response)
 
 def list_users(page_token=None, max_results=_user_mgt.MAX_LIST_USERS_RESULTS, app=None):
     """Retrieves a page of user accounts from a Firebase project.

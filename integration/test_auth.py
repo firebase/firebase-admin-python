@@ -18,16 +18,16 @@ import datetime
 import random
 import time
 import uuid
-import six
 
+import google.oauth2.credentials
+from google.auth import transport
 import pytest
 import requests
+import six
 
 import firebase_admin
 from firebase_admin import auth
 from firebase_admin import credentials
-import google.oauth2.credentials
-from google.auth import transport
 
 
 _verify_token_url = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyCustomToken'
@@ -263,7 +263,7 @@ def test_create_user(new_user):
     assert user.custom_claims is None
     assert user.user_metadata.creation_timestamp > 0
     assert user.user_metadata.last_sign_in_timestamp is None
-    assert len(user.provider_data) is 0
+    assert len(user.provider_data) == 0
     with pytest.raises(auth.UidAlreadyExistsError):
         auth.create_user(uid=new_user.uid)
 

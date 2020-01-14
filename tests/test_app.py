@@ -30,7 +30,7 @@ CONFIG_JSON = firebase_admin._FIREBASE_CONFIG_ENV_VAR
 # This fixture will ignore the environment variable pointing to the default
 # configuration for the duration of the tests.
 
-class CredentialProvider(object):
+class CredentialProvider:
     def init(self):
         pass
 
@@ -73,7 +73,7 @@ class ImplicitAppDefault(ExplicitAppDefault):
         return None
 
 
-class AppService(object):
+class AppService:
     def __init__(self, app):
         self._app = app
 
@@ -89,8 +89,8 @@ def app_credential(request):
 def init_app(request):
     if request.param:
         return firebase_admin.initialize_app(CREDENTIAL, name=request.param)
-    else:
-        return firebase_admin.initialize_app(CREDENTIAL)
+
+    return firebase_admin.initialize_app(CREDENTIAL)
 
 @pytest.fixture(scope="function")
 def env_test_case(request):
@@ -211,7 +211,7 @@ def revert_config_env(config_old):
     elif os.environ.get(CONFIG_JSON) is not None:
         del os.environ[CONFIG_JSON]
 
-class TestFirebaseApp(object):
+class TestFirebaseApp:
     """Test cases for App initialization and life cycle."""
 
     invalid_credentials = ['', 'foo', 0, 1, dict(), list(), tuple(), True, False]

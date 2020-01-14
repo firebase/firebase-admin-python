@@ -31,8 +31,8 @@ function lintChangedFiles () {
 set -o errexit
 set -o nounset
 
-SKIP_FOR_TESTS="redefined-outer-name,protected-access,missing-docstring,too-many-lines"
-SKIP_FOR_SNIPPETS="${SKIP_FOR_TESTS},reimported,unused-variable"
+SKIP_FOR_TESTS="redefined-outer-name,protected-access,missing-docstring,too-many-lines,len-as-condition"
+SKIP_FOR_SNIPPETS="${SKIP_FOR_TESTS},reimported,unused-variable,unused-import,import-outside-toplevel"
 
 if [[ "$#" -eq 1 && "$1" = "all" ]]
 then

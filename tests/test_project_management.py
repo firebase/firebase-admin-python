@@ -202,7 +202,7 @@ ALREADY_EXISTS_RESPONSE = ('{"error": {"status": "ALREADY_EXISTS", '
 NOT_FOUND_RESPONSE = '{"error": {"message": "Failed to find the resource"}}'
 UNAVAILABLE_RESPONSE = '{"error": {"message": "Backend servers are over capacity"}}'
 
-class TestAndroidAppMetadata(object):
+class TestAndroidAppMetadata:
 
     def test_create_android_app_metadata_errors(self):
         # package_name must be a non-empty string.
@@ -289,7 +289,6 @@ class TestAndroidAppMetadata(object):
         # Don't trigger __ne__.
         assert not metadata_1 == ios_metadata  # pylint: disable=unneeded-not
         assert metadata_1 != ios_metadata
-        assert metadata_1 == metadata_1
         assert metadata_1 != metadata_2
         assert metadata_1 != metadata_3
         assert metadata_1 != metadata_4
@@ -315,7 +314,7 @@ class TestAndroidAppMetadata(object):
         assert ANDROID_APP_METADATA.project_id == 'test-project-id'
 
 
-class TestIOSAppMetadata(object):
+class TestIOSAppMetadata:
 
     def test_create_ios_app_metadata_errors(self):
         # bundle_id must be a non-empty string.
@@ -402,7 +401,6 @@ class TestIOSAppMetadata(object):
         # Don't trigger __ne__.
         assert not metadata_1 == android_metadata  # pylint: disable=unneeded-not
         assert metadata_1 != android_metadata
-        assert metadata_1 == metadata_1
         assert metadata_1 != metadata_2
         assert metadata_1 != metadata_3
         assert metadata_1 != metadata_4
@@ -427,7 +425,7 @@ class TestIOSAppMetadata(object):
         assert IOS_APP_METADATA.project_id == 'test-project-id'
 
 
-class TestSHACertificate(object):
+class TestSHACertificate:
     def test_create_sha_certificate_errors(self):
         # sha_hash cannot be None.
         with pytest.raises(ValueError):
@@ -469,7 +467,6 @@ class TestSHACertificate(object):
             'cert_type': 'SHA_1',
         }
 
-        assert sha_cert_1 == sha_cert_1
         assert sha_cert_1 != sha_cert_2
         assert sha_cert_1 != sha_cert_3
         assert sha_cert_1 != sha_cert_4
@@ -496,7 +493,7 @@ class TestSHACertificate(object):
         assert SHA_256_CERTIFICATE.cert_type == 'SHA_256'
 
 
-class BaseProjectManagementTest(object):
+class BaseProjectManagementTest:
     @classmethod
     def setup_class(cls):
         project_management._ProjectManagementService.POLL_BASE_WAIT_TIME_SECONDS = 0.01

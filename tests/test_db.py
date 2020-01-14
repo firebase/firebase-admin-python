@@ -48,7 +48,7 @@ class MockAdapter(testutils.MockAdapter):
         return resp
 
 
-class MockSSEClient(object):
+class MockSSEClient:
     """A mock SSE client that mimics long-lived HTTP connections."""
 
     def __init__(self, events):
@@ -62,11 +62,11 @@ class MockSSEClient(object):
         self.closed = True
 
 
-class _Object(object):
+class _Object:
     pass
 
 
-class TestReferencePath(object):
+class TestReferencePath:
     """Test cases for Reference paths."""
 
     # path => (fullstr, key, parent)
@@ -127,7 +127,7 @@ class TestReferencePath(object):
             parent.child(child)
 
 
-class _RefOperations(object):
+class _RefOperations:
     """A collection of operations that can be performed using a ``db.Reference``.
 
     This can be used to test any functionality that is common across multiple API calls.
@@ -159,7 +159,7 @@ class _RefOperations(object):
         return [cls.get, cls.push, cls.set, cls.delete, cls.query]
 
 
-class TestReference(object):
+class TestReference:
     """Test cases for database queries via References."""
 
     test_url = 'https://test.firebaseio.com'
@@ -381,7 +381,7 @@ class TestReference(object):
         recorder = self.instrument(ref, '')
         with pytest.raises(ValueError):
             ref.update(update)
-        assert len(recorder) is 0
+        assert len(recorder) == 0
 
     @pytest.mark.parametrize('data', valid_values)
     def test_push(self, data):
@@ -527,7 +527,7 @@ class TestReference(object):
         assert excinfo.value.http_response is not None
 
 
-class TestListenerRegistration(object):
+class TestListenerRegistration:
     """Test cases for receiving events via ListenerRegistrations."""
 
     def test_listen_error(self):
@@ -598,7 +598,7 @@ class TestListenerRegistration(object):
         raise pytest.fail('Timed out while waiting for events')
 
 
-class TestReferenceWithAuthOverride(object):
+class TestReferenceWithAuthOverride:
     """Test cases for database queries via References."""
 
     test_url = 'https://test.firebaseio.com'
@@ -671,7 +671,7 @@ class TestReferenceWithAuthOverride(object):
         assert recorder[0].headers['User-Agent'] == db._USER_AGENT
 
 
-class TestDatabaseInitialization(object):
+class TestDatabaseInitialization:
     """Test cases for database initialization."""
 
     def teardown_method(self):
@@ -847,13 +847,13 @@ def initquery(request):
     ref = db.Reference(path='foo')
     if request.param == '$key':
         return ref.order_by_key(), request.param
-    elif request.param == '$value':
+    if request.param == '$value':
         return ref.order_by_value(), request.param
-    else:
-        return ref.order_by_child(request.param), request.param
+
+    return ref.order_by_child(request.param), request.param
 
 
-class TestQuery(object):
+class TestQuery:
     """Test cases for db.Query class."""
 
     valid_paths = {
@@ -982,7 +982,7 @@ class TestQuery(object):
             db.Query(order_by='$key', client=ref._client, pathurl=ref._add_suffix(), foo='bar')
 
 
-class TestSorter(object):
+class TestSorter:
     """Test cases for db._Sorter class."""
 
     value_test_cases = [

@@ -30,7 +30,7 @@ from tests import testutils
 @pytest.mark.skipif(
     platform.python_implementation() == 'PyPy',
     reason='Firestore is not supported on PyPy')
-class TestFirestore(object):
+class TestFirestore:
     """Test class Firestore APIs."""
 
     def teardown_method(self, method):

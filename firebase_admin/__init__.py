@@ -77,12 +77,12 @@ def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
             'initialize_app() once. But if you do want to initialize multiple '
             'apps, pass a second argument to initialize_app() to give each app '
             'a unique name.'))
-    else:
-        raise ValueError((
-            'Firebase app named "{0}" already exists. This means you called '
-            'initialize_app() more than once with the same app name as the '
-            'second argument. Make sure you provide a unique name every time '
-            'you call initialize_app().').format(name))
+
+    raise ValueError((
+        'Firebase app named "{0}" already exists. This means you called '
+        'initialize_app() more than once with the same app name as the '
+        'second argument. Make sure you provide a unique name every time '
+        'you call initialize_app().').format(name))
 
 
 def delete_app(app):
@@ -106,11 +106,11 @@ def delete_app(app):
         raise ValueError(
             'The default Firebase app is not initialized. Make sure to initialize '
             'the default app by calling initialize_app().')
-    else:
-        raise ValueError(
-            ('Firebase app named "{0}" is not initialized. Make sure to initialize '
-             'the app by calling initialize_app() with your app name as the '
-             'second argument.').format(app.name))
+
+    raise ValueError(
+        ('Firebase app named "{0}" is not initialized. Make sure to initialize '
+         'the app by calling initialize_app() with your app name as the '
+         'second argument.').format(app.name))
 
 
 def get_app(name=_DEFAULT_APP_NAME):
@@ -137,14 +137,14 @@ def get_app(name=_DEFAULT_APP_NAME):
         raise ValueError(
             'The default Firebase app does not exist. Make sure to initialize '
             'the SDK by calling initialize_app().')
-    else:
-        raise ValueError(
-            ('Firebase app named "{0}" does not exist. Make sure to initialize '
-             'the SDK by calling initialize_app() with your app name as the '
-             'second argument.').format(name))
+
+    raise ValueError(
+        ('Firebase app named "{0}" does not exist. Make sure to initialize '
+         'the SDK by calling initialize_app() with your app name as the '
+         'second argument.').format(name))
 
 
-class _AppOptions(object):
+class _AppOptions:
     """A collection of configuration options for an App."""
 
     def __init__(self, options):
@@ -185,7 +185,7 @@ class _AppOptions(object):
         return {k: v for k, v in json_data.items() if k in _CONFIG_VALID_KEYS}
 
 
-class App(object):
+class App:
     """The entry point for Firebase Python SDK.
 
     Represents a Firebase app, while holding the configuration and state

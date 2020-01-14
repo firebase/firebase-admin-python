@@ -36,7 +36,7 @@ class MockSSEClientAdapter(testutils.MockAdapter):
         return resp
 
 
-class TestSSEClient(object):
+class TestSSEClient:
     """Test cases for the SSEClient"""
 
     test_url = "https://test.firebaseio.com"
@@ -54,7 +54,7 @@ class TestSSEClient(object):
         payload = 'event: put\ndata: {"path":"/","data":"testevent"}\n\n'
         sseclient = self.init_sse(payload)
         assert sseclient.url == self.test_url
-        assert sseclient.session != None
+        assert sseclient.session is not None
 
     def test_single_event(self):
         payload = 'event: put\ndata: {"path":"/","data":"testevent"}\n\n'
@@ -120,7 +120,7 @@ class TestSSEClient(object):
         assert len(recorder) == 1
 
 
-class TestEvent(object):
+class TestEvent:
     """Test cases for server-side events"""
 
     def test_normal(self):

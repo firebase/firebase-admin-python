@@ -140,7 +140,7 @@ def test_send_multicast():
 
     batch_response = messaging.send_multicast(multicast)
 
-    assert batch_response.success_count is 0
+    assert batch_response.success_count == 0
     assert batch_response.failure_count == 2
     assert len(batch_response.responses) == 2
     for response in batch_response.responses:

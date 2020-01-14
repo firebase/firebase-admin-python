@@ -29,7 +29,7 @@ MAX_IMPORT_USERS_SIZE = 1000
 B64_REDACTED = base64.b64encode(b'REDACTED')
 
 
-class Sentinel(object):
+class Sentinel:
 
     def __init__(self, description):
         self.description = description
@@ -38,7 +38,7 @@ class Sentinel(object):
 DELETE_ATTRIBUTE = Sentinel('Value used to delete an attribute from a user profile')
 
 
-class UserMetadata(object):
+class UserMetadata:
     """Contains additional metadata associated with a user account."""
 
     def __init__(self, creation_timestamp=None, last_sign_in_timestamp=None):
@@ -66,7 +66,7 @@ class UserMetadata(object):
         return self._last_sign_in_timestamp
 
 
-class UserInfo(object):
+class UserInfo:
     """A collection of standard profile information for a user.
 
     Used to expose profile information returned by an identity provider.
@@ -248,9 +248,6 @@ class UserRecord(UserInfo):
 class ExportedUserRecord(UserRecord):
     """Contains metadata associated with a user including password hash and salt."""
 
-    def __init__(self, data):
-        super(ExportedUserRecord, self).__init__(data)
-
     @property
     def password_hash(self):
         """The user's password hash as a base64-encoded string.
@@ -283,7 +280,7 @@ class ExportedUserRecord(UserRecord):
         return self._data.get('salt')
 
 
-class ListUsersPage(object):
+class ListUsersPage:
     """Represents a page of user records exported from a Firebase project.
 
     Provides methods for traversing the user accounts included in this page, as well as retrieving
@@ -370,7 +367,7 @@ class ProviderUserInfo(UserInfo):
         return self._data.get('providerId')
 
 
-class ActionCodeSettings(object):
+class ActionCodeSettings:
     """Contains required continue/state URL with optional Android and iOS settings.
     Used when invoking the email action link generation APIs.
     """
@@ -454,7 +451,7 @@ def encode_action_code_settings(settings):
     return parameters
 
 
-class UserManager(object):
+class UserManager:
     """Provides methods for interacting with the Google Identity Toolkit."""
 
     def __init__(self, client):
@@ -493,7 +490,7 @@ class UserManager(object):
                 raise ValueError('Page token must be a non-empty string.')
         if not isinstance(max_results, int):
             raise ValueError('Max results must be an integer.')
-        elif max_results < 1 or max_results > MAX_LIST_USERS_RESULTS:
+        if max_results < 1 or max_results > MAX_LIST_USERS_RESULTS:
             raise ValueError(
                 'Max results must be a positive integer less than '
                 '{0}.'.format(MAX_LIST_USERS_RESULTS))
@@ -636,6 +633,7 @@ class UserManager(object):
             link_url: action url to be emailed to the user
 
         Raises:
+            UnexpectedResponseError: If the backend server responds with an unexpected message
             FirebaseError: If an error occurs while generating the link
             ValueError: If the provided arguments are invalid
         """
@@ -660,7 +658,7 @@ class UserManager(object):
             return body.get('oobLink')
 
 
-class _UserIterator(object):
+class _UserIterator:
     """An iterator that allows iterating over user accounts, one at a time.
 
     This implementation loads a page of users into memory, and iterates on them. When the whole

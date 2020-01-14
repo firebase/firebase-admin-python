@@ -31,8 +31,8 @@ def integration_conf(request):
     host_override = os.environ.get('FIREBASE_DATABASE_EMULATOR_HOST')
     if host_override:
         return None, 'fake-project-id'
-    else:
-        return conftest.integration_conf(request)
+
+    return conftest.integration_conf(request)
 
 
 @pytest.fixture(scope='module')
@@ -83,7 +83,7 @@ def testref(update_rules, testdata, app):
     return ref
 
 
-class TestReferenceAttributes(object):
+class TestReferenceAttributes:
     """Test cases for attributes exposed by db.Reference class."""
 
     def test_ref_attributes(self, testref):
@@ -101,7 +101,7 @@ class TestReferenceAttributes(object):
         assert parent.path == '/_adminsdk/python'
 
 
-class TestReadOperations(object):
+class TestReadOperations:
     """Test cases for reading node values."""
 
     def test_get_value(self, testref, testdata):
@@ -143,7 +143,7 @@ class TestReadOperations(object):
         assert testref.child('none_existing').get() is None
 
 
-class TestWriteOperations(object):
+class TestWriteOperations:
     """Test cases for creating and updating node values."""
 
     def test_push(self, testref):
@@ -247,7 +247,7 @@ class TestWriteOperations(object):
         assert ref.get() is None
 
 
-class TestAdvancedQueries(object):
+class TestAdvancedQueries:
     """Test cases for advanced interactions via the db.Query interface."""
 
     height_sorted = [
@@ -352,7 +352,7 @@ def none_override_app(request, update_rules):
     firebase_admin.delete_app(app)
 
 
-class TestAuthVariableOverride(object):
+class TestAuthVariableOverride:
     """Test cases for database auth variable overrides."""
 
     def init_ref(self, path, app):

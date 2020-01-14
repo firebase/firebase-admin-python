@@ -26,3 +26,11 @@ jobs:
     - name: Test with pytest
       if: success() || failure()
       run: pytest
+    - name: Set up Node.js 10
+      uses: actions/setup-node@v1
+      with:
+        node-version: 10.x
+    - name: Run integration tests against emulator
+      run: |
+        npm install -g firebase-tools
+        firebase emulators:exec --only database --project fake-project-id 'pytest integration/test_db.py'

@@ -1,16 +1,6 @@
 language: python
 python:
   - "3.4"
-  - "3.5"
-  - "3.6"
-  - "3.7"
-  - "pypy3.5"
-
-jobs:
-  include:
-    - name: "Lint"
-      python: "3.7"
-      script: ./lint.sh all
 
 before_install:
   - nvm install 8 && npm install -g firebase-tools

@@ -18,8 +18,6 @@ import json
 import os
 import threading
 
-import six
-
 from firebase_admin import credentials
 from firebase_admin.__about__ import __version__
 
@@ -126,7 +124,7 @@ def get_app(name=_DEFAULT_APP_NAME):
       ValueError: If the specified name is not a string, or if the specified
           app does not exist.
     """
-    if not isinstance(name, six.string_types):
+    if not isinstance(name, str):
         raise ValueError('Illegal app name argument type: "{}". App name '
                          'must be a string.'.format(type(name)))
     with _apps_lock:
@@ -203,7 +201,7 @@ class App:
         Raises:
           ValueError: If an argument is None or invalid.
         """
-        if not name or not isinstance(name, six.string_types):
+        if not name or not isinstance(name, str):
             raise ValueError('Illegal Firebase app name "{0}" provided. App name must be a '
                              'non-empty string.'.format(name))
         self._name = name
@@ -221,7 +219,7 @@ class App:
 
     @classmethod
     def _validate_project_id(cls, project_id):
-        if project_id is not None and not isinstance(project_id, six.string_types):
+        if project_id is not None and not isinstance(project_id, str):
             raise ValueError(
                 'Invalid project ID: "{0}". project ID must be a string.'.format(project_id))
 
@@ -286,7 +284,7 @@ class App:
         Raises:
           ValueError: If the provided name is invalid, or if the App is already deleted.
         """
-        if not name or not isinstance(name, six.string_types):
+        if not name or not isinstance(name, str):
             raise ValueError(
                 'Illegal name argument: "{0}". Name must be a non-empty string.'.format(name))
         with self._lock:

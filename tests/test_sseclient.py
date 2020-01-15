@@ -13,10 +13,10 @@
 # limitations under the License.
 
 """Tests for firebase_admin._sseclient."""
+import io
 import json
 
 import requests
-import six
 
 from firebase_admin import _sseclient
 from tests import testutils
@@ -31,7 +31,7 @@ class MockSSEClientAdapter(testutils.MockAdapter):
         resp = super(MockSSEClientAdapter, self).send(request, **kwargs)
         resp.url = request.url
         resp.status_code = self.status
-        resp.raw = six.BytesIO(self.data.encode())
+        resp.raw = io.BytesIO(self.data.encode())
         resp.encoding = "utf-8"
         return resp
 

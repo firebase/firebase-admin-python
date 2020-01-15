@@ -17,10 +17,8 @@ import datetime
 import json
 import numbers
 
-import pytest
-import six
-
 from googleapiclient.http import HttpMockSequence
+import pytest
 
 import firebase_admin
 from firebase_admin import exceptions
@@ -288,7 +286,7 @@ class TestAndroidConfigEncoder:
         with pytest.raises(ValueError) as excinfo:
             check_encoding(messaging.Message(
                 topic='topic', android=messaging.AndroidConfig(priority=data)))
-        if isinstance(data, six.string_types):
+        if isinstance(data, str):
             assert str(excinfo.value) == 'AndroidConfig.priority must be "high" or "normal".'
         else:
             assert str(excinfo.value) == 'AndroidConfig.priority must be a non-empty string.'
@@ -405,7 +403,7 @@ class TestAndroidNotificationEncoder:
     def test_invalid_color(self, data):
         notification = messaging.AndroidNotification(color=data)
         excinfo = self._check_notification(notification)
-        if isinstance(data, six.string_types):
+        if isinstance(data, str):
             assert str(excinfo.value) == 'AndroidNotification.color must be in the form #RRGGBB.'
         else:
             assert str(excinfo.value) == 'AndroidNotification.color must be a non-empty string.'
@@ -491,7 +489,7 @@ class TestAndroidNotificationEncoder:
     def test_invalid_priority(self, priority):
         notification = messaging.AndroidNotification(priority=priority)
         excinfo = self._check_notification(notification)
-        if isinstance(priority, six.string_types):
+        if isinstance(priority, str):
             if not priority:
                 expected = 'AndroidNotification.priority must be a non-empty string.'
             else:
@@ -505,7 +503,7 @@ class TestAndroidNotificationEncoder:
     def test_invalid_visibility(self, visibility):
         notification = messaging.AndroidNotification(visibility=visibility)
         excinfo = self._check_notification(notification)
-        if isinstance(visibility, six.string_types):
+        if isinstance(visibility, str):
             if not visibility:
                 expected = 'AndroidNotification.visibility must be a non-empty string.'
             else:
@@ -679,7 +677,7 @@ class TestLightSettingsEncoder:
         notification = messaging.LightSettings(color=data, light_on_duration_millis=300,
                                                light_off_duration_millis=200)
         excinfo = self._check_light_settings(notification)
-        if isinstance(data, six.string_types):
+        if isinstance(data, str):
             assert str(excinfo.value) == ('LightSettings.color must be in the form #RRGGBB or '
                                           '#RRGGBBAA.')
         else:
@@ -853,7 +851,7 @@ class TestWebpushNotificationEncoder:
     def test_invalid_direction(self, data):
         notification = messaging.WebpushNotification(direction=data)
         excinfo = self._check_notification(notification)
-        if isinstance(data, six.string_types):
+        if isinstance(data, str):
             assert str(excinfo.value) == ('WebpushNotification.direction must be "auto", '
                                           '"ltr" or "rtl".')
         else:
@@ -2195,7 +2193,7 @@ class TestTopicManagement:
     @pytest.mark.parametrize('tokens', [None, '', list(), dict(), tuple()])
     def test_invalid_tokens(self, tokens):
         expected = 'Tokens must be a string or a non-empty list of strings.'
-        if isinstance(tokens, six.string_types):
+        if isinstance(tokens, str):
             expected = 'Tokens must be non-empty strings.'
 
         with pytest.raises(ValueError) as excinfo:

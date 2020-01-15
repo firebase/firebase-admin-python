@@ -25,11 +25,10 @@ import json
 import os
 import sys
 import threading
+from urllib import parse
 
 import google.auth
 import requests
-import six
-from six.moves import urllib
 
 import firebase_admin
 from firebase_admin import exceptions
@@ -73,7 +72,7 @@ def reference(path='/', app=None, url=None):
 
 def _parse_path(path):
     """Parses a path string into a set of segments."""
-    if not isinstance(path, six.string_types):
+    if not isinstance(path, str):
         raise ValueError('Invalid path: "{0}". Path must be a string.'.format(path))
     if any(ch in path for ch in _INVALID_PATH_CHARACTERS):
         raise ValueError(
@@ -185,7 +184,7 @@ class Reference:
         Raises:
           ValueError: If the child path is not a string, not well-formed or begins with '/'.
         """
-        if not path or not isinstance(path, six.string_types):
+        if not path or not isinstance(path, str):
             raise ValueError(
                 'Invalid path argument: "{0}". Path must be a non-empty string.'.format(path))
         if path.startswith('/'):
@@ -239,7 +238,7 @@ class Reference:
           ValueError: If the ETag is not a string.
           FirebaseError: If an error occurs while communicating with the remote database server.
         """
-        if not isinstance(etag, six.string_types):
+        if not isinstance(etag, str):
             raise ValueError('ETag must be a string.')
 
         resp = self._client.request('get', self._add_suffix(), headers={'if-none-match': etag})
@@ -285,7 +284,7 @@ class Reference:
           FirebaseError: If an error occurs while communicating with the remote database server.
         """
         # pylint: disable=missing-raises-doc
-        if not isinstance(expected_etag, six.string_types):
+        if not isinstance(expected_etag, str):
             raise ValueError('Expected ETag must be a string.')
         if value is None:
             raise ValueError('Value must not be none.')
@@ -488,7 +487,7 @@ class Query:
 
     def __init__(self, **kwargs):
         order_by = kwargs.pop('order_by')
-        if not order_by or not isinstance(order_by, six.string_types):
+        if not order_by or not isinstance(order_by, str):
             raise ValueError('order_by field must be a non-empty string')
         if order_by not in _RESERVED_FILTERS:
             if order_by.startswith('/'):
@@ -704,7 +703,7 @@ class _SortEntry:
             return cls._type_bool_true
         if isinstance(index, (int, float)):
             return cls._type_numeric
-        if isinstance(index, six.string_types):
+        if isinstance(index, str):
             return cls._type_string
 
         return cls._type_object
@@ -825,11 +824,11 @@ class _DatabaseService:
         base URL will use emulator_host instead. emulator_host is ignored
         if url is already an emulator URL.
         """
-        if not url or not isinstance(url, six.string_types):
+        if not url or not isinstance(url, str):
             raise ValueError(
                 'Invalid database URL: "{0}". Database URL must be a non-empty '
                 'URL string.'.format(url))
-        parsed_url = urllib.parse.urlparse(url)
+        parsed_url = parse.urlparse(url)
         if parsed_url.netloc.endswith('.firebaseio.com'):
             return cls._parse_production_url(parsed_url, emulator_host)
 
@@ -857,7 +856,7 @@ class _DatabaseService:
     @classmethod
     def _parse_emulator_url(cls, parsed_url):
         """Parses emulator URL like http://localhost:8080/?ns=foo-bar"""
-        query_ns = urllib.parse.parse_qs(parsed_url.query).get('ns')
+        query_ns = parse.parse_qs(parsed_url.query).get('ns')
         if parsed_url.scheme != 'http' or (not query_ns or len(query_ns) != 1 or not query_ns[0]):
             raise ValueError(
                 'Invalid database URL: "{0}". Database URL must be a valid URL to a '

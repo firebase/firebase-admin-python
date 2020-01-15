@@ -14,13 +14,13 @@
 
 """Internal utilities common to all modules."""
 
+import io
 import json
 import socket
 
 import googleapiclient
 import httplib2
 import requests
-import six
 
 import firebase_admin
 from firebase_admin import exceptions
@@ -255,7 +255,7 @@ def handle_googleapiclient_error(error, message=None, code=None, http_response=N
 def _http_response_from_googleapiclient_error(error):
     """Creates a requests HTTP Response object from the given googleapiclient error."""
     resp = requests.models.Response()
-    resp.raw = six.BytesIO(error.content)
+    resp.raw = io.BytesIO(error.content)
     resp.status_code = error.resp.status
     return resp
 

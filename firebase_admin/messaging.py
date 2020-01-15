@@ -15,12 +15,11 @@
 """Firebase Cloud Messaging module."""
 
 import json
-import requests
-import six
 
 import googleapiclient
 from googleapiclient import http
 from googleapiclient import _auth
+import requests
 
 import firebase_admin
 from firebase_admin import _http_client
@@ -395,15 +394,15 @@ class _MessagingService:
 
     def make_topic_management_request(self, tokens, topic, operation):
         """Invokes the IID service for topic management functionality."""
-        if isinstance(tokens, six.string_types):
+        if isinstance(tokens, str):
             tokens = [tokens]
         if not isinstance(tokens, list) or not tokens:
             raise ValueError('Tokens must be a string or a non-empty list of strings.')
-        invalid_str = [t for t in tokens if not isinstance(t, six.string_types) or not t]
+        invalid_str = [t for t in tokens if not isinstance(t, str) or not t]
         if invalid_str:
             raise ValueError('Tokens must be non-empty strings.')
 
-        if not isinstance(topic, six.string_types) or not topic:
+        if not isinstance(topic, str) or not topic:
             raise ValueError('Topic must be a non-empty string.')
         if not topic.startswith('/topics/'):
             topic = '/topics/{0}'.format(topic)

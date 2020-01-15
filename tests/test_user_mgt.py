@@ -17,9 +17,9 @@
 import base64
 import json
 import time
+from urllib import parse
 
 import pytest
-from six.moves import urllib
 
 import firebase_admin
 from firebase_admin import auth
@@ -772,7 +772,7 @@ class TestListUsers:
         if expected is None:
             expected = {'maxResults' : '1000'}
         assert len(recorder) == 1
-        request = dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(recorder[0].url).query))
+        request = dict(parse.parse_qsl(parse.urlsplit(recorder[0].url).query))
         assert request == expected
 
 

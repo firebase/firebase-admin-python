@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
 import json
 import socket
 
@@ -19,7 +20,6 @@ import httplib2
 import pytest
 import requests
 from requests import models
-import six
 
 from googleapiclient import errors
 from firebase_admin import exceptions
@@ -174,7 +174,7 @@ class TestRequests:
         resp = models.Response()
         resp.status_code = status
         if payload:
-            resp.raw = six.BytesIO(payload.encode())
+            resp.raw = io.BytesIO(payload.encode())
         exc = requests.exceptions.RequestException('Test error', response=resp)
         return resp, exc
 

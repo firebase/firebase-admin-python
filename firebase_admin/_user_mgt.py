@@ -16,9 +16,9 @@
 
 import base64
 import json
+from urllib import parse
+
 import requests
-import six
-from six.moves import urllib
 
 from firebase_admin import _auth_utils
 from firebase_admin import _user_import
@@ -397,7 +397,7 @@ def encode_action_code_settings(settings):
         raise ValueError("Dynamic action links url is mandatory")
 
     try:
-        parsed = urllib.parse.urlparse(settings.url)
+        parsed = parse.urlparse(settings.url)
         if not parsed.netloc:
             raise ValueError('Malformed dynamic action links url: "{0}".'.format(settings.url))
         parameters['continueUrl'] = settings.url
@@ -413,14 +413,14 @@ def encode_action_code_settings(settings):
 
     # dynamic_link_domain
     if settings.dynamic_link_domain is not None:
-        if not isinstance(settings.dynamic_link_domain, six.string_types):
+        if not isinstance(settings.dynamic_link_domain, str):
             raise ValueError('Invalid value provided for dynamic_link_domain: {0}'
                              .format(settings.dynamic_link_domain))
         parameters['dynamicLinkDomain'] = settings.dynamic_link_domain
 
     # ios_bundle_id
     if settings.ios_bundle_id is not None:
-        if not isinstance(settings.ios_bundle_id, six.string_types):
+        if not isinstance(settings.ios_bundle_id, str):
             raise ValueError('Invalid value provided for ios_bundle_id: {0}'
                              .format(settings.ios_bundle_id))
         parameters['iosBundleId'] = settings.ios_bundle_id
@@ -431,13 +431,13 @@ def encode_action_code_settings(settings):
         raise ValueError("Android package name is required when specifying other Android settings")
 
     if settings.android_package_name is not None:
-        if not isinstance(settings.android_package_name, six.string_types):
+        if not isinstance(settings.android_package_name, str):
             raise ValueError('Invalid value provided for android_package_name: {0}'
                              .format(settings.android_package_name))
         parameters['androidPackageName'] = settings.android_package_name
 
     if settings.android_minimum_version is not None:
-        if not isinstance(settings.android_minimum_version, six.string_types):
+        if not isinstance(settings.android_minimum_version, str):
             raise ValueError('Invalid value provided for android_minimum_version: {0}'
                              .format(settings.android_minimum_version))
         parameters['androidMinimumVersion'] = settings.android_minimum_version
@@ -486,7 +486,7 @@ class UserManager:
     def list_users(self, page_token=None, max_results=MAX_LIST_USERS_RESULTS):
         """Retrieves a batch of users."""
         if page_token is not None:
-            if not isinstance(page_token, six.string_types) or not page_token:
+            if not isinstance(page_token, str) or not page_token:
                 raise ValueError('Page token must be a non-empty string.')
         if not isinstance(max_results, int):
             raise ValueError('Max results must be an integer.')

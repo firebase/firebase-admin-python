@@ -22,7 +22,6 @@ import re
 import time
 
 import requests
-import six
 
 import firebase_admin
 from firebase_admin import exceptions
@@ -117,13 +116,13 @@ def create_ios_app(bundle_id, display_name=None, app=None):
 
 
 def _check_is_string_or_none(obj, field_name):
-    if obj is None or isinstance(obj, six.string_types):
+    if obj is None or isinstance(obj, str):
         return obj
     raise ValueError('{0} must be a string.'.format(field_name))
 
 
 def _check_is_nonempty_string(obj, field_name):
-    if isinstance(obj, six.string_types) and obj:
+    if isinstance(obj, str) and obj:
         return obj
     raise ValueError('{0} must be a non-empty string.'.format(field_name))
 

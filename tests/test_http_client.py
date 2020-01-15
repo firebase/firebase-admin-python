@@ -14,15 +14,12 @@
 
 """Tests for firebase_admin._http_client."""
 import pytest
-from pytest_localserver import plugin
+from pytest_localserver import http
 import requests
 
 from firebase_admin import _http_client
 from tests import testutils
 
-
-# Fixture for mocking a HTTP server
-httpserver = plugin.httpserver
 
 _TEST_URL = 'http://firebase.test.url/'
 
@@ -92,40 +89,53 @@ class TestHttpRetry:
 
     @classmethod
     def setup_class(cls):
-        # Turn off exponential backoff for faster execution
+        # Turn off exponential backoff for faster execution.
         _http_client.DEFAULT_RETRY_CONFIG.backoff_factor = 0
 
+        # Start a test server instance scoped to the class.
+        server = http.ContentServer()
+        server.start()
+        cls.httpserver = server
+
+    @classmethod
+    def teardown_class(cls):
+        cls.httpserver.stop()
+
+    def setup_method(self):
+        # Clean up any state in the server before starting a new test case.
+        self.httpserver.requests = []
+
     @pytest.mark.parametrize('method', ALL_METHODS)
-    def test_retry_on_503(self, httpserver, method):
-        httpserver.serve_content({}, 503)
+    def test_retry_on_503(self, method):
+        self.httpserver.serve_content({}, 503)
         client = _http_client.JsonHttpClient(
-            credential=testutils.MockGoogleCredential(), base_url=httpserver.url)
+            credential=testutils.MockGoogleCredential(), base_url=self.httpserver.url)
         body = None
         if method in self.ENTITY_ENCLOSING_METHODS:
             body = {'key': 'value'}
         with pytest.raises(requests.exceptions.HTTPError) as excinfo:
             client.request(method, '/', json=body)
         assert excinfo.value.response.status_code == 503
-        assert len(httpserver.requests) == 5
+        assert len(self.httpserver.requests) == 5
 
     @pytest.mark.parametrize('method', ALL_METHODS)
-    def test_retry_on_500(self, httpserver, method):
-        httpserver.serve_content({}, 500)
+    def test_retry_on_500(self, method):
+        self.httpserver.serve_content({}, 500)
         client = _http_client.JsonHttpClient(
-            credential=testutils.MockGoogleCredential(), base_url=httpserver.url)
+            credential=testutils.MockGoogleCredential(), base_url=self.httpserver.url)
         body = None
         if method in self.ENTITY_ENCLOSING_METHODS:
             body = {'key': 'value'}
         with pytest.raises(requests.exceptions.HTTPError) as excinfo:
             client.request(method, '/', json=body)
         assert excinfo.value.response.status_code == 500
-        assert len(httpserver.requests) == 5
+        assert len(self.httpserver.requests) == 5
 
-    def test_no_retry_on_404(self, httpserver):
-        httpserver.serve_content({}, 404)
+    def test_no_retry_on_404(self):
+        self.httpserver.serve_content({}, 404)
         client = _http_client.JsonHttpClient(
-            credential=testutils.MockGoogleCredential(), base_url=httpserver.url)
+            credential=testutils.MockGoogleCredential(), base_url=self.httpserver.url)
         with pytest.raises(requests.exceptions.HTTPError) as excinfo:
             client.request('get', '/')
         assert excinfo.value.response.status_code == 404
-        assert len(httpserver.requests) == 1
+        assert len(self.httpserver.requests) == 1

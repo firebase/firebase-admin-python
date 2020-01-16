@@ -1,4 +1,6 @@
 [![Build Status](https://travis-ci.org/firebase/firebase-admin-python.svg?branch=master)](https://travis-ci.org/firebase/firebase-admin-python)
+[![Python](https://img.shields.io/pypi/pyversions/firebase-admin.svg)](https://pypi.org/project/firebase-admin/)
+[![Version](https://img.shields.io/pypi/v/firebase-admin.svg)](https://pypi.org/project/firebase-admin/)
 
 # Firebase Admin Python SDK
 
@@ -41,7 +43,7 @@ requests, code review feedback, and also pull requests.
 
 ## Supported Python Versions
 
-We currently support Python 3.4+. Firebase Admin Python SDK is also tested on
+We currently support Python 3.5+. Firebase Admin Python SDK is also tested on
 PyPy and [Google App Engine](https://cloud.google.com/appengine/) environments.
 
 

@@ -430,8 +430,18 @@ class _CloudStorageClient(object):
     def upload(bucket_name, model_file_name, app):
         """Upload a model file to the specified Storage bucket."""
         _CloudStorageClient._assert_gcs_enabled()
+
+        # Calculate the destination file_name (remove path if present)
+        file_name = model_file_name
+        file_name_pattern = re.compile(r'^(?P<path>.*)/(?P<file_name>[^/]+)$')
+        matcher = file_name_pattern.match(model_file_name)
+        if matcher:
+            # The model_file_name contains at least one '/'
+            # ignore the path and just keep the file_name
+            file_name = matcher.group('file_name')
+
         bucket = storage.bucket(bucket_name, app=app)
-        blob_name = _CloudStorageClient.BLOB_NAME.format(model_file_name)
+        blob_name = _CloudStorageClient.BLOB_NAME.format(file_name)
         blob = bucket.blob(blob_name)
         blob.upload_from_filename(model_file_name)
         return _CloudStorageClient.GCS_URI.format(bucket.name, blob_name)

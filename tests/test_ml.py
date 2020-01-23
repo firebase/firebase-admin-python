@@ -169,7 +169,7 @@ OPERATION_MISSING_NAME = {
     # Name is required if the operation is not done.
     'done': False
 }
-OPERATION_ERROR_CODE = 400
+OPERATION_ERROR_CODE = 3
 OPERATION_ERROR_MSG = "Invalid argument"
 OPERATION_ERROR_EXPECTED_STATUS = 'INVALID_ARGUMENT'
 OPERATION_ERROR_JSON_1 = {

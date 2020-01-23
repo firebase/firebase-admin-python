@@ -58,6 +58,25 @@ _HTTP_STATUS_TO_ERROR_CODE = {
     503: exceptions.UNAVAILABLE,
 }
 
+# See https://github.com/googleapis/googleapis/blob/master/google/rpc/code.proto
+_RPC_CODE_TO_ERROR_CODE = {
+    1: exceptions.CANCELLED,
+    2: exceptions.UNKNOWN,
+    3: exceptions.INVALID_ARGUMENT,
+    4: exceptions.DEADLINE_EXCEEDED,
+    5: exceptions.NOT_FOUND,
+    6: exceptions.ALREADY_EXISTS,
+    7: exceptions.PERMISSION_DENIED,
+    8: exceptions.RESOURCE_EXHAUSTED,
+    9: exceptions.FAILED_PRECONDITION,
+    10: exceptions.ABORTED,
+    11: exceptions.OUT_OF_RANGE,
+    13: exceptions.INTERNAL,
+    14: exceptions.UNAVAILABLE,
+    15: exceptions.DATA_LOSS,
+    16: exceptions.UNAUTHENTICATED,
+}
+
 
 _RPC_CODE_TO_ERROR_CODE = {
     1: exceptions.CANCELLED,

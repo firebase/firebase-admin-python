@@ -819,7 +819,7 @@ class TestDatabaseInitialization(object):
             assert ref._client.timeout == 60
             assert ref.get() == {}
             assert len(recorder) == 1
-            assert recorder[0]._extra_kwargs['timeout'] == 60
+            assert recorder[0]._extra_kwargs['timeout'] == pytest.approx(60, 0.001)
 
     def test_app_delete(self):
         app = firebase_admin.initialize_app(

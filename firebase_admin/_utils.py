@@ -58,6 +58,25 @@ _HTTP_STATUS_TO_ERROR_CODE = {
     503: exceptions.UNAVAILABLE,
 }
 
+# See https://github.com/googleapis/googleapis/blob/master/google/rpc/code.proto
+_RPC_CODE_TO_ERROR_CODE = {
+    1: exceptions.CANCELLED,
+    2: exceptions.UNKNOWN,
+    3: exceptions.INVALID_ARGUMENT,
+    4: exceptions.DEADLINE_EXCEEDED,
+    5: exceptions.NOT_FOUND,
+    6: exceptions.ALREADY_EXISTS,
+    7: exceptions.PERMISSION_DENIED,
+    8: exceptions.RESOURCE_EXHAUSTED,
+    9: exceptions.FAILED_PRECONDITION,
+    10: exceptions.ABORTED,
+    11: exceptions.OUT_OF_RANGE,
+    13: exceptions.INTERNAL,
+    14: exceptions.UNAVAILABLE,
+    15: exceptions.DATA_LOSS,
+    16: exceptions.UNAUTHENTICATED,
+}
+
 
 def _get_initialized_app(app):
     if app is None:
@@ -120,9 +139,9 @@ def handle_operation_error(error):
             message='Unknown error while making a remote service call: {0}'.format(error),
             cause=error)
 
-    status_code = error.get('code')
+    rpc_code = error.get('code')
     message = error.get('message')
-    error_code = _http_status_to_error_code(status_code)
+    error_code = _rpc_code_to_error_code(rpc_code)
     err_type = _error_code_to_exception_type(error_code)
     return err_type(message=message)
 
@@ -283,6 +302,9 @@ def _http_status_to_error_code(status):
     """Maps an HTTP status to a platform error code."""
     return _HTTP_STATUS_TO_ERROR_CODE.get(status, exceptions.UNKNOWN)
 
+def _rpc_code_to_error_code(rpc_code):
+    """Maps an RPC code to a platform error code."""
+    return _RPC_CODE_TO_ERROR_CODE.get(rpc_code, exceptions.UNKNOWN)
 
 def _error_code_to_exception_type(code):
     """Maps a platform error code to an exception type."""

@@ -20,7 +20,6 @@ deleting, publishing and unpublishing Firebase ML models.
 
 
 import datetime
-import numbers
 import re
 import time
 import requests
@@ -246,20 +245,12 @@ class Model(object):
     @property
     def create_time(self):
         """The time the model was created."""
-        seconds = self._data.get('createTime', {}).get('seconds')
-        if not isinstance(seconds, numbers.Number):
-            return None
-
-        return datetime.datetime.fromtimestamp(float(seconds))
+        return self._data.get('createTime', None)
 
     @property
     def update_time(self):
         """The time the model was last updated."""
-        seconds = self._data.get('updateTime', {}).get('seconds')
-        if not isinstance(seconds, numbers.Number):
-            return None
-
-        return datetime.datetime.fromtimestamp(float(seconds))
+        return self._data.get('updateTime', None)
 
     @property
     def validation_error(self):

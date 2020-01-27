@@ -58,6 +58,7 @@ _HTTP_STATUS_TO_ERROR_CODE = {
     503: exceptions.UNAVAILABLE,
 }
 
+
 # See https://github.com/googleapis/googleapis/blob/master/google/rpc/code.proto
 _RPC_CODE_TO_ERROR_CODE = {
     1: exceptions.CANCELLED,
@@ -76,7 +77,6 @@ _RPC_CODE_TO_ERROR_CODE = {
     15: exceptions.DATA_LOSS,
     16: exceptions.UNAUTHENTICATED,
 }
-
 
 def _get_initialized_app(app):
     if app is None:

@@ -14,7 +14,6 @@
 
 """Test cases for the firebase_admin.ml module."""
 
-import datetime
 import json
 import pytest
 
@@ -27,25 +26,16 @@ BASE_URL = 'https://mlkit.googleapis.com/v1beta1/'
 PROJECT_ID = 'myProject1'
 PAGE_TOKEN = 'pageToken'
 NEXT_PAGE_TOKEN = 'nextPageToken'
-CREATE_TIME_SECONDS = 1566426374
-CREATE_TIME_SECONDS_2 = 1566426385
-CREATE_TIME_JSON = {
-    'seconds': CREATE_TIME_SECONDS
-}
-CREATE_TIME_DATETIME = datetime.datetime.fromtimestamp(CREATE_TIME_SECONDS)
-CREATE_TIME_JSON_2 = {
-    'seconds': CREATE_TIME_SECONDS_2
-}
 
-UPDATE_TIME_SECONDS = 1566426678
-UPDATE_TIME_SECONDS_2 = 1566426691
-UPDATE_TIME_JSON = {
-    'seconds': UPDATE_TIME_SECONDS
-}
-UPDATE_TIME_DATETIME = datetime.datetime.fromtimestamp(UPDATE_TIME_SECONDS)
-UPDATE_TIME_JSON_2 = {
-    'seconds': UPDATE_TIME_SECONDS_2
-}
+CREATE_TIME = '2020-01-21T20:44:27.392932Z'
+CREATE_TIME_MILLIS = 1579639467392
+
+UPDATE_TIME = '2020-01-21T22:45:29.392932Z'
+UPDATE_TIME_MILLIS = 1579646729392
+
+CREATE_TIME_2 = '2020-01-21T21:44:27.392932Z'
+UPDATE_TIME_2 = '2020-01-21T23:45:29.392932Z'
+
 ETAG = '33a64df551425fcc55e4d42a148795d9f25f89d4'
 MODEL_HASH = '987987a98b98798d098098e09809fc0893897'
 TAG_1 = 'Tag1'
@@ -130,8 +120,8 @@ TFLITE_FORMAT_2 = ml.TFLiteFormat.from_dict(TFLITE_FORMAT_JSON_2)
 CREATED_UPDATED_MODEL_JSON_1 = {
     'name': MODEL_NAME_1,
     'displayName': DISPLAY_NAME_1,
-    'createTime': CREATE_TIME_JSON,
-    'updateTime': UPDATE_TIME_JSON,
+    'createTime': CREATE_TIME,
+    'updateTime': UPDATE_TIME,
     'state': MODEL_STATE_ERROR_JSON,
     'etag': ETAG,
     'modelHash': MODEL_HASH,
@@ -142,8 +132,8 @@ CREATED_UPDATED_MODEL_1 = ml.Model.from_dict(CREATED_UPDATED_MODEL_JSON_1)
 LOCKED_MODEL_JSON_1 = {
     'name': MODEL_NAME_1,
     'displayName': DISPLAY_NAME_1,
-    'createTime': CREATE_TIME_JSON,
-    'updateTime': UPDATE_TIME_JSON,
+    'createTime': CREATE_TIME,
+    'updateTime': UPDATE_TIME,
     'tags': TAGS,
     'activeOperations': [OPERATION_NOT_DONE_JSON_1]
 }
@@ -151,8 +141,8 @@ LOCKED_MODEL_JSON_1 = {
 LOCKED_MODEL_JSON_2 = {
     'name': MODEL_NAME_1,
     'displayName': DISPLAY_NAME_2,
-    'createTime': CREATE_TIME_JSON_2,
-    'updateTime': UPDATE_TIME_JSON_2,
+    'createTime': CREATE_TIME_2,
+    'updateTime': UPDATE_TIME_2,
     'tags': TAGS_2,
     'activeOperations': [OPERATION_NOT_DONE_JSON_1]
 }
@@ -183,8 +173,8 @@ OPERATION_ERROR_JSON_1 = {
 FULL_MODEL_ERR_STATE_LRO_JSON = {
     'name': MODEL_NAME_1,
     'displayName': DISPLAY_NAME_1,
-    'createTime': CREATE_TIME_JSON,
-    'updateTime': UPDATE_TIME_JSON,
+    'createTime': CREATE_TIME,
+    'updateTime': UPDATE_TIME,
     'state': MODEL_STATE_ERROR_JSON,
     'etag': ETAG,
     'modelHash': MODEL_HASH,
@@ -194,8 +184,8 @@ FULL_MODEL_ERR_STATE_LRO_JSON = {
 FULL_MODEL_PUBLISHED_JSON = {
     'name': MODEL_NAME_1,
     'displayName': DISPLAY_NAME_1,
-    'createTime': CREATE_TIME_JSON,
-    'updateTime': UPDATE_TIME_JSON,
+    'createTime': CREATE_TIME,
+    'updateTime': UPDATE_TIME,
     'state': MODEL_STATE_PUBLISHED_JSON,
     'etag': ETAG,
     'modelHash': MODEL_HASH,
@@ -364,8 +354,8 @@ class TestModel(object):
         model = ml.Model.from_dict(FULL_MODEL_ERR_STATE_LRO_JSON)
         assert model.model_id == MODEL_ID_1
         assert model.display_name == DISPLAY_NAME_1
-        assert model.create_time == CREATE_TIME_DATETIME
-        assert model.update_time == UPDATE_TIME_DATETIME
+        assert model.create_time == CREATE_TIME_MILLIS
+        assert model.update_time == UPDATE_TIME_MILLIS
         assert model.validation_error == VALIDATION_ERROR_MSG
         assert model.published is False
         assert model.etag == ETAG
@@ -379,8 +369,8 @@ class TestModel(object):
         model = ml.Model.from_dict(FULL_MODEL_PUBLISHED_JSON)
         assert model.model_id == MODEL_ID_1
         assert model.display_name == DISPLAY_NAME_1
-        assert model.create_time == CREATE_TIME_DATETIME
-        assert model.update_time == UPDATE_TIME_DATETIME
+        assert model.create_time == CREATE_TIME_MILLIS
+        assert model.update_time == UPDATE_TIME_MILLIS
         assert model.validation_error is None
         assert model.published is True
         assert model.etag == ETAG

@@ -26,10 +26,14 @@ BASE_URL = 'https://mlkit.googleapis.com/v1beta1/'
 PROJECT_ID = 'myProject1'
 PAGE_TOKEN = 'pageToken'
 NEXT_PAGE_TOKEN = 'nextPageToken'
+
 CREATE_TIME = '2020-01-21T20:44:27.392932Z'
-CREATE_TIME_2 = '2020-01-21T21:44:27.392932Z'
+CREATE_TIME_MILLIS = 1579639467392
 
 UPDATE_TIME = '2020-01-21T22:45:29.392932Z'
+UPDATE_TIME_MILLIS = 1579646729392
+
+CREATE_TIME_2 = '2020-01-21T21:44:27.392932Z'
 UPDATE_TIME_2 = '2020-01-21T23:45:29.392932Z'
 
 ETAG = '33a64df551425fcc55e4d42a148795d9f25f89d4'
@@ -350,8 +354,8 @@ class TestModel(object):
         model = ml.Model.from_dict(FULL_MODEL_ERR_STATE_LRO_JSON)
         assert model.model_id == MODEL_ID_1
         assert model.display_name == DISPLAY_NAME_1
-        assert model.create_time == CREATE_TIME
-        assert model.update_time == UPDATE_TIME
+        assert model.create_time == CREATE_TIME_MILLIS
+        assert model.update_time == UPDATE_TIME_MILLIS
         assert model.validation_error == VALIDATION_ERROR_MSG
         assert model.published is False
         assert model.etag == ETAG
@@ -365,8 +369,8 @@ class TestModel(object):
         model = ml.Model.from_dict(FULL_MODEL_PUBLISHED_JSON)
         assert model.model_id == MODEL_ID_1
         assert model.display_name == DISPLAY_NAME_1
-        assert model.create_time == CREATE_TIME
-        assert model.update_time == UPDATE_TIME
+        assert model.create_time == CREATE_TIME_MILLIS
+        assert model.update_time == UPDATE_TIME_MILLIS
         assert model.validation_error is None
         assert model.published is True
         assert model.etag == ETAG

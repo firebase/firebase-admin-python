@@ -78,6 +78,7 @@ _RPC_CODE_TO_ERROR_CODE = {
     16: exceptions.UNAUTHENTICATED,
 }
 
+
 def _get_initialized_app(app):
     if app is None:
         return firebase_admin.get_app()

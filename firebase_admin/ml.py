@@ -22,6 +22,7 @@ deleting, publishing and unpublishing Firebase ML models.
 import datetime
 import re
 import time
+import os
 import requests
 import six
 
@@ -440,8 +441,10 @@ class _CloudStorageClient(object):
     def upload(bucket_name, model_file_name, app):
         """Upload a model file to the specified Storage bucket."""
         _CloudStorageClient._assert_gcs_enabled()
+
+        file_name = os.path.basename(model_file_name)
         bucket = storage.bucket(bucket_name, app=app)
-        blob_name = _CloudStorageClient.BLOB_NAME.format(model_file_name)
+        blob_name = _CloudStorageClient.BLOB_NAME.format(file_name)
         blob = bucket.blob(blob_name)
         blob.upload_from_filename(model_file_name)
         return _CloudStorageClient.GCS_URI.format(bucket.name, blob_name)

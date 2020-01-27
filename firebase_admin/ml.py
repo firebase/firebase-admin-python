@@ -244,7 +244,7 @@ class Model(object):
 
     @staticmethod
     def _convert_to_millis(date_string):
-        if date_string is None:
+        if not date_string:
             return None
         format_str = '%Y-%m-%dT%H:%M:%S.%fZ'
         epoch = datetime.datetime.utcfromtimestamp(0)

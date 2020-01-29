@@ -739,7 +739,6 @@ class TestDatabaseInitialization:
         assert ref._client.timeout is None
         assert ref.get() == {}
         assert len(recorder) == 1
-        assert recorder[0]._extra_kwargs.get('timeout') is None
 
     @pytest.mark.parametrize('url', [
         None, '', 'foo', 'http://test.firebaseio.com', 'https://google.com',

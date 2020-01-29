@@ -24,6 +24,7 @@ import firebase_admin
 from firebase_admin import db
 from firebase_admin import exceptions
 from firebase_admin import _sseclient
+from firebase_admin import _utils
 from tests import testutils
 
 
@@ -736,10 +737,11 @@ class TestDatabaseInitialization:
         ref._client.session.mount(url, adapter)
         assert ref._client.base_url == 'https://test.firebaseio.com'
         assert 'auth_variable_override' not in ref._client.params
-        assert ref._client.timeout is None
+        assert ref._client.timeout == _utils.DEFAULT_HTTP_TIMEOUT_SECONDS
         assert ref.get() == {}
         assert len(recorder) == 1
-        assert recorder[0]._extra_kwargs.get('timeout') is None
+        assert recorder[0]._extra_kwargs.get('timeout') == pytest.approx(
+            _utils.DEFAULT_HTTP_TIMEOUT_SECONDS, 0.001)
 
     @pytest.mark.parametrize('url', [
         None, '', 'foo', 'http://test.firebaseio.com', 'https://google.com',
@@ -761,7 +763,7 @@ class TestDatabaseInitialization:
         ref = db.reference()
         assert ref._client.base_url == default_url
         assert 'auth_variable_override' not in ref._client.params
-        assert ref._client.timeout is None
+        assert ref._client.timeout == _utils.DEFAULT_HTTP_TIMEOUT_SECONDS
         assert ref._client is db.reference()._client
         assert ref._client is db.reference(url=default_url)._client
 
@@ -769,7 +771,7 @@ class TestDatabaseInitialization:
         other_ref = db.reference(url=other_url)
         assert other_ref._client.base_url == other_url
         assert 'auth_variable_override' not in ref._client.params
-        assert other_ref._client.timeout is None
+        assert other_ref._client.timeout == _utils.DEFAULT_HTTP_TIMEOUT_SECONDS
         assert other_ref._client is db.reference(url=other_url)._client
         assert other_ref._client is db.reference(url=other_url + '/')._client
 
@@ -782,7 +784,7 @@ class TestDatabaseInitialization:
         default_ref = db.reference()
         other_ref = db.reference(url='https://other.firebaseio.com')
         for ref in [default_ref, other_ref]:
-            assert ref._client.timeout is None
+            assert ref._client.timeout == _utils.DEFAULT_HTTP_TIMEOUT_SECONDS
             if override == {}:
                 assert 'auth_variable_override' not in ref._client.params
             else:
@@ -804,7 +806,7 @@ class TestDatabaseInitialization:
         with pytest.raises(ValueError):
             db.reference(app=other_app, url='https://other.firebaseio.com')
 
-    def test_http_timeout(self):
+    def test_custom_http_timeout(self):
         test_url = 'https://test.firebaseio.com'
         firebase_admin.initialize_app(testutils.MockCredential(), {
             'databaseURL' : test_url,
@@ -820,6 +822,23 @@ class TestDatabaseInitialization:
             assert ref.get() == {}
             assert len(recorder) == 1
             assert recorder[0]._extra_kwargs['timeout'] == pytest.approx(60, 0.001)
+
+    def test_no_http_timeout(self):
+        test_url = 'https://test.firebaseio.com'
+        firebase_admin.initialize_app(testutils.MockCredential(), {
+            'databaseURL' : test_url,
+            'httpTimeout': None
+        })
+        default_ref = db.reference()
+        other_ref = db.reference(url='https://other.firebaseio.com')
+        for ref in [default_ref, other_ref]:
+            recorder = []
+            adapter = MockAdapter('{}', 200, recorder)
+            ref._client.session.mount(ref._client.base_url, adapter)
+            assert ref._client.timeout is None
+            assert ref.get() == {}
+            assert len(recorder) == 1
+            assert recorder[0]._extra_kwargs['timeout'] is None
 
     def test_app_delete(self):
         app = firebase_admin.initialize_app(

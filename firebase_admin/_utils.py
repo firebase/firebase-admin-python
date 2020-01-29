@@ -59,6 +59,9 @@ _HTTP_STATUS_TO_ERROR_CODE = {
 }
 
 
+DEFAULT_HTTP_TIMEOUT_SECONDS = 120
+
+
 def _get_initialized_app(app):
     """Returns a reference to an initialized App instance."""
     if app is None:
@@ -106,6 +109,10 @@ def handle_platform_error_from_requests(error, handle_func=None):
         exc = handle_func(error, message, error_dict)
 
     return exc if exc else _handle_func_requests(error, message, error_dict)
+
+
+def get_http_timeout(app):
+    return app.options.get('httpTimeout', DEFAULT_HTTP_TIMEOUT_SECONDS)
 
 
 def _handle_func_requests(error, message, error_dict):

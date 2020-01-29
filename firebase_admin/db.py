@@ -775,7 +775,7 @@ class _DatabaseService:
             self._auth_override = json.dumps(auth_override, separators=(',', ':'))
         else:
             self._auth_override = None
-        self._timeout = app.options.get('httpTimeout')
+        self._timeout = _utils.get_http_timeout(app)
         self._clients = {}
 
         emulator_host = os.environ.get(_EMULATOR_HOST_ENV_VAR)
@@ -935,10 +935,9 @@ class _Client(_http_client.JsonHttpClient):
                 query = extra_params + '&' + query
             else:
                 query = extra_params
-        kwargs['params'] = query
 
-        if self.timeout:
-            kwargs['timeout'] = self.timeout
+        kwargs['params'] = query
+        kwargs['timeout'] = self.timeout
         try:
             return super(_Client, self).request(method, url, **kwargs)
         except requests.exceptions.RequestException as error:

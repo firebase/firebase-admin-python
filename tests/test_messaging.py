@@ -1561,7 +1561,7 @@ class TestTimeout:
     def test_topic_management(self, timeout):
         app = self._app_with_timeout(timeout)
         recorder = self._instrument_service(
-            app, 'https://iid.googleapis.com',{'results': [{}, {'error': 'error_reason'}]})
+            app, 'https://iid.googleapis.com', {'results': [{}, {'error': 'error_reason'}]})
         messaging.subscribe_to_topic(['1'], 'a')
         assert len(recorder) == 1
         if timeout is None:

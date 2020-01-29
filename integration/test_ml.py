@@ -16,7 +16,8 @@
 import re
 import os
 import shutil
-import unittest
+import random
+import tempfile
 import pytest
 
 
@@ -34,29 +35,33 @@ except ImportError:
 
 
 NAME_ONLY_ARGS = {
-    'display_name': 'TestModel123'
+    'display_name': 'TestModel123_{0}'.format(random.randint(1111, 9999))
+}
+NAME_ONLY_ARGS_UPDATED = {
+    'display_name': 'TestModel123_updated_{0}'.format(random.randint(1111, 9999))
 }
 NAME_AND_TAGS_ARGS = {
-    'display_name': 'TestModel123_tags',
+    'display_name': 'TestModel123_tags_{0}'.format(random.randint(1111, 9999)),
     'tags': ['test_tag123']
-    }
+}
 FULL_MODEL_ARGS = {
-    'display_name': 'TestModel123_full',
+    'display_name': 'TestModel123_full_{0}'.format(random.randint(1111, 9999)),
     'tags': ['test_tag567'],
     'file_name': 'model1.tflite'
-    }
+}
 INVALID_FULL_MODEL_ARGS = {
-    'display_name': 'TestModel123_invalid_full',
+    'display_name': 'TestModel123_invalid_full_{0}'.format(random.randint(1111, 9999)),
     'tags': ['test_tag890'],
     'file_name': 'invalid_model.tflite'
-    }
+}
 
 @pytest.fixture
 def firebase_model(request):
     args = request.param
     tflite_format = None
-    if args.get('file_name'):
-        file_path = testutils.resource_filename(args.get('file_name'))
+    file_name = args.get('file_name')
+    if file_name:
+        file_path = testutils.resource_filename(file_name)
         source = ml.TFLiteGCSModelSource.from_tflite_model_file(file_path)
         tflite_format = ml.TFLiteFormat(model_source=source)
 
@@ -109,35 +114,44 @@ def check_operation_error(excinfo, msg):
     assert str(err) == msg
 
 
+def check_model(model, args):
+    assert model.display_name == args.get('display_name')
+    assert model.tags == args.get('tags')
+    assert model.model_id is not None
+    assert model.create_time is not None
+    assert model.update_time is not None
+    assert model.locked is False
+    assert model.etag is not None
+
+
+def check_model_format(model, has_model_format, validation_error):
+    if has_model_format:
+        assert model.validation_error == validation_error
+        assert model.published is False
+        assert model.model_format.model_source.gcs_tflite_uri.startswith('gs://')
+        if validation_error:
+            assert model.model_format.size_bytes is None
+            assert model.model_hash is None
+        else:
+            assert model.model_format.size_bytes is not None
+            assert model.model_hash is not None
+    else:
+        assert model.model_format is None
+        assert model.validation_error == 'No model file has been uploaded.'
+        assert model.published is False
+        assert model.model_hash is None
+
+
 @pytest.mark.parametrize('firebase_model', [NAME_AND_TAGS_ARGS], indirect=True)
 def test_create_simple_model(firebase_model):
-    assert firebase_model.display_name == NAME_AND_TAGS_ARGS.get('display_name')
-    assert firebase_model.tags == NAME_AND_TAGS_ARGS.get('tags')
-    assert firebase_model.model_id is not None
-    assert firebase_model.create_time is not None
-    assert firebase_model.update_time is not None
-    assert firebase_model.validation_error == 'No model file has been uploaded.'
-    assert firebase_model.locked is False
-    assert firebase_model.published is False
-    assert firebase_model.etag is not None
-    assert firebase_model.model_hash is None
-    assert firebase_model.model_format is None
+    check_model(firebase_model, NAME_AND_TAGS_ARGS)
+    check_model_format(firebase_model, False, None)
 
 
 @pytest.mark.parametrize('firebase_model', [FULL_MODEL_ARGS], indirect=True)
 def test_create_full_model(firebase_model):
-    assert firebase_model.display_name == FULL_MODEL_ARGS.get('display_name')
-    assert firebase_model.tags == FULL_MODEL_ARGS.get('tags')
-    assert firebase_model.model_format.size_bytes is not None
-    assert firebase_model.model_format.model_source.gcs_tflite_uri is not None
-    assert firebase_model.model_id is not None
-    assert firebase_model.create_time is not None
-    assert firebase_model.update_time is not None
-    assert firebase_model.validation_error is None
-    assert firebase_model.locked is False
-    assert firebase_model.published is False
-    assert firebase_model.etag is not None
-    assert firebase_model.model_hash is not None
+    check_model(firebase_model, FULL_MODEL_ARGS)
+    check_model_format(firebase_model, True, None)
 
 
 @pytest.mark.parametrize('firebase_model', [FULL_MODEL_ARGS], indirect=True)
@@ -151,33 +165,15 @@ def test_create_already_existing_fails(firebase_model):
 
 @pytest.mark.parametrize('firebase_model', [INVALID_FULL_MODEL_ARGS], indirect=True)
 def test_create_invalid_model(firebase_model):
-    assert firebase_model.display_name == INVALID_FULL_MODEL_ARGS.get('display_name')
-    assert firebase_model.tags == INVALID_FULL_MODEL_ARGS.get('tags')
-    assert firebase_model.model_format.size_bytes is None
-    assert firebase_model.model_format.model_source.gcs_tflite_uri is not None
-    assert firebase_model.model_id is not None
-    assert firebase_model.create_time is not None
-    assert firebase_model.update_time is not None
-    assert firebase_model.validation_error == 'Invalid flatbuffer format'
-    assert firebase_model.locked is False
-    assert firebase_model.published is False
-    assert firebase_model.etag is not None
-    assert firebase_model.model_hash is None
+    check_model(firebase_model, INVALID_FULL_MODEL_ARGS)
+    check_model_format(firebase_model, True, 'Invalid flatbuffer format')
 
 
 @pytest.mark.parametrize('firebase_model', [NAME_AND_TAGS_ARGS], indirect=True)
 def test_get_model(firebase_model):
     get_model = ml.get_model(firebase_model.model_id)
-    assert get_model.display_name == firebase_model.display_name
-    assert get_model.tags == firebase_model.tags
-    assert get_model.model_id is not None
-    assert get_model.create_time is not None
-    assert get_model.update_time is not None
-    assert get_model.validation_error == 'No model file has been uploaded.'
-    assert get_model.etag is not None
-    assert get_model.locked is False
-    assert get_model.published is False
-    assert get_model.model_hash is None
+    check_model(get_model, NAME_AND_TAGS_ARGS)
+    check_model_format(get_model, False, None)
 
 
 @pytest.mark.parametrize('firebase_model', [NAME_ONLY_ARGS], indirect=True)
@@ -192,29 +188,16 @@ def test_get_non_existing_model(firebase_model):
 
 @pytest.mark.parametrize('firebase_model', [NAME_ONLY_ARGS], indirect=True)
 def test_update_model(firebase_model):
-    new_model_name = 'TestModel123_updated'
+    new_model_name = NAME_ONLY_ARGS_UPDATED.get('display_name')
     firebase_model.display_name = new_model_name
-
     updated_model = ml.update_model(firebase_model)
-    assert updated_model.display_name == new_model_name
-    assert updated_model.model_id == firebase_model.model_id
-    assert updated_model.create_time == firebase_model.create_time
-    assert updated_model.update_time != firebase_model.update_time
-    assert updated_model.validation_error == firebase_model.validation_error
-    assert updated_model.etag != firebase_model.etag
-    assert updated_model.published == firebase_model.published
-    assert updated_model.locked == firebase_model.locked
+    check_model(updated_model, NAME_ONLY_ARGS_UPDATED)
+    check_model_format(updated_model, False, None)
 
     # Second call with same model does not cause error
     updated_model2 = ml.update_model(updated_model)
-    assert updated_model2.display_name == updated_model.display_name
-    assert updated_model2.model_id == updated_model.model_id
-    assert updated_model2.create_time == updated_model.create_time
-    assert updated_model2.update_time != updated_model.update_time
-    assert updated_model2.validation_error == updated_model.validation_error
-    assert updated_model2.etag != updated_model.etag
-    assert updated_model2.published == updated_model.published
-    assert updated_model2.locked == updated_model.locked
+    check_model(updated_model2, NAME_ONLY_ARGS_UPDATED)
+    check_model_format(updated_model2, False, None)
 
 
 @pytest.mark.parametrize('firebase_model', [NAME_ONLY_ARGS], indirect=True)
@@ -272,11 +255,10 @@ def test_list_models(model_list):
     filter_str = 'displayName={0} OR tags:{1}'.format(
         model_list[0].display_name, model_list[1].tags[0])
 
-    models_list = ml.list_models(list_filter=filter_str)
-    assert len(models_list.models) == 2
-    for mdl in models_list.models:
-        assert mdl == model_list[0] or mdl == model_list[1]
-    assert models_list.models[0] != models_list.models[1]
+    all_models = ml.list_models(list_filter=filter_str)
+    all_model_ids = [mdl.model_id for mdl in all_models.iterate_all()]
+    for mdl in model_list:
+        assert mdl.model_id in all_model_ids
 
 
 def test_list_models_invalid_filter():
@@ -302,12 +284,9 @@ def test_delete_model(firebase_model):
 #'pip install tensorflow==2.0.0b' for version 2 etc.
 
 
-SAVED_MODEL_DIR = '/tmp/saved_model/1'
-
-
-def _clean_up_tmp_directory():
-    if os.path.exists(SAVED_MODEL_DIR):
-        shutil.rmtree(SAVED_MODEL_DIR)
+def _clean_up_directory(save_dir):
+    if save_dir.startswith(tempfile.gettempdir()) and os.path.exists(save_dir):
+        shutil.rmtree(save_dir)
 
 
 @pytest.fixture
@@ -327,8 +306,8 @@ def saved_model_dir(keras_model):
     assert _TF_ENABLED
     # different versions have different model conversion capability
     # pick something that works for each version
-    save_dir = SAVED_MODEL_DIR
-    _clean_up_tmp_directory() # previous failures may leave files
+    parent = tempfile.mkdtemp()
+    save_dir = os.path.join(parent, 'child')
     if tf.version.VERSION.startswith('1.'):
         tf.reset_default_graph()
         x_var = tf.placeholder(tf.float32, (None, 3), name="x")
@@ -340,10 +319,10 @@ def saved_model_dir(keras_model):
         assert tf.version.VERSION.startswith('2.')
         tf.saved_model.save(keras_model, save_dir)
     yield save_dir
-    _clean_up_tmp_directory()
+    _clean_up_directory(parent)
 
 
-@unittest.skipUnless(_TF_ENABLED, 'Tensor flow is required for this test.')
+@pytest.mark.skipif(not _TF_ENABLED, reason='Tensor flow is required for this test.')
 def test_from_keras_model(keras_model):
     source = ml.TFLiteGCSModelSource.from_keras_model(keras_model, 'model2.tflite')
     assert re.search(
@@ -351,17 +330,18 @@ def test_from_keras_model(keras_model):
         source.gcs_tflite_uri) is not None
 
     # Validate the conversion by creating a model
+    model_format = ml.TFLiteFormat(model_source=source)
+    model = ml.Model(display_name="KerasModel1", model_format=model_format)
+    created_model = ml.create_model(model)
+
     try:
-        model_format = ml.TFLiteFormat(model_source=source)
-        model = ml.Model(display_name="KerasModel1", model_format=model_format)
-        created_model = ml.create_model(model)
         assert created_model.model_id is not None
         assert created_model.validation_error is None
     finally:
         _clean_up_model(created_model)
 
 
-@unittest.skipUnless(_TF_ENABLED, 'Tensor flow is required for this test.')
+@pytest.mark.skipif(not _TF_ENABLED, reason='Tensor flow is required for this test.')
 def test_from_saved_model(saved_model_dir):
     # Test the conversion helper
     source = ml.TFLiteGCSModelSource.from_saved_model(saved_model_dir, 'model3.tflite')
@@ -370,10 +350,11 @@ def test_from_saved_model(saved_model_dir):
         source.gcs_tflite_uri) is not None
 
     # Validate the conversion by creating a model
+    model_format = ml.TFLiteFormat(model_source=source)
+    model = ml.Model(display_name="SavedModel1", model_format=model_format)
+    created_model = ml.create_model(model)
+
     try:
-        model_format = ml.TFLiteFormat(model_source=source)
-        model = ml.Model(display_name="SavedModel1", model_format=model_format)
-        created_model = ml.create_model(model)
         assert created_model.model_id is not None
         assert created_model.validation_error is None
     finally:

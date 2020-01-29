@@ -23,6 +23,7 @@ import pytest
 import firebase_admin
 from firebase_admin import exceptions
 from firebase_admin import messaging
+from firebase_admin import _http_client
 from tests import testutils
 
 
@@ -1641,7 +1642,8 @@ class TestSend:
         assert recorder[0].url == self._get_url('explicit-project-id')
         assert recorder[0].headers['X-GOOG-API-FORMAT-VERSION'] == '2'
         assert recorder[0].headers['X-FIREBASE-CLIENT'] == self._CLIENT_VERSION
-        assert recorder[0]._extra_kwargs['timeout'] is None
+        assert recorder[0]._extra_kwargs['timeout'] == pytest.approx(
+            _http_client.DEFAULT_TIMEOUT_SECONDS, 0.001)
         body = {'message': messaging._MessagingService.encode_message(msg)}
         assert json.loads(recorder[0].body.decode()) == body
 
@@ -2224,6 +2226,8 @@ class TestTopicManagement:
         assert recorder[0].method == 'POST'
         assert recorder[0].url == self._get_url('iid/v1:batchAdd')
         assert json.loads(recorder[0].body.decode()) == args[2]
+        assert recorder[0]._extra_kwargs['timeout'] == pytest.approx(
+            _http_client.DEFAULT_TIMEOUT_SECONDS, 0.001)
 
     @pytest.mark.parametrize('status, exc_type', HTTP_ERROR_CODES.items())
     def test_subscribe_to_topic_error(self, status, exc_type):
@@ -2256,6 +2260,8 @@ class TestTopicManagement:
         assert recorder[0].method == 'POST'
         assert recorder[0].url == self._get_url('iid/v1:batchRemove')
         assert json.loads(recorder[0].body.decode()) == args[2]
+        assert recorder[0]._extra_kwargs['timeout'] == pytest.approx(
+            _http_client.DEFAULT_TIMEOUT_SECONDS, 0.001)
 
     @pytest.mark.parametrize('status, exc_type', HTTP_ERROR_CODES.items())
     def test_unsubscribe_from_topic_error(self, status, exc_type):

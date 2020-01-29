@@ -545,10 +545,7 @@ class TestTimeout(BaseProjectManagementTest):
         app = firebase_admin.initialize_app(testutils.MockCredential(), options, 'timeout-app')
         try:
             project_management_service = project_management._get_project_management_service(app)
-            if timeout is None:
-                assert project_management_service._client.timeout is None
-            else:
-                assert project_management_service._client.timeout == pytest.approx(timeout, 0.001)
+            assert project_management_service._client.timeout == timeout
         finally:
             firebase_admin.delete_app(app)
 

@@ -774,7 +774,6 @@ class TestDatabaseInitialization:
         default_ref = db.reference()
         other_ref = db.reference(url='https://other.firebaseio.com')
         for ref in [default_ref, other_ref]:
-            assert ref._client.timeout == _http_client.DEFAULT_TIMEOUT_SECONDS
             if override == {}:
                 assert 'auth_variable_override' not in ref._client.params
             else:
@@ -796,25 +795,18 @@ class TestDatabaseInitialization:
         with pytest.raises(ValueError):
             db.reference(app=other_app, url='https://other.firebaseio.com')
 
-    def test_default_http_timeout(self):
-        default_url = 'https://test.firebaseio.com'
-        firebase_admin.initialize_app(testutils.MockCredential(), {
-            'databaseURL' : default_url,
-        })
-        ref = db.reference()
-        self._check_timeout(ref, _http_client.DEFAULT_TIMEOUT_SECONDS)
-
-        other_url = 'https://other.firebaseio.com'
-        other_ref = db.reference(url=other_url)
-        self._check_timeout(other_ref, _http_client.DEFAULT_TIMEOUT_SECONDS)
-
-    @pytest.mark.parametrize('timeout', [60, None])
-    def test_custom_http_timeout(self, timeout):
+    @pytest.mark.parametrize('options, timeout', [
+        ({'httpTimeout': 4}, 4),
+        ({'httpTimeout': None}, None),
+        ({}, _http_client.DEFAULT_TIMEOUT_SECONDS),
+    ])
+    def test_http_timeout(self, options, timeout):
         test_url = 'https://test.firebaseio.com'
-        firebase_admin.initialize_app(testutils.MockCredential(), {
+        all_options = {
             'databaseURL' : test_url,
-            'httpTimeout': timeout
-        })
+        }
+        all_options.update(options)
+        firebase_admin.initialize_app(testutils.MockCredential(), all_options)
         default_ref = db.reference()
         other_ref = db.reference(url='https://other.firebaseio.com')
         for ref in [default_ref, other_ref]:

@@ -482,7 +482,7 @@ class _ProjectManagementService:
             credential=app.credential.get_credential(),
             base_url=_ProjectManagementService.BASE_URL,
             headers={'X-Client-Version': version_header})
-        self._timeout = app.options.get('httpTimeout')
+        self._timeout = _utils.get_http_timeout(app)
 
     def get_android_app_metadata(self, app_id):
         return self._get_app_metadata(

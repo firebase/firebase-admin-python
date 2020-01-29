@@ -331,7 +331,7 @@ class _MessagingService:
             'X-FIREBASE-CLIENT': 'fire-admin-python/{0}'.format(firebase_admin.__version__),
         }
         self._client = _http_client.JsonHttpClient(credential=app.credential.get_credential())
-        self._timeout = app.options.get('httpTimeout')
+        self._timeout = _utils.get_http_timeout(app)
         self._transport = _auth.authorized_http(app.credential.get_credential())
 
     @classmethod

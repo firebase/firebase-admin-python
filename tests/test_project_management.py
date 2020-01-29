@@ -22,6 +22,7 @@ import pytest
 import firebase_admin
 from firebase_admin import exceptions
 from firebase_admin import project_management
+from firebase_admin import _utils
 from tests import testutils
 
 OPERATION_IN_PROGRESS_RESPONSE = json.dumps({
@@ -522,6 +523,8 @@ class BaseProjectManagementTest:
         assert request.url == expected_url
         client_version = 'Python/Admin/{0}'.format(firebase_admin.__version__)
         assert request.headers['X-Client-Version'] == client_version
+        assert request._extra_kwargs['timeout'] == pytest.approx(
+            _utils.DEFAULT_HTTP_TIMEOUT_SECONDS, 0.001)
         if expected_body is None:
             assert request.body is None
         else:

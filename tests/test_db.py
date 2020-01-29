@@ -732,16 +732,8 @@ class TestDatabaseInitialization:
     def test_valid_db_url(self, url):
         firebase_admin.initialize_app(testutils.MockCredential(), {'databaseURL' : url})
         ref = db.reference()
-        recorder = []
-        adapter = MockAdapter('{}', 200, recorder)
-        ref._client.session.mount(url, adapter)
         assert ref._client.base_url == 'https://test.firebaseio.com'
         assert 'auth_variable_override' not in ref._client.params
-        assert ref._client.timeout == _http_client.DEFAULT_TIMEOUT_SECONDS
-        assert ref.get() == {}
-        assert len(recorder) == 1
-        assert recorder[0]._extra_kwargs.get('timeout') == pytest.approx(
-            _http_client.DEFAULT_TIMEOUT_SECONDS, 0.001)
 
     @pytest.mark.parametrize('url', [
         None, '', 'foo', 'http://test.firebaseio.com', 'https://google.com',
@@ -763,7 +755,6 @@ class TestDatabaseInitialization:
         ref = db.reference()
         assert ref._client.base_url == default_url
         assert 'auth_variable_override' not in ref._client.params
-        assert ref._client.timeout == _http_client.DEFAULT_TIMEOUT_SECONDS
         assert ref._client is db.reference()._client
         assert ref._client is db.reference(url=default_url)._client
 
@@ -771,7 +762,6 @@ class TestDatabaseInitialization:
         other_ref = db.reference(url=other_url)
         assert other_ref._client.base_url == other_url
         assert 'auth_variable_override' not in ref._client.params
-        assert other_ref._client.timeout == _http_client.DEFAULT_TIMEOUT_SECONDS
         assert other_ref._client is db.reference(url=other_url)._client
         assert other_ref._client is db.reference(url=other_url + '/')._client
 
@@ -806,8 +796,20 @@ class TestDatabaseInitialization:
         with pytest.raises(ValueError):
             db.reference(app=other_app, url='https://other.firebaseio.com')
 
+    def test_default_http_timeout(self):
+        default_url = 'https://test.firebaseio.com'
+        firebase_admin.initialize_app(testutils.MockCredential(), {
+            'databaseURL' : default_url,
+        })
+        ref = db.reference()
+        self._check_timeout(ref, _http_client.DEFAULT_TIMEOUT_SECONDS)
+
+        other_url = 'https://other.firebaseio.com'
+        other_ref = db.reference(url=other_url)
+        self._check_timeout(other_ref, _http_client.DEFAULT_TIMEOUT_SECONDS)
+
     @pytest.mark.parametrize('timeout', [60, None])
-    def test_http_timeout(self, timeout):
+    def test_custom_http_timeout(self, timeout):
         test_url = 'https://test.firebaseio.com'
         firebase_admin.initialize_app(testutils.MockCredential(), {
             'databaseURL' : test_url,
@@ -816,16 +818,7 @@ class TestDatabaseInitialization:
         default_ref = db.reference()
         other_ref = db.reference(url='https://other.firebaseio.com')
         for ref in [default_ref, other_ref]:
-            recorder = []
-            adapter = MockAdapter('{}', 200, recorder)
-            ref._client.session.mount(ref._client.base_url, adapter)
-            assert ref._client.timeout == timeout
-            assert ref.get() == {}
-            assert len(recorder) == 1
-            if timeout is None:
-                assert recorder[0]._extra_kwargs['timeout'] is None
-            else:
-                assert recorder[0]._extra_kwargs['timeout'] == pytest.approx(timeout, 0.001)
+            self._check_timeout(ref, timeout)
 
     def test_app_delete(self):
         app = firebase_admin.initialize_app(
@@ -846,6 +839,18 @@ class TestDatabaseInitialization:
         expected = 'Firebase/HTTP/{0}/{1}.{2}/AdminPython'.format(
             firebase_admin.__version__, sys.version_info.major, sys.version_info.minor)
         assert db._USER_AGENT == expected
+
+    def _check_timeout(self, ref, timeout):
+        assert ref._client.timeout == timeout
+        recorder = []
+        adapter = MockAdapter('{}', 200, recorder)
+        ref._client.session.mount(ref._client.base_url, adapter)
+        assert ref.get() == {}
+        assert len(recorder) == 1
+        if timeout is None:
+            assert recorder[0]._extra_kwargs['timeout'] is None
+        else:
+            assert recorder[0]._extra_kwargs['timeout'] == pytest.approx(timeout, 0.001)
 
 
 @pytest.fixture(params=['foo', '$key', '$value'])

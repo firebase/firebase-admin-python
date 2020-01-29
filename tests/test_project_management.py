@@ -523,12 +523,34 @@ class BaseProjectManagementTest:
         assert request.url == expected_url
         client_version = 'Python/Admin/{0}'.format(firebase_admin.__version__)
         assert request.headers['X-Client-Version'] == client_version
-        assert request._extra_kwargs['timeout'] == pytest.approx(
-            _http_client.DEFAULT_TIMEOUT_SECONDS, 0.001)
         if expected_body is None:
             assert request.body is None
         else:
             assert json.loads(request.body.decode()) == expected_body
+
+
+class TestTimeout(BaseProjectManagementTest):
+
+    def test_default_timeout(self):
+        app = firebase_admin.get_app()
+        project_management_service = project_management._get_project_management_service(app)
+        assert project_management_service._client.timeout == _http_client.DEFAULT_TIMEOUT_SECONDS
+
+    @pytest.mark.parametrize('timeout', [4, None])
+    def test_custom_timeout(self, timeout):
+        options = {
+            'httpTimeout': timeout,
+            'projectId': 'test-project-id'
+        }
+        app = firebase_admin.initialize_app(testutils.MockCredential(), options, 'timeout-app')
+        try:
+            project_management_service = project_management._get_project_management_service(app)
+            if timeout is None:
+                assert project_management_service._client.timeout is None
+            else:
+                assert project_management_service._client.timeout == pytest.approx(timeout, 0.001)
+        finally:
+            firebase_admin.delete_app(app)
 
 
 class TestCreateAndroidApp(BaseProjectManagementTest):

@@ -900,13 +900,13 @@ class _Client(_http_client.JsonHttpClient):
           credential: A Google credential that can be used to authenticate requests.
           base_url: A URL prefix to be added to all outgoing requests. This is typically the
               Firebase Realtime Database URL.
-          timeout: HTTP request timeout in seconds. If not set connections will never
+          timeout: HTTP request timeout in seconds. If set to None connections will never
               timeout, which is the default behavior of the underlying requests library.
           params: Dict of query parameters to add to all outgoing requests.
         """
-        _http_client.JsonHttpClient.__init__(
-            self, credential=credential, base_url=base_url, timeout=timeout,
-            headers={'User-Agent': _USER_AGENT})
+        super().__init__(
+            credential=credential, base_url=base_url,
+            timeout=timeout, headers={'User-Agent': _USER_AGENT})
         self.params = params if params else {}
 
     def request(self, method, url, **kwargs):

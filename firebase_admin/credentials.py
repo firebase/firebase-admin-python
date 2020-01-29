@@ -15,7 +15,6 @@
 """Firebase credentials module."""
 import collections
 import json
-import six
 
 import google.auth
 from google.auth.transport import requests
@@ -41,7 +40,7 @@ Contains the access token string and the expiry time. The expirty time is expose
 """
 
 
-class Base(object):
+class Base:
     """Provides OAuth2 access tokens for accessing Firebase services."""
 
     def get_access_token(self):
@@ -79,7 +78,7 @@ class Certificate(Base):
           ValueError: If the specified certificate is invalid.
         """
         super(Certificate, self).__init__()
-        if isinstance(cert, six.string_types):
+        if isinstance(cert, str):
             with open(cert) as json_file:
                 json_data = json.load(json_file)
         elif isinstance(cert, dict):
@@ -180,7 +179,7 @@ class RefreshToken(Base):
           ValueError: If the refresh token configuration is invalid.
         """
         super(RefreshToken, self).__init__()
-        if isinstance(refresh_token, six.string_types):
+        if isinstance(refresh_token, str):
             with open(refresh_token) as json_file:
                 json_data = json.load(json_file)
         elif isinstance(refresh_token, dict):

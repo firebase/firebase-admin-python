@@ -22,7 +22,6 @@ import re
 import time
 
 import requests
-import six
 
 import firebase_admin
 from firebase_admin import exceptions
@@ -117,13 +116,13 @@ def create_ios_app(bundle_id, display_name=None, app=None):
 
 
 def _check_is_string_or_none(obj, field_name):
-    if obj is None or isinstance(obj, six.string_types):
+    if obj is None or isinstance(obj, str):
         return obj
     raise ValueError('{0} must be a string.'.format(field_name))
 
 
 def _check_is_nonempty_string(obj, field_name):
-    if isinstance(obj, six.string_types) and obj:
+    if isinstance(obj, str) and obj:
         return obj
     raise ValueError('{0} must be a non-empty string.'.format(field_name))
 
@@ -140,7 +139,7 @@ def _check_not_none(obj, field_name):
     return obj
 
 
-class AndroidApp(object):
+class AndroidApp:
     """A reference to an Android app within a Firebase project.
 
     Note: Unless otherwise specified, all methods defined in this class make an RPC.
@@ -238,7 +237,7 @@ class AndroidApp(object):
         return self._service.delete_sha_certificate(certificate_to_delete)
 
 
-class IOSApp(object):
+class IOSApp:
     """A reference to an iOS app within a Firebase project.
 
     Note: Unless otherwise specified, all methods defined in this class make an RPC.
@@ -294,7 +293,7 @@ class IOSApp(object):
         return self._service.get_ios_app_config(self._app_id)
 
 
-class _AppMetadata(object):
+class _AppMetadata:
     """Detailed information about a Firebase Android or iOS app."""
 
     def __init__(self, name, app_id, display_name, project_id):
@@ -382,7 +381,7 @@ class IOSAppMetadata(_AppMetadata):
         return hash((self._name, self.app_id, self.display_name, self.project_id, self.bundle_id))
 
 
-class SHACertificate(object):
+class SHACertificate:
     """Represents a SHA-1 or SHA-256 certificate associated with an Android app."""
 
     SHA_1 = 'SHA_1'
@@ -456,7 +455,7 @@ class SHACertificate(object):
         return hash((self.name, self.sha_hash, self.cert_type))
 
 
-class _ProjectManagementService(object):
+class _ProjectManagementService:
     """Provides methods for interacting with the Firebase Project Management Service."""
 
     BASE_URL = 'https://firebase.googleapis.com'
@@ -613,10 +612,10 @@ class _ProjectManagementService(object):
                 response = poll_response.get('response')
                 if response:
                     return response
-                else:
-                    raise exceptions.UnknownError(
-                        'Polling finished, but the operation terminated in an error.',
-                        http_response=http_response)
+
+                raise exceptions.UnknownError(
+                    'Polling finished, but the operation terminated in an error.',
+                    http_response=http_response)
         raise exceptions.DeadlineExceededError('Polling deadline exceeded.')
 
     def get_android_app_config(self, app_id):

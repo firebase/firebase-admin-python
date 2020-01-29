@@ -17,10 +17,8 @@ import datetime
 import json
 import numbers
 
-import pytest
-import six
-
 from googleapiclient.http import HttpMockSequence
+import pytest
 
 import firebase_admin
 from firebase_admin import exceptions
@@ -62,7 +60,7 @@ def check_exception(exception, message, status):
     assert exception.http_response.status_code == status
 
 
-class TestMessageStr(object):
+class TestMessageStr:
 
     @pytest.mark.parametrize('msg', [
         messaging.Message(),
@@ -90,7 +88,7 @@ class TestMessageStr(object):
             'k1': 'v1', 'k2': 'v2'})) == '{"data": {"k1": "v1", "k2": "v2"}, "topic": "topic"}'
 
 
-class TestMulticastMessage(object):
+class TestMulticastMessage:
 
     @pytest.mark.parametrize('tokens', NON_LIST_ARGS)
     def test_invalid_tokens_type(self, tokens):
@@ -117,7 +115,7 @@ class TestMulticastMessage(object):
         assert len(message.tokens) == 500
 
 
-class TestMessageEncoder(object):
+class TestMessageEncoder:
 
     @pytest.mark.parametrize('msg', [
         messaging.Message(),
@@ -183,7 +181,7 @@ class TestMessageEncoder(object):
             {'topic': 'topic'})
 
 
-class TestNotificationEncoder(object):
+class TestNotificationEncoder:
 
     @pytest.mark.parametrize('data', NON_OBJECT_ARGS)
     def test_invalid_notification(self, data):
@@ -219,7 +217,7 @@ class TestNotificationEncoder(object):
             {'topic': 'topic', 'notification': {'title': 't'}})
 
 
-class TestFcmOptionEncoder(object):
+class TestFcmOptionEncoder:
 
     @pytest.mark.parametrize('label', [
         '!',
@@ -266,7 +264,7 @@ class TestFcmOptionEncoder(object):
             })
 
 
-class TestAndroidConfigEncoder(object):
+class TestAndroidConfigEncoder:
 
     @pytest.mark.parametrize('data', NON_OBJECT_ARGS)
     def test_invalid_android(self, data):
@@ -288,7 +286,7 @@ class TestAndroidConfigEncoder(object):
         with pytest.raises(ValueError) as excinfo:
             check_encoding(messaging.Message(
                 topic='topic', android=messaging.AndroidConfig(priority=data)))
-        if isinstance(data, six.string_types):
+        if isinstance(data, str):
             assert str(excinfo.value) == 'AndroidConfig.priority must be "high" or "normal".'
         else:
             assert str(excinfo.value) == 'AndroidConfig.priority must be a non-empty string.'
@@ -367,7 +365,7 @@ class TestAndroidConfigEncoder(object):
         check_encoding(msg, expected)
 
 
-class TestAndroidNotificationEncoder(object):
+class TestAndroidNotificationEncoder:
 
     def _check_notification(self, notification):
         with pytest.raises(ValueError) as excinfo:
@@ -405,7 +403,7 @@ class TestAndroidNotificationEncoder(object):
     def test_invalid_color(self, data):
         notification = messaging.AndroidNotification(color=data)
         excinfo = self._check_notification(notification)
-        if isinstance(data, six.string_types):
+        if isinstance(data, str):
             assert str(excinfo.value) == 'AndroidNotification.color must be in the form #RRGGBB.'
         else:
             assert str(excinfo.value) == 'AndroidNotification.color must be a non-empty string.'
@@ -491,7 +489,7 @@ class TestAndroidNotificationEncoder(object):
     def test_invalid_priority(self, priority):
         notification = messaging.AndroidNotification(priority=priority)
         excinfo = self._check_notification(notification)
-        if isinstance(priority, six.string_types):
+        if isinstance(priority, str):
             if not priority:
                 expected = 'AndroidNotification.priority must be a non-empty string.'
             else:
@@ -505,7 +503,7 @@ class TestAndroidNotificationEncoder(object):
     def test_invalid_visibility(self, visibility):
         notification = messaging.AndroidNotification(visibility=visibility)
         excinfo = self._check_notification(notification)
-        if isinstance(visibility, six.string_types):
+        if isinstance(visibility, str):
             if not visibility:
                 expected = 'AndroidNotification.visibility must be a non-empty string.'
             else:
@@ -603,7 +601,7 @@ class TestAndroidNotificationEncoder(object):
         check_encoding(msg, expected)
 
 
-class TestLightSettingsEncoder(object):
+class TestLightSettingsEncoder:
 
     def _check_light_settings(self, light_settings):
         with pytest.raises(ValueError) as excinfo:
@@ -679,7 +677,7 @@ class TestLightSettingsEncoder(object):
         notification = messaging.LightSettings(color=data, light_on_duration_millis=300,
                                                light_off_duration_millis=200)
         excinfo = self._check_light_settings(notification)
-        if isinstance(data, six.string_types):
+        if isinstance(data, str):
             assert str(excinfo.value) == ('LightSettings.color must be in the form #RRGGBB or '
                                           '#RRGGBBAA.')
         else:
@@ -717,7 +715,7 @@ class TestLightSettingsEncoder(object):
         check_encoding(msg, expected)
 
 
-class TestWebpushConfigEncoder(object):
+class TestWebpushConfigEncoder:
 
     @pytest.mark.parametrize('data', NON_OBJECT_ARGS)
     def test_invalid_webpush(self, data):
@@ -763,7 +761,7 @@ class TestWebpushConfigEncoder(object):
         check_encoding(msg, expected)
 
 
-class TestWebpushFCMOptionsEncoder(object):
+class TestWebpushFCMOptionsEncoder:
 
     @pytest.mark.parametrize('data', NON_OBJECT_ARGS)
     def test_invalid_webpush_fcm_options(self, data):
@@ -809,7 +807,7 @@ class TestWebpushFCMOptionsEncoder(object):
         check_encoding(msg, expected)
 
 
-class TestWebpushNotificationEncoder(object):
+class TestWebpushNotificationEncoder:
 
     def _check_notification(self, notification):
         with pytest.raises(ValueError) as excinfo:
@@ -853,7 +851,7 @@ class TestWebpushNotificationEncoder(object):
     def test_invalid_direction(self, data):
         notification = messaging.WebpushNotification(direction=data)
         excinfo = self._check_notification(notification)
-        if isinstance(data, six.string_types):
+        if isinstance(data, str):
             assert str(excinfo.value) == ('WebpushNotification.direction must be "auto", '
                                           '"ltr" or "rtl".')
         else:
@@ -1012,7 +1010,7 @@ class TestWebpushNotificationEncoder(object):
         assert str(excinfo.value) == 'WebpushNotificationAction.icon must be a string.'
 
 
-class TestAPNSConfigEncoder(object):
+class TestAPNSConfigEncoder:
 
     @pytest.mark.parametrize('data', NON_OBJECT_ARGS)
     def test_invalid_apns(self, data):
@@ -1051,7 +1049,7 @@ class TestAPNSConfigEncoder(object):
         check_encoding(msg, expected)
 
 
-class TestAPNSPayloadEncoder(object):
+class TestAPNSPayloadEncoder:
 
     @pytest.mark.parametrize('data', NON_OBJECT_ARGS)
     def test_invalid_payload(self, data):
@@ -1085,7 +1083,7 @@ class TestAPNSPayloadEncoder(object):
         check_encoding(msg, expected)
 
 
-class TestApsEncoder(object):
+class TestApsEncoder:
 
     def _encode_aps(self, aps):
         return check_encoding(messaging.Message(
@@ -1227,7 +1225,7 @@ class TestApsEncoder(object):
         check_encoding(msg, expected)
 
 
-class TestApsSoundEncoder(object):
+class TestApsSoundEncoder:
 
     def _check_sound(self, sound):
         with pytest.raises(ValueError) as excinfo:
@@ -1335,7 +1333,7 @@ class TestApsSoundEncoder(object):
         check_encoding(msg, expected)
 
 
-class TestApsAlertEncoder(object):
+class TestApsAlertEncoder:
 
     def _check_alert(self, alert):
         with pytest.raises(ValueError) as excinfo:
@@ -1539,7 +1537,7 @@ class TestApsAlertEncoder(object):
         }
         check_encoding(msg, expected)
 
-class TestTimeout(object):
+class TestTimeout:
 
     @classmethod
     def setup_class(cls):
@@ -1577,7 +1575,7 @@ class TestTimeout(object):
         assert self.recorder[0]._extra_kwargs['timeout'] == pytest.approx(4, 0.001)
 
 
-class TestSend(object):
+class TestSend:
 
     _DEFAULT_RESPONSE = json.dumps({'name': 'message-id'})
     _CLIENT_VERSION = 'fire-admin-python/{0}'.format(firebase_admin.__version__)
@@ -1753,7 +1751,7 @@ class TestSend(object):
         assert json.loads(recorder[0].body.decode()) == body
 
 
-class TestBatch(object):
+class TestBatch:
 
     @classmethod
     def setup_class(cls):
@@ -1822,8 +1820,8 @@ class TestSendAll(TestBatch):
             payload=self._batch_payload([(200, payload), (200, payload)]))
         msg = messaging.Message(topic='foo')
         batch_response = messaging.send_all([msg, msg], dry_run=True)
-        assert batch_response.success_count is 2
-        assert batch_response.failure_count is 0
+        assert batch_response.success_count == 2
+        assert batch_response.failure_count == 0
         assert len(batch_response.responses) == 2
         assert [r.message_id for r in batch_response.responses] == ['message-id', 'message-id']
         assert all([r.success for r in batch_response.responses])
@@ -1842,8 +1840,8 @@ class TestSendAll(TestBatch):
             payload=self._batch_payload([(200, success_payload), (status, error_payload)]))
         msg = messaging.Message(topic='foo')
         batch_response = messaging.send_all([msg, msg])
-        assert batch_response.success_count is 1
-        assert batch_response.failure_count is 1
+        assert batch_response.success_count == 1
+        assert batch_response.failure_count == 1
         assert len(batch_response.responses) == 2
         success_response = batch_response.responses[0]
         assert success_response.message_id == 'message-id'
@@ -1869,8 +1867,8 @@ class TestSendAll(TestBatch):
             payload=self._batch_payload([(200, success_payload), (status, error_payload)]))
         msg = messaging.Message(topic='foo')
         batch_response = messaging.send_all([msg, msg])
-        assert batch_response.success_count is 1
-        assert batch_response.failure_count is 1
+        assert batch_response.success_count == 1
+        assert batch_response.failure_count == 1
         assert len(batch_response.responses) == 2
         success_response = batch_response.responses[0]
         assert success_response.message_id == 'message-id'
@@ -1903,8 +1901,8 @@ class TestSendAll(TestBatch):
             payload=self._batch_payload([(200, success_payload), (status, error_payload)]))
         msg = messaging.Message(topic='foo')
         batch_response = messaging.send_all([msg, msg])
-        assert batch_response.success_count is 1
-        assert batch_response.failure_count is 1
+        assert batch_response.success_count == 1
+        assert batch_response.failure_count == 1
         assert len(batch_response.responses) == 2
         success_response = batch_response.responses[0]
         assert success_response.message_id == 'message-id'
@@ -1997,8 +1995,8 @@ class TestSendMulticast(TestBatch):
             payload=self._batch_payload([(200, payload), (200, payload)]))
         msg = messaging.MulticastMessage(tokens=['foo', 'foo'])
         batch_response = messaging.send_multicast(msg, dry_run=True)
-        assert batch_response.success_count is 2
-        assert batch_response.failure_count is 0
+        assert batch_response.success_count == 2
+        assert batch_response.failure_count == 0
         assert len(batch_response.responses) == 2
         assert [r.message_id for r in batch_response.responses] == ['message-id', 'message-id']
         assert all([r.success for r in batch_response.responses])
@@ -2017,8 +2015,8 @@ class TestSendMulticast(TestBatch):
             payload=self._batch_payload([(200, success_payload), (status, error_payload)]))
         msg = messaging.MulticastMessage(tokens=['foo', 'foo'])
         batch_response = messaging.send_multicast(msg)
-        assert batch_response.success_count is 1
-        assert batch_response.failure_count is 1
+        assert batch_response.success_count == 1
+        assert batch_response.failure_count == 1
         assert len(batch_response.responses) == 2
         success_response = batch_response.responses[0]
         assert success_response.message_id == 'message-id'
@@ -2045,8 +2043,8 @@ class TestSendMulticast(TestBatch):
             payload=self._batch_payload([(200, success_payload), (status, error_payload)]))
         msg = messaging.MulticastMessage(tokens=['foo', 'foo'])
         batch_response = messaging.send_multicast(msg)
-        assert batch_response.success_count is 1
-        assert batch_response.failure_count is 1
+        assert batch_response.success_count == 1
+        assert batch_response.failure_count == 1
         assert len(batch_response.responses) == 2
         success_response = batch_response.responses[0]
         assert success_response.message_id == 'message-id'
@@ -2079,8 +2077,8 @@ class TestSendMulticast(TestBatch):
             payload=self._batch_payload([(200, success_payload), (status, error_payload)]))
         msg = messaging.MulticastMessage(tokens=['foo', 'foo'])
         batch_response = messaging.send_multicast(msg)
-        assert batch_response.success_count is 1
-        assert batch_response.failure_count is 1
+        assert batch_response.success_count == 1
+        assert batch_response.failure_count == 1
         assert len(batch_response.responses) == 2
         success_response = batch_response.responses[0]
         assert success_response.message_id == 'message-id'
@@ -2152,7 +2150,7 @@ class TestSendMulticast(TestBatch):
         check_exception(excinfo.value, 'test error', status)
 
 
-class TestTopicManagement(object):
+class TestTopicManagement:
 
     _DEFAULT_RESPONSE = json.dumps({'results': [{}, {'error': 'error_reason'}]})
     _DEFAULT_ERROR_RESPONSE = json.dumps({'error': 'error_reason'})
@@ -2195,7 +2193,7 @@ class TestTopicManagement(object):
     @pytest.mark.parametrize('tokens', [None, '', list(), dict(), tuple()])
     def test_invalid_tokens(self, tokens):
         expected = 'Tokens must be a string or a non-empty list of strings.'
-        if isinstance(tokens, six.string_types):
+        if isinstance(tokens, str):
             expected = 'Tokens must be non-empty strings.'
 
         with pytest.raises(ValueError) as excinfo:

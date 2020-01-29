@@ -22,9 +22,9 @@ from google.auth import crypt
 from google.auth import exceptions
 from google.oauth2 import credentials as gcredentials
 from google.oauth2 import service_account
-from firebase_admin import credentials
 import pytest
 
+from firebase_admin import credentials
 from tests import testutils
 
 
@@ -33,7 +33,7 @@ def check_scopes(g_credential):
     assert sorted(credentials._scopes) == sorted(g_credential.scopes)
 
 
-class TestCertificate(object):
+class TestCertificate:
 
     invalid_certs = {
         'NonExistingFile': ('non_existing.json', IOError),
@@ -91,7 +91,7 @@ def app_default(request):
         del os.environ[var_name]
 
 
-class TestApplicationDefault(object):
+class TestApplicationDefault:
 
     @pytest.mark.parametrize('app_default', [testutils.resource_filename('service_account.json')],
                              indirect=True)
@@ -122,7 +122,7 @@ class TestApplicationDefault(object):
             creds.get_credential()  # This now throws.
 
 
-class TestRefreshToken(object):
+class TestRefreshToken:
 
     def test_init_from_file(self):
         credential = credentials.RefreshToken(

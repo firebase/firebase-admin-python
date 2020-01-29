@@ -13,13 +13,13 @@
 # limitations under the License.
 
 """Common utility classes and functions for testing."""
+import io
 import os
 
 from google.auth import credentials
 from google.auth import transport
 from requests import adapters
 from requests import models
-import six
 
 import firebase_admin
 
@@ -88,7 +88,7 @@ class MockRequest(transport.Request):
         self.response = MockResponse(status, response)
         self.log = []
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs): # pylint: disable=arguments-differ
         self.log.append((args, kwargs))
         return self.response
 
@@ -100,7 +100,7 @@ class MockFailedRequest(transport.Request):
         self.error = error
         self.log = []
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs): # pylint: disable=arguments-differ
         self.log.append((args, kwargs))
         raise self.error
 
@@ -139,13 +139,13 @@ class MockMultiRequestAdapter(adapters.HTTPAdapter):
         self._statuses = list(statuses)
         self._recorder = recorder
 
-    def send(self, request, **kwargs):
+    def send(self, request, **kwargs): # pylint: disable=arguments-differ
         request._extra_kwargs = kwargs
         self._recorder.append(request)
         resp = models.Response()
         resp.url = request.url
         resp.status_code = self._statuses[self._current_response]
-        resp.raw = six.BytesIO(self._responses[self._current_response].encode())
+        resp.raw = io.BytesIO(self._responses[self._current_response].encode())
         self._current_response = min(self._current_response + 1, len(self._responses) - 1)
         return resp
 

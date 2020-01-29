@@ -20,12 +20,10 @@ import math
 import numbers
 import re
 
-import six
-
 import firebase_admin._messaging_utils as _messaging_utils
 
 
-class Message(object):
+class Message:
     """A message that can be sent via Firebase Cloud Messaging.
 
     Contains payload information as well as recipient information. In particular, the message must
@@ -61,7 +59,7 @@ class Message(object):
         return json.dumps(self, cls=MessageEncoder, sort_keys=True)
 
 
-class MulticastMessage(object):
+class MulticastMessage:
     """A message that can be sent to multiple tokens via Firebase Cloud Messaging.
 
     Args:
@@ -88,7 +86,7 @@ class MulticastMessage(object):
         self.fcm_options = fcm_options
 
 
-class _Validators(object):
+class _Validators:
     """A collection of data validation utilities.
 
     Methods provided in this class raise ``ValueErrors`` if any validations fail.
@@ -99,11 +97,10 @@ class _Validators(object):
         """Checks if the given value is a string."""
         if value is None:
             return None
-        if not isinstance(value, six.string_types):
+        if not isinstance(value, str):
             if non_empty:
                 raise ValueError('{0} must be a non-empty string.'.format(label))
-            else:
-                raise ValueError('{0} must be a string.'.format(label))
+            raise ValueError('{0} must be a string.'.format(label))
         if non_empty and not value:
             raise ValueError('{0} must be a non-empty string.'.format(label))
         return value
@@ -123,10 +120,10 @@ class _Validators(object):
             return None
         if not isinstance(value, dict):
             raise ValueError('{0} must be a dictionary.'.format(label))
-        non_str = [k for k in value if not isinstance(k, six.string_types)]
+        non_str = [k for k in value if not isinstance(k, str)]
         if non_str:
             raise ValueError('{0} must not contain non-string keys.'.format(label))
-        non_str = [v for v in value.values() if not isinstance(v, six.string_types)]
+        non_str = [v for v in value.values() if not isinstance(v, str)]
         if non_str:
             raise ValueError('{0} must not contain non-string values.'.format(label))
         return value
@@ -138,7 +135,7 @@ class _Validators(object):
             return None
         if not isinstance(value, list):
             raise ValueError('{0} must be a list of strings.'.format(label))
-        non_str = [k for k in value if not isinstance(k, six.string_types)]
+        non_str = [k for k in value if not isinstance(k, str)]
         if non_str:
             raise ValueError('{0} must not contain non-string values.'.format(label))
         return value
@@ -571,7 +568,7 @@ class MessageEncoder(json.JSONEncoder):
         """Encodes an APNs sound configuration into JSON."""
         if sound is None:
             return None
-        if sound and isinstance(sound, six.string_types):
+        if sound and isinstance(sound, str):
             return sound
         if not isinstance(sound, _messaging_utils.CriticalSound):
             raise ValueError(
@@ -594,7 +591,7 @@ class MessageEncoder(json.JSONEncoder):
         """Encodes an ``ApsAlert`` instance into JSON."""
         if alert is None:
             return None
-        if isinstance(alert, six.string_types):
+        if isinstance(alert, str):
             return alert
         if not isinstance(alert, _messaging_utils.ApsAlert):
             raise ValueError('Aps.alert must be a string or an instance of ApsAlert class.')
@@ -647,6 +644,7 @@ class MessageEncoder(json.JSONEncoder):
 
     @classmethod
     def sanitize_topic_name(cls, topic):
+        """Removes the /topics/ prefix from the topic name, if present."""
         if not topic:
             return None
         prefix = '/topics/'
@@ -657,20 +655,20 @@ class MessageEncoder(json.JSONEncoder):
             raise ValueError('Malformed topic name.')
         return topic
 
-    def default(self, obj): # pylint: disable=method-hidden
-        if not isinstance(obj, Message):
-            return json.JSONEncoder.default(self, obj)
+    def default(self, o): # pylint: disable=method-hidden
+        if not isinstance(o, Message):
+            return json.JSONEncoder.default(self, o)
         result = {
-            'android': MessageEncoder.encode_android(obj.android),
-            'apns': MessageEncoder.encode_apns(obj.apns),
+            'android': MessageEncoder.encode_android(o.android),
+            'apns': MessageEncoder.encode_apns(o.apns),
             'condition': _Validators.check_string(
-                'Message.condition', obj.condition, non_empty=True),
-            'data': _Validators.check_string_dict('Message.data', obj.data),
-            'notification': MessageEncoder.encode_notification(obj.notification),
-            'token': _Validators.check_string('Message.token', obj.token, non_empty=True),
-            'topic': _Validators.check_string('Message.topic', obj.topic, non_empty=True),
-            'webpush': MessageEncoder.encode_webpush(obj.webpush),
-            'fcm_options': MessageEncoder.encode_fcm_options(obj.fcm_options),
+                'Message.condition', o.condition, non_empty=True),
+            'data': _Validators.check_string_dict('Message.data', o.data),
+            'notification': MessageEncoder.encode_notification(o.notification),
+            'token': _Validators.check_string('Message.token', o.token, non_empty=True),
+            'topic': _Validators.check_string('Message.topic', o.topic, non_empty=True),
+            'webpush': MessageEncoder.encode_webpush(o.webpush),
+            'fcm_options': MessageEncoder.encode_fcm_options(o.fcm_options),
         }
         result['topic'] = MessageEncoder.sanitize_topic_name(result.get('topic'))
         result = MessageEncoder.remove_null_values(result)

@@ -17,7 +17,7 @@
 from firebase_admin import exceptions
 
 
-class Notification(object):
+class Notification:
     """A notification that can be included in a message.
 
     Args:
@@ -32,7 +32,7 @@ class Notification(object):
         self.image = image
 
 
-class AndroidConfig(object):
+class AndroidConfig:
     """Android-specific options that can be included in a message.
 
     Args:
@@ -62,7 +62,7 @@ class AndroidConfig(object):
         self.fcm_options = fcm_options
 
 
-class AndroidNotification(object):
+class AndroidNotification:
     """Android-specific notification parameters.
 
     Args:
@@ -178,7 +178,7 @@ class AndroidNotification(object):
         self.notification_count = notification_count
 
 
-class LightSettings(object):
+class LightSettings:
     """Represents settings to control notification LED that can be included in a
     ``messaging.AndroidNotification``.
 
@@ -196,7 +196,7 @@ class LightSettings(object):
         self.light_off_duration_millis = light_off_duration_millis
 
 
-class AndroidFCMOptions(object):
+class AndroidFCMOptions:
     """Options for features provided by the FCM SDK for Android.
 
     Args:
@@ -208,7 +208,7 @@ class AndroidFCMOptions(object):
         self.analytics_label = analytics_label
 
 
-class WebpushConfig(object):
+class WebpushConfig:
     """Webpush-specific options that can be included in a message.
 
     Args:
@@ -230,7 +230,7 @@ class WebpushConfig(object):
         self.fcm_options = fcm_options
 
 
-class WebpushNotificationAction(object):
+class WebpushNotificationAction:
     """An action available to the users when the notification is presented.
 
     Args:
@@ -245,7 +245,7 @@ class WebpushNotificationAction(object):
         self.icon = icon
 
 
-class WebpushNotification(object):
+class WebpushNotification:
     """Webpush-specific notification parameters.
 
     Refer to the `Notification Reference`_ for more information.
@@ -302,7 +302,7 @@ class WebpushNotification(object):
         self.custom_data = custom_data
 
 
-class WebpushFCMOptions(object):
+class WebpushFCMOptions:
     """Options for features provided by the FCM SDK for Web.
 
     Args:
@@ -314,7 +314,7 @@ class WebpushFCMOptions(object):
         self.link = link
 
 
-class APNSConfig(object):
+class APNSConfig:
     """APNS-specific options that can be included in a message.
 
     Refer to `APNS Documentation`_ for more information.
@@ -335,7 +335,7 @@ class APNSConfig(object):
         self.fcm_options = fcm_options
 
 
-class APNSPayload(object):
+class APNSPayload:
     """Payload of an APNS message.
 
     Args:
@@ -349,7 +349,7 @@ class APNSPayload(object):
         self.custom_data = kwargs
 
 
-class Aps(object):
+class Aps:
     """Aps dictionary to be included in an APNS payload.
 
     Args:
@@ -379,7 +379,7 @@ class Aps(object):
         self.custom_data = custom_data
 
 
-class CriticalSound(object):
+class CriticalSound:
     """Critical alert sound configuration that can be included in ``messaging.Aps``.
 
     Args:
@@ -398,7 +398,7 @@ class CriticalSound(object):
         self.volume = volume
 
 
-class ApsAlert(object):
+class ApsAlert:
     """An alert that can be included in ``messaging.Aps``.
 
     Args:
@@ -437,7 +437,7 @@ class ApsAlert(object):
         self.custom_data = custom_data
 
 
-class APNSFCMOptions(object):
+class APNSFCMOptions:
     """Options for features provided by the FCM SDK for iOS.
 
     Args:
@@ -452,7 +452,7 @@ class APNSFCMOptions(object):
         self.image = image
 
 
-class FCMOptions(object):
+class FCMOptions:
     """Options for features provided by SDK.
 
     Args:

@@ -24,7 +24,7 @@ def b64_encode(bytes_value):
     return base64.urlsafe_b64encode(bytes_value).decode()
 
 
-class UserProvider(object):
+class UserProvider:
     """Represents a user identity provider that can be associated with a Firebase user.
 
     One or more providers can be specified in an ``ImportUserRecord`` when importing users via
@@ -97,7 +97,7 @@ class UserProvider(object):
         return {k: v for k, v in payload.items() if v is not None}
 
 
-class ImportUserRecord(object):
+class ImportUserRecord:
     """Represents a user account to be imported to Firebase Auth.
 
     Must specify the ``uid`` field at a minimum. A sequence of ``ImportUserRecord`` objects can be
@@ -255,7 +255,7 @@ class ImportUserRecord(object):
         return {k: v for k, v in payload.items() if v is not None}
 
 
-class UserImportHash(object):
+class UserImportHash:
     """Represents a hash algorithm used to hash user passwords.
 
     An instance of this class must be specified when importing users with passwords via the
@@ -471,7 +471,7 @@ class UserImportHash(object):
         return UserImportHash('STANDARD_SCRYPT', data)
 
 
-class ErrorInfo(object):
+class ErrorInfo:
     """Represents an error encountered while importing an ``ImportUserRecord``."""
 
     def __init__(self, error):
@@ -487,7 +487,7 @@ class ErrorInfo(object):
         return self._reason
 
 
-class UserImportResult(object):
+class UserImportResult:
     """Represents the result of a bulk user import operation.
 
     See ``auth.import_users()`` API for more details.

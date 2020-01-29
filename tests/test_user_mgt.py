@@ -17,6 +17,7 @@
 import base64
 import json
 import time
+from urllib import parse
 
 import pytest
 
@@ -27,8 +28,6 @@ from firebase_admin import _auth_utils
 from firebase_admin import _user_import
 from firebase_admin import _user_mgt
 from tests import testutils
-
-from six.moves import urllib
 
 
 INVALID_STRINGS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
@@ -101,7 +100,7 @@ def _check_user_record(user, expected_uid='testuser'):
     assert provider.provider_id == 'phone'
 
 
-class TestAuthServiceInitialization(object):
+class TestAuthServiceInitialization:
 
     def test_fail_on_no_project_id(self):
         app = firebase_admin.initialize_app(testutils.MockCredential(), name='userMgt2')
@@ -109,7 +108,7 @@ class TestAuthServiceInitialization(object):
             auth._get_auth_service(app)
         firebase_admin.delete_app(app)
 
-class TestUserRecord(object):
+class TestUserRecord:
 
     # Input dict must be non-empty, and must not contain unsupported keys.
     @pytest.mark.parametrize('data', INVALID_DICTS + [{}, {'foo':'bar'}])
@@ -186,10 +185,10 @@ class TestUserRecord(object):
 
     def test_no_tokens_valid_after_time(self):
         user = auth.UserRecord({'localId' : 'user'})
-        assert user.tokens_valid_after_timestamp is 0
+        assert user.tokens_valid_after_timestamp == 0
 
 
-class TestGetUser(object):
+class TestGetUser:
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
     def test_invalid_get_user(self, arg, user_mgt_app):
@@ -295,7 +294,7 @@ class TestGetUser(object):
         assert excinfo.value.cause is not None
 
 
-class TestCreateUser(object):
+class TestCreateUser:
 
     already_exists_errors = {
         'DUPLICATE_EMAIL': auth.EmailAlreadyExistsError,
@@ -395,7 +394,7 @@ class TestCreateUser(object):
         assert isinstance(excinfo.value, exceptions.UnknownError)
 
 
-class TestUpdateUser(object):
+class TestUpdateUser:
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
     def test_invalid_uid(self, user_mgt_app, arg):
@@ -513,7 +512,7 @@ class TestUpdateUser(object):
         assert request == {'localId': 'testuser', 'validSince': int(arg)}
 
 
-class TestSetCustomUserClaims(object):
+class TestSetCustomUserClaims:
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
     def test_invalid_uid(self, user_mgt_app, arg):
@@ -576,7 +575,7 @@ class TestSetCustomUserClaims(object):
         assert excinfo.value.cause is not None
 
 
-class TestDeleteUser(object):
+class TestDeleteUser:
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
     def test_invalid_delete_user(self, user_mgt_app, arg):
@@ -606,7 +605,7 @@ class TestDeleteUser(object):
         assert isinstance(excinfo.value, exceptions.UnknownError)
 
 
-class TestListUsers(object):
+class TestListUsers:
 
     @pytest.mark.parametrize('arg', [None, 'foo', list(), dict(), 0, -1, 1001, False])
     def test_invalid_max_results(self, user_mgt_app, arg):
@@ -625,7 +624,7 @@ class TestListUsers(object):
         assert page.next_page_token == ''
         assert page.has_next_page is False
         assert page.get_next_page() is None
-        users = [user for user in page.iterate_all()]
+        users = list(user for user in page.iterate_all())
         assert len(users) == 2
         self._check_rpc_calls(recorder)
 
@@ -710,7 +709,7 @@ class TestListUsers(object):
         assert len(page.users) == 3
 
         iterator = page.iterate_all()
-        users = [user for user in iterator]
+        users = list(user for user in iterator)
         assert len(page.users) == 3
         with pytest.raises(StopIteration):
             next(iterator)
@@ -721,9 +720,9 @@ class TestListUsers(object):
         response = {'users': []}
         _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
         page = auth.list_users(app=user_mgt_app)
-        assert len(page.users) is 0
-        users = [user for user in page.iterate_all()]
-        assert len(users) is 0
+        assert len(page.users) == 0
+        users = list(user for user in page.iterate_all())
+        assert len(users) == 0
 
     def test_list_users_with_max_results(self, user_mgt_app):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_LIST_USERS_RESPONSE)
@@ -773,11 +772,11 @@ class TestListUsers(object):
         if expected is None:
             expected = {'maxResults' : '1000'}
         assert len(recorder) == 1
-        request = dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(recorder[0].url).query))
+        request = dict(parse.parse_qsl(parse.urlsplit(recorder[0].url).query))
         assert request == expected
 
 
-class TestUserProvider(object):
+class TestUserProvider:
 
     _INVALID_PROVIDERS = (
         [{'display_name': arg} for arg in INVALID_STRINGS[1:]] +
@@ -819,7 +818,7 @@ class TestUserProvider(object):
             auth.UserProvider(uid='test', provider_id='google.com', **arg)
 
 
-class TestUserMetadata(object):
+class TestUserMetadata:
 
     _INVALID_ARGS = (
         [{'creation_timestamp': arg} for arg in INVALID_TIMESTAMPS] +
@@ -832,7 +831,7 @@ class TestUserMetadata(object):
             auth.UserMetadata(**arg)
 
 
-class TestImportUserRecord(object):
+class TestImportUserRecord:
 
     _INVALID_USERS = (
         [{'display_name': arg} for arg in INVALID_STRINGS[1:]] +
@@ -908,7 +907,7 @@ class TestImportUserRecord(object):
         assert user.to_dict() == {'localId': 'test', 'disabled': disabled}
 
 
-class TestUserImportHash(object):
+class TestUserImportHash:
 
     @pytest.mark.parametrize('func,name', [
         (auth.UserImportHash.hmac_sha512, 'HMAC_SHA512'),
@@ -1021,7 +1020,7 @@ class TestUserImportHash(object):
             auth.UserImportHash.standard_scrypt(**params)
 
 
-class TestImportUsers(object):
+class TestImportUsers:
 
     @pytest.mark.parametrize('arg', [None, list(), tuple(), dict(), 0, 1, 'foo'])
     def test_invalid_users(self, user_mgt_app, arg):
@@ -1041,7 +1040,7 @@ class TestImportUsers(object):
         ]
         result = auth.import_users(users, app=user_mgt_app)
         assert result.success_count == 2
-        assert result.failure_count is 0
+        assert result.failure_count == 0
         assert result.errors == []
         expected = {'users': [{'localId': 'user1'}, {'localId': 'user2'}]}
         self._check_rpc_calls(recorder, expected)
@@ -1087,7 +1086,7 @@ class TestImportUsers(object):
             b'key', rounds=8, memory_cost=14, salt_separator=b'sep')
         result = auth.import_users(users, hash_alg=hash_alg, app=user_mgt_app)
         assert result.success_count == 2
-        assert result.failure_count is 0
+        assert result.failure_count == 0
         assert result.errors == []
         expected = {
             'users': [
@@ -1127,7 +1126,7 @@ class TestImportUsers(object):
         assert request == expected
 
 
-class TestRevokeRefreshTokkens(object):
+class TestRevokeRefreshTokkens:
 
     def test_revoke_refresh_tokens(self, user_mgt_app):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
@@ -1141,7 +1140,7 @@ class TestRevokeRefreshTokkens(object):
         assert int(request['validSince']) <= int(after_time)
 
 
-class TestActionCodeSetting(object):
+class TestActionCodeSetting:
 
     def test_valid_data(self):
         data = {
@@ -1186,7 +1185,7 @@ class TestActionCodeSetting(object):
             _user_mgt.encode_action_code_settings({"foo":"bar"})
 
 
-class TestGenerateEmailActionLink(object):
+class TestGenerateEmailActionLink:
 
     def test_email_verification_no_settings(self, user_mgt_app):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"oobLink":"https://testlink"}')

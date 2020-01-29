@@ -17,17 +17,17 @@ import base64
 import datetime
 import random
 import time
+from urllib import parse
 import uuid
-import six
 
+import google.oauth2.credentials
+from google.auth import transport
 import pytest
 import requests
 
 import firebase_admin
 from firebase_admin import auth
 from firebase_admin import credentials
-import google.oauth2.credentials
-from google.auth import transport
 
 
 _verify_token_url = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyCustomToken'
@@ -82,8 +82,8 @@ def _sign_in_with_email_link(email, oob_code, api_key):
     return resp.json().get('idToken')
 
 def _extract_link_params(link):
-    query = six.moves.urllib.parse.urlparse(link).query
-    query_dict = dict(six.moves.urllib.parse.parse_qsl(query))
+    query = parse.urlparse(link).query
+    query_dict = dict(parse.parse_qsl(query))
     return query_dict
 
 def test_custom_token(api_key):
@@ -263,7 +263,7 @@ def test_create_user(new_user):
     assert user.custom_claims is None
     assert user.user_metadata.creation_timestamp > 0
     assert user.user_metadata.last_sign_in_timestamp is None
-    assert len(user.provider_data) is 0
+    assert len(user.provider_data) == 0
     with pytest.raises(auth.UidAlreadyExistsError):
         auth.create_user(uid=new_user.uid)
 
@@ -427,7 +427,7 @@ def test_import_users_with_password(api_key):
 
 def test_password_reset(new_user_email_unverified, api_key):
     link = auth.generate_password_reset_link(new_user_email_unverified.email)
-    assert isinstance(link, six.string_types)
+    assert isinstance(link, str)
     query_dict = _extract_link_params(link)
     user_email = _reset_password(query_dict['oobCode'], 'newPassword', api_key)
     assert new_user_email_unverified.email == user_email
@@ -436,7 +436,7 @@ def test_password_reset(new_user_email_unverified, api_key):
 
 def test_email_verification(new_user_email_unverified, api_key):
     link = auth.generate_email_verification_link(new_user_email_unverified.email)
-    assert isinstance(link, six.string_types)
+    assert isinstance(link, str)
     query_dict = _extract_link_params(link)
     user_email = _verify_email(query_dict['oobCode'], api_key)
     assert new_user_email_unverified.email == user_email
@@ -446,7 +446,7 @@ def test_password_reset_with_settings(new_user_email_unverified, api_key):
     action_code_settings = auth.ActionCodeSettings(ACTION_LINK_CONTINUE_URL)
     link = auth.generate_password_reset_link(new_user_email_unverified.email,
                                              action_code_settings=action_code_settings)
-    assert isinstance(link, six.string_types)
+    assert isinstance(link, str)
     query_dict = _extract_link_params(link)
     assert query_dict['continueUrl'] == ACTION_LINK_CONTINUE_URL
     user_email = _reset_password(query_dict['oobCode'], 'newPassword', api_key)
@@ -458,7 +458,7 @@ def test_email_verification_with_settings(new_user_email_unverified, api_key):
     action_code_settings = auth.ActionCodeSettings(ACTION_LINK_CONTINUE_URL)
     link = auth.generate_email_verification_link(new_user_email_unverified.email,
                                                  action_code_settings=action_code_settings)
-    assert isinstance(link, six.string_types)
+    assert isinstance(link, str)
     query_dict = _extract_link_params(link)
     assert query_dict['continueUrl'] == ACTION_LINK_CONTINUE_URL
     user_email = _verify_email(query_dict['oobCode'], api_key)
@@ -469,7 +469,7 @@ def test_email_sign_in_with_settings(new_user_email_unverified, api_key):
     action_code_settings = auth.ActionCodeSettings(ACTION_LINK_CONTINUE_URL)
     link = auth.generate_sign_in_with_email_link(new_user_email_unverified.email,
                                                  action_code_settings=action_code_settings)
-    assert isinstance(link, six.string_types)
+    assert isinstance(link, str)
     query_dict = _extract_link_params(link)
     assert query_dict['continueUrl'] == ACTION_LINK_CONTINUE_URL
     oob_code = query_dict['oobCode']

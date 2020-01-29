@@ -16,9 +16,9 @@
 
 import base64
 import json
+from urllib import parse
+
 import requests
-import six
-from six.moves import urllib
 
 from firebase_admin import _auth_utils
 from firebase_admin import _user_import
@@ -29,7 +29,7 @@ MAX_IMPORT_USERS_SIZE = 1000
 B64_REDACTED = base64.b64encode(b'REDACTED')
 
 
-class Sentinel(object):
+class Sentinel:
 
     def __init__(self, description):
         self.description = description
@@ -38,7 +38,7 @@ class Sentinel(object):
 DELETE_ATTRIBUTE = Sentinel('Value used to delete an attribute from a user profile')
 
 
-class UserMetadata(object):
+class UserMetadata:
     """Contains additional metadata associated with a user account."""
 
     def __init__(self, creation_timestamp=None, last_sign_in_timestamp=None):
@@ -66,7 +66,7 @@ class UserMetadata(object):
         return self._last_sign_in_timestamp
 
 
-class UserInfo(object):
+class UserInfo:
     """A collection of standard profile information for a user.
 
     Used to expose profile information returned by an identity provider.
@@ -248,9 +248,6 @@ class UserRecord(UserInfo):
 class ExportedUserRecord(UserRecord):
     """Contains metadata associated with a user including password hash and salt."""
 
-    def __init__(self, data):
-        super(ExportedUserRecord, self).__init__(data)
-
     @property
     def password_hash(self):
         """The user's password hash as a base64-encoded string.
@@ -283,7 +280,7 @@ class ExportedUserRecord(UserRecord):
         return self._data.get('salt')
 
 
-class ListUsersPage(object):
+class ListUsersPage:
     """Represents a page of user records exported from a Firebase project.
 
     Provides methods for traversing the user accounts included in this page, as well as retrieving
@@ -370,7 +367,7 @@ class ProviderUserInfo(UserInfo):
         return self._data.get('providerId')
 
 
-class ActionCodeSettings(object):
+class ActionCodeSettings:
     """Contains required continue/state URL with optional Android and iOS settings.
     Used when invoking the email action link generation APIs.
     """
@@ -400,7 +397,7 @@ def encode_action_code_settings(settings):
         raise ValueError("Dynamic action links url is mandatory")
 
     try:
-        parsed = urllib.parse.urlparse(settings.url)
+        parsed = parse.urlparse(settings.url)
         if not parsed.netloc:
             raise ValueError('Malformed dynamic action links url: "{0}".'.format(settings.url))
         parameters['continueUrl'] = settings.url
@@ -416,14 +413,14 @@ def encode_action_code_settings(settings):
 
     # dynamic_link_domain
     if settings.dynamic_link_domain is not None:
-        if not isinstance(settings.dynamic_link_domain, six.string_types):
+        if not isinstance(settings.dynamic_link_domain, str):
             raise ValueError('Invalid value provided for dynamic_link_domain: {0}'
                              .format(settings.dynamic_link_domain))
         parameters['dynamicLinkDomain'] = settings.dynamic_link_domain
 
     # ios_bundle_id
     if settings.ios_bundle_id is not None:
-        if not isinstance(settings.ios_bundle_id, six.string_types):
+        if not isinstance(settings.ios_bundle_id, str):
             raise ValueError('Invalid value provided for ios_bundle_id: {0}'
                              .format(settings.ios_bundle_id))
         parameters['iosBundleId'] = settings.ios_bundle_id
@@ -434,13 +431,13 @@ def encode_action_code_settings(settings):
         raise ValueError("Android package name is required when specifying other Android settings")
 
     if settings.android_package_name is not None:
-        if not isinstance(settings.android_package_name, six.string_types):
+        if not isinstance(settings.android_package_name, str):
             raise ValueError('Invalid value provided for android_package_name: {0}'
                              .format(settings.android_package_name))
         parameters['androidPackageName'] = settings.android_package_name
 
     if settings.android_minimum_version is not None:
-        if not isinstance(settings.android_minimum_version, six.string_types):
+        if not isinstance(settings.android_minimum_version, str):
             raise ValueError('Invalid value provided for android_minimum_version: {0}'
                              .format(settings.android_minimum_version))
         parameters['androidMinimumVersion'] = settings.android_minimum_version
@@ -454,7 +451,7 @@ def encode_action_code_settings(settings):
     return parameters
 
 
-class UserManager(object):
+class UserManager:
     """Provides methods for interacting with the Google Identity Toolkit."""
 
     def __init__(self, client):
@@ -489,11 +486,11 @@ class UserManager(object):
     def list_users(self, page_token=None, max_results=MAX_LIST_USERS_RESULTS):
         """Retrieves a batch of users."""
         if page_token is not None:
-            if not isinstance(page_token, six.string_types) or not page_token:
+            if not isinstance(page_token, str) or not page_token:
                 raise ValueError('Page token must be a non-empty string.')
         if not isinstance(max_results, int):
             raise ValueError('Max results must be an integer.')
-        elif max_results < 1 or max_results > MAX_LIST_USERS_RESULTS:
+        if max_results < 1 or max_results > MAX_LIST_USERS_RESULTS:
             raise ValueError(
                 'Max results must be a positive integer less than '
                 '{0}.'.format(MAX_LIST_USERS_RESULTS))
@@ -636,6 +633,7 @@ class UserManager(object):
             link_url: action url to be emailed to the user
 
         Raises:
+            UnexpectedResponseError: If the backend server responds with an unexpected message
             FirebaseError: If an error occurs while generating the link
             ValueError: If the provided arguments are invalid
         """
@@ -660,7 +658,7 @@ class UserManager(object):
             return body.get('oobLink')
 
 
-class _UserIterator(object):
+class _UserIterator:
     """An iterator that allows iterating over user accounts, one at a time.
 
     This implementation loads a page of users into memory, and iterates on them. When the whole

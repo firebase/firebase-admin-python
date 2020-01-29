@@ -15,12 +15,11 @@
 """Firebase Cloud Messaging module."""
 
 import json
-import requests
-import six
 
 import googleapiclient
 from googleapiclient import http
 from googleapiclient import _auth
+import requests
 
 import firebase_admin
 from firebase_admin import _http_client
@@ -206,7 +205,7 @@ def unsubscribe_from_topic(tokens, topic, app=None):
         tokens, topic, 'iid/v1:batchRemove')
 
 
-class ErrorInfo(object):
+class ErrorInfo:
     """An error encountered when performing a topic management operation."""
 
     def __init__(self, index, reason):
@@ -224,7 +223,7 @@ class ErrorInfo(object):
         return self._reason
 
 
-class TopicManagementResponse(object):
+class TopicManagementResponse:
     """The response received from a topic management operation."""
 
     def __init__(self, resp):
@@ -256,7 +255,7 @@ class TopicManagementResponse(object):
         return self._errors
 
 
-class BatchResponse(object):
+class BatchResponse:
     """The response received from a batch request to the FCM API."""
 
     def __init__(self, responses):
@@ -277,7 +276,7 @@ class BatchResponse(object):
         return len(self.responses) - self.success_count
 
 
-class SendResponse(object):
+class SendResponse:
     """The response received from an individual batched request to the FCM API."""
 
     def __init__(self, resp, exception):
@@ -302,7 +301,7 @@ class SendResponse(object):
         return self._exception
 
 
-class _MessagingService(object):
+class _MessagingService:
     """Service class that implements Firebase Cloud Messaging (FCM) functionality."""
 
     FCM_URL = 'https://fcm.googleapis.com/v1/projects/{0}/messages:send'
@@ -342,6 +341,7 @@ class _MessagingService(object):
         return cls.JSON_ENCODER.default(message)
 
     def send(self, message, dry_run=False):
+        """Sends the given message to FCM via the FCM v1 API."""
         data = self._message_data(message, dry_run)
         try:
             resp = self._client.body(
@@ -394,15 +394,15 @@ class _MessagingService(object):
 
     def make_topic_management_request(self, tokens, topic, operation):
         """Invokes the IID service for topic management functionality."""
-        if isinstance(tokens, six.string_types):
+        if isinstance(tokens, str):
             tokens = [tokens]
         if not isinstance(tokens, list) or not tokens:
             raise ValueError('Tokens must be a string or a non-empty list of strings.')
-        invalid_str = [t for t in tokens if not isinstance(t, six.string_types) or not t]
+        invalid_str = [t for t in tokens if not isinstance(t, str) or not t]
         if invalid_str:
             raise ValueError('Tokens must be non-empty strings.')
 
-        if not isinstance(topic, six.string_types) or not topic:
+        if not isinstance(topic, str) or not topic:
             raise ValueError('Topic must be a non-empty string.')
         if not topic.startswith('/topics/'):
             topic = '/topics/{0}'.format(topic)

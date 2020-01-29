@@ -14,13 +14,13 @@
 
 """Internal utilities common to all modules."""
 
+import io
 import json
 import socket
 
 import googleapiclient
 import httplib2
 import requests
-import six
 
 import firebase_admin
 from firebase_admin import exceptions
@@ -60,17 +60,19 @@ _HTTP_STATUS_TO_ERROR_CODE = {
 
 
 def _get_initialized_app(app):
+    """Returns a reference to an initialized App instance."""
     if app is None:
         return firebase_admin.get_app()
-    elif isinstance(app, firebase_admin.App):
+
+    if isinstance(app, firebase_admin.App):
         initialized_app = firebase_admin.get_app(app.name)
         if app is not initialized_app:
             raise ValueError('Illegal app argument. App instance not '
                              'initialized via the firebase module.')
         return app
-    else:
-        raise ValueError('Illegal app argument. Argument must be of type '
-                         ' firebase_admin.App, but given "{0}".'.format(type(app)))
+
+    raise ValueError('Illegal app argument. Argument must be of type '
+                     ' firebase_admin.App, but given "{0}".'.format(type(app)))
 
 
 def get_app_service(app, name, initializer):
@@ -143,11 +145,11 @@ def handle_requests_error(error, message=None, code=None):
         return exceptions.DeadlineExceededError(
             message='Timed out while making an API call: {0}'.format(error),
             cause=error)
-    elif isinstance(error, requests.exceptions.ConnectionError):
+    if isinstance(error, requests.exceptions.ConnectionError):
         return exceptions.UnavailableError(
             message='Failed to establish a connection: {0}'.format(error),
             cause=error)
-    elif error.response is None:
+    if error.response is None:
         return exceptions.UnknownError(
             message='Unknown error while making a remote service call: {0}'.format(error),
             cause=error)
@@ -230,11 +232,11 @@ def handle_googleapiclient_error(error, message=None, code=None, http_response=N
         return exceptions.DeadlineExceededError(
             message='Timed out while making an API call: {0}'.format(error),
             cause=error)
-    elif isinstance(error, httplib2.ServerNotFoundError):
+    if isinstance(error, httplib2.ServerNotFoundError):
         return exceptions.UnavailableError(
             message='Failed to establish a connection: {0}'.format(error),
             cause=error)
-    elif not isinstance(error, googleapiclient.errors.HttpError):
+    if not isinstance(error, googleapiclient.errors.HttpError):
         return exceptions.UnknownError(
             message='Unknown error while making a remote service call: {0}'.format(error),
             cause=error)
@@ -253,7 +255,7 @@ def handle_googleapiclient_error(error, message=None, code=None, http_response=N
 def _http_response_from_googleapiclient_error(error):
     """Creates a requests HTTP Response object from the given googleapiclient error."""
     resp = requests.models.Response()
-    resp.raw = six.BytesIO(error.content)
+    resp.raw = io.BytesIO(error.content)
     resp.status_code = error.resp.status
     return resp
 

@@ -13,16 +13,17 @@
 # limitations under the License.
 
 """Integration tests for firebase_admin.ml module."""
-import re
 import os
-import shutil
 import random
+import re
+import shutil
+import string
 import tempfile
 import pytest
 
 
-from firebase_admin import ml
 from firebase_admin import exceptions
+from firebase_admin import ml
 from tests import testutils
 
 
@@ -34,26 +35,33 @@ except ImportError:
     _TF_ENABLED = False
 
 
+def _random_identifier(prefix):
+    #pylint: disable=unused-variable
+    suffix = ''.join([random.choice(string.ascii_letters + string.digits) for n in range(8)])
+    return '{0}_{1}'.format(prefix, suffix)
+
+
 NAME_ONLY_ARGS = {
-    'display_name': 'TestModel123_{0}'.format(random.randint(1111, 9999))
+    'display_name': _random_identifier('TestModel123_')
 }
 NAME_ONLY_ARGS_UPDATED = {
-    'display_name': 'TestModel123_updated_{0}'.format(random.randint(1111, 9999))
+    'display_name': _random_identifier('TestModel123_updated_')
 }
 NAME_AND_TAGS_ARGS = {
-    'display_name': 'TestModel123_tags_{0}'.format(random.randint(1111, 9999)),
+    'display_name': _random_identifier('TestModel123_tags_'),
     'tags': ['test_tag123']
 }
 FULL_MODEL_ARGS = {
-    'display_name': 'TestModel123_full_{0}'.format(random.randint(1111, 9999)),
+    'display_name': _random_identifier('TestModel123_full_'),
     'tags': ['test_tag567'],
     'file_name': 'model1.tflite'
 }
 INVALID_FULL_MODEL_ARGS = {
-    'display_name': 'TestModel123_invalid_full_{0}'.format(random.randint(1111, 9999)),
+    'display_name': _random_identifier('TestModel123_invalid_full_'),
     'tags': ['test_tag890'],
     'file_name': 'invalid_model.tflite'
 }
+
 
 @pytest.fixture
 def firebase_model(request):
@@ -76,10 +84,11 @@ def firebase_model(request):
 
 @pytest.fixture
 def model_list():
-    ml_model_1 = ml.Model(display_name="TestModel123")
+    ml_model_1 = ml.Model(display_name=_random_identifier('TestModel123_list1_'))
     model_1 = ml.create_model(model=ml_model_1)
 
-    ml_model_2 = ml.Model(display_name="TestModel123_tags", tags=['test_tag123'])
+    ml_model_2 = ml.Model(display_name=_random_identifier('TestModel123_list2_'),
+                          tags=['test_tag123'])
     model_2 = ml.create_model(model=ml_model_2)
 
     yield [model_1, model_2]
@@ -124,7 +133,7 @@ def check_model(model, args):
     assert model.etag is not None
 
 
-def check_model_format(model, has_model_format, validation_error):
+def check_model_format(model, has_model_format=False, validation_error=None):
     if has_model_format:
         assert model.validation_error == validation_error
         assert model.published is False
@@ -145,13 +154,13 @@ def check_model_format(model, has_model_format, validation_error):
 @pytest.mark.parametrize('firebase_model', [NAME_AND_TAGS_ARGS], indirect=True)
 def test_create_simple_model(firebase_model):
     check_model(firebase_model, NAME_AND_TAGS_ARGS)
-    check_model_format(firebase_model, False, None)
+    check_model_format(firebase_model)
 
 
 @pytest.mark.parametrize('firebase_model', [FULL_MODEL_ARGS], indirect=True)
 def test_create_full_model(firebase_model):
     check_model(firebase_model, FULL_MODEL_ARGS)
-    check_model_format(firebase_model, True, None)
+    check_model_format(firebase_model, True)
 
 
 @pytest.mark.parametrize('firebase_model', [FULL_MODEL_ARGS], indirect=True)
@@ -173,7 +182,7 @@ def test_create_invalid_model(firebase_model):
 def test_get_model(firebase_model):
     get_model = ml.get_model(firebase_model.model_id)
     check_model(get_model, NAME_AND_TAGS_ARGS)
-    check_model_format(get_model, False, None)
+    check_model_format(get_model)
 
 
 @pytest.mark.parametrize('firebase_model', [NAME_ONLY_ARGS], indirect=True)
@@ -192,12 +201,12 @@ def test_update_model(firebase_model):
     firebase_model.display_name = new_model_name
     updated_model = ml.update_model(firebase_model)
     check_model(updated_model, NAME_ONLY_ARGS_UPDATED)
-    check_model_format(updated_model, False, None)
+    check_model_format(updated_model)
 
     # Second call with same model does not cause error
     updated_model2 = ml.update_model(updated_model)
     check_model(updated_model2, NAME_ONLY_ARGS_UPDATED)
-    check_model_format(updated_model2, False, None)
+    check_model_format(updated_model2)
 
 
 @pytest.mark.parametrize('firebase_model', [NAME_ONLY_ARGS], indirect=True)
@@ -304,10 +313,13 @@ def keras_model():
 @pytest.fixture
 def saved_model_dir(keras_model):
     assert _TF_ENABLED
-    # different versions have different model conversion capability
-    # pick something that works for each version
+    # Make a new parent directory. The child directory must not exist yet.
+    # The child directory gets created by tf. If it exists, the tf call fails.
     parent = tempfile.mkdtemp()
     save_dir = os.path.join(parent, 'child')
+
+    # different versions have different model conversion capability
+    # pick something that works for each version
     if tf.version.VERSION.startswith('1.'):
         tf.reset_default_graph()
         x_var = tf.placeholder(tf.float32, (None, 3), name="x")
@@ -331,12 +343,12 @@ def test_from_keras_model(keras_model):
 
     # Validate the conversion by creating a model
     model_format = ml.TFLiteFormat(model_source=source)
-    model = ml.Model(display_name="KerasModel1", model_format=model_format)
+    model = ml.Model(display_name=_random_identifier('KerasModel_'), model_format=model_format)
     created_model = ml.create_model(model)
 
     try:
-        assert created_model.model_id is not None
-        assert created_model.validation_error is None
+        check_model(created_model, {'display_name': model.display_name})
+        check_model_format(created_model, True)
     finally:
         _clean_up_model(created_model)
 
@@ -351,7 +363,7 @@ def test_from_saved_model(saved_model_dir):
 
     # Validate the conversion by creating a model
     model_format = ml.TFLiteFormat(model_source=source)
-    model = ml.Model(display_name="SavedModel1", model_format=model_format)
+    model = ml.Model(display_name=_random_identifier('SavedModel_'), model_format=model_format)
     created_model = ml.create_model(model)
 
     try:

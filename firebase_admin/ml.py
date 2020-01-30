@@ -23,11 +23,10 @@ import datetime
 import re
 import time
 import os
+from urllib import parse
+
 import requests
-import six
 
-
-from six.moves import urllib
 from firebase_admin import _http_client
 from firebase_admin import _utils
 from firebase_admin import exceptions
@@ -728,7 +727,7 @@ def _validate_display_name(display_name):
 
 def _validate_tags(tags):
     if not isinstance(tags, list) or not \
-        all(isinstance(tag, six.string_types) for tag in tags):
+        all(isinstance(tag, str) for tag in tags):
         raise TypeError('Tags must be a list of strings.')
     if not all(_TAG_PATTERN.match(tag) for tag in tags):
         raise ValueError('Tag format is invalid.')
@@ -751,7 +750,7 @@ def _validate_model_format(model_format):
 
 def _validate_list_filter(list_filter):
     if list_filter is not None:
-        if not isinstance(list_filter, six.string_types):
+        if not isinstance(list_filter, str):
             raise TypeError('List filter must be a string or None.')
 
 
@@ -767,7 +766,7 @@ def _validate_page_size(page_size):
 
 def _validate_page_token(page_token):
     if page_token is not None:
-        if not isinstance(page_token, six.string_types):
+        if not isinstance(page_token, str):
             raise TypeError('Page token must be a string or None.')
 
 
@@ -916,8 +915,7 @@ class _MLService:
             params['page_token'] = page_token
         path = 'models'
         if params:
-            # pylint: disable=too-many-function-args
-            param_str = urllib.parse.urlencode(sorted(params.items()), True)
+            param_str = parse.urlencode(sorted(params.items()), True)
             path = path + '?' + param_str
         try:
             return self._client.body('get', url=path)

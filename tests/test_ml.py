@@ -15,12 +15,14 @@
 """Test cases for the firebase_admin.ml module."""
 
 import json
+
 import pytest
 
 import firebase_admin
 from firebase_admin import exceptions
 from firebase_admin import ml
 from tests import testutils
+
 
 BASE_URL = 'https://mlkit.googleapis.com/v1beta1/'
 PROJECT_ID = 'myProject1'

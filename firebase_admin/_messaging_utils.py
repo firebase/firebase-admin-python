@@ -14,91 +14,25 @@
 
 """Types and utilities used by the messaging (FCM) module."""
 
-import datetime
-import json
-import math
-import numbers
-import re
-
-import six
-
 from firebase_admin import exceptions
 
 
-class Message(object):
-    """A message that can be sent via Firebase Cloud Messaging.
-
-    Contains payload information as well as recipient information. In particular, the message must
-    contain exactly one of token, topic or condition fields.
-
-    Args:
-        data: A dictionary of data fields (optional). All keys and values in the dictionary must be
-            strings.
-        notification: An instance of ``messaging.Notification`` (optional).
-        android: An instance of ``messaging.AndroidConfig`` (optional).
-        webpush: An instance of ``messaging.WebpushConfig`` (optional).
-        apns: An instance of ``messaging.ApnsConfig`` (optional).
-        fcm_options: An instance of ``messaging.FcmOptions`` (optional).
-        token: The registration token of the device to which the message should be sent (optional).
-        topic: Name of the FCM topic to which the message should be sent (optional). Topic name
-            may contain the ``/topics/`` prefix.
-        condition: The FCM condition to which the message should be sent (optional).
-    """
-
-    def __init__(self, data=None, notification=None, android=None, webpush=None, apns=None,
-                 fcm_options=None, token=None, topic=None, condition=None):
-        self.data = data
-        self.notification = notification
-        self.android = android
-        self.webpush = webpush
-        self.apns = apns
-        self.fcm_options = fcm_options
-        self.token = token
-        self.topic = topic
-        self.condition = condition
-
-
-class MulticastMessage(object):
-    """A message that can be sent to multiple tokens via Firebase Cloud Messaging.
-
-    Args:
-        tokens: A list of registration tokens of targeted devices.
-        data: A dictionary of data fields (optional). All keys and values in the dictionary must be
-            strings.
-        notification: An instance of ``messaging.Notification`` (optional).
-        android: An instance of ``messaging.AndroidConfig`` (optional).
-        webpush: An instance of ``messaging.WebpushConfig`` (optional).
-        apns: An instance of ``messaging.ApnsConfig`` (optional).
-        fcm_options: An instance of ``messaging.FcmOptions`` (optional).
-    """
-    def __init__(self, tokens, data=None, notification=None, android=None, webpush=None, apns=None,
-                 fcm_options=None):
-        _Validators.check_string_list('MulticastMessage.tokens', tokens)
-        if len(tokens) > 100:
-            raise ValueError('MulticastMessage.tokens must not contain more than 100 tokens.')
-        self.tokens = tokens
-        self.data = data
-        self.notification = notification
-        self.android = android
-        self.webpush = webpush
-        self.apns = apns
-        self.fcm_options = fcm_options
-
-
-class Notification(object):
+class Notification:
     """A notification that can be included in a message.
 
     Args:
         title: Title of the notification (optional).
         body: Body of the notification (optional).
+        image: Image url of the notification (optional)
     """
 
-    def __init__(self, title=None, body=None):
+    def __init__(self, title=None, body=None, image=None):
         self.title = title
         self.body = body
+        self.image = image
 
 
-class AndroidConfig(object):
+class AndroidConfig:
     """Android-specific options that can be included in a message.
 
     Args:
@@ -114,7 +48,7 @@ class AndroidConfig(object):
         data: A dictionary of data fields (optional). All keys and values in the dictionary must be
             strings. When specified, overrides any data fields set via ``Message.data``.
         notification: A ``messaging.AndroidNotification`` to be included in the message (optional).
-        fcm_options: A ``messaging.AndroidFcmOptions`` to be included in the message (optional).
+        fcm_options: A ``messaging.AndroidFCMOptions`` to be included in the message (optional).
     """
 
     def __init__(self, collapse_key=None, priority=None, ttl=None, restricted_package_name=None,
@@ -128,7 +62,7 @@ class AndroidConfig(object):
         self.fcm_options = fcm_options
 
 
-class AndroidNotification(object):
+class AndroidNotification:
     """Android-specific notification parameters.
 
     Args:
@@ -155,11 +89,68 @@ class AndroidNotification(object):
         title_loc_args: A list of resource keys that will be used in place of the format specifiers
             in ``title_loc_key`` (optional).
         channel_id: channel_id of the notification (optional).
+        image: Image url of the notification (optional).
+        ticker: Sets the ``ticker`` text, which is sent to accessibility services. Prior to API
+            level 21 (Lollipop), sets the text that is displayed in the status bar when the
+            notification first arrives (optional).
+        sticky: When set to ``False`` or unset, the notification is automatically dismissed when the
+            user clicks it in the panel. When set to ``True``, the notification persists even when
+            the user clicks it (optional).
+        event_timestamp: For notifications that inform users about events with an absolute time
+            reference, sets the time that the event in the notification occurred as a
+            ``datetime.datetime`` instance. Notifications in the panel are sorted by this time
+            (optional).
+        local_only: Sets whether or not this notification is relevant only to the current device.
+            Some notifications can be bridged to other devices for remote display, such as a Wear OS
+            watch. This hint can be set to recommend this notification not be bridged (optional).
+            See Wear OS guides:
+            https://developer.android.com/training/wearables/notifications/bridger#existing-method-of-preventing-bridging
+        priority: Sets the relative priority for this notification. Low-priority notifications may
+            be hidden from the user in certain situations. Note this priority differs from
+            ``AndroidMessagePriority``. This priority is processed by the client after the message
+            has been delivered. Whereas ``AndroidMessagePriority`` is an FCM concept that controls
+            when the message is delivered (optional). Must be one of ``default``, ``min``, ``low``,
+            ``high``, ``max`` or ``normal``.
+        vibrate_timings_millis: Sets the vibration pattern to use. Pass in an array of milliseconds
+            to turn the vibrator on or off. The first value indicates the duration to wait before
+            turning the vibrator on. The next value indicates the duration to keep the vibrator on.
+            Subsequent values alternate between duration to turn the vibrator off and to turn the
+            vibrator on. If ``vibrate_timings`` is set and ``default_vibrate_timings`` is set to
+            ``True``, the default value is used instead of the user-specified ``vibrate_timings``.
+        default_vibrate_timings: If set to ``True``, use the Android framework's default vibrate
+            pattern for the notification (optional). Default values are specified in ``config.xml``
+            https://android.googlesource.com/platform/frameworks/base/+/master/core/res/res/values/config.xml.
+            If ``default_vibrate_timings`` is set to ``True`` and ``vibrate_timings`` is also set,
+            the default value is used instead of the user-specified ``vibrate_timings``.
+        default_sound: If set to ``True``, use the Android framework's default sound for the
+            notification (optional). Default values are specified in ``config.xml``
+            https://android.googlesource.com/platform/frameworks/base/+/master/core/res/res/values/config.xml
+        light_settings: Settings to control the notification's LED blinking rate and color if LED is
+            available on the device. The total blinking time is controlled by the OS (optional).
+        default_light_settings: If set to ``True``, use the Android framework's default LED light
+            settings for the notification. Default values are specified in ``config.xml``
+            https://android.googlesource.com/platform/frameworks/base/+/master/core/res/res/values/config.xml.
+            If ``default_light_settings`` is set to ``True`` and ``light_settings`` is also set, the
+            user-specified ``light_settings`` is used instead of the default value.
+        visibility: Sets the visibility of the notification. Must be either ``private``, ``public``,
+            or ``secret``. If unspecified, default to ``private``.
+        notification_count: Sets the number of items this notification represents. May be displayed
+            as a badge count for Launchers that support badging. See ``NotificationBadge``
+            https://developer.android.com/training/notify-user/badges. For example, this might be
+            useful if you're using just one notification to represent multiple new messages but you
+            want the count here to represent the number of total new messages. If zero or
+            unspecified, systems that support badging use the default, which is to increment a
+            number displayed on the long-press menu each time a new notification arrives.
+
+
     """
 
     def __init__(self, title=None, body=None, icon=None, color=None, sound=None, tag=None,
                  click_action=None, body_loc_key=None, body_loc_args=None, title_loc_key=None,
-                 title_loc_args=None, channel_id=None):
+                 title_loc_args=None, channel_id=None, image=None, ticker=None, sticky=None,
+                 event_timestamp=None, local_only=None, priority=None, vibrate_timings_millis=None,
+                 default_vibrate_timings=None, default_sound=None, light_settings=None,
+                 default_light_settings=None, visibility=None, notification_count=None):
         self.title = title
         self.body = body
         self.icon = icon
@@ -172,9 +163,40 @@ class AndroidNotification(object):
         self.title_loc_key = title_loc_key
         self.title_loc_args = title_loc_args
         self.channel_id = channel_id
+        self.image = image
+        self.ticker = ticker
+        self.sticky = sticky
+        self.event_timestamp = event_timestamp
+        self.local_only = local_only
+        self.priority = priority
+        self.vibrate_timings_millis = vibrate_timings_millis
+        self.default_vibrate_timings = default_vibrate_timings
+        self.default_sound = default_sound
+        self.light_settings = light_settings
+        self.default_light_settings = default_light_settings
+        self.visibility = visibility
+        self.notification_count = notification_count
 
 
-class AndroidFcmOptions(object):
+class LightSettings:
+    """Represents settings to control notification LED that can be included in a
+    ``messaging.AndroidNotification``.
+
+    Args:
+        color: Sets the color of the LED in ``#rrggbb`` or ``#rrggbbaa`` format.
+        light_on_duration_millis: Along with ``light_off_duration``, defines the blink rate of LED
+            flashes.
+        light_off_duration_millis: Along with ``light_on_duration``, defines the blink rate of LED
+            flashes.
+    """
+    def __init__(self, color, light_on_duration_millis,
+                 light_off_duration_millis):
+        self.color = color
+        self.light_on_duration_millis = light_on_duration_millis
+        self.light_off_duration_millis = light_off_duration_millis
+
+
+class AndroidFCMOptions:
     """Options for features provided by the FCM SDK for Android.
 
     Args:
@@ -186,7 +208,7 @@ class AndroidFcmOptions(object):
         self.analytics_label = analytics_label
 
 
-class WebpushConfig(object):
+class WebpushConfig:
     """Webpush-specific options that can be included in a message.
 
     Args:
@@ -195,7 +217,7 @@ class WebpushConfig(object):
         data: A dictionary of data fields (optional). All keys and values in the dictionary must be
             strings. When specified, overrides any data fields set via ``Message.data``.
         notification: A ``messaging.WebpushNotification`` to be included in the message (optional).
-        fcm_options: A ``messaging.WebpushFcmOptions`` instance to be included in the message
+        fcm_options: A ``messaging.WebpushFCMOptions`` instance to be included in the message
             (optional).
 
     .. _Webpush Specification: https://tools.ietf.org/html/rfc8030#section-5
@@ -208,7 +230,7 @@ class WebpushConfig(object):
         self.fcm_options = fcm_options
 
 
-class WebpushNotificationAction(object):
+class WebpushNotificationAction:
     """An action available to the users when the notification is presented.
 
     Args:
@@ -223,7 +245,7 @@ class WebpushNotificationAction(object):
         self.icon = icon
 
 
-class WebpushNotification(object):
+class WebpushNotification:
     """Webpush-specific notification parameters.
 
     Refer to the `Notification Reference`_ for more information.
@@ -280,7 +302,7 @@ class WebpushNotification(object):
         self.custom_data = custom_data
 
 
-class WebpushFcmOptions(object):
+class WebpushFCMOptions:
     """Options for features provided by the FCM SDK for Web.
 
     Args:
@@ -292,7 +314,7 @@ class WebpushFcmOptions(object):
         self.link = link
 
 
-class APNSConfig(object):
+class APNSConfig:
     """APNS-specific options that can be included in a message.
 
     Refer to `APNS Documentation`_ for more information.
@@ -300,7 +322,7 @@ class APNSConfig(object):
     Args:
         headers: A dictionary of headers (optional).
         payload: A ``messaging.APNSPayload`` to be included in the message (optional).
-        fcm_options: A ``messaging.APNSFcmOptions`` instance to be included in the message
+        fcm_options: A ``messaging.APNSFCMOptions`` instance to be included in the message
             (optional).
 
     .. _APNS Documentation: https://developer.apple.com/library/content/documentation\
@@ -313,7 +335,7 @@ class APNSConfig(object):
         self.fcm_options = fcm_options
 
 
-class APNSPayload(object):
+class APNSPayload:
     """Payload of an APNS message.
 
     Args:
@@ -327,7 +349,7 @@ class APNSPayload(object):
         self.custom_data = kwargs
 
 
-class Aps(object):
+class Aps:
     """Aps dictionary to be included in an APNS payload.
 
     Args:
@@ -357,7 +379,7 @@ class Aps(object):
         self.custom_data = custom_data
 
 
-class CriticalSound(object):
+class CriticalSound:
     """Critical alert sound configuration that can be included in ``messaging.Aps``.
 
     Args:
@@ -376,7 +398,7 @@ class CriticalSound(object):
         self.volume = volume
 
 
-class ApsAlert(object):
+class ApsAlert:
     """An alert that can be included in ``messaging.Aps``.
 
     Args:
@@ -396,10 +418,13 @@ class ApsAlert(object):
         action_loc_key: Key of the text in the app's string resources to use to localize the
             action button text (optional).
         launch_image: Image for the notification action (optional).
+        custom_data: A dict of custom key-value pairs to be included in the ApsAlert dictionary
+            (optional)
     """
 
     def __init__(self, title=None, subtitle=None, body=None, loc_key=None, loc_args=None,
-                 title_loc_key=None, title_loc_args=None, action_loc_key=None, launch_image=None):
+                 title_loc_key=None, title_loc_args=None, action_loc_key=None, launch_image=None,
+                 custom_data=None):
         self.title = title
         self.subtitle = subtitle
         self.body = body
@@ -409,21 +434,25 @@ class ApsAlert(object):
         self.title_loc_args = title_loc_args
         self.action_loc_key = action_loc_key
         self.launch_image = launch_image
+        self.custom_data = custom_data
 
 
-class APNSFcmOptions(object):
+class APNSFCMOptions:
     """Options for features provided by the FCM SDK for iOS.
 
     Args:
         analytics_label: contains additional options for features provided by the FCM iOS SDK
             (optional).
+        image: contains the URL of an image that is going to be displayed in a notification
+            (optional).
     """
 
-    def __init__(self, analytics_label=None):
+    def __init__(self, analytics_label=None, image=None):
         self.analytics_label = analytics_label
+        self.image = image
 
 
-class FcmOptions(object):
+class FCMOptions:
     """Options for features provided by SDK.
 
     Args:
@@ -432,472 +461,6 @@ class FcmOptions(object):
 
     def __init__(self, analytics_label=None):
         self.analytics_label = analytics_label
-
-
-class _Validators(object):
-    """A collection of data validation utilities.
-
-    Methods provided in this class raise ValueErrors if any validations fail.
-    """
-
-    @classmethod
-    def check_string(cls, label, value, non_empty=False):
-        """Checks if the given value is a string."""
-        if value is None:
-            return None
-        if not isinstance(value, six.string_types):
-            if non_empty:
-                raise ValueError('{0} must be a non-empty string.'.format(label))
-            else:
-                raise ValueError('{0} must be a string.'.format(label))
-        if non_empty and not value:
-            raise ValueError('{0} must be a non-empty string.'.format(label))
-        return value
-
-    @classmethod
-    def check_number(cls, label, value):
-        if value is None:
-            return None
-        if not isinstance(value, numbers.Number):
-            raise ValueError('{0} must be a number.'.format(label))
-        return value
-
-    @classmethod
-    def check_string_dict(cls, label, value):
-        """Checks if the given value is a dictionary comprised only of string keys and values."""
-        if value is None or value == {}:
-            return None
-        if not isinstance(value, dict):
-            raise ValueError('{0} must be a dictionary.'.format(label))
-        non_str = [k for k in value if not isinstance(k, six.string_types)]
-        if non_str:
-            raise ValueError('{0} must not contain non-string keys.'.format(label))
-        non_str = [v for v in value.values() if not isinstance(v, six.string_types)]
-        if non_str:
-            raise ValueError('{0} must not contain non-string values.'.format(label))
-        return value
-
-    @classmethod
-    def check_string_list(cls, label, value):
-        """Checks if the given value is a list comprised only of strings."""
-        if value is None or value == []:
-            return None
-        if not isinstance(value, list):
-            raise ValueError('{0} must be a list of strings.'.format(label))
-        non_str = [k for k in value if not isinstance(k, six.string_types)]
-        if non_str:
-            raise ValueError('{0} must not contain non-string values.'.format(label))
-        return value
-
-    @classmethod
-    def check_analytics_label(cls, label, value):
-        """Checks if the given value is a valid analytics label."""
-        value = _Validators.check_string(label, value)
-        if value is not None and not re.match(r'^[a-zA-Z0-9-_.~%]{1,50}$', value):
-            raise ValueError('Malformed {}.'.format(label))
-        return value
-
-
-class MessageEncoder(json.JSONEncoder):
-    """A custom JSONEncoder implementation for serializing Message instances into JSON."""
-
-    @classmethod
-    def remove_null_values(cls, dict_value):
-        return {k: v for k, v in dict_value.items() if v not in [None, [], {}]}
-
-    @classmethod
-    def encode_android(cls, android):
-        """Encodes an AndroidConfig instance into JSON."""
-        if android is None:
-            return None
-        if not isinstance(android, AndroidConfig):
-            raise ValueError('Message.android must be an instance of AndroidConfig class.')
-        result = {
-            'collapse_key': _Validators.check_string(
-                'AndroidConfig.collapse_key', android.collapse_key),
-            'data': _Validators.check_string_dict(
-                'AndroidConfig.data', android.data),
-            'notification': cls.encode_android_notification(android.notification),
-            'priority': _Validators.check_string(
-                'AndroidConfig.priority', android.priority, non_empty=True),
-            'restricted_package_name': _Validators.check_string(
-                'AndroidConfig.restricted_package_name', android.restricted_package_name),
-            'ttl': cls.encode_ttl(android.ttl),
-            'fcm_options': cls.encode_android_fcm_options(android.fcm_options),
-        }
-        result = cls.remove_null_values(result)
-        priority = result.get('priority')
-        if priority and priority not in ('high', 'normal'):
-            raise ValueError('AndroidConfig.priority must be "high" or "normal".')
-        return result
-
-    @classmethod
-    def encode_android_fcm_options(cls, fcm_options):
-        """Encodes a AndroidFcmOptions instance into a json."""
-        if fcm_options is None:
-            return None
-        if not isinstance(fcm_options, AndroidFcmOptions):
-            raise ValueError('AndroidConfig.fcm_options must be an instance of '
-                             'AndroidFcmOptions class.')
-        result = {
-            'analytics_label': _Validators.check_analytics_label(
-                'AndroidFcmOptions.analytics_label', fcm_options.analytics_label),
-        }
-        result = cls.remove_null_values(result)
-        return result
-
-    @classmethod
-    def encode_ttl(cls, ttl):
-        """Encodes a AndroidConfig TTL duration into a string."""
-        if ttl is None:
-            return None
-        if isinstance(ttl, numbers.Number):
-            ttl = datetime.timedelta(seconds=ttl)
-        if not isinstance(ttl, datetime.timedelta):
-            raise ValueError('AndroidConfig.ttl must be a duration in seconds or an instance of '
-                             'datetime.timedelta.')
-        total_seconds = ttl.total_seconds()
-        if total_seconds < 0:
-            raise ValueError('AndroidConfig.ttl must not be negative.')
-        seconds = int(math.floor(total_seconds))
-        nanos = int((total_seconds - seconds) * 1e9)
-        if nanos:
-            return '{0}.{1}s'.format(seconds, str(nanos).zfill(9))
-        return '{0}s'.format(seconds)
-
-    @classmethod
-    def encode_android_notification(cls, notification):
-        """Encodes an AndroidNotification instance into JSON."""
-        if notification is None:
-            return None
-        if not isinstance(notification, AndroidNotification):
-            raise ValueError('AndroidConfig.notification must be an instance of '
-                             'AndroidNotification class.')
-        result = {
-            'body': _Validators.check_string(
-                'AndroidNotification.body', notification.body),
-            'body_loc_args': _Validators.check_string_list(
-                'AndroidNotification.body_loc_args', notification.body_loc_args),
-            'body_loc_key': _Validators.check_string(
-                'AndroidNotification.body_loc_key', notification.body_loc_key),
-            'click_action': _Validators.check_string(
-                'AndroidNotification.click_action', notification.click_action),
-            'color': _Validators.check_string(
-                'AndroidNotification.color', notification.color, non_empty=True),
-            'icon': _Validators.check_string(
-                'AndroidNotification.icon', notification.icon),
-            'sound': _Validators.check_string(
-                'AndroidNotification.sound', notification.sound),
-            'tag': _Validators.check_string(
-                'AndroidNotification.tag', notification.tag),
-            'title': _Validators.check_string(
-                'AndroidNotification.title', notification.title),
-            'title_loc_args': _Validators.check_string_list(
-                'AndroidNotification.title_loc_args', notification.title_loc_args),
-            'title_loc_key': _Validators.check_string(
-                'AndroidNotification.title_loc_key', notification.title_loc_key),
-            'channel_id': _Validators.check_string(
-                'AndroidNotification.channel_id', notification.channel_id),
-        }
-        result = cls.remove_null_values(result)
-        color = result.get('color')
-        if color and not re.match(r'^#[0-9a-fA-F]{6}$', color):
-            raise ValueError('AndroidNotification.color must be in the form #RRGGBB.')
-        if result.get('body_loc_args') and not result.get('body_loc_key'):
-            raise ValueError(
-                'AndroidNotification.body_loc_key is required when specifying body_loc_args.')
-        if result.get('title_loc_args') and not result.get('title_loc_key'):
-            raise ValueError(
-                'AndroidNotification.title_loc_key is required when specifying title_loc_args.')
-        return result
-
-    @classmethod
-    def encode_webpush(cls, webpush):
-        """Encodes a WebpushConfig instance into JSON."""
-        if webpush is None:
-            return None
-        if not isinstance(webpush, WebpushConfig):
-            raise ValueError('Message.webpush must be an instance of WebpushConfig class.')
-        result = {
-            'data': _Validators.check_string_dict(
-                'WebpushConfig.data', webpush.data),
-            'headers': _Validators.check_string_dict(
-                'WebpushConfig.headers', webpush.headers),
-            'notification': cls.encode_webpush_notification(webpush.notification),
-            'fcm_options': cls.encode_webpush_fcm_options(webpush.fcm_options),
-        }
-        return cls.remove_null_values(result)
-
-    @classmethod
-    def encode_webpush_notification(cls, notification):
-        """Encodes a WebpushNotification instance into JSON."""
-        if notification is None:
-            return None
-        if not isinstance(notification, WebpushNotification):
-            raise ValueError('WebpushConfig.notification must be an instance of '
-                             'WebpushNotification class.')
-        result = {
-            'actions': cls.encode_webpush_notification_actions(notification.actions),
-            'badge': _Validators.check_string(
-                'WebpushNotification.badge', notification.badge),
-            'body': _Validators.check_string(
-                'WebpushNotification.body', notification.body),
-            'data': notification.data,
-            'dir': _Validators.check_string(
-                'WebpushNotification.direction', notification.direction),
-            'icon': _Validators.check_string(
-                'WebpushNotification.icon', notification.icon),
-            'image': _Validators.check_string(
-                'WebpushNotification.image', notification.image),
-            'lang': _Validators.check_string(
-                'WebpushNotification.language', notification.language),
-            'renotify': notification.renotify,
-            'requireInteraction': notification.require_interaction,
-            'silent': notification.silent,
-            'tag': _Validators.check_string(
-                'WebpushNotification.tag', notification.tag),
-            'timestamp': _Validators.check_number(
-                'WebpushNotification.timestamp_millis', notification.timestamp_millis),
-            'title': _Validators.check_string(
-                'WebpushNotification.title', notification.title),
-            'vibrate': notification.vibrate,
-        }
-        direction = result.get('dir')
-        if direction and direction not in ('auto', 'ltr', 'rtl'):
-            raise ValueError('WebpushNotification.direction must be "auto", "ltr" or "rtl".')
-        if notification.custom_data is not None:
-            if not isinstance(notification.custom_data, dict):
-                raise ValueError('WebpushNotification.custom_data must be a dict.')
-            for key, value in notification.custom_data.items():
-                if key in result:
-                    raise ValueError(
-                        'Multiple specifications for {0} in WebpushNotification.'.format(key))
-                result[key] = value
-        return cls.remove_null_values(result)
-
-    @classmethod
-    def encode_webpush_notification_actions(cls, actions):
-        """Encodes a list of WebpushNotificationActions into JSON."""
-        if actions is None:
-            return None
-        if not isinstance(actions, list):
-            raise ValueError('WebpushConfig.notification.actions must be a list of '
-                             'WebpushNotificationAction instances.')
-        results = []
-        for action in actions:
-            if not isinstance(action, WebpushNotificationAction):
-                raise ValueError('WebpushConfig.notification.actions must be a list of '
-                                 'WebpushNotificationAction instances.')
-            result = {
-                'action': _Validators.check_string(
-                    'WebpushNotificationAction.action', action.action),
-                'title': _Validators.check_string(
-                    'WebpushNotificationAction.title', action.title),
-                'icon': _Validators.check_string(
-                    'WebpushNotificationAction.icon', action.icon),
-            }
-            results.append(cls.remove_null_values(result))
-        return results
-
-    @classmethod
-    def encode_webpush_fcm_options(cls, options):
-        """Encodes a WebpushFcmOptions instance into JSON."""
-        if options is None:
-            return None
-        result = {
-            'link': _Validators.check_string('WebpushConfig.fcm_options.link', options.link),
-        }
-        result = cls.remove_null_values(result)
-        link = result.get('link')
-        if link is not None and not link.startswith('https://'):
-            raise ValueError('WebpushFcmOptions.link must be a HTTPS URL.')
-        return result
-
-    @classmethod
-    def encode_apns(cls, apns):
-        """Encodes an APNSConfig instance into JSON."""
-        if apns is None:
-            return None
-        if not isinstance(apns, APNSConfig):
-            raise ValueError('Message.apns must be an instance of APNSConfig class.')
-        result = {
-            'headers': _Validators.check_string_dict(
-                'APNSConfig.headers', apns.headers),
-            'payload': cls.encode_apns_payload(apns.payload),
-            'fcm_options': cls.encode_apns_fcm_options(apns.fcm_options),
-        }
-        return cls.remove_null_values(result)
-
-    @classmethod
-    def encode_apns_payload(cls, payload):
-        """Encodes an APNSPayload instance into JSON."""
-        if payload is None:
-            return None
-        if not isinstance(payload, APNSPayload):
-            raise ValueError('APNSConfig.payload must be an instance of APNSPayload class.')
-        result = {
-            'aps': cls.encode_aps(payload.aps)
-        }
-        for key, value in payload.custom_data.items():
-            result[key] = value
-        return cls.remove_null_values(result)
-
-    @classmethod
-    def encode_apns_fcm_options(cls, fcm_options):
-        """Encodes an APNSFcmOptions instance into JSON."""
-        if fcm_options is None:
-            return None
-        if not isinstance(fcm_options, APNSFcmOptions):
-            raise ValueError('APNSConfig.fcm_options must be an instance of APNSFcmOptions class.')
-        result = {
-            'analytics_label': _Validators.check_analytics_label(
-                'APNSFcmOptions.analytics_label', fcm_options.analytics_label),
-        }
-        result = cls.remove_null_values(result)
-        return result
-
-    @classmethod
-    def encode_aps(cls, aps):
-        """Encodes an Aps instance into JSON."""
-        if not isinstance(aps, Aps):
-            raise ValueError('APNSPayload.aps must be an instance of Aps class.')
-        result = {
-            'alert': cls.encode_aps_alert(aps.alert),
-            'badge': _Validators.check_number('Aps.badge', aps.badge),
-            'sound': cls.encode_aps_sound(aps.sound),
-            'category': _Validators.check_string('Aps.category', aps.category),
-            'thread-id': _Validators.check_string('Aps.thread_id', aps.thread_id),
-        }
-        if aps.content_available is True:
-            result['content-available'] = 1
-        if aps.mutable_content is True:
-            result['mutable-content'] = 1
-        if aps.custom_data is not None:
-            if not isinstance(aps.custom_data, dict):
-                raise ValueError('Aps.custom_data must be a dict.')
-            for key, val in aps.custom_data.items():
-                _Validators.check_string('Aps.custom_data key', key)
-                if key in result:
-                    raise ValueError('Multiple specifications for {0} in Aps.'.format(key))
-                result[key] = val
-        return cls.remove_null_values(result)
-
-    @classmethod
-    def encode_aps_sound(cls, sound):
-        """Encodes an APNs sound configuration into JSON."""
-        if sound is None:
-            return None
-        if sound and isinstance(sound, six.string_types):
-            return sound
-        if not isinstance(sound, CriticalSound):
-            raise ValueError(
-                'Aps.sound must be a non-empty string or an instance of CriticalSound class.')
-        result = {
-            'name': _Validators.check_string('CriticalSound.name', sound.name, non_empty=True),
-            'volume': _Validators.check_number('CriticalSound.volume', sound.volume),
-        }
-        if sound.critical:
-            result['critical'] = 1
-        if not result['name']:
-            raise ValueError('CriticalSond.name must be a non-empty string.')
-        volume = result['volume']
-        if volume is not None and (volume < 0 or volume > 1):
-            raise ValueError('CriticalSound.volume must be in the interval [0,1].')
-        return cls.remove_null_values(result)
-
-    @classmethod
-    def encode_aps_alert(cls, alert):
-        """Encodes an ApsAlert instance into JSON."""
-        if alert is None:
-            return None
-        if isinstance(alert, six.string_types):
-            return alert
-        if not isinstance(alert, ApsAlert):
-            raise ValueError('Aps.alert must be a string or an instance of ApsAlert class.')
-        result = {
-            'title': _Validators.check_string('ApsAlert.title', alert.title),
-            'subtitle': _Validators.check_string('ApsAlert.subtitle', alert.subtitle),
-            'body': _Validators.check_string('ApsAlert.body', alert.body),
-            'title-loc-key': _Validators.check_string(
-                'ApsAlert.title_loc_key', alert.title_loc_key),
-            'title-loc-args': _Validators.check_string_list(
-                'ApsAlert.title_loc_args', alert.title_loc_args),
-            'loc-key': _Validators.check_string(
-                'ApsAlert.loc_key', alert.loc_key),
-            'loc-args': _Validators.check_string_list(
-                'ApsAlert.loc_args', alert.loc_args),
-            'action-loc-key': _Validators.check_string(
-                'ApsAlert.action_loc_key', alert.action_loc_key),
-            'launch-image': _Validators.check_string(
-                'ApsAlert.launch_image', alert.launch_image),
-        }
-        if result.get('loc-args') and not result.get('loc-key'):
-            raise ValueError(
-                'ApsAlert.loc_key is required when specifying loc_args.')
-        if result.get('title-loc-args') and not result.get('title-loc-key'):
-            raise ValueError(
-                'ApsAlert.title_loc_key is required when specifying title_loc_args.')
-        return cls.remove_null_values(result)
-
-    @classmethod
-    def encode_notification(cls, notification):
-        if notification is None:
-            return None
-        if not isinstance(notification, Notification):
-            raise ValueError('Message.notification must be an instance of Notification class.')
-        result = {
-            'body': _Validators.check_string('Notification.body', notification.body),
-            'title': _Validators.check_string('Notification.title', notification.title),
-        }
-        return cls.remove_null_values(result)
-
-    @classmethod
-    def sanitize_topic_name(cls, topic):
-        if not topic:
-            return None
-        prefix = '/topics/'
-        if topic.startswith(prefix):
-            topic = topic[len(prefix):]
-        # Checks for illegal characters and empty string.
-        if not re.match(r'^[a-zA-Z0-9-_\.~%]+$', topic):
-            raise ValueError('Malformed topic name.')
-        return topic
-
-    def default(self, obj): # pylint: disable=method-hidden
-        if not isinstance(obj, Message):
-            return json.JSONEncoder.default(self, obj)
-        result = {
-            'android': MessageEncoder.encode_android(obj.android),
-            'apns': MessageEncoder.encode_apns(obj.apns),
-            'condition': _Validators.check_string(
-                'Message.condition', obj.condition, non_empty=True),
-            'data': _Validators.check_string_dict('Message.data', obj.data),
-            'notification': MessageEncoder.encode_notification(obj.notification),
-            'token': _Validators.check_string('Message.token', obj.token, non_empty=True),
-            'topic': _Validators.check_string('Message.topic', obj.topic, non_empty=True),
-            'webpush': MessageEncoder.encode_webpush(obj.webpush),
-            'fcm_options': MessageEncoder.encode_fcm_options(obj.fcm_options),
-        }
-        result['topic'] = MessageEncoder.sanitize_topic_name(result.get('topic'))
-        result = MessageEncoder.remove_null_values(result)
-        target_count = sum([t in result for t in ['token', 'topic', 'condition']])
-        if target_count != 1:
-            raise ValueError('Exactly one of token, topic or condition must be specified.')
-        return result
-
-    @classmethod
-    def encode_fcm_options(cls, fcm_options):
-        """Encodes an FcmOptions instance into JSON."""
-        if fcm_options is None:
-            return None
-        if not isinstance(fcm_options, FcmOptions):
-            raise ValueError('Message.fcm_options must be an instance of FcmOptions class.')
-        result = {
-            'analytics_label': _Validators.check_analytics_label(
-                'FcmOptions.analytics_label', fcm_options.analytics_label),
-        }
-        result = cls.remove_null_values(result)
-        return result
 
 
 class ThirdPartyAuthError(exceptions.UnauthenticatedError):

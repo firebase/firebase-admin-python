@@ -18,8 +18,6 @@ import json
 import os
 import threading
 
-import six
-
 from firebase_admin import credentials
 from firebase_admin.__about__ import __version__
 
@@ -51,8 +49,8 @@ def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
           Google Application Default Credentials are used.
       options: A dictionary of configuration options (optional). Supported options include
           ``databaseURL``, ``storageBucket``, ``projectId``, ``databaseAuthVariableOverride``,
-          ``serviceAccountId`` and ``httpTimeout``. If ``httpTimeout`` is not set, HTTP
-          connections initiated by client modules such as ``db`` will not time out.
+          ``serviceAccountId`` and ``httpTimeout``. If ``httpTimeout`` is not set, the SDK
+          uses a default timeout of 120 seconds.
       name: Name of the app (optional).
     Returns:
       App: A newly initialized instance of App.
@@ -77,12 +75,12 @@ def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
             'initialize_app() once. But if you do want to initialize multiple '
             'apps, pass a second argument to initialize_app() to give each app '
             'a unique name.'))
-    else:
-        raise ValueError((
-            'Firebase app named "{0}" already exists. This means you called '
-            'initialize_app() more than once with the same app name as the '
-            'second argument. Make sure you provide a unique name every time '
-            'you call initialize_app().').format(name))
+
+    raise ValueError((
+        'Firebase app named "{0}" already exists. This means you called '
+        'initialize_app() more than once with the same app name as the '
+        'second argument. Make sure you provide a unique name every time '
+        'you call initialize_app().').format(name))
 
 
 def delete_app(app):
@@ -106,11 +104,11 @@ def delete_app(app):
         raise ValueError(
             'The default Firebase app is not initialized. Make sure to initialize '
             'the default app by calling initialize_app().')
-    else:
-        raise ValueError(
-            ('Firebase app named "{0}" is not initialized. Make sure to initialize '
-             'the app by calling initialize_app() with your app name as the '
-             'second argument.').format(app.name))
+
+    raise ValueError(
+        ('Firebase app named "{0}" is not initialized. Make sure to initialize '
+         'the app by calling initialize_app() with your app name as the '
+         'second argument.').format(app.name))
 
 
 def get_app(name=_DEFAULT_APP_NAME):
@@ -126,7 +124,7 @@ def get_app(name=_DEFAULT_APP_NAME):
       ValueError: If the specified name is not a string, or if the specified
           app does not exist.
     """
-    if not isinstance(name, six.string_types):
+    if not isinstance(name, str):
         raise ValueError('Illegal app name argument type: "{}". App name '
                          'must be a string.'.format(type(name)))
     with _apps_lock:
@@ -137,14 +135,14 @@ def get_app(name=_DEFAULT_APP_NAME):
         raise ValueError(
             'The default Firebase app does not exist. Make sure to initialize '
             'the SDK by calling initialize_app().')
-    else:
-        raise ValueError(
-            ('Firebase app named "{0}" does not exist. Make sure to initialize '
-             'the SDK by calling initialize_app() with your app name as the '
-             'second argument.').format(name))
+
+    raise ValueError(
+        ('Firebase app named "{0}" does not exist. Make sure to initialize '
+         'the SDK by calling initialize_app() with your app name as the '
+         'second argument.').format(name))
 
 
-class _AppOptions(object):
+class _AppOptions:
     """A collection of configuration options for an App."""
 
     def __init__(self, options):
@@ -185,7 +183,7 @@ class _AppOptions(object):
         return {k: v for k, v in json_data.items() if k in _CONFIG_VALID_KEYS}
 
 
-class App(object):
+class App:
     """The entry point for Firebase Python SDK.
 
     Represents a Firebase app, while holding the configuration and state
@@ -203,7 +201,7 @@ class App(object):
         Raises:
           ValueError: If an argument is None or invalid.
         """
-        if not name or not isinstance(name, six.string_types):
+        if not name or not isinstance(name, str):
             raise ValueError('Illegal Firebase app name "{0}" provided. App name must be a '
                              'non-empty string.'.format(name))
         self._name = name
@@ -221,7 +219,7 @@ class App(object):
 
     @classmethod
     def _validate_project_id(cls, project_id):
-        if project_id is not None and not isinstance(project_id, six.string_types):
+        if project_id is not None and not isinstance(project_id, str):
             raise ValueError(
                 'Invalid project ID: "{0}". project ID must be a string.'.format(project_id))
 
@@ -286,7 +284,7 @@ class App(object):
         Raises:
           ValueError: If the provided name is invalid, or if the App is already deleted.
         """
-        if not name or not isinstance(name, six.string_types):
+        if not name or not isinstance(name, str):
             raise ValueError(
                 'Illegal name argument: "{0}". Name must be a non-empty string.'.format(name))
         with self._lock:

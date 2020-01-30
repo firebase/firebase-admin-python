@@ -40,7 +40,7 @@ class KeepAuthSession(transport.requests.AuthorizedSession):
         pass
 
 
-class _EventBuffer(object):
+class _EventBuffer:
     """A helper class for buffering and parsing raw SSE data."""
 
     def __init__(self):
@@ -68,7 +68,7 @@ class _EventBuffer(object):
         return ''.join(self._buffer)
 
 
-class SSEClient(object):
+class SSEClient:
     """SSE client implementation."""
 
     def __init__(self, url, session, retry=3000, **kwargs):
@@ -140,7 +140,7 @@ class SSEClient(object):
         if event.data == 'credential is no longer valid':
             self._connect()
             return None
-        elif event.data == 'null':
+        if event.data == 'null':
             return None
 
         # If the server requests a specific retry delay, we need to honor it.
@@ -157,7 +157,7 @@ class SSEClient(object):
         return self.__next__()
 
 
-class Event(object):
+class Event:
     """Event represents the events fired by SSE."""
 
     sse_line_pattern = re.compile('(?P<name>[^:]*):?( ?(?P<value>.*))?')
@@ -192,7 +192,7 @@ class Event(object):
             if name == '':
                 # line began with a ":", so is a comment.  Ignore
                 continue
-            elif name == 'data':
+            if name == 'data':
                 # If we already have some data, then join to it with a newline.
                 # Else this is it.
                 if event.data:

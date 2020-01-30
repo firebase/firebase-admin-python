@@ -14,8 +14,10 @@
 
 """Test cases for the firebase_admin._user_mgt module."""
 
+import base64
 import json
 import time
+from urllib import parse
 
 import pytest
 
@@ -23,11 +25,10 @@ import firebase_admin
 from firebase_admin import auth
 from firebase_admin import exceptions
 from firebase_admin import _auth_utils
+from firebase_admin import _http_client
 from firebase_admin import _user_import
 from firebase_admin import _user_mgt
 from tests import testutils
-
-from six.moves import urllib
 
 
 INVALID_STRINGS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
@@ -100,7 +101,12 @@ def _check_user_record(user, expected_uid='testuser'):
     assert provider.provider_id == 'phone'
 
 
-class TestAuthServiceInitialization(object):
+class TestAuthServiceInitialization:
+
+    def test_default_timeout(self, user_mgt_app):
+        auth_service = auth._get_auth_service(user_mgt_app)
+        user_manager = auth_service.user_manager
+        assert user_manager._client.timeout == _http_client.DEFAULT_TIMEOUT_SECONDS
 
     def test_fail_on_no_project_id(self):
         app = firebase_admin.initialize_app(testutils.MockCredential(), name='userMgt2')
@@ -108,7 +114,8 @@ class TestAuthServiceInitialization(object):
             auth._get_auth_service(app)
         firebase_admin.delete_app(app)
 
-class TestUserRecord(object):
+
+class TestUserRecord:
 
     # Input dict must be non-empty, and must not contain unsupported keys.
     @pytest.mark.parametrize('data', INVALID_DICTS + [{}, {'foo':'bar'}])
@@ -152,6 +159,13 @@ class TestUserRecord(object):
         assert user.password_hash == ''
         assert user.password_salt == ''
 
+    def test_redacted_passwords_cleared(self):
+        user = auth.ExportedUserRecord({
+            'localId': 'user',
+            'passwordHash': base64.b64encode(b'REDACTED'),
+        })
+        assert user.password_hash is None
+
     def test_custom_claims(self):
         user = auth.UserRecord({
             'localId' : 'user',
@@ -178,10 +192,10 @@ class TestUserRecord(object):
 
     def test_no_tokens_valid_after_time(self):
         user = auth.UserRecord({'localId' : 'user'})
-        assert user.tokens_valid_after_timestamp is 0
+        assert user.tokens_valid_after_timestamp == 0
 
 
-class TestGetUser(object):
+class TestGetUser:
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
     def test_invalid_get_user(self, arg, user_mgt_app):
@@ -287,7 +301,14 @@ class TestGetUser(object):
         assert excinfo.value.cause is not None
 
 
-class TestCreateUser(object):
+class TestCreateUser:
+
+    already_exists_errors = {
+        'DUPLICATE_EMAIL': auth.EmailAlreadyExistsError,
+        'DUPLICATE_LOCAL_ID': auth.UidAlreadyExistsError,
+        'EMAIL_EXISTS': auth.EmailAlreadyExistsError,
+        'PHONE_NUMBER_EXISTS': auth.PhoneNumberAlreadyExistsError,
+    }
 
     already_exists_errors = {
         'DUPLICATE_EMAIL': auth.EmailAlreadyExistsError,
@@ -386,7 +407,7 @@ class TestCreateUser(object):
         assert isinstance(excinfo.value, exceptions.UnknownError)
 
 
-class TestUpdateUser(object):
+class TestUpdateUser:
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
     def test_invalid_uid(self, user_mgt_app, arg):
@@ -504,7 +525,7 @@ class TestUpdateUser(object):
         assert request == {'localId': 'testuser', 'validSince': int(arg)}
 
 
-class TestSetCustomUserClaims(object):
+class TestSetCustomUserClaims:
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
     def test_invalid_uid(self, user_mgt_app, arg):
@@ -551,9 +572,10 @@ class TestSetCustomUserClaims(object):
         request = json.loads(recorder[0].body.decode())
         assert request == {'localId' : 'testuser', 'customAttributes' : claims}
 
-    def test_set_custom_user_claims_remove(self, user_mgt_app):
+    @pytest.mark.parametrize('claims', [None, auth.DELETE_ATTRIBUTE])
+    def test_set_custom_user_claims_remove(self, user_mgt_app, claims):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
-        auth.set_custom_user_claims('testuser', auth.DELETE_ATTRIBUTE, app=user_mgt_app)
+        auth.set_custom_user_claims('testuser', claims, app=user_mgt_app)
         request = json.loads(recorder[0].body.decode())
         assert request == {'localId' : 'testuser', 'customAttributes' : json.dumps({})}
 
@@ -566,7 +588,7 @@ class TestSetCustomUserClaims(object):
         assert excinfo.value.cause is not None
 
 
-class TestDeleteUser(object):
+class TestDeleteUser:
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['a'*129])
     def test_invalid_delete_user(self, user_mgt_app, arg):
@@ -596,7 +618,7 @@ class TestDeleteUser(object):
         assert isinstance(excinfo.value, exceptions.UnknownError)
 
 
-class TestListUsers(object):
+class TestListUsers:
 
     @pytest.mark.parametrize('arg', [None, 'foo', list(), dict(), 0, -1, 1001, False])
     def test_invalid_max_results(self, user_mgt_app, arg):
@@ -615,7 +637,7 @@ class TestListUsers(object):
         assert page.next_page_token == ''
         assert page.has_next_page is False
         assert page.get_next_page() is None
-        users = [user for user in page.iterate_all()]
+        users = list(user for user in page.iterate_all())
         assert len(users) == 2
         self._check_rpc_calls(recorder)
 
@@ -700,7 +722,7 @@ class TestListUsers(object):
         assert len(page.users) == 3
 
         iterator = page.iterate_all()
-        users = [user for user in iterator]
+        users = list(user for user in iterator)
         assert len(page.users) == 3
         with pytest.raises(StopIteration):
             next(iterator)
@@ -711,9 +733,9 @@ class TestListUsers(object):
         response = {'users': []}
         _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
         page = auth.list_users(app=user_mgt_app)
-        assert len(page.users) is 0
-        users = [user for user in page.iterate_all()]
-        assert len(users) is 0
+        assert len(page.users) == 0
+        users = list(user for user in page.iterate_all())
+        assert len(users) == 0
 
     def test_list_users_with_max_results(self, user_mgt_app):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_LIST_USERS_RESPONSE)
@@ -733,6 +755,21 @@ class TestListUsers(object):
             auth.list_users(app=user_mgt_app)
         assert str(excinfo.value) == 'Unexpected error response: {"error":"test"}'
 
+    def test_permission_error(self, user_mgt_app):
+        _instrument_user_manager(
+            user_mgt_app, 400, '{"error": {"message": "INSUFFICIENT_PERMISSION"}}')
+        with pytest.raises(auth.InsufficientPermissionError) as excinfo:
+            auth.list_users(app=user_mgt_app)
+        assert isinstance(excinfo.value, exceptions.PermissionDeniedError)
+        msg = ('The credential used to initialize the SDK has insufficient '
+               'permissions to perform the requested operation. See '
+               'https://firebase.google.com/docs/admin/setup for details '
+               'on how to initialize the Admin SDK with appropriate permissions '
+               '(INSUFFICIENT_PERMISSION).')
+        assert str(excinfo.value) == msg
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is not None
+
     def _check_page(self, page):
         assert isinstance(page, auth.ListUsersPage)
         index = 0
@@ -748,11 +785,11 @@ class TestListUsers(object):
         if expected is None:
             expected = {'maxResults' : '1000'}
         assert len(recorder) == 1
-        request = dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(recorder[0].url).query))
+        request = dict(parse.parse_qsl(parse.urlsplit(recorder[0].url).query))
         assert request == expected
 
 
-class TestUserProvider(object):
+class TestUserProvider:
 
     _INVALID_PROVIDERS = (
         [{'display_name': arg} for arg in INVALID_STRINGS[1:]] +
@@ -794,7 +831,7 @@ class TestUserProvider(object):
             auth.UserProvider(uid='test', provider_id='google.com', **arg)
 
 
-class TestUserMetadata(object):
+class TestUserMetadata:
 
     _INVALID_ARGS = (
         [{'creation_timestamp': arg} for arg in INVALID_TIMESTAMPS] +
@@ -807,7 +844,7 @@ class TestUserMetadata(object):
             auth.UserMetadata(**arg)
 
 
-class TestImportUserRecord(object):
+class TestImportUserRecord:
 
     _INVALID_USERS = (
         [{'display_name': arg} for arg in INVALID_STRINGS[1:]] +
@@ -883,7 +920,7 @@ class TestImportUserRecord(object):
         assert user.to_dict() == {'localId': 'test', 'disabled': disabled}
 
 
-class TestUserImportHash(object):
+class TestUserImportHash:
 
     @pytest.mark.parametrize('func,name', [
         (auth.UserImportHash.hmac_sha512, 'HMAC_SHA512'),
@@ -908,31 +945,35 @@ class TestUserImportHash(object):
         with pytest.raises(ValueError):
             func(key=key)
 
-    @pytest.mark.parametrize('func,name', [
-        (auth.UserImportHash.sha512, 'SHA512'),
-        (auth.UserImportHash.sha256, 'SHA256'),
-        (auth.UserImportHash.sha1, 'SHA1'),
-        (auth.UserImportHash.md5, 'MD5'),
-        (auth.UserImportHash.pbkdf_sha1, 'PBKDF_SHA1'),
-        (auth.UserImportHash.pbkdf2_sha256, 'PBKDF2_SHA256'),
+    @pytest.mark.parametrize('func,name,rounds', [
+        (auth.UserImportHash.md5, 'MD5', [0, 8192]),
+        (auth.UserImportHash.sha1, 'SHA1', [1, 8192]),
+        (auth.UserImportHash.sha256, 'SHA256', [1, 8192]),
+        (auth.UserImportHash.sha512, 'SHA512', [1, 8192]),
+        (auth.UserImportHash.pbkdf_sha1, 'PBKDF_SHA1', [0, 120000]),
+        (auth.UserImportHash.pbkdf2_sha256, 'PBKDF2_SHA256', [0, 120000]),
     ])
-    def test_basic(self, func, name):
-        basic = func(rounds=10)
-        expected = {
-            'hashAlgorithm': name,
-            'rounds': 10,
-        }
-        assert basic.to_dict() == expected
+    def test_basic(self, func, name, rounds):
+        for rnds in rounds:
+            basic = func(rounds=rnds)
+            expected = {
+                'hashAlgorithm': name,
+                'rounds': rnds,
+            }
+            assert basic.to_dict() == expected
 
-    @pytest.mark.parametrize('func', [
-        auth.UserImportHash.sha512, auth.UserImportHash.sha256,
-        auth.UserImportHash.sha1, auth.UserImportHash.md5,
-        auth.UserImportHash.pbkdf_sha1, auth.UserImportHash.pbkdf2_sha256,
+    @pytest.mark.parametrize('func,rounds', [
+        (auth.UserImportHash.md5, INVALID_INTS + [-1, 8193]),
+        (auth.UserImportHash.sha1, INVALID_INTS + [0, 8193]),
+        (auth.UserImportHash.sha256, INVALID_INTS + [0, 8193]),
+        (auth.UserImportHash.sha512, INVALID_INTS + [0, 8193]),
+        (auth.UserImportHash.pbkdf_sha1, INVALID_INTS + [-1, 120001]),
+        (auth.UserImportHash.pbkdf2_sha256, INVALID_INTS + [-1, 120001]),
     ])
-    @pytest.mark.parametrize('rounds', INVALID_INTS + [120001])
     def test_invalid_basic(self, func, rounds):
-        with pytest.raises(ValueError):
-            func(rounds=rounds)
+        for rnds in rounds:
+            with pytest.raises(ValueError):
+                func(rounds=rnds)
 
     def test_scrypt(self):
         scrypt = auth.UserImportHash.scrypt(
@@ -992,7 +1033,7 @@ class TestUserImportHash(object):
             auth.UserImportHash.standard_scrypt(**params)
 
 
-class TestImportUsers(object):
+class TestImportUsers:
 
     @pytest.mark.parametrize('arg', [None, list(), tuple(), dict(), 0, 1, 'foo'])
     def test_invalid_users(self, user_mgt_app, arg):
@@ -1012,7 +1053,7 @@ class TestImportUsers(object):
         ]
         result = auth.import_users(users, app=user_mgt_app)
         assert result.success_count == 2
-        assert result.failure_count is 0
+        assert result.failure_count == 0
         assert result.errors == []
         expected = {'users': [{'localId': 'user1'}, {'localId': 'user2'}]}
         self._check_rpc_calls(recorder, expected)
@@ -1058,7 +1099,7 @@ class TestImportUsers(object):
             b'key', rounds=8, memory_cost=14, salt_separator=b'sep')
         result = auth.import_users(users, hash_alg=hash_alg, app=user_mgt_app)
         assert result.success_count == 2
-        assert result.failure_count is 0
+        assert result.failure_count == 0
         assert result.errors == []
         expected = {
             'users': [
@@ -1098,7 +1139,7 @@ class TestImportUsers(object):
         assert request == expected
 
 
-class TestRevokeRefreshTokkens(object):
+class TestRevokeRefreshTokkens:
 
     def test_revoke_refresh_tokens(self, user_mgt_app):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
@@ -1112,7 +1153,7 @@ class TestRevokeRefreshTokkens(object):
         assert int(request['validSince']) <= int(after_time)
 
 
-class TestActionCodeSetting(object):
+class TestActionCodeSetting:
 
     def test_valid_data(self):
         data = {
@@ -1157,7 +1198,7 @@ class TestActionCodeSetting(object):
             _user_mgt.encode_action_code_settings({"foo":"bar"})
 
 
-class TestGenerateEmailActionLink(object):
+class TestGenerateEmailActionLink:
 
     def test_email_verification_no_settings(self, user_mgt_app):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"oobLink":"https://testlink"}')

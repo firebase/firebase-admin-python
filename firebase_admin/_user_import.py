@@ -24,7 +24,7 @@ def b64_encode(bytes_value):
     return base64.urlsafe_b64encode(bytes_value).decode()
 
 
-class UserProvider(object):
+class UserProvider:
     """Represents a user identity provider that can be associated with a Firebase user.
 
     One or more providers can be specified in an ``ImportUserRecord`` when importing users via
@@ -97,7 +97,7 @@ class UserProvider(object):
         return {k: v for k, v in payload.items() if v is not None}
 
 
-class ImportUserRecord(object):
+class ImportUserRecord:
     """Represents a user account to be imported to Firebase Auth.
 
     Must specify the ``uid`` field at a minimum. A sequence of ``ImportUserRecord`` objects can be
@@ -255,7 +255,7 @@ class ImportUserRecord(object):
         return {k: v for k, v in payload.items() if v is not None}
 
 
-class UserImportHash(object):
+class UserImportHash:
     """Represents a hash algorithm used to hash user passwords.
 
     An instance of this class must be specified when importing users with passwords via the
@@ -280,11 +280,6 @@ class UserImportHash(object):
         data = {
             'signerKey': b64_encode(_auth_utils.validate_bytes(key, 'key', required=True))
         }
-        return UserImportHash(name, data)
-
-    @classmethod
-    def _basic_hash(cls, name, rounds):
-        data = {'rounds': _auth_utils.validate_int(rounds, 'rounds', 0, 120000)}
         return UserImportHash(name, data)
 
     @classmethod
@@ -340,48 +335,56 @@ class UserImportHash(object):
         """Creates a new MD5 algorithm instance.
 
         Args:
-            rounds: Number of rounds. Must be an integer between 0 and 120000.
+            rounds: Number of rounds. Must be an integer between 0 and 8192.
 
         Returns:
             UserImportHash: A new ``UserImportHash``.
         """
-        return cls._basic_hash('MD5', rounds)
+        return UserImportHash(
+            'MD5',
+            {'rounds': _auth_utils.validate_int(rounds, 'rounds', 0, 8192)})
 
     @classmethod
     def sha1(cls, rounds):
         """Creates a new SHA1 algorithm instance.
 
         Args:
-            rounds: Number of rounds. Must be an integer between 0 and 120000.
+            rounds: Number of rounds. Must be an integer between 1 and 8192.
 
         Returns:
             UserImportHash: A new ``UserImportHash``.
         """
-        return cls._basic_hash('SHA1', rounds)
+        return UserImportHash(
+            'SHA1',
+            {'rounds': _auth_utils.validate_int(rounds, 'rounds', 1, 8192)})
 
     @classmethod
     def sha256(cls, rounds):
         """Creates a new SHA256 algorithm instance.
 
         Args:
-            rounds: Number of rounds. Must be an integer between 0 and 120000.
+            rounds: Number of rounds. Must be an integer between 1 and 8192.
 
         Returns:
             UserImportHash: A new ``UserImportHash``.
         """
-        return cls._basic_hash('SHA256', rounds)
+        return UserImportHash(
+            'SHA256',
+            {'rounds': _auth_utils.validate_int(rounds, 'rounds', 1, 8192)})
 
     @classmethod
     def sha512(cls, rounds):
         """Creates a new SHA512 algorithm instance.
 
         Args:
-            rounds: Number of rounds. Must be an integer between 0 and 120000.
+            rounds: Number of rounds. Must be an integer between 1 and 8192.
 
         Returns:
             UserImportHash: A new ``UserImportHash``.
         """
-        return cls._basic_hash('SHA512', rounds)
+        return UserImportHash(
+            'SHA512',
+            {'rounds': _auth_utils.validate_int(rounds, 'rounds', 1, 8192)})
 
     @classmethod
     def pbkdf_sha1(cls, rounds):
@@ -393,7 +396,9 @@ class UserImportHash(object):
         Returns:
             UserImportHash: A new ``UserImportHash``.
         """
-        return cls._basic_hash('PBKDF_SHA1', rounds)
+        return UserImportHash(
+            'PBKDF_SHA1',
+            {'rounds': _auth_utils.validate_int(rounds, 'rounds', 0, 120000)})
 
     @classmethod
     def pbkdf2_sha256(cls, rounds):
@@ -405,7 +410,9 @@ class UserImportHash(object):
         Returns:
             UserImportHash: A new ``UserImportHash``.
         """
-        return cls._basic_hash('PBKDF2_SHA256', rounds)
+        return UserImportHash(
+            'PBKDF2_SHA256',
+            {'rounds': _auth_utils.validate_int(rounds, 'rounds', 0, 120000)})
 
     @classmethod
     def scrypt(cls, key, rounds, memory_cost, salt_separator=None):
@@ -464,7 +471,7 @@ class UserImportHash(object):
         return UserImportHash('STANDARD_SCRYPT', data)
 
 
-class ErrorInfo(object):
+class ErrorInfo:
     """Represents an error encountered while importing an ``ImportUserRecord``."""
 
     def __init__(self, error):
@@ -480,7 +487,7 @@ class ErrorInfo(object):
         return self._reason
 
 
-class UserImportResult(object):
+class UserImportResult:
     """Represents the result of a bulk user import operation.
 
     See ``auth.import_users()`` API for more details.

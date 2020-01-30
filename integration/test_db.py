@@ -18,7 +18,6 @@ import json
 import os
 
 import pytest
-import six
 
 import firebase_admin
 from firebase_admin import db
@@ -31,8 +30,8 @@ def integration_conf(request):
     host_override = os.environ.get('FIREBASE_DATABASE_EMULATOR_HOST')
     if host_override:
         return None, 'fake-project-id'
-    else:
-        return conftest.integration_conf(request)
+
+    return conftest.integration_conf(request)
 
 
 @pytest.fixture(scope='module')
@@ -83,7 +82,7 @@ def testref(update_rules, testdata, app):
     return ref
 
 
-class TestReferenceAttributes(object):
+class TestReferenceAttributes:
     """Test cases for attributes exposed by db.Reference class."""
 
     def test_ref_attributes(self, testref):
@@ -101,7 +100,7 @@ class TestReferenceAttributes(object):
         assert parent.path == '/_adminsdk/python'
 
 
-class TestReadOperations(object):
+class TestReadOperations:
     """Test cases for reading node values."""
 
     def test_get_value(self, testref, testdata):
@@ -113,7 +112,7 @@ class TestReadOperations(object):
         value, etag = testref.get(etag=True)
         assert isinstance(value, dict)
         assert testdata == value
-        assert isinstance(etag, six.string_types)
+        assert isinstance(etag, str)
 
     def test_get_shallow(self, testref):
         value = testref.get(shallow=True)
@@ -124,7 +123,7 @@ class TestReadOperations(object):
         success, data, etag = testref.get_if_changed('wrong_etag')
         assert success is True
         assert data == testdata
-        assert isinstance(etag, six.string_types)
+        assert isinstance(etag, str)
         assert testref.get_if_changed(etag) == (False, None, None)
 
     def test_get_child_value(self, testref, testdata):
@@ -143,7 +142,7 @@ class TestReadOperations(object):
         assert testref.child('none_existing').get() is None
 
 
-class TestWriteOperations(object):
+class TestWriteOperations:
     """Test cases for creating and updating node values."""
 
     def test_push(self, testref):
@@ -211,7 +210,7 @@ class TestWriteOperations(object):
         success, data, etag = edward.set_if_unchanged('invalid-etag', update_data)
         assert success is False
         assert data == push_data
-        assert isinstance(etag, six.string_types)
+        assert isinstance(etag, str)
 
         success, data, new_etag = edward.set_if_unchanged(etag, update_data)
         assert success is True
@@ -247,7 +246,7 @@ class TestWriteOperations(object):
         assert ref.get() is None
 
 
-class TestAdvancedQueries(object):
+class TestAdvancedQueries:
     """Test cases for advanced interactions via the db.Query interface."""
 
     height_sorted = [
@@ -352,7 +351,7 @@ def none_override_app(request, update_rules):
     firebase_admin.delete_app(app)
 
 
-class TestAuthVariableOverride(object):
+class TestAuthVariableOverride:
     """Test cases for database auth variable overrides."""
 
     def init_ref(self, path, app):

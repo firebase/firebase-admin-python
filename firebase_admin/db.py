@@ -25,11 +25,10 @@ import json
 import os
 import sys
 import threading
+from urllib import parse
 
 import google.auth
 import requests
-import six
-from six.moves import urllib
 
 import firebase_admin
 from firebase_admin import exceptions
@@ -73,7 +72,7 @@ def reference(path='/', app=None, url=None):
 
 def _parse_path(path):
     """Parses a path string into a set of segments."""
-    if not isinstance(path, six.string_types):
+    if not isinstance(path, str):
         raise ValueError('Invalid path: "{0}". Path must be a string.'.format(path))
     if any(ch in path for ch in _INVALID_PATH_CHARACTERS):
         raise ValueError(
@@ -81,7 +80,7 @@ def _parse_path(path):
     return [seg for seg in path.split('/') if seg]
 
 
-class Event(object):
+class Event:
     """Represents a realtime update event received from the database."""
 
     def __init__(self, sse_event):
@@ -104,7 +103,7 @@ class Event(object):
         return self._sse_event.event_type
 
 
-class ListenerRegistration(object):
+class ListenerRegistration:
     """Represents the addition of an event listener to a database reference."""
 
     def __init__(self, callback, sse):
@@ -138,7 +137,7 @@ class ListenerRegistration(object):
         self._thread.join()
 
 
-class Reference(object):
+class Reference:
     """Reference represents a node in the Firebase realtime database."""
 
     def __init__(self, **kwargs):
@@ -185,7 +184,7 @@ class Reference(object):
         Raises:
           ValueError: If the child path is not a string, not well-formed or begins with '/'.
         """
-        if not path or not isinstance(path, six.string_types):
+        if not path or not isinstance(path, str):
             raise ValueError(
                 'Invalid path argument: "{0}". Path must be a non-empty string.'.format(path))
         if path.startswith('/'):
@@ -218,9 +217,9 @@ class Reference(object):
             headers, data = self._client.headers_and_body(
                 'get', self._add_suffix(), headers={'X-Firebase-ETag' : 'true'})
             return data, headers.get('ETag')
-        else:
-            params = 'shallow=true' if shallow else None
-            return self._client.body('get', self._add_suffix(), params=params)
+
+        params = 'shallow=true' if shallow else None
+        return self._client.body('get', self._add_suffix(), params=params)
 
     def get_if_changed(self, etag):
         """Gets data in this location only if the specified ETag does not match.
@@ -239,14 +238,14 @@ class Reference(object):
           ValueError: If the ETag is not a string.
           FirebaseError: If an error occurs while communicating with the remote database server.
         """
-        if not isinstance(etag, six.string_types):
+        if not isinstance(etag, str):
             raise ValueError('ETag must be a string.')
 
         resp = self._client.request('get', self._add_suffix(), headers={'if-none-match': etag})
         if resp.status_code == 304:
             return False, None, None
-        else:
-            return True, resp.json(), resp.headers.get('ETag')
+
+        return True, resp.json(), resp.headers.get('ETag')
 
     def set(self, value):
         """Sets the data at this location to the given value.
@@ -285,7 +284,7 @@ class Reference(object):
           FirebaseError: If an error occurs while communicating with the remote database server.
         """
         # pylint: disable=missing-raises-doc
-        if not isinstance(expected_etag, six.string_types):
+        if not isinstance(expected_etag, str):
             raise ValueError('Expected ETag must be a string.')
         if value is None:
             raise ValueError('Value must not be none.')
@@ -300,8 +299,8 @@ class Reference(object):
                 etag = http_response.headers['ETag']
                 snapshot = http_response.json()
                 return False, snapshot, etag
-            else:
-                raise error
+
+            raise error
 
     def push(self, value=''):
         """Creates a new child node.
@@ -473,7 +472,7 @@ class Reference(object):
             raise _Client.handle_rtdb_error(error)
 
 
-class Query(object):
+class Query:
     """Represents a complex query that can be executed on a Reference.
 
     Complex queries can consist of up to 2 components: a required ordering constraint, and an
@@ -488,7 +487,7 @@ class Query(object):
 
     def __init__(self, **kwargs):
         order_by = kwargs.pop('order_by')
-        if not order_by or not isinstance(order_by, six.string_types):
+        if not order_by or not isinstance(order_by, str):
             raise ValueError('order_by field must be a non-empty string')
         if order_by not in _RESERVED_FILTERS:
             if order_by.startswith('/'):
@@ -631,7 +630,7 @@ class TransactionAbortedError(exceptions.AbortedError):
         exceptions.AbortedError.__init__(self, message)
 
 
-class _Sorter(object):
+class _Sorter:
     """Helper class for sorting query results."""
 
     def __init__(self, results, order_by):
@@ -648,11 +647,11 @@ class _Sorter(object):
     def get(self):
         if self.dict_input:
             return collections.OrderedDict([(e.key, e.value) for e in self.sort_entries])
-        else:
-            return [e.value for e in self.sort_entries]
+
+        return [e.value for e in self.sort_entries]
 
 
-class _SortEntry(object):
+class _SortEntry:
     """A wrapper that is capable of sorting items in a dictionary."""
 
     _type_none = 0
@@ -665,7 +664,7 @@ class _SortEntry(object):
     def __init__(self, key, value, order_by):
         self._key = key
         self._value = value
-        if order_by == '$key' or order_by == '$priority':
+        if order_by in ('$key', '$priority'):
             self._index = key
         elif order_by == '$value':
             self._index = value
@@ -698,16 +697,16 @@ class _SortEntry(object):
         """
         if index is None:
             return cls._type_none
-        elif isinstance(index, bool) and not index:
+        if isinstance(index, bool) and not index:
             return cls._type_bool_false
-        elif isinstance(index, bool) and index:
+        if isinstance(index, bool) and index:
             return cls._type_bool_true
-        elif isinstance(index, (int, float)):
+        if isinstance(index, (int, float)):
             return cls._type_numeric
-        elif isinstance(index, six.string_types):
+        if isinstance(index, str):
             return cls._type_string
-        else:
-            return cls._type_object
+
+        return cls._type_object
 
     @classmethod
     def _extract_child(cls, value, path):
@@ -737,10 +736,10 @@ class _SortEntry(object):
 
         if self_key < other_key:
             return -1
-        elif self_key > other_key:
+        if self_key > other_key:
             return 1
-        else:
-            return 0
+
+        return 0
 
     def __lt__(self, other):
         return self._compare(other) < 0
@@ -755,10 +754,10 @@ class _SortEntry(object):
         return self._compare(other) >= 0
 
     def __eq__(self, other):
-        return self._compare(other) is 0
+        return self._compare(other) == 0
 
 
-class _DatabaseService(object):
+class _DatabaseService:
     """Service that maintains a collection of database clients."""
 
     _DEFAULT_AUTH_OVERRIDE = '_admin_'
@@ -772,11 +771,11 @@ class _DatabaseService(object):
         else:
             self._db_url = None
         auth_override = _DatabaseService._get_auth_override(app)
-        if auth_override != self._DEFAULT_AUTH_OVERRIDE and auth_override != {}:
+        if auth_override not in (self._DEFAULT_AUTH_OVERRIDE, {}):
             self._auth_override = json.dumps(auth_override, separators=(',', ':'))
         else:
             self._auth_override = None
-        self._timeout = app.options.get('httpTimeout')
+        self._timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
         self._clients = {}
 
         emulator_host = os.environ.get(_EMULATOR_HOST_ENV_VAR)
@@ -825,15 +824,15 @@ class _DatabaseService(object):
         base URL will use emulator_host instead. emulator_host is ignored
         if url is already an emulator URL.
         """
-        if not url or not isinstance(url, six.string_types):
+        if not url or not isinstance(url, str):
             raise ValueError(
                 'Invalid database URL: "{0}". Database URL must be a non-empty '
                 'URL string.'.format(url))
-        parsed_url = urllib.parse.urlparse(url)
+        parsed_url = parse.urlparse(url)
         if parsed_url.netloc.endswith('.firebaseio.com'):
             return cls._parse_production_url(parsed_url, emulator_host)
-        else:
-            return cls._parse_emulator_url(parsed_url)
+
+        return cls._parse_emulator_url(parsed_url)
 
     @classmethod
     def _parse_production_url(cls, parsed_url, emulator_host):
@@ -857,7 +856,7 @@ class _DatabaseService(object):
     @classmethod
     def _parse_emulator_url(cls, parsed_url):
         """Parses emulator URL like http://localhost:8080/?ns=foo-bar"""
-        query_ns = urllib.parse.parse_qs(parsed_url.query).get('ns')
+        query_ns = parse.parse_qs(parsed_url.query).get('ns')
         if parsed_url.scheme != 'http' or (not query_ns or len(query_ns) != 1 or not query_ns[0]):
             raise ValueError(
                 'Invalid database URL: "{0}". Database URL must be a valid URL to a '
@@ -875,8 +874,8 @@ class _DatabaseService(object):
         if not isinstance(auth_override, dict):
             raise ValueError('Invalid databaseAuthVariableOverride option: "{0}". Override '
                              'value must be a dict or None.'.format(auth_override))
-        else:
-            return auth_override
+
+        return auth_override
 
     def close(self):
         for value in self._clients.values():
@@ -901,14 +900,13 @@ class _Client(_http_client.JsonHttpClient):
           credential: A Google credential that can be used to authenticate requests.
           base_url: A URL prefix to be added to all outgoing requests. This is typically the
               Firebase Realtime Database URL.
-          timeout: HTTP request timeout in seconds. If not set connections will never
+          timeout: HTTP request timeout in seconds. If set to None connections will never
               timeout, which is the default behavior of the underlying requests library.
           params: Dict of query parameters to add to all outgoing requests.
         """
-        _http_client.JsonHttpClient.__init__(
-            self, credential=credential, base_url=base_url, headers={'User-Agent': _USER_AGENT})
-        self.credential = credential
-        self.timeout = timeout
+        super().__init__(
+            credential=credential, base_url=base_url,
+            timeout=timeout, headers={'User-Agent': _USER_AGENT})
         self.params = params if params else {}
 
     def request(self, method, url, **kwargs):
@@ -938,8 +936,6 @@ class _Client(_http_client.JsonHttpClient):
                 query = extra_params
         kwargs['params'] = query
 
-        if self.timeout:
-            kwargs['timeout'] = self.timeout
         try:
             return super(_Client, self).request(method, url, **kwargs)
         except requests.exceptions.RequestException as error:

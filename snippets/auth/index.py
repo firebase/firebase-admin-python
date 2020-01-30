@@ -385,8 +385,8 @@ def check_permissions(session_cookie, flask):
         # Check custom claims to confirm user is an admin.
         if decoded_claims.get('admin') is True:
             return serve_content_for_admin(decoded_claims)
-        else:
-            return flask.abort(401, 'Insufficient permissions')
+
+        return flask.abort(401, 'Insufficient permissions')
     except auth.InvalidSessionCookieError:
         # Session cookie is invalid, expired or revoked. Force user to login.
         return flask.redirect('/login')

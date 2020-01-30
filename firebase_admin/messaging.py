@@ -15,15 +15,15 @@
 """Firebase Cloud Messaging module."""
 
 import json
-import requests
-import six
 
 import googleapiclient
 from googleapiclient import http
 from googleapiclient import _auth
+import requests
 
 import firebase_admin
 from firebase_admin import _http_client
+from firebase_admin import _messaging_encoder
 from firebase_admin import _messaging_utils
 from firebase_admin import _utils
 
@@ -33,17 +33,18 @@ _MESSAGING_ATTRIBUTE = '_messaging'
 
 __all__ = [
     'AndroidConfig',
-    'AndroidFcmOptions',
+    'AndroidFCMOptions',
     'AndroidNotification',
     'APNSConfig',
-    'APNSFcmOptions',
+    'APNSFCMOptions',
     'APNSPayload',
     'Aps',
     'ApsAlert',
     'BatchResponse',
     'CriticalSound',
     'ErrorInfo',
-    'FcmOptions',
+    'FCMOptions',
+    'LightSettings',
     'Message',
     'MulticastMessage',
     'Notification',
@@ -54,7 +55,7 @@ __all__ = [
     'TopicManagementResponse',
     'UnregisteredError',
     'WebpushConfig',
-    'WebpushFcmOptions',
+    'WebpushFCMOptions',
     'WebpushNotification',
     'WebpushNotificationAction',
 
@@ -67,20 +68,21 @@ __all__ = [
 
 
 AndroidConfig = _messaging_utils.AndroidConfig
-AndroidFcmOptions = _messaging_utils.AndroidFcmOptions
+AndroidFCMOptions = _messaging_utils.AndroidFCMOptions
 AndroidNotification = _messaging_utils.AndroidNotification
 APNSConfig = _messaging_utils.APNSConfig
-APNSFcmOptions = _messaging_utils.APNSFcmOptions
+APNSFCMOptions = _messaging_utils.APNSFCMOptions
 APNSPayload = _messaging_utils.APNSPayload
 Aps = _messaging_utils.Aps
 ApsAlert = _messaging_utils.ApsAlert
 CriticalSound = _messaging_utils.CriticalSound
-FcmOptions = _messaging_utils.FcmOptions
-Message = _messaging_utils.Message
-MulticastMessage = _messaging_utils.MulticastMessage
+FCMOptions = _messaging_utils.FCMOptions
+LightSettings = _messaging_utils.LightSettings
+Message = _messaging_encoder.Message
+MulticastMessage = _messaging_encoder.MulticastMessage
 Notification = _messaging_utils.Notification
 WebpushConfig = _messaging_utils.WebpushConfig
-WebpushFcmOptions = _messaging_utils.WebpushFcmOptions
+WebpushFCMOptions = _messaging_utils.WebpushFCMOptions
 WebpushNotification = _messaging_utils.WebpushNotification
 WebpushNotificationAction = _messaging_utils.WebpushNotificationAction
 
@@ -203,7 +205,7 @@ def unsubscribe_from_topic(tokens, topic, app=None):
         tokens, topic, 'iid/v1:batchRemove')
 
 
-class ErrorInfo(object):
+class ErrorInfo:
     """An error encountered when performing a topic management operation."""
 
     def __init__(self, index, reason):
@@ -221,7 +223,7 @@ class ErrorInfo(object):
         return self._reason
 
 
-class TopicManagementResponse(object):
+class TopicManagementResponse:
     """The response received from a topic management operation."""
 
     def __init__(self, resp):
@@ -253,7 +255,7 @@ class TopicManagementResponse(object):
         return self._errors
 
 
-class BatchResponse(object):
+class BatchResponse:
     """The response received from a batch request to the FCM API."""
 
     def __init__(self, responses):
@@ -274,7 +276,7 @@ class BatchResponse(object):
         return len(self.responses) - self.success_count
 
 
-class SendResponse(object):
+class SendResponse:
     """The response received from an individual batched request to the FCM API."""
 
     def __init__(self, resp, exception):
@@ -295,18 +297,18 @@ class SendResponse(object):
 
     @property
     def exception(self):
-        """A FirebaseError if an error occurs while sending the message to the FCM service."""
+        """A ``FirebaseError`` if an error occurs while sending the message to the FCM service."""
         return self._exception
 
 
-class _MessagingService(object):
+class _MessagingService:
     """Service class that implements Firebase Cloud Messaging (FCM) functionality."""
 
     FCM_URL = 'https://fcm.googleapis.com/v1/projects/{0}/messages:send'
     FCM_BATCH_URL = 'https://fcm.googleapis.com/batch'
     IID_URL = 'https://iid.googleapis.com'
     IID_HEADERS = {'access_token_auth': 'true'}
-    JSON_ENCODER = _messaging_utils.MessageEncoder()
+    JSON_ENCODER = _messaging_encoder.MessageEncoder()
 
     FCM_ERROR_TYPES = {
         'APNS_AUTH_ERROR': ThirdPartyAuthError,
@@ -328,8 +330,9 @@ class _MessagingService(object):
             'X-GOOG-API-FORMAT-VERSION': '2',
             'X-FIREBASE-CLIENT': 'fire-admin-python/{0}'.format(firebase_admin.__version__),
         }
-        self._client = _http_client.JsonHttpClient(credential=app.credential.get_credential())
-        self._timeout = app.options.get('httpTimeout')
+        timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
+        self._client = _http_client.JsonHttpClient(
+            credential=app.credential.get_credential(), timeout=timeout)
         self._transport = _auth.authorized_http(app.credential.get_credential())
 
     @classmethod
@@ -339,14 +342,14 @@ class _MessagingService(object):
         return cls.JSON_ENCODER.default(message)
 
     def send(self, message, dry_run=False):
+        """Sends the given message to FCM via the FCM v1 API."""
         data = self._message_data(message, dry_run)
         try:
             resp = self._client.body(
                 'post',
                 url=self._fcm_url,
                 headers=self._fcm_headers,
-                json=data,
-                timeout=self._timeout
+                json=data
             )
         except requests.exceptions.RequestException as error:
             raise self._handle_fcm_error(error)
@@ -356,9 +359,9 @@ class _MessagingService(object):
     def send_all(self, messages, dry_run=False):
         """Sends the given messages to FCM via the batch API."""
         if not isinstance(messages, list):
-            raise ValueError('Messages must be an list of messaging.Message instances.')
-        if len(messages) > 100:
-            raise ValueError('send_all messages must not contain more than 100 messages.')
+            raise ValueError('messages must be a list of messaging.Message instances.')
+        if len(messages) > 500:
+            raise ValueError('messages must not contain more than 500 elements.')
 
         responses = []
 
@@ -391,15 +394,15 @@ class _MessagingService(object):
 
     def make_topic_management_request(self, tokens, topic, operation):
         """Invokes the IID service for topic management functionality."""
-        if isinstance(tokens, six.string_types):
+        if isinstance(tokens, str):
             tokens = [tokens]
         if not isinstance(tokens, list) or not tokens:
             raise ValueError('Tokens must be a string or a non-empty list of strings.')
-        invalid_str = [t for t in tokens if not isinstance(t, six.string_types) or not t]
+        invalid_str = [t for t in tokens if not isinstance(t, str) or not t]
         if invalid_str:
             raise ValueError('Tokens must be non-empty strings.')
 
-        if not isinstance(topic, six.string_types) or not topic:
+        if not isinstance(topic, str) or not topic:
             raise ValueError('Topic must be a non-empty string.')
         if not topic.startswith('/topics/'):
             topic = '/topics/{0}'.format(topic)
@@ -413,8 +416,7 @@ class _MessagingService(object):
                 'post',
                 url=url,
                 json=data,
-                headers=_MessagingService.IID_HEADERS,
-                timeout=self._timeout
+                headers=_MessagingService.IID_HEADERS
             )
         except requests.exceptions.RequestException as error:
             raise self._handle_iid_error(error)

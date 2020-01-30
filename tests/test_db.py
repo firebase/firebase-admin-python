@@ -23,6 +23,7 @@ import pytest
 import firebase_admin
 from firebase_admin import db
 from firebase_admin import exceptions
+from firebase_admin import _http_client
 from firebase_admin import _sseclient
 from tests import testutils
 
@@ -48,7 +49,7 @@ class MockAdapter(testutils.MockAdapter):
         return resp
 
 
-class MockSSEClient(object):
+class MockSSEClient:
     """A mock SSE client that mimics long-lived HTTP connections."""
 
     def __init__(self, events):
@@ -62,11 +63,11 @@ class MockSSEClient(object):
         self.closed = True
 
 
-class _Object(object):
+class _Object:
     pass
 
 
-class TestReferencePath(object):
+class TestReferencePath:
     """Test cases for Reference paths."""
 
     # path => (fullstr, key, parent)
@@ -127,7 +128,7 @@ class TestReferencePath(object):
             parent.child(child)
 
 
-class _RefOperations(object):
+class _RefOperations:
     """A collection of operations that can be performed using a ``db.Reference``.
 
     This can be used to test any functionality that is common across multiple API calls.
@@ -159,7 +160,7 @@ class _RefOperations(object):
         return [cls.get, cls.push, cls.set, cls.delete, cls.query]
 
 
-class TestReference(object):
+class TestReference:
     """Test cases for database queries via References."""
 
     test_url = 'https://test.firebaseio.com'
@@ -381,7 +382,7 @@ class TestReference(object):
         recorder = self.instrument(ref, '')
         with pytest.raises(ValueError):
             ref.update(update)
-        assert len(recorder) is 0
+        assert len(recorder) == 0
 
     @pytest.mark.parametrize('data', valid_values)
     def test_push(self, data):
@@ -527,7 +528,7 @@ class TestReference(object):
         assert excinfo.value.http_response is not None
 
 
-class TestListenerRegistration(object):
+class TestListenerRegistration:
     """Test cases for receiving events via ListenerRegistrations."""
 
     def test_listen_error(self):
@@ -598,7 +599,7 @@ class TestListenerRegistration(object):
         raise pytest.fail('Timed out while waiting for events')
 
 
-class TestReferenceWithAuthOverride(object):
+class TestReferenceWithAuthOverride:
     """Test cases for database queries via References."""
 
     test_url = 'https://test.firebaseio.com'
@@ -671,7 +672,7 @@ class TestReferenceWithAuthOverride(object):
         assert recorder[0].headers['User-Agent'] == db._USER_AGENT
 
 
-class TestDatabaseInitialization(object):
+class TestDatabaseInitialization:
     """Test cases for database initialization."""
 
     def teardown_method(self):
@@ -732,15 +733,8 @@ class TestDatabaseInitialization(object):
     def test_valid_db_url(self, url):
         firebase_admin.initialize_app(testutils.MockCredential(), {'databaseURL' : url})
         ref = db.reference()
-        recorder = []
-        adapter = MockAdapter('{}', 200, recorder)
-        ref._client.session.mount(url, adapter)
         assert ref._client.base_url == 'https://test.firebaseio.com'
         assert 'auth_variable_override' not in ref._client.params
-        assert ref._client.timeout is None
-        assert ref.get() == {}
-        assert len(recorder) == 1
-        assert recorder[0]._extra_kwargs.get('timeout') is None
 
     @pytest.mark.parametrize('url', [
         None, '', 'foo', 'http://test.firebaseio.com', 'https://google.com',
@@ -762,7 +756,6 @@ class TestDatabaseInitialization(object):
         ref = db.reference()
         assert ref._client.base_url == default_url
         assert 'auth_variable_override' not in ref._client.params
-        assert ref._client.timeout is None
         assert ref._client is db.reference()._client
         assert ref._client is db.reference(url=default_url)._client
 
@@ -770,7 +763,6 @@ class TestDatabaseInitialization(object):
         other_ref = db.reference(url=other_url)
         assert other_ref._client.base_url == other_url
         assert 'auth_variable_override' not in ref._client.params
-        assert other_ref._client.timeout is None
         assert other_ref._client is db.reference(url=other_url)._client
         assert other_ref._client is db.reference(url=other_url + '/')._client
 
@@ -783,7 +775,6 @@ class TestDatabaseInitialization(object):
         default_ref = db.reference()
         other_ref = db.reference(url='https://other.firebaseio.com')
         for ref in [default_ref, other_ref]:
-            assert ref._client.timeout is None
             if override == {}:
                 assert 'auth_variable_override' not in ref._client.params
             else:
@@ -805,22 +796,22 @@ class TestDatabaseInitialization(object):
         with pytest.raises(ValueError):
             db.reference(app=other_app, url='https://other.firebaseio.com')
 
-    def test_http_timeout(self):
+    @pytest.mark.parametrize('options, timeout', [
+        ({'httpTimeout': 4}, 4),
+        ({'httpTimeout': None}, None),
+        ({}, _http_client.DEFAULT_TIMEOUT_SECONDS),
+    ])
+    def test_http_timeout(self, options, timeout):
         test_url = 'https://test.firebaseio.com'
-        firebase_admin.initialize_app(testutils.MockCredential(), {
+        all_options = {
             'databaseURL' : test_url,
-            'httpTimeout': 60
-        })
+        }
+        all_options.update(options)
+        firebase_admin.initialize_app(testutils.MockCredential(), all_options)
         default_ref = db.reference()
         other_ref = db.reference(url='https://other.firebaseio.com')
         for ref in [default_ref, other_ref]:
-            recorder = []
-            adapter = MockAdapter('{}', 200, recorder)
-            ref._client.session.mount(ref._client.base_url, adapter)
-            assert ref._client.timeout == 60
-            assert ref.get() == {}
-            assert len(recorder) == 1
-            assert recorder[0]._extra_kwargs['timeout'] == pytest.approx(60, 0.001)
+            self._check_timeout(ref, timeout)
 
     def test_app_delete(self):
         app = firebase_admin.initialize_app(
@@ -842,19 +833,31 @@ class TestDatabaseInitialization(object):
             firebase_admin.__version__, sys.version_info.major, sys.version_info.minor)
         assert db._USER_AGENT == expected
 
+    def _check_timeout(self, ref, timeout):
+        assert ref._client.timeout == timeout
+        recorder = []
+        adapter = MockAdapter('{}', 200, recorder)
+        ref._client.session.mount(ref._client.base_url, adapter)
+        assert ref.get() == {}
+        assert len(recorder) == 1
+        if timeout is None:
+            assert recorder[0]._extra_kwargs['timeout'] is None
+        else:
+            assert recorder[0]._extra_kwargs['timeout'] == pytest.approx(timeout, 0.001)
+
 
 @pytest.fixture(params=['foo', '$key', '$value'])
 def initquery(request):
     ref = db.Reference(path='foo')
     if request.param == '$key':
         return ref.order_by_key(), request.param
-    elif request.param == '$value':
+    if request.param == '$value':
         return ref.order_by_value(), request.param
-    else:
-        return ref.order_by_child(request.param), request.param
+
+    return ref.order_by_child(request.param), request.param
 
 
-class TestQuery(object):
+class TestQuery:
     """Test cases for db.Query class."""
 
     valid_paths = {
@@ -983,7 +986,7 @@ class TestQuery(object):
             db.Query(order_by='$key', client=ref._client, pathurl=ref._add_suffix(), foo='bar')
 
 
-class TestSorter(object):
+class TestSorter:
     """Test cases for db._Sorter class."""
 
     value_test_cases = [

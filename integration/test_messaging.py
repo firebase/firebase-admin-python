@@ -15,6 +15,7 @@
 """Integration tests for firebase_admin.messaging module."""
 
 import re
+from datetime import datetime
 
 import pytest
 
@@ -30,12 +31,31 @@ _REGISTRATION_TOKEN = ('fGw0qy4TGgk:APA91bGtWGjuhp4WRhHXgbabIYp1jxEKI08ofj_v1bKh
 def test_send():
     msg = messaging.Message(
         topic='foo-bar',
-        notification=messaging.Notification('test-title', 'test-body'),
+        notification=messaging.Notification('test-title', 'test-body',
+                                            'https://images.unsplash.com/photo-1494438639946'
+                                            '-1ebd1d20bf85?fit=crop&w=900&q=60'),
         android=messaging.AndroidConfig(
             restricted_package_name='com.google.firebase.demos',
             notification=messaging.AndroidNotification(
                 title='android-title',
-                body='android-body'
+                body='android-body',
+                image='https://images.unsplash.com/'
+                      'photo-1494438639946-1ebd1d20bf85?fit=crop&w=900&q=60',
+                event_timestamp=datetime.now(),
+                priority='high',
+                vibrate_timings_millis=[100, 200, 300, 400],
+                visibility='public',
+                sticky=True,
+                local_only=False,
+                default_vibrate_timings=False,
+                default_sound=True,
+                default_light_settings=False,
+                light_settings=messaging.LightSettings(
+                    color='#aabbcc',
+                    light_off_duration_millis=200,
+                    light_on_duration_millis=300
+                ),
+                notification_count=1
             )
         ),
         apns=messaging.APNSConfig(payload=messaging.APNSPayload(
@@ -97,17 +117,17 @@ def test_send_all():
     assert isinstance(response.exception, exceptions.InvalidArgumentError)
     assert response.message_id is None
 
-def test_send_one_hundred():
+def test_send_all_500():
     messages = []
-    for msg_number in range(100):
+    for msg_number in range(500):
         topic = 'foo-bar-{0}'.format(msg_number % 10)
         messages.append(messaging.Message(topic=topic))
 
     batch_response = messaging.send_all(messages, dry_run=True)
 
-    assert batch_response.success_count == 100
+    assert batch_response.success_count == 500
     assert batch_response.failure_count == 0
-    assert len(batch_response.responses) == 100
+    assert len(batch_response.responses) == 500
     for response in batch_response.responses:
         assert response.success is True
         assert response.exception is None
@@ -120,7 +140,7 @@ def test_send_multicast():
 
     batch_response = messaging.send_multicast(multicast)
 
-    assert batch_response.success_count is 0
+    assert batch_response.success_count == 0
     assert batch_response.failure_count == 2
     assert len(batch_response.responses) == 2
     for response in batch_response.responses:

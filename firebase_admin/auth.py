@@ -43,6 +43,7 @@ __all__ = [
     'ExpiredSessionCookieError',
     'ExportedUserRecord',
     'ImportUserRecord',
+    'InsufficientPermissionError',
     'InvalidDynamicLinkDomainError',
     'InvalidIdTokenError',
     'InvalidSessionCookieError',
@@ -89,6 +90,7 @@ ExpiredIdTokenError = _token_gen.ExpiredIdTokenError
 ExpiredSessionCookieError = _token_gen.ExpiredSessionCookieError
 ExportedUserRecord = _user_mgt.ExportedUserRecord
 ImportUserRecord = _user_import.ImportUserRecord
+InsufficientPermissionError = _auth_utils.InsufficientPermissionError
 InvalidDynamicLinkDomainError = _auth_utils.InvalidDynamicLinkDomainError
 InvalidIdTokenError = _auth_utils.InvalidIdTokenError
 InvalidSessionCookieError = _token_gen.InvalidSessionCookieError
@@ -172,7 +174,7 @@ def verify_id_token(id_token, app=None, check_revoked=False):
     if not isinstance(check_revoked, bool):
         # guard against accidental wrong assignment.
         raise ValueError('Illegal check_revoked argument. Argument must be of type '
-                         ' bool, but given "{0}".'.format(type(app)))
+                         ' bool, but given "{0}".'.format(type(check_revoked)))
     token_verifier = _get_auth_service(app).token_verifier
     verified_claims = token_verifier.verify_id_token(id_token)
     if check_revoked:
@@ -335,8 +337,11 @@ def list_users(page_token=None, max_results=_user_mgt.MAX_LIST_USERS_RESULTS, ap
     return ListUsersPage(download, page_token, max_results)
 
 
-def create_user(**kwargs):
+def create_user(**kwargs): # pylint: disable=differing-param-doc
     """Creates a new user account with the specified properties.
+
+    Args:
+        kwargs: A series of keyword arguments (optional).
 
     Keyword Args:
         uid: User ID to assign to the newly created user (optional).
@@ -363,7 +368,7 @@ def create_user(**kwargs):
     return UserRecord(user_manager.get_user(uid=uid))
 
 
-def update_user(uid, **kwargs):
+def update_user(uid, **kwargs): # pylint: disable=differing-param-doc
     """Updates an existing user account with the specified properties.
 
     Args:
@@ -421,6 +426,8 @@ def set_custom_user_claims(uid, custom_claims, app=None):
         FirebaseError: If an error occurs while updating the user account.
     """
     user_manager = _get_auth_service(app).user_manager
+    if custom_claims is None:
+        custom_claims = DELETE_ATTRIBUTE
     user_manager.update_user(uid, custom_claims=custom_claims)
 
 
@@ -538,7 +545,7 @@ def _check_jwt_revoked(verified_claims, exc_type, label, app):
         raise exc_type('The Firebase {0} has been revoked.'.format(label))
 
 
-class _AuthService(object):
+class _AuthService:
     """Firebase Authentication service."""
 
     ID_TOOLKIT_URL = 'https://identitytoolkit.googleapis.com/v1/projects/'

@@ -17,17 +17,18 @@ import base64
 import datetime
 import random
 import time
+from urllib import parse
 import uuid
-import six
 
+import google.oauth2.credentials
+from google.auth import transport
 import pytest
 import requests
 
 import firebase_admin
 from firebase_admin import auth
 from firebase_admin import credentials
-import google.oauth2.credentials
-from google.auth import transport
+
 
 
 _verify_token_url = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyCustomToken'
@@ -82,8 +83,8 @@ def _sign_in_with_email_link(email, oob_code, api_key):
     return resp.json().get('idToken')
 
 def _extract_link_params(link):
-    query = six.moves.urllib.parse.urlparse(link).query
-    query_dict = dict(six.moves.urllib.parse.parse_qsl(query))
+    query = parse.urlparse(link).query
+    query_dict = dict(parse.parse_qsl(query))
     return query_dict
 
 def test_custom_token(api_key):
@@ -220,6 +221,10 @@ def test_get_user(new_user_with_params):
     assert provider_ids == ['password', 'phone']
 
 def test_list_users(new_user_list):
+    err_msg_template = (
+        'Missing {field} field. A common cause would be forgetting to add the "Firebase ' +
+        'Authentication Admin" permission. See instructions in CONTRIBUTING.md')
+
     fetched = []
     # Test exporting all user accounts.
     page = auth.list_users()
@@ -228,8 +233,10 @@ def test_list_users(new_user_list):
             assert isinstance(user, auth.ExportedUserRecord)
             if user.uid in new_user_list:
                 fetched.append(user.uid)
-                assert user.password_hash is not None
-                assert user.password_salt is not None
+                assert user.password_hash is not None, (
+                    err_msg_template.format(field='password_hash'))
+                assert user.password_salt is not None, (
+                    err_msg_template.format(field='password_salt'))
         page = page.get_next_page()
     assert len(fetched) == len(new_user_list)
 
@@ -239,8 +246,10 @@ def test_list_users(new_user_list):
         assert isinstance(user, auth.ExportedUserRecord)
         if user.uid in new_user_list:
             fetched.append(user.uid)
-            assert user.password_hash is not None
-            assert user.password_salt is not None
+            assert user.password_hash is not None, (
+                err_msg_template.format(field='password_hash'))
+            assert user.password_salt is not None, (
+                err_msg_template.format(field='password_salt'))
     assert len(fetched) == len(new_user_list)
 
 def test_create_user(new_user):
@@ -255,7 +264,7 @@ def test_create_user(new_user):
     assert user.custom_claims is None
     assert user.user_metadata.creation_timestamp > 0
     assert user.user_metadata.last_sign_in_timestamp is None
-    assert len(user.provider_data) is 0
+    assert len(user.provider_data) == 0
     with pytest.raises(auth.UidAlreadyExistsError):
         auth.create_user(uid=new_user.uid)
 
@@ -310,9 +319,9 @@ def test_update_custom_user_claims(new_user):
 def test_disable_user(new_user_with_params):
     user = auth.update_user(
         new_user_with_params.uid,
-        display_name=None,
-        photo_url=None,
-        phone_number=None,
+        display_name=auth.DELETE_ATTRIBUTE,
+        photo_url=auth.DELETE_ATTRIBUTE,
+        phone_number=auth.DELETE_ATTRIBUTE,
         disabled=True)
     assert user.uid == new_user_with_params.uid
     assert user.email == new_user_with_params.email
@@ -419,7 +428,7 @@ def test_import_users_with_password(api_key):
 
 def test_password_reset(new_user_email_unverified, api_key):
     link = auth.generate_password_reset_link(new_user_email_unverified.email)
-    assert isinstance(link, six.string_types)
+    assert isinstance(link, str)
     query_dict = _extract_link_params(link)
     user_email = _reset_password(query_dict['oobCode'], 'newPassword', api_key)
     assert new_user_email_unverified.email == user_email
@@ -428,7 +437,7 @@ def test_password_reset(new_user_email_unverified, api_key):
 
 def test_email_verification(new_user_email_unverified, api_key):
     link = auth.generate_email_verification_link(new_user_email_unverified.email)
-    assert isinstance(link, six.string_types)
+    assert isinstance(link, str)
     query_dict = _extract_link_params(link)
     user_email = _verify_email(query_dict['oobCode'], api_key)
     assert new_user_email_unverified.email == user_email
@@ -438,7 +447,7 @@ def test_password_reset_with_settings(new_user_email_unverified, api_key):
     action_code_settings = auth.ActionCodeSettings(ACTION_LINK_CONTINUE_URL)
     link = auth.generate_password_reset_link(new_user_email_unverified.email,
                                              action_code_settings=action_code_settings)
-    assert isinstance(link, six.string_types)
+    assert isinstance(link, str)
     query_dict = _extract_link_params(link)
     assert query_dict['continueUrl'] == ACTION_LINK_CONTINUE_URL
     user_email = _reset_password(query_dict['oobCode'], 'newPassword', api_key)
@@ -450,7 +459,7 @@ def test_email_verification_with_settings(new_user_email_unverified, api_key):
     action_code_settings = auth.ActionCodeSettings(ACTION_LINK_CONTINUE_URL)
     link = auth.generate_email_verification_link(new_user_email_unverified.email,
                                                  action_code_settings=action_code_settings)
-    assert isinstance(link, six.string_types)
+    assert isinstance(link, str)
     query_dict = _extract_link_params(link)
     assert query_dict['continueUrl'] == ACTION_LINK_CONTINUE_URL
     user_email = _verify_email(query_dict['oobCode'], api_key)
@@ -461,7 +470,7 @@ def test_email_sign_in_with_settings(new_user_email_unverified, api_key):
     action_code_settings = auth.ActionCodeSettings(ACTION_LINK_CONTINUE_URL)
     link = auth.generate_sign_in_with_email_link(new_user_email_unverified.email,
                                                  action_code_settings=action_code_settings)
-    assert isinstance(link, six.string_types)
+    assert isinstance(link, str)
     query_dict = _extract_link_params(link)
     assert query_dict['continueUrl'] == ACTION_LINK_CONTINUE_URL
     oob_code = query_dict['oobCode']

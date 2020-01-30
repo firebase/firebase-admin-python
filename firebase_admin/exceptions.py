@@ -16,24 +16,68 @@
 
 This module defines the base types for exceptions and the platform-wide error codes as outlined in
 https://cloud.google.com/apis/design/errors.
+
+:class:`FirebaseError` is the parent class of all exceptions raised by the Admin SDK. It contains
+the ``code``, ``http_response`` and ``cause`` properties common to all Firebase exception types.
+Each exception also carries a message that outlines what went wrong. This can be logged for
+audit or debugging purposes.
+
+When calling an Admin SDK API, developers can catch the parent ``FirebaseError`` and
+inspect its ``code`` to implement fine-grained error handling. Alternatively, developers can
+catch one or more subtypes of ``FirebaseError``. Under normal conditions, any given API can raise
+only a small subset of the available exception subtypes. However, the SDK also exposes rare error
+conditions like connection timeouts and other I/O errors as instances of ``FirebaseError``.
+Therefore it is always a good idea to have a handler specified for ``FirebaseError``, after all the
+subtype error handlers.
 """
 
 
+#: Error code for ``InvalidArgumentError`` type.
 INVALID_ARGUMENT = 'INVALID_ARGUMENT'
+
+#: Error code for ``FailedPreconditionError`` type.
 FAILED_PRECONDITION = 'FAILED_PRECONDITION'
+
+#: Error code for ``OutOfRangeError`` type.
 OUT_OF_RANGE = 'OUT_OF_RANGE'
+
+#: Error code for ``UnauthenticatedError`` type.
 UNAUTHENTICATED = 'UNAUTHENTICATED'
+
+#: Error code for ``PermissionDeniedError`` type.
 PERMISSION_DENIED = 'PERMISSION_DENIED'
+
+#: Error code for ``NotFoundError`` type.
 NOT_FOUND = 'NOT_FOUND'
+
+#: Error code for ``ConflictError`` type.
 CONFLICT = 'CONFLICT'
+
+#: Error code for ``AbortedError`` type.
 ABORTED = 'ABORTED'
+
+#: Error code for ``AlreadyExistsError`` type.
 ALREADY_EXISTS = 'ALREADY_EXISTS'
+
+#: Error code for ``ResourceExhaustedError`` type.
 RESOURCE_EXHAUSTED = 'RESOURCE_EXHAUSTED'
+
+#: Error code for ``CancelledError`` type.
 CANCELLED = 'CANCELLED'
+
+#: Error code for ``DataLossError`` type.
 DATA_LOSS = 'DATA_LOSS'
+
+#: Error code for ``UnknownError`` type.
 UNKNOWN = 'UNKNOWN'
+
+#: Error code for ``InternalError`` type.
 INTERNAL = 'INTERNAL'
+
+#: Error code for ``UnavailableError`` type.
 UNAVAILABLE = 'UNAVAILABLE'
+
+#: Error code for ``DeadlineExceededError`` type.
 DEADLINE_EXCEEDED = 'DEADLINE_EXCEEDED'
 
 

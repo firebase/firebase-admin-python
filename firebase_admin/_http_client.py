@@ -32,7 +32,10 @@ DEFAULT_RETRY_CONFIG = retry.Retry(
     raise_on_status=False, backoff_factor=0.5)
 
 
-class HttpClient(object):
+DEFAULT_TIMEOUT_SECONDS = 120
+
+
+class HttpClient:
     """Base HTTP client used to make HTTP calls.
 
     HttpClient maintains an HTTP session, and handles request authentication and retries if
@@ -41,7 +44,7 @@ class HttpClient(object):
 
     def __init__(
             self, credential=None, session=None, base_url='', headers=None,
-            retries=DEFAULT_RETRY_CONFIG):
+            retries=DEFAULT_RETRY_CONFIG, timeout=DEFAULT_TIMEOUT_SECONDS):
         """Creates a new HttpClient instance from the provided arguments.
 
         If a credential is provided, initializes a new HTTP session authorized with it. If neither
@@ -55,6 +58,8 @@ class HttpClient(object):
           retries: A urllib retry configuration. Default settings would retry once for low-level
               connection and socket read errors, and up to 4 times for HTTP 500 and 503 errors.
               Pass a False value to disable retries (optional).
+          timeout: HTTP timeout in seconds. Defaults to 120 seconds when not specified. Set to
+              None to disable timeouts (optional).
         """
         if credential:
             self._session = transport.requests.AuthorizedSession(credential)
@@ -69,6 +74,7 @@ class HttpClient(object):
             self._session.mount('http://', requests.adapters.HTTPAdapter(max_retries=retries))
             self._session.mount('https://', requests.adapters.HTTPAdapter(max_retries=retries))
         self._base_url = base_url
+        self._timeout = timeout
 
     @property
     def session(self):
@@ -77,6 +83,10 @@ class HttpClient(object):
     @property
     def base_url(self):
         return self._base_url
+
+    @property
+    def timeout(self):
+        return self._timeout
 
     def parse_body(self, resp):
         raise NotImplementedError
@@ -93,7 +103,7 @@ class HttpClient(object):
           method: HTTP method name as a string (e.g. get, post).
           url: URL of the remote endpoint.
           kwargs: An additional set of keyword arguments to be passed into the requests API
-              (e.g. json, params).
+              (e.g. json, params, timeout).
 
         Returns:
           Response: An HTTP response object.
@@ -101,7 +111,9 @@ class HttpClient(object):
         Raises:
           RequestException: Any requests exceptions encountered while making the HTTP call.
         """
-        resp = self._session.request(method, self._base_url + url, **kwargs)
+        if 'timeout' not in kwargs:
+            kwargs['timeout'] = self.timeout
+        resp = self._session.request(method, self.base_url + url, **kwargs)
         resp.raise_for_status()
         return resp
 

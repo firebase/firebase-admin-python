@@ -26,7 +26,6 @@ import google.auth.exceptions
 import google.oauth2.id_token
 import pytest
 from pytest_localserver import plugin
-import six
 
 import firebase_admin
 from firebase_admin import auth
@@ -68,7 +67,7 @@ def _merge_jwt_claims(defaults, overrides):
     return defaults
 
 def _verify_custom_token(custom_token, expected_claims):
-    assert isinstance(custom_token, six.binary_type)
+    assert isinstance(custom_token, bytes)
     token = google.oauth2.id_token.verify_token(
         custom_token,
         testutils.MockRequest(200, MOCK_PUBLIC_CERTS),
@@ -166,7 +165,7 @@ def revoked_tokens():
     return json.dumps(mock_user)
 
 
-class TestCreateCustomToken(object):
+class TestCreateCustomToken:
 
     valid_args = {
         'Basic': (MOCK_UID, {'one': 2, 'three': 'four'}),
@@ -283,7 +282,7 @@ class TestCreateCustomToken(object):
         assert body['sub'] == signer
 
 
-class TestCreateSessionCookie(object):
+class TestCreateSessionCookie:
 
     @pytest.mark.parametrize('id_token', [None, '', 0, 1, True, False, list(), dict(), tuple()])
     def test_invalid_id_token(self, user_mgt_app, id_token):
@@ -350,7 +349,7 @@ TEST_ID_TOKEN = _get_id_token()
 TEST_SESSION_COOKIE = _get_session_cookie()
 
 
-class TestVerifyIdToken(object):
+class TestVerifyIdToken:
 
     valid_tokens = {
         'BinaryToken': TEST_ID_TOKEN,
@@ -475,7 +474,7 @@ class TestVerifyIdToken(object):
         assert excinfo.value.http_response is None
 
 
-class TestVerifySessionCookie(object):
+class TestVerifySessionCookie:
 
     valid_cookies = {
         'BinaryCookie': TEST_SESSION_COOKIE,
@@ -590,7 +589,7 @@ class TestVerifySessionCookie(object):
         assert excinfo.value.http_response is None
 
 
-class TestCertificateCaching(object):
+class TestCertificateCaching:
 
     def test_certificate_caching(self, user_mgt_app, httpserver):
         httpserver.serve_content(MOCK_PUBLIC_CERTS, 200, headers={'Cache-Control': 'max-age=3600'})

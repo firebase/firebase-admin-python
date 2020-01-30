@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
 import json
 import socket
 
@@ -19,7 +20,6 @@ import httplib2
 import pytest
 import requests
 from requests import models
-import six
 
 from googleapiclient import errors
 from firebase_admin import exceptions
@@ -37,7 +37,7 @@ _NOT_FOUND_PAYLOAD = json.dumps({
 })
 
 
-class TestRequests(object):
+class TestRequests:
 
     def test_timeout_error(self):
         error = requests.exceptions.Timeout('Test error')
@@ -156,7 +156,6 @@ class TestRequests(object):
 
         def _custom_handler(cause, message, error_dict):
             invocations.append((cause, message, error_dict))
-            return None
 
         firebase_error = _utils.handle_platform_error_from_requests(error, _custom_handler)
 
@@ -175,12 +174,12 @@ class TestRequests(object):
         resp = models.Response()
         resp.status_code = status
         if payload:
-            resp.raw = six.BytesIO(payload.encode())
+            resp.raw = io.BytesIO(payload.encode())
         exc = requests.exceptions.RequestException('Test error', response=resp)
         return resp, exc
 
 
-class TestGoogleApiClient(object):
+class TestGoogleApiClient:
 
     @pytest.mark.parametrize('error', [
         socket.timeout('Test error'),
@@ -313,7 +312,6 @@ class TestGoogleApiClient(object):
 
         def _custom_handler(cause, message, error_dict, http_response):
             invocations.append((cause, message, error_dict, http_response))
-            return None
 
         firebase_error = _utils.handle_platform_error_from_googleapiclient(error, _custom_handler)
 

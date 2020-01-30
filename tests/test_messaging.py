@@ -17,14 +17,13 @@ import datetime
 import json
 import numbers
 
-import pytest
-import six
-
 from googleapiclient.http import HttpMockSequence
+import pytest
 
 import firebase_admin
 from firebase_admin import exceptions
 from firebase_admin import messaging
+from firebase_admin import _http_client
 from tests import testutils
 
 
@@ -32,6 +31,7 @@ NON_STRING_ARGS = [list(), tuple(), dict(), True, False, 1, 0]
 NON_DICT_ARGS = ['', list(), tuple(), True, False, 1, 0, {1: 'foo'}, {'foo': 1}]
 NON_OBJECT_ARGS = [list(), tuple(), dict(), 'foo', 0, 1, True, False]
 NON_LIST_ARGS = ['', tuple(), dict(), True, False, 1, 0, [1], ['foo', 1]]
+NON_UINT_ARGS = ['1.23s', list(), tuple(), dict(), -1.23]
 HTTP_ERROR_CODES = {
     400: exceptions.InvalidArgumentError,
     403: exceptions.PermissionDeniedError,
@@ -61,7 +61,35 @@ def check_exception(exception, message, status):
     assert exception.http_response.status_code == status
 
 
-class TestMulticastMessage(object):
+class TestMessageStr:
+
+    @pytest.mark.parametrize('msg', [
+        messaging.Message(),
+        messaging.Message(topic='topic', token='token'),
+        messaging.Message(topic='topic', condition='condition'),
+        messaging.Message(condition='condition', token='token'),
+        messaging.Message(topic='topic', token='token', condition='condition'),
+    ])
+    def test_invalid_target_message(self, msg):
+        with pytest.raises(ValueError) as excinfo:
+            str(msg)
+        assert str(
+            excinfo.value) == 'Exactly one of token, topic or condition must be specified.'
+
+    def test_empty_message(self):
+        assert str(messaging.Message(token='value')) == '{"token": "value"}'
+        assert str(messaging.Message(topic='value')) == '{"topic": "value"}'
+        assert str(messaging.Message(condition='value')
+                  ) == '{"condition": "value"}'
+
+    def test_data_message(self):
+        assert str(messaging.Message(topic='topic', data={})
+                  ) == '{"topic": "topic"}'
+        assert str(messaging.Message(topic='topic', data={
+            'k1': 'v1', 'k2': 'v2'})) == '{"data": {"k1": "v1", "k2": "v2"}, "topic": "topic"}'
+
+
+class TestMulticastMessage:
 
     @pytest.mark.parametrize('tokens', NON_LIST_ARGS)
     def test_invalid_tokens_type(self, tokens):
@@ -74,18 +102,21 @@ class TestMulticastMessage(object):
             expected = 'MulticastMessage.tokens must be a list of strings.'
             assert str(excinfo.value) == expected
 
-    def test_tokens_over_one_hundred(self):
+    def test_tokens_over_500(self):
         with pytest.raises(ValueError) as excinfo:
-            messaging.MulticastMessage(tokens=['token' for _ in range(0, 101)])
-        expected = 'MulticastMessage.tokens must not contain more than 100 tokens.'
+            messaging.MulticastMessage(tokens=['token' for _ in range(0, 501)])
+        expected = 'MulticastMessage.tokens must not contain more than 500 tokens.'
         assert str(excinfo.value) == expected
 
     def test_tokens_type(self):
-        messaging.MulticastMessage(tokens=['token'])
-        messaging.MulticastMessage(tokens=['token' for _ in range(0, 100)])
+        message = messaging.MulticastMessage(tokens=['token'])
+        assert len(message.tokens) == 1
+
+        message = messaging.MulticastMessage(tokens=['token' for _ in range(0, 500)])
+        assert len(message.tokens) == 500
 
 
-class TestMessageEncoder(object):
+class TestMessageEncoder:
 
     @pytest.mark.parametrize('msg', [
         messaging.Message(),
@@ -144,14 +175,14 @@ class TestMessageEncoder(object):
     def test_fcm_options(self):
         check_encoding(
             messaging.Message(
-                topic='topic', fcm_options=messaging.FcmOptions('analytics_label_v1')),
+                topic='topic', fcm_options=messaging.FCMOptions('analytics_label_v1')),
             {'topic': 'topic', 'fcm_options': {'analytics_label': 'analytics_label_v1'}})
         check_encoding(
-            messaging.Message(topic='topic', fcm_options=messaging.FcmOptions()),
+            messaging.Message(topic='topic', fcm_options=messaging.FCMOptions()),
             {'topic': 'topic'})
 
 
-class TestNotificationEncoder(object):
+class TestNotificationEncoder:
 
     @pytest.mark.parametrize('data', NON_OBJECT_ARGS)
     def test_invalid_notification(self, data):
@@ -187,7 +218,7 @@ class TestNotificationEncoder(object):
             {'topic': 'topic', 'notification': {'title': 't'}})
 
 
-class TestFcmOptionEncoder(object):
+class TestFcmOptionEncoder:
 
     @pytest.mark.parametrize('label', [
         '!',
@@ -198,37 +229,43 @@ class TestFcmOptionEncoder(object):
         with pytest.raises(ValueError) as excinfo:
             check_encoding(messaging.Message(
                 topic='topic',
-                fcm_options=messaging.FcmOptions(label)
+                fcm_options=messaging.FCMOptions(label)
             ))
-        expected = 'Malformed FcmOptions.analytics_label.'
+        expected = 'Malformed FCMOptions.analytics_label.'
         assert str(excinfo.value) == expected
 
     def test_fcm_options(self):
         check_encoding(
             messaging.Message(
                 topic='topic',
-                fcm_options=messaging.FcmOptions(),
-                android=messaging.AndroidConfig(fcm_options=messaging.AndroidFcmOptions()),
-                apns=messaging.APNSConfig(fcm_options=messaging.APNSFcmOptions())
+                fcm_options=messaging.FCMOptions(),
+                android=messaging.AndroidConfig(fcm_options=messaging.AndroidFCMOptions()),
+                apns=messaging.APNSConfig(fcm_options=messaging.APNSFCMOptions())
             ),
             {'topic': 'topic'})
         check_encoding(
             messaging.Message(
                 topic='topic',
-                fcm_options=messaging.FcmOptions('message-label'),
+                fcm_options=messaging.FCMOptions('message-label'),
                 android=messaging.AndroidConfig(
-                    fcm_options=messaging.AndroidFcmOptions('android-label')),
-                apns=messaging.APNSConfig(fcm_options=messaging.APNSFcmOptions('apns-label'))
+                    fcm_options=messaging.AndroidFCMOptions('android-label')),
+                apns=messaging.APNSConfig(fcm_options=
+                                          messaging.APNSFCMOptions(
+                                              analytics_label='apns-label',
+                                              image='https://images.unsplash.com/photo-14944386399'
+                                                    '46-1ebd1d20bf85?fit=crop&w=900&q=60'))
             ),
             {
                 'topic': 'topic',
                 'fcm_options': {'analytics_label': 'message-label'},
                 'android': {'fcm_options': {'analytics_label': 'android-label'}},
-                'apns': {'fcm_options': {'analytics_label': 'apns-label'}},
+                'apns': {'fcm_options': {'analytics_label': 'apns-label',
+                                         'image': 'https://images.unsplash.com/photo-14944386399'
+                                                  '46-1ebd1d20bf85?fit=crop&w=900&q=60'}},
             })
 
 
-class TestAndroidConfigEncoder(object):
+class TestAndroidConfigEncoder:
 
     @pytest.mark.parametrize('data', NON_OBJECT_ARGS)
     def test_invalid_android(self, data):
@@ -250,12 +287,12 @@ class TestAndroidConfigEncoder(object):
         with pytest.raises(ValueError) as excinfo:
             check_encoding(messaging.Message(
                 topic='topic', android=messaging.AndroidConfig(priority=data)))
-        if isinstance(data, six.string_types):
+        if isinstance(data, str):
             assert str(excinfo.value) == 'AndroidConfig.priority must be "high" or "normal".'
         else:
             assert str(excinfo.value) == 'AndroidConfig.priority must be a non-empty string.'
 
-    @pytest.mark.parametrize('data', ['1.23s', list(), tuple(), dict(), -1.23])
+    @pytest.mark.parametrize('data', NON_UINT_ARGS)
     def test_invalid_ttl(self, data):
         with pytest.raises(ValueError) as excinfo:
             check_encoding(messaging.Message(
@@ -288,7 +325,7 @@ class TestAndroidConfigEncoder(object):
                 priority='high',
                 ttl=123,
                 data={'k1': 'v1', 'k2': 'v2'},
-                fcm_options=messaging.AndroidFcmOptions('analytics_label_v1')
+                fcm_options=messaging.AndroidFCMOptions('analytics_label_v1')
             )
         )
         expected = {
@@ -329,7 +366,7 @@ class TestAndroidConfigEncoder(object):
         check_encoding(msg, expected)
 
 
-class TestAndroidNotificationEncoder(object):
+class TestAndroidNotificationEncoder:
 
     def _check_notification(self, notification):
         with pytest.raises(ValueError) as excinfo:
@@ -367,7 +404,7 @@ class TestAndroidNotificationEncoder(object):
     def test_invalid_color(self, data):
         notification = messaging.AndroidNotification(color=data)
         excinfo = self._check_notification(notification)
-        if isinstance(data, six.string_types):
+        if isinstance(data, str):
             assert str(excinfo.value) == 'AndroidNotification.color must be in the form #RRGGBB.'
         else:
             assert str(excinfo.value) == 'AndroidNotification.color must be a non-empty string.'
@@ -437,10 +474,69 @@ class TestAndroidNotificationEncoder(object):
         assert str(excinfo.value) == expected
 
     @pytest.mark.parametrize('data', NON_STRING_ARGS)
-    def test_invalid_channek_id(self, data):
+    def test_invalid_channel_id(self, data):
         notification = messaging.AndroidNotification(channel_id=data)
         excinfo = self._check_notification(notification)
         assert str(excinfo.value) == 'AndroidNotification.channel_id must be a string.'
+
+    @pytest.mark.parametrize('timestamp', [100, '', 'foo', {}, [], list(), dict()])
+    def test_invalid_event_timestamp(self, timestamp):
+        notification = messaging.AndroidNotification(event_timestamp=timestamp)
+        excinfo = self._check_notification(notification)
+        expected = 'AndroidNotification.event_timestamp must be a datetime.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('priority', NON_STRING_ARGS + ['foo'])
+    def test_invalid_priority(self, priority):
+        notification = messaging.AndroidNotification(priority=priority)
+        excinfo = self._check_notification(notification)
+        if isinstance(priority, str):
+            if not priority:
+                expected = 'AndroidNotification.priority must be a non-empty string.'
+            else:
+                expected = ('AndroidNotification.priority must be "default", "min", "low", "high" '
+                            'or "max".')
+        else:
+            expected = 'AndroidNotification.priority must be a non-empty string.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('visibility', NON_STRING_ARGS + ['foo'])
+    def test_invalid_visibility(self, visibility):
+        notification = messaging.AndroidNotification(visibility=visibility)
+        excinfo = self._check_notification(notification)
+        if isinstance(visibility, str):
+            if not visibility:
+                expected = 'AndroidNotification.visibility must be a non-empty string.'
+            else:
+                expected = ('AndroidNotification.visibility must be "private", "public" or'
+                            ' "secret".')
+        else:
+            expected = 'AndroidNotification.visibility must be a non-empty string.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('vibrate_timings', ['', 1, True, 'msec', ['500', 500], [0, 'abc']])
+    def test_invalid_vibrate_timings_millis(self, vibrate_timings):
+        notification = messaging.AndroidNotification(vibrate_timings_millis=vibrate_timings)
+        excinfo = self._check_notification(notification)
+        if isinstance(vibrate_timings, list):
+            expected = ('AndroidNotification.vibrate_timings_millis must not contain non-number '
+                        'values.')
+        else:
+            expected = 'AndroidNotification.vibrate_timings_millis must be a list of numbers.'
+        assert str(excinfo.value) == expected
+
+    def test_negative_vibrate_timings_millis(self):
+        notification = messaging.AndroidNotification(
+            vibrate_timings_millis=[100, -20, 15])
+        excinfo = self._check_notification(notification)
+        expected = 'AndroidNotification.vibrate_timings_millis must not be negative.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('notification_count', ['', 'foo', list(), tuple(), dict()])
+    def test_invalid_notification_count(self, notification_count):
+        notification = messaging.AndroidNotification(notification_count=notification_count)
+        excinfo = self._check_notification(notification)
+        assert str(excinfo.value) == 'AndroidNotification.notification_count must be a number.'
 
     def test_android_notification(self):
         msg = messaging.Message(
@@ -449,7 +545,17 @@ class TestAndroidNotificationEncoder(object):
                 notification=messaging.AndroidNotification(
                     title='t', body='b', icon='i', color='#112233', sound='s', tag='t',
                     click_action='ca', title_loc_key='tlk', body_loc_key='blk',
-                    title_loc_args=['t1', 't2'], body_loc_args=['b1', 'b2'], channel_id='c'
+                    title_loc_args=['t1', 't2'], body_loc_args=['b1', 'b2'], channel_id='c',
+                    ticker='ticker', sticky=True,
+                    event_timestamp=datetime.datetime(2019, 10, 20, 15, 12, 23, 123),
+                    local_only=False,
+                    priority='high', vibrate_timings_millis=[100, 50, 250],
+                    default_vibrate_timings=False, default_sound=True,
+                    light_settings=messaging.LightSettings(
+                        color='#AABBCCDD', light_on_duration_millis=200,
+                        light_off_duration_millis=300,
+                    ),
+                    default_light_settings=False, visibility='public', notification_count=1,
                 )
             )
         )
@@ -468,14 +574,149 @@ class TestAndroidNotificationEncoder(object):
                     'body_loc_key': 'blk',
                     'title_loc_args': ['t1', 't2'],
                     'body_loc_args': ['b1', 'b2'],
-                    'channel_id' : 'c',
+                    'channel_id': 'c',
+                    'ticker': 'ticker',
+                    'sticky': True,
+                    'event_time': '2019-10-20T15:12:23.000123Z',
+                    'local_only': False,
+                    'notification_priority': 'PRIORITY_HIGH',
+                    'vibrate_timings': ['0.100000000s', '0.050000000s', '0.250000000s'],
+                    'default_vibrate_timings': False,
+                    'default_sound': 1,
+                    'light_settings': {
+                        'color': {
+                            'red': 0.6666666666666666,
+                            'green': 0.7333333333333333,
+                            'blue': 0.8,
+                            'alpha': 0.8666666666666667,
+                        },
+                        'light_on_duration': '0.200000000s',
+                        'light_off_duration': '0.300000000s',
+                    },
+                    'default_light_settings': False,
+                    'visibility': 'PUBLIC',
+                    'notification_count': 1,
                 },
             },
         }
         check_encoding(msg, expected)
 
 
-class TestWebpushConfigEncoder(object):
+class TestLightSettingsEncoder:
+
+    def _check_light_settings(self, light_settings):
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(
+                topic='topic', android=messaging.AndroidConfig(
+                    notification=messaging.AndroidNotification(
+                        light_settings=light_settings
+                    ))))
+        return excinfo
+
+    @pytest.mark.parametrize('data', NON_OBJECT_ARGS)
+    def test_invalid_light_settings(self, data):
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(
+                topic='topic', android=messaging.AndroidConfig(
+                    notification=messaging.AndroidNotification(
+                        light_settings=data
+                    ))))
+        expected = 'AndroidNotification.light_settings must be an instance of LightSettings class.'
+        assert str(excinfo.value) == expected
+
+    def test_no_color(self):
+        light_settings = messaging.LightSettings(color=None, light_on_duration_millis=200,
+                                                 light_off_duration_millis=200)
+        excinfo = self._check_light_settings(light_settings)
+        expected = 'LightSettings.color is required.'
+        assert str(excinfo.value) == expected
+
+    def test_no_light_on_duration_millis(self):
+        light_settings = messaging.LightSettings(color='#aabbcc', light_on_duration_millis=None,
+                                                 light_off_duration_millis=200)
+        excinfo = self._check_light_settings(light_settings)
+        expected = 'LightSettings.light_on_duration_millis is required.'
+        assert str(excinfo.value) == expected
+
+    def test_no_light_off_duration_millis(self):
+        light_settings = messaging.LightSettings(color='#aabbcc', light_on_duration_millis=200,
+                                                 light_off_duration_millis=None)
+        excinfo = self._check_light_settings(light_settings)
+        expected = 'LightSettings.light_off_duration_millis is required.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', NON_UINT_ARGS)
+    def test_invalid_light_off_duration_millis(self, data):
+        light_settings = messaging.LightSettings(color='#aabbcc',
+                                                 light_on_duration_millis=200,
+                                                 light_off_duration_millis=data)
+        excinfo = self._check_light_settings(light_settings)
+        if isinstance(data, numbers.Number):
+            assert str(excinfo.value) == ('LightSettings.light_off_duration_millis must not be '
+                                          'negative.')
+        else:
+            assert str(excinfo.value) == ('LightSettings.light_off_duration_millis must be a '
+                                          'duration in milliseconds or '
+                                          'an instance of datetime.timedelta.')
+
+    @pytest.mark.parametrize('data', NON_UINT_ARGS)
+    def test_invalid_light_on_duration_millis(self, data):
+        light_settings = messaging.LightSettings(color='#aabbcc',
+                                                 light_on_duration_millis=data,
+                                                 light_off_duration_millis=200)
+        excinfo = self._check_light_settings(light_settings)
+        if isinstance(data, numbers.Number):
+            assert str(excinfo.value) == ('LightSettings.light_on_duration_millis must not be '
+                                          'negative.')
+        else:
+            assert str(excinfo.value) == ('LightSettings.light_on_duration_millis must be a '
+                                          'duration in milliseconds or '
+                                          'an instance of datetime.timedelta.')
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS + ['foo', '#xxyyzz', '112233', '#11223'])
+    def test_invalid_color(self, data):
+        notification = messaging.LightSettings(color=data, light_on_duration_millis=300,
+                                               light_off_duration_millis=200)
+        excinfo = self._check_light_settings(notification)
+        if isinstance(data, str):
+            assert str(excinfo.value) == ('LightSettings.color must be in the form #RRGGBB or '
+                                          '#RRGGBBAA.')
+        else:
+            assert str(
+                excinfo.value) == 'LightSettings.color must be a non-empty string.'
+
+    def test_light_settings(self):
+        msg = messaging.Message(
+            topic='topic', android=messaging.AndroidConfig(
+                notification=messaging.AndroidNotification(
+                    light_settings=messaging.LightSettings(
+                        color="#aabbcc",
+                        light_on_duration_millis=200,
+                        light_off_duration_millis=300,
+                    )
+                ))
+        )
+        expected = {
+            'topic': 'topic',
+            'android': {
+                'notification': {
+                    'light_settings': {
+                        'color': {
+                            'red': 0.6666666666666666,
+                            'green': 0.7333333333333333,
+                            'blue': 0.8,
+                            'alpha': 1,
+                        },
+                        'light_on_duration': '0.200000000s',
+                        'light_off_duration': '0.300000000s',
+                    }
+                },
+            },
+        }
+        check_encoding(msg, expected)
+
+
+class TestWebpushConfigEncoder:
 
     @pytest.mark.parametrize('data', NON_OBJECT_ARGS)
     def test_invalid_webpush(self, data):
@@ -521,7 +762,7 @@ class TestWebpushConfigEncoder(object):
         check_encoding(msg, expected)
 
 
-class TestWebpushFcmOptionsEncoder(object):
+class TestWebpushFCMOptionsEncoder:
 
     @pytest.mark.parametrize('data', NON_OBJECT_ARGS)
     def test_invalid_webpush_fcm_options(self, data):
@@ -531,7 +772,7 @@ class TestWebpushFcmOptionsEncoder(object):
 
     @pytest.mark.parametrize('data', NON_STRING_ARGS)
     def test_invalid_link_type(self, data):
-        options = messaging.WebpushFcmOptions(link=data)
+        options = messaging.WebpushFCMOptions(link=data)
         with pytest.raises(ValueError) as excinfo:
             check_encoding(messaging.Message(
                 topic='topic', webpush=messaging.WebpushConfig(fcm_options=options)))
@@ -540,18 +781,18 @@ class TestWebpushFcmOptionsEncoder(object):
 
     @pytest.mark.parametrize('data', ['', 'foo', 'http://example'])
     def test_invalid_link_format(self, data):
-        options = messaging.WebpushFcmOptions(link=data)
+        options = messaging.WebpushFCMOptions(link=data)
         with pytest.raises(ValueError) as excinfo:
             check_encoding(messaging.Message(
                 topic='topic', webpush=messaging.WebpushConfig(fcm_options=options)))
-        expected = 'WebpushFcmOptions.link must be a HTTPS URL.'
+        expected = 'WebpushFCMOptions.link must be a HTTPS URL.'
         assert str(excinfo.value) == expected
 
-    def test_webpush_notification(self):
+    def test_webpush_options(self):
         msg = messaging.Message(
             topic='topic',
             webpush=messaging.WebpushConfig(
-                fcm_options=messaging.WebpushFcmOptions(
+                fcm_options=messaging.WebpushFCMOptions(
                     link='https://example',
                 ),
             )
@@ -567,7 +808,7 @@ class TestWebpushFcmOptionsEncoder(object):
         check_encoding(msg, expected)
 
 
-class TestWebpushNotificationEncoder(object):
+class TestWebpushNotificationEncoder:
 
     def _check_notification(self, notification):
         with pytest.raises(ValueError) as excinfo:
@@ -611,7 +852,7 @@ class TestWebpushNotificationEncoder(object):
     def test_invalid_direction(self, data):
         notification = messaging.WebpushNotification(direction=data)
         excinfo = self._check_notification(notification)
-        if isinstance(data, six.string_types):
+        if isinstance(data, str):
             assert str(excinfo.value) == ('WebpushNotification.direction must be "auto", '
                                           '"ltr" or "rtl".')
         else:
@@ -770,7 +1011,7 @@ class TestWebpushNotificationEncoder(object):
         assert str(excinfo.value) == 'WebpushNotificationAction.icon must be a string.'
 
 
-class TestAPNSConfigEncoder(object):
+class TestAPNSConfigEncoder:
 
     @pytest.mark.parametrize('data', NON_OBJECT_ARGS)
     def test_invalid_apns(self, data):
@@ -791,7 +1032,7 @@ class TestAPNSConfigEncoder(object):
             topic='topic',
             apns=messaging.APNSConfig(
                 headers={'h1': 'v1', 'h2': 'v2'},
-                fcm_options=messaging.APNSFcmOptions('analytics_label_v1')
+                fcm_options=messaging.APNSFCMOptions('analytics_label_v1')
             ),
         )
         expected = {
@@ -809,7 +1050,7 @@ class TestAPNSConfigEncoder(object):
         check_encoding(msg, expected)
 
 
-class TestAPNSPayloadEncoder(object):
+class TestAPNSPayloadEncoder:
 
     @pytest.mark.parametrize('data', NON_OBJECT_ARGS)
     def test_invalid_payload(self, data):
@@ -843,7 +1084,7 @@ class TestAPNSPayloadEncoder(object):
         check_encoding(msg, expected)
 
 
-class TestApsEncoder(object):
+class TestApsEncoder:
 
     def _encode_aps(self, aps):
         return check_encoding(messaging.Message(
@@ -985,7 +1226,7 @@ class TestApsEncoder(object):
         check_encoding(msg, expected)
 
 
-class TestApsSoundEncoder(object):
+class TestApsSoundEncoder:
 
     def _check_sound(self, sound):
         with pytest.raises(ValueError) as excinfo:
@@ -1093,7 +1334,7 @@ class TestApsSoundEncoder(object):
         check_encoding(msg, expected)
 
 
-class TestApsAlertEncoder(object):
+class TestApsAlertEncoder:
 
     def _check_alert(self, alert):
         with pytest.raises(ValueError) as excinfo:
@@ -1230,46 +1471,127 @@ class TestApsAlertEncoder(object):
         }
         check_encoding(msg, expected)
 
+    def test_aps_alert_custom_data_merge(self):
+        msg = messaging.Message(
+            topic='topic',
+            apns=messaging.APNSConfig(
+                payload=messaging.APNSPayload(
+                    aps=messaging.Aps(
+                        alert=messaging.ApsAlert(
+                            title='t',
+                            subtitle='st',
+                            custom_data={'k1': 'v1', 'k2': 'v2'}
+                        )
+                    ),
+                )
+            )
+        )
+        expected = {
+            'topic': 'topic',
+            'apns': {
+                'payload': {
+                    'aps': {
+                        'alert': {
+                            'title': 't',
+                            'subtitle': 'st',
+                            'k1': 'v1',
+                            'k2': 'v2'
+                        },
+                    },
+                }
+            },
+        }
+        check_encoding(msg, expected)
 
-class TestTimeout(object):
+    def test_aps_alert_custom_data_override(self):
+        msg = messaging.Message(
+            topic='topic',
+            apns=messaging.APNSConfig(
+                payload=messaging.APNSPayload(
+                    aps=messaging.Aps(
+                        alert=messaging.ApsAlert(
+                            title='t',
+                            subtitle='st',
+                            launch_image='li',
+                            custom_data={'launch-image': ['li1', 'li2']}
+                        )
+                    ),
+                )
+            )
+        )
+        expected = {
+            'topic': 'topic',
+            'apns': {
+                'payload': {
+                    'aps': {
+                        'alert': {
+                            'title': 't',
+                            'subtitle': 'st',
+                            'launch-image': [
+                                'li1',
+                                'li2'
+                            ]
+                        },
+                    },
+                }
+            },
+        }
+        check_encoding(msg, expected)
 
-    @classmethod
-    def setup_class(cls):
-        cred = testutils.MockCredential()
-        firebase_admin.initialize_app(cred, {'httpTimeout': 4, 'projectId': 'explicit-project-id'})
 
-    @classmethod
-    def teardown_class(cls):
+class TestTimeout:
+
+    def teardown(self):
         testutils.cleanup_apps()
 
-    def setup(self):
+    def _instrument_service(self, url, response):
         app = firebase_admin.get_app()
-        self.fcm_service = messaging._get_messaging_service(app)
-        self.recorder = []
+        fcm_service = messaging._get_messaging_service(app)
+        recorder = []
+        fcm_service._client.session.mount(
+            url, testutils.MockAdapter(json.dumps(response), 200, recorder))
+        return recorder
 
-    def test_send(self):
-        self.fcm_service._client.session.mount(
-            'https://fcm.googleapis.com',
-            testutils.MockAdapter(json.dumps({'name': 'message-id'}), 200, self.recorder))
+    def _check_timeout(self, recorder, timeout):
+        assert len(recorder) == 1
+        if timeout is None:
+            assert recorder[0]._extra_kwargs['timeout'] is None
+        else:
+            assert recorder[0]._extra_kwargs['timeout'] == pytest.approx(timeout, 0.001)
+
+    @pytest.mark.parametrize('options, timeout', [
+        ({'httpTimeout': 4}, 4),
+        ({'httpTimeout': None}, None),
+        ({}, _http_client.DEFAULT_TIMEOUT_SECONDS),
+    ])
+    def test_send(self, options, timeout):
+        cred = testutils.MockCredential()
+        all_options = {'projectId': 'explicit-project-id'}
+        all_options.update(options)
+        firebase_admin.initialize_app(cred, all_options)
+        recorder = self._instrument_service(
+            'https://fcm.googleapis.com', {'name': 'message-id'})
         msg = messaging.Message(topic='foo')
         messaging.send(msg)
-        assert len(self.recorder) == 1
-        assert self.recorder[0]._extra_kwargs['timeout'] == pytest.approx(4, 0.001)
+        self._check_timeout(recorder, timeout)
 
-    def test_topic_management_timeout(self):
-        self.fcm_service._client.session.mount(
-            'https://iid.googleapis.com',
-            testutils.MockAdapter(
-                json.dumps({'results': [{}, {'error': 'error_reason'}]}),
-                200,
-                self.recorder)
-        )
+    @pytest.mark.parametrize('options, timeout', [
+        ({'httpTimeout': 4}, 4),
+        ({'httpTimeout': None}, None),
+        ({}, _http_client.DEFAULT_TIMEOUT_SECONDS),
+    ])
+    def test_topic_management_custom_timeout(self, options, timeout):
+        cred = testutils.MockCredential()
+        all_options = {'projectId': 'explicit-project-id'}
+        all_options.update(options)
+        firebase_admin.initialize_app(cred, all_options)
+        recorder = self._instrument_service(
+            'https://iid.googleapis.com', {'results': [{}, {'error': 'error_reason'}]})
         messaging.subscribe_to_topic(['1'], 'a')
-        assert len(self.recorder) == 1
-        assert self.recorder[0]._extra_kwargs['timeout'] == pytest.approx(4, 0.001)
+        self._check_timeout(recorder, timeout)
 
 
-class TestSend(object):
+class TestSend:
 
     _DEFAULT_RESPONSE = json.dumps({'name': 'message-id'})
     _CLIENT_VERSION = 'fire-admin-python/{0}'.format(firebase_admin.__version__)
@@ -1335,7 +1657,6 @@ class TestSend(object):
         assert recorder[0].url == self._get_url('explicit-project-id')
         assert recorder[0].headers['X-GOOG-API-FORMAT-VERSION'] == '2'
         assert recorder[0].headers['X-FIREBASE-CLIENT'] == self._CLIENT_VERSION
-        assert recorder[0]._extra_kwargs['timeout'] is None
         body = {'message': messaging._MessagingService.encode_message(msg)}
         assert json.loads(recorder[0].body.decode()) == body
 
@@ -1445,7 +1766,7 @@ class TestSend(object):
         assert json.loads(recorder[0].body.decode()) == body
 
 
-class TestBatch(object):
+class TestBatch:
 
     @classmethod
     def setup_class(cls):
@@ -1498,14 +1819,14 @@ class TestSendAll(TestBatch):
             expected = 'Message must be an instance of messaging.Message class.'
             assert str(excinfo.value) == expected
         else:
-            expected = 'Messages must be an list of messaging.Message instances.'
+            expected = 'messages must be a list of messaging.Message instances.'
             assert str(excinfo.value) == expected
 
-    def test_invalid_over_one_hundred(self):
+    def test_invalid_over_500(self):
         msg = messaging.Message(topic='foo')
         with pytest.raises(ValueError) as excinfo:
-            messaging.send_all([msg for _ in range(0, 101)])
-        expected = 'send_all messages must not contain more than 100 messages.'
+            messaging.send_all([msg for _ in range(0, 501)])
+        expected = 'messages must not contain more than 500 elements.'
         assert str(excinfo.value) == expected
 
     def test_send_all(self):
@@ -1514,8 +1835,8 @@ class TestSendAll(TestBatch):
             payload=self._batch_payload([(200, payload), (200, payload)]))
         msg = messaging.Message(topic='foo')
         batch_response = messaging.send_all([msg, msg], dry_run=True)
-        assert batch_response.success_count is 2
-        assert batch_response.failure_count is 0
+        assert batch_response.success_count == 2
+        assert batch_response.failure_count == 0
         assert len(batch_response.responses) == 2
         assert [r.message_id for r in batch_response.responses] == ['message-id', 'message-id']
         assert all([r.success for r in batch_response.responses])
@@ -1534,8 +1855,8 @@ class TestSendAll(TestBatch):
             payload=self._batch_payload([(200, success_payload), (status, error_payload)]))
         msg = messaging.Message(topic='foo')
         batch_response = messaging.send_all([msg, msg])
-        assert batch_response.success_count is 1
-        assert batch_response.failure_count is 1
+        assert batch_response.success_count == 1
+        assert batch_response.failure_count == 1
         assert len(batch_response.responses) == 2
         success_response = batch_response.responses[0]
         assert success_response.message_id == 'message-id'
@@ -1561,8 +1882,8 @@ class TestSendAll(TestBatch):
             payload=self._batch_payload([(200, success_payload), (status, error_payload)]))
         msg = messaging.Message(topic='foo')
         batch_response = messaging.send_all([msg, msg])
-        assert batch_response.success_count is 1
-        assert batch_response.failure_count is 1
+        assert batch_response.success_count == 1
+        assert batch_response.failure_count == 1
         assert len(batch_response.responses) == 2
         success_response = batch_response.responses[0]
         assert success_response.message_id == 'message-id'
@@ -1595,8 +1916,8 @@ class TestSendAll(TestBatch):
             payload=self._batch_payload([(200, success_payload), (status, error_payload)]))
         msg = messaging.Message(topic='foo')
         batch_response = messaging.send_all([msg, msg])
-        assert batch_response.success_count is 1
-        assert batch_response.failure_count is 1
+        assert batch_response.success_count == 1
+        assert batch_response.failure_count == 1
         assert len(batch_response.responses) == 2
         success_response = batch_response.responses[0]
         assert success_response.message_id == 'message-id'
@@ -1689,8 +2010,8 @@ class TestSendMulticast(TestBatch):
             payload=self._batch_payload([(200, payload), (200, payload)]))
         msg = messaging.MulticastMessage(tokens=['foo', 'foo'])
         batch_response = messaging.send_multicast(msg, dry_run=True)
-        assert batch_response.success_count is 2
-        assert batch_response.failure_count is 0
+        assert batch_response.success_count == 2
+        assert batch_response.failure_count == 0
         assert len(batch_response.responses) == 2
         assert [r.message_id for r in batch_response.responses] == ['message-id', 'message-id']
         assert all([r.success for r in batch_response.responses])
@@ -1709,8 +2030,8 @@ class TestSendMulticast(TestBatch):
             payload=self._batch_payload([(200, success_payload), (status, error_payload)]))
         msg = messaging.MulticastMessage(tokens=['foo', 'foo'])
         batch_response = messaging.send_multicast(msg)
-        assert batch_response.success_count is 1
-        assert batch_response.failure_count is 1
+        assert batch_response.success_count == 1
+        assert batch_response.failure_count == 1
         assert len(batch_response.responses) == 2
         success_response = batch_response.responses[0]
         assert success_response.message_id == 'message-id'
@@ -1737,8 +2058,8 @@ class TestSendMulticast(TestBatch):
             payload=self._batch_payload([(200, success_payload), (status, error_payload)]))
         msg = messaging.MulticastMessage(tokens=['foo', 'foo'])
         batch_response = messaging.send_multicast(msg)
-        assert batch_response.success_count is 1
-        assert batch_response.failure_count is 1
+        assert batch_response.success_count == 1
+        assert batch_response.failure_count == 1
         assert len(batch_response.responses) == 2
         success_response = batch_response.responses[0]
         assert success_response.message_id == 'message-id'
@@ -1771,8 +2092,8 @@ class TestSendMulticast(TestBatch):
             payload=self._batch_payload([(200, success_payload), (status, error_payload)]))
         msg = messaging.MulticastMessage(tokens=['foo', 'foo'])
         batch_response = messaging.send_multicast(msg)
-        assert batch_response.success_count is 1
-        assert batch_response.failure_count is 1
+        assert batch_response.success_count == 1
+        assert batch_response.failure_count == 1
         assert len(batch_response.responses) == 2
         success_response = batch_response.responses[0]
         assert success_response.message_id == 'message-id'
@@ -1844,7 +2165,7 @@ class TestSendMulticast(TestBatch):
         check_exception(excinfo.value, 'test error', status)
 
 
-class TestTopicManagement(object):
+class TestTopicManagement:
 
     _DEFAULT_RESPONSE = json.dumps({'results': [{}, {'error': 'error_reason'}]})
     _DEFAULT_ERROR_RESPONSE = json.dumps({'error': 'error_reason'})
@@ -1887,7 +2208,7 @@ class TestTopicManagement(object):
     @pytest.mark.parametrize('tokens', [None, '', list(), dict(), tuple()])
     def test_invalid_tokens(self, tokens):
         expected = 'Tokens must be a string or a non-empty list of strings.'
-        if isinstance(tokens, six.string_types):
+        if isinstance(tokens, str):
             expected = 'Tokens must be non-empty strings.'
 
         with pytest.raises(ValueError) as excinfo:

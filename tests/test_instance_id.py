@@ -19,6 +19,7 @@ import pytest
 import firebase_admin
 from firebase_admin import exceptions
 from firebase_admin import instance_id
+from firebase_admin import _http_client
 from tests import testutils
 
 
@@ -50,7 +51,7 @@ http_errors = {
         exceptions.UnavailableError),
 }
 
-class TestDeleteInstanceId(object):
+class TestDeleteInstanceId:
 
     def teardown_method(self):
         testutils.cleanup_apps()
@@ -72,6 +73,12 @@ class TestDeleteInstanceId(object):
             with pytest.raises(ValueError):
                 instance_id.delete_instance_id('test')
         testutils.run_without_project_id(evaluate)
+
+    def test_default_timeout(self):
+        cred = testutils.MockCredential()
+        app = firebase_admin.initialize_app(cred, {'projectId': 'explicit-project-id'})
+        iid_service = instance_id._get_iid_service(app)
+        assert iid_service._client.timeout == _http_client.DEFAULT_TIMEOUT_SECONDS
 
     def test_delete_instance_id(self):
         cred = testutils.MockCredential()
@@ -132,4 +139,4 @@ class TestDeleteInstanceId(object):
         _, recorder = self._instrument_iid_service(app)
         with pytest.raises(ValueError):
             instance_id.delete_instance_id(iid)
-        assert len(recorder) is 0
+        assert len(recorder) == 0

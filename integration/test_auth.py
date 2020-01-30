@@ -429,9 +429,9 @@ def test_delete_user():
 
 
 class TestDeleteUsers:
-    def test_delete_multiple_disabled_users(self):
+    def test_delete_multiple_users(self):
         uid1 = auth.create_user(disabled=True).uid
-        uid2 = auth.create_user(disabled=True).uid
+        uid2 = auth.create_user(disabled=False).uid
         uid3 = auth.create_user(disabled=True).uid
 
         delete_users_result = auth.delete_users([uid1, uid2, uid3])
@@ -443,45 +443,8 @@ class TestDeleteUsers:
             [auth.UidIdentifier(uid1), auth.UidIdentifier(uid2), auth.UidIdentifier(uid3)])
         assert len(user_records) == 0
 
-    def test_fails_to_delete_enabled_users(self):
-        uid1 = auth.create_user(disabled=False).uid
-        uid2 = auth.create_user(disabled=True).uid
-        uid3 = auth.create_user(disabled=False).uid
-
-        try:
-            delete_users_result = auth.delete_users([uid1, uid2, uid3])
-            assert delete_users_result.success_count == 1
-            assert delete_users_result.failure_count == 2
-            assert len(delete_users_result.errors) == 2
-            assert delete_users_result.errors[0].index == 0
-            assert delete_users_result.errors[0].message.startswith('NOT_DISABLED')
-            assert delete_users_result.errors[1].index == 2
-            assert delete_users_result.errors[1].message.startswith('NOT_DISABLED')
-
-            user_records = auth.get_users(
-                [auth.UidIdentifier(uid1), auth.UidIdentifier(uid2), auth.UidIdentifier(uid3)])
-            assert len(user_records) == 2
-            assert {ur.uid for ur in user_records} == set([uid1, uid3])
-
-        finally:
-            auth.delete_users([uid1, uid3], force_delete=True)
-
-    def test_deletes_enabled_users_when_force_is_true(self):
-        uid1 = auth.create_user(disabled=False).uid
-        uid2 = auth.create_user(disabled=True).uid
-        uid3 = auth.create_user(disabled=False).uid
-
-        delete_users_result = auth.delete_users([uid1, uid2, uid3], force_delete=True)
-        assert delete_users_result.success_count == 3
-        assert delete_users_result.failure_count == 0
-        assert len(delete_users_result.errors) == 0
-
-        user_records = auth.get_users(
-            [auth.UidIdentifier(uid1), auth.UidIdentifier(uid2), auth.UidIdentifier(uid3)])
-        assert len(user_records) == 0
-
     def test_is_idempotent(self):
-        uid = auth.create_user(disabled=True).uid
+        uid = auth.create_user().uid
 
         delete_users_result = auth.delete_users([uid])
         assert delete_users_result.success_count == 1

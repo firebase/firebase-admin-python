@@ -596,6 +596,8 @@ class UserManager:
         Raises:
             ValueError: If any of the identifiers are invalid or if more than
                 100 identifiers are specified.
+            UnexpectedResponseError: If the backend server responds with an
+                unexpected message.
         """
         if not identifiers:
             return []
@@ -753,6 +755,8 @@ class UserManager:
         Raises:
             ValueError: If any of the identifiers are invalid or if more than 1000
                 identifiers are specified.
+            UnexpectedResponseError: If the backend server responds with an
+                unexpected message.
         """
         if not uids:
             return BatchDeleteAccountsResponse()

@@ -23,11 +23,10 @@ import datetime
 import re
 import time
 import os
+from urllib import parse
+
 import requests
-import six
 
-
-from six.moves import urllib
 from firebase_admin import _http_client
 from firebase_admin import _utils
 from firebase_admin import exceptions
@@ -175,7 +174,7 @@ def delete_model(model_id, app=None):
     ml_service.delete_model(model_id)
 
 
-class Model(object):
+class Model:
     """A Firebase ML Model object.
 
     Args:
@@ -218,8 +217,7 @@ class Model(object):
         if isinstance(other, self.__class__):
             # pylint: disable=protected-access
             return self._data == other._data and self._model_format == other._model_format
-        else:
-            return False
+        return False
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -341,7 +339,7 @@ class Model(object):
         return copy
 
 
-class ModelFormat(object):
+class ModelFormat:
     """Abstract base class representing a Model Format such as TFLite."""
     def as_dict(self, for_upload=False):
         """Returns a serializable representation of the object."""
@@ -378,8 +376,7 @@ class TFLiteFormat(ModelFormat):
         if isinstance(other, self.__class__):
             # pylint: disable=protected-access
             return self._data == other._data and self._model_source == other._model_source
-        else:
-            return False
+        return False
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -409,14 +406,14 @@ class TFLiteFormat(ModelFormat):
         return {'tfliteModel': copy}
 
 
-class TFLiteModelSource(object):
+class TFLiteModelSource:
     """Abstract base class representing a model source for TFLite format models."""
     def as_dict(self, for_upload=False):
         """Returns a serializable representation of the object."""
         raise NotImplementedError
 
 
-class _CloudStorageClient(object):
+class _CloudStorageClient:
     """Cloud Storage helper class"""
 
     GCS_URI = 'gs://{0}/{1}'
@@ -475,8 +472,7 @@ class TFLiteGCSModelSource(TFLiteModelSource):
     def __eq__(self, other):
         if isinstance(other, self.__class__):
             return self._gcs_tflite_uri == other._gcs_tflite_uri # pylint: disable=protected-access
-        else:
-            return False
+        return False
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -517,15 +513,16 @@ class TFLiteGCSModelSource(TFLiteModelSource):
 
     @staticmethod
     def _tf_convert_from_keras_model(keras_model):
+        """Converts the given Keras model into a TF Lite model."""
         # Version 1.x conversion function takes a model file. Version 2.x takes the model itself.
         if tf.version.VERSION.startswith('1.'):
             keras_file = 'firebase_keras_model.h5'
             tf.keras.models.save_model(keras_model, keras_file)
             converter = tf.lite.TFLiteConverter.from_keras_model_file(keras_file)
-            return converter.convert()
         else:
             converter = tf.lite.TFLiteConverter.from_keras_model(keras_model)
-            return converter.convert()
+
+        return converter.convert()
 
     @classmethod
     def from_saved_model(cls, saved_model_dir, model_file_name='firebase_ml_model.tflite',
@@ -596,7 +593,7 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         return {'gcsTfliteUri': self._gcs_tflite_uri}
 
 
-class ListModelsPage(object):
+class ListModelsPage:
     """Represents a page of models in a firebase project.
 
     Provides methods for traversing the models included in this page, as well as
@@ -662,7 +659,7 @@ class ListModelsPage(object):
         return _ModelIterator(self)
 
 
-class _ModelIterator(object):
+class _ModelIterator:
     """An iterator that allows iterating over models, one at a time.
 
     This implementation loads a page of models into memory, and iterates on them.
@@ -730,7 +727,7 @@ def _validate_display_name(display_name):
 
 def _validate_tags(tags):
     if not isinstance(tags, list) or not \
-        all(isinstance(tag, six.string_types) for tag in tags):
+        all(isinstance(tag, str) for tag in tags):
         raise TypeError('Tags must be a list of strings.')
     if not all(_TAG_PATTERN.match(tag) for tag in tags):
         raise ValueError('Tag format is invalid.')
@@ -753,7 +750,7 @@ def _validate_model_format(model_format):
 
 def _validate_list_filter(list_filter):
     if list_filter is not None:
-        if not isinstance(list_filter, six.string_types):
+        if not isinstance(list_filter, str):
             raise TypeError('List filter must be a string or None.')
 
 
@@ -769,11 +766,11 @@ def _validate_page_size(page_size):
 
 def _validate_page_token(page_token):
     if page_token is not None:
-        if not isinstance(page_token, six.string_types):
+        if not isinstance(page_token, str):
             raise TypeError('Page token must be a string or None.')
 
 
-class _MLService(object):
+class _MLService:
     """Firebase ML service."""
 
     PROJECT_URL = 'https://mlkit.googleapis.com/v1beta1/projects/{0}/'
@@ -811,8 +808,7 @@ class _MLService(object):
             max_seconds_left = (stop_time - datetime.datetime.now()).total_seconds()
             if max_seconds_left < 1: # allow a bit of time for rpc
                 raise exceptions.DeadlineExceededError('Polling max time exceeded.')
-            else:
-                wait_time_seconds = min(wait_time_seconds, max_seconds_left - 1)
+            wait_time_seconds = min(wait_time_seconds, max_seconds_left - 1)
         time.sleep(wait_time_seconds)
 
     def handle_operation(self, operation, wait_for_operation=False, max_time_seconds=None):
@@ -831,6 +827,7 @@ class _MLService(object):
         Raises:
             TypeError: if the operation is not a dictionary.
             ValueError: If the operation is malformed.
+            UnknownError: If the server responds with an unexpected response.
             err: If the operation exceeds polling attempts or stop_time
         """
         if not isinstance(operation, dict):
@@ -840,31 +837,31 @@ class _MLService(object):
             # Operations which are immediately done don't have an operation name
             if operation.get('response'):
                 return operation.get('response')
-            elif operation.get('error'):
+            if operation.get('error'):
                 raise _utils.handle_operation_error(operation.get('error'))
             raise exceptions.UnknownError(message='Internal Error: Malformed Operation.')
-        else:
-            op_name = operation.get('name')
-            _, model_id = _validate_and_parse_operation_name(op_name)
-            current_attempt = 0
-            start_time = datetime.datetime.now()
-            stop_time = (None if max_time_seconds is None else
-                         start_time + datetime.timedelta(seconds=max_time_seconds))
-            while wait_for_operation and not operation.get('done'):
-                # We just got this operation. Wait before getting another
-                # so we don't exceed the GetOperation maximum request rate.
-                self._exponential_backoff(current_attempt, stop_time)
-                operation = self.get_operation(op_name)
-                current_attempt += 1
 
-            if operation.get('done'):
-                if operation.get('response'):
-                    return operation.get('response')
-                elif operation.get('error'):
-                    raise _utils.handle_operation_error(operation.get('error'))
+        op_name = operation.get('name')
+        _, model_id = _validate_and_parse_operation_name(op_name)
+        current_attempt = 0
+        start_time = datetime.datetime.now()
+        stop_time = (None if max_time_seconds is None else
+                     start_time + datetime.timedelta(seconds=max_time_seconds))
+        while wait_for_operation and not operation.get('done'):
+            # We just got this operation. Wait before getting another
+            # so we don't exceed the GetOperation maximum request rate.
+            self._exponential_backoff(current_attempt, stop_time)
+            operation = self.get_operation(op_name)
+            current_attempt += 1
 
-            # If the operation is not complete or timed out, return a (locked) model instead
-            return get_model(model_id).as_dict()
+        if operation.get('done'):
+            if operation.get('response'):
+                return operation.get('response')
+            if operation.get('error'):
+                raise _utils.handle_operation_error(operation.get('error'))
+
+        # If the operation is not complete or timed out, return a (locked) model instead
+        return get_model(model_id).as_dict()
 
 
     def create_model(self, model):
@@ -918,8 +915,7 @@ class _MLService(object):
             params['page_token'] = page_token
         path = 'models'
         if params:
-            # pylint: disable=too-many-function-args
-            param_str = urllib.parse.urlencode(sorted(params.items()), True)
+            param_str = parse.urlencode(sorted(params.items()), True)
             path = path + '?' + param_str
         try:
             return self._client.body('get', url=path)

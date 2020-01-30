@@ -19,8 +19,8 @@ import re
 import shutil
 import string
 import tempfile
-import pytest
 
+import pytest
 
 from firebase_admin import exceptions
 from firebase_admin import ml

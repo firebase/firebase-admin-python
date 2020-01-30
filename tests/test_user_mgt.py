@@ -25,6 +25,7 @@ import firebase_admin
 from firebase_admin import auth
 from firebase_admin import exceptions
 from firebase_admin import _auth_utils
+from firebase_admin import _http_client
 from firebase_admin import _user_import
 from firebase_admin import _user_mgt
 from tests import testutils
@@ -102,11 +103,17 @@ def _check_user_record(user, expected_uid='testuser'):
 
 class TestAuthServiceInitialization:
 
+    def test_default_timeout(self, user_mgt_app):
+        auth_service = auth._get_auth_service(user_mgt_app)
+        user_manager = auth_service.user_manager
+        assert user_manager._client.timeout == _http_client.DEFAULT_TIMEOUT_SECONDS
+
     def test_fail_on_no_project_id(self):
         app = firebase_admin.initialize_app(testutils.MockCredential(), name='userMgt2')
         with pytest.raises(ValueError):
             auth._get_auth_service(app)
         firebase_admin.delete_app(app)
+
 
 class TestUserRecord:
 

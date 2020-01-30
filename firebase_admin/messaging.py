@@ -330,8 +330,9 @@ class _MessagingService:
             'X-GOOG-API-FORMAT-VERSION': '2',
             'X-FIREBASE-CLIENT': 'fire-admin-python/{0}'.format(firebase_admin.__version__),
         }
-        self._client = _http_client.JsonHttpClient(credential=app.credential.get_credential())
-        self._timeout = app.options.get('httpTimeout')
+        timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
+        self._client = _http_client.JsonHttpClient(
+            credential=app.credential.get_credential(), timeout=timeout)
         self._transport = _auth.authorized_http(app.credential.get_credential())
 
     @classmethod
@@ -348,8 +349,7 @@ class _MessagingService:
                 'post',
                 url=self._fcm_url,
                 headers=self._fcm_headers,
-                json=data,
-                timeout=self._timeout
+                json=data
             )
         except requests.exceptions.RequestException as error:
             raise self._handle_fcm_error(error)
@@ -416,8 +416,7 @@ class _MessagingService:
                 'post',
                 url=url,
                 json=data,
-                headers=_MessagingService.IID_HEADERS,
-                timeout=self._timeout
+                headers=_MessagingService.IID_HEADERS
             )
         except requests.exceptions.RequestException as error:
             raise self._handle_iid_error(error)

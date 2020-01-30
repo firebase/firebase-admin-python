@@ -478,11 +478,12 @@ class _ProjectManagementService:
                 'the GOOGLE_CLOUD_PROJECT environment variable.')
         self._project_id = project_id
         version_header = 'Python/Admin/{0}'.format(firebase_admin.__version__)
+        timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
         self._client = _http_client.JsonHttpClient(
             credential=app.credential.get_credential(),
             base_url=_ProjectManagementService.BASE_URL,
-            headers={'X-Client-Version': version_header})
-        self._timeout = app.options.get('httpTimeout')
+            headers={'X-Client-Version': version_header},
+            timeout=timeout)
 
     def get_android_app_metadata(self, app_id):
         return self._get_app_metadata(
@@ -658,7 +659,6 @@ class _ProjectManagementService:
 
     def _body_and_response(self, method, url, json=None):
         try:
-            return self._client.body_and_response(
-                method=method, url=url, json=json, timeout=self._timeout)
+            return self._client.body_and_response(method=method, url=url, json=json)
         except requests.exceptions.RequestException as error:
             raise _utils.handle_platform_error_from_requests(error)

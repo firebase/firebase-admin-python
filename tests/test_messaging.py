@@ -23,6 +23,7 @@ import pytest
 import firebase_admin
 from firebase_admin import exceptions
 from firebase_admin import messaging
+from firebase_admin import _http_client
 from tests import testutils
 
 
@@ -1537,42 +1538,57 @@ class TestApsAlertEncoder:
         }
         check_encoding(msg, expected)
 
+
 class TestTimeout:
 
-    @classmethod
-    def setup_class(cls):
-        cred = testutils.MockCredential()
-        firebase_admin.initialize_app(cred, {'httpTimeout': 4, 'projectId': 'explicit-project-id'})
-
-    @classmethod
-    def teardown_class(cls):
+    def teardown(self):
         testutils.cleanup_apps()
 
-    def setup(self):
+    def _instrument_service(self, url, response):
         app = firebase_admin.get_app()
-        self.fcm_service = messaging._get_messaging_service(app)
-        self.recorder = []
+        fcm_service = messaging._get_messaging_service(app)
+        recorder = []
+        fcm_service._client.session.mount(
+            url, testutils.MockAdapter(json.dumps(response), 200, recorder))
+        return recorder
 
-    def test_send(self):
-        self.fcm_service._client.session.mount(
-            'https://fcm.googleapis.com',
-            testutils.MockAdapter(json.dumps({'name': 'message-id'}), 200, self.recorder))
+    def _check_timeout(self, recorder, timeout):
+        assert len(recorder) == 1
+        if timeout is None:
+            assert recorder[0]._extra_kwargs['timeout'] is None
+        else:
+            assert recorder[0]._extra_kwargs['timeout'] == pytest.approx(timeout, 0.001)
+
+    @pytest.mark.parametrize('options, timeout', [
+        ({'httpTimeout': 4}, 4),
+        ({'httpTimeout': None}, None),
+        ({}, _http_client.DEFAULT_TIMEOUT_SECONDS),
+    ])
+    def test_send(self, options, timeout):
+        cred = testutils.MockCredential()
+        all_options = {'projectId': 'explicit-project-id'}
+        all_options.update(options)
+        firebase_admin.initialize_app(cred, all_options)
+        recorder = self._instrument_service(
+            'https://fcm.googleapis.com', {'name': 'message-id'})
         msg = messaging.Message(topic='foo')
         messaging.send(msg)
-        assert len(self.recorder) == 1
-        assert self.recorder[0]._extra_kwargs['timeout'] == pytest.approx(4, 0.001)
+        self._check_timeout(recorder, timeout)
 
-    def test_topic_management_timeout(self):
-        self.fcm_service._client.session.mount(
-            'https://iid.googleapis.com',
-            testutils.MockAdapter(
-                json.dumps({'results': [{}, {'error': 'error_reason'}]}),
-                200,
-                self.recorder)
-        )
+    @pytest.mark.parametrize('options, timeout', [
+        ({'httpTimeout': 4}, 4),
+        ({'httpTimeout': None}, None),
+        ({}, _http_client.DEFAULT_TIMEOUT_SECONDS),
+    ])
+    def test_topic_management_custom_timeout(self, options, timeout):
+        cred = testutils.MockCredential()
+        all_options = {'projectId': 'explicit-project-id'}
+        all_options.update(options)
+        firebase_admin.initialize_app(cred, all_options)
+        recorder = self._instrument_service(
+            'https://iid.googleapis.com', {'results': [{}, {'error': 'error_reason'}]})
         messaging.subscribe_to_topic(['1'], 'a')
-        assert len(self.recorder) == 1
-        assert self.recorder[0]._extra_kwargs['timeout'] == pytest.approx(4, 0.001)
+        self._check_timeout(recorder, timeout)
 
 
 class TestSend:
@@ -1641,7 +1657,6 @@ class TestSend:
         assert recorder[0].url == self._get_url('explicit-project-id')
         assert recorder[0].headers['X-GOOG-API-FORMAT-VERSION'] == '2'
         assert recorder[0].headers['X-FIREBASE-CLIENT'] == self._CLIENT_VERSION
-        assert recorder[0]._extra_kwargs['timeout'] is None
         body = {'message': messaging._MessagingService.encode_message(msg)}
         assert json.loads(recorder[0].body.decode()) == body
 

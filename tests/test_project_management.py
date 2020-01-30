@@ -542,12 +542,10 @@ class TestTimeout(BaseProjectManagementTest):
             'httpTimeout': timeout,
             'projectId': 'test-project-id'
         }
-        app = firebase_admin.initialize_app(testutils.MockCredential(), options, 'timeout-app')
-        try:
-            project_management_service = project_management._get_project_management_service(app)
-            assert project_management_service._client.timeout == timeout
-        finally:
-            firebase_admin.delete_app(app)
+        app = firebase_admin.initialize_app(
+            testutils.MockCredential(), options, 'timeout-{0}'.format(timeout))
+        project_management_service = project_management._get_project_management_service(app)
+        assert project_management_service._client.timeout == timeout
 
 
 class TestCreateAndroidApp(BaseProjectManagementTest):

@@ -47,7 +47,7 @@ def _sign_in(custom_token, api_key):
     return resp.json().get('idToken')
 
 def _sign_in_with_password(email, password, api_key):
-    body = {'email': email, 'password': password}
+    body = {'email': email, 'password': password, 'returnSecureToken': True}
     params = {'key' : api_key}
     resp = requests.request('post', _verify_password_url, params=params, json=body)
     resp.raise_for_status()
@@ -163,7 +163,7 @@ def new_user():
     auth.delete_user(user.uid)
 
 @pytest.fixture
-def new_user_with_params():
+def new_user_with_params() -> auth.UserRecord:
     random_id, email = _random_id()
     phone = _random_phone()
     user = auth.create_user(
@@ -289,6 +289,25 @@ class TestGetUsers:
         expected = list(map(self._map_user_record_to_uid_email_phones, [new_user]))
         assert actual == expected
 
+def test_last_refresh_timestamp(new_user_with_params: auth.UserRecord, api_key):
+    # new users should not have a last_refresh_timestamp set
+    assert new_user_with_params.user_metadata.last_refresh_timestamp is None
+
+    # login to cause the last_refresh_timestamp to be set
+    _sign_in_with_password(new_user_with_params.email, 'secret', api_key)
+    new_user_with_params = auth.get_user(new_user_with_params.uid)
+
+    # Ensure the last refresh time occurred at approximately 'now'. (With a
+    # tolerance of up to 1 minute; we ideally want to ensure that any timezone
+    # considerations are handled properly, so as long as we're within an hour,
+    # we're in good shape.)
+    millis_per_second = 1000
+    seconds_per_minute = 60
+    millis_per_minute = millis_per_second * seconds_per_minute
+
+    last_refresh_timestamp = new_user_with_params.user_metadata.last_refresh_timestamp
+    assert last_refresh_timestamp == pytest.approx(
+        time.time()*millis_per_second, 1*millis_per_minute)
 
 def test_list_users(new_user_list):
     err_msg_template = (

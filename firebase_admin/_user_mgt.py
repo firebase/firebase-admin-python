@@ -19,6 +19,7 @@ import json
 from urllib import parse
 
 import requests
+import iso8601
 
 from firebase_admin import _auth_utils
 from firebase_admin import _identifier
@@ -42,11 +43,14 @@ DELETE_ATTRIBUTE = Sentinel('Value used to delete an attribute from a user profi
 class UserMetadata:
     """Contains additional metadata associated with a user account."""
 
-    def __init__(self, creation_timestamp=None, last_sign_in_timestamp=None):
+    def __init__(self, creation_timestamp=None, last_sign_in_timestamp=None,
+                 last_refresh_timestamp=None):
         self._creation_timestamp = _auth_utils.validate_timestamp(
             creation_timestamp, 'creation_timestamp')
         self._last_sign_in_timestamp = _auth_utils.validate_timestamp(
             last_sign_in_timestamp, 'last_sign_in_timestamp')
+        self._last_refresh_timestamp = _auth_utils.validate_timestamp(
+            last_refresh_timestamp, 'last_refresh_timestamp')
 
     @property
     def creation_timestamp(self):
@@ -65,6 +69,16 @@ class UserMetadata:
           integer: The last sign in timestamp in milliseconds since the epoch.
         """
         return self._last_sign_in_timestamp
+
+    @property
+    def last_refresh_timestamp(self):
+        """The time at which the user was last active (ID token refreshed).
+
+        Returns:
+          integer: Milliseconds since epoch timestamp, or None if the user was
+            never active.
+        """
+        return self._last_refresh_timestamp
 
 
 class UserInfo:
@@ -217,7 +231,12 @@ class UserRecord(UserInfo):
             if key in self._data:
                 return int(self._data[key])
             return None
-        return UserMetadata(_int_or_none('createdAt'), _int_or_none('lastLoginAt'))
+        last_refresh_at_millis = None
+        last_refresh_at_iso8601 = self._data.get('lastRefreshAt', None)
+        if last_refresh_at_iso8601 is not None:
+            last_refresh_at_millis = iso8601.parse_date(last_refresh_at_iso8601).timestamp() * 1000
+        return UserMetadata(
+            _int_or_none('createdAt'), _int_or_none('lastLoginAt'), last_refresh_at_millis)
 
     @property
     def provider_data(self):

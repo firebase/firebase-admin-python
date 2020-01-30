@@ -22,6 +22,7 @@ import pytest
 import firebase_admin
 from firebase_admin import exceptions
 from firebase_admin import project_management
+from firebase_admin import _http_client
 from tests import testutils
 
 OPERATION_IN_PROGRESS_RESPONSE = json.dumps({
@@ -526,6 +527,25 @@ class BaseProjectManagementTest:
             assert request.body is None
         else:
             assert json.loads(request.body.decode()) == expected_body
+
+
+class TestTimeout(BaseProjectManagementTest):
+
+    def test_default_timeout(self):
+        app = firebase_admin.get_app()
+        project_management_service = project_management._get_project_management_service(app)
+        assert project_management_service._client.timeout == _http_client.DEFAULT_TIMEOUT_SECONDS
+
+    @pytest.mark.parametrize('timeout', [4, None])
+    def test_custom_timeout(self, timeout):
+        options = {
+            'httpTimeout': timeout,
+            'projectId': 'test-project-id'
+        }
+        app = firebase_admin.initialize_app(
+            testutils.MockCredential(), options, 'timeout-{0}'.format(timeout))
+        project_management_service = project_management._get_project_management_service(app)
+        assert project_management_service._client.timeout == timeout
 
 
 class TestCreateAndroidApp(BaseProjectManagementTest):

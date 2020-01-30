@@ -319,7 +319,7 @@ def instrument_ml_service(status=200, payload=None, operations=False, app=None):
             session_url, adapter(payload, status, recorder))
     return recorder
 
-class _TestStorageClient(object):
+class _TestStorageClient:
     @staticmethod
     def upload(bucket_name, model_file_name, app):
         del app # unused variable
@@ -332,7 +332,7 @@ class _TestStorageClient(object):
         bucket_name, blob_name = ml._CloudStorageClient._parse_gcs_tflite_uri(gcs_tflite_uri)
         return GCS_TFLITE_SIGNED_URI_PATTERN.format(bucket_name, blob_name)
 
-class TestModel(object):
+class TestModel:
     """Tests ml.Model class."""
     @classmethod
     def setup_class(cls):
@@ -545,7 +545,7 @@ class TestModel(object):
         assert len(recorder) == 1
 
 
-class TestCreateModel(object):
+class TestCreateModel:
     """Tests ml.create_model."""
     @classmethod
     def setup_class(cls):
@@ -641,7 +641,7 @@ class TestCreateModel(object):
         check_error(excinfo, ValueError, 'Operation name format is invalid.')
 
 
-class TestUpdateModel(object):
+class TestUpdateModel:
     """Tests ml.update_model."""
     @classmethod
     def setup_class(cls):
@@ -733,7 +733,7 @@ class TestUpdateModel(object):
         check_error(excinfo, ValueError, 'Operation name format is invalid.')
 
 
-class TestPublishUnpublish(object):
+class TestPublishUnpublish:
     """Tests ml.publish_model and ml.unpublish_model."""
 
     PUBLISH_UNPUBLISH_WITH_ARGS = [
@@ -823,7 +823,7 @@ class TestPublishUnpublish(object):
         assert len(create_recorder) == 1
 
 
-class TestGetModel(object):
+class TestGetModel:
     """Tests ml.get_model."""
     @classmethod
     def setup_class(cls):
@@ -876,7 +876,7 @@ class TestGetModel(object):
         testutils.run_without_project_id(evaluate)
 
 
-class TestDeleteModel(object):
+class TestDeleteModel:
     """Tests ml.delete_model."""
     @classmethod
     def setup_class(cls):
@@ -926,7 +926,7 @@ class TestDeleteModel(object):
         testutils.run_without_project_id(evaluate)
 
 
-class TestListModels(object):
+class TestListModels:
     """Tests ml.list_models."""
     @classmethod
     def setup_class(cls):

@@ -187,11 +187,11 @@ def handle_requests_error(error, message=None, code=None):
         return exceptions.DeadlineExceededError(
             message='Timed out while making an API call: {0}'.format(error),
             cause=error)
-    elif isinstance(error, requests.exceptions.ConnectionError):
+    if isinstance(error, requests.exceptions.ConnectionError):
         return exceptions.UnavailableError(
             message='Failed to establish a connection: {0}'.format(error),
             cause=error)
-    elif error.response is None:
+    if error.response is None:
         return exceptions.UnknownError(
             message='Unknown error while making a remote service call: {0}'.format(error),
             cause=error)
@@ -274,11 +274,11 @@ def handle_googleapiclient_error(error, message=None, code=None, http_response=N
         return exceptions.DeadlineExceededError(
             message='Timed out while making an API call: {0}'.format(error),
             cause=error)
-    elif isinstance(error, httplib2.ServerNotFoundError):
+    if isinstance(error, httplib2.ServerNotFoundError):
         return exceptions.UnavailableError(
             message='Failed to establish a connection: {0}'.format(error),
             cause=error)
-    elif not isinstance(error, googleapiclient.errors.HttpError):
+    if not isinstance(error, googleapiclient.errors.HttpError):
         return exceptions.UnknownError(
             message='Unknown error while making a remote service call: {0}'.format(error),
             cause=error)

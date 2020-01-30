@@ -21,9 +21,6 @@ from urllib import parse
 from firebase_admin import exceptions
 from firebase_admin import _utils
 
-from firebase_admin import exceptions
-from firebase_admin import _utils
-
 
 MAX_CLAIMS_PAYLOAD_SIZE = 1000
 RESERVED_CLAIMS = set([

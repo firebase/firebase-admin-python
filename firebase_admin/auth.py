@@ -492,7 +492,7 @@ def delete_user(uid, app=None):
     user_manager.delete_user(uid)
 
 
-def delete_users(uids, force_delete=False, app=None):
+def delete_users(uids, app=None):
     """Deletes the users specified by the given identifiers.
 
     Deleting a non-existing user won't generate an error. (i.e. this method is
@@ -500,17 +500,12 @@ def delete_users(uids, force_delete=False, app=None):
     deleted, and will therefore be counted in the
     DeleteUserResult.success_count value.
 
-    Unless the optional force_delete flag is set to true, only users that are
-    already disabled will be deleted.
-
     Only a maximum of 1000 identifiers may be supplied. If more than 1000
     identifiers are supplied, this method will immediately raise a ValueError.
 
     Args:
         uids: A list of strings indicating the uids of the users to be deleted.
             Must have <= 1000 entries.
-        force_delete: Optional parameter that indicates if users should be
-            deleted, even if they're not disabled. Defaults to False.
         app: An App instance (optional).
 
     Returns:
@@ -523,7 +518,7 @@ def delete_users(uids, force_delete=False, app=None):
             identifiers are specified.
     """
     user_manager = _get_auth_service(app).user_manager
-    result = user_manager.delete_users(uids, force_delete)
+    result = user_manager.delete_users(uids, force_delete=True)
     return DeleteUsersResult(result, len(uids))
 
 

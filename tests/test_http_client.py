@@ -74,6 +74,24 @@ def test_credential():
     assert recorder[0].url == _TEST_URL
     assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
+@pytest.mark.parametrize('options, timeout', [
+    ({}, _http_client.DEFAULT_TIMEOUT_SECONDS),
+    ({'timeout': 7}, 7),
+    ({'timeout': 0}, 0),
+    ({'timeout': None}, None),
+])
+def test_timeout(options, timeout):
+    client = _http_client.HttpClient(**options)
+    assert client.timeout == timeout
+    recorder = _instrument(client, 'body')
+    client.request('get', _TEST_URL)
+    assert len(recorder) == 1
+    if timeout is None:
+        assert recorder[0]._extra_kwargs['timeout'] is None
+    else:
+        assert recorder[0]._extra_kwargs['timeout'] == pytest.approx(timeout, 0.001)
+
+
 def _instrument(client, payload, status=200):
     recorder = []
     adapter = testutils.MockAdapter(payload, status, recorder)

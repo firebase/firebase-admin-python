@@ -775,7 +775,7 @@ class _DatabaseService:
             self._auth_override = json.dumps(auth_override, separators=(',', ':'))
         else:
             self._auth_override = None
-        self._timeout = app.options.get('httpTimeout')
+        self._timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
         self._clients = {}
 
         emulator_host = os.environ.get(_EMULATOR_HOST_ENV_VAR)
@@ -900,14 +900,13 @@ class _Client(_http_client.JsonHttpClient):
           credential: A Google credential that can be used to authenticate requests.
           base_url: A URL prefix to be added to all outgoing requests. This is typically the
               Firebase Realtime Database URL.
-          timeout: HTTP request timeout in seconds. If not set connections will never
+          timeout: HTTP request timeout in seconds. If set to None connections will never
               timeout, which is the default behavior of the underlying requests library.
           params: Dict of query parameters to add to all outgoing requests.
         """
-        _http_client.JsonHttpClient.__init__(
-            self, credential=credential, base_url=base_url, headers={'User-Agent': _USER_AGENT})
-        self.credential = credential
-        self.timeout = timeout
+        super().__init__(
+            credential=credential, base_url=base_url,
+            timeout=timeout, headers={'User-Agent': _USER_AGENT})
         self.params = params if params else {}
 
     def request(self, method, url, **kwargs):
@@ -937,8 +936,6 @@ class _Client(_http_client.JsonHttpClient):
                 query = extra_params
         kwargs['params'] = query
 
-        if self.timeout:
-            kwargs['timeout'] = self.timeout
         try:
             return super(_Client, self).request(method, url, **kwargs)
         except requests.exceptions.RequestException as error:

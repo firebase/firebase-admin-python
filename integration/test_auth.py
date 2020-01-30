@@ -30,7 +30,6 @@ from firebase_admin import auth
 from firebase_admin import credentials
 
 
-
 _verify_token_url = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyCustomToken'
 _verify_password_url = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyPassword'
 _password_reset_url = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/resetPassword'

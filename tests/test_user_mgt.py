@@ -310,12 +310,6 @@ class TestCreateUser:
         'PHONE_NUMBER_EXISTS': auth.PhoneNumberAlreadyExistsError,
     }
 
-    already_exists_errors = {
-        'DUPLICATE_EMAIL': auth.EmailAlreadyExistsError,
-        'DUPLICATE_LOCAL_ID': auth.UidAlreadyExistsError,
-        'PHONE_NUMBER_EXISTS': auth.PhoneNumberAlreadyExistsError,
-    }
-
     @pytest.mark.parametrize('arg', INVALID_STRINGS[1:] + ['a'*129])
     def test_invalid_uid(self, user_mgt_app, arg):
         with pytest.raises(ValueError):

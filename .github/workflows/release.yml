@@ -23,8 +23,6 @@ jobs:
     steps:
     - name: Checkout source for staging
       uses: actions/checkout@v2
-      with:
-        path: staging
 
     - name: Set up Python
       uses: actions/setup-python@v1
@@ -32,61 +30,32 @@ jobs:
         python-version: 3.6
 
     # Handle additional options/labels passed with the release PR.
-    # 1. release:retry - Continue the release from an already existing tag.
-    # 2. release:dryrun - Dry run the release process without publishing new tags or artifacts.
-    # 3. release:skip-tweet - Complete the release process without posting to Twitter.
+    # 1. release:dryrun - Dry run the release process without publishing new tags or artifacts.
+    # 2. release:skip-tweet - Complete the release process without posting to Twitter.
     - name: Prepare release
       id: prepare
       run: ./.github/scripts/prepare_release.sh
-      working-directory: staging
       env:
-        RETRY_RELEASE: ${{ contains(github.event.pull_request.labels.*.name, 'release:retry') }}
         DRYRUN_RELEASE: ${{ contains(github.event.pull_request.labels.*.name, 'release:dryrun') }}
         SKIP_TWEET: ${{ contains(github.event.pull_request.labels.*.name, 'release:skip-tweet') }}
 
     # Dependencies are needed to both run the tests and package the release.
     # Therefore we run this step unconditionally.
     - name: Install dependencies
-      working-directory: staging
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
     # Only run if the release is not already tagged.
     - name: Run tests
-      if: success() && steps.prepare.outputs.create_tag
-      working-directory: staging
       run: |
         pytest
         echo "Running integration tests"
-
-    # Tag the release if not already tagged and not executing in the dryrun mode.
-    - name: Create release tag
-      if: success() && steps.prepare.outputs.create_tag && steps.prepare.outputs.publish
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ steps.prepare.outputs.version }}
-        release_name: Firebase Admin Python SDK ${{ steps.prepare.outputs.version }}
-        draft: false
-        prerelease: false
-
-    # Checkout the tag if not executing in the dryrun mode, or if executing in the
-    # dryrun mode with a pre-existing tag. If executed, sources will be made available
-    # in a new deploy directory.
-    - name: Checkout source for deployment
-      uses: actions/checkout@v2
-      if: steps.prepare.outputs.publish || steps.prepare.outputs.reuse_tag
-      with:
-        ref: ${{ steps.prepare.outputs.version }}
-        path: deploy
 
     # Package release artifacts. When not executing in the dryrun mode, always package
     # from the deploy directory. When executing in the dryrun mode with a without
     # a release tag, package from the staging directory.
     - name: Package release artifacts
-      working-directory: ${{ steps.prepare.outputs.directory }}
       run: |
         echo Packaging release artifacts
         mkdir -p dist
@@ -98,16 +67,30 @@ jobs:
       uses: actions/upload-artifact@v1
       with:
         name: dist
-        path: ${{ steps.prepare.outputs.directory }}/dist
+        path: dist
+
+    # Tag the release if not executing in the dryrun mode. We pull this action froma
+    # custom fork of a contributor until https://github.com/actions/create-release/pull/32
+    # is merged. Also note that v1 of this action does not support the "body" parameter.
+    - name: Create release tag
+      if: success() && steps.prepare.outputs.publish
+      uses: fleskesvor/create-release@1a72e235c178bf2ae6c51a8ae36febc24568c5fe
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.prepare.outputs.version }}
+        release_name: Firebase Admin Python SDK ${{ steps.prepare.outputs.version }}
+        body: ${{ steps.prepare.outputs.changelog }}
+        draft: false
+        prerelease: false
 
     # If not executing in the dryrun mode, publish the packagted artifacts to Pypi.
     - name: Publish to Pypi
       if: success() && steps.prepare.outputs.publish
-      working-directory: deploy
       run: echo Publishing to Pypi
 
-    # If not executing in the dryrun mode, and the Tweet is not suppressed, post to
-    # Twitter.
+    # If the Tweet is not suppressed, post to Twitter.
     - name: Post to Twitter
       if: success() && steps.prepare.outputs.tweet
       run: echo Posting Tweet
+      continue-on-error: true

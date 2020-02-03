@@ -6,7 +6,8 @@ set -u
 function printChangelog() {
   local TITLE=$1
   shift
-  local ENTRIES=("$@")
+  # Skip the sentinel value.
+  local ENTRIES=("${@:2}")
   if [ ${#ENTRIES[@]} -ne 0 ]; then
     echo "### ${TITLE}"
     echo ""
@@ -24,21 +25,25 @@ fi
 
 LAST_TAG=`git describe --tags $(git rev-list --tags --max-count=1) 2> /dev/null` || true
 if [[ -z "${LAST_TAG}" ]]; then
-  echo "[info] No tags found. Including all commits up to ${GITHUB_SHA}."
+  echo "[INFO] No tags found. Including all commits up to ${GITHUB_SHA}."
   VERSION_RANGE="${GITHUB_SHA}"
 else
-  echo "[info] Last release tag: ${LAST_TAG}."
+  echo "[INFO] Last release tag: ${LAST_TAG}."
   COMMIT_SHA=`git show-ref -s ${LAST_TAG}`
-  echo "[info] Last release commit: ${COMMIT_SHA}."
+  echo "[INFO] Last release commit: ${COMMIT_SHA}."
   VERSION_RANGE="${COMMIT_SHA}..${GITHUB_SHA}"
-  echo "[info] Including all commits in the range ${VERSION_RANGE}."
+  echo "[INFO] Including all commits in the range ${VERSION_RANGE}."
 fi
 
 echo ""
-CHANGES=()
-FIXES=()
-FEATS=()
-MISC=()
+
+# Older versions of Bash (< 4.4) treat empty arrays as unbound variables, which triggers
+# errors when referencing them. Therefore we initialize each of these arrays with an empty
+# sentinel value, and later skip them.
+CHANGES=("")
+FIXES=("")
+FEATS=("")
+MISC=("")
 
 while read -r line
 do

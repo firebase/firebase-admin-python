@@ -1,65 +1,64 @@
+# Copyright 2020 Google Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 name: Release
 
 on:
+  # Only run the workflow when a PR is closed, or when a developer explicitly requests
+  # a build by sending a 'firebase_build' event.
   pull_request:
-    branches:
-      - master
     types:
       - closed
 
+  repository_dispatch:
+    types:
+      - firebase_build
+
 jobs:
-  publish_release:
-    # Only run the workflow when a pull request has been:
-    # 1. merged to the master branch
-    # 2. baring the label 'release:pending', and
-    # 3. the title prefix '[chore] Release'.
-    if: github.event.pull_request.merged &&
-      contains(github.event.pull_request.labels.*.name, 'release:pending') &&
-      startsWith(github.event.pull_request.title, '[chore] Release')
+  stage_release:
+    # If triggered by a PR it must be merged and contain the label 'release:build'.
+    if: github.event.action == 'firebase_build' ||
+      (github.event.pull_request.merged &&
+      contains(github.event.pull_request.labels.*.name, 'release:build'))
 
     runs-on: ubuntu-latest
 
-    # Checkout source to the staging directory.
+    # When manually triggering the build, the requester can specify a target branch or a tag
+    # via the 'ref' client parameter.
     steps:
     - name: Checkout source for staging
       uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.client_payload.ref || github.ref }}
 
     - name: Set up Python
       uses: actions/setup-python@v1
       with:
         python-version: 3.6
 
-    # Handle additional options/labels passed with the release PR.
-    # 1. release:dryrun - Dry run the release process without publishing new tags or artifacts.
-    # 2. release:skip-tweet - Complete the release process without posting to Twitter.
-    - name: Prepare release
-      id: prepare
-      run: ./.github/scripts/prepare_release.sh
-      env:
-        DRYRUN_RELEASE: ${{ contains(github.event.pull_request.labels.*.name, 'release:dryrun') }}
-        SKIP_TWEET: ${{ contains(github.event.pull_request.labels.*.name, 'release:skip-tweet') }}
-
-    # Dependencies are needed to both run the tests and package the release.
-    # Therefore we run this step unconditionally.
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    # Only run if the release is not already tagged.
     - name: Run tests
       run: |
         pytest
         echo "Running integration tests"
 
-    # Package release artifacts. When not executing in the dryrun mode, always package
-    # from the deploy directory. When executing in the dryrun mode with a without
-    # a release tag, package from the staging directory.
     - name: Package release artifacts
-      run: |
-        echo Packaging release artifacts
-        mkdir -p dist
-        echo Test release > dist/output.txt
+      run: python setup.py bdist_wheel bdist_egg
 
     # Attach the packaged artifacts to the workflow output. These can be manually
     # downloaded for later inspection if necessary.
@@ -69,28 +68,41 @@ jobs:
         name: dist
         path: dist
 
+    # Check whether the release should be published. We publish only when the trigger PR is
+    #   1. merged
+    #   2. to the master branch
+    #   3. with the title prefix '[chore] Release '.
+    - name: Publish preflight check
+      if: success() && github.event.pull_request.merged &&
+        github.ref == 'master' &&
+        startsWith(github.event.pull_request.title, '[chore] Release ')
+      id: preflight
+      run: |
+        ./.github/scripts/publish_preflight_check.sh
+        echo ::set-env name=FIREBASE_PUBLISH::true
+
     # Tag the release if not executing in the dryrun mode. We pull this action froma
     # custom fork of a contributor until https://github.com/actions/create-release/pull/32
     # is merged. Also note that v1 of this action does not support the "body" parameter.
     - name: Create release tag
-      if: success() && steps.prepare.outputs.publish
+      if: success() && env.FIREBASE_PUBLISH
       uses: fleskesvor/create-release@1a72e235c178bf2ae6c51a8ae36febc24568c5fe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ steps.prepare.outputs.version }}
-        release_name: Firebase Admin Python SDK ${{ steps.prepare.outputs.version }}
-        body: ${{ steps.prepare.outputs.changelog }}
+        tag_name: ${{ steps.preflight.outputs.version }}
+        release_name: Firebase Admin Python SDK ${{ steps.preflight.outputs.version }}
+        body: ${{ steps.preflight.outputs.changelog }}
         draft: false
         prerelease: false
 
-    # If not executing in the dryrun mode, publish the packagted artifacts to Pypi.
     - name: Publish to Pypi
-      if: success() && steps.prepare.outputs.publish
+      if: success() && env.FIREBASE_PUBLISH
       run: echo Publishing to Pypi
 
-    # If the Tweet is not suppressed, post to Twitter.
+    # Post to Twitter if explicitly opted-in by adding the label 'release:tweet'.
     - name: Post to Twitter
-      if: success() && steps.prepare.outputs.tweet
+      if: success() && env.FIREBASE_PUBLISH &&
+        contains(github.event.pull_request.labels.*.name, 'release:tweet')
       run: echo Posting Tweet
       continue-on-error: true

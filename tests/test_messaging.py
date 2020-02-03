@@ -547,7 +547,10 @@ class TestAndroidNotificationEncoder:
                     click_action='ca', title_loc_key='tlk', body_loc_key='blk',
                     title_loc_args=['t1', 't2'], body_loc_args=['b1', 'b2'], channel_id='c',
                     ticker='ticker', sticky=True,
-                    event_timestamp=datetime.datetime(2019, 10, 20, 15, 12, 23, 123),
+                    event_timestamp=datetime.datetime(
+                        2019, 10, 20, 15, 12, 23, 123,
+                        tzinfo=datetime.timezone(datetime.timedelta(hours=-5))
+                    ),
                     local_only=False,
                     priority='high', vibrate_timings_millis=[100, 50, 250],
                     default_vibrate_timings=False, default_sound=True,
@@ -577,7 +580,7 @@ class TestAndroidNotificationEncoder:
                     'channel_id': 'c',
                     'ticker': 'ticker',
                     'sticky': True,
-                    'event_time': '2019-10-20T15:12:23.000123Z',
+                    'event_time': '2019-10-20T20:12:23.000123Z',
                     'local_only': False,
                     'notification_priority': 'PRIORITY_HIGH',
                     'vibrate_timings': ['0.100000000s', '0.050000000s', '0.250000000s'],

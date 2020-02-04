@@ -19,7 +19,6 @@ import json
 import math
 import numbers
 import re
-import pytz
 
 import firebase_admin._messaging_utils as _messaging_utils
 
@@ -325,11 +324,7 @@ class MessageEncoder(json.JSONEncoder):
 
         event_time = result.get('event_time')
         if event_time:
-            if event_time.tzinfo is None:
-                local_tzinfo = datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
-                timezone = pytz.timezone(str(local_tzinfo))
-                event_time = timezone.localize(event_time)
-            utc_event_time = event_time.astimezone(pytz.utc)
+            utc_event_time = event_time.astimezone(datetime.timezone.utc)
             result['event_time'] = utc_event_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
 
         priority = result.get('notification_priority')

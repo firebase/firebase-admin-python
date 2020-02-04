@@ -604,6 +604,29 @@ class TestAndroidNotificationEncoder:
         }
         check_encoding(msg, expected)
 
+    def test_android_notification_naive_event_timestamp(self):
+        event_time = datetime.datetime.now()
+        utc_event_time = event_time.astimezone(datetime.timezone.utc)
+        msg = messaging.Message(
+            topic='topic',
+            android=messaging.AndroidConfig(
+                notification=messaging.AndroidNotification(
+                    title='t',
+                    event_timestamp=event_time,
+                )
+            )
+        )
+        expected = {
+            'topic': 'topic',
+            'android': {
+                'notification': {
+                    'title': 't',
+                    'event_time': utc_event_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+                },
+            },
+        }
+        check_encoding(msg, expected)
+
 
 class TestLightSettingsEncoder:
 

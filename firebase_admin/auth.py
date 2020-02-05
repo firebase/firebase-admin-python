@@ -67,6 +67,7 @@ __all__ = [
     'UidIdentifier',
     'EmailIdentifier',
     'PhoneIdentifier',
+    'ProviderIdentifier',
 
     'create_custom_token',
     'create_session_cookie',
@@ -123,6 +124,7 @@ UserIdentifier = _user_identifier.UserIdentifier
 UidIdentifier = _user_identifier.UidIdentifier
 EmailIdentifier = _user_identifier.EmailIdentifier
 PhoneIdentifier = _user_identifier.PhoneIdentifier
+ProviderIdentifier = _user_identifier.ProviderIdentifier
 
 
 def _get_auth_service(app):
@@ -358,6 +360,13 @@ def get_users(identifiers, app=None):
             return identifier.email == user_record.email
         if isinstance(identifier, PhoneIdentifier):
             return identifier.phone_number == user_record.phone_number
+        if isinstance(identifier, ProviderIdentifier):
+            return next((
+                True
+                for user_info in user_record.provider_data
+                if identifier.provider_id == user_info.provider_id
+                and identifier.provider_uid == user_info.uid
+            ), False)
         raise TypeError("Unexpected type: {}".format(type(identifier)))
 
     def _is_user_found(identifier, user_records):

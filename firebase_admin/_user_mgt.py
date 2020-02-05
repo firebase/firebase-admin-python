@@ -654,6 +654,13 @@ class UserManager:
             elif isinstance(identifier, _user_identifier.PhoneIdentifier):
                 _auth_utils.validate_phone(identifier.phone_number, required=True)
                 payload['phoneNumber'] = payload.get('phoneNumber', []) + [identifier.phone_number]
+            elif isinstance(identifier, _user_identifier.ProviderIdentifier):
+                _auth_utils.validate_provider_id(identifier.provider_id, required=True)
+                _auth_utils.validate_provider_uid(identifier.provider_uid, required=True)
+                payload['federatedUserId'] = payload.get('federatedUserId', []) + [{
+                    'providerId': identifier.provider_id,
+                    'rawId': identifier.provider_uid
+                }]
             else:
                 raise ValueError(
                     'Invalid entry in "identifiers" list. Unsupported type: {}'

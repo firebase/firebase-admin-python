@@ -61,3 +61,20 @@ class PhoneIdentifier(UserIdentifier):
             phone_number: A phone number string.
         """
         self.phone_number = phone_number
+
+
+class ProviderIdentifier(UserIdentifier):
+    """Used for looking up an account by provider.
+
+    See ``auth.get_user()``.
+    """
+
+    def __init__(self, provider_id, provider_uid):
+        """Constructs a new ProviderIdentifier.
+
+        Args:
+            provider_id: A provider ID string.
+            provider_uid: A provider UID string.
+        """
+        self.provider_id = provider_id
+        self.provider_uid = provider_uid

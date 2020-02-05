@@ -211,6 +211,28 @@ def new_user_record_list() -> List[auth.UserRecord]:
         auth.delete_user(user.uid)
 
 @pytest.fixture
+def new_user_with_provider() -> auth.UserRecord:
+    uid4, email4 = _random_id()
+    google_uid, google_email = _random_id()
+    import_user1 = auth.ImportUserRecord(
+        uid=uid4,
+        email=email4,
+        provider_data=[
+            auth.UserProvider(
+                uid=google_uid,
+                provider_id='google.com',
+                email=google_email,
+            )
+        ])
+    user_import_result = auth.import_users([import_user1])
+    assert user_import_result.success_count == 1
+    assert user_import_result.failure_count == 0
+
+    user = auth.get_user(uid4)
+    yield user
+    auth.delete_user(user.uid)
+
+@pytest.fixture
 def new_user_email_unverified():
     random_id, email = _random_id()
     user = auth.create_user(
@@ -250,17 +272,23 @@ class TestGetUsers:
             'phone_number': user_record.phone_number
         }
 
-    def test_multiple_uid_types(self, new_user_record_list):
+    def test_multiple_uid_types(self, new_user_record_list, new_user_with_provider):
         get_users_results = auth.get_users([
             auth.UidIdentifier(new_user_record_list[0].uid),
             auth.EmailIdentifier(new_user_record_list[1].email),
-            auth.PhoneIdentifier(new_user_record_list[2].phone_number)])
-        actual = sorted(
-            [self._map_user_record_to_uid_email_phones(user) for user in get_users_results.users],
-            key=lambda user: user['uid'])
-        expected = sorted(
-            [self._map_user_record_to_uid_email_phones(user) for user in new_user_record_list],
-            key=lambda user: user['uid'])
+            auth.PhoneIdentifier(new_user_record_list[2].phone_number),
+            auth.ProviderIdentifier(
+                new_user_with_provider.provider_data[0].provider_id,
+                new_user_with_provider.provider_data[0].uid,
+            )])
+        actual = sorted([
+            self._map_user_record_to_uid_email_phones(user)
+            for user in get_users_results.users
+        ], key=lambda user: user['uid'])
+        expected = sorted([
+            self._map_user_record_to_uid_email_phones(user)
+            for user in new_user_record_list + [new_user_with_provider]
+        ], key=lambda user: user['uid'])
 
         assert actual == expected
 

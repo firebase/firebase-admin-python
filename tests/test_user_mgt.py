@@ -340,6 +340,12 @@ class TestGetUsers:
         with pytest.raises(ValueError):
             auth.get_users([auth.PhoneIdentifier('invalid phone number')], app=user_mgt_app)
 
+    def test_invalid_provider(self, user_mgt_app):
+        with pytest.raises(ValueError):
+            auth.get_users(
+                [auth.ProviderIdentifier(provider_id='', provider_uid='')],
+                app=user_mgt_app)
+
     def test_single_bad_identifier(self, user_mgt_app):
         identifiers = [
             auth.UidIdentifier('valid_id1'),
@@ -379,6 +385,7 @@ class TestGetUsers:
             auth.UidIdentifier('uid1'),
             auth.EmailIdentifier('user2@example.com'),
             auth.PhoneIdentifier('+15555550003'),
+            auth.ProviderIdentifier(provider_id='google.com', provider_uid='google_uid4'),
             auth.UidIdentifier('this-user-doesnt-exist'),
             ], app=user_mgt_app)
 

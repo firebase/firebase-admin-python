@@ -435,7 +435,7 @@ class BatchDeleteErrorInfo:
                 returned by the server.
         """
         self._index = err.get('index', 0)
-        self._local_id = err.get('local_id', "")
+        self._uid = err.get('local_id', "")
         self._reason = err.get('message', '')
 
     @property
@@ -447,8 +447,8 @@ class BatchDeleteErrorInfo:
         return self._reason
 
     @property
-    def local_id(self):
-        return self._local_id
+    def uid(self):
+        return self._uid
 
 
 class BatchDeleteAccountsResponse:
@@ -463,10 +463,7 @@ class BatchDeleteAccountsResponse:
                 BatchDeleteErrorInfo instance as returned by the server. None
                 implies an empty list.
         """
-        if errors:
-            self.errors = [BatchDeleteErrorInfo(err) for err in errors]
-        else:
-            self.errors = []
+        self.errors = [BatchDeleteErrorInfo(err) for err in errors] if errors else []
 
 
 class ProviderUserInfo(UserInfo):

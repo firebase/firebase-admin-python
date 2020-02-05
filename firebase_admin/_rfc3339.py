@@ -75,13 +75,11 @@ def _parse_to_datetime(datestr):
     datestr_modified = re.sub(r'(\d\d):(\d\d)$', r'\1\2', datestr_modified)
 
     try:
-        print("trying with micros")
         return datetime.strptime(datestr_modified, '%Y-%m-%dT%H:%M:%S.%f%z')
     except ValueError:
         pass
 
     try:
-        print("trying without micros")
         return datetime.strptime(datestr_modified, '%Y-%m-%dT%H:%M:%S%z')
     except ValueError:
         pass

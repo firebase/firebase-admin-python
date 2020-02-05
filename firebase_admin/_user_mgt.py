@@ -19,9 +19,9 @@ import json
 from urllib import parse
 
 import requests
-import iso8601
 
 from firebase_admin import _auth_utils
+from firebase_admin import _rfc3339
 from firebase_admin import _user_identifier
 from firebase_admin import _user_import
 
@@ -232,9 +232,9 @@ class UserRecord(UserInfo):
                 return int(self._data[key])
             return None
         last_refresh_at_millis = None
-        last_refresh_at_iso8601 = self._data.get('lastRefreshAt', None)
-        if last_refresh_at_iso8601:
-            last_refresh_at_millis = iso8601.parse_date(last_refresh_at_iso8601).timestamp() * 1000
+        last_refresh_at_rfc3339 = self._data.get('lastRefreshAt', None)
+        if last_refresh_at_rfc3339:
+            last_refresh_at_millis = int(_rfc3339.parse_to_epoch(last_refresh_at_rfc3339) * 1000)
         return UserMetadata(
             _int_or_none('createdAt'), _int_or_none('lastLoginAt'), last_refresh_at_millis)
 

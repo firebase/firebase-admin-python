@@ -22,7 +22,7 @@ import requests
 import iso8601
 
 from firebase_admin import _auth_utils
-from firebase_admin import _identifier
+from firebase_admin import _user_identifier
 from firebase_admin import _user_import
 
 
@@ -233,7 +233,7 @@ class UserRecord(UserInfo):
             return None
         last_refresh_at_millis = None
         last_refresh_at_iso8601 = self._data.get('lastRefreshAt', None)
-        if last_refresh_at_iso8601 is not None:
+        if last_refresh_at_iso8601:
             last_refresh_at_millis = iso8601.parse_date(last_refresh_at_iso8601).timestamp() * 1000
         return UserMetadata(
             _int_or_none('createdAt'), _int_or_none('lastLoginAt'), last_refresh_at_millis)
@@ -298,6 +298,33 @@ class ExportedUserRecord(UserRecord):
         read the password, then this is ``None``.
         """
         return self._data.get('salt')
+
+
+class GetUsersResult:
+    """Represents the result of the ``auth.get_users()`` API."""
+
+    def __init__(self, users, not_found):
+        """Constructs a GetUsersResult.
+
+        Args:
+            users: List of `UserRecord` instances.
+            not_found: List of `UserIdentifier` instances.
+        """
+        self._users = users
+        self._not_found = not_found
+
+    @property
+    def users(self):
+        """Set of UserRecords, corresponding to the set of users that were
+        requested. Only users that were found are listed here. The result set
+        is unordered.
+        """
+        return self._users
+
+    @property
+    def not_found(self):
+        """Set of UserIdentifiers that were requested, but not found."""
+        return self._not_found
 
 
 class ListUsersPage:
@@ -407,9 +434,21 @@ class BatchDeleteErrorInfo:
                 representing the BatchDeleteErrorInfo dictionary that's
                 returned by the server.
         """
-        self.index = err.get('index', 0)
-        self.local_id = err.get('local_id', "")
-        self.message = err.get('message', "")
+        self._index = err.get('index', 0)
+        self._local_id = err.get('local_id', "")
+        self._reason = err.get('message', '')
+
+    @property
+    def index(self):
+        return self._index
+
+    @property
+    def reason(self):
+        return self._reason
+
+    @property
+    def local_id(self):
+        return self._local_id
 
 
 class BatchDeleteAccountsResponse:
@@ -606,17 +645,19 @@ class UserManager:
 
         payload = {}
         for identifier in identifiers:
-            if isinstance(identifier, _identifier.UidIdentifier):
+            if isinstance(identifier, _user_identifier.UidIdentifier):
                 _auth_utils.validate_uid(identifier.uid, required=True)
                 payload['localId'] = payload.get('localId', []) + [identifier.uid]
-            elif isinstance(identifier, _identifier.EmailIdentifier):
+            elif isinstance(identifier, _user_identifier.EmailIdentifier):
                 _auth_utils.validate_email(identifier.email, required=True)
                 payload['email'] = payload.get('email', []) + [identifier.email]
-            elif isinstance(identifier, _identifier.PhoneIdentifier):
+            elif isinstance(identifier, _user_identifier.PhoneIdentifier):
                 _auth_utils.validate_phone(identifier.phone_number, required=True)
                 payload['phoneNumber'] = payload.get('phoneNumber', []) + [identifier.phone_number]
             else:
-                raise ValueError('Invalid argument `identifiers`. Unrecognized type.')
+                raise ValueError(
+                    'Invalid entry in "identifiers" list. Unsupported type: {}'
+                    .format(type(identifier)))
 
         try:
             body, http_resp = self._client.body_and_response(
@@ -761,8 +802,8 @@ class UserManager:
         if not uids:
             return BatchDeleteAccountsResponse()
 
-        if len(uids) > 100:
-            raise ValueError("`uids` paramter must have <= 100 entries.")
+        if len(uids) > 1000:
+            raise ValueError("`uids` paramter must have <= 1000 entries.")
         for uid in uids:
             _auth_utils.validate_uid(uid, required=True)
 

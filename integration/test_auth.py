@@ -186,6 +186,10 @@ def new_user_list():
         auth.create_user(password='password').uid,
     ]
     yield users
+    # TODO(rsgowman): Using auth.delete_users() would make more sense here, but
+    # that's currently rate limited to 1qps, so using it in this context would
+    # almost certainly trigger errors. When/if that limit is relaxed, switch to
+    # batch delete.
     for uid in users:
         auth.delete_user(uid)
 
@@ -246,47 +250,51 @@ class TestGetUsers:
             'phone_number': user_record.phone_number
         }
 
-    def test_returns_users_by_various_identifier_types_in_a_single_call(self, new_user_record_list):
-        users = auth.get_users([
+    def test_multiple_uid_types(self, new_user_record_list):
+        get_users_results = auth.get_users([
             auth.UidIdentifier(new_user_record_list[0].uid),
             auth.EmailIdentifier(new_user_record_list[1].email),
             auth.PhoneIdentifier(new_user_record_list[2].phone_number)])
         actual = sorted(
-            list(map(self._map_user_record_to_uid_email_phones, users)),
+            [self._map_user_record_to_uid_email_phones(user) for user in get_users_results.users],
             key=lambda user: user['uid'])
         expected = sorted(
-            list(map(self._map_user_record_to_uid_email_phones, new_user_record_list)),
+            [self._map_user_record_to_uid_email_phones(user) for user in new_user_record_list],
             key=lambda user: user['uid'])
 
         assert actual == expected
 
-    def test_returns_found_users_and_ignores_non_existing_users(self, new_user_record_list):
-        users = auth.get_users([
+    def test_existing_and_non_existing_users(self, new_user_record_list):
+        get_users_results = auth.get_users([
             auth.UidIdentifier(new_user_record_list[0].uid),
             auth.UidIdentifier('uid_that_doesnt_exist'),
             auth.UidIdentifier(new_user_record_list[2].uid)])
-        actual = sorted(
-            list(map(self._map_user_record_to_uid_email_phones, users)),
-            key=lambda user: user['uid'])
-        expected = sorted(
-            list(map(
-                self._map_user_record_to_uid_email_phones,
-                [new_user_record_list[0], new_user_record_list[2]])),
-            key=lambda user: user['uid'])
+        actual = sorted([
+            self._map_user_record_to_uid_email_phones(user)
+            for user in get_users_results.users
+        ], key=lambda user: user['uid'])
+        expected = sorted([
+            self._map_user_record_to_uid_email_phones(user)
+            for user in [new_user_record_list[0], new_user_record_list[2]]
+        ], key=lambda user: user['uid'])
 
         assert actual == expected
 
-    def test_returns_nothing_when_queried_for_only_non_existing_users(self):
-        users = auth.get_users([auth.UidIdentifier('non-existing user')])
+    def test_non_existing_users(self):
+        not_found_ids = [auth.UidIdentifier('non-existing user')]
+        get_users_results = auth.get_users(not_found_ids)
 
-        assert users == []
+        assert get_users_results.users == []
+        assert get_users_results.not_found == not_found_ids
 
     def test_de_dups_duplicate_users(self, new_user):
-        users = auth.get_users([
+        get_users_results = auth.get_users([
             auth.UidIdentifier(new_user.uid),
             auth.UidIdentifier(new_user.uid)])
-        actual = list(map(self._map_user_record_to_uid_email_phones, users))
-        expected = list(map(self._map_user_record_to_uid_email_phones, [new_user]))
+        actual = [
+            self._map_user_record_to_uid_email_phones(user)
+            for user in get_users_results.users]
+        expected = [self._map_user_record_to_uid_email_phones(new_user)]
         assert actual == expected
 
 def test_last_refresh_timestamp(new_user_with_params: auth.UserRecord, api_key):
@@ -302,8 +310,7 @@ def test_last_refresh_timestamp(new_user_with_params: auth.UserRecord, api_key):
     # considerations are handled properly, so as long as we're within an hour,
     # we're in good shape.)
     millis_per_second = 1000
-    seconds_per_minute = 60
-    millis_per_minute = millis_per_second * seconds_per_minute
+    millis_per_minute = millis_per_second * 60
 
     last_refresh_timestamp = new_user_with_params.user_metadata.last_refresh_timestamp
     assert last_refresh_timestamp == pytest.approx(
@@ -439,9 +446,9 @@ class TestDeleteUsers:
         assert delete_users_result.failure_count == 0
         assert len(delete_users_result.errors) == 0
 
-        user_records = auth.get_users(
+        get_users_results = auth.get_users(
             [auth.UidIdentifier(uid1), auth.UidIdentifier(uid2), auth.UidIdentifier(uid3)])
-        assert len(user_records) == 0
+        assert len(get_users_results.users) == 0
 
     def test_is_idempotent(self):
         uid = auth.create_user().uid

@@ -24,7 +24,7 @@ import time
 import firebase_admin
 from firebase_admin import _auth_utils
 from firebase_admin import _http_client
-from firebase_admin import _identifier
+from firebase_admin import _user_identifier
 from firebase_admin import _token_gen
 from firebase_admin import _user_import
 from firebase_admin import _user_mgt
@@ -63,6 +63,7 @@ __all__ = [
     'UserProvider',
     'UserRecord',
 
+    'UserIdentifier',
     'UidIdentifier',
     'EmailIdentifier',
     'PhoneIdentifier',
@@ -97,6 +98,7 @@ ErrorInfo = _user_import.ErrorInfo
 ExpiredIdTokenError = _token_gen.ExpiredIdTokenError
 ExpiredSessionCookieError = _token_gen.ExpiredSessionCookieError
 ExportedUserRecord = _user_mgt.ExportedUserRecord
+GetUsersResult = _user_mgt.GetUsersResult
 ImportUserRecord = _user_import.ImportUserRecord
 InsufficientPermissionError = _auth_utils.InsufficientPermissionError
 InvalidDynamicLinkDomainError = _auth_utils.InvalidDynamicLinkDomainError
@@ -117,9 +119,10 @@ UserNotFoundError = _auth_utils.UserNotFoundError
 UserProvider = _user_import.UserProvider
 UserRecord = _user_mgt.UserRecord
 
-UidIdentifier = _identifier.UidIdentifier
-EmailIdentifier = _identifier.EmailIdentifier
-PhoneIdentifier = _identifier.PhoneIdentifier
+UserIdentifier = _user_identifier.UserIdentifier
+UidIdentifier = _user_identifier.UidIdentifier
+EmailIdentifier = _user_identifier.EmailIdentifier
+PhoneIdentifier = _user_identifier.PhoneIdentifier
 
 
 def _get_auth_service(app):
@@ -328,10 +331,6 @@ def get_users(identifiers, app=None):
     result list is not guaranteed to correspond to the nth entry in the input
     parameters list.
 
-    If a given user doesn't exist, then no entry will be returned for it in the
-    results, implying that the results list may have fewer entries than the
-    identifiers list.
-
     Only a maximum of 100 identifiers may be supplied. If more than 100
     identifiers are supplied, this method will immediately raise a ValueError.
 
@@ -342,9 +341,8 @@ def get_users(identifiers, app=None):
         app: An App instance (optional).
 
     Returns:
-        list[UserRecord]: A list of ``UserRecord`` instances corresponding to the
-        specified identifiers. This could be empty if no users were
-        successfully looked up.
+        GetUsersResult: A ``GetUsersResult`` instance corresponding to the
+            specified identifiers.
 
     Raises:
         ValueError: If any of the identifiers are invalid or if more than 100
@@ -352,7 +350,25 @@ def get_users(identifiers, app=None):
     """
     user_manager = _get_auth_service(app).user_manager
     response = user_manager.get_users(identifiers=identifiers)
-    return [UserRecord(data) for data in response]
+
+    def _matches(identifier, user_record):
+        if isinstance(identifier, UidIdentifier):
+            return identifier.uid == user_record.uid
+        if isinstance(identifier, EmailIdentifier):
+            return identifier.email == user_record.email
+        if isinstance(identifier, PhoneIdentifier):
+            return identifier.phone_number == user_record.phone_number
+        raise TypeError("Unexpected type: {}".format(type(identifier)))
+
+    def _is_user_found(identifier, user_records):
+        return next(
+            (True for user_record in user_records if _matches(identifier, user_record)),
+            False)
+
+    users = [UserRecord(user) for user in response]
+    not_found = [identifier for identifier in identifiers if not _is_user_found(identifier, users)]
+
+    return GetUsersResult(users=users, not_found=not_found)
 
 
 def list_users(page_token=None, max_results=_user_mgt.MAX_LIST_USERS_RESULTS, app=None):

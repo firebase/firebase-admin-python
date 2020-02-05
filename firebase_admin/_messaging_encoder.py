@@ -324,8 +324,9 @@ class MessageEncoder(json.JSONEncoder):
 
         event_time = result.get('event_time')
         if event_time:
-            utc_event_time = event_time.astimezone(datetime.timezone.utc)
-            result['event_time'] = utc_event_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+            if event_time.tzinfo is not None:
+                event_time = event_time.astimezone(datetime.timezone.utc)
+            result['event_time'] = event_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
 
         priority = result.get('notification_priority')
         if priority:

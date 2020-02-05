@@ -606,7 +606,6 @@ class TestAndroidNotificationEncoder:
 
     def test_android_notification_naive_event_timestamp(self):
         event_time = datetime.datetime.now()
-        utc_event_time = event_time.astimezone(datetime.timezone.utc)
         msg = messaging.Message(
             topic='topic',
             android=messaging.AndroidConfig(
@@ -621,7 +620,7 @@ class TestAndroidNotificationEncoder:
             'android': {
                 'notification': {
                     'title': 't',
-                    'event_time': utc_event_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+                    'event_time': event_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
                 },
             },
         }

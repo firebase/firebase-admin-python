@@ -98,7 +98,8 @@ class AndroidNotification:
             the user clicks it (optional).
         event_timestamp: For notifications that inform users about events with an absolute time
             reference, sets the time that the event in the notification occurred as a
-            ``datetime.datetime`` instance. Notifications in the panel are sorted by this time
+            ``datetime.datetime`` instance. If the ``datetime.datetime`` instance is naive it will
+            be assumed to be in the UTC timezone. Notifications in the panel are sorted by this time
             (optional).
         local_only: Sets whether or not this notification is relevant only to the current device.
             Some notifications can be bridged to other devices for remote display, such as a Wear OS

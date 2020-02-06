@@ -472,11 +472,16 @@ class UserImportHash:
 
 
 class ErrorInfo:
-    """Represents an error encountered while importing an ``ImportUserRecord``."""
+    """Represents an error encountered while performing a batch operation such
+    as importing users or deleting multiple user accounts.
+    """
+    # TODO(rsgowman): This class used to be specific to importing users (hence
+    # it's home in _user_import.py). It's now also used by bulk deletion of
+    # users. Move this to a more common location.
 
     def __init__(self, error):
-        self._index = error['index']
-        self._reason = error['message']
+        self._index = error.get('index', 0)
+        self._reason = error.get('message', '')
 
     @property
     def index(self):

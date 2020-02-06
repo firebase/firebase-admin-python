@@ -24,6 +24,7 @@ from firebase_admin import _auth_utils
 from firebase_admin import _rfc3339
 from firebase_admin import _user_identifier
 from firebase_admin import _user_import
+from firebase_admin._user_import import ErrorInfo
 
 
 MAX_LIST_USERS_RESULTS = 1000
@@ -413,42 +414,11 @@ class DeleteUsersResult:
 
     @property
     def errors(self):
-        """A list of ``auth.BatchDeleteErrorInfo`` instances describing the
-        errors that were encountered during the deletion. Length of this list
-        is equal to `failure_count`.
+        """A list of ``auth.ErrorInfo`` instances describing the errors that
+        were encountered during the deletion. Length of this list is equal to
+        `failure_count`.
         """
         return self._errors
-
-
-class BatchDeleteErrorInfo:
-    """Represents an error that occurred while attempting to delete a batch of
-    users.
-    """
-
-    def __init__(self, err):
-        """Constructs a BatchDeleteErrorInfo instance, corresponding to the
-        json representing the BatchDeleteErrorInfo proto.
-
-        Args:
-            err: A dictionary with 'index', 'local_id' and 'message' fields,
-                representing the BatchDeleteErrorInfo dictionary that's
-                returned by the server.
-        """
-        self._index = err.get('index', 0)
-        self._uid = err.get('local_id', "")
-        self._reason = err.get('message', '')
-
-    @property
-    def index(self):
-        return self._index
-
-    @property
-    def reason(self):
-        return self._reason
-
-    @property
-    def uid(self):
-        return self._uid
 
 
 class BatchDeleteAccountsResponse:
@@ -460,10 +430,10 @@ class BatchDeleteAccountsResponse:
 
         Args:
             errors: List of dictionaries, with each dictionary representing a
-                BatchDeleteErrorInfo instance as returned by the server. None
-                implies an empty list.
+                ErrorInfo instance as returned by the server. None implies an
+                empty list.
         """
-        self.errors = [BatchDeleteErrorInfo(err) for err in errors] if errors else []
+        self.errors = [ErrorInfo(err) for err in errors] if errors else []
 
 
 class ProviderUserInfo(UserInfo):

@@ -91,8 +91,6 @@ __all__ = [
 ]
 
 ActionCodeSettings = _user_mgt.ActionCodeSettings
-BatchDeleteAccountsResponse = _user_mgt.BatchDeleteAccountsResponse
-BatchDeleteErrorInfo = _user_mgt.BatchDeleteErrorInfo
 CertificateFetchError = _token_gen.CertificateFetchError
 DELETE_ATTRIBUTE = _user_mgt.DELETE_ATTRIBUTE
 DeleteUsersResult = _user_mgt.DeleteUsersResult

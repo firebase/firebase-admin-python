@@ -15,11 +15,10 @@
 name: Release
 
 on:
-  # Only run the workflow when a PR is closed, or when a developer explicitly requests
+  # Only run the workflow when a PR is updated or when a developer explicitly requests
   # a build by sending a 'firebase_build' event.
   pull_request:
-    types:
-      - closed
+    types: [opened, synchronize, closed]
 
   repository_dispatch:
     types:
@@ -27,10 +26,9 @@ on:
 
 jobs:
   stage_release:
-    # If triggered by a PR it must be merged and contain the label 'release:build'.
+    # If triggered by a PR it must contain the label 'release:build'.
     if: github.event.action == 'firebase_build' ||
-      (github.event.pull_request.merged &&
-      contains(github.event.pull_request.labels.*.name, 'release:build'))
+      contains(github.event.pull_request.labels.*.name, 'release:build')
 
     runs-on: ubuntu-latest
 
@@ -53,10 +51,14 @@ jobs:
         pip install -r requirements.txt
         pip install wheel
 
-    - name: Run tests
-      run: |
-        pytest
-        echo "Running integration tests"
+    - name: Run unit tests
+      run: pytest
+
+    - name: Run integration tests
+      run: ./.github/scripts/run_integration_tests.sh
+      env:
+        FIREBASE_SERVICE_ACCT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCT_KEY }}
+        FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
 
     - name: Package release artifacts
       run: python setup.py bdist_wheel bdist_egg

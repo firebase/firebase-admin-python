@@ -85,17 +85,17 @@ jobs:
 
     runs-on: ubuntu-latest
 
-    # Download the artifacts created by the stage_release job.
     steps:
+    - name: Checkout source for publish
+      uses: actions/checkout@v2
+
+    # Download the artifacts created by the stage_release job.
     - name: Download release candidates
       uses: actions/download-artifact@v1
       with:
         name: dist
 
-    steps:
-    - name: Checkout source for tagging
-      uses: actions/checkout@v2
-
+    # Python is needed to run Twine and some of the preflight checks.
     - name: Set up Python
       uses: actions/setup-python@v1
       with:
@@ -111,9 +111,9 @@ jobs:
       run: |
         ./.github/scripts/publish_preflight_check.sh
 
-    # Tag the release if not executing in the dryrun mode. We pull this action froma
-    # custom fork of a contributor until https://github.com/actions/create-release/pull/32
-    # is merged. Also note that v1 of this action does not support the "body" parameter.
+    # We pull this action froma custom fork of a contributor until
+    # https://github.com/actions/create-release/pull/32 is merged. Also note that v1 of
+    # this action does not support the "body" parameter.
     - name: Create release tag
       uses: fleskesvor/create-release@1a72e235c178bf2ae6c51a8ae36febc24568c5fe
       env:

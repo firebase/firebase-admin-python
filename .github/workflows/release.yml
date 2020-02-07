@@ -80,8 +80,8 @@ jobs:
     #   2. to the master branch
     #   3. with the title prefix '[chore] Release '.
     if: github.event.pull_request.merged &&
-        github.ref == 'master' &&
-        startsWith(github.event.pull_request.title, '[chore] Release ')
+      github.ref == 'master' &&
+      startsWith(github.event.pull_request.title, '[chore] Release ')
 
     runs-on: ubuntu-latest
 
@@ -108,10 +108,9 @@ jobs:
 
     - name: Publish preflight check
       id: preflight
-      run: |
-        ./.github/scripts/publish_preflight_check.sh
+      run: ./.github/scripts/publish_preflight_check.sh
 
-    # We pull this action froma custom fork of a contributor until
+    # We pull this action from a custom fork of a contributor until
     # https://github.com/actions/create-release/pull/32 is merged. Also note that v1 of
     # this action does not support the "body" parameter.
     - name: Create release tag

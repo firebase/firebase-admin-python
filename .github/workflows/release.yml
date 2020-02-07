@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Release
+name: Release Candidate
 
 on:
   # Only run the workflow when a PR is updated or when a developer explicitly requests
@@ -49,7 +49,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install wheel
+        pip install setuptools wheel
 
     - name: Run unit tests
       run: pytest
@@ -60,8 +60,9 @@ jobs:
         FIREBASE_SERVICE_ACCT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCT_KEY }}
         FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
 
+    # Build the Python Wheel and the source distribution.
     - name: Package release artifacts
-      run: python setup.py bdist_wheel bdist_egg
+      run: python setup.py bdist_wheel sdist
 
     # Attach the packaged artifacts to the workflow output. These can be manually
     # downloaded for later inspection if necessary.
@@ -71,24 +72,49 @@ jobs:
         name: dist
         path: dist
 
+  publish_release:
+    needs: stage_release
+
     # Check whether the release should be published. We publish only when the trigger PR is
     #   1. merged
     #   2. to the master branch
     #   3. with the title prefix '[chore] Release '.
-    - name: Publish preflight check
-      if: success() && github.event.pull_request.merged &&
+    if: github.event.pull_request.merged &&
         github.ref == 'master' &&
         startsWith(github.event.pull_request.title, '[chore] Release ')
+
+    runs-on: ubuntu-latest
+
+    # Download the artifacts created by the stage_release job.
+    steps:
+    - name: Download release candidates
+      uses: actions/download-artifact@v1
+      with:
+        name: dist
+
+    steps:
+    - name: Checkout source for tagging
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.6
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install twine
+
+    - name: Publish preflight check
       id: preflight
       run: |
         ./.github/scripts/publish_preflight_check.sh
-        echo ::set-env name=FIREBASE_PUBLISH::true
 
     # Tag the release if not executing in the dryrun mode. We pull this action froma
     # custom fork of a contributor until https://github.com/actions/create-release/pull/32
     # is merged. Also note that v1 of this action does not support the "body" parameter.
     - name: Create release tag
-      if: success() && env.FIREBASE_PUBLISH
       uses: fleskesvor/create-release@1a72e235c178bf2ae6c51a8ae36febc24568c5fe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -100,12 +126,11 @@ jobs:
         prerelease: false
 
     - name: Publish to Pypi
-      if: success() && env.FIREBASE_PUBLISH
       run: echo Publishing to Pypi
 
     # Post to Twitter if explicitly opted-in by adding the label 'release:tweet'.
     - name: Post to Twitter
-      if: success() && env.FIREBASE_PUBLISH &&
+      if: success() &&
         contains(github.event.pull_request.labels.*.name, 'release:tweet')
       run: echo Posting Tweet
       continue-on-error: true

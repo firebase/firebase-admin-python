@@ -26,9 +26,13 @@ on:
 
 jobs:
   stage_release:
-    # If triggered by a PR it must contain the label 'release:build'.
+    # To publish a release, merge the release PR with the label 'release:publish'.
+    # To stage a release without publishing it, send a 'firebase_build' event or apply
+    # the 'release:stage' label to a PR.
     if: github.event.action == 'firebase_build' ||
-      contains(github.event.pull_request.labels.*.name, 'release:build')
+      contains(github.event.pull_request.labels.*.name, 'release:stage') ||
+      (github.event.pull_request.merged &&
+        contains(github.event.pull_request.labels.*.name, 'release:publish'))
 
     runs-on: ubuntu-latest
 
@@ -78,9 +82,11 @@ jobs:
     # Check whether the release should be published. We publish only when the trigger PR is
     #   1. merged
     #   2. to the master branch
-    #   3. with the title prefix '[chore] Release '.
+    #   3. with the label 'release:publish', and
+    #   4. the title prefix '[chore] Release '.
     if: github.event.pull_request.merged &&
       github.ref == 'master' &&
+      contains(github.event.pull_request.labels.*.name, 'release:publish') &&
       startsWith(github.event.pull_request.title, '[chore] Release ')
 
     runs-on: ubuntu-latest

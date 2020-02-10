@@ -62,6 +62,41 @@ echo "::set-output name=version::v${RELEASE_VERSION}"
 
 echo_info ""
 echo_info "--------------------------------------------"
+echo_info "Check release artifacts"
+echo_info "--------------------------------------------"
+echo_info ""
+
+if [[ ! -d dist ]]; then
+  echo_warn "dist directory does not exist."
+  terminate
+fi
+
+readonly BIN_DIST="dist/firebase_admin-${RELEASE_VERSION}-py3-none-any.whl"
+if [[ -f "${BIN_DIST}" ]]; then
+  echo_info "Found binary distribution (bdist_wheel): ${BIN_DIST}"
+else
+  echo_warn "Binary distribution ${BIN_DIST} not found."
+  terminate
+fi
+
+readonly SRC_DIST="dist/firebase_admin-${RELEASE_VERSION}.tar.gz"
+if [[ -f "${SRC_DIST}" ]]; then
+  echo_info "Found source distribution (sdist): ${SRC_DIST}"
+else
+  echo_warn "Source distribution ${SRC_DIST} not found."
+  terminate
+fi
+
+readonly ARTIFACT_COUNT=`ls dist/ | wc -l`
+if [[ $ARTIFACT_COUNT -ne 2 ]]; then
+  echo_warn "Unexpected artifacts in the distribution directory."
+  ls -l dist
+  terminate
+fi
+
+
+echo_info ""
+echo_info "--------------------------------------------"
 echo_info "Checking previous releases"
 echo_info "--------------------------------------------"
 echo_info ""

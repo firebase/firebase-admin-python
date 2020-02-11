@@ -59,8 +59,7 @@ echo_info ""
 readonly ABOUT_FILE="firebase_admin/__about__.py"
 echo_info "Loading version from: ${ABOUT_FILE}"
 
-readonly VERSION_SCRIPT="exec(open('${ABOUT_FILE}').read()); print(__version__)"
-readonly RELEASE_VERSION=`python -c "${VERSION_SCRIPT}"` || true
+readonly RELEASE_VERSION=`grep "__version__" ${ABOUT_FILE} | awk '{print $3}' | tr -d \'` || true
 if [[ -z "${RELEASE_VERSION}" ]]; then
   echo_warn "Failed to extract release version from: ${ABOUT_FILE}"
   terminate

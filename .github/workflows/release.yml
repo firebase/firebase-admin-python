@@ -123,19 +123,19 @@ jobs:
       uses: pypa/gh-action-pypi-publish@v1.0.0a0
       with:
         user: firebase
-        password: ${{ secrets.FIREBASE_PYPI_PASSWORD }}
+        password: ${{ secrets.PYPI_PASSWORD }}
 
     # Post to Twitter if explicitly opted-in by adding the label 'release:tweet'.
     - name: Post to Twitter
       if: success() &&
         contains(github.event.pull_request.labels.*.name, 'release:tweet')
-      uses: ethomson/send-tweet-action@v1
+      uses: ethomson/send-tweet-action@288f9339e0412e3038dce350e0da5ecdf12133a6
       with:
         status: >
           ${{ steps.preflight.outputs.version }} of @Firebase Admin Python SDK is avaialble.
           https://github.com/firebase/firebase-admin-python/releases/tag/${{ steps.preflight.outputs.version }}
-        consumer-key: ${{ secrets.FIREBASE_TWITTER_CONSUMER_KEY }}
-        consumer-secret: ${{ secrets.FIREBASE_TWITTER_CONSUMER_SECRET }}
-        access-token: ${{ secrets.FIREBASE_TWITTER_ACCESS_TOKEN }}
-        access-token-secret: ${{ secrets.FIREBASE_TWITTER_ACCESS_TOKEN_SECRET }}
+        consumer-key: ${{ secrets.TWITTER_CONSUMER_KEY }}
+        consumer-secret: ${{ secrets.TWITTER_CONSUMER_SECRET }}
+        access-token: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+        access-token-secret: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
       continue-on-error: true

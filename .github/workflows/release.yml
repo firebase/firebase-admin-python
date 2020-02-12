@@ -101,17 +101,6 @@ jobs:
       with:
         name: dist
 
-    # Python is needed to run Twine and some of the preflight checks.
-    - name: Set up Python
-      uses: actions/setup-python@v1
-      with:
-        python-version: 3.6
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install twine
-
     - name: Publish preflight check
       id: preflight
       run: ./.github/scripts/publish_preflight_check.sh
@@ -131,11 +120,22 @@ jobs:
         prerelease: false
 
     - name: Publish to Pypi
-      run: echo Publishing to Pypi
+      uses: pypa/gh-action-pypi-publish@v1.0.0a0
+      with:
+        user: firebase
+        password: ${{ secrets.PYPI_PASSWORD }}
 
     # Post to Twitter if explicitly opted-in by adding the label 'release:tweet'.
     - name: Post to Twitter
       if: success() &&
         contains(github.event.pull_request.labels.*.name, 'release:tweet')
-      run: echo Posting Tweet
+      uses: ethomson/send-tweet-action@288f9339e0412e3038dce350e0da5ecdf12133a6
+      with:
+        status: >
+          ${{ steps.preflight.outputs.version }} of @Firebase Admin Python SDK is avaialble.
+          https://github.com/firebase/firebase-admin-python/releases/tag/${{ steps.preflight.outputs.version }}
+        consumer-key: ${{ secrets.TWITTER_CONSUMER_KEY }}
+        consumer-secret: ${{ secrets.TWITTER_CONSUMER_SECRET }}
+        access-token: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+        access-token-secret: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
       continue-on-error: true

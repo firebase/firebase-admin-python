@@ -372,7 +372,8 @@ class _MessagingService:
             send_response = SendResponse(response, exception)
             responses.append(send_response)
 
-        batch = http.BatchHttpRequest(batch_callback, batch_uri=_MessagingService.FCM_BATCH_URL)
+        batch = http.BatchHttpRequest(
+            callback=batch_callback, batch_uri=_MessagingService.FCM_BATCH_URL)
         for message in messages:
             body = json.dumps(self._message_data(message, dry_run))
             req = http.HttpRequest(

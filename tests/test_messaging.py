@@ -17,7 +17,8 @@ import datetime
 import json
 import numbers
 
-from googleapiclient.http import HttpMockSequence
+from googleapiclient import http
+from googleapiclient import _helpers
 import pytest
 
 import firebase_admin
@@ -1810,7 +1811,7 @@ class TestBatch:
             content_type = 'multipart/mixed; boundary=boundary'
         else:
             content_type = 'application/json'
-        fcm_service._transport = HttpMockSequence([
+        fcm_service._transport = http.HttpMockSequence([
             ({'status': str(status), 'content-type': content_type}, payload),
         ])
         return fcm_service
@@ -1866,6 +1867,20 @@ class TestSendAll(TestBatch):
         assert [r.message_id for r in batch_response.responses] == ['message-id', 'message-id']
         assert all([r.success for r in batch_response.responses])
         assert not any([r.exception for r in batch_response.responses])
+
+    def test_send_all_with_positional_param_enforcement(self):
+        payload = json.dumps({'name': 'message-id'})
+        _ = self._instrument_batch_messaging_service(
+            payload=self._batch_payload([(200, payload), (200, payload)]))
+        msg = messaging.Message(topic='foo')
+
+        enforcement = _helpers.positional_parameters_enforcement
+        _helpers.positional_parameters_enforcement = _helpers.POSITIONAL_EXCEPTION
+        try:
+            batch_response = messaging.send_all([msg, msg], dry_run=True)
+            assert batch_response.success_count == 2
+        finally:
+            _helpers.positional_parameters_enforcement = enforcement
 
     @pytest.mark.parametrize('status', HTTP_ERROR_CODES)
     def test_send_all_detailed_error(self, status):

@@ -55,7 +55,7 @@ def update_rules(app):
     with open(testutils.resource_filename('dinosaurs_index.json')) as rules_file:
         new_rules = json.load(rules_file)
     client = db.reference('', app)._client
-    rules = client.body('get', '/.settings/rules.json')
+    rules = client.body('get', '/.settings/rules.json', params='format=strict')
     existing = rules.get('rules')
     if existing != new_rules:
         rules['rules'] = new_rules

@@ -17,7 +17,8 @@ import datetime
 import json
 import numbers
 
-from googleapiclient.http import HttpMockSequence
+from googleapiclient import http
+from googleapiclient import _helpers
 import pytest
 
 import firebase_admin
@@ -547,7 +548,10 @@ class TestAndroidNotificationEncoder:
                     click_action='ca', title_loc_key='tlk', body_loc_key='blk',
                     title_loc_args=['t1', 't2'], body_loc_args=['b1', 'b2'], channel_id='c',
                     ticker='ticker', sticky=True,
-                    event_timestamp=datetime.datetime(2019, 10, 20, 15, 12, 23, 123),
+                    event_timestamp=datetime.datetime(
+                        2019, 10, 20, 15, 12, 23, 123,
+                        tzinfo=datetime.timezone(datetime.timedelta(hours=-5))
+                    ),
                     local_only=False,
                     priority='high', vibrate_timings_millis=[100, 50, 250],
                     default_vibrate_timings=False, default_sound=True,
@@ -577,7 +581,7 @@ class TestAndroidNotificationEncoder:
                     'channel_id': 'c',
                     'ticker': 'ticker',
                     'sticky': True,
-                    'event_time': '2019-10-20T15:12:23.000123Z',
+                    'event_time': '2019-10-20T20:12:23.000123Z',
                     'local_only': False,
                     'notification_priority': 'PRIORITY_HIGH',
                     'vibrate_timings': ['0.100000000s', '0.050000000s', '0.250000000s'],
@@ -596,6 +600,28 @@ class TestAndroidNotificationEncoder:
                     'default_light_settings': False,
                     'visibility': 'PUBLIC',
                     'notification_count': 1,
+                },
+            },
+        }
+        check_encoding(msg, expected)
+
+    def test_android_notification_naive_event_timestamp(self):
+        event_time = datetime.datetime.now()
+        msg = messaging.Message(
+            topic='topic',
+            android=messaging.AndroidConfig(
+                notification=messaging.AndroidNotification(
+                    title='t',
+                    event_timestamp=event_time,
+                )
+            )
+        )
+        expected = {
+            'topic': 'topic',
+            'android': {
+                'notification': {
+                    'title': 't',
+                    'event_time': event_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
                 },
             },
         }
@@ -1785,7 +1811,7 @@ class TestBatch:
             content_type = 'multipart/mixed; boundary=boundary'
         else:
             content_type = 'application/json'
-        fcm_service._transport = HttpMockSequence([
+        fcm_service._transport = http.HttpMockSequence([
             ({'status': str(status), 'content-type': content_type}, payload),
         ])
         return fcm_service
@@ -1841,6 +1867,20 @@ class TestSendAll(TestBatch):
         assert [r.message_id for r in batch_response.responses] == ['message-id', 'message-id']
         assert all([r.success for r in batch_response.responses])
         assert not any([r.exception for r in batch_response.responses])
+
+    def test_send_all_with_positional_param_enforcement(self):
+        payload = json.dumps({'name': 'message-id'})
+        _ = self._instrument_batch_messaging_service(
+            payload=self._batch_payload([(200, payload), (200, payload)]))
+        msg = messaging.Message(topic='foo')
+
+        enforcement = _helpers.positional_parameters_enforcement
+        _helpers.positional_parameters_enforcement = _helpers.POSITIONAL_EXCEPTION
+        try:
+            batch_response = messaging.send_all([msg, msg], dry_run=True)
+            assert batch_response.success_count == 2
+        finally:
+            _helpers.positional_parameters_enforcement = enforcement
 
     @pytest.mark.parametrize('status', HTTP_ERROR_CODES)
     def test_send_all_detailed_error(self, status):

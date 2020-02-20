@@ -333,8 +333,8 @@ def get_users(identifiers, app=None):
     result list is not guaranteed to correspond to the nth entry in the input
     parameters list.
 
-    Only a maximum of 100 identifiers may be supplied. If more than 100
-    identifiers are supplied, this method will immediately raise a ValueError.
+    A maximum of 100 identifiers may be supplied. If more than 100
+    identifiers are supplied, this method raises a `ValueError`.
 
     Args:
         identifiers (list[Identifier]): A list of ``Identifier`` instances used
@@ -521,12 +521,12 @@ def delete_users(uids, app=None):
     """Deletes the users specified by the given identifiers.
 
     Deleting a non-existing user won't generate an error. (i.e. this method is
-    idempotent.) Non-existing users will be considered to be successfully
+    idempotent.) Non-existing users are considered to be successfully
     deleted, and will therefore be counted in the
-    DeleteUserResult.success_count value.
+    `DeleteUserResult.success_count` value.
 
-    Only a maximum of 1000 identifiers may be supplied. If more than 1000
-    identifiers are supplied, this method will immediately raise a ValueError.
+    A maximum of 1000 identifiers may be supplied. If more than 1000
+    identifiers are supplied, this method raises a `ValueError`.
 
     Args:
         uids: A list of strings indicating the uids of the users to be deleted.

@@ -25,7 +25,7 @@ class UidIdentifier(UserIdentifier):
     """
 
     def __init__(self, uid):
-        """Constructs a new UidIdentifier.
+        """Constructs a new `UidIdentifier` object.
 
         Args:
             uid: A user ID string.
@@ -40,7 +40,7 @@ class EmailIdentifier(UserIdentifier):
     """
 
     def __init__(self, email):
-        """Constructs a new EmailIdentifier.
+        """Constructs a new `EmailIdentifier` object.
 
         Args:
             email: A user email address string.
@@ -55,7 +55,7 @@ class PhoneIdentifier(UserIdentifier):
     """
 
     def __init__(self, phone_number):
-        """Constructs a new PhoneIdentifier.
+        """Constructs a new `PhoneIdentifier` object.
 
         Args:
             phone_number: A phone number string.
@@ -70,7 +70,7 @@ class ProviderIdentifier(UserIdentifier):
     """
 
     def __init__(self, provider_id, provider_uid):
-        """Constructs a new ProviderIdentifier.
+        """Constructs a new `ProviderIdentifier` object.
 
         Args:
             provider_id: A provider ID string.

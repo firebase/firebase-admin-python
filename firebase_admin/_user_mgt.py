@@ -76,7 +76,7 @@ class UserMetadata:
         """The time at which the user was last active (ID token refreshed).
 
         Returns:
-          integer: Milliseconds since epoch timestamp, or None if the user was
+          integer: Milliseconds since epoch timestamp, or `None` if the user was
             never active.
         """
         return self._last_refresh_timestamp
@@ -305,7 +305,7 @@ class GetUsersResult:
     """Represents the result of the ``auth.get_users()`` API."""
 
     def __init__(self, users, not_found):
-        """Constructs a GetUsersResult.
+        """Constructs a `GetUsersResult` object.
 
         Args:
             users: List of `UserRecord` instances.
@@ -316,15 +316,17 @@ class GetUsersResult:
 
     @property
     def users(self):
-        """Set of UserRecords, corresponding to the set of users that were
-        requested. Only users that were found are listed here. The result set
-        is unordered.
+        """Set of `UserRecord` instances, corresponding to the set of users
+        that were requested. Only users that were found are listed here. The
+        result set is unordered.
         """
         return self._users
 
     @property
     def not_found(self):
-        """Set of UserIdentifiers that were requested, but not found."""
+        """Set of `UserIdentifier` instances that were requested, but not
+        found.
+        """
         return self._not_found
 
 
@@ -383,12 +385,12 @@ class DeleteUsersResult:
     """Represents the result of the ``auth.delete_users()`` API."""
 
     def __init__(self, result, total):
-        """Constructs a DeleteUsersResult.
+        """Constructs a `DeleteUsersResult` object.
 
         Args:
-          result: BatchDeleteAccountsResponse: The proto response, wrapped in a
-              BatchDeleteAccountsResponse instance.
-          total: integer: Total number of deletion attempts.
+          result: The proto response, wrapped in a
+            `BatchDeleteAccountsResponse` instance.
+          total: Total integer number of deletion attempts.
         """
         errors = result.errors
         self._success_count = total - len(errors)
@@ -400,7 +402,7 @@ class DeleteUsersResult:
         """Returns the number of users that were deleted successfully (possibly
         zero).
 
-        Users that did not exist prior to calling delete_users() will be
+        Users that did not exist prior to calling `delete_users()` are
         considered to be successfully deleted.
         """
         return self._success_count
@@ -422,16 +424,16 @@ class DeleteUsersResult:
 
 
 class BatchDeleteAccountsResponse:
-    """Represents the results of a delete_users() call."""
+    """Represents the results of a `delete_users()` call."""
 
     def __init__(self, errors=None):
-        """Constructs a BatchDeleteAccountsResponse instance, corresponseing to
-        the json representing the BatchDeleteAccountsResponse proto.
+        """Constructs a `BatchDeleteAccountsResponse` instance, corresponding to
+        the JSON representing the `BatchDeleteAccountsResponse` proto.
 
         Args:
-            errors: List of dictionaries, with each dictionary representing a
-                ErrorInfo instance as returned by the server. None implies an
-                empty list.
+            errors: List of dictionaries, with each dictionary representing an
+                `ErrorInfo` instance as returned by the server. `None` implies
+                an empty list.
         """
         self.errors = [ErrorInfo(err) for err in errors] if errors else []
 
@@ -596,8 +598,8 @@ class UserManager:
                 to be looked up. Must have <= 100 entries.
 
         Returns:
-            list[dict[string, string]]: List of dicts representing the json
-            UserInfo responses from the server.
+            list[dict[string, string]]: List of dicts representing the JSON
+            `UserInfo` responses from the server.
 
         Raises:
             ValueError: If any of the identifiers are invalid or if more than

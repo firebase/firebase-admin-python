@@ -480,8 +480,8 @@ class ErrorInfo:
     # users. Move this to a more common location.
 
     def __init__(self, error):
-        self._index = error.get('index', 0)
-        self._reason = error.get('message', '')
+        self._index = error['index']
+        self._reason = error['message']
 
     @property
     def index(self):

@@ -18,21 +18,21 @@ from datetime import datetime, timezone
 import re
 
 def parse_to_epoch(datestr):
-    """Parses an RFC3339 date string and return the number of seconds since the
+    """Parse an RFC3339 date string and return the number of seconds since the
     epoch (as a float).
 
     In particular, this method is meant to parse the strings returned by the
     JSON mapping of protobuf google.protobuf.timestamp.Timestamp instances:
     https://github.com/protocolbuffers/protobuf/blob/4cf5bfee9546101d98754d23ff378ff718ba8438/src/google/protobuf/timestamp.proto#L99
 
-    This method has microsecond precision; i.e. nanoseconds will be truncated.
+    This method has microsecond precision; nanoseconds will be truncated.
 
     Args:
         datestr: A string in RFC3339 format.
     Returns:
-        Float: The number of seconds since the unix epoch.
+        Float: The number of seconds since the Unix epoch.
     Raises:
-        ValueError: Raised if the datestr is not a valid RFC3339 date string.
+        ValueError: Raised if the `datestr` is not a valid RFC3339 date string.
     """
     return _parse_to_datetime(datestr).timestamp()
 
@@ -43,9 +43,9 @@ def _parse_to_datetime(datestr):
     Args:
         datestr: A string in RFC3339 format.
     Returns:
-        datetime: The corresponding datetime (with timezone information).
+        datetime: The corresponding `datetime` (with timezone information).
     Raises:
-        ValueError: Raised if the datestr is not a valid RFC3339 date string.
+        ValueError: Raised if the `datestr` is not a valid RFC3339 date string.
     """
     # If more than 6 digits appear in the fractional seconds position, truncate
     # to just the most significant 6. (i.e. we only have microsecond precision;

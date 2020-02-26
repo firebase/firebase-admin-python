@@ -373,8 +373,7 @@ class Reference:
         Raises:
           FirebaseError: If an error occurs while starting the initial HTTP connection.
         """
-        session = _sseclient.KeepAuthSession(self._client.credential)
-        return self._listen_with_session(callback, session)
+        return self._listen_with_session(callback)
 
     def transaction(self, transaction_update):
         """Atomically modifies the data at this location.
@@ -463,8 +462,11 @@ class Reference:
     def _add_suffix(self, suffix='.json'):
         return self._pathurl + suffix
 
-    def _listen_with_session(self, callback, session):
+    def _listen_with_session(self, callback, session=None):
         url = self._client.base_url + self._add_suffix()
+        if not session:
+            session = self._client.create_listener_session()
+
         try:
             sse = _sseclient.SSEClient(url, session)
             return ListenerRegistration(callback, sse)
@@ -907,6 +909,7 @@ class _Client(_http_client.JsonHttpClient):
         super().__init__(
             credential=credential, base_url=base_url,
             timeout=timeout, headers={'User-Agent': _USER_AGENT})
+        self.credential = credential
         self.params = params if params else {}
 
     def request(self, method, url, **kwargs):
@@ -940,6 +943,9 @@ class _Client(_http_client.JsonHttpClient):
             return super(_Client, self).request(method, url, **kwargs)
         except requests.exceptions.RequestException as error:
             raise _Client.handle_rtdb_error(error)
+
+    def create_listener_session(self):
+        return _sseclient.KeepAuthSession(self.credential)
 
     @classmethod
     def handle_rtdb_error(cls, error):

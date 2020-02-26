@@ -453,10 +453,13 @@ class _MessagingService:
         except ValueError:
             pass
 
-        # IID error response format: {"error": "some error message"}
-        msg = data.get('error')
-        if not msg:
-            msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(
+        # IID error response format: {"error": "ErrorCode"}
+        msg = 'Error while calling the IID service'
+        code = data.get('error')
+        if code:
+            msg += ' ({0})'.format(code)
+        else:
+            msg += '; status: {0}; body: {1}'.format(
                 error.response.status_code, error.response.content.decode())
 
         return _utils.handle_requests_error(error, msg)

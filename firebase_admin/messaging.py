@@ -454,8 +454,8 @@ class _MessagingService:
             pass
 
         # IID error response format: {"error": "ErrorCode"}
-        msg = 'Error while calling the IID service'
         code = data.get('error')
+        msg = None
         if code:
             msg = 'Error while calling the IID service: {0}'.format(code)
         else:

@@ -773,8 +773,8 @@ def _validate_page_token(page_token):
 class _MLService:
     """Firebase ML service."""
 
-    PROJECT_URL = 'https://mlkit.googleapis.com/v1beta1/projects/{0}/'
-    OPERATION_URL = 'https://mlkit.googleapis.com/v1beta1/'
+    PROJECT_URL = 'https://firebaseml.googleapis.com/v1beta2/projects/{0}/'
+    OPERATION_URL = 'https://firebaseml.googleapis.com/v1beta2/'
     POLL_EXPONENTIAL_BACKOFF_FACTOR = 1.5
     POLL_BASE_WAIT_TIME_SECONDS = 3
 

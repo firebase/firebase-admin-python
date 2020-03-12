@@ -24,7 +24,7 @@ from firebase_admin import ml
 from tests import testutils
 
 
-BASE_URL = 'https://mlkit.googleapis.com/v1beta1/'
+BASE_URL = 'https://firebaseml.googleapis.com/v1beta2/'
 PROJECT_ID = 'myProject1'
 PAGE_TOKEN = 'pageToken'
 NEXT_PAGE_TOKEN = 'nextPageToken'
@@ -306,7 +306,7 @@ def instrument_ml_service(status=200, payload=None, operations=False, app=None):
         app = firebase_admin.get_app()
     ml_service = ml._get_ml_service(app)
     recorder = []
-    session_url = 'https://mlkit.googleapis.com/v1beta1/'
+    session_url = 'https://firebaseml.googleapis.com/v1beta2/'
 
     if isinstance(status, list):
         adapter = testutils.MockMultiRequestAdapter

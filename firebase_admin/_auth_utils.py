@@ -266,6 +266,15 @@ class UserNotFoundError(exceptions.NotFoundError):
         exceptions.NotFoundError.__init__(self, message, cause, http_response)
 
 
+class TenantNotFoundError(exceptions.NotFoundError):
+    """No tenant found for the specified identifier."""
+
+    default_message = 'No tenant found for the given identifier'
+
+    def __init__(self, message, cause=None, http_response=None):
+        exceptions.NotFoundError.__init__(self, message, cause, http_response)
+
+
 _CODE_TO_EXC_TYPE = {
     'DUPLICATE_EMAIL': EmailAlreadyExistsError,
     'DUPLICATE_LOCAL_ID': UidAlreadyExistsError,
@@ -274,6 +283,7 @@ _CODE_TO_EXC_TYPE = {
     'INVALID_DYNAMIC_LINK_DOMAIN': InvalidDynamicLinkDomainError,
     'INVALID_ID_TOKEN': InvalidIdTokenError,
     'PHONE_NUMBER_EXISTS': PhoneNumberAlreadyExistsError,
+    'TENANT_NOT_FOUND': TenantNotFoundError,
     'USER_NOT_FOUND': UserNotFoundError,
 }
 

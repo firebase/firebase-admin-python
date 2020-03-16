@@ -58,6 +58,22 @@ def get_tenant(tenant_id, app=None):
     return tenant_mgt_service.get_tenant(tenant_id)
 
 
+def delete_tenant(tenant_id, app=None):
+    """Deletes the tenant corresponding to the given ``tenant_id``.
+
+    Args:
+        tenant_id: A tenant ID string.
+        app: An App instance (optional).
+
+    Raises:
+        ValueError: If the tenant ID is None, empty or not a string.
+        TenantNotFoundError: If no tenant exists by the given ID.
+        FirebaseError: If an error occurs while retrieving the tenant.
+    """
+    tenant_mgt_service = _get_tenant_mgt_service(app)
+    tenant_mgt_service.delete_tenant(tenant_id)
+
+
 def _get_tenant_mgt_service(app):
     return _utils.get_app_service(app, _TENANT_MGT_ATTRIBUTE, _TenantManagementService)
 
@@ -122,3 +138,13 @@ class _TenantManagementService:
             raise _auth_utils.handle_auth_backend_error(error)
         else:
             return Tenant(body)
+
+    def delete_tenant(self, tenant_id):
+        if not isinstance(tenant_id, str) or not tenant_id:
+            raise ValueError(
+                'Invalid tenant ID: {0}. Tenant ID must be a non-empty string.'.format(tenant_id))
+
+        try:
+            self.client.request('delete', '/tenants/{0}'.format(tenant_id))
+        except requests.exceptions.RequestException as error:
+            raise _auth_utils.handle_auth_backend_error(error)

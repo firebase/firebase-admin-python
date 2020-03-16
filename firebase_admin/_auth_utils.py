@@ -291,12 +291,12 @@ _CODE_TO_EXC_TYPE = {
 def handle_auth_backend_error(error):
     """Converts a requests error received from the Firebase Auth service into a FirebaseError."""
     if error.response is None:
-        raise _utils.handle_requests_error(error)
+        return _utils.handle_requests_error(error)
 
     code, custom_message = _parse_error_body(error.response)
     if not code:
         msg = 'Unexpected error response: {0}'.format(error.response.content.decode())
-        raise _utils.handle_requests_error(error, message=msg)
+        return _utils.handle_requests_error(error, message=msg)
 
     exc_type = _CODE_TO_EXC_TYPE.get(code)
     msg = _build_error_message(code, exc_type, custom_message)

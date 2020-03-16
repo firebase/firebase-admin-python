@@ -33,6 +33,7 @@ __all__ = [
     'Tenant',
     'TenantNotFoundError',
 
+    'delete_tenant',
     'get_tenant',
 ]
 

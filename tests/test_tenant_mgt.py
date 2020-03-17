@@ -19,7 +19,6 @@ import pytest
 import firebase_admin
 from firebase_admin import exceptions
 from firebase_admin import tenant_mgt
-from firebase_admin import _auth_utils
 from tests import testutils
 
 

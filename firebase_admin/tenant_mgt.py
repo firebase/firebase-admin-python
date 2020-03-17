@@ -129,6 +129,7 @@ class _TenantManagementService:
             credential=credential, base_url=base_url, headers={'X-Client-Version': version_header})
 
     def get_tenant(self, tenant_id):
+        """Gets the tenant corresponding to the given ``tenant_id``."""
         if not isinstance(tenant_id, str) or not tenant_id:
             raise ValueError(
                 'Invalid tenant ID: {0}. Tenant ID must be a non-empty string.'.format(tenant_id))
@@ -141,6 +142,7 @@ class _TenantManagementService:
             return Tenant(body)
 
     def delete_tenant(self, tenant_id):
+        """Deletes the tenant corresponding to the given ``tenant_id``."""
         if not isinstance(tenant_id, str) or not tenant_id:
             raise ValueError(
                 'Invalid tenant ID: {0}. Tenant ID must be a non-empty string.'.format(tenant_id))

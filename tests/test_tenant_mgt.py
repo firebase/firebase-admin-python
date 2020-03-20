@@ -120,6 +120,39 @@ class TestGetTenant:
         assert excinfo.value.cause is not None
 
 
+class TestCreateTenant:
+
+    @pytest.mark.parametrize('display_name', ['', True, False, 1, 0, list(), tuple(), dict()])
+    def test_invalid_display_name(self, display_name):
+        with pytest.raises(ValueError):
+            tenant_mgt.create_tenant(display_name=display_name)
+
+    def test_create_tenant_minimal(self, tenant_mgt_app):
+        _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
+        tenant = tenant_mgt.create_tenant(app=tenant_mgt_app)
+        assert tenant.tenant_id == 'tenant-id'
+        assert tenant.display_name == 'Test Tenant'
+        assert tenant.allow_password_sign_up is True
+        assert tenant.enable_email_link_sign_in is True
+
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'POST'
+        assert req.url == '{0}/tenants'.format(TENANT_MGT_URL_PREFIX)
+        assert req.body == 'foo'
+
+    def test_error(self, tenant_mgt_app):
+        _instrument_tenant_mgt(tenant_mgt_app, 500, '{}')
+        with pytest.raises(exceptions.InternalError) as excinfo:
+            tenant_mgt.create_tenant(app=tenant_mgt_app)
+
+        error_msg = 'Unexpected error response: {}'
+        assert excinfo.value.code == exceptions.INTERNAL
+        assert str(excinfo.value) == error_msg
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is not None
+
+
 class TestDeleteTenant:
 
     @pytest.mark.parametrize('tenant_id', INVALID_TENANT_IDS)

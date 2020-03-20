@@ -157,6 +157,12 @@ def validate_int(value, label, low=None, high=None):
             raise ValueError('{0} must not be larger than {1}.'.format(label, high))
         return val_int
 
+def validate_boolean(value, label):
+    """Validates that the given value is a boolean."""
+    if not isinstance(value, bool):
+        raise ValueError('Invalid type for {0}: {1}.'.format(label, value))
+    return value
+
 def validate_custom_claims(custom_claims, required=False):
     """Validates the specified custom claims.
 

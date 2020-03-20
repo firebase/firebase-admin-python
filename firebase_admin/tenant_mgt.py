@@ -59,6 +59,31 @@ def get_tenant(tenant_id, app=None):
     return tenant_mgt_service.get_tenant(tenant_id)
 
 
+def create_tenant(
+        display_name=None, allow_password_sign_up=None, enable_email_link_sign_in=None, app=None):
+    """Creates a new tenant from the given options.
+
+    Args:
+        display_name: Display name string for the new tenant (optional).
+        allow_password_sign_up: A boolean indicating whether to enable or disable the email sign-in
+            provider.
+        enable_email_link_sign_in: A boolean indicating whether to enable or disable email link
+            sign-in. Disabling this makes the password required for email sign-in.
+        app: An App instance (optional).
+
+    Returns:
+        Tenant: A Tenant object.
+
+    Raises:
+        ValueError: If any of the given arguments are invalid.
+        FirebaseError: If an error occurs while creating the tenant.
+    """
+    tenant_mgt_service = _get_tenant_mgt_service(app)
+    return tenant_mgt_service.create_tenant(
+        display_name=display_name, allow_password_sign_up=allow_password_sign_up,
+        enable_email_link_sign_in=enable_email_link_sign_in)
+
+
 def delete_tenant(tenant_id, app=None):
     """Deletes the tenant corresponding to the given ``tenant_id``.
 
@@ -136,6 +161,26 @@ class _TenantManagementService:
 
         try:
             body = self.client.body('get', '/tenants/{0}'.format(tenant_id))
+        except requests.exceptions.RequestException as error:
+            raise _auth_utils.handle_auth_backend_error(error)
+        else:
+            return Tenant(body)
+
+    def create_tenant(
+            self, display_name=None, allow_password_sign_up=None, enable_email_link_sign_in=None):
+        """Creates a new tenant from the given parameters."""
+        payload = {}
+        if display_name is not None:
+            payload['displayName'] = _auth_utils.validate_display_name(display_name)
+        if allow_password_sign_up is not None:
+            payload['allowPasswordSignup'] = _auth_utils.validate_boolean(
+                allow_password_sign_up, 'allowPasswordSignup')
+        if enable_email_link_sign_in is not None:
+            payload['enableEmailLinkSignin'] = _auth_utils.validate_boolean(
+                enable_email_link_sign_in, 'enableEmailLinkSignin')
+
+        try:
+            body = self.client.body('post', '/tenants', data=payload)
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)
         else:

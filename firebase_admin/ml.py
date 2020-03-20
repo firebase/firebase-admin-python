@@ -841,7 +841,8 @@ class _MLService:
 
         op_name = _validate_operation_name(operation.get('name'))
         metadata = operation.get('metadata')
-        if metadata is None or '@type' not in metadata or 'ModelOperationMetadata' not in metadata.get('@type'):
+        if (metadata is None or '@type' not in metadata or
+                'ModelOperationMetadata' not in metadata.get('@type')):
             raise TypeError('Unknown type of operation metadata.')
         _, model_id = _validate_and_parse_name(metadata.get('name'))
         current_attempt = 0

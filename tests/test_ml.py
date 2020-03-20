@@ -25,7 +25,7 @@ from tests import testutils
 
 
 BASE_URL = 'https://mlkit.googleapis.com/v1beta1/'
-PROJECT_ID = 'myProject1'
+PROJECT_ID = 'my-project-1'
 PAGE_TOKEN = 'pageToken'
 NEXT_PAGE_TOKEN = 'nextPageToken'
 
@@ -85,11 +85,11 @@ MODEL_STATE_ERROR_JSON = {
     }
 }
 
-OPERATION_NAME_1 = 'operations/project/{0}/model/{1}/operation/123'.format(PROJECT_ID, MODEL_ID_1)
+OPERATION_NAME_1 = 'projects/{0}/operations/123'.format(PROJECT_ID)
 OPERATION_NOT_DONE_JSON_1 = {
     'name': OPERATION_NAME_1,
     'metadata': {
-        '@type': 'type.googleapis.com/google.firebase.ml.v1beta1.ModelOperationMetadata',
+        '@type': 'type.googleapis.com/google.firebase.ml.v1beta2.ModelOperationMetadata',
         'name': 'projects/{0}/models/{1}'.format(PROJECT_ID, MODEL_ID_1),
         'basic_operation_status': 'BASIC_OPERATION_STATUS_UPLOADING'
     }
@@ -265,10 +265,10 @@ INVALID_MODEL_ARGS = [
 INVALID_OP_NAME_ARGS = [
     'abc',
     '123',
-    'projects/operations/project/1234/model/abc/operation/123',
-    'operations/project/model/abc/operation/123',
-    'operations/project/123/model/$#@/operation/123',
-    'operations/project/1234/model/abc/operation/123/extrathing',
+    'operations/project/1234/model/abc/operation/123',
+    'projects/operations/123',
+    'projects/$#@/operations/123',
+    'projects/1234/operations/123/extrathing',
 ]
 PAGE_SIZE_VALUE_ERROR_MSG = 'Page size must be a positive integer between ' \
                             '1 and {0}'.format(ml._MAX_PAGE_SIZE)
@@ -348,9 +348,9 @@ class TestModel:
         testutils.cleanup_apps()
 
     @staticmethod
-    def _op_url(project_id, model_id):
+    def _op_url(project_id):
         return BASE_URL + \
-            'operations/project/{0}/model/{1}/operation/123'.format(project_id, model_id)
+            'projects/{0}/operations/123'.format(project_id)
 
     def test_model_success_err_state_lro(self):
         model = ml.Model.from_dict(FULL_MODEL_ERR_STATE_LRO_JSON)
@@ -534,7 +534,7 @@ class TestModel:
         assert model == FULL_MODEL_PUBLISHED
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
-        assert recorder[0].url == TestModel._op_url(PROJECT_ID, MODEL_ID_1)
+        assert recorder[0].url == TestModel._op_url(PROJECT_ID)
 
     def test_wait_for_unlocked_timeout(self):
         recorder = instrument_ml_service(
@@ -564,9 +564,9 @@ class TestCreateModel:
         return BASE_URL + 'projects/{0}/models'.format(project_id)
 
     @staticmethod
-    def _op_url(project_id, model_id):
+    def _op_url(project_id):
         return BASE_URL + \
-            'operations/project/{0}/model/{1}/operation/123'.format(project_id, model_id)
+            'projects/{0}/operations/123'.format(project_id)
 
     @staticmethod
     def _get_url(project_id, model_id):
@@ -660,9 +660,9 @@ class TestUpdateModel:
         return BASE_URL + 'projects/{0}/models/{1}'.format(project_id, model_id)
 
     @staticmethod
-    def _op_url(project_id, model_id):
+    def _op_url(project_id):
         return BASE_URL + \
-            'operations/project/{0}/model/{1}/operation/123'.format(project_id, model_id)
+            'projects/{0}/operations/123'.format(project_id)
 
     def test_immediate_done(self):
         instrument_ml_service(status=200, payload=OPERATION_DONE_RESPONSE)
@@ -765,9 +765,9 @@ class TestPublishUnpublish:
         return BASE_URL + 'projects/{0}/models/{1}'.format(project_id, model_id)
 
     @staticmethod
-    def _op_url(project_id, model_id):
+    def _op_url(project_id):
         return BASE_URL + \
-            'operations/project/{0}/model/{1}/operation/123'.format(project_id, model_id)
+            'projects/{0}/operations/123'.format(project_id)
 
     @pytest.mark.parametrize('publish_function, published', PUBLISH_UNPUBLISH_WITH_ARGS)
     def test_immediate_done(self, publish_function, published):

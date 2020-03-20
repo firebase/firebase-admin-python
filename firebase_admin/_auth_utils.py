@@ -266,6 +266,15 @@ class UserNotFoundError(exceptions.NotFoundError):
         exceptions.NotFoundError.__init__(self, message, cause, http_response)
 
 
+class TenantNotFoundError(exceptions.NotFoundError):
+    """No tenant found for the specified identifier."""
+
+    default_message = 'No tenant found for the given identifier'
+
+    def __init__(self, message, cause=None, http_response=None):
+        exceptions.NotFoundError.__init__(self, message, cause, http_response)
+
+
 _CODE_TO_EXC_TYPE = {
     'DUPLICATE_EMAIL': EmailAlreadyExistsError,
     'DUPLICATE_LOCAL_ID': UidAlreadyExistsError,
@@ -274,6 +283,7 @@ _CODE_TO_EXC_TYPE = {
     'INVALID_DYNAMIC_LINK_DOMAIN': InvalidDynamicLinkDomainError,
     'INVALID_ID_TOKEN': InvalidIdTokenError,
     'PHONE_NUMBER_EXISTS': PhoneNumberAlreadyExistsError,
+    'TENANT_NOT_FOUND': TenantNotFoundError,
     'USER_NOT_FOUND': UserNotFoundError,
 }
 
@@ -281,12 +291,12 @@ _CODE_TO_EXC_TYPE = {
 def handle_auth_backend_error(error):
     """Converts a requests error received from the Firebase Auth service into a FirebaseError."""
     if error.response is None:
-        raise _utils.handle_requests_error(error)
+        return _utils.handle_requests_error(error)
 
     code, custom_message = _parse_error_body(error.response)
     if not code:
         msg = 'Unexpected error response: {0}'.format(error.response.content.decode())
-        raise _utils.handle_requests_error(error, message=msg)
+        return _utils.handle_requests_error(error, message=msg)
 
     exc_type = _CODE_TO_EXC_TYPE.get(code)
     msg = _build_error_message(code, exc_type, custom_message)

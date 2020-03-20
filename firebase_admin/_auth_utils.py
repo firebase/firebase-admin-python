@@ -205,6 +205,7 @@ def validate_action_type(action_type):
     return action_type
 
 def build_update_mask(params):
+    """Creates an update mask list from the given dictionary."""
     mask = []
     for key, value in params.items():
         if isinstance(value, dict):

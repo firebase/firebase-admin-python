@@ -840,9 +840,9 @@ class _MLService:
             raise exceptions.UnknownError(message='Internal Error: Malformed Operation.')
 
         op_name = _validate_operation_name(operation.get('name'))
-        metadata = operation.get('metadata')
-        if (metadata is None or '@type' not in metadata or
-                'ModelOperationMetadata' not in metadata.get('@type')):
+        metadata = operation.get('metadata', {})
+        metadata_type = metadata.get('@type', '')
+        if not metadata_type.endswith('ModelOperationMetadata'):
             raise TypeError('Unknown type of operation metadata.')
         _, model_id = _validate_and_parse_name(metadata.get('name'))
         current_attempt = 0

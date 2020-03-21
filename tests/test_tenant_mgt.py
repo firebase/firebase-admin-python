@@ -15,6 +15,7 @@
 """Test cases for the firebase_admin.tenant_mgt module."""
 
 import json
+from urllib import parse
 
 import pytest
 
@@ -35,6 +36,38 @@ TENANT_NOT_FOUND_RESPONSE = """{
     "error": {
         "message": "TENANT_NOT_FOUND"
     }
+}"""
+
+LIST_TENANTS_RESPONSE = """{
+    "tenants": [
+        {
+            "name": "projects/mock-project-id/tenants/tenant0",
+            "displayName": "Test Tenant",
+            "allowPasswordSignup": true,
+            "enableEmailLinkSignin": true
+        },
+        {
+            "name": "projects/mock-project-id/tenants/tenant1",
+            "displayName": "Test Tenant",
+            "allowPasswordSignup": true,
+            "enableEmailLinkSignin": true
+        }
+    ]
+}"""
+
+LIST_TENANTS_RESPONSE_WITH_TOKEN = """{
+    "tenants": [
+        {
+            "name": "projects/mock-project-id/tenants/tenant0"
+        },
+        {
+            "name": "projects/mock-project-id/tenants/tenant1"
+        },
+        {
+            "name": "projects/mock-project-id/tenants/tenant2"
+        }
+    ],
+    "nextPageToken": "token"
 }"""
 
 INVALID_TENANT_IDS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
@@ -309,8 +342,142 @@ class TestDeleteTenant:
         assert excinfo.value.cause is not None
 
 
-def _assert_tenant(tenant):
-    assert tenant.tenant_id == 'tenant-id'
+class TestListTenants:
+
+    @pytest.mark.parametrize('arg', [None, 'foo', list(), dict(), 0, -1, 101, False])
+    def test_invalid_max_results(self, tenant_mgt_app, arg):
+        with pytest.raises(ValueError):
+            tenant_mgt.list_tenants(max_results=arg, app=tenant_mgt_app)
+
+    @pytest.mark.parametrize('arg', ['', list(), dict(), 0, -1, True, False])
+    def test_invalid_page_token(self, tenant_mgt_app, arg):
+        with pytest.raises(ValueError):
+            tenant_mgt.list_tenants(page_token=arg, app=tenant_mgt_app)
+
+    def test_list_single_page(self, tenant_mgt_app):
+        _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, LIST_TENANTS_RESPONSE)
+        page = tenant_mgt.list_tenants(app=tenant_mgt_app)
+        self._assert_tenants_page(page)
+        assert page.next_page_token == ''
+        assert page.has_next_page is False
+        assert page.get_next_page() is None
+        tenants = [tenant for tenant in page.iterate_all()]
+        assert len(tenants) == 2
+        self._assert_request(recorder)
+
+    def test_list_multiple_pages(self, tenant_mgt_app):
+        # Page 1
+        _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, LIST_TENANTS_RESPONSE_WITH_TOKEN)
+        page = tenant_mgt.list_tenants(app=tenant_mgt_app)
+        assert len(page.tenants) == 3
+        assert page.next_page_token == 'token'
+        assert page.has_next_page is True
+        self._assert_request(recorder)
+
+        # Page 2 (also the last page)
+        response = {'tenants': [{'name': 'projects/mock-project-id/tenants/tenant3'}]}
+        _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, json.dumps(response))
+        page = page.get_next_page()
+        assert len(page.tenants) == 1
+        assert page.next_page_token == ''
+        assert page.has_next_page is False
+        assert page.get_next_page() is None
+        self._assert_request(recorder, {'pageSize': '100', 'pageToken': 'token'})
+
+    def test_list_tenants_paged_iteration(self, tenant_mgt_app):
+        # Page 1
+        _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, LIST_TENANTS_RESPONSE_WITH_TOKEN)
+        page = tenant_mgt.list_tenants(app=tenant_mgt_app)
+        iterator = page.iterate_all()
+        for index in range(3):
+            tenant = next(iterator)
+            assert tenant.tenant_id == 'tenant{0}'.format(index)
+        self._assert_request(recorder)
+
+        # Page 2 (also the last page)
+        response = {'tenants': [{'name': 'projects/mock-project-id/tenants/tenant3'}]}
+        _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, json.dumps(response))
+        tenant = next(iterator)
+        assert tenant.tenant_id == 'tenant3'
+
+        with pytest.raises(StopIteration):
+            next(iterator)
+        self._assert_request(recorder, {'pageSize': '100', 'pageToken': 'token'})
+
+    def test_list_tenants_iterator_state(self, tenant_mgt_app):
+        _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, LIST_TENANTS_RESPONSE)
+        page = tenant_mgt.list_tenants(app=tenant_mgt_app)
+
+        # Advance iterator.
+        iterator = page.iterate_all()
+        tenant = next(iterator)
+        assert tenant.tenant_id == 'tenant0'
+
+        # Iterator should resume from where left off.
+        tenant = next(iterator)
+        assert tenant.tenant_id == 'tenant1'
+
+        with pytest.raises(StopIteration):
+            next(iterator)
+        self._assert_request(recorder)
+
+    def test_list_tenants_stop_iteration(self, tenant_mgt_app):
+        _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, LIST_TENANTS_RESPONSE)
+        page = tenant_mgt.list_tenants(app=tenant_mgt_app)
+        iterator = page.iterate_all()
+        tenants = [tenant for tenant in iterator]
+        assert len(tenants) == 2
+
+        with pytest.raises(StopIteration):
+            next(iterator)
+        self._assert_request(recorder)
+
+    def test_list_tenants_no_tenants_response(self, tenant_mgt_app):
+        response = {'tenants': []}
+        _instrument_tenant_mgt(tenant_mgt_app, 200, json.dumps(response))
+        page = tenant_mgt.list_tenants(app=tenant_mgt_app)
+        assert len(page.tenants) == 0
+        tenants = [tenant for tenant in page.iterate_all()]
+        assert len(tenants) == 0
+
+    def test_list_tenants_with_max_results(self, tenant_mgt_app):
+        _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, LIST_TENANTS_RESPONSE)
+        page = tenant_mgt.list_tenants(max_results=50, app=tenant_mgt_app)
+        self._assert_tenants_page(page)
+        self._assert_request(recorder, {'pageSize' : '50'})
+
+    def test_list_tenants_with_all_args(self, tenant_mgt_app):
+        _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, LIST_TENANTS_RESPONSE)
+        page = tenant_mgt.list_tenants(page_token='foo', max_results=50, app=tenant_mgt_app)
+        self._assert_tenants_page(page)
+        self._assert_request(recorder, {'pageToken' : 'foo', 'pageSize' : '50'})
+
+    def test_list_tenants_error(self, tenant_mgt_app):
+        _instrument_tenant_mgt(tenant_mgt_app, 500, '{"error":"test"}')
+        with pytest.raises(exceptions.InternalError) as excinfo:
+            tenant_mgt.list_tenants(app=tenant_mgt_app)
+        assert str(excinfo.value) == 'Unexpected error response: {"error":"test"}'
+
+    def _assert_tenants_page(self, page):
+        assert isinstance(page, tenant_mgt.ListTenantsPage)
+        assert len(page.tenants) == 2
+        for idx, tenant in enumerate(page.tenants):
+            _assert_tenant(tenant, 'tenant{0}'.format(idx))
+
+    def _assert_request(self, recorder, expected=None):
+        if expected is None:
+            expected = {'pageSize' : '100'}
+
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'GET'
+        request = dict(parse.parse_qsl(parse.urlsplit(req.url).query))
+        assert request == expected
+
+
+def _assert_tenant(tenant, tenant_id='tenant-id'):
+    assert isinstance(tenant, tenant_mgt.Tenant)
+    assert tenant.tenant_id == tenant_id
     assert tenant.display_name == 'Test Tenant'
     assert tenant.allow_password_sign_up is True
     assert tenant.enable_email_link_sign_in is True

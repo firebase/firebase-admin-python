@@ -297,7 +297,7 @@ class _TenantManagementService:
             raise ValueError('Max results must be an integer.')
         if max_results < 1 or max_results > _MAX_LIST_TENANTS_RESULTS:
             raise ValueError(
-                'Max results must be a positive integer less than '
+                'Max results must be a positive integer less than or equal to '
                 '{0}.'.format(_MAX_LIST_TENANTS_RESULTS))
 
         payload = {'pageSize': max_results}

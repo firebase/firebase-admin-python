@@ -20,6 +20,7 @@ from urllib import parse
 import pytest
 
 import firebase_admin
+from firebase_admin import auth
 from firebase_admin import exceptions
 from firebase_admin import tenant_mgt
 from tests import testutils
@@ -70,9 +71,12 @@ LIST_TENANTS_RESPONSE_WITH_TOKEN = """{
     "nextPageToken": "token"
 }"""
 
+MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
+
 INVALID_TENANT_IDS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
 INVALID_BOOLEANS = ['', 1, 0, list(), tuple(), dict()]
 
+USER_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v1/projects/mock-project-id'
 TENANT_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v2beta1/projects/mock-project-id'
 
 
@@ -91,6 +95,15 @@ def _instrument_tenant_mgt(app, status, payload):
         tenant_mgt._TenantManagementService.TENANT_MGT_URL,
         testutils.MockAdapter(payload, status, recorder))
     return service, recorder
+
+
+def _instrument_user_mgt(client, status, payload):
+    recorder = []
+    user_manager = client._user_manager
+    user_manager._client.session.mount(
+        auth._AuthService.ID_TOOLKIT_URL,
+        testutils.MockAdapter(payload, status, recorder))
+    return recorder
 
 
 class TestTenant:
@@ -129,7 +142,7 @@ class TestGetTenant:
     @pytest.mark.parametrize('tenant_id', INVALID_TENANT_IDS)
     def test_invalid_tenant_id(self, tenant_id):
         with pytest.raises(ValueError):
-            tenant_mgt.delete_tenant(tenant_id)
+            tenant_mgt.get_tenant(tenant_id)
 
     def test_get_tenant(self, tenant_mgt_app):
         _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
@@ -473,6 +486,57 @@ class TestListTenants:
         assert req.method == 'GET'
         request = dict(parse.parse_qsl(parse.urlsplit(req.url).query))
         assert request == expected
+
+
+class TestAuthForTenant:
+
+    @pytest.mark.parametrize('tenant_id', INVALID_TENANT_IDS)
+    def test_invalid_tenant_id(self, tenant_id):
+        with pytest.raises(ValueError):
+            tenant_mgt.auth_for_tenant(tenant_id)
+
+    def test_client(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant1', app=tenant_mgt_app)
+        assert client.tenant_id == 'tenant1'
+
+    def test_client_reuse(self, tenant_mgt_app):
+        client1 = tenant_mgt.auth_for_tenant('tenant1', app=tenant_mgt_app)
+        client2 = tenant_mgt.auth_for_tenant('tenant1', app=tenant_mgt_app)
+        client3 = tenant_mgt.auth_for_tenant('tenant2', app=tenant_mgt_app)
+        assert client1 is client2
+        assert client1 is not client3
+
+
+class TestTenantAwareUserManagement:
+
+    def test_get_user(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_user_mgt(client, 200, MOCK_GET_USER_RESPONSE)
+
+        user = client.get_user('testuser')
+
+        assert isinstance(user, auth.UserRecord)
+        assert user.uid == 'testuser'
+        assert user.email == 'testuser@example.com'
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'POST'
+        assert req.url == '{0}/tenants/tenant-id/accounts:lookup'.format(USER_MGT_URL_PREFIX)
+        body = json.loads(req.body.decode())
+        assert body == {'localId': ['testuser']}
+
+    def test_delete_user(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_user_mgt(client, 200, '{"kind":"deleteresponse"}')
+
+        client.delete_user('testuser')
+
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'POST'
+        assert req.url == '{0}/tenants/tenant-id/accounts:delete'.format(USER_MGT_URL_PREFIX)
+        body = json.loads(req.body.decode())
+        assert body == {'localId': 'testuser'}
 
 
 def _assert_tenant(tenant, tenant_id='tenant-id'):

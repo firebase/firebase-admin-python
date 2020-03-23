@@ -523,12 +523,13 @@ def generate_sign_in_with_email_link(email, action_code_settings, app=None):
         email, action_code_settings=action_code_settings)
 
 
+# TODO: Rename to public type Client
 class _AuthService:
     """Firebase Authentication service."""
 
     ID_TOOLKIT_URL = 'https://identitytoolkit.googleapis.com/v1/projects/'
 
-    def __init__(self, app):
+    def __init__(self, app, tenant_id=None):
         credential = app.credential.get_credential()
         version_header = 'Python/Admin/{0}'.format(firebase_admin.__version__)
 
@@ -538,12 +539,21 @@ class _AuthService:
             2. set the project ID explicitly via Firebase App options, or
             3. set the project ID via the GOOGLE_CLOUD_PROJECT environment variable.""")
 
-        client = _http_client.JsonHttpClient(
-            credential=credential, base_url=self.ID_TOOLKIT_URL + app.project_id,
+        url_path = app.project_id
+        if tenant_id:
+            url_path += '/tenants/{0}'.format(tenant_id)
+
+        http_client = _http_client.JsonHttpClient(
+            credential=credential, base_url=self.ID_TOOLKIT_URL + url_path,
             headers={'X-Client-Version': version_header})
-        self._token_generator = _token_gen.TokenGenerator(app, client)
+        self._tenant_id = tenant_id
+        self._token_generator = _token_gen.TokenGenerator(app, http_client)
         self._token_verifier = _token_gen.TokenVerifier(app)
-        self._user_manager = _user_mgt.UserManager(client)
+        self._user_manager = _user_mgt.UserManager(http_client)
+
+    @property
+    def tenant_id(self):
+        return self._tenant_id
 
     def create_custom_token(self, uid, developer_claims=None):
         return self._token_generator.create_custom_token(uid, developer_claims)

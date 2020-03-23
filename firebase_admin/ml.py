@@ -54,8 +54,7 @@ _GCS_TFLITE_URI_PATTERN = re.compile(
     r'^gs://(?P<bucket_name>[a-z0-9_.-]{3,63})/(?P<blob_name>.+)$')
 _AUTO_ML_MODEL_PATTERN = re.compile(
     r'^projects/(?P<project_id>\d+)/locations/(?P<location_id>[^/]+)/' +
-    r'models/(?P<model_id>[A-Za-z0-9]+)$'
-)
+    r'models/(?P<model_id>[A-Za-z0-9]+)$')
 _RESOURCE_NAME_PATTERN = re.compile(
     r'^projects/(?P<project_id>[a-z0-9-]{6,30})/models/(?P<model_id>[A-Za-z0-9_-]{1,60})$')
 _OPERATION_NAME_PATTERN = re.compile(
@@ -601,8 +600,9 @@ class TFLiteGCSModelSource(TFLiteModelSource):
 
         return {'gcsTfliteUri': self._gcs_tflite_uri}
 
+
 class TFLiteAutoMlSource(TFLiteModelSource):
-    """TFLite model source representing a tflite model created via auto_ml."""
+    """TFLite model source representing a tflite model created via AutoML."""
 
     def __init__(self, auto_ml_model, app=None):
         self._app = app
@@ -618,7 +618,7 @@ class TFLiteAutoMlSource(TFLiteModelSource):
 
     @property
     def auto_ml_model(self):
-        """ID of the model created by the AutoML API."""
+        """Resource name of the model created by the AutoML API."""
         return self._auto_ml_model
 
     @auto_ml_model.setter

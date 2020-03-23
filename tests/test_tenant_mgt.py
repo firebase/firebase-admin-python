@@ -518,12 +518,29 @@ class TestTenantAwareUserManagement:
         assert isinstance(user, auth.UserRecord)
         assert user.uid == 'testuser'
         assert user.email == 'testuser@example.com'
-        assert len(recorder) == 1
-        req = recorder[0]
-        assert req.method == 'POST'
-        assert req.url == '{0}/tenants/tenant-id/accounts:lookup'.format(USER_MGT_URL_PREFIX)
-        body = json.loads(req.body.decode())
-        assert body == {'localId': ['testuser']}
+        self._assert_request(recorder, '/accounts:lookup', {'localId': ['testuser']})
+
+    def test_get_user_by_email(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_user_mgt(client, 200, MOCK_GET_USER_RESPONSE)
+
+        user = client.get_user_by_email('testuser@example.com')
+
+        assert isinstance(user, auth.UserRecord)
+        assert user.uid == 'testuser'
+        assert user.email == 'testuser@example.com'
+        self._assert_request(recorder, '/accounts:lookup', {'email': ['testuser@example.com']})
+
+    def test_get_user_by_phone_number(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_user_mgt(client, 200, MOCK_GET_USER_RESPONSE)
+
+        user = client.get_user_by_phone_number('+1234567890')
+
+        assert isinstance(user, auth.UserRecord)
+        assert user.uid == 'testuser'
+        assert user.email == 'testuser@example.com'
+        self._assert_request(recorder, '/accounts:lookup', {'phoneNumber': ['+1234567890']})
 
     def test_delete_user(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
@@ -531,12 +548,84 @@ class TestTenantAwareUserManagement:
 
         client.delete_user('testuser')
 
+        self._assert_request(recorder, '/accounts:delete', {'localId': 'testuser'})
+
+    def test_set_custom_user_claims(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_user_mgt(client, 200, '{"localId":"testuser"}')
+        claims = {'admin': True}
+
+        client.set_custom_user_claims('testuser', claims)
+
+        self._assert_request(recorder, '/accounts:update', {
+            'localId': 'testuser',
+            'customAttributes': json.dumps(claims),
+        })
+
+    def test_revoke_refresh_tokens(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_user_mgt(client, 200, '{"localId":"testuser"}')
+        claims = {'admin': True}
+
+        client.revoke_refresh_tokens('testuser')
+
         assert len(recorder) == 1
         req = recorder[0]
         assert req.method == 'POST'
-        assert req.url == '{0}/tenants/tenant-id/accounts:delete'.format(USER_MGT_URL_PREFIX)
+        assert req.url == '{0}/tenants/tenant-id/accounts:update'.format(
+            USER_MGT_URL_PREFIX)
         body = json.loads(req.body.decode())
-        assert body == {'localId': 'testuser'}
+        assert body['localId'] == 'testuser'
+        assert 'validSince' in body
+
+    def test_generate_password_reset_link(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_user_mgt(client, 200, '{"oobLink":"https://testlink"}')
+
+        link = client.generate_password_reset_link('test@test.com')
+
+        assert link == 'https://testlink'
+        self._assert_request(recorder, '/accounts:sendOobCode', {
+            'email': 'test@test.com',
+            'requestType': 'PASSWORD_RESET',
+            'returnOobLink': True,
+        })
+
+    def test_generate_email_verification_link(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_user_mgt(client, 200, '{"oobLink":"https://testlink"}')
+
+        link = client.generate_email_verification_link('test@test.com')
+
+        assert link == 'https://testlink'
+        self._assert_request(recorder, '/accounts:sendOobCode', {
+            'email': 'test@test.com',
+            'requestType': 'VERIFY_EMAIL',
+            'returnOobLink': True,
+        })
+
+    def test_generate_sign_in_with_email_link(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_user_mgt(client, 200, '{"oobLink":"https://testlink"}')
+        settings = auth.ActionCodeSettings(url='http://localhost')
+
+        link = client.generate_sign_in_with_email_link('test@test.com', settings)
+
+        assert link == 'https://testlink'
+        self._assert_request(recorder, '/accounts:sendOobCode', {
+            'email': 'test@test.com',
+            'requestType': 'EMAIL_SIGNIN',
+            'returnOobLink': True,
+            'continueUrl': 'http://localhost',
+        })
+
+    def _assert_request(self, recorder, want_url, want_body):
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'POST'
+        assert req.url == '{0}/tenants/tenant-id{1}'.format(USER_MGT_URL_PREFIX, want_url)
+        body = json.loads(req.body.decode())
+        assert body == want_body
 
 
 def _assert_tenant(tenant, tenant_id='tenant-id'):

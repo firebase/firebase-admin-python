@@ -57,10 +57,9 @@ _AUTO_ML_MODEL_PATTERN = re.compile(
     r'models/(?P<model_id>[A-Za-z0-9]+)$'
 )
 _RESOURCE_NAME_PATTERN = re.compile(
-    r'^projects/(?P<project_id>[^/]+)/models/(?P<model_id>[A-Za-z0-9_-]{1,60})$')
+    r'^projects/(?P<project_id>[a-z0-9-]{6,30})/models/(?P<model_id>[A-Za-z0-9_-]{1,60})$')
 _OPERATION_NAME_PATTERN = re.compile(
-    r'^operations/project/(?P<project_id>[^/]+)/model/(?P<model_id>[A-Za-z0-9_-]{1,60})' +
-    r'/operation/[^/]+$')
+    r'^projects/(?P<project_id>[a-z0-9-]{6,30})/operations/[^/]+$')
 
 
 def _get_ml_service(app):
@@ -751,11 +750,10 @@ def _validate_model_id(model_id):
         raise ValueError('Model ID format is invalid.')
 
 
-def _validate_and_parse_operation_name(op_name):
-    matcher = _OPERATION_NAME_PATTERN.match(op_name)
-    if not matcher:
+def _validate_operation_name(op_name):
+    if not _OPERATION_NAME_PATTERN.match(op_name):
         raise ValueError('Operation name format is invalid.')
-    return matcher.group('project_id'), matcher.group('model_id')
+    return op_name
 
 
 def _validate_display_name(display_name):
@@ -817,8 +815,8 @@ def _validate_page_token(page_token):
 class _MLService:
     """Firebase ML service."""
 
-    PROJECT_URL = 'https://mlkit.googleapis.com/v1beta1/projects/{0}/'
-    OPERATION_URL = 'https://mlkit.googleapis.com/v1beta1/'
+    PROJECT_URL = 'https://firebaseml.googleapis.com/v1beta2/projects/{0}/'
+    OPERATION_URL = 'https://firebaseml.googleapis.com/v1beta2/'
     POLL_EXPONENTIAL_BACKOFF_FACTOR = 1.5
     POLL_BASE_WAIT_TIME_SECONDS = 3
 
@@ -837,7 +835,7 @@ class _MLService:
             base_url=_MLService.OPERATION_URL)
 
     def get_operation(self, op_name):
-        _validate_and_parse_operation_name(op_name)
+        _validate_operation_name(op_name)
         try:
             return self._operation_client.body('get', url=op_name)
         except requests.exceptions.RequestException as error:
@@ -885,8 +883,12 @@ class _MLService:
                 raise _utils.handle_operation_error(operation.get('error'))
             raise exceptions.UnknownError(message='Internal Error: Malformed Operation.')
 
-        op_name = operation.get('name')
-        _, model_id = _validate_and_parse_operation_name(op_name)
+        op_name = _validate_operation_name(operation.get('name'))
+        metadata = operation.get('metadata', {})
+        metadata_type = metadata.get('@type', '')
+        if not metadata_type.endswith('ModelOperationMetadata'):
+            raise TypeError('Unknown type of operation metadata.')
+        _, model_id = _validate_and_parse_name(metadata.get('name'))
         current_attempt = 0
         start_time = datetime.datetime.now()
         stop_time = (None if max_time_seconds is None else

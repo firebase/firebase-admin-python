@@ -152,7 +152,7 @@ def list_tenants(page_token=None, max_results=_MAX_LIST_TENANTS_RESULTS, app=Non
         ListTenantsPage: A ListTenantsPage instance.
 
     Raises:
-        ValueError: If max_results or page_token are invalid.
+        ValueError: If ``max_results`` or ``page_token`` are invalid.
         FirebaseError: If an error occurs while retrieving the user accounts.
     """
     tenant_mgt_service = _get_tenant_mgt_service(app)

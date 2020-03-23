@@ -157,6 +157,18 @@ def validate_int(value, label, low=None, high=None):
             raise ValueError('{0} must not be larger than {1}.'.format(label, high))
         return val_int
 
+def validate_string(value, label):
+    """Validates that the given value is a string."""
+    if not isinstance(value, str):
+        raise ValueError('Invalid type for {0}: {1}.'.format(label, value))
+    return value
+
+def validate_boolean(value, label):
+    """Validates that the given value is a boolean."""
+    if not isinstance(value, bool):
+        raise ValueError('Invalid type for {0}: {1}.'.format(label, value))
+    return value
+
 def validate_custom_claims(custom_claims, required=False):
     """Validates the specified custom claims.
 
@@ -191,6 +203,19 @@ def validate_action_type(action_type):
         raise ValueError('Invalid action type provided action_type: {0}. \
             Valid values are {1}'.format(action_type, ', '.join(VALID_EMAIL_ACTION_TYPES)))
     return action_type
+
+def build_update_mask(params):
+    """Creates an update mask list from the given dictionary."""
+    mask = []
+    for key, value in params.items():
+        if isinstance(value, dict):
+            child_mask = build_update_mask(value)
+            for child in child_mask:
+                mask.append('{0}.{1}'.format(key, child))
+        else:
+            mask.append(key)
+
+    return sorted(mask)
 
 
 class UidAlreadyExistsError(exceptions.AlreadyExistsError):

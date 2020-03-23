@@ -27,14 +27,19 @@ from firebase_admin import _utils
 
 
 _TENANT_MGT_ATTRIBUTE = '_tenant_mgt'
+_MAX_LIST_TENANTS_RESULTS = 100
 
 
 __all__ = [
+    'ListTenantsPage',
     'Tenant',
     'TenantNotFoundError',
 
+    'create_tenant',
     'delete_tenant',
     'get_tenant',
+    'list_tenants',
+    'update_tenant',
 ]
 
 TenantNotFoundError = _auth_utils.TenantNotFoundError
@@ -126,6 +131,34 @@ def delete_tenant(tenant_id, app=None):
     """
     tenant_mgt_service = _get_tenant_mgt_service(app)
     tenant_mgt_service.delete_tenant(tenant_id)
+
+
+def list_tenants(page_token=None, max_results=_MAX_LIST_TENANTS_RESULTS, app=None):
+    """Retrieves a page of tenants from a Firebase project.
+
+    The ``page_token`` argument governs the starting point of the page. The ``max_results``
+    argument governs the maximum number of tenants that may be included in the returned page.
+    This function never returns None. If there are no user accounts in the Firebase project, this
+    returns an empty page.
+
+    Args:
+        page_token: A non-empty page token string, which indicates the starting point of the page
+            (optional). Defaults to ``None``, which will retrieve the first page of users.
+        max_results: A positive integer indicating the maximum number of users to include in the
+            returned page (optional). Defaults to 100, which is also the maximum number allowed.
+        app: An App instance (optional).
+
+    Returns:
+        ListTenantsPage: A ListTenantsPage instance.
+
+    Raises:
+        ValueError: If ``max_results`` or ``page_token`` are invalid.
+        FirebaseError: If an error occurs while retrieving the user accounts.
+    """
+    tenant_mgt_service = _get_tenant_mgt_service(app)
+    def download(page_token, max_results):
+        return tenant_mgt_service.list_tenants(page_token, max_results)
+    return ListTenantsPage(download, page_token, max_results)
 
 
 def _get_tenant_mgt_service(app):
@@ -254,3 +287,106 @@ class _TenantManagementService:
             self.client.request('delete', '/tenants/{0}'.format(tenant_id))
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)
+
+    def list_tenants(self, page_token=None, max_results=_MAX_LIST_TENANTS_RESULTS):
+        """Retrieves a batch of tenants."""
+        if page_token is not None:
+            if not isinstance(page_token, str) or not page_token:
+                raise ValueError('Page token must be a non-empty string.')
+        if not isinstance(max_results, int):
+            raise ValueError('Max results must be an integer.')
+        if max_results < 1 or max_results > _MAX_LIST_TENANTS_RESULTS:
+            raise ValueError(
+                'Max results must be a positive integer less than or equal to '
+                '{0}.'.format(_MAX_LIST_TENANTS_RESULTS))
+
+        payload = {'pageSize': max_results}
+        if page_token:
+            payload['pageToken'] = page_token
+        try:
+            return self.client.body('get', '/tenants', params=payload)
+        except requests.exceptions.RequestException as error:
+            raise _auth_utils.handle_auth_backend_error(error)
+
+
+class ListTenantsPage:
+    """Represents a page of tenants fetched from a Firebase project.
+
+    Provides methods for traversing tenants included in this page, as well as retrieving
+    subsequent pages of tenants. The iterator returned by ``iterate_all()`` can be used to iterate
+    through all tenants in the Firebase project starting from this page.
+    """
+
+    def __init__(self, download, page_token, max_results):
+        self._download = download
+        self._max_results = max_results
+        self._current = download(page_token, max_results)
+
+    @property
+    def tenants(self):
+        """A list of ``ExportedUserRecord`` instances available in this page."""
+        return [Tenant(data) for data in self._current.get('tenants', [])]
+
+    @property
+    def next_page_token(self):
+        """Page token string for the next page (empty string indicates no more pages)."""
+        return self._current.get('nextPageToken', '')
+
+    @property
+    def has_next_page(self):
+        """A boolean indicating whether more pages are available."""
+        return bool(self.next_page_token)
+
+    def get_next_page(self):
+        """Retrieves the next page of tenants, if available.
+
+        Returns:
+            ListTenantsPage: Next page of tenants, or None if this is the last page.
+        """
+        if self.has_next_page:
+            return ListTenantsPage(self._download, self.next_page_token, self._max_results)
+        return None
+
+    def iterate_all(self):
+        """Retrieves an iterator for tenants.
+
+        Returned iterator will iterate through all the tenants in the Firebase project
+        starting from this page. The iterator will never buffer more than one page of tenants
+        in memory at a time.
+
+        Returns:
+            iterator: An iterator of Tenant instances.
+        """
+        return _TenantIterator(self)
+
+
+class _TenantIterator:
+    """An iterator that allows iterating over tenants.
+
+    This implementation loads a page of tenants into memory, and iterates on them. When the whole
+    page has been traversed, it loads another page. This class never keeps more than one page
+    of entries in memory.
+    """
+
+    def __init__(self, current_page):
+        if not current_page:
+            raise ValueError('Current page must not be None.')
+        self._current_page = current_page
+        self._index = 0
+
+    def next(self):
+        if self._index == len(self._current_page.tenants):
+            if self._current_page.has_next_page:
+                self._current_page = self._current_page.get_next_page()
+                self._index = 0
+        if self._index < len(self._current_page.tenants):
+            result = self._current_page.tenants[self._index]
+            self._index += 1
+            return result
+        raise StopIteration
+
+    def __next__(self):
+        return self.next()
+
+    def __iter__(self):
+        return self

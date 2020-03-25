@@ -50,7 +50,7 @@ TenantNotFoundError = _auth_utils.TenantNotFoundError
 
 
 def auth_for_tenant(tenant_id, app=None):
-    """Gets an Auth Client instance to scoped to the given tenant ID.
+    """Gets an Auth Client instance scoped to the given tenant ID.
 
     Args:
         tenant_id: A tenant ID string.
@@ -239,6 +239,7 @@ class _TenantManagementService:
         self.lock = threading.RLock()
 
     def auth_for_tenant(self, tenant_id):
+        """Gets an Auth Client instance scoped to the given tenant ID."""
         if not isinstance(tenant_id, str) or not tenant_id:
             raise ValueError(
                 'Invalid tenant ID: {0}. Tenant ID must be a non-empty string.'.format(tenant_id))

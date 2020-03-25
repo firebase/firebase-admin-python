@@ -594,7 +594,6 @@ class TestTenantAwareUserManagement:
     def test_revoke_refresh_tokens(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
         recorder = _instrument_user_mgt(client, 200, '{"localId":"testuser"}')
-        claims = {'admin': True}
 
         client.revoke_refresh_tokens('testuser')
 

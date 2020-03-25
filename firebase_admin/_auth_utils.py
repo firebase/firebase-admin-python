@@ -300,6 +300,13 @@ class TenantNotFoundError(exceptions.NotFoundError):
         exceptions.NotFoundError.__init__(self, message, cause, http_response)
 
 
+class TenantIdMismatchError(InvalidIdTokenError):
+    """Missing or invalid tenant ID field in the given ID token."""
+
+    def __init__(self, message):
+        InvalidIdTokenError.__init__(self, message)
+
+
 _CODE_TO_EXC_TYPE = {
     'DUPLICATE_EMAIL': EmailAlreadyExistsError,
     'DUPLICATE_LOCAL_ID': UidAlreadyExistsError,

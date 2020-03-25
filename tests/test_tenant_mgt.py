@@ -24,6 +24,7 @@ from firebase_admin import auth
 from firebase_admin import exceptions
 from firebase_admin import tenant_mgt
 from tests import testutils
+from tests import test_token_gen
 
 
 GET_TENANT_RESPONSE = """{
@@ -704,6 +705,32 @@ class TestTenantAwareUserManagement:
         assert req.url == '{0}/tenants/tenant-id{1}'.format(USER_MGT_URL_PREFIX, want_url)
         body = json.loads(req.body.decode())
         assert body == want_body
+
+
+class TestVerifyIdToken:
+
+    def test_valid_token(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('test-tenant', app=tenant_mgt_app)
+        client._token_verifier.request = test_token_gen.MOCK_REQUEST
+
+        claims = client.verify_id_token(test_token_gen.TEST_ID_TOKEN_WITH_TENANT)
+
+        assert claims['admin'] is True
+        assert claims['uid'] == claims['sub']
+        assert claims['firebase']['tenant'] == 'test-tenant'
+
+    def test_invalid_tenant_id(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('other-tenant', app=tenant_mgt_app)
+        client._token_verifier.request = test_token_gen.MOCK_REQUEST
+
+        with pytest.raises(tenant_mgt.TenantIdMismatchError) as excinfo:
+            client.verify_id_token(test_token_gen.TEST_ID_TOKEN_WITH_TENANT)
+
+        assert 'Invalid tenant ID: test-tenant' in str(excinfo.value)
+        assert isinstance(excinfo.value, auth.InvalidIdTokenError)
+        assert isinstance(excinfo.value, exceptions.InvalidArgumentError)
+        assert excinfo.value.cause is None
+        assert excinfo.value.http_response is None
 
 
 def _assert_tenant(tenant, tenant_id='tenant-id'):

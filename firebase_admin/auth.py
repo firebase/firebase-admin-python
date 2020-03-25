@@ -22,6 +22,7 @@ creating and managing user accounts in Firebase projects.
 import time
 
 import firebase_admin
+from firebase_admin import exceptions
 from firebase_admin import _auth_utils
 from firebase_admin import _http_client
 from firebase_admin import _token_gen
@@ -565,6 +566,12 @@ class _AuthService:
                              ' bool, but given "{0}".'.format(type(check_revoked)))
 
         verified_claims = self._token_verifier.verify_id_token(id_token)
+        if self.tenant_id:
+            token_tenant_id = verified_claims.get('firebase', {}).get('tenant')
+            if self.tenant_id != token_tenant_id:
+                raise _auth_utils.TenantIdMismatchError(
+                    'Invalid tenant ID: {0}'.format(token_tenant_id))
+
         if check_revoked:
             self._check_jwt_revoked(verified_claims, RevokedIdTokenError, 'ID token')
         return verified_claims

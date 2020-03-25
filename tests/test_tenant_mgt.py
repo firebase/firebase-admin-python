@@ -697,7 +697,6 @@ class TestTenantAwareUserManagement:
         assert excinfo.value.http_response is not None
         assert excinfo.value.cause is not None
 
-
     def _assert_request(self, recorder, want_url, want_body):
         assert len(recorder) == 1
         req = recorder[0]
@@ -727,7 +726,6 @@ class TestVerifyIdToken:
             client.verify_id_token(test_token_gen.TEST_ID_TOKEN_WITH_TENANT)
 
         assert 'Invalid tenant ID: test-tenant' in str(excinfo.value)
-        assert isinstance(excinfo.value, auth.InvalidIdTokenError)
         assert isinstance(excinfo.value, exceptions.InvalidArgumentError)
         assert excinfo.value.cause is None
         assert excinfo.value.http_response is None

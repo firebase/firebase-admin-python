@@ -130,7 +130,7 @@ class TokenGenerator:
                     'details on creating custom tokens.'.format(error, url))
         return self._signing_provider
 
-    def create_custom_token(self, uid, developer_claims=None):
+    def create_custom_token(self, uid, developer_claims=None, tenant_id=None):
         """Builds and signs a Firebase custom auth token."""
         if developer_claims is not None:
             if not isinstance(developer_claims, dict):
@@ -161,6 +161,8 @@ class TokenGenerator:
             'iat': now,
             'exp': now + MAX_TOKEN_LIFETIME_SECONDS,
         }
+        if tenant_id:
+            payload['tenant_id'] = tenant_id
 
         if developer_claims is not None:
             payload['claims'] = developer_claims

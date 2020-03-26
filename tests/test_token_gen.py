@@ -76,9 +76,9 @@ def verify_custom_token(custom_token, expected_claims, tenant_id=None):
     assert token['iss'] == MOCK_SERVICE_ACCOUNT_EMAIL
     assert token['sub'] == MOCK_SERVICE_ACCOUNT_EMAIL
     if tenant_id is None:
-        assert token.get('tenant_id') is None
+        assert 'tenant_id' not in token
     else:
-        assert token['tenant_id'] ==  tenant_id
+        assert token['tenant_id'] == tenant_id
 
     header = jwt.decode_header(custom_token)
     assert header.get('typ') == 'JWT'

@@ -18,9 +18,12 @@ This module contains functions for creating and configuring authentication tenan
 Google Cloud Identity Platform (GCIP) instance.
 """
 
+import threading
+
 import requests
 
 import firebase_admin
+from firebase_admin import auth
 from firebase_admin import _auth_utils
 from firebase_admin import _http_client
 from firebase_admin import _utils
@@ -35,6 +38,7 @@ __all__ = [
     'Tenant',
     'TenantNotFoundError',
 
+    'auth_for_tenant',
     'create_tenant',
     'delete_tenant',
     'get_tenant',
@@ -43,6 +47,23 @@ __all__ = [
 ]
 
 TenantNotFoundError = _auth_utils.TenantNotFoundError
+
+
+def auth_for_tenant(tenant_id, app=None):
+    """Gets an Auth Client instance scoped to the given tenant ID.
+
+    Args:
+        tenant_id: A tenant ID string.
+        app: An App instance (optional).
+
+    Returns:
+        _AuthService: An _AuthService object.
+
+    Raises:
+        ValueError: If the tenant ID is None, empty or not a string.
+    """
+    tenant_mgt_service = _get_tenant_mgt_service(app)
+    return tenant_mgt_service.auth_for_tenant(tenant_id)
 
 
 def get_tenant(tenant_id, app=None):
@@ -211,8 +232,25 @@ class _TenantManagementService:
         credential = app.credential.get_credential()
         version_header = 'Python/Admin/{0}'.format(firebase_admin.__version__)
         base_url = '{0}/projects/{1}'.format(self.TENANT_MGT_URL, app.project_id)
+        self.app = app
         self.client = _http_client.JsonHttpClient(
             credential=credential, base_url=base_url, headers={'X-Client-Version': version_header})
+        self.tenant_clients = {}
+        self.lock = threading.RLock()
+
+    def auth_for_tenant(self, tenant_id):
+        """Gets an Auth Client instance scoped to the given tenant ID."""
+        if not isinstance(tenant_id, str) or not tenant_id:
+            raise ValueError(
+                'Invalid tenant ID: {0}. Tenant ID must be a non-empty string.'.format(tenant_id))
+
+        with self.lock:
+            if tenant_id in self.tenant_clients:
+                return self.tenant_clients[tenant_id]
+
+            client = auth._AuthService(self.app, tenant_id=tenant_id) # pylint: disable=protected-access
+            self.tenant_clients[tenant_id] = client
+            return  client
 
     def get_tenant(self, tenant_id):
         """Gets the tenant corresponding to the given ``tenant_id``."""

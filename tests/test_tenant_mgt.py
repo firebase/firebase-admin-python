@@ -20,6 +20,7 @@ from urllib import parse
 import pytest
 
 import firebase_admin
+from firebase_admin import auth
 from firebase_admin import exceptions
 from firebase_admin import tenant_mgt
 from tests import testutils
@@ -70,9 +71,13 @@ LIST_TENANTS_RESPONSE_WITH_TOKEN = """{
     "nextPageToken": "token"
 }"""
 
+MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
+MOCK_LIST_USERS_RESPONSE = testutils.resource('list_users.json')
+
 INVALID_TENANT_IDS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
 INVALID_BOOLEANS = ['', 1, 0, list(), tuple(), dict()]
 
+USER_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v1/projects/mock-project-id'
 TENANT_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v2beta1/projects/mock-project-id'
 
 
@@ -91,6 +96,15 @@ def _instrument_tenant_mgt(app, status, payload):
         tenant_mgt._TenantManagementService.TENANT_MGT_URL,
         testutils.MockAdapter(payload, status, recorder))
     return service, recorder
+
+
+def _instrument_user_mgt(client, status, payload):
+    recorder = []
+    user_manager = client._user_manager
+    user_manager._client.session.mount(
+        auth._AuthService.ID_TOOLKIT_URL,
+        testutils.MockAdapter(payload, status, recorder))
+    return recorder
 
 
 class TestTenant:
@@ -127,9 +141,10 @@ class TestTenant:
 class TestGetTenant:
 
     @pytest.mark.parametrize('tenant_id', INVALID_TENANT_IDS)
-    def test_invalid_tenant_id(self, tenant_id):
-        with pytest.raises(ValueError):
-            tenant_mgt.delete_tenant(tenant_id)
+    def test_invalid_tenant_id(self, tenant_id, tenant_mgt_app):
+        with pytest.raises(ValueError) as excinfo:
+            tenant_mgt.get_tenant(tenant_id, app=tenant_mgt_app)
+        assert str(excinfo.value).startswith('Invalid tenant ID')
 
     def test_get_tenant(self, tenant_mgt_app):
         _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
@@ -253,6 +268,11 @@ class TestUpdateTenant:
                 'tenant-id', enable_email_link_sign_in=enable, app=tenant_mgt_app)
         assert str(excinfo.value).startswith('Invalid type for enableEmailLinkSignin')
 
+    def test_update_tenant_no_args(self, tenant_mgt_app):
+        with pytest.raises(ValueError) as excinfo:
+            tenant_mgt.update_tenant('tenant-id', app=tenant_mgt_app)
+        assert str(excinfo.value).startswith('At least one parameter must be specified for update')
+
     def test_update_tenant(self, tenant_mgt_app):
         _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
         tenant = tenant_mgt.update_tenant(
@@ -317,9 +337,10 @@ class TestUpdateTenant:
 class TestDeleteTenant:
 
     @pytest.mark.parametrize('tenant_id', INVALID_TENANT_IDS)
-    def test_invalid_tenant_id(self, tenant_id):
-        with pytest.raises(ValueError):
-            tenant_mgt.delete_tenant(tenant_id)
+    def test_invalid_tenant_id(self, tenant_id, tenant_mgt_app):
+        with pytest.raises(ValueError) as excinfo:
+            tenant_mgt.delete_tenant(tenant_id, app=tenant_mgt_app)
+        assert str(excinfo.value).startswith('Invalid tenant ID')
 
     def test_delete_tenant(self, tenant_mgt_app):
         _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, '{}')
@@ -473,6 +494,216 @@ class TestListTenants:
         assert req.method == 'GET'
         request = dict(parse.parse_qsl(parse.urlsplit(req.url).query))
         assert request == expected
+
+
+class TestAuthForTenant:
+
+    @pytest.mark.parametrize('tenant_id', INVALID_TENANT_IDS)
+    def test_invalid_tenant_id(self, tenant_id, tenant_mgt_app):
+        with pytest.raises(ValueError):
+            tenant_mgt.auth_for_tenant(tenant_id, app=tenant_mgt_app)
+
+    def test_client(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant1', app=tenant_mgt_app)
+        assert client.tenant_id == 'tenant1'
+
+    def test_client_reuse(self, tenant_mgt_app):
+        client1 = tenant_mgt.auth_for_tenant('tenant1', app=tenant_mgt_app)
+        client2 = tenant_mgt.auth_for_tenant('tenant1', app=tenant_mgt_app)
+        client3 = tenant_mgt.auth_for_tenant('tenant2', app=tenant_mgt_app)
+        assert client1 is client2
+        assert client1 is not client3
+
+
+class TestTenantAwareUserManagement:
+
+    def test_get_user(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_user_mgt(client, 200, MOCK_GET_USER_RESPONSE)
+
+        user = client.get_user('testuser')
+
+        assert isinstance(user, auth.UserRecord)
+        assert user.uid == 'testuser'
+        assert user.email == 'testuser@example.com'
+        self._assert_request(recorder, '/accounts:lookup', {'localId': ['testuser']})
+
+    def test_get_user_by_email(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_user_mgt(client, 200, MOCK_GET_USER_RESPONSE)
+
+        user = client.get_user_by_email('testuser@example.com')
+
+        assert isinstance(user, auth.UserRecord)
+        assert user.uid == 'testuser'
+        assert user.email == 'testuser@example.com'
+        self._assert_request(recorder, '/accounts:lookup', {'email': ['testuser@example.com']})
+
+    def test_get_user_by_phone_number(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_user_mgt(client, 200, MOCK_GET_USER_RESPONSE)
+
+        user = client.get_user_by_phone_number('+1234567890')
+
+        assert isinstance(user, auth.UserRecord)
+        assert user.uid == 'testuser'
+        assert user.email == 'testuser@example.com'
+        self._assert_request(recorder, '/accounts:lookup', {'phoneNumber': ['+1234567890']})
+
+    def test_create_user(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_user_mgt(client, 200, '{"localId":"testuser"}')
+
+        uid = client._user_manager.create_user()
+
+        assert uid == 'testuser'
+        self._assert_request(recorder, '/accounts', {})
+
+    def test_update_user(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_user_mgt(client, 200, '{"localId":"testuser"}')
+
+        uid = client._user_manager.update_user('testuser', email='testuser@example.com')
+
+        assert uid == 'testuser'
+        self._assert_request(recorder, '/accounts:update', {
+            'localId': 'testuser',
+            'email': 'testuser@example.com',
+        })
+
+    def test_delete_user(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_user_mgt(client, 200, '{"kind":"deleteresponse"}')
+
+        client.delete_user('testuser')
+
+        self._assert_request(recorder, '/accounts:delete', {'localId': 'testuser'})
+
+    def test_set_custom_user_claims(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_user_mgt(client, 200, '{"localId":"testuser"}')
+        claims = {'admin': True}
+
+        client.set_custom_user_claims('testuser', claims)
+
+        self._assert_request(recorder, '/accounts:update', {
+            'localId': 'testuser',
+            'customAttributes': json.dumps(claims),
+        })
+
+    def test_revoke_refresh_tokens(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_user_mgt(client, 200, '{"localId":"testuser"}')
+
+        client.revoke_refresh_tokens('testuser')
+
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'POST'
+        assert req.url == '{0}/tenants/tenant-id/accounts:update'.format(
+            USER_MGT_URL_PREFIX)
+        body = json.loads(req.body.decode())
+        assert body['localId'] == 'testuser'
+        assert 'validSince' in body
+
+    def test_list_users(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_user_mgt(client, 200, MOCK_LIST_USERS_RESPONSE)
+
+        page = client.list_users()
+
+        assert isinstance(page, auth.ListUsersPage)
+        assert page.next_page_token == ''
+        assert page.has_next_page is False
+        assert page.get_next_page() is None
+        users = list(user for user in page.iterate_all())
+        assert len(users) == 2
+
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'GET'
+        assert req.url == '{0}/tenants/tenant-id/accounts:batchGet?maxResults=1000'.format(
+            USER_MGT_URL_PREFIX)
+
+    def test_import_users(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_user_mgt(client, 200, '{}')
+        users = [
+            auth.ImportUserRecord(uid='user1'),
+            auth.ImportUserRecord(uid='user2'),
+        ]
+
+        result = client.import_users(users)
+
+        assert isinstance(result, auth.UserImportResult)
+        assert result.success_count == 2
+        assert result.failure_count == 0
+        assert result.errors == []
+        self._assert_request(recorder, '/accounts:batchCreate', {
+            'users': [{'localId': 'user1'}, {'localId': 'user2'}],
+        })
+
+    def test_generate_password_reset_link(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_user_mgt(client, 200, '{"oobLink":"https://testlink"}')
+
+        link = client.generate_password_reset_link('test@test.com')
+
+        assert link == 'https://testlink'
+        self._assert_request(recorder, '/accounts:sendOobCode', {
+            'email': 'test@test.com',
+            'requestType': 'PASSWORD_RESET',
+            'returnOobLink': True,
+        })
+
+    def test_generate_email_verification_link(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_user_mgt(client, 200, '{"oobLink":"https://testlink"}')
+
+        link = client.generate_email_verification_link('test@test.com')
+
+        assert link == 'https://testlink'
+        self._assert_request(recorder, '/accounts:sendOobCode', {
+            'email': 'test@test.com',
+            'requestType': 'VERIFY_EMAIL',
+            'returnOobLink': True,
+        })
+
+    def test_generate_sign_in_with_email_link(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_user_mgt(client, 200, '{"oobLink":"https://testlink"}')
+        settings = auth.ActionCodeSettings(url='http://localhost')
+
+        link = client.generate_sign_in_with_email_link('test@test.com', settings)
+
+        assert link == 'https://testlink'
+        self._assert_request(recorder, '/accounts:sendOobCode', {
+            'email': 'test@test.com',
+            'requestType': 'EMAIL_SIGNIN',
+            'returnOobLink': True,
+            'continueUrl': 'http://localhost',
+        })
+
+    def test_tenant_not_found(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        _instrument_user_mgt(client, 500, TENANT_NOT_FOUND_RESPONSE)
+        with pytest.raises(tenant_mgt.TenantNotFoundError) as excinfo:
+            client.get_user('testuser')
+
+        error_msg = 'No tenant found for the given identifier (TENANT_NOT_FOUND).'
+        assert excinfo.value.code == exceptions.NOT_FOUND
+        assert str(excinfo.value) == error_msg
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is not None
+
+
+    def _assert_request(self, recorder, want_url, want_body):
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'POST'
+        assert req.url == '{0}/tenants/tenant-id{1}'.format(USER_MGT_URL_PREFIX, want_url)
+        body = json.loads(req.body.decode())
+        assert body == want_body
 
 
 def _assert_tenant(tenant, tenant_id='tenant-id'):

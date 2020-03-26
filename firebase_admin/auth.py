@@ -22,7 +22,6 @@ creating and managing user accounts in Firebase projects.
 import time
 
 import firebase_admin
-from firebase_admin import exceptions
 from firebase_admin import _auth_utils
 from firebase_admin import _http_client
 from firebase_admin import _token_gen
@@ -560,6 +559,7 @@ class _AuthService:
         return self._token_generator.create_custom_token(uid, developer_claims)
 
     def verify_id_token(self, id_token, check_revoked=False):
+        """Verifies the signature and data for the provided ID token."""
         if not isinstance(check_revoked, bool):
             # guard against accidental wrong assignment.
             raise ValueError('Illegal check_revoked argument. Argument must be of type '

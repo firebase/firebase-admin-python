@@ -300,6 +300,13 @@ class TenantNotFoundError(exceptions.NotFoundError):
         exceptions.NotFoundError.__init__(self, message, cause, http_response)
 
 
+class TenantIdMismatchError(exceptions.InvalidArgumentError):
+    """Missing or invalid tenant ID field in the given JWT."""
+
+    def __init__(self, message):
+        exceptions.InvalidArgumentError.__init__(self, message)
+
+
 _CODE_TO_EXC_TYPE = {
     'DUPLICATE_EMAIL': EmailAlreadyExistsError,
     'DUPLICATE_LOCAL_ID': UidAlreadyExistsError,

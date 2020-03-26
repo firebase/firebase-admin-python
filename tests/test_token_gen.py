@@ -94,6 +94,9 @@ def _get_id_token(payload_overrides=None, header_overrides=None):
         'exp': int(time.time()) + 3600,
         'sub': '1234567890',
         'admin': True,
+        'firebase': {
+            'sign_in_provider': 'provider',
+        },
     }
     if header_overrides:
         headers = _merge_jwt_claims(headers, header_overrides)
@@ -346,6 +349,11 @@ class TestCreateSessionCookie:
 
 MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
 TEST_ID_TOKEN = _get_id_token()
+TEST_ID_TOKEN_WITH_TENANT = _get_id_token({
+    'firebase': {
+        'tenant': 'test-tenant',
+    }
+})
 TEST_SESSION_COOKIE = _get_session_cookie()
 
 
@@ -380,6 +388,14 @@ class TestVerifyIdToken:
         claims = auth.verify_id_token(id_token, app=user_mgt_app)
         assert claims['admin'] is True
         assert claims['uid'] == claims['sub']
+        assert claims['firebase']['sign_in_provider'] == 'provider'
+
+    def test_valid_token_with_tenant(self, user_mgt_app):
+        _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
+        claims = auth.verify_id_token(TEST_ID_TOKEN_WITH_TENANT, app=user_mgt_app)
+        assert claims['admin'] is True
+        assert claims['uid'] == claims['sub']
+        assert claims['firebase']['tenant'] == 'test-tenant'
 
     @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
     def test_valid_token_check_revoked(self, user_mgt_app, id_token):

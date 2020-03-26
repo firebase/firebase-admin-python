@@ -36,6 +36,7 @@ _MAX_LIST_TENANTS_RESULTS = 100
 __all__ = [
     'ListTenantsPage',
     'Tenant',
+    'TenantIdMismatchError',
     'TenantNotFoundError',
 
     'auth_for_tenant',
@@ -46,6 +47,8 @@ __all__ = [
     'update_tenant',
 ]
 
+
+TenantIdMismatchError = _auth_utils.TenantIdMismatchError
 TenantNotFoundError = _auth_utils.TenantNotFoundError
 
 

@@ -559,12 +559,19 @@ class _AuthService:
         return self._token_generator.create_custom_token(uid, developer_claims)
 
     def verify_id_token(self, id_token, check_revoked=False):
+        """Verifies the signature and data for the provided ID token."""
         if not isinstance(check_revoked, bool):
             # guard against accidental wrong assignment.
             raise ValueError('Illegal check_revoked argument. Argument must be of type '
                              ' bool, but given "{0}".'.format(type(check_revoked)))
 
         verified_claims = self._token_verifier.verify_id_token(id_token)
+        if self.tenant_id:
+            token_tenant_id = verified_claims.get('firebase', {}).get('tenant')
+            if self.tenant_id != token_tenant_id:
+                raise _auth_utils.TenantIdMismatchError(
+                    'Invalid tenant ID: {0}'.format(token_tenant_id))
+
         if check_revoked:
             self._check_jwt_revoked(verified_claims, RevokedIdTokenError, 'ID token')
         return verified_claims

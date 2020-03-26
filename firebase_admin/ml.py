@@ -53,7 +53,7 @@ _TAG_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,60}$')
 _GCS_TFLITE_URI_PATTERN = re.compile(
     r'^gs://(?P<bucket_name>[a-z0-9_.-]{3,63})/(?P<blob_name>.+)$')
 _AUTO_ML_MODEL_PATTERN = re.compile(
-    r'^projects/(?P<project_id>\d+)/locations/(?P<location_id>[^/]+)/' +
+    r'^projects/(?P<project_id>[a-z0-9-]{6,30})/locations/(?P<location_id>[^/]+)/' +
     r'models/(?P<model_id>[A-Za-z0-9]+)$')
 _RESOURCE_NAME_PATTERN = re.compile(
     r'^projects/(?P<project_id>[a-z0-9-]{6,30})/models/(?P<model_id>[A-Za-z0-9_-]{1,60})$')
@@ -365,20 +365,9 @@ class TFLiteFormat(ModelFormat):
     def from_dict(cls, data):
         """Create an instance of the object from a dict."""
         data_copy = dict(data)
-        model_source = None
-
-        gcs_tflite_uri = data_copy.pop('gcsTfliteUri', None)
-        if gcs_tflite_uri:
-            model_source = TFLiteGCSModelSource(gcs_tflite_uri=gcs_tflite_uri)
-
-        auto_ml_model = data_copy.pop('automlModel', None)
-        if auto_ml_model:
-            model_source = TFLiteAutoMlSource(auto_ml_model=auto_ml_model)
-
-        tflite_format = TFLiteFormat(model_source=model_source)
+        tflite_format = TFLiteFormat(model_source=cls._init_model_source(data_copy))
         tflite_format._data = data_copy # pylint: disable=protected-access
         return tflite_format
-
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -388,6 +377,17 @@ class TFLiteFormat(ModelFormat):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    @staticmethod
+    def _init_model_source(data):
+        model_source = None
+        gcs_tflite_uri = data.pop('gcsTfliteUri', None)
+        if gcs_tflite_uri:
+            model_source = TFLiteGCSModelSource(gcs_tflite_uri=gcs_tflite_uri)
+        auto_ml_model = data.pop('automlModel', None)
+        if auto_ml_model:
+            model_source = TFLiteAutoMlSource(auto_ml_model=auto_ml_model)
+        return model_source
 
     @property
     def model_source(self):
@@ -606,11 +606,11 @@ class TFLiteAutoMlSource(TFLiteModelSource):
 
     def __init__(self, auto_ml_model, app=None):
         self._app = app
-        self._auto_ml_model = _validate_auto_ml_model(auto_ml_model)
+        self.auto_ml_model = auto_ml_model
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
-            return self._auto_ml_model == other._auto_ml_model  # pylint: disable=protected-access
+            return self._auto_ml_model == other.auto_ml_model
         return False
 
     def __ne__(self, other):

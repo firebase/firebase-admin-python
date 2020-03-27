@@ -52,6 +52,9 @@ _DISPLAY_NAME_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,60}$')
 _TAG_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,60}$')
 _GCS_TFLITE_URI_PATTERN = re.compile(
     r'^gs://(?P<bucket_name>[a-z0-9_.-]{3,63})/(?P<blob_name>.+)$')
+_AUTO_ML_MODEL_PATTERN = re.compile(
+    r'^projects/(?P<project_id>[a-z0-9-]{6,30})/locations/(?P<location_id>[^/]+)/' +
+    r'models/(?P<model_id>[A-Za-z0-9]+)$')
 _RESOURCE_NAME_PATTERN = re.compile(
     r'^projects/(?P<project_id>[a-z0-9-]{6,30})/models/(?P<model_id>[A-Za-z0-9_-]{1,60})$')
 _OPERATION_NAME_PATTERN = re.compile(
@@ -362,14 +365,9 @@ class TFLiteFormat(ModelFormat):
     def from_dict(cls, data):
         """Create an instance of the object from a dict."""
         data_copy = dict(data)
-        model_source = None
-        gcs_tflite_uri = data_copy.pop('gcsTfliteUri', None)
-        if gcs_tflite_uri:
-            model_source = TFLiteGCSModelSource(gcs_tflite_uri=gcs_tflite_uri)
-        tflite_format = TFLiteFormat(model_source=model_source)
+        tflite_format = TFLiteFormat(model_source=cls._init_model_source(data_copy))
         tflite_format._data = data_copy # pylint: disable=protected-access
         return tflite_format
-
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -379,6 +377,16 @@ class TFLiteFormat(ModelFormat):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    @staticmethod
+    def _init_model_source(data):
+        gcs_tflite_uri = data.pop('gcsTfliteUri', None)
+        if gcs_tflite_uri:
+            return TFLiteGCSModelSource(gcs_tflite_uri=gcs_tflite_uri)
+        auto_ml_model = data.pop('automlModel', None)
+        if auto_ml_model:
+            return TFLiteAutoMlSource(auto_ml_model=auto_ml_model)
+        return None
 
     @property
     def model_source(self):
@@ -592,6 +600,36 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         return {'gcsTfliteUri': self._gcs_tflite_uri}
 
 
+class TFLiteAutoMlSource(TFLiteModelSource):
+    """TFLite model source representing a tflite model created via AutoML."""
+
+    def __init__(self, auto_ml_model, app=None):
+        self._app = app
+        self.auto_ml_model = auto_ml_model
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.auto_ml_model == other.auto_ml_model
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    @property
+    def auto_ml_model(self):
+        """Resource name of the model created by the AutoML API."""
+        return self._auto_ml_model
+
+    @auto_ml_model.setter
+    def auto_ml_model(self, auto_ml_model):
+        self._auto_ml_model = _validate_auto_ml_model(auto_ml_model)
+
+    def as_dict(self, for_upload=False):
+        """Returns a serializable representation of the object."""
+        # Upload is irrelevant for auto_ml models
+        return {'automlModel': self._auto_ml_model}
+
+
 class ListModelsPage:
     """Represents a page of models in a firebase project.
 
@@ -738,6 +776,11 @@ def _validate_gcs_tflite_uri(uri):
     if not _GCS_TFLITE_URI_PATTERN.match(uri):
         raise ValueError('GCS TFLite URI format is invalid.')
     return uri
+
+def _validate_auto_ml_model(model):
+    if not _AUTO_ML_MODEL_PATTERN.match(model):
+        raise ValueError('Model resource name format is invalid.')
+    return model
 
 
 def _validate_model_format(model_format):

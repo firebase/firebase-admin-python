@@ -380,14 +380,13 @@ class TFLiteFormat(ModelFormat):
 
     @staticmethod
     def _init_model_source(data):
-        model_source = None
         gcs_tflite_uri = data.pop('gcsTfliteUri', None)
         if gcs_tflite_uri:
-            model_source = TFLiteGCSModelSource(gcs_tflite_uri=gcs_tflite_uri)
+            return TFLiteGCSModelSource(gcs_tflite_uri=gcs_tflite_uri)
         auto_ml_model = data.pop('automlModel', None)
         if auto_ml_model:
-            model_source = TFLiteAutoMlSource(auto_ml_model=auto_ml_model)
-        return model_source
+            return TFLiteAutoMlSource(auto_ml_model=auto_ml_model)
+        return None
 
     @property
     def model_source(self):
@@ -610,7 +609,7 @@ class TFLiteAutoMlSource(TFLiteModelSource):
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
-            return self._auto_ml_model == other.auto_ml_model
+            return self.auto_ml_model == other.auto_ml_model
         return False
 
     def __ne__(self, other):

@@ -36,6 +36,7 @@ _AUTH_ATTRIBUTE = '_auth'
 __all__ = [
     'ActionCodeSettings',
     'CertificateFetchError',
+    'Client',
     'DELETE_ATTRIBUTE',
     'EmailAlreadyExistsError',
     'ErrorInfo',
@@ -110,23 +111,23 @@ UserProvider = _user_import.UserProvider
 UserRecord = _user_mgt.UserRecord
 
 
-def _get_auth_service(app):
-    """Returns an _AuthService instance for an App.
+def _get_client(app):
+    """Returns a Client instance for an App.
 
-    If the App already has an _AuthService associated with it, simply returns
-    it. Otherwise creates a new _AuthService, and adds it to the App before
+    If the App already has a Client associated with it, simply returns
+    it. Otherwise creates a new Client, and adds it to the App before
     returning it.
 
     Args:
         app: A Firebase App instance (or None to use the default App).
 
     Returns:
-        _AuthService: An _AuthService for the specified App instance.
+        Client: A Client for the specified App instance.
 
     Raises:
         ValueError: If the app argument is invalid.
     """
-    return _utils.get_app_service(app, _AUTH_ATTRIBUTE, _AuthService)
+    return _utils.get_app_service(app, _AUTH_ATTRIBUTE, Client)
 
 
 def create_custom_token(uid, developer_claims=None, app=None):
@@ -145,7 +146,7 @@ def create_custom_token(uid, developer_claims=None, app=None):
         ValueError: If input parameters are invalid.
         TokenSignError: If an error occurs while signing the token using the remote IAM service.
     """
-    service = _get_auth_service(app)
+    service = _get_client(app)
     return service.create_custom_token(uid, developer_claims)
 
 
@@ -171,7 +172,7 @@ def verify_id_token(id_token, app=None, check_revoked=False):
         CertificateFetchError: If an error occurs while fetching the public key certificates
             required to verify the ID token.
     """
-    service = _get_auth_service(app)
+    service = _get_client(app)
     return service.verify_id_token(id_token, check_revoked=check_revoked)
 
 
@@ -193,7 +194,7 @@ def create_session_cookie(id_token, expires_in, app=None):
         ValueError: If input parameters are invalid.
         FirebaseError: If an error occurs while creating the cookie.
     """
-    service = _get_auth_service(app)
+    service = _get_client(app)
     # pylint: disable=protected-access
     return service._token_generator.create_session_cookie(id_token, expires_in)
 
@@ -220,7 +221,7 @@ def verify_session_cookie(session_cookie, check_revoked=False, app=None):
         CertificateFetchError: If an error occurs while fetching the public key certificates
             required to verify the session cookie.
     """
-    service = _get_auth_service(app)
+    service = _get_client(app)
     # pylint: disable=protected-access
     verified_claims = service._token_verifier.verify_session_cookie(session_cookie)
     if check_revoked:
@@ -240,7 +241,7 @@ def revoke_refresh_tokens(uid, app=None):
     natural expiration (one hour). To verify that ID tokens are revoked, use
     ``verify_id_token(idToken, check_revoked=True)``.
     """
-    service = _get_auth_service(app)
+    service = _get_client(app)
     service.revoke_refresh_tokens(uid)
 
 
@@ -259,7 +260,7 @@ def get_user(uid, app=None):
         UserNotFoundError: If the specified user ID does not exist.
         FirebaseError: If an error occurs while retrieving the user.
     """
-    service = _get_auth_service(app)
+    service = _get_client(app)
     return service.get_user(uid=uid)
 
 
@@ -278,7 +279,7 @@ def get_user_by_email(email, app=None):
         UserNotFoundError: If no user exists by the specified email address.
         FirebaseError: If an error occurs while retrieving the user.
     """
-    service = _get_auth_service(app)
+    service = _get_client(app)
     return service.get_user_by_email(email=email)
 
 
@@ -297,7 +298,7 @@ def get_user_by_phone_number(phone_number, app=None):
         UserNotFoundError: If no user exists by the specified phone number.
         FirebaseError: If an error occurs while retrieving the user.
     """
-    service = _get_auth_service(app)
+    service = _get_client(app)
     return service.get_user_by_phone_number(phone_number=phone_number)
 
 
@@ -323,7 +324,7 @@ def list_users(page_token=None, max_results=_user_mgt.MAX_LIST_USERS_RESULTS, ap
         ValueError: If max_results or page_token are invalid.
         FirebaseError: If an error occurs while retrieving the user accounts.
     """
-    service = _get_auth_service(app)
+    service = _get_client(app)
     return service.list_users(page_token=page_token, max_results=max_results)
 
 
@@ -353,7 +354,7 @@ def create_user(**kwargs): # pylint: disable=differing-param-doc
         FirebaseError: If an error occurs while creating the user account.
     """
     app = kwargs.pop('app', None)
-    service = _get_auth_service(app)
+    service = _get_client(app)
     return service.create_user(**kwargs)
 
 
@@ -389,7 +390,7 @@ def update_user(uid, **kwargs): # pylint: disable=differing-param-doc
         FirebaseError: If an error occurs while updating the user account.
     """
     app = kwargs.pop('app', None)
-    service = _get_auth_service(app)
+    service = _get_client(app)
     return service.update_user(uid, **kwargs)
 
 
@@ -413,7 +414,7 @@ def set_custom_user_claims(uid, custom_claims, app=None):
         ValueError: If the specified user ID or the custom claims are invalid.
         FirebaseError: If an error occurs while updating the user account.
     """
-    service = _get_auth_service(app)
+    service = _get_client(app)
     service.set_custom_user_claims(uid, custom_claims=custom_claims)
 
 
@@ -428,7 +429,7 @@ def delete_user(uid, app=None):
         ValueError: If the user ID is None, empty or malformed.
         FirebaseError: If an error occurs while deleting the user account.
     """
-    service = _get_auth_service(app)
+    service = _get_client(app)
     service.delete_user(uid)
 
 
@@ -454,7 +455,7 @@ def import_users(users, hash_alg=None, app=None):
         ValueError: If the provided arguments are invalid.
         FirebaseError: If an error occurs while importing users.
     """
-    service = _get_auth_service(app)
+    service = _get_client(app)
     return service.import_users(users, hash_alg)
 
 
@@ -475,7 +476,7 @@ def generate_password_reset_link(email, action_code_settings=None, app=None):
         ValueError: If the provided arguments are invalid
         FirebaseError: If an error occurs while generating the link
     """
-    service = _get_auth_service(app)
+    service = _get_client(app)
     return service.generate_password_reset_link(email, action_code_settings=action_code_settings)
 
 
@@ -496,7 +497,7 @@ def generate_email_verification_link(email, action_code_settings=None, app=None)
         ValueError: If the provided arguments are invalid
         FirebaseError: If an error occurs while generating the link
     """
-    service = _get_auth_service(app)
+    service = _get_client(app)
     return service.generate_email_verification_link(
         email, action_code_settings=action_code_settings)
 
@@ -518,14 +519,13 @@ def generate_sign_in_with_email_link(email, action_code_settings, app=None):
         ValueError: If the provided arguments are invalid
         FirebaseError: If an error occurs while generating the link
     """
-    service = _get_auth_service(app)
+    service = _get_client(app)
     return service.generate_sign_in_with_email_link(
         email, action_code_settings=action_code_settings)
 
 
-# TODO: Rename to public type Client
-class _AuthService:
-    """Firebase Authentication service."""
+class Client:
+    """Firebase Authentication client scoped to a specific tenant."""
 
     ID_TOOLKIT_URL = 'https://identitytoolkit.googleapis.com/v1/projects/'
 

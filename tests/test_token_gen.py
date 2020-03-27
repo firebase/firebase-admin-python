@@ -117,21 +117,21 @@ def _get_session_cookie(payload_overrides=None, header_overrides=None):
     return _get_id_token(payload_overrides, header_overrides)
 
 def _instrument_user_manager(app, status, payload):
-    auth_service = auth._get_auth_service(app)
-    user_manager = auth_service._user_manager
+    client = auth._get_client(app)
+    user_manager = client._user_manager
     recorder = []
     user_manager._client.session.mount(
-        auth._AuthService.ID_TOOLKIT_URL,
+        auth.Client.ID_TOOLKIT_URL,
         testutils.MockAdapter(payload, status, recorder))
     return user_manager, recorder
 
 def _overwrite_cert_request(app, request):
-    auth_service = auth._get_auth_service(app)
-    auth_service._token_verifier.request = request
+    client = auth._get_client(app)
+    client._token_verifier.request = request
 
 def _overwrite_iam_request(app, request):
-    auth_service = auth._get_auth_service(app)
-    auth_service._token_generator.request = request
+    client = auth._get_client(app)
+    client._token_generator.request = request
 
 @pytest.fixture(scope='module')
 def auth_app():
@@ -253,8 +253,9 @@ class TestCreateCustomToken:
         try:
             _overwrite_iam_request(app, request)
             # Force initialization of the signing provider. This will invoke the Metadata service.
-            auth_service = auth._get_auth_service(app)
-            assert auth_service._token_generator.signing_provider is not None
+            client = auth._get_client(app)
+            assert client._token_generator.signing_provider is not None
+
             # Now invoke the IAM signer.
             signature = base64.b64encode(b'test').decode()
             request.response = testutils.MockResponse(

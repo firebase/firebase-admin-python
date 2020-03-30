@@ -562,6 +562,7 @@ class Client:
 
     @property
     def tenant_id(self):
+        """Tenant ID associated with this client."""
         return self._tenant_id
 
     def create_custom_token(self, uid, developer_claims=None):
@@ -601,6 +602,8 @@ class Client:
             ExpiredIdTokenError: If the specified ID token has expired.
             RevokedIdTokenError: If ``check_revoked`` is ``True`` and the ID token has been
                 revoked.
+            TenantIdMismatchError: If ``id_token`` belongs to a tenant that is different than
+                this ``Client`` instance.
             CertificateFetchError: If an error occurs while fetching the public key certificates
                 required to verify the ID token.
         """

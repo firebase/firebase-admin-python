@@ -24,6 +24,8 @@ from firebase_admin import auth
 from firebase_admin import credentials
 from firebase_admin import exceptions
 from firebase_admin import tenant_mgt
+from firebase_admin import _auth_providers
+from firebase_admin import _user_mgt
 from tests import testutils
 from tests import test_token_gen
 
@@ -76,10 +78,13 @@ LIST_TENANTS_RESPONSE_WITH_TOKEN = """{
 MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
 MOCK_LIST_USERS_RESPONSE = testutils.resource('list_users.json')
 
+SAML_PROVIDER_CONFIG_RESPONSE = testutils.resource('saml_provider_config.json')
+
 INVALID_TENANT_IDS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
 INVALID_BOOLEANS = ['', 1, 0, list(), tuple(), dict()]
 
 USER_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v1/projects/mock-project-id'
+PROVIDER_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v2beta1/projects/mock-project-id'
 TENANT_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v2beta1/projects/mock-project-id'
 
 
@@ -103,8 +108,17 @@ def _instrument_tenant_mgt(app, status, payload):
 def _instrument_user_mgt(client, status, payload):
     recorder = []
     user_manager = client._user_manager
-    user_manager._client.session.mount(
-        auth.Client.ID_TOOLKIT_URL,
+    user_manager.http_client.session.mount(
+        _user_mgt.UserManager.ID_TOOLKIT_URL,
+        testutils.MockAdapter(payload, status, recorder))
+    return recorder
+
+
+def _instrument_provider_mgt(client, status, payload):
+    recorder = []
+    provider_manager = client._provider_manager
+    provider_manager.http_client.session.mount(
+        _auth_providers.ProviderConfigClient.PROVIDER_CONFIG_URL,
         testutils.MockAdapter(payload, status, recorder))
     return recorder
 
@@ -685,6 +699,28 @@ class TestTenantAwareUserManagement:
             'returnOobLink': True,
             'continueUrl': 'http://localhost',
         })
+
+    def test_get_saml_provider_config(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_provider_mgt(client, 200, SAML_PROVIDER_CONFIG_RESPONSE)
+
+        provider_config = client.get_saml_provider_config('saml.provider')
+
+        assert provider_config.provider_id == 'saml.provider'
+        assert provider_config.display_name == 'samlProviderName'
+        assert provider_config.enabled is True
+        assert provider_config.idp_entity_id == 'IDP_ENTITY_ID'
+        assert provider_config.sso_url == 'https://example.com/login'
+        assert provider_config.request_signing_enabled is True
+        assert provider_config.x509_certificates == ['CERT1', 'CERT2']
+        assert provider_config.rp_entity_id == 'RP_ENTITY_ID'
+        assert provider_config.callback_url == 'https://projectId.firebaseapp.com/__/auth/handler'
+
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'GET'
+        assert req.url == '{0}/tenants/tenant-id/inboundSamlConfigs/saml.provider'.format(
+            PROVIDER_MGT_URL_PREFIX)
 
     def test_tenant_not_found(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)

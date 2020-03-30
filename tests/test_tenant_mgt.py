@@ -21,6 +21,7 @@ import pytest
 
 import firebase_admin
 from firebase_admin import auth
+from firebase_admin import credentials
 from firebase_admin import exceptions
 from firebase_admin import tenant_mgt
 from tests import testutils
@@ -729,6 +730,34 @@ class TestVerifyIdToken:
         assert isinstance(excinfo.value, exceptions.InvalidArgumentError)
         assert excinfo.value.cause is None
         assert excinfo.value.http_response is None
+
+
+@pytest.fixture(scope='module')
+def tenant_aware_custom_token_app():
+    cred = credentials.Certificate(testutils.resource_filename('service_account.json'))
+    app = firebase_admin.initialize_app(cred, name='tenantAwareCustomToken')
+    yield app
+    firebase_admin.delete_app(app)
+
+
+class TestCreateCustomToken:
+
+    def test_custom_token(self, tenant_aware_custom_token_app):
+        client = tenant_mgt.auth_for_tenant('test-tenant', app=tenant_aware_custom_token_app)
+
+        custom_token = client.create_custom_token('user1')
+
+        test_token_gen.verify_custom_token(
+            custom_token, expected_claims=None, tenant_id='test-tenant')
+
+    def test_custom_token_with_claims(self, tenant_aware_custom_token_app):
+        client = tenant_mgt.auth_for_tenant('test-tenant', app=tenant_aware_custom_token_app)
+        claims = {'admin': True}
+
+        custom_token = client.create_custom_token('user1', claims)
+
+        test_token_gen.verify_custom_token(
+            custom_token, expected_claims=claims, tenant_id='test-tenant')
 
 
 def _assert_tenant(tenant, tenant_id='tenant-id'):

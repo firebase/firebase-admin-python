@@ -66,7 +66,7 @@ def _merge_jwt_claims(defaults, overrides):
             del defaults[key]
     return defaults
 
-def _verify_custom_token(custom_token, expected_claims):
+def verify_custom_token(custom_token, expected_claims, tenant_id=None):
     assert isinstance(custom_token, bytes)
     token = google.oauth2.id_token.verify_token(
         custom_token,
@@ -75,6 +75,11 @@ def _verify_custom_token(custom_token, expected_claims):
     assert token['uid'] == MOCK_UID
     assert token['iss'] == MOCK_SERVICE_ACCOUNT_EMAIL
     assert token['sub'] == MOCK_SERVICE_ACCOUNT_EMAIL
+    if tenant_id is None:
+        assert 'tenant_id' not in token
+    else:
+        assert token['tenant_id'] == tenant_id
+
     header = jwt.decode_header(custom_token)
     assert header.get('typ') == 'JWT'
     assert header.get('alg') == 'RS256'
@@ -198,7 +203,7 @@ class TestCreateCustomToken:
     def test_valid_params(self, auth_app, values):
         user, claims = values
         custom_token = auth.create_custom_token(user, claims, app=auth_app)
-        _verify_custom_token(custom_token, claims)
+        verify_custom_token(custom_token, claims)
 
     @pytest.mark.parametrize('values', invalid_args.values(), ids=list(invalid_args))
     def test_invalid_params(self, auth_app, values):

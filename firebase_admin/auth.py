@@ -556,7 +556,8 @@ class _AuthService:
         return self._tenant_id
 
     def create_custom_token(self, uid, developer_claims=None):
-        return self._token_generator.create_custom_token(uid, developer_claims)
+        return self._token_generator.create_custom_token(
+            uid, developer_claims, tenant_id=self.tenant_id)
 
     def verify_id_token(self, id_token, check_revoked=False):
         """Verifies the signature and data for the provided ID token."""

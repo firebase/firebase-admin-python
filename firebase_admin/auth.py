@@ -146,8 +146,8 @@ def create_custom_token(uid, developer_claims=None, app=None):
         ValueError: If input parameters are invalid.
         TokenSignError: If an error occurs while signing the token using the remote IAM service.
     """
-    service = _get_client(app)
-    return service.create_custom_token(uid, developer_claims)
+    client = _get_client(app)
+    return client.create_custom_token(uid, developer_claims)
 
 
 def verify_id_token(id_token, app=None, check_revoked=False):
@@ -172,8 +172,8 @@ def verify_id_token(id_token, app=None, check_revoked=False):
         CertificateFetchError: If an error occurs while fetching the public key certificates
             required to verify the ID token.
     """
-    service = _get_client(app)
-    return service.verify_id_token(id_token, check_revoked=check_revoked)
+    client = _get_client(app)
+    return client.verify_id_token(id_token, check_revoked=check_revoked)
 
 
 def create_session_cookie(id_token, expires_in, app=None):
@@ -194,9 +194,9 @@ def create_session_cookie(id_token, expires_in, app=None):
         ValueError: If input parameters are invalid.
         FirebaseError: If an error occurs while creating the cookie.
     """
-    service = _get_client(app)
+    client = _get_client(app)
     # pylint: disable=protected-access
-    return service._token_generator.create_session_cookie(id_token, expires_in)
+    return client._token_generator.create_session_cookie(id_token, expires_in)
 
 
 def verify_session_cookie(session_cookie, check_revoked=False, app=None):
@@ -221,11 +221,11 @@ def verify_session_cookie(session_cookie, check_revoked=False, app=None):
         CertificateFetchError: If an error occurs while fetching the public key certificates
             required to verify the session cookie.
     """
-    service = _get_client(app)
+    client = _get_client(app)
     # pylint: disable=protected-access
-    verified_claims = service._token_verifier.verify_session_cookie(session_cookie)
+    verified_claims = client._token_verifier.verify_session_cookie(session_cookie)
     if check_revoked:
-        service._check_jwt_revoked(verified_claims, RevokedSessionCookieError, 'session cookie')
+        client._check_jwt_revoked(verified_claims, RevokedSessionCookieError, 'session cookie')
     return verified_claims
 
 
@@ -241,8 +241,8 @@ def revoke_refresh_tokens(uid, app=None):
     natural expiration (one hour). To verify that ID tokens are revoked, use
     ``verify_id_token(idToken, check_revoked=True)``.
     """
-    service = _get_client(app)
-    service.revoke_refresh_tokens(uid)
+    client = _get_client(app)
+    client.revoke_refresh_tokens(uid)
 
 
 def get_user(uid, app=None):
@@ -260,8 +260,8 @@ def get_user(uid, app=None):
         UserNotFoundError: If the specified user ID does not exist.
         FirebaseError: If an error occurs while retrieving the user.
     """
-    service = _get_client(app)
-    return service.get_user(uid=uid)
+    client = _get_client(app)
+    return client.get_user(uid=uid)
 
 
 def get_user_by_email(email, app=None):
@@ -279,8 +279,8 @@ def get_user_by_email(email, app=None):
         UserNotFoundError: If no user exists by the specified email address.
         FirebaseError: If an error occurs while retrieving the user.
     """
-    service = _get_client(app)
-    return service.get_user_by_email(email=email)
+    client = _get_client(app)
+    return client.get_user_by_email(email=email)
 
 
 def get_user_by_phone_number(phone_number, app=None):
@@ -298,8 +298,8 @@ def get_user_by_phone_number(phone_number, app=None):
         UserNotFoundError: If no user exists by the specified phone number.
         FirebaseError: If an error occurs while retrieving the user.
     """
-    service = _get_client(app)
-    return service.get_user_by_phone_number(phone_number=phone_number)
+    client = _get_client(app)
+    return client.get_user_by_phone_number(phone_number=phone_number)
 
 
 def list_users(page_token=None, max_results=_user_mgt.MAX_LIST_USERS_RESULTS, app=None):
@@ -324,8 +324,8 @@ def list_users(page_token=None, max_results=_user_mgt.MAX_LIST_USERS_RESULTS, ap
         ValueError: If max_results or page_token are invalid.
         FirebaseError: If an error occurs while retrieving the user accounts.
     """
-    service = _get_client(app)
-    return service.list_users(page_token=page_token, max_results=max_results)
+    client = _get_client(app)
+    return client.list_users(page_token=page_token, max_results=max_results)
 
 
 def create_user(**kwargs): # pylint: disable=differing-param-doc
@@ -354,8 +354,8 @@ def create_user(**kwargs): # pylint: disable=differing-param-doc
         FirebaseError: If an error occurs while creating the user account.
     """
     app = kwargs.pop('app', None)
-    service = _get_client(app)
-    return service.create_user(**kwargs)
+    client = _get_client(app)
+    return client.create_user(**kwargs)
 
 
 def update_user(uid, **kwargs): # pylint: disable=differing-param-doc
@@ -390,8 +390,8 @@ def update_user(uid, **kwargs): # pylint: disable=differing-param-doc
         FirebaseError: If an error occurs while updating the user account.
     """
     app = kwargs.pop('app', None)
-    service = _get_client(app)
-    return service.update_user(uid, **kwargs)
+    client = _get_client(app)
+    return client.update_user(uid, **kwargs)
 
 
 def set_custom_user_claims(uid, custom_claims, app=None):
@@ -414,8 +414,8 @@ def set_custom_user_claims(uid, custom_claims, app=None):
         ValueError: If the specified user ID or the custom claims are invalid.
         FirebaseError: If an error occurs while updating the user account.
     """
-    service = _get_client(app)
-    service.set_custom_user_claims(uid, custom_claims=custom_claims)
+    client = _get_client(app)
+    client.set_custom_user_claims(uid, custom_claims=custom_claims)
 
 
 def delete_user(uid, app=None):
@@ -429,8 +429,8 @@ def delete_user(uid, app=None):
         ValueError: If the user ID is None, empty or malformed.
         FirebaseError: If an error occurs while deleting the user account.
     """
-    service = _get_client(app)
-    service.delete_user(uid)
+    client = _get_client(app)
+    client.delete_user(uid)
 
 
 def import_users(users, hash_alg=None, app=None):
@@ -455,8 +455,8 @@ def import_users(users, hash_alg=None, app=None):
         ValueError: If the provided arguments are invalid.
         FirebaseError: If an error occurs while importing users.
     """
-    service = _get_client(app)
-    return service.import_users(users, hash_alg)
+    client = _get_client(app)
+    return client.import_users(users, hash_alg)
 
 
 def generate_password_reset_link(email, action_code_settings=None, app=None):
@@ -476,8 +476,8 @@ def generate_password_reset_link(email, action_code_settings=None, app=None):
         ValueError: If the provided arguments are invalid
         FirebaseError: If an error occurs while generating the link
     """
-    service = _get_client(app)
-    return service.generate_password_reset_link(email, action_code_settings=action_code_settings)
+    client = _get_client(app)
+    return client.generate_password_reset_link(email, action_code_settings=action_code_settings)
 
 
 def generate_email_verification_link(email, action_code_settings=None, app=None):
@@ -497,8 +497,8 @@ def generate_email_verification_link(email, action_code_settings=None, app=None)
         ValueError: If the provided arguments are invalid
         FirebaseError: If an error occurs while generating the link
     """
-    service = _get_client(app)
-    return service.generate_email_verification_link(
+    client = _get_client(app)
+    return client.generate_email_verification_link(
         email, action_code_settings=action_code_settings)
 
 
@@ -519,8 +519,8 @@ def generate_sign_in_with_email_link(email, action_code_settings, app=None):
         ValueError: If the provided arguments are invalid
         FirebaseError: If an error occurs while generating the link
     """
-    service = _get_client(app)
-    return service.generate_sign_in_with_email_link(
+    client = _get_client(app)
+    return client.generate_sign_in_with_email_link(
         email, action_code_settings=action_code_settings)
 
 

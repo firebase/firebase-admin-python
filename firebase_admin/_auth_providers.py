@@ -19,6 +19,7 @@ from urllib import parse
 import requests
 
 from firebase_admin import _auth_utils
+from firebase_admin import _user_mgt
 
 
 class ProviderConfig:
@@ -107,6 +108,47 @@ class ProviderConfigClient:
 
         params = 'inboundSamlConfigId={0}'.format(provider_id)
         body = self._make_request('post', '/inboundSamlConfigs', json=req, params=params)
+        return SAMLProviderConfig(body)
+
+    def update_saml_provider_config(
+            self, provider_id, idp_entity_id=None, sso_url=None, x509_certificates=None,
+            rp_entity_id=None, callback_url=None, display_name=None, enabled=None):
+        """Updates an existing SAML provider config with the given parameters."""
+        _validate_saml_provider_id(provider_id)
+        idp_config = {}
+        if idp_entity_id is not None:
+            idp_config['idpEntityId'] = _validate_non_empty_string(idp_entity_id, 'idp_entity_id')
+        if sso_url is not None:
+            idp_config['ssoUrl'] = _validate_url(sso_url, 'sso_url')
+        if x509_certificates is not None:
+            idp_config['idpCertificates'] = _validate_x509_certificates(x509_certificates)
+
+        sp_config = {}
+        if rp_entity_id is not None:
+            sp_config['spEntityId'] = _validate_non_empty_string(rp_entity_id, 'rp_entity_id')
+        if callback_url is not None:
+            sp_config['callbackUri'] = _validate_url(callback_url, 'callback_url')
+
+        req = {}
+        if display_name is not None:
+            if display_name == _user_mgt.DELETE_ATTRIBUTE:
+                req['displayName'] = None
+            else:
+                req['displayName'] = _auth_utils.validate_string(display_name, 'display_name')
+        if enabled is not None:
+            req['enabled'] = _auth_utils.validate_boolean(enabled, 'enabled')
+        if idp_config:
+            req['idpConfig'] = idp_config
+        if sp_config:
+            req['spConfig'] = sp_config
+
+        if not req:
+            raise ValueError('At least one parameter must be specified for update.')
+
+        update_mask = _auth_utils.build_update_mask(req)
+        params = 'updateMask={0}'.format(','.join(update_mask))
+        url = '/inboundSamlConfigs/{0}'.format(provider_id)
+        body = self._make_request('patch', url, json=req, params=params)
         return SAMLProviderConfig(body)
 
     def _make_request(self, method, path, **kwargs):

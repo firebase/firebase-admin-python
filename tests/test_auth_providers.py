@@ -110,7 +110,7 @@ class TestSAMLProviderConfig:
         {'display_name': True},
         {'enabled': 'true'},
     ])
-    def test_create_invalid_provider_id(self, user_mgt_app, invalid_opts):
+    def test_create_invalid_args(self, user_mgt_app, invalid_opts):
         options = dict(self.VALID_CREATE_OPTIONS)
         options.update(invalid_opts)
         with pytest.raises(ValueError):
@@ -126,8 +126,8 @@ class TestSAMLProviderConfig:
         assert len(recorder) == 1
         req = recorder[0]
         assert req.method == 'POST'
-        assert req.url == '{0}{1}'.format(
-            USER_MGT_URL_PREFIX, '/inboundSamlConfigs?inboundSamlConfigId=saml.provider')
+        assert req.url == '{0}/inboundSamlConfigs?inboundSamlConfigId=saml.provider'.format(
+            USER_MGT_URL_PREFIX)
         got = json.loads(req.body.decode())
         assert got == self.SAML_CONFIG_REQUEST
 
@@ -146,8 +146,8 @@ class TestSAMLProviderConfig:
         assert len(recorder) == 1
         req = recorder[0]
         assert req.method == 'POST'
-        assert req.url == '{0}{1}'.format(
-            USER_MGT_URL_PREFIX, '/inboundSamlConfigs?inboundSamlConfigId=saml.provider')
+        assert req.url == '{0}/inboundSamlConfigs?inboundSamlConfigId=saml.provider'.format(
+            USER_MGT_URL_PREFIX)
         got = json.loads(req.body.decode())
         assert got == want
 
@@ -166,10 +166,78 @@ class TestSAMLProviderConfig:
         assert len(recorder) == 1
         req = recorder[0]
         assert req.method == 'POST'
-        assert req.url == '{0}{1}'.format(
-            USER_MGT_URL_PREFIX, '/inboundSamlConfigs?inboundSamlConfigId=saml.provider')
+        assert req.url == '{0}/inboundSamlConfigs?inboundSamlConfigId=saml.provider'.format(
+            USER_MGT_URL_PREFIX)
         got = json.loads(req.body.decode())
         assert got == want
+
+    @pytest.mark.parametrize('invalid_opts', [
+        {},
+        {'provider_id': None}, {'provider_id': ''}, {'provider_id': 'oidc.provider'},
+        {'idp_entity_id': ''},
+        {'sso_url': ''}, {'sso_url': 'not a url'},
+        {'x509_certificates': []}, {'x509_certificates': 'cert'},
+        {'x509_certificates': [None]}, {'x509_certificates': ['foo', {}]},
+        {'rp_entity_id': ''},
+        {'callback_url': ''}, {'callback_url': 'not a url'},
+        {'display_name': True},
+        {'enabled': 'true'},
+    ])
+    def test_update_invalid_args(self, user_mgt_app, invalid_opts):
+        options = {'provider_id': 'saml.provider'}
+        options.update(invalid_opts)
+        with pytest.raises(ValueError):
+            auth.update_saml_provider_config(**options, app=user_mgt_app)
+
+    def test_update(self, user_mgt_app):
+        recorder = _instrument_provider_mgt(user_mgt_app, 200, SAML_PROVIDER_CONFIG_RESPONSE)
+
+        provider_config = auth.update_saml_provider_config(
+            **self.VALID_CREATE_OPTIONS, app=user_mgt_app)
+
+        self._assert_provider_config(provider_config)
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'PATCH'
+        mask = [
+            'displayName', 'enabled', 'idpConfig.idpCertificates', 'idpConfig.idpEntityId',
+            'idpConfig.ssoUrl', 'spConfig.callbackUri', 'spConfig.spEntityId',
+        ]
+        assert req.url == '{0}/inboundSamlConfigs/saml.provider?updateMask={1}'.format(
+            USER_MGT_URL_PREFIX, ','.join(mask))
+        got = json.loads(req.body.decode())
+        assert got == self.SAML_CONFIG_REQUEST
+
+    def test_update_minimal(self, user_mgt_app):
+        recorder = _instrument_provider_mgt(user_mgt_app, 200, SAML_PROVIDER_CONFIG_RESPONSE)
+
+        provider_config = auth.update_saml_provider_config(
+            'saml.provider', display_name='samlProviderName', app=user_mgt_app)
+
+        self._assert_provider_config(provider_config)
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'PATCH'
+        assert req.url == '{0}/inboundSamlConfigs/saml.provider?updateMask=displayName'.format(
+            USER_MGT_URL_PREFIX)
+        got = json.loads(req.body.decode())
+        assert got == {'displayName': 'samlProviderName'}
+
+    def test_update_empty_values(self, user_mgt_app):
+        recorder = _instrument_provider_mgt(user_mgt_app, 200, SAML_PROVIDER_CONFIG_RESPONSE)
+
+        provider_config = auth.update_saml_provider_config(
+            'saml.provider', display_name=auth.DELETE_ATTRIBUTE, enabled=False, app=user_mgt_app)
+
+        self._assert_provider_config(provider_config)
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'PATCH'
+        mask = ['displayName', 'enabled']
+        assert req.url == '{0}/inboundSamlConfigs/saml.provider?updateMask={1}'.format(
+            USER_MGT_URL_PREFIX, ','.join(mask))
+        got = json.loads(req.body.decode())
+        assert got == {'displayName': None, 'enabled': False}
 
     def test_config_not_found(self, user_mgt_app):
         _instrument_provider_mgt(user_mgt_app, 500, CONFIG_NOT_FOUND_RESPONSE)

@@ -82,6 +82,7 @@ __all__ = [
     'list_users',
     'revoke_refresh_tokens',
     'set_custom_user_claims',
+    'update_saml_provider_config',
     'update_user',
     'verify_id_token',
     'verify_session_cookie',
@@ -593,13 +594,47 @@ def create_saml_provider_config(
         SAMLProviderConfig: The newly created SAMLProviderConfig instance.
 
     Raises:
-        ValueError: If any of the specifiec input parameters are invalid.
+        ValueError: If any of the specified input parameters are invalid.
         FirebaseError: If an error occurs while creating the new SAML provider config.
     """
     client = _get_client(app)
     return client.create_saml_provider_config(
-        provider_id, idp_entity_id, sso_url, x509_certificates,
-        rp_entity_id, callback_url, display_name, enabled)
+        provider_id, idp_entity_id=idp_entity_id, sso_url=sso_url,
+        x509_certificates=x509_certificates, rp_entity_id=rp_entity_id, callback_url=callback_url,
+        display_name=display_name, enabled=enabled)
+
+
+def update_saml_provider_config(
+        provider_id, idp_entity_id=None, sso_url=None, x509_certificates=None,
+        rp_entity_id=None, callback_url=None, display_name=None, enabled=None, app=None):
+    """Updates an existing SAML provider config with the given parameters.
+
+    Args:
+        provider_id: Provider ID string. Must have the prefix ``saml.``.
+        idp_entity_id: The SAML IdP entity identifier (optional).
+        sso_url: The SAML IdP SSO URL. Must be a valid URL (optional).
+        x509_certificates: The list of SAML IdP X.509 certificates issued by CA for this
+            provider  (optional).
+        rp_entity_id: The SAML relying party entity ID (optional).
+        callback_url: Callback URL string  (optional).
+        display_name: The user-friendly display name to the current configuration (optional).
+            Pass ``auth.DELETE_ATTRIBUTE`` to delete the current display name.
+        enabled: A boolean indicating whether the provider configuration is enabled or disabled
+            (optional).
+        app: An App instance (optional).
+
+    Returns:
+        SAMLProviderConfig: The updated SAMLProviderConfig instance.
+
+    Raises:
+        ValueError: If any of the specified input parameters are invalid.
+        FirebaseError: If an error occurs while updating the SAML provider config.
+    """
+    client = _get_client(app)
+    return client.update_saml_provider_config(
+        provider_id, idp_entity_id=idp_entity_id, sso_url=sso_url,
+        x509_certificates=x509_certificates, rp_entity_id=rp_entity_id,
+        callback_url=callback_url, display_name=display_name, enabled=enabled)
 
 
 class Client:
@@ -1015,12 +1050,43 @@ class Client:
             SAMLProviderConfig: The newly created SAMLProviderConfig instance.
 
         Raises:
-            ValueError: If any of the specifiec input parameters are invalid.
+            ValueError: If any of the specified input parameters are invalid.
             FirebaseError: If an error occurs while creating the new SAML provider config.
         """
         return self._provider_manager.create_saml_provider_config(
-            provider_id, idp_entity_id, sso_url, x509_certificates,
-            rp_entity_id, callback_url, display_name, enabled)
+            provider_id, idp_entity_id=idp_entity_id, sso_url=sso_url,
+            x509_certificates=x509_certificates, rp_entity_id=rp_entity_id,
+            callback_url=callback_url, display_name=display_name, enabled=enabled)
+
+    def update_saml_provider_config(
+            self, provider_id, idp_entity_id=None, sso_url=None, x509_certificates=None,
+            rp_entity_id=None, callback_url=None, display_name=None, enabled=None):
+        """Updates an existing SAML provider config with the given parameters.
+
+        Args:
+            provider_id: Provider ID string. Must have the prefix ``saml.``.
+            idp_entity_id: The SAML IdP entity identifier (optional).
+            sso_url: The SAML IdP SSO URL. Must be a valid URL (optional).
+            x509_certificates: The list of SAML IdP X.509 certificates issued by CA for this
+                provider  (optional).
+            rp_entity_id: The SAML relying party entity ID (optional).
+            callback_url: Callback URL string  (optional).
+            display_name: The user-friendly display name to the current configuration (optional).
+                Pass ``auth.DELETE_ATTRIBUTE`` to delete the current display name.
+            enabled: A boolean indicating whether the provider configuration is enabled or disabled
+                (optional).
+
+        Returns:
+            SAMLProviderConfig: The updated SAMLProviderConfig instance.
+
+        Raises:
+            ValueError: If any of the specified input parameters are invalid.
+            FirebaseError: If an error occurs while updating the SAML provider config.
+        """
+        return self._provider_manager.update_saml_provider_config(
+            provider_id, idp_entity_id=idp_entity_id, sso_url=sso_url,
+            x509_certificates=x509_certificates, rp_entity_id=rp_entity_id,
+            callback_url=callback_url, display_name=display_name, enabled=enabled)
 
     def _check_jwt_revoked(self, verified_claims, exc_type, label):
         user = self.get_user(verified_claims.get('uid'))

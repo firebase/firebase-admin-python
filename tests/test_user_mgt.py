@@ -224,6 +224,19 @@ class TestGetUser:
         _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_RESPONSE)
         _check_user_record(auth.get_user_by_phone_number('+1234567890', user_mgt_app))
 
+    def test_invalid_get_user_empty_provider_id(self, user_mgt_app):
+        with pytest.raises(ValueError):
+            auth.get_user_by_provider_user_id("", "test_provider_uid", app=user_mgt_app)
+
+    def test_invalid_get_user_empty_provider_uid(self, user_mgt_app):
+        with pytest.raises(ValueError):
+            auth.get_user_by_provider_user_id("google.com", "", app=user_mgt_app)
+
+    def test_get_user_by_provider_user_id(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_RESPONSE)
+        _check_user_record(
+            auth.get_user_by_provider_user_id('google.com', 'test_google_id', user_mgt_app))
+
     def test_get_user_non_existing(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 200, '{"users":[]}')
         with pytest.raises(auth.UserNotFoundError) as excinfo:
@@ -249,6 +262,17 @@ class TestGetUser:
         with pytest.raises(auth.UserNotFoundError) as excinfo:
             auth.get_user_by_phone_number('+1234567890', user_mgt_app)
         error_msg = 'No user record found for the provided phone number: +1234567890.'
+        assert excinfo.value.code == exceptions.NOT_FOUND
+        assert str(excinfo.value) == error_msg
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is None
+
+    def test_get_user_by_provider_user_id_non_existing(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 200, '{"users":[]}')
+        with pytest.raises(auth.UserNotFoundError) as excinfo:
+            auth.get_user_by_provider_user_id('google.com', 'test_google_id', user_mgt_app)
+        error_msg = 'No user record found for the provided provider_user_id: %s.' % str(
+            {'provider_id': 'google.com', 'provider_uid': 'test_google_id'})
         assert excinfo.value.code == exceptions.NOT_FOUND
         assert str(excinfo.value) == error_msg
         assert excinfo.value.http_response is not None
@@ -294,6 +318,16 @@ class TestGetUser:
         _instrument_user_manager(user_mgt_app, 500, '{"error":{"message": "USER_NOT_FOUND"}}')
         with pytest.raises(auth.UserNotFoundError) as excinfo:
             auth.get_user_by_phone_number('+1234567890', user_mgt_app)
+        error_msg = 'No user record found for the given identifier (USER_NOT_FOUND).'
+        assert excinfo.value.code == exceptions.NOT_FOUND
+        assert str(excinfo.value) == error_msg
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is not None
+
+    def test_get_user_by_provider_user_id_http_error(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 500, '{"error":{"message": "USER_NOT_FOUND"}}')
+        with pytest.raises(auth.UserNotFoundError) as excinfo:
+            auth.get_user_by_provider_user_id('google.com', 'test_google_id', user_mgt_app)
         error_msg = 'No user record found for the given identifier (USER_NOT_FOUND).'
         assert excinfo.value.code == exceptions.NOT_FOUND
         assert str(excinfo.value) == error_msg

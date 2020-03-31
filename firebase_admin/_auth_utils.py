@@ -100,6 +100,15 @@ def validate_provider_id(provider_id, required=True):
             'string.'.format(provider_id))
     return provider_id
 
+def validate_provider_uid(provider_uid, required=True):
+    if provider_uid is None and not required:
+        return None
+    if not isinstance(provider_uid, six.string_types) or not provider_uid:
+        raise ValueError(
+            'Invalid provider uid: "{0}". Provider uid must be a non-empty '
+            'string.'.format(provider_uid))
+    return provider_uid
+
 def validate_photo_url(photo_url, required=False):
     """Parses and validates the given URL string."""
     if photo_url is None and not required:

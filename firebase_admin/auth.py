@@ -51,8 +51,10 @@ __all__ = [
     'InvalidSessionCookieError',
     'ListUsersPage',
     'PhoneNumberAlreadyExistsError',
+    'ProviderConfig',
     'RevokedIdTokenError',
     'RevokedSessionCookieError',
+    'SAMLProviderConfig',
     'TokenSignError',
     'UidAlreadyExistsError',
     'UnexpectedResponseError',
@@ -71,6 +73,7 @@ __all__ = [
     'generate_email_verification_link',
     'generate_password_reset_link',
     'generate_sign_in_with_email_link',
+    'get_saml_provider_config',
     'get_user',
     'get_user_by_email',
     'get_user_by_phone_number',
@@ -85,6 +88,7 @@ __all__ = [
 
 ActionCodeSettings = _user_mgt.ActionCodeSettings
 CertificateFetchError = _token_gen.CertificateFetchError
+ConfigurationNotFoundError = _auth_utils.ConfigurationNotFoundError
 DELETE_ATTRIBUTE = _user_mgt.DELETE_ATTRIBUTE
 EmailAlreadyExistsError = _auth_utils.EmailAlreadyExistsError
 ErrorInfo = _user_import.ErrorInfo
@@ -98,8 +102,10 @@ InvalidIdTokenError = _auth_utils.InvalidIdTokenError
 InvalidSessionCookieError = _token_gen.InvalidSessionCookieError
 ListUsersPage = _user_mgt.ListUsersPage
 PhoneNumberAlreadyExistsError = _auth_utils.PhoneNumberAlreadyExistsError
+ProviderConfig = _auth_providers.ProviderConfigClient
 RevokedIdTokenError = _token_gen.RevokedIdTokenError
 RevokedSessionCookieError = _token_gen.RevokedSessionCookieError
+SAMLProviderConfig = _auth_providers.SAMLProviderConfig
 TokenSignError = _token_gen.TokenSignError
 UidAlreadyExistsError = _auth_utils.UidAlreadyExistsError
 UnexpectedResponseError = _auth_utils.UnexpectedResponseError
@@ -522,6 +528,7 @@ def generate_sign_in_with_email_link(email, action_code_settings, app=None):
             the link is to be handled by a mobile app and the additional state information to be
             passed in the deep link.
         app: An App instance (optional).
+
     Returns:
         link: The email sign-in link created by the API
 
@@ -535,6 +542,20 @@ def generate_sign_in_with_email_link(email, action_code_settings, app=None):
 
 
 def get_saml_provider_config(provider_id, app=None):
+    """Returns the SAMLProviderConfig with the given ID.
+
+    Args:
+        provider_id: Provider ID string.
+        app: An App instance (optional).
+
+    Returns:
+        SAMLProviderConfig: A SAMLProviderConfig instance.
+
+    Raises:
+        ValueError: If the provider ID is invalid, empty or does not have ``saml.`` prefix.
+        ConfigurationNotFoundError: If no SAML provider is available with the given identifier.
+        FirebaseError: If an error occurs while retrieving the SAML provider.
+    """
     client = _get_client(app)
     return client.get_saml_provider_config(provider_id)
 
@@ -905,6 +926,19 @@ class Client:
             'EMAIL_SIGNIN', email, action_code_settings=action_code_settings)
 
     def get_saml_provider_config(self, provider_id):
+        """Returns the SAMLProviderConfig with the given ID.
+
+        Args:
+            provider_id: Provider ID string.
+
+        Returns:
+            SAMLProviderConfig: A SAMLProviderConfig instance.
+
+        Raises:
+            ValueError: If the provider ID is invalid, empty or does not have ``saml.`` prefix.
+            ConfigurationNotFoundError: If no SAML provider is available with the given identifier.
+            FirebaseError: If an error occurs while retrieving the SAML provider.
+        """
         return self._provider_manager.get_saml_provider_config(provider_id)
 
     def _check_jwt_revoked(self, verified_claims, exc_type, label):

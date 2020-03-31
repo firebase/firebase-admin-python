@@ -18,11 +18,18 @@ import pytest
 
 import firebase_admin
 from firebase_admin import auth
+from firebase_admin import exceptions
 from firebase_admin import _auth_providers
 from tests import testutils
 
 USER_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v2beta1/projects/mock-project-id'
 SAML_PROVIDER_CONFIG_RESPONSE = testutils.resource('saml_provider_config.json')
+
+CONFIG_NOT_FOUND_RESPONSE = """{
+    "error": {
+        "message": "CONFIGURATION_NOT_FOUND"
+    }
+}"""
 
 
 @pytest.fixture(scope='module')
@@ -73,3 +80,15 @@ class TestSAMLProviderConfig:
         req = recorder[0]
         assert req.method == 'GET'
         assert req.url == '{0}{1}'.format(USER_MGT_URL_PREFIX, '/inboundSamlConfigs/saml.provider')
+
+    def test_config_not_found(self, user_mgt_app):
+        _instrument_provider_mgt(user_mgt_app, 500, CONFIG_NOT_FOUND_RESPONSE)
+
+        with pytest.raises(auth.ConfigurationNotFoundError) as excinfo:
+            auth.get_saml_provider_config('saml.provider', app=user_mgt_app)
+
+        error_msg = 'No auth provider found for the given identifier (CONFIGURATION_NOT_FOUND).'
+        assert excinfo.value.code == exceptions.NOT_FOUND
+        assert str(excinfo.value) == error_msg
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is not None

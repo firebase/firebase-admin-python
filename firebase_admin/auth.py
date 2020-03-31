@@ -391,6 +391,8 @@ def update_user(uid, **kwargs): # pylint: disable=differing-param-doc
             user account (optional). To remove all custom claims, pass ``auth.DELETE_ATTRIBUTE``.
         valid_since: An integer signifying the seconds since the epoch. This field is set by
             ``revoke_refresh_tokens`` and it is discouraged to set this field directly.
+        link_provider: User's provider info to be linked to the user account.
+        delete_provider_ids: A list of IDs of providers to be unlinked from the user account.
 
     Returns:
         UserRecord: An updated UserRecord instance for the user.

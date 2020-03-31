@@ -494,6 +494,52 @@ class TestUpdateUser:
             'deleteProvider' : ['phone'],
         }
 
+    def test_update_user_delete_providers(self, user_mgt_app):
+        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        user_mgt.update_user(
+            'testuser',
+            delete_provider_ids=['google.com', 'facebook.com'])
+        request = json.loads(recorder[0].body.decode())
+        assert request == {
+            'localId' : 'testuser',
+            'deleteProvider' : ['google.com', 'facebook.com'],
+        }
+
+    def test_update_user_delete_fields_and_providers(self, user_mgt_app):
+        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        user_mgt.update_user(
+            'testuser',
+            display_name=auth.DELETE_ATTRIBUTE,
+            photo_url=auth.DELETE_ATTRIBUTE,
+            phone_number=auth.DELETE_ATTRIBUTE,
+            delete_provider_ids=['google.com', 'facebook.com'])
+        request = json.loads(recorder[0].body.decode())
+        print request
+        assert request == {
+            'localId' : 'testuser',
+            'deleteAttribute' : ['DISPLAY_NAME', 'PHOTO_URL'],
+            'deleteProvider' : ['google.com', 'facebook.com', 'phone'],
+        }
+
+    def test_update_user_link_provider(self, user_mgt_app):
+        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        user_mgt.update_user(
+            'testuser',
+            link_provider=auth.UserProvider(
+                uid='test', provider_id='google.com', email='test@example.com',
+                display_name='Test Name', photo_url='https://test.com/user.png'))
+        request = json.loads(recorder[0].body.decode())
+        assert request == {
+            'localId' : 'testuser',
+            'linkProviderUserInfo' : {
+                'rawId': 'test',
+                'providerId': 'google.com',
+                'email': 'test@example.com',
+                'displayName': 'Test Name',
+                'photoUrl': 'https://test.com/user.png'
+            }
+        }
+
     def test_update_user_error(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 500, '{"error": {"message": "UNEXPECTED_CODE"}}')
         with pytest.raises(exceptions.InternalError) as excinfo:

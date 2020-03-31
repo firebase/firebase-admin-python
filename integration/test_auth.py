@@ -288,6 +288,36 @@ def test_update_user(new_user):
     assert user.custom_claims is None
     assert len(user.provider_data) == 2
 
+    user = auth.update_user(
+        new_user.uid,
+        link_provider=auth.UserProvider(
+            uid='test', provider_id='google.com', email='test@example.com',
+            display_name='Test Name', photo_url='https://test.com/user.png'))
+    assert user.uid == new_user.uid
+    assert len(user.provider_data) == 3
+
+    user = auth.update_user(
+        new_user.uid,
+            phone_number=auth.DELETE_ATTRIBUTE,
+            delete_provider_ids=['google.com'])
+    assert user.uid == new_user.uid
+    assert user.phone_number is None
+    assert len(user.provider_data) == 1
+
+    user = auth.update_user(
+        new_user.uid,
+        phone_number=phone)
+    assert user.uid == new_user.uid
+    assert user.phone_number == phone
+    assert len(user.provider_data) == 2
+
+    user = auth.update_user(
+        new_user.uid,
+            delete_provider_ids=['phone', 'google.com'])
+    assert user.uid == new_user.uid
+    assert user.phone_number is None
+    assert len(user.provider_data) == 1
+
 def test_set_custom_user_claims(new_user, api_key):
     claims = {'admin' : True, 'package' : 'gold'}
     auth.set_custom_user_claims(new_user.uid, claims)

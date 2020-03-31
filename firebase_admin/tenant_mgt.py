@@ -60,7 +60,7 @@ def auth_for_tenant(tenant_id, app=None):
         app: An App instance (optional).
 
     Returns:
-        _AuthService: An _AuthService object.
+        auth.Client: An ``auth.Client`` object.
 
     Raises:
         ValueError: If the tenant ID is None, empty or not a string.
@@ -251,7 +251,7 @@ class _TenantManagementService:
             if tenant_id in self.tenant_clients:
                 return self.tenant_clients[tenant_id]
 
-            client = auth._AuthService(self.app, tenant_id=tenant_id) # pylint: disable=protected-access
+            client = auth.Client(self.app, tenant_id=tenant_id)
             self.tenant_clients[tenant_id] = client
             return  client
 

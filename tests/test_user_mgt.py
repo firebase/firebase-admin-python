@@ -58,11 +58,11 @@ def user_mgt_app():
     firebase_admin.delete_app(app)
 
 def _instrument_user_manager(app, status, payload):
-    auth_service = auth._get_auth_service(app)
-    user_manager = auth_service._user_manager
+    client = auth._get_client(app)
+    user_manager = client._user_manager
     recorder = []
     user_manager._client.session.mount(
-        auth._AuthService.ID_TOOLKIT_URL,
+        auth.Client.ID_TOOLKIT_URL,
         testutils.MockAdapter(payload, status, recorder))
     return user_manager, recorder
 
@@ -104,14 +104,14 @@ def _check_user_record(user, expected_uid='testuser'):
 class TestAuthServiceInitialization:
 
     def test_default_timeout(self, user_mgt_app):
-        auth_service = auth._get_auth_service(user_mgt_app)
-        user_manager = auth_service._user_manager
+        client = auth._get_client(user_mgt_app)
+        user_manager = client._user_manager
         assert user_manager._client.timeout == _http_client.DEFAULT_TIMEOUT_SECONDS
 
     def test_fail_on_no_project_id(self):
         app = firebase_admin.initialize_app(testutils.MockCredential(), name='userMgt2')
         with pytest.raises(ValueError):
-            auth._get_auth_service(app)
+            auth._get_client(app)
         firebase_admin.delete_app(app)
 
 
@@ -1301,7 +1301,7 @@ class TestGenerateEmailActionLink:
 
     def test_bad_action_type(self, user_mgt_app):
         with pytest.raises(ValueError):
-            auth._get_auth_service(user_mgt_app) \
+            auth._get_client(user_mgt_app) \
                 ._user_manager \
                 .generate_email_action_link('BAD_TYPE', 'test@test.com',
                                             action_code_settings=MOCK_ACTION_CODE_SETTINGS)

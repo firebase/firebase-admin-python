@@ -67,6 +67,7 @@ __all__ = [
     'UserRecord',
 
     'create_custom_token',
+    'create_saml_provider_config',
     'create_session_cookie',
     'create_user',
     'delete_user',
@@ -560,6 +561,47 @@ def get_saml_provider_config(provider_id, app=None):
     return client.get_saml_provider_config(provider_id)
 
 
+def create_saml_provider_config(
+        provider_id, idp_entity_id, sso_url, x509_certificates, rp_entity_id, callback_url,
+        display_name=None, enabled=None, app=None):
+    """Creates a new SAML provider config from the given parameters.
+
+    SAML provider support requires Google Cloud's Identity Platform (GCIP). To learn more about
+    GCIP, including pricing and features, see https://cloud.google.com/identity-platform.
+
+    Args:
+        provider_id: Provider ID string. Must have the prefix ``saml.``.
+        idp_entity_id: The SAML IdP entity identifier.
+        sso_url: The SAML IdP SSO URL. Must be a valid URL.
+        x509_certificates: The list of SAML IdP X.509 certificates issued by CA for this provider.
+            Multiple certificates are accepted to prevent outages during IdP key rotation (for
+            example ADFS rotates every 10 days). When the Auth server receives a SAML response, it
+            will match the SAML response with the certificate on record. Otherwise the response is
+            rejected. Developers are expected to manage the certificate updates as keys are
+            rotated.
+        rp_entity_id: The SAML relying party (service provider) entity ID. This is defined by the
+            developer but needs to be provided to the SAML IdP.
+        callback_url: Callback URL string. This is fixed and must always be the same as the OAuth
+            redirect URL provisioned by Firebase Auth, unless a custom authDomain is used.
+        display_name: The user-friendly display name to the current configuration (optional). This
+            name is also used as the provider label in the Cloud Console.
+        enabled: A boolean indicating whether the provider configuration is enabled or disabled
+            (optional). A user cannot sign in using a disabled provider.
+        app: An App instance (optional).
+
+    Returns:
+        SAMLProviderConfig: The newly created SAMLProviderConfig instance.
+
+    Raises:
+        ValueError: If any of the specifiec input parameters are invalid.
+        FirebaseError: If an error occurs while creating the new SAML provider config.
+    """
+    client = _get_client(app)
+    return client.create_saml_provider_config(
+        provider_id, idp_entity_id, sso_url, x509_certificates,
+        rp_entity_id, callback_url, display_name, enabled)
+
+
 class Client:
     """Firebase Authentication client scoped to a specific tenant."""
 
@@ -940,6 +982,45 @@ class Client:
             FirebaseError: If an error occurs while retrieving the SAML provider.
         """
         return self._provider_manager.get_saml_provider_config(provider_id)
+
+    def create_saml_provider_config(
+            self, provider_id, idp_entity_id, sso_url, x509_certificates, rp_entity_id,
+            callback_url, display_name=None, enabled=None):
+        """Creates a new SAML provider config from the given parameters.
+
+        SAML provider support requires Google Cloud's Identity Platform (GCIP). To learn more about
+        GCIP, including pricing and features, see https://cloud.google.com/identity-platform.
+
+        Args:
+            provider_id: Provider ID string. Must have the prefix ``saml.``.
+            idp_entity_id: The SAML IdP entity identifier.
+            sso_url: The SAML IdP SSO URL. Must be a valid URL.
+            x509_certificates: The list of SAML IdP X.509 certificates issued by CA for this
+                provider. Multiple certificates are accepted to prevent outages during IdP key
+                rotation (for example ADFS rotates every 10 days). When the Auth server receives a
+                SAML response, it will match the SAML response with the certificate on record.
+                Otherwise the response is rejected. Developers are expected to manage the
+                certificate updates as keys are rotated.
+            rp_entity_id: The SAML relying party (service provider) entity ID. This is defined by
+                the developer but needs to be provided to the SAML IdP.
+            callback_url: Callback URL string. This is fixed and must always be the same as the
+                OAuth redirect URL provisioned by Firebase Auth, unless a custom authDomain is
+                used.
+            display_name: The user-friendly display name to the current configuration (optional).
+                This name is also used as the provider label in the Cloud Console.
+            enabled: A boolean indicating whether the provider configuration is enabled or disabled
+                (optional). A user cannot sign in using a disabled provider.
+
+        Returns:
+            SAMLProviderConfig: The newly created SAMLProviderConfig instance.
+
+        Raises:
+            ValueError: If any of the specifiec input parameters are invalid.
+            FirebaseError: If an error occurs while creating the new SAML provider config.
+        """
+        return self._provider_manager.create_saml_provider_config(
+            provider_id, idp_entity_id, sso_url, x509_certificates,
+            rp_entity_id, callback_url, display_name, enabled)
 
     def _check_jwt_revoked(self, verified_claims, exc_type, label):
         user = self.get_user(verified_claims.get('uid'))

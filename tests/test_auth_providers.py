@@ -14,6 +14,8 @@
 
 """Test cases for the firebase_admin._auth_providers module."""
 
+import json
+
 import pytest
 
 import firebase_admin
@@ -52,6 +54,31 @@ def _instrument_provider_mgt(app, status, payload):
 
 class TestSAMLProviderConfig:
 
+    VALID_CREATE_OPTIONS = {
+        'provider_id': 'saml.provider',
+        'idp_entity_id': 'IDP_ENTITY_ID',
+        'sso_url': 'https://example.com/login',
+        'x509_certificates': ['CERT1', 'CERT2'],
+        'rp_entity_id': 'RP_ENTITY_ID',
+        'callback_url': 'https://projectId.firebaseapp.com/__/auth/handler',
+        'display_name': 'samlProviderName',
+        'enabled': True,
+    }
+
+    SAML_CONFIG_REQUEST = {
+        'displayName': 'samlProviderName',
+        'enabled': True,
+        'idpConfig': {
+            'idpEntityId': 'IDP_ENTITY_ID',
+            'ssoUrl': 'https://example.com/login',
+            'idpCertificates': [{'x509Certificate': 'CERT1'}, {'x509Certificate': 'CERT2'}]
+        },
+        'spConfig': {
+            'spEntityId': 'RP_ENTITY_ID',
+            'callbackUri': 'https://projectId.firebaseapp.com/__/auth/handler',
+        }
+    }
+
     @pytest.mark.parametrize('provider_id', [
         None, True, False, 1, 0, list(), tuple(), dict(), '', 'oidc.provider'
     ])
@@ -61,25 +88,88 @@ class TestSAMLProviderConfig:
 
         assert str(excinfo.value).startswith('Invalid SAML provider ID')
 
-    def test_get_saml_provider_config(self, user_mgt_app):
+    def test_get(self, user_mgt_app):
         recorder = _instrument_provider_mgt(user_mgt_app, 200, SAML_PROVIDER_CONFIG_RESPONSE)
 
         provider_config = auth.get_saml_provider_config('saml.provider', app=user_mgt_app)
 
-        assert provider_config.provider_id == 'saml.provider'
-        assert provider_config.display_name == 'samlProviderName'
-        assert provider_config.enabled is True
-        assert provider_config.idp_entity_id == 'IDP_ENTITY_ID'
-        assert provider_config.sso_url == 'https://example.com/login'
-        assert provider_config.request_signing_enabled is True
-        assert provider_config.x509_certificates == ['CERT1', 'CERT2']
-        assert provider_config.rp_entity_id == 'RP_ENTITY_ID'
-        assert provider_config.callback_url == 'https://projectId.firebaseapp.com/__/auth/handler'
-
+        self._assert_provider_config(provider_config)
         assert len(recorder) == 1
         req = recorder[0]
         assert req.method == 'GET'
         assert req.url == '{0}{1}'.format(USER_MGT_URL_PREFIX, '/inboundSamlConfigs/saml.provider')
+
+    @pytest.mark.parametrize('invalid_opts', [
+        {'provider_id': None}, {'provider_id': ''}, {'provider_id': 'oidc.provider'},
+        {'idp_entity_id': None}, {'idp_entity_id': ''},
+        {'sso_url': None}, {'sso_url': ''}, {'sso_url': 'not a url'},
+        {'x509_certificates': None}, {'x509_certificates': []}, {'x509_certificates': 'cert'},
+        {'x509_certificates': [None]}, {'x509_certificates': ['foo', {}]},
+        {'rp_entity_id': None}, {'rp_entity_id': ''},
+        {'callback_url': None}, {'callback_url': ''}, {'callback_url': 'not a url'},
+        {'display_name': True},
+        {'enabled': 'true'},
+    ])
+    def test_create_invalid_provider_id(self, user_mgt_app, invalid_opts):
+        options = dict(self.VALID_CREATE_OPTIONS)
+        options.update(invalid_opts)
+        with pytest.raises(ValueError):
+            auth.create_saml_provider_config(**options, app=user_mgt_app)
+
+    def test_create(self, user_mgt_app):
+        recorder = _instrument_provider_mgt(user_mgt_app, 200, SAML_PROVIDER_CONFIG_RESPONSE)
+
+        provider_config = auth.create_saml_provider_config(
+            **self.VALID_CREATE_OPTIONS, app=user_mgt_app)
+
+        self._assert_provider_config(provider_config)
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'POST'
+        assert req.url == '{0}{1}'.format(
+            USER_MGT_URL_PREFIX, '/inboundSamlConfigs?inboundSamlConfigId=saml.provider')
+        got = json.loads(req.body.decode())
+        assert got == self.SAML_CONFIG_REQUEST
+
+    def test_create_minimal(self, user_mgt_app):
+        recorder = _instrument_provider_mgt(user_mgt_app, 200, SAML_PROVIDER_CONFIG_RESPONSE)
+        options = dict(self.VALID_CREATE_OPTIONS)
+        del options['display_name']
+        del options['enabled']
+        want = dict(self.SAML_CONFIG_REQUEST)
+        del want['displayName']
+        del want['enabled']
+
+        provider_config = auth.create_saml_provider_config(**options, app=user_mgt_app)
+
+        self._assert_provider_config(provider_config)
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'POST'
+        assert req.url == '{0}{1}'.format(
+            USER_MGT_URL_PREFIX, '/inboundSamlConfigs?inboundSamlConfigId=saml.provider')
+        got = json.loads(req.body.decode())
+        assert got == want
+
+    def test_create_empty_values(self, user_mgt_app):
+        recorder = _instrument_provider_mgt(user_mgt_app, 200, SAML_PROVIDER_CONFIG_RESPONSE)
+        options = dict(self.VALID_CREATE_OPTIONS)
+        options['display_name'] = ''
+        options['enabled'] = False
+        want = dict(self.SAML_CONFIG_REQUEST)
+        want['displayName'] = ''
+        want['enabled'] = False
+
+        provider_config = auth.create_saml_provider_config(**options, app=user_mgt_app)
+
+        self._assert_provider_config(provider_config)
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'POST'
+        assert req.url == '{0}{1}'.format(
+            USER_MGT_URL_PREFIX, '/inboundSamlConfigs?inboundSamlConfigId=saml.provider')
+        got = json.loads(req.body.decode())
+        assert got == want
 
     def test_config_not_found(self, user_mgt_app):
         _instrument_provider_mgt(user_mgt_app, 500, CONFIG_NOT_FOUND_RESPONSE)
@@ -92,3 +182,13 @@ class TestSAMLProviderConfig:
         assert str(excinfo.value) == error_msg
         assert excinfo.value.http_response is not None
         assert excinfo.value.cause is not None
+
+    def _assert_provider_config(self, provider_config):
+        assert provider_config.provider_id == 'saml.provider'
+        assert provider_config.display_name == 'samlProviderName'
+        assert provider_config.enabled is True
+        assert provider_config.idp_entity_id == 'IDP_ENTITY_ID'
+        assert provider_config.sso_url == 'https://example.com/login'
+        assert provider_config.x509_certificates == ['CERT1', 'CERT2']
+        assert provider_config.rp_entity_id == 'RP_ENTITY_ID'
+        assert provider_config.callback_url == 'https://projectId.firebaseapp.com/__/auth/handler'

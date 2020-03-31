@@ -711,7 +711,6 @@ class TestTenantAwareUserManagement:
         assert provider_config.enabled is True
         assert provider_config.idp_entity_id == 'IDP_ENTITY_ID'
         assert provider_config.sso_url == 'https://example.com/login'
-        assert provider_config.request_signing_enabled is True
         assert provider_config.x509_certificates == ['CERT1', 'CERT2']
         assert provider_config.rp_entity_id == 'RP_ENTITY_ID'
         assert provider_config.callback_url == 'https://projectId.firebaseapp.com/__/auth/handler'

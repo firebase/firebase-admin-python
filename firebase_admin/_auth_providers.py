@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Firebase auth providers management sub module."""
+
 import requests
 
 from firebase_admin import _auth_utils
@@ -41,9 +43,6 @@ class SAMLProviderConfig(ProviderConfig):
     """Represents he SAML auth provider configuration.
 
     See http://docs.oasis-open.org/security/saml/Post2.0/sstc-saml-tech-overview-2.0.html."""
-
-    def __init__(self, data):
-        super().__init__(data)
 
     @property
     def idp_entity_id(self):

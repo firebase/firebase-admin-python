@@ -151,6 +151,10 @@ class ProviderConfigClient:
         body = self._make_request('patch', url, json=req, params=params)
         return SAMLProviderConfig(body)
 
+    def delete_saml_provider_config(self, provider_id):
+        _validate_saml_provider_id(provider_id)
+        self._make_request('delete', '/inboundSamlConfigs/{0}'.format(provider_id))
+
     def _make_request(self, method, path, **kwargs):
         url = '{0}{1}'.format(self.base_url, path)
         try:

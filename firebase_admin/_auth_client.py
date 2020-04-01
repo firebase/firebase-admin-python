@@ -476,6 +476,19 @@ class Client:
             x509_certificates=x509_certificates, rp_entity_id=rp_entity_id,
             callback_url=callback_url, display_name=display_name, enabled=enabled)
 
+    def delete_saml_provider_config(self, provider_id):
+        """Deletes the SAMLProviderConfig with the given ID.
+
+        Args:
+            provider_id: Provider ID string.
+
+        Raises:
+            ValueError: If the provider ID is invalid, empty or does not have ``saml.`` prefix.
+            ConfigurationNotFoundError: If no SAML provider is available with the given identifier.
+            FirebaseError: If an error occurs while deleting the SAML provider.
+        """
+        self._provider_manager.delete_saml_provider_config(provider_id)
+
     def _check_jwt_revoked(self, verified_claims, exc_type, label):
         user = self.get_user(verified_claims.get('uid'))
         if verified_claims.get('iat') * 1000 < user.tokens_valid_after_timestamp:

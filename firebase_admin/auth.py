@@ -633,3 +633,19 @@ def update_saml_provider_config(
         provider_id, idp_entity_id=idp_entity_id, sso_url=sso_url,
         x509_certificates=x509_certificates, rp_entity_id=rp_entity_id,
         callback_url=callback_url, display_name=display_name, enabled=enabled)
+
+
+def delete_saml_provider_config(provider_id, app=None):
+    """Deletes the SAMLProviderConfig with the given ID.
+
+    Args:
+        provider_id: Provider ID string.
+        app: An App instance (optional).
+
+    Raises:
+        ValueError: If the provider ID is invalid, empty or does not have ``saml.`` prefix.
+        ConfigurationNotFoundError: If no SAML provider is available with the given identifier.
+        FirebaseError: If an error occurs while deleting the SAML provider.
+    """
+    client = _get_client(app)
+    client.delete_saml_provider_config(provider_id)

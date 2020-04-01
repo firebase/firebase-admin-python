@@ -761,6 +761,18 @@ class TestTenantAwareUserManagement:
             recorder, url, SAML_PROVIDER_CONFIG_REQUEST, method='PATCH',
             prefix=PROVIDER_MGT_URL_PREFIX)
 
+    def test_delete_saml_provider_config(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_provider_mgt(client, 200, SAML_PROVIDER_CONFIG_RESPONSE)
+
+        client.delete_saml_provider_config('saml.provider')
+
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'DELETE'
+        assert req.url == '{0}/tenants/tenant-id/inboundSamlConfigs/saml.provider'.format(
+            PROVIDER_MGT_URL_PREFIX)
+
     def test_tenant_not_found(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
         _instrument_user_mgt(client, 500, TENANT_NOT_FOUND_RESPONSE)

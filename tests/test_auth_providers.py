@@ -33,6 +33,8 @@ CONFIG_NOT_FOUND_RESPONSE = """{
     }
 }"""
 
+INVALID_PROVIDER_IDS = [None, True, False, 1, 0, list(), tuple(), dict(), '']
+
 
 @pytest.fixture(scope='module')
 def user_mgt_app():
@@ -79,10 +81,8 @@ class TestSAMLProviderConfig:
         }
     }
 
-    @pytest.mark.parametrize('provider_id', [
-        None, True, False, 1, 0, list(), tuple(), dict(), '', 'oidc.provider'
-    ])
-    def test_invalid_provider_id(self, user_mgt_app, provider_id):
+    @pytest.mark.parametrize('provider_id', INVALID_PROVIDER_IDS + ['oidc.provider'])
+    def test_get_invalid_provider_id(self, user_mgt_app, provider_id):
         with pytest.raises(ValueError) as excinfo:
             auth.get_saml_provider_config(provider_id, app=user_mgt_app)
 
@@ -238,6 +238,23 @@ class TestSAMLProviderConfig:
             USER_MGT_URL_PREFIX, ','.join(mask))
         got = json.loads(req.body.decode())
         assert got == {'displayName': None, 'enabled': False}
+
+    @pytest.mark.parametrize('provider_id', INVALID_PROVIDER_IDS + ['oidc.provider'])
+    def test_delete_invalid_provider_id(self, user_mgt_app, provider_id):
+        with pytest.raises(ValueError) as excinfo:
+            auth.delete_saml_provider_config(provider_id, app=user_mgt_app)
+
+        assert str(excinfo.value).startswith('Invalid SAML provider ID')
+
+    def test_delete(self, user_mgt_app):
+        recorder = _instrument_provider_mgt(user_mgt_app, 200, '{}')
+
+        auth.delete_saml_provider_config('saml.provider', app=user_mgt_app)
+
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'DELETE'
+        assert req.url == '{0}{1}'.format(USER_MGT_URL_PREFIX, '/inboundSamlConfigs/saml.provider')
 
     def test_config_not_found(self, user_mgt_app):
         _instrument_provider_mgt(user_mgt_app, 500, CONFIG_NOT_FOUND_RESPONSE)

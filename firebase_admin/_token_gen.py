@@ -82,10 +82,13 @@ class _SigningProvider:
 class TokenGenerator:
     """Generates custom tokens and session cookies."""
 
-    def __init__(self, app, client):
+    ID_TOOLKIT_URL = 'https://identitytoolkit.googleapis.com/v1'
+
+    def __init__(self, app, http_client):
         self.app = app
-        self.client = client
+        self.http_client = http_client
         self.request = transport.requests.Request()
+        self.base_url = '{0}/projects/{1}'.format(self.ID_TOOLKIT_URL, app.project_id)
         self._signing_provider = None
 
     def _init_signing_provider(self):
@@ -192,13 +195,13 @@ class TokenGenerator:
             raise ValueError('Illegal expiry duration: {0}. Duration must be at most {1} '
                              'seconds.'.format(expires_in, MAX_SESSION_COOKIE_DURATION_SECONDS))
 
+        url = '{0}:createSessionCookie'.format(self.base_url)
         payload = {
             'idToken': id_token,
             'validDuration': expires_in,
         }
         try:
-            body, http_resp = self.client.body_and_response(
-                'post', ':createSessionCookie', json=payload)
+            body, http_resp = self.http_client.body_and_response('post', url, json=payload)
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)
         else:

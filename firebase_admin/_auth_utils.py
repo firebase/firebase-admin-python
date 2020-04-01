@@ -307,7 +307,17 @@ class TenantIdMismatchError(exceptions.InvalidArgumentError):
         exceptions.InvalidArgumentError.__init__(self, message)
 
 
+class ConfigurationNotFoundError(exceptions.NotFoundError):
+    """No auth provider found for the specified identifier."""
+
+    default_message = 'No auth provider found for the given identifier'
+
+    def __init__(self, message, cause=None, http_response=None):
+        exceptions.NotFoundError.__init__(self, message, cause, http_response)
+
+
 _CODE_TO_EXC_TYPE = {
+    'CONFIGURATION_NOT_FOUND': ConfigurationNotFoundError,
     'DUPLICATE_EMAIL': EmailAlreadyExistsError,
     'DUPLICATE_LOCAL_ID': UidAlreadyExistsError,
     'EMAIL_EXISTS': EmailAlreadyExistsError,

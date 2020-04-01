@@ -22,6 +22,7 @@ creating and managing user accounts in Firebase projects.
 import time
 
 import firebase_admin
+from firebase_admin import _auth_providers
 from firebase_admin import _auth_utils
 from firebase_admin import _http_client
 from firebase_admin import _token_gen
@@ -50,8 +51,10 @@ __all__ = [
     'InvalidSessionCookieError',
     'ListUsersPage',
     'PhoneNumberAlreadyExistsError',
+    'ProviderConfig',
     'RevokedIdTokenError',
     'RevokedSessionCookieError',
+    'SAMLProviderConfig',
     'TokenSignError',
     'UidAlreadyExistsError',
     'UnexpectedResponseError',
@@ -70,6 +73,7 @@ __all__ = [
     'generate_email_verification_link',
     'generate_password_reset_link',
     'generate_sign_in_with_email_link',
+    'get_saml_provider_config',
     'get_user',
     'get_user_by_email',
     'get_user_by_phone_number',
@@ -84,6 +88,7 @@ __all__ = [
 
 ActionCodeSettings = _user_mgt.ActionCodeSettings
 CertificateFetchError = _token_gen.CertificateFetchError
+ConfigurationNotFoundError = _auth_utils.ConfigurationNotFoundError
 DELETE_ATTRIBUTE = _user_mgt.DELETE_ATTRIBUTE
 EmailAlreadyExistsError = _auth_utils.EmailAlreadyExistsError
 ErrorInfo = _user_import.ErrorInfo
@@ -97,8 +102,10 @@ InvalidIdTokenError = _auth_utils.InvalidIdTokenError
 InvalidSessionCookieError = _token_gen.InvalidSessionCookieError
 ListUsersPage = _user_mgt.ListUsersPage
 PhoneNumberAlreadyExistsError = _auth_utils.PhoneNumberAlreadyExistsError
+ProviderConfig = _auth_providers.ProviderConfigClient
 RevokedIdTokenError = _token_gen.RevokedIdTokenError
 RevokedSessionCookieError = _token_gen.RevokedSessionCookieError
+SAMLProviderConfig = _auth_providers.SAMLProviderConfig
 TokenSignError = _token_gen.TokenSignError
 UidAlreadyExistsError = _auth_utils.UidAlreadyExistsError
 UnexpectedResponseError = _auth_utils.UnexpectedResponseError
@@ -521,6 +528,7 @@ def generate_sign_in_with_email_link(email, action_code_settings, app=None):
             the link is to be handled by a mobile app and the additional state information to be
             passed in the deep link.
         app: An App instance (optional).
+
     Returns:
         link: The email sign-in link created by the API
 
@@ -533,32 +541,46 @@ def generate_sign_in_with_email_link(email, action_code_settings, app=None):
         email, action_code_settings=action_code_settings)
 
 
+def get_saml_provider_config(provider_id, app=None):
+    """Returns the SAMLProviderConfig with the given ID.
+
+    Args:
+        provider_id: Provider ID string.
+        app: An App instance (optional).
+
+    Returns:
+        SAMLProviderConfig: A SAMLProviderConfig instance.
+
+    Raises:
+        ValueError: If the provider ID is invalid, empty or does not have ``saml.`` prefix.
+        ConfigurationNotFoundError: If no SAML provider is available with the given identifier.
+        FirebaseError: If an error occurs while retrieving the SAML provider.
+    """
+    client = _get_client(app)
+    return client.get_saml_provider_config(provider_id)
+
+
 class Client:
     """Firebase Authentication client scoped to a specific tenant."""
 
-    ID_TOOLKIT_URL = 'https://identitytoolkit.googleapis.com/v1/projects/'
-
     def __init__(self, app, tenant_id=None):
-        credential = app.credential.get_credential()
-        version_header = 'Python/Admin/{0}'.format(firebase_admin.__version__)
-
         if not app.project_id:
             raise ValueError("""Project ID is required to access the auth service.
             1. Use a service account credential, or
             2. set the project ID explicitly via Firebase App options, or
             3. set the project ID via the GOOGLE_CLOUD_PROJECT environment variable.""")
 
-        url_path = app.project_id
-        if tenant_id:
-            url_path += '/tenants/{0}'.format(tenant_id)
-
+        credential = app.credential.get_credential()
+        version_header = 'Python/Admin/{0}'.format(firebase_admin.__version__)
         http_client = _http_client.JsonHttpClient(
-            credential=credential, base_url=self.ID_TOOLKIT_URL + url_path,
-            headers={'X-Client-Version': version_header})
+            credential=credential, headers={'X-Client-Version': version_header})
+
         self._tenant_id = tenant_id
         self._token_generator = _token_gen.TokenGenerator(app, http_client)
         self._token_verifier = _token_gen.TokenVerifier(app)
-        self._user_manager = _user_mgt.UserManager(http_client)
+        self._user_manager = _user_mgt.UserManager(http_client, app.project_id, tenant_id)
+        self._provider_manager = _auth_providers.ProviderConfigClient(
+            http_client, app.project_id, tenant_id)
 
     @property
     def tenant_id(self):
@@ -902,6 +924,22 @@ class Client:
         """
         return self._user_manager.generate_email_action_link(
             'EMAIL_SIGNIN', email, action_code_settings=action_code_settings)
+
+    def get_saml_provider_config(self, provider_id):
+        """Returns the SAMLProviderConfig with the given ID.
+
+        Args:
+            provider_id: Provider ID string.
+
+        Returns:
+            SAMLProviderConfig: A SAMLProviderConfig instance.
+
+        Raises:
+            ValueError: If the provider ID is invalid, empty or does not have ``saml.`` prefix.
+            ConfigurationNotFoundError: If no SAML provider is available with the given identifier.
+            FirebaseError: If an error occurs while retrieving the SAML provider.
+        """
+        return self._provider_manager.get_saml_provider_config(provider_id)
 
     def _check_jwt_revoked(self, verified_claims, exc_type, label):
         user = self.get_user(verified_claims.get('uid'))

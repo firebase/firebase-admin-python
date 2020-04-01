@@ -258,7 +258,7 @@ def update_user_unlink_federated(uid):
     # Unlink the user from a federated identity provider (like Google).
     user = auth.update_user(
         uid,
-        delete_provider_ids=['google.com']))
+        delete_provider_ids=['google.com'])
 
     print('Sucessfully updated user: {0}'.format(user.uid))
     # [END update_user_unlink_federated]

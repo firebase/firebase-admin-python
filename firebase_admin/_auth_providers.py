@@ -22,6 +22,9 @@ from firebase_admin import _auth_utils
 from firebase_admin import _user_mgt
 
 
+MAX_LIST_CONFIGS_RESULTS = 100
+
+
 class ProviderConfig:
     """Parent type for all authentication provider config types."""
 
@@ -67,6 +70,94 @@ class SAMLProviderConfig(ProviderConfig):
     @property
     def rp_entity_id(self):
         return self._data.get('spConfig', {})['spEntityId']
+
+
+class ListProviderConfigsPage:
+    """Represents a page of AuthProviderConfig instances retrieved from a Firebase project.
+
+    Provides methods for traversing the provider configs included in this page, as well as
+    retrieving subsequent pages. The iterator returned by ``iterate_all()`` can be used to iterate
+    through all provider configs in the Firebase project starting from this page.
+    """
+
+    def __init__(self, download, page_token, max_results, result_cls, config_key):
+        self._download = download
+        self._max_results = max_results
+        self._current = download(page_token, max_results)
+        self._result_cls = result_cls
+        self._config_key = config_key
+
+    @property
+    def provider_configs(self):
+        """A list of ``AuthProviderConfig`` instances available in this page."""
+        return [self._result_cls(config) for config in self._current.get(self._config_key, [])]
+
+    @property
+    def next_page_token(self):
+        """Page token string for the next page (empty string indicates no more pages)."""
+        return self._current.get('nextPageToken', '')
+
+    @property
+    def has_next_page(self):
+        """A boolean indicating whether more pages are available."""
+        return bool(self.next_page_token)
+
+    def get_next_page(self):
+        """Retrieves the next page of provider configs, if available.
+
+        Returns:
+            ListProviderConfigsPage: Next page of provider configs, or None if this is the last
+                page.
+        """
+        if self.has_next_page:
+            return ListProviderConfigsPage(
+                self._download, self.next_page_token, self._max_results,
+                self._result_cls, self._config_key)
+        return None
+
+    def iterate_all(self):
+        """Retrieves an iterator for provider configs.
+
+        Returned iterator will iterate through all the provider configs in the Firebase project
+        starting from this page. The iterator will never buffer more than one page of configs
+        in memory at a time.
+
+        Returns:
+            iterator: An iterator of AuthProviderConfig instances.
+        """
+        return _ProviderConfigIterator(self)
+
+
+class _ProviderConfigIterator:
+    """An iterator that allows iterating over provider configs, one at a time.
+
+    This implementation loads a page of configs into memory, and iterates on them. When the whole
+    page has been traversed, it loads another page. This class never keeps more than one page
+    of entries in memory.
+    """
+
+    def __init__(self, current_page):
+        if not current_page:
+            raise ValueError('Current page must not be None.')
+        self._current_page = current_page
+        self._index = 0
+
+    def next(self):
+        if self._index == len(self._current_page.provider_configs):
+            if self._current_page.has_next_page:
+                self._current_page = self._current_page.get_next_page()
+                self._index = 0
+        if self._index < len(self._current_page.provider_configs):
+            result = self._current_page.provider_configs[self._index]
+            self._index += 1
+            return result
+        raise StopIteration
+
+    def __next__(self):
+        return self.next()
+
+    def __iter__(self):
+        return self
 
 
 class ProviderConfigClient:
@@ -154,6 +245,28 @@ class ProviderConfigClient:
     def delete_saml_provider_config(self, provider_id):
         _validate_saml_provider_id(provider_id)
         self._make_request('delete', '/inboundSamlConfigs/{0}'.format(provider_id))
+
+    def list_saml_provider_configs(self, page_token=None, max_results=MAX_LIST_CONFIGS_RESULTS):
+        return ListProviderConfigsPage(
+            self._fetch_saml_provider_configs, page_token, max_results,
+            result_cls=SAMLProviderConfig, config_key='inboundSamlConfigs')
+
+    def _fetch_saml_provider_configs(self, page_token=None, max_results=MAX_LIST_CONFIGS_RESULTS):
+        """Fetches a page of SAML provider configs"""
+        if page_token is not None:
+            if not isinstance(page_token, str) or not page_token:
+                raise ValueError('Page token must be a non-empty string.')
+        if not isinstance(max_results, int):
+            raise ValueError('Max results must be an integer.')
+        if max_results < 1 or max_results > MAX_LIST_CONFIGS_RESULTS:
+            raise ValueError(
+                'Max results must be a positive integer less than '
+                '{0}.'.format(MAX_LIST_CONFIGS_RESULTS))
+
+        params = {'pageSize': max_results}
+        if page_token:
+            params['pageToken'] = page_token
+        return self._make_request('get', '/inboundSamlConfigs', params=params)
 
     def _make_request(self, method, path, **kwargs):
         url = '{0}{1}'.format(self.base_url, path)

@@ -26,6 +26,7 @@ from tests import testutils
 
 USER_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v2beta1/projects/mock-project-id'
 SAML_PROVIDER_CONFIG_RESPONSE = testutils.resource('saml_provider_config.json')
+LIST_SAML_PROVIDER_CONFIGS_RESPONSE = testutils.resource('list_saml_provider_configs.json')
 
 CONFIG_NOT_FOUND_RESPONSE = """{
     "error": {
@@ -268,8 +269,33 @@ class TestSAMLProviderConfig:
         assert excinfo.value.http_response is not None
         assert excinfo.value.cause is not None
 
-    def _assert_provider_config(self, provider_config):
-        assert provider_config.provider_id == 'saml.provider'
+    @pytest.mark.parametrize('arg', [None, 'foo', list(), dict(), 0, -1, 1001, False])
+    def test_invalid_max_results(self, user_mgt_app, arg):
+        with pytest.raises(ValueError):
+            auth.list_saml_provider_configs(max_results=arg, app=user_mgt_app)
+
+    @pytest.mark.parametrize('arg', ['', list(), dict(), 0, -1, 1001, False])
+    def test_invalid_page_token(self, user_mgt_app, arg):
+        with pytest.raises(ValueError):
+            auth.list_saml_provider_configs(page_token=arg, app=user_mgt_app)
+
+    def test_list_single_page(self, user_mgt_app):
+        recorder = _instrument_provider_mgt(user_mgt_app, 200, LIST_SAML_PROVIDER_CONFIGS_RESPONSE)
+        page = auth.list_saml_provider_configs(app=user_mgt_app)
+
+        self._assert_page(page)
+        assert page.next_page_token == ''
+        assert page.has_next_page is False
+        assert page.get_next_page() is None
+
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'GET'
+        assert req.url == '{0}{1}'.format(USER_MGT_URL_PREFIX, '/inboundSamlConfigs?pageSize=100')
+
+    def _assert_provider_config(self, provider_config, want_id='saml.provider'):
+        assert isinstance(provider_config, auth.SAMLProviderConfig)
+        assert provider_config.provider_id == want_id
         assert provider_config.display_name == 'samlProviderName'
         assert provider_config.enabled is True
         assert provider_config.idp_entity_id == 'IDP_ENTITY_ID'
@@ -277,3 +303,14 @@ class TestSAMLProviderConfig:
         assert provider_config.x509_certificates == ['CERT1', 'CERT2']
         assert provider_config.rp_entity_id == 'RP_ENTITY_ID'
         assert provider_config.callback_url == 'https://projectId.firebaseapp.com/__/auth/handler'
+
+    def _assert_page(self, page):
+        assert isinstance(page, auth.ListProviderConfigsPage)
+        index = 0
+        assert len(page.provider_configs) == 2
+        for provider_config in page.provider_configs:
+            self._assert_provider_config(provider_config, want_id='saml.provider{0}'.format(index))
+            index += 1
+
+        provider_configs = list(config for config in page.iterate_all())
+        assert len(provider_configs) == 2

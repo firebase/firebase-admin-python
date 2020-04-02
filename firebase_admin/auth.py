@@ -46,6 +46,7 @@ __all__ = [
     'InvalidDynamicLinkDomainError',
     'InvalidIdTokenError',
     'InvalidSessionCookieError',
+    'ListProviderConfigsPage',
     'ListUsersPage',
     'PhoneNumberAlreadyExistsError',
     'ProviderConfig',
@@ -67,6 +68,7 @@ __all__ = [
     'create_saml_provider_config',
     'create_session_cookie',
     'create_user',
+    'delete_saml_provider_config',
     'delete_user',
     'generate_email_verification_link',
     'generate_password_reset_link',
@@ -76,6 +78,7 @@ __all__ = [
     'get_user_by_email',
     'get_user_by_phone_number',
     'import_users',
+    'list_saml_provider_configs',
     'list_users',
     'revoke_refresh_tokens',
     'set_custom_user_claims',
@@ -100,6 +103,7 @@ InsufficientPermissionError = _auth_utils.InsufficientPermissionError
 InvalidDynamicLinkDomainError = _auth_utils.InvalidDynamicLinkDomainError
 InvalidIdTokenError = _auth_utils.InvalidIdTokenError
 InvalidSessionCookieError = _token_gen.InvalidSessionCookieError
+ListProviderConfigsPage = _auth_providers.ListProviderConfigsPage
 ListUsersPage = _user_mgt.ListUsersPage
 PhoneNumberAlreadyExistsError = _auth_utils.PhoneNumberAlreadyExistsError
 ProviderConfig = _auth_providers.ProviderConfigClient
@@ -649,3 +653,9 @@ def delete_saml_provider_config(provider_id, app=None):
     """
     client = _get_client(app)
     client.delete_saml_provider_config(provider_id)
+
+
+def list_saml_provider_configs(
+        page_token=None, max_results=_auth_providers.MAX_LIST_CONFIGS_RESULTS, app=None):
+    client = _get_client(app)
+    return client.list_saml_provider_configs(page_token, max_results)

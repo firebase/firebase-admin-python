@@ -489,6 +489,10 @@ class Client:
         """
         self._provider_manager.delete_saml_provider_config(provider_id)
 
+    def list_saml_provider_configs(
+            self, page_token=None, max_results=_auth_providers.MAX_LIST_CONFIGS_RESULTS):
+        return self._provider_manager.list_saml_provider_configs(page_token, max_results)
+
     def _check_jwt_revoked(self, verified_claims, exc_type, label):
         user = self.get_user(verified_claims.get('uid'))
         if verified_claims.get('iat') * 1000 < user.tokens_valid_after_timestamp:

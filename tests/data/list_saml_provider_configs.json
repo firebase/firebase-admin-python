@@ -1,0 +1,40 @@
+{
+  "inboundSamlConfigs": [
+    {
+      "name": "projects/mock-project-id/inboundSamlConfigs/saml.provider0",
+      "idpConfig": {
+          "idpEntityId": "IDP_ENTITY_ID",
+          "ssoUrl": "https://example.com/login",
+          "signRequest": true,
+          "idpCertificates": [
+              {"x509Certificate": "CERT1"},
+              {"x509Certificate": "CERT2"}
+          ]
+      },
+      "spConfig": {
+          "spEntityId": "RP_ENTITY_ID",
+          "callbackUri": "https://projectId.firebaseapp.com/__/auth/handler"
+      },
+      "displayName": "samlProviderName",
+      "enabled": true
+    },
+    {
+      "name": "projects/mock-project-id/inboundSamlConfigs/saml.provider1",
+      "idpConfig": {
+          "idpEntityId": "IDP_ENTITY_ID",
+          "ssoUrl": "https://example.com/login",
+          "signRequest": true,
+          "idpCertificates": [
+              {"x509Certificate": "CERT1"},
+              {"x509Certificate": "CERT2"}
+          ]
+      },
+      "spConfig": {
+          "spEntityId": "RP_ENTITY_ID",
+          "callbackUri": "https://projectId.firebaseapp.com/__/auth/handler"
+      },
+      "displayName": "samlProviderName",
+      "enabled": true
+    }
+  ]
+}

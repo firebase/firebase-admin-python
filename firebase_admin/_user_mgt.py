@@ -639,33 +639,8 @@ class UserManager:
             raise _auth_utils.handle_auth_backend_error(error)
 
 
-class _UserIterator:
-    """An iterator that allows iterating over user accounts, one at a time.
+class _UserIterator(_auth_utils.PageIterator):
 
-    This implementation loads a page of users into memory, and iterates on them. When the whole
-    page has been traversed, it loads another page. This class never keeps more than one page
-    of entries in memory.
-    """
-
-    def __init__(self, current_page):
-        if not current_page:
-            raise ValueError('Current page must not be None.')
-        self._current_page = current_page
-        self._index = 0
-
-    def next(self):
-        if self._index == len(self._current_page.users):
-            if self._current_page.has_next_page:
-                self._current_page = self._current_page.get_next_page()
-                self._index = 0
-        if self._index < len(self._current_page.users):
-            result = self._current_page.users[self._index]
-            self._index += 1
-            return result
-        raise StopIteration
-
-    def __next__(self):
-        return self.next()
-
-    def __iter__(self):
-        return self
+    @property
+    def items(self):
+        return self._current_page.users

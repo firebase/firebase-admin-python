@@ -80,17 +80,15 @@ class ListProviderConfigsPage:
     through all provider configs in the Firebase project starting from this page.
     """
 
-    def __init__(self, download, page_token, max_results, result_cls, config_key):
+    def __init__(self, download, page_token, max_results):
         self._download = download
         self._max_results = max_results
         self._current = download(page_token, max_results)
-        self._result_cls = result_cls
-        self._config_key = config_key
 
     @property
     def provider_configs(self):
         """A list of ``AuthProviderConfig`` instances available in this page."""
-        return [self._result_cls(config) for config in self._current.get(self._config_key, [])]
+        raise NotImplementedError
 
     @property
     def next_page_token(self):
@@ -110,9 +108,7 @@ class ListProviderConfigsPage:
                 page.
         """
         if self.has_next_page:
-            return ListProviderConfigsPage(
-                self._download, self.next_page_token, self._max_results,
-                self._result_cls, self._config_key)
+            return self.__class__(self._download, self.next_page_token, self._max_results)
         return None
 
     def iterate_all(self):
@@ -128,36 +124,18 @@ class ListProviderConfigsPage:
         return _ProviderConfigIterator(self)
 
 
-class _ProviderConfigIterator:
-    """An iterator that allows iterating over provider configs, one at a time.
+class _ListSAMLProviderConfigsPage(ListProviderConfigsPage):
 
-    This implementation loads a page of configs into memory, and iterates on them. When the whole
-    page has been traversed, it loads another page. This class never keeps more than one page
-    of entries in memory.
-    """
+    @property
+    def provider_configs(self):
+        return [SAMLProviderConfig(data) for data in self._current.get('inboundSamlConfigs', [])]
 
-    def __init__(self, current_page):
-        if not current_page:
-            raise ValueError('Current page must not be None.')
-        self._current_page = current_page
-        self._index = 0
 
-    def next(self):
-        if self._index == len(self._current_page.provider_configs):
-            if self._current_page.has_next_page:
-                self._current_page = self._current_page.get_next_page()
-                self._index = 0
-        if self._index < len(self._current_page.provider_configs):
-            result = self._current_page.provider_configs[self._index]
-            self._index += 1
-            return result
-        raise StopIteration
+class _ProviderConfigIterator(_auth_utils.PageIterator):
 
-    def __next__(self):
-        return self.next()
-
-    def __iter__(self):
-        return self
+    @property
+    def items(self):
+        return self._current_page.provider_configs
 
 
 class ProviderConfigClient:
@@ -247,9 +225,8 @@ class ProviderConfigClient:
         self._make_request('delete', '/inboundSamlConfigs/{0}'.format(provider_id))
 
     def list_saml_provider_configs(self, page_token=None, max_results=MAX_LIST_CONFIGS_RESULTS):
-        return ListProviderConfigsPage(
-            self._fetch_saml_provider_configs, page_token, max_results,
-            result_cls=SAMLProviderConfig, config_key='inboundSamlConfigs')
+        return _ListSAMLProviderConfigsPage(
+            self._fetch_saml_provider_configs, page_token, max_results)
 
     def _fetch_saml_provider_configs(self, page_token=None, max_results=MAX_LIST_CONFIGS_RESULTS):
         """Fetches a page of SAML provider configs"""

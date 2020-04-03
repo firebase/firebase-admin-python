@@ -657,5 +657,27 @@ def delete_saml_provider_config(provider_id, app=None):
 
 def list_saml_provider_configs(
         page_token=None, max_results=_auth_providers.MAX_LIST_CONFIGS_RESULTS, app=None):
+    """Retrieves a page of SAML provider configs from a Firebase project.
+
+    The ``page_token`` argument governs the starting point of the page. The ``max_results``
+    argument governs the maximum number of configs that may be included in the returned
+    page. This function never returns None. If there are no SAML configs in the Firebase
+    project, this returns an empty page.
+
+    Args:
+        page_token: A non-empty page token string, which indicates the starting point of the
+            page (optional). Defaults to ``None``, which will retrieve the first page of users.
+        max_results: A positive integer indicating the maximum number of users to include in
+            the returned page (optional). Defaults to 100, which is also the maximum number
+            allowed.
+        app: An App instance (optional).
+
+    Returns:
+        ListProviderConfigsPage: A ListProviderConfigsPage instance.
+
+    Raises:
+        ValueError: If max_results or page_token are invalid.
+        FirebaseError: If an error occurs while retrieving the SAML provider configs.
+    """
     client = _get_client(app)
     return client.list_saml_provider_configs(page_token, max_results)

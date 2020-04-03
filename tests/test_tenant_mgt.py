@@ -93,6 +93,8 @@ SAML_PROVIDER_CONFIG_REQUEST = body = {
     }
 }
 
+LIST_SAML_PROVIDER_CONFIGS_RESPONSE = testutils.resource('list_saml_provider_configs.json')
+
 INVALID_TENANT_IDS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
 INVALID_BOOLEANS = ['', 1, 0, list(), tuple(), dict()]
 
@@ -773,6 +775,32 @@ class TestTenantAwareUserManagement:
         assert req.url == '{0}/tenants/tenant-id/inboundSamlConfigs/saml.provider'.format(
             PROVIDER_MGT_URL_PREFIX)
 
+    def test_list_saml_provider_configs(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_provider_mgt(client, 200, LIST_SAML_PROVIDER_CONFIGS_RESPONSE)
+
+        page = client.list_saml_provider_configs()
+
+        assert isinstance(page, auth.ListProviderConfigsPage)
+        index = 0
+        assert len(page.provider_configs) == 2
+        for provider_config in page.provider_configs:
+            self._assert_saml_provider_config(
+                provider_config, want_id='saml.provider{0}'.format(index))
+            index += 1
+
+        assert page.next_page_token == ''
+        assert page.has_next_page is False
+        assert page.get_next_page() is None
+        provider_configs = list(config for config in page.iterate_all())
+        assert len(provider_configs) == 2
+
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'GET'
+        assert req.url == '{0}{1}'.format(
+            PROVIDER_MGT_URL_PREFIX, '/tenants/tenant-id/inboundSamlConfigs?pageSize=100')
+
     def test_tenant_not_found(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
         _instrument_user_mgt(client, 500, TENANT_NOT_FOUND_RESPONSE)
@@ -794,8 +822,9 @@ class TestTenantAwareUserManagement:
         body = json.loads(req.body.decode())
         assert body == want_body
 
-    def _assert_saml_provider_config(self, provider_config):
-        assert provider_config.provider_id == 'saml.provider'
+    def _assert_saml_provider_config(self, provider_config, want_id='saml.provider'):
+        assert isinstance(provider_config, auth.SAMLProviderConfig)
+        assert provider_config.provider_id == want_id
         assert provider_config.display_name == 'samlProviderName'
         assert provider_config.enabled is True
         assert provider_config.idp_entity_id == 'IDP_ENTITY_ID'

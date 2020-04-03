@@ -237,12 +237,12 @@ class ProviderConfigClient:
             raise ValueError('Max results must be an integer.')
         if max_results < 1 or max_results > MAX_LIST_CONFIGS_RESULTS:
             raise ValueError(
-                'Max results must be a positive integer less than '
+                'Max results must be a positive integer less than or equal to '
                 '{0}.'.format(MAX_LIST_CONFIGS_RESULTS))
 
-        params = {'pageSize': max_results}
+        params = 'pageSize={0}'.format(max_results)
         if page_token:
-            params['pageToken'] = page_token
+            params += '&pageToken={0}'.format(page_token)
         return self._make_request('get', '/inboundSamlConfigs', params=params)
 
     def _make_request(self, method, path, **kwargs):

@@ -14,9 +14,12 @@
 
 """Firebase auth providers management sub module."""
 
+from urllib import parse
+
 import requests
 
 from firebase_admin import _auth_utils
+from firebase_admin import _user_mgt
 
 
 class ProviderConfig:
@@ -58,10 +61,6 @@ class SAMLProviderConfig(ProviderConfig):
         return [c['x509Certificate'] for c in certs]
 
     @property
-    def request_signing_enabled(self):
-        return self._data.get('idpConfig', {})['signRequest']
-
-    @property
     def callback_url(self):
         return self._data.get('spConfig', {})['callbackUri']
 
@@ -82,19 +81,121 @@ class ProviderConfigClient:
             self.base_url += '/tenants/{0}'.format(tenant_id)
 
     def get_saml_provider_config(self, provider_id):
-        if not isinstance(provider_id, str):
-            raise ValueError(
-                'Invalid SAML provider ID: {0}. Provider ID must be a non-empty string.'.format(
-                    provider_id))
-        if not provider_id.startswith('saml.'):
-            raise ValueError('Invalid SAML provider ID: {0}.'.format(provider_id))
-
+        _validate_saml_provider_id(provider_id)
         body = self._make_request('get', '/inboundSamlConfigs/{0}'.format(provider_id))
         return SAMLProviderConfig(body)
 
-    def _make_request(self, method, path, body=None):
+    def create_saml_provider_config(
+            self, provider_id, idp_entity_id, sso_url, x509_certificates,
+            rp_entity_id, callback_url, display_name=None, enabled=None):
+        """Creates a new SAML provider config from the given parameters."""
+        _validate_saml_provider_id(provider_id)
+        req = {
+            'idpConfig': {
+                'idpEntityId': _validate_non_empty_string(idp_entity_id, 'idp_entity_id'),
+                'ssoUrl': _validate_url(sso_url, 'sso_url'),
+                'idpCertificates': _validate_x509_certificates(x509_certificates),
+            },
+            'spConfig': {
+                'spEntityId': _validate_non_empty_string(rp_entity_id, 'rp_entity_id'),
+                'callbackUri': _validate_url(callback_url, 'callback_url'),
+            },
+        }
+        if display_name is not None:
+            req['displayName'] = _auth_utils.validate_string(display_name, 'display_name')
+        if enabled is not None:
+            req['enabled'] = _auth_utils.validate_boolean(enabled, 'enabled')
+
+        params = 'inboundSamlConfigId={0}'.format(provider_id)
+        body = self._make_request('post', '/inboundSamlConfigs', json=req, params=params)
+        return SAMLProviderConfig(body)
+
+    def update_saml_provider_config(
+            self, provider_id, idp_entity_id=None, sso_url=None, x509_certificates=None,
+            rp_entity_id=None, callback_url=None, display_name=None, enabled=None):
+        """Updates an existing SAML provider config with the given parameters."""
+        _validate_saml_provider_id(provider_id)
+        idp_config = {}
+        if idp_entity_id is not None:
+            idp_config['idpEntityId'] = _validate_non_empty_string(idp_entity_id, 'idp_entity_id')
+        if sso_url is not None:
+            idp_config['ssoUrl'] = _validate_url(sso_url, 'sso_url')
+        if x509_certificates is not None:
+            idp_config['idpCertificates'] = _validate_x509_certificates(x509_certificates)
+
+        sp_config = {}
+        if rp_entity_id is not None:
+            sp_config['spEntityId'] = _validate_non_empty_string(rp_entity_id, 'rp_entity_id')
+        if callback_url is not None:
+            sp_config['callbackUri'] = _validate_url(callback_url, 'callback_url')
+
+        req = {}
+        if display_name is not None:
+            if display_name == _user_mgt.DELETE_ATTRIBUTE:
+                req['displayName'] = None
+            else:
+                req['displayName'] = _auth_utils.validate_string(display_name, 'display_name')
+        if enabled is not None:
+            req['enabled'] = _auth_utils.validate_boolean(enabled, 'enabled')
+        if idp_config:
+            req['idpConfig'] = idp_config
+        if sp_config:
+            req['spConfig'] = sp_config
+
+        if not req:
+            raise ValueError('At least one parameter must be specified for update.')
+
+        update_mask = _auth_utils.build_update_mask(req)
+        params = 'updateMask={0}'.format(','.join(update_mask))
+        url = '/inboundSamlConfigs/{0}'.format(provider_id)
+        body = self._make_request('patch', url, json=req, params=params)
+        return SAMLProviderConfig(body)
+
+    def _make_request(self, method, path, **kwargs):
         url = '{0}{1}'.format(self.base_url, path)
         try:
-            return self.http_client.body(method, url, json=body)
+            return self.http_client.body(method, url, **kwargs)
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)
+
+
+def _validate_saml_provider_id(provider_id):
+    if not isinstance(provider_id, str):
+        raise ValueError(
+            'Invalid SAML provider ID: {0}. Provider ID must be a non-empty string.'.format(
+                provider_id))
+    if not provider_id.startswith('saml.'):
+        raise ValueError('Invalid SAML provider ID: {0}.'.format(provider_id))
+    return provider_id
+
+
+def _validate_non_empty_string(value, label):
+    """Validates that the given value is a non-empty string."""
+    if not isinstance(value, str):
+        raise ValueError('Invalid type for {0}: {1}.'.format(label, value))
+    if not value:
+        raise ValueError('{0} must not be empty.'.format(label))
+    return value
+
+
+def _validate_url(url, label):
+    """Validates that the given value is a wellformed URL string."""
+    if not isinstance(url, str) or not url:
+        raise ValueError(
+            'Invalid photo URL: "{0}". {1} must be a non-empty '
+            'string.'.format(url, label))
+    try:
+        parsed = parse.urlparse(url)
+        if not parsed.netloc:
+            raise ValueError('Malformed {0}: "{1}".'.format(label, url))
+        return url
+    except Exception:
+        raise ValueError('Malformed {0}: "{1}".'.format(label, url))
+
+
+def _validate_x509_certificates(x509_certificates):
+    if not isinstance(x509_certificates, list) or not x509_certificates:
+        raise ValueError('x509_certificates must be a non-empty list.')
+    if not all([isinstance(cert, str) and cert for cert in x509_certificates]):
+        raise ValueError('x509_certificates must only contain non-empty strings.')
+    return [{'x509Certificate': cert} for cert in x509_certificates]

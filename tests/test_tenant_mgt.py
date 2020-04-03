@@ -79,6 +79,19 @@ MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
 MOCK_LIST_USERS_RESPONSE = testutils.resource('list_users.json')
 
 SAML_PROVIDER_CONFIG_RESPONSE = testutils.resource('saml_provider_config.json')
+SAML_PROVIDER_CONFIG_REQUEST = body = {
+    'displayName': 'samlProviderName',
+    'enabled': True,
+    'idpConfig': {
+        'idpEntityId': 'IDP_ENTITY_ID',
+        'ssoUrl': 'https://example.com/login',
+        'idpCertificates': [{'x509Certificate': 'CERT1'}, {'x509Certificate': 'CERT2'}]
+    },
+    'spConfig': {
+        'spEntityId': 'RP_ENTITY_ID',
+        'callbackUri': 'https://projectId.firebaseapp.com/__/auth/handler',
+    }
+}
 
 INVALID_TENANT_IDS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
 INVALID_BOOLEANS = ['', 1, 0, list(), tuple(), dict()]
@@ -706,21 +719,47 @@ class TestTenantAwareUserManagement:
 
         provider_config = client.get_saml_provider_config('saml.provider')
 
-        assert provider_config.provider_id == 'saml.provider'
-        assert provider_config.display_name == 'samlProviderName'
-        assert provider_config.enabled is True
-        assert provider_config.idp_entity_id == 'IDP_ENTITY_ID'
-        assert provider_config.sso_url == 'https://example.com/login'
-        assert provider_config.request_signing_enabled is True
-        assert provider_config.x509_certificates == ['CERT1', 'CERT2']
-        assert provider_config.rp_entity_id == 'RP_ENTITY_ID'
-        assert provider_config.callback_url == 'https://projectId.firebaseapp.com/__/auth/handler'
-
+        self._assert_saml_provider_config(provider_config)
         assert len(recorder) == 1
         req = recorder[0]
         assert req.method == 'GET'
         assert req.url == '{0}/tenants/tenant-id/inboundSamlConfigs/saml.provider'.format(
             PROVIDER_MGT_URL_PREFIX)
+
+    def test_create_saml_provider_config(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_provider_mgt(client, 200, SAML_PROVIDER_CONFIG_RESPONSE)
+
+        provider_config = client.create_saml_provider_config(
+            'saml.provider', idp_entity_id='IDP_ENTITY_ID', sso_url='https://example.com/login',
+            x509_certificates=['CERT1', 'CERT2'], rp_entity_id='RP_ENTITY_ID',
+            callback_url='https://projectId.firebaseapp.com/__/auth/handler',
+            display_name='samlProviderName', enabled=True)
+
+        self._assert_saml_provider_config(provider_config)
+        self._assert_request(
+            recorder, '/inboundSamlConfigs?inboundSamlConfigId=saml.provider',
+            SAML_PROVIDER_CONFIG_REQUEST, prefix=PROVIDER_MGT_URL_PREFIX)
+
+    def test_update_saml_provider_config(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_provider_mgt(client, 200, SAML_PROVIDER_CONFIG_RESPONSE)
+
+        provider_config = client.update_saml_provider_config(
+            'saml.provider', idp_entity_id='IDP_ENTITY_ID', sso_url='https://example.com/login',
+            x509_certificates=['CERT1', 'CERT2'], rp_entity_id='RP_ENTITY_ID',
+            callback_url='https://projectId.firebaseapp.com/__/auth/handler',
+            display_name='samlProviderName', enabled=True)
+
+        self._assert_saml_provider_config(provider_config)
+        mask = [
+            'displayName', 'enabled', 'idpConfig.idpCertificates', 'idpConfig.idpEntityId',
+            'idpConfig.ssoUrl', 'spConfig.callbackUri', 'spConfig.spEntityId',
+        ]
+        url = '/inboundSamlConfigs/saml.provider?updateMask={0}'.format(','.join(mask))
+        self._assert_request(
+            recorder, url, SAML_PROVIDER_CONFIG_REQUEST, method='PATCH',
+            prefix=PROVIDER_MGT_URL_PREFIX)
 
     def test_tenant_not_found(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
@@ -734,13 +773,24 @@ class TestTenantAwareUserManagement:
         assert excinfo.value.http_response is not None
         assert excinfo.value.cause is not None
 
-    def _assert_request(self, recorder, want_url, want_body):
+    def _assert_request(
+            self, recorder, want_url, want_body, method='POST', prefix=USER_MGT_URL_PREFIX):
         assert len(recorder) == 1
         req = recorder[0]
-        assert req.method == 'POST'
-        assert req.url == '{0}/tenants/tenant-id{1}'.format(USER_MGT_URL_PREFIX, want_url)
+        assert req.method == method
+        assert req.url == '{0}/tenants/tenant-id{1}'.format(prefix, want_url)
         body = json.loads(req.body.decode())
         assert body == want_body
+
+    def _assert_saml_provider_config(self, provider_config):
+        assert provider_config.provider_id == 'saml.provider'
+        assert provider_config.display_name == 'samlProviderName'
+        assert provider_config.enabled is True
+        assert provider_config.idp_entity_id == 'IDP_ENTITY_ID'
+        assert provider_config.sso_url == 'https://example.com/login'
+        assert provider_config.x509_certificates == ['CERT1', 'CERT2']
+        assert provider_config.rp_entity_id == 'RP_ENTITY_ID'
+        assert provider_config.callback_url == 'https://projectId.firebaseapp.com/__/auth/handler'
 
 
 class TestVerifyIdToken:

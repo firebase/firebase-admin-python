@@ -30,6 +30,42 @@ RESERVED_CLAIMS = set([
 VALID_EMAIL_ACTION_TYPES = set(['VERIFY_EMAIL', 'EMAIL_SIGNIN', 'PASSWORD_RESET'])
 
 
+class PageIterator:
+    """An iterator that allows iterating over a sequence of items, one at a time.
+
+    This implementation loads a page of items into memory, and iterates on them. When the whole
+    page has been traversed, it loads another page. This class never keeps more than one page
+    of entries in memory.
+    """
+
+    def __init__(self, current_page):
+        if not current_page:
+            raise ValueError('Current page must not be None.')
+        self._current_page = current_page
+        self._index = 0
+
+    def next(self):
+        if self._index == len(self.items):
+            if self._current_page.has_next_page:
+                self._current_page = self._current_page.get_next_page()
+                self._index = 0
+        if self._index < len(self.items):
+            result = self.items[self._index]
+            self._index += 1
+            return result
+        raise StopIteration
+
+    @property
+    def items(self):
+        raise NotImplementedError
+
+    def __next__(self):
+        return self.next()
+
+    def __iter__(self):
+        return self
+
+
 def validate_uid(uid, required=False):
     if uid is None and not required:
         return None

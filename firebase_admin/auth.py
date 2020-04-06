@@ -46,6 +46,7 @@ __all__ = [
     'InvalidDynamicLinkDomainError',
     'InvalidIdTokenError',
     'InvalidSessionCookieError',
+    'ListProviderConfigsPage',
     'ListUsersPage',
     'PhoneNumberAlreadyExistsError',
     'ProviderConfig',
@@ -67,6 +68,7 @@ __all__ = [
     'create_saml_provider_config',
     'create_session_cookie',
     'create_user',
+    'delete_saml_provider_config',
     'delete_user',
     'generate_email_verification_link',
     'generate_password_reset_link',
@@ -76,6 +78,7 @@ __all__ = [
     'get_user_by_email',
     'get_user_by_phone_number',
     'import_users',
+    'list_saml_provider_configs',
     'list_users',
     'revoke_refresh_tokens',
     'set_custom_user_claims',
@@ -100,6 +103,7 @@ InsufficientPermissionError = _auth_utils.InsufficientPermissionError
 InvalidDynamicLinkDomainError = _auth_utils.InvalidDynamicLinkDomainError
 InvalidIdTokenError = _auth_utils.InvalidIdTokenError
 InvalidSessionCookieError = _token_gen.InvalidSessionCookieError
+ListProviderConfigsPage = _auth_providers.ListProviderConfigsPage
 ListUsersPage = _user_mgt.ListUsersPage
 PhoneNumberAlreadyExistsError = _auth_utils.PhoneNumberAlreadyExistsError
 ProviderConfig = _auth_providers.ProviderConfigClient
@@ -633,3 +637,47 @@ def update_saml_provider_config(
         provider_id, idp_entity_id=idp_entity_id, sso_url=sso_url,
         x509_certificates=x509_certificates, rp_entity_id=rp_entity_id,
         callback_url=callback_url, display_name=display_name, enabled=enabled)
+
+
+def delete_saml_provider_config(provider_id, app=None):
+    """Deletes the SAMLProviderConfig with the given ID.
+
+    Args:
+        provider_id: Provider ID string.
+        app: An App instance (optional).
+
+    Raises:
+        ValueError: If the provider ID is invalid, empty or does not have ``saml.`` prefix.
+        ConfigurationNotFoundError: If no SAML provider is available with the given identifier.
+        FirebaseError: If an error occurs while deleting the SAML provider.
+    """
+    client = _get_client(app)
+    client.delete_saml_provider_config(provider_id)
+
+
+def list_saml_provider_configs(
+        page_token=None, max_results=_auth_providers.MAX_LIST_CONFIGS_RESULTS, app=None):
+    """Retrieves a page of SAML provider configs from a Firebase project.
+
+    The ``page_token`` argument governs the starting point of the page. The ``max_results``
+    argument governs the maximum number of configs that may be included in the returned
+    page. This function never returns None. If there are no SAML configs in the Firebase
+    project, this returns an empty page.
+
+    Args:
+        page_token: A non-empty page token string, which indicates the starting point of the
+            page (optional). Defaults to ``None``, which will retrieve the first page of users.
+        max_results: A positive integer indicating the maximum number of users to include in
+            the returned page (optional). Defaults to 100, which is also the maximum number
+            allowed.
+        app: An App instance (optional).
+
+    Returns:
+        ListProviderConfigsPage: A ListProviderConfigsPage instance.
+
+    Raises:
+        ValueError: If max_results or page_token are invalid.
+        FirebaseError: If an error occurs while retrieving the SAML provider configs.
+    """
+    client = _get_client(app)
+    return client.list_saml_provider_configs(page_token, max_results)

@@ -476,6 +476,44 @@ class Client:
             x509_certificates=x509_certificates, rp_entity_id=rp_entity_id,
             callback_url=callback_url, display_name=display_name, enabled=enabled)
 
+    def delete_saml_provider_config(self, provider_id):
+        """Deletes the SAMLProviderConfig with the given ID.
+
+        Args:
+            provider_id: Provider ID string.
+
+        Raises:
+            ValueError: If the provider ID is invalid, empty or does not have ``saml.`` prefix.
+            ConfigurationNotFoundError: If no SAML provider is available with the given identifier.
+            FirebaseError: If an error occurs while deleting the SAML provider.
+        """
+        self._provider_manager.delete_saml_provider_config(provider_id)
+
+    def list_saml_provider_configs(
+            self, page_token=None, max_results=_auth_providers.MAX_LIST_CONFIGS_RESULTS):
+        """Retrieves a page of SAML provider configs from a Firebase project.
+
+        The ``page_token`` argument governs the starting point of the page. The ``max_results``
+        argument governs the maximum number of configs that may be included in the returned
+        page. This function never returns None. If there are no SAML configs in the Firebase
+        project, this returns an empty page.
+
+        Args:
+            page_token: A non-empty page token string, which indicates the starting point of the
+                page (optional). Defaults to ``None``, which will retrieve the first page of users.
+            max_results: A positive integer indicating the maximum number of users to include in
+                the returned page (optional). Defaults to 100, which is also the maximum number
+                allowed.
+
+        Returns:
+            ListProviderConfigsPage: A ListProviderConfigsPage instance.
+
+        Raises:
+            ValueError: If max_results or page_token are invalid.
+            FirebaseError: If an error occurs while retrieving the SAML provider configs.
+        """
+        return self._provider_manager.list_saml_provider_configs(page_token, max_results)
+
     def _check_jwt_revoked(self, verified_claims, exc_type, label):
         user = self.get_user(verified_claims.get('uid'))
         if verified_claims.get('iat') * 1000 < user.tokens_valid_after_timestamp:

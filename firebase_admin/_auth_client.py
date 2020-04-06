@@ -390,6 +390,35 @@ class Client:
         return self._user_manager.generate_email_action_link(
             'EMAIL_SIGNIN', email, action_code_settings=action_code_settings)
 
+    def get_oidc_provider_config(self, provider_id):
+        """Returns the OIDCProviderConfig with the given ID.
+
+        Args:
+            provider_id: Provider ID string.
+
+        Returns:
+            SAMLProviderConfig: An OIDCProviderConfig instance.
+
+        Raises:
+            ValueError: If the provider ID is invalid, empty or does not have ``oidc.`` prefix.
+            ConfigurationNotFoundError: If no OIDC provider is available with the given identifier.
+            FirebaseError: If an error occurs while retrieving the OIDC provider.
+        """
+        return self._provider_manager.get_oidc_provider_config(provider_id)
+
+    def delete_oidc_provider_config(self, provider_id):
+        """Deletes the OIDCProviderConfig with the given ID.
+
+        Args:
+            provider_id: Provider ID string.
+
+        Raises:
+            ValueError: If the provider ID is invalid, empty or does not have ``oidc.`` prefix.
+            ConfigurationNotFoundError: If no OIDC provider is available with the given identifier.
+            FirebaseError: If an error occurs while deleting the OIDC provider.
+        """
+        self._provider_manager.delete_oidc_provider_config(provider_id)
+
     def get_saml_provider_config(self, provider_id):
         """Returns the SAMLProviderConfig with the given ID.
 

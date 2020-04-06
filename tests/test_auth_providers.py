@@ -25,6 +25,7 @@ from firebase_admin import _auth_providers
 from tests import testutils
 
 USER_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v2beta1/projects/mock-project-id'
+OIDC_PROVIDER_CONFIG_RESPONSE = testutils.resource('oidc_provider_config.json')
 SAML_PROVIDER_CONFIG_RESPONSE = testutils.resource('saml_provider_config.json')
 LIST_SAML_PROVIDER_CONFIGS_RESPONSE = testutils.resource('list_saml_provider_configs.json')
 
@@ -53,6 +54,64 @@ def _instrument_provider_mgt(app, status, payload):
         _auth_providers.ProviderConfigClient.PROVIDER_CONFIG_URL,
         testutils.MockAdapter(payload, status, recorder))
     return recorder
+
+
+class TestOIDCProviderConfig:
+
+    @pytest.mark.parametrize('provider_id', INVALID_PROVIDER_IDS + ['saml.provider'])
+    def test_get_invalid_provider_id(self, user_mgt_app, provider_id):
+        with pytest.raises(ValueError) as excinfo:
+            auth.get_oidc_provider_config(provider_id, app=user_mgt_app)
+
+        assert str(excinfo.value).startswith('Invalid OIDC provider ID')
+
+    def test_get(self, user_mgt_app):
+        recorder = _instrument_provider_mgt(user_mgt_app, 200, OIDC_PROVIDER_CONFIG_RESPONSE)
+
+        provider_config = auth.get_oidc_provider_config('oidc.provider', app=user_mgt_app)
+
+        self._assert_provider_config(provider_config)
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'GET'
+        assert req.url == '{0}{1}'.format(USER_MGT_URL_PREFIX, '/oauthIdpConfigs/oidc.provider')
+
+    @pytest.mark.parametrize('provider_id', INVALID_PROVIDER_IDS + ['saml.provider'])
+    def test_delete_invalid_provider_id(self, user_mgt_app, provider_id):
+        with pytest.raises(ValueError) as excinfo:
+            auth.delete_oidc_provider_config(provider_id, app=user_mgt_app)
+
+        assert str(excinfo.value).startswith('Invalid OIDC provider ID')
+
+    def test_delete(self, user_mgt_app):
+        recorder = _instrument_provider_mgt(user_mgt_app, 200, '{}')
+
+        auth.delete_oidc_provider_config('oidc.provider', app=user_mgt_app)
+
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'DELETE'
+        assert req.url == '{0}{1}'.format(USER_MGT_URL_PREFIX, '/oauthIdpConfigs/oidc.provider')
+
+    def test_config_not_found(self, user_mgt_app):
+        _instrument_provider_mgt(user_mgt_app, 500, CONFIG_NOT_FOUND_RESPONSE)
+
+        with pytest.raises(auth.ConfigurationNotFoundError) as excinfo:
+            auth.get_oidc_provider_config('oidc.provider', app=user_mgt_app)
+
+        error_msg = 'No auth provider found for the given identifier (CONFIGURATION_NOT_FOUND).'
+        assert excinfo.value.code == exceptions.NOT_FOUND
+        assert str(excinfo.value) == error_msg
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is not None
+
+    def _assert_provider_config(self, provider_config, want_id='oidc.provider'):
+        assert isinstance(provider_config, auth.OIDCProviderConfig)
+        assert provider_config.provider_id == want_id
+        assert provider_config.display_name == 'oidcProviderName'
+        assert provider_config.enabled is True
+        assert provider_config.issuer == 'https://oidc.com/issuer'
+        assert provider_config.client_id == 'CLIENT_ID'
 
 
 class TestSAMLProviderConfig:

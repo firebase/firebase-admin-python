@@ -78,6 +78,7 @@ LIST_TENANTS_RESPONSE_WITH_TOKEN = """{
 MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
 MOCK_LIST_USERS_RESPONSE = testutils.resource('list_users.json')
 
+OIDC_PROVIDER_CONFIG_RESPONSE = testutils.resource('oidc_provider_config.json')
 SAML_PROVIDER_CONFIG_RESPONSE = testutils.resource('saml_provider_config.json')
 SAML_PROVIDER_CONFIG_REQUEST = body = {
     'displayName': 'samlProviderName',
@@ -715,6 +716,31 @@ class TestTenantAwareUserManagement:
             'continueUrl': 'http://localhost',
         })
 
+    def test_get_oidc_provider_config(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_provider_mgt(client, 200, OIDC_PROVIDER_CONFIG_RESPONSE)
+
+        provider_config = client.get_oidc_provider_config('oidc.provider')
+
+        self._assert_oidc_provider_config(provider_config)
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'GET'
+        assert req.url == '{0}/tenants/tenant-id/oauthIdpConfigs/oidc.provider'.format(
+            PROVIDER_MGT_URL_PREFIX)
+
+    def test_delete_oidc_provider_config(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_provider_mgt(client, 200, '{}')
+
+        client.delete_oidc_provider_config('oidc.provider')
+
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'DELETE'
+        assert req.url == '{0}/tenants/tenant-id/oauthIdpConfigs/oidc.provider'.format(
+            PROVIDER_MGT_URL_PREFIX)
+
     def test_get_saml_provider_config(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
         recorder = _instrument_provider_mgt(client, 200, SAML_PROVIDER_CONFIG_RESPONSE)
@@ -765,7 +791,7 @@ class TestTenantAwareUserManagement:
 
     def test_delete_saml_provider_config(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
-        recorder = _instrument_provider_mgt(client, 200, SAML_PROVIDER_CONFIG_RESPONSE)
+        recorder = _instrument_provider_mgt(client, 200, '{}')
 
         client.delete_saml_provider_config('saml.provider')
 
@@ -821,6 +847,14 @@ class TestTenantAwareUserManagement:
         assert req.url == '{0}/tenants/tenant-id{1}'.format(prefix, want_url)
         body = json.loads(req.body.decode())
         assert body == want_body
+
+    def _assert_oidc_provider_config(self, provider_config, want_id='oidc.provider'):
+        assert isinstance(provider_config, auth.OIDCProviderConfig)
+        assert provider_config.provider_id == want_id
+        assert provider_config.display_name == 'oidcProviderName'
+        assert provider_config.enabled is True
+        assert provider_config.client_id == 'CLIENT_ID'
+        assert provider_config.issuer == 'https://oidc.com/issuer'
 
     def _assert_saml_provider_config(self, provider_config, want_id='saml.provider'):
         assert isinstance(provider_config, auth.SAMLProviderConfig)

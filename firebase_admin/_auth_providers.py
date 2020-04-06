@@ -45,10 +45,26 @@ class ProviderConfig:
         return self._data['enabled']
 
 
+class OIDCProviderConfig(ProviderConfig):
+    """Represents the OIDC auth provider configuration.
+
+    See https://openid.net/specs/openid-connect-core-1_0-final.html.
+    """
+
+    @property
+    def issuer(self):
+        return self._data['issuer']
+
+    @property
+    def client_id(self):
+        return self._data['clientId']
+
+
 class SAMLProviderConfig(ProviderConfig):
     """Represents he SAML auth provider configuration.
 
-    See http://docs.oasis-open.org/security/saml/Post2.0/sstc-saml-tech-overview-2.0.html."""
+    See http://docs.oasis-open.org/security/saml/Post2.0/sstc-saml-tech-overview-2.0.html.
+    """
 
     @property
     def idp_entity_id(self):
@@ -148,6 +164,15 @@ class ProviderConfigClient:
         self.base_url = '{0}/projects/{1}'.format(self.PROVIDER_CONFIG_URL, project_id)
         if tenant_id:
             self.base_url += '/tenants/{0}'.format(tenant_id)
+
+    def get_oidc_provider_config(self, provider_id):
+        _validate_oidc_provider_id(provider_id)
+        body = self._make_request('get', '/oauthIdpConfigs/{0}'.format(provider_id))
+        return OIDCProviderConfig(body)
+
+    def delete_oidc_provider_config(self, provider_id):
+        _validate_oidc_provider_id(provider_id)
+        self._make_request('delete', '/oauthIdpConfigs/{0}'.format(provider_id))
 
     def get_saml_provider_config(self, provider_id):
         _validate_saml_provider_id(provider_id)
@@ -251,6 +276,16 @@ class ProviderConfigClient:
             return self.http_client.body(method, url, **kwargs)
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)
+
+
+def _validate_oidc_provider_id(provider_id):
+    if not isinstance(provider_id, str):
+        raise ValueError(
+            'Invalid OIDC provider ID: {0}. Provider ID must be a non-empty string.'.format(
+                provider_id))
+    if not provider_id.startswith('oidc.'):
+        raise ValueError('Invalid OIDC provider ID: {0}.'.format(provider_id))
+    return provider_id
 
 
 def _validate_saml_provider_id(provider_id):

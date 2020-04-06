@@ -1,0 +1,7 @@
+{
+  "name":"projects/mock-project-id/oauthIdpConfigs/oidc.provider",
+  "clientId": "CLIENT_ID",
+  "issuer": "https://oidc.com/issuer",
+  "displayName": "oidcProviderName",
+  "enabled": true
+}

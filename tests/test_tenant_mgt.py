@@ -79,6 +79,13 @@ MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
 MOCK_LIST_USERS_RESPONSE = testutils.resource('list_users.json')
 
 OIDC_PROVIDER_CONFIG_RESPONSE = testutils.resource('oidc_provider_config.json')
+OIDC_PROVIDER_CONFIG_REQUEST = {
+    'displayName': 'oidcProviderName',
+    'enabled': True,
+    'clientId': 'CLIENT_ID',
+    'issuer': 'https://oidc.com/issuer',
+}
+
 SAML_PROVIDER_CONFIG_RESPONSE = testutils.resource('saml_provider_config.json')
 SAML_PROVIDER_CONFIG_REQUEST = body = {
     'displayName': 'samlProviderName',
@@ -728,6 +735,34 @@ class TestTenantAwareUserManagement:
         assert req.method == 'GET'
         assert req.url == '{0}/tenants/tenant-id/oauthIdpConfigs/oidc.provider'.format(
             PROVIDER_MGT_URL_PREFIX)
+
+    def test_create_oidc_provider_config(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_provider_mgt(client, 200, OIDC_PROVIDER_CONFIG_RESPONSE)
+
+        provider_config = client.create_oidc_provider_config(
+            'oidc.provider', client_id='CLIENT_ID', issuer='https://oidc.com/issuer',
+            display_name='oidcProviderName', enabled=True)
+
+        self._assert_oidc_provider_config(provider_config)
+        self._assert_request(
+            recorder, '/oauthIdpConfigs?oauthIdpConfigId=oidc.provider',
+            OIDC_PROVIDER_CONFIG_REQUEST, prefix=PROVIDER_MGT_URL_PREFIX)
+
+    def test_update_oidc_provider_config(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_provider_mgt(client, 200, OIDC_PROVIDER_CONFIG_RESPONSE)
+
+        provider_config = client.update_oidc_provider_config(
+            'oidc.provider', client_id='CLIENT_ID', issuer='https://oidc.com/issuer',
+            display_name='oidcProviderName', enabled=True)
+
+        self._assert_oidc_provider_config(provider_config)
+        mask = ['clientId', 'displayName', 'enabled', 'issuer']
+        url = '/oauthIdpConfigs/oidc.provider?updateMask={0}'.format(','.join(mask))
+        self._assert_request(
+            recorder, url, OIDC_PROVIDER_CONFIG_REQUEST, method='PATCH',
+            prefix=PROVIDER_MGT_URL_PREFIX)
 
     def test_delete_oidc_provider_config(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)

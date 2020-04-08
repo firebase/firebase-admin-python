@@ -58,6 +58,21 @@ def _instrument_provider_mgt(app, status, payload):
 
 class TestOIDCProviderConfig:
 
+    VALID_CREATE_OPTIONS = {
+        'provider_id': 'oidc.provider',
+        'client_id': 'CLIENT_ID',
+        'issuer': 'https://oidc.com/issuer',
+        'display_name': 'oidcProviderName',
+        'enabled': True,
+    }
+
+    OIDC_CONFIG_REQUEST = {
+        'displayName': 'oidcProviderName',
+        'enabled': True,
+        'clientId': 'CLIENT_ID',
+        'issuer': 'https://oidc.com/issuer',
+    }
+
     @pytest.mark.parametrize('provider_id', INVALID_PROVIDER_IDS + ['saml.provider'])
     def test_get_invalid_provider_id(self, user_mgt_app, provider_id):
         with pytest.raises(ValueError) as excinfo:
@@ -75,6 +90,135 @@ class TestOIDCProviderConfig:
         req = recorder[0]
         assert req.method == 'GET'
         assert req.url == '{0}{1}'.format(USER_MGT_URL_PREFIX, '/oauthIdpConfigs/oidc.provider')
+
+    @pytest.mark.parametrize('invalid_opts', [
+        {'provider_id': None}, {'provider_id': ''}, {'provider_id': 'saml.provider'},
+        {'client_id': None}, {'client_id': ''},
+        {'issuer': None}, {'issuer': ''}, {'issuer': 'not a url'},
+        {'display_name': True},
+        {'enabled': 'true'},
+    ])
+    def test_create_invalid_args(self, user_mgt_app, invalid_opts):
+        options = dict(self.VALID_CREATE_OPTIONS)
+        options.update(invalid_opts)
+        with pytest.raises(ValueError):
+            auth.create_oidc_provider_config(**options, app=user_mgt_app)
+
+    def test_create(self, user_mgt_app):
+        recorder = _instrument_provider_mgt(user_mgt_app, 200, OIDC_PROVIDER_CONFIG_RESPONSE)
+
+        provider_config = auth.create_oidc_provider_config(
+            **self.VALID_CREATE_OPTIONS, app=user_mgt_app)
+
+        self._assert_provider_config(provider_config)
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'POST'
+        assert req.url == '{0}/oauthIdpConfigs?oauthIdpConfigId=oidc.provider'.format(
+            USER_MGT_URL_PREFIX)
+        got = json.loads(req.body.decode())
+        assert got == self.OIDC_CONFIG_REQUEST
+
+    def test_create_minimal(self, user_mgt_app):
+        recorder = _instrument_provider_mgt(user_mgt_app, 200, OIDC_PROVIDER_CONFIG_RESPONSE)
+        options = dict(self.VALID_CREATE_OPTIONS)
+        del options['display_name']
+        del options['enabled']
+        want = dict(self.OIDC_CONFIG_REQUEST)
+        del want['displayName']
+        del want['enabled']
+
+        provider_config = auth.create_oidc_provider_config(**options, app=user_mgt_app)
+
+        self._assert_provider_config(provider_config)
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'POST'
+        assert req.url == '{0}/oauthIdpConfigs?oauthIdpConfigId=oidc.provider'.format(
+            USER_MGT_URL_PREFIX)
+        got = json.loads(req.body.decode())
+        assert got == want
+
+    def test_create_empty_values(self, user_mgt_app):
+        recorder = _instrument_provider_mgt(user_mgt_app, 200, OIDC_PROVIDER_CONFIG_RESPONSE)
+        options = dict(self.VALID_CREATE_OPTIONS)
+        options['display_name'] = ''
+        options['enabled'] = False
+        want = dict(self.OIDC_CONFIG_REQUEST)
+        want['displayName'] = ''
+        want['enabled'] = False
+
+        provider_config = auth.create_oidc_provider_config(**options, app=user_mgt_app)
+
+        self._assert_provider_config(provider_config)
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'POST'
+        assert req.url == '{0}/oauthIdpConfigs?oauthIdpConfigId=oidc.provider'.format(
+            USER_MGT_URL_PREFIX)
+        got = json.loads(req.body.decode())
+        assert got == want
+
+    @pytest.mark.parametrize('invalid_opts', [
+        {},
+        {'provider_id': None}, {'provider_id': ''}, {'provider_id': 'saml.provider'},
+        {'client_id': ''},
+        {'issuer': ''}, {'issuer': 'not a url'},
+        {'display_name': True},
+        {'enabled': 'true'},
+    ])
+    def test_update_invalid_args(self, user_mgt_app, invalid_opts):
+        options = {'provider_id': 'oidc.provider'}
+        options.update(invalid_opts)
+        with pytest.raises(ValueError):
+            auth.update_oidc_provider_config(**options, app=user_mgt_app)
+
+    def test_update(self, user_mgt_app):
+        recorder = _instrument_provider_mgt(user_mgt_app, 200, OIDC_PROVIDER_CONFIG_RESPONSE)
+
+        provider_config = auth.update_oidc_provider_config(
+            **self.VALID_CREATE_OPTIONS, app=user_mgt_app)
+
+        self._assert_provider_config(provider_config)
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'PATCH'
+        mask = ['clientId', 'displayName', 'enabled', 'issuer']
+        assert req.url == '{0}/oauthIdpConfigs/oidc.provider?updateMask={1}'.format(
+            USER_MGT_URL_PREFIX, ','.join(mask))
+        got = json.loads(req.body.decode())
+        assert got == self.OIDC_CONFIG_REQUEST
+
+    def test_update_minimal(self, user_mgt_app):
+        recorder = _instrument_provider_mgt(user_mgt_app, 200, OIDC_PROVIDER_CONFIG_RESPONSE)
+
+        provider_config = auth.update_oidc_provider_config(
+            'oidc.provider', display_name='oidcProviderName', app=user_mgt_app)
+
+        self._assert_provider_config(provider_config)
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'PATCH'
+        assert req.url == '{0}/oauthIdpConfigs/oidc.provider?updateMask=displayName'.format(
+            USER_MGT_URL_PREFIX)
+        got = json.loads(req.body.decode())
+        assert got == {'displayName': 'oidcProviderName'}
+
+    def test_update_empty_values(self, user_mgt_app):
+        recorder = _instrument_provider_mgt(user_mgt_app, 200, OIDC_PROVIDER_CONFIG_RESPONSE)
+
+        provider_config = auth.update_oidc_provider_config(
+            'oidc.provider', display_name=auth.DELETE_ATTRIBUTE, enabled=False, app=user_mgt_app)
+
+        self._assert_provider_config(provider_config)
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'PATCH'
+        mask = ['displayName', 'enabled']
+        assert req.url == '{0}/oauthIdpConfigs/oidc.provider?updateMask={1}'.format(
+            USER_MGT_URL_PREFIX, ','.join(mask))
+        got = json.loads(req.body.decode())
+        assert got == {'displayName': None, 'enabled': False}
 
     @pytest.mark.parametrize('provider_id', INVALID_PROVIDER_IDS + ['saml.provider'])
     def test_delete_invalid_provider_id(self, user_mgt_app, provider_id):

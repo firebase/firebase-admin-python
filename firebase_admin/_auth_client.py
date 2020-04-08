@@ -406,6 +406,57 @@ class Client:
         """
         return self._provider_manager.get_oidc_provider_config(provider_id)
 
+    def create_oidc_provider_config(
+            self, provider_id, client_id, issuer, display_name=None, enabled=None):
+        """Creates a new OIDC provider config from the given parameters.
+
+        OIDC provider support requires Google Cloud's Identity Platform (GCIP). To learn more about
+        GCIP, including pricing and features, see https://cloud.google.com/identity-platform.
+
+        Args:
+            provider_id: Provider ID string. Must have the prefix ``oidc.``.
+            client_id: Client ID of the new config.
+            issuer: Issuer of the new config. Must be a valid URL.
+            display_name: The user-friendly display name to the current configuration (optional).
+                This name is also used as the provider label in the Cloud Console.
+            enabled: A boolean indicating whether the provider configuration is enabled or disabled
+                (optional). A user cannot sign in using a disabled provider.
+
+        Returns:
+            OIDCProviderConfig: The newly created OIDCProviderConfig instance.
+
+        Raises:
+            ValueError: If any of the specified input parameters are invalid.
+            FirebaseError: If an error occurs while creating the new OIDC provider config.
+        """
+        return self._provider_manager.create_oidc_provider_config(
+            provider_id, client_id=client_id, issuer=issuer, display_name=display_name,
+            enabled=enabled)
+
+    def update_oidc_provider_config(
+            self, provider_id, client_id=None, issuer=None, display_name=None, enabled=None):
+        """Updates an existing OIDC provider config with the given parameters.
+
+        Args:
+            provider_id: Provider ID string. Must have the prefix ``oidc.``.
+            client_id: Client ID of the new config (optional).
+            issuer: Issuer of the new config (optional). Must be a valid URL.
+            display_name: The user-friendly display name to the current configuration (optional).
+                Pass ``auth.DELETE_ATTRIBUTE`` to delete the current display name.
+            enabled: A boolean indicating whether the provider configuration is enabled or disabled
+                (optional).
+
+        Returns:
+            OIDCProviderConfig: The updated OIDCProviderConfig instance.
+
+        Raises:
+            ValueError: If any of the specified input parameters are invalid.
+            FirebaseError: If an error occurs while updating the OIDC provider config.
+        """
+        return self._provider_manager.update_oidc_provider_config(
+            provider_id, client_id=client_id, issuer=issuer, display_name=display_name,
+            enabled=enabled)
+
     def delete_oidc_provider_config(self, provider_id):
         """Deletes the OIDCProviderConfig with the given ID.
 

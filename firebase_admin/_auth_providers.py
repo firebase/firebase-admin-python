@@ -170,6 +170,49 @@ class ProviderConfigClient:
         body = self._make_request('get', '/oauthIdpConfigs/{0}'.format(provider_id))
         return OIDCProviderConfig(body)
 
+    def create_oidc_provider_config(
+            self, provider_id, client_id, issuer, display_name=None, enabled=None):
+        """Creates a new OIDC provider config from the given parameters."""
+        _validate_oidc_provider_id(provider_id)
+        req = {
+            'clientId': _validate_non_empty_string(client_id, 'client_id'),
+            'issuer': _validate_url(issuer, 'issuer'),
+        }
+        if display_name is not None:
+            req['displayName'] = _auth_utils.validate_string(display_name, 'display_name')
+        if enabled is not None:
+            req['enabled'] = _auth_utils.validate_boolean(enabled, 'enabled')
+
+        params = 'oauthIdpConfigId={0}'.format(provider_id)
+        body = self._make_request('post', '/oauthIdpConfigs', json=req, params=params)
+        return OIDCProviderConfig(body)
+
+    def update_oidc_provider_config(
+            self, provider_id, client_id=None, issuer=None, display_name=None, enabled=None):
+        """Updates an existing OIDC provider config with the given parameters."""
+        _validate_oidc_provider_id(provider_id)
+        req = {}
+        if display_name is not None:
+            if display_name == _user_mgt.DELETE_ATTRIBUTE:
+                req['displayName'] = None
+            else:
+                req['displayName'] = _auth_utils.validate_string(display_name, 'display_name')
+        if enabled is not None:
+            req['enabled'] = _auth_utils.validate_boolean(enabled, 'enabled')
+        if client_id:
+            req['clientId'] = _validate_non_empty_string(client_id, 'client_id')
+        if issuer:
+            req['issuer'] = _validate_url(issuer, 'issuer')
+
+        if not req:
+            raise ValueError('At least one parameter must be specified for update.')
+
+        update_mask = _auth_utils.build_update_mask(req)
+        params = 'updateMask={0}'.format(','.join(update_mask))
+        url = '/oauthIdpConfigs/{0}'.format(provider_id)
+        body = self._make_request('patch', url, json=req, params=params)
+        return OIDCProviderConfig(body)
+
     def delete_oidc_provider_config(self, provider_id):
         _validate_oidc_provider_id(provider_id)
         self._make_request('delete', '/oauthIdpConfigs/{0}'.format(provider_id))

@@ -101,6 +101,7 @@ SAML_PROVIDER_CONFIG_REQUEST = body = {
     }
 }
 
+LIST_OIDC_PROVIDER_CONFIGS_RESPONSE = testutils.resource('list_oidc_provider_configs.json')
 LIST_SAML_PROVIDER_CONFIGS_RESPONSE = testutils.resource('list_saml_provider_configs.json')
 
 INVALID_TENANT_IDS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
@@ -775,6 +776,32 @@ class TestTenantAwareUserManagement:
         assert req.method == 'DELETE'
         assert req.url == '{0}/tenants/tenant-id/oauthIdpConfigs/oidc.provider'.format(
             PROVIDER_MGT_URL_PREFIX)
+
+    def test_list_oidc_provider_configs(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_provider_mgt(client, 200, LIST_OIDC_PROVIDER_CONFIGS_RESPONSE)
+
+        page = client.list_oidc_provider_configs()
+
+        assert isinstance(page, auth.ListProviderConfigsPage)
+        index = 0
+        assert len(page.provider_configs) == 2
+        for provider_config in page.provider_configs:
+            self._assert_oidc_provider_config(
+                provider_config, want_id='oidc.provider{0}'.format(index))
+            index += 1
+
+        assert page.next_page_token == ''
+        assert page.has_next_page is False
+        assert page.get_next_page() is None
+        provider_configs = list(config for config in page.iterate_all())
+        assert len(provider_configs) == 2
+
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'GET'
+        assert req.url == '{0}{1}'.format(
+            PROVIDER_MGT_URL_PREFIX, '/tenants/tenant-id/oauthIdpConfigs?pageSize=100')
 
     def test_get_saml_provider_config(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)

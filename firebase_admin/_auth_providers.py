@@ -140,6 +140,13 @@ class ListProviderConfigsPage:
         return _ProviderConfigIterator(self)
 
 
+class _ListOIDCProviderConfigsPage(ListProviderConfigsPage):
+
+    @property
+    def provider_configs(self):
+        return [OIDCProviderConfig(data) for data in self._current.get('oauthIdpConfigs', [])]
+
+
 class _ListSAMLProviderConfigsPage(ListProviderConfigsPage):
 
     @property
@@ -216,6 +223,13 @@ class ProviderConfigClient:
     def delete_oidc_provider_config(self, provider_id):
         _validate_oidc_provider_id(provider_id)
         self._make_request('delete', '/oauthIdpConfigs/{0}'.format(provider_id))
+
+    def list_oidc_provider_configs(self, page_token=None, max_results=MAX_LIST_CONFIGS_RESULTS):
+        return _ListOIDCProviderConfigsPage(
+            self._fetch_oidc_provider_configs, page_token, max_results)
+
+    def _fetch_oidc_provider_configs(self, page_token=None, max_results=MAX_LIST_CONFIGS_RESULTS):
+        return self._fetch_provider_configs('/oauthIdpConfigs', page_token, max_results)
 
     def get_saml_provider_config(self, provider_id):
         _validate_saml_provider_id(provider_id)
@@ -297,7 +311,10 @@ class ProviderConfigClient:
             self._fetch_saml_provider_configs, page_token, max_results)
 
     def _fetch_saml_provider_configs(self, page_token=None, max_results=MAX_LIST_CONFIGS_RESULTS):
-        """Fetches a page of SAML provider configs"""
+        return self._fetch_provider_configs('/inboundSamlConfigs', page_token, max_results)
+
+    def _fetch_provider_configs(self, path, page_token=None, max_results=MAX_LIST_CONFIGS_RESULTS):
+        """Fetches a page of auth provider configs"""
         if page_token is not None:
             if not isinstance(page_token, str) or not page_token:
                 raise ValueError('Page token must be a non-empty string.')
@@ -311,7 +328,7 @@ class ProviderConfigClient:
         params = 'pageSize={0}'.format(max_results)
         if page_token:
             params += '&pageToken={0}'.format(page_token)
-        return self._make_request('get', '/inboundSamlConfigs', params=params)
+        return self._make_request('get', path, params=params)
 
     def _make_request(self, method, path, **kwargs):
         url = '{0}{1}'.format(self.base_url, path)

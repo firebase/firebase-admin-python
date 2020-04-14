@@ -792,6 +792,9 @@ class _MLService:
             base_url=self._project_url)
         self._operation_client = _http_client.JsonHttpClient(
             credential=app.credential.get_credential(),
+            headers={
+                'X-FIREBASE-CLIENT': 'fire-admin-python/{0}'.format(firebase_admin.__version__),
+            },
             base_url=_MLService.OPERATION_URL)
 
     def get_operation(self, op_name):

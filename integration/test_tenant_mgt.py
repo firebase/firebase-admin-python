@@ -288,7 +288,7 @@ def saml_provider(sample_tenant):
     client.delete_saml_provider_config(provider_config.provider_id)
 
 
-def test_create_saml_provider_config(sample_tenant, saml_provider):
+def test_create_saml_provider_config(saml_provider):
     assert isinstance(saml_provider, auth.SAMLProviderConfig)
     assert saml_provider.idp_entity_id == 'IDP_ENTITY_ID'
     assert saml_provider.sso_url == 'https://example.com/login'

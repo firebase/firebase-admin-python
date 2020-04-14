@@ -246,6 +246,11 @@ class UserRecord(UserInfo):
 
     @property
     def tenant_id(self):
+        """Returns the tenant ID of this user.
+
+        Returns:
+          string: A tenant ID string or None.
+        """
         return self._data.get('tenantId')
 
 

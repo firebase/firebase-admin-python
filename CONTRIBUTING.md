@@ -170,9 +170,9 @@ following credentials from the project:
 
 1. *Service account certificate*: This can be downloaded as a JSON file from
    the "Settings > Service Accounts" tab of the Firebase console. Copy the
-   file into the repo so it's available at `scripts/cert.json`.
+   file into the repo so it's available at `cert.json`.
 2. *Web API key*: This is displayed in the "Settings > General" tab of the
-   console. Copy it and save to a new text file at `scripts/apikey.txt`.
+   console. Copy it and save to a new text file at `apikey.txt`.
 
 Then set up your Firebase/GCP project as follows:
 
@@ -202,7 +202,7 @@ Then set up your Firebase/GCP project as follows:
 Now you can invoke the integration test suite as follows:
 
 ```
-pytest integration/ --cert scripts/cert.json --apikey scripts/apikey.txt
+pytest integration/ --cert cert.json --apikey apikey.txt
 ```
 
 ### Emulator-based Integration Testing

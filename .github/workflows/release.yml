@@ -1,0 +1,141 @@
+# Copyright 2020 Google Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Release Candidate
+
+on:
+  # Only run the workflow when a PR is updated or when a developer explicitly requests
+  # a build by sending a 'firebase_build' event.
+  pull_request:
+    types: [opened, synchronize, closed]
+
+  repository_dispatch:
+    types:
+      - firebase_build
+
+jobs:
+  stage_release:
+    # To publish a release, merge the release PR with the label 'release:publish'.
+    # To stage a release without publishing it, send a 'firebase_build' event or apply
+    # the 'release:stage' label to a PR.
+    if: github.event.action == 'firebase_build' ||
+      contains(github.event.pull_request.labels.*.name, 'release:stage') ||
+      (github.event.pull_request.merged &&
+        contains(github.event.pull_request.labels.*.name, 'release:publish'))
+
+    runs-on: ubuntu-latest
+
+    # When manually triggering the build, the requester can specify a target branch or a tag
+    # via the 'ref' client parameter.
+    steps:
+    - name: Checkout source for staging
+      uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.client_payload.ref || github.ref }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.6
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install setuptools wheel
+
+    - name: Run unit tests
+      run: pytest
+
+    - name: Run integration tests
+      run: ./.github/scripts/run_integration_tests.sh
+      env:
+        FIREBASE_SERVICE_ACCT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCT_KEY }}
+        FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+
+    # Build the Python Wheel and the source distribution.
+    - name: Package release artifacts
+      run: python setup.py bdist_wheel sdist
+
+    # Attach the packaged artifacts to the workflow output. These can be manually
+    # downloaded for later inspection if necessary.
+    - name: Archive artifacts
+      uses: actions/upload-artifact@v1
+      with:
+        name: dist
+        path: dist
+
+  publish_release:
+    needs: stage_release
+
+    # Check whether the release should be published. We publish only when the trigger PR is
+    #   1. merged
+    #   2. to the master branch
+    #   3. with the label 'release:publish', and
+    #   4. the title prefix '[chore] Release '.
+    if: github.event.pull_request.merged &&
+      github.ref == 'master' &&
+      contains(github.event.pull_request.labels.*.name, 'release:publish') &&
+      startsWith(github.event.pull_request.title, '[chore] Release ')
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout source for publish
+      uses: actions/checkout@v2
+
+    # Download the artifacts created by the stage_release job.
+    - name: Download release candidates
+      uses: actions/download-artifact@v1
+      with:
+        name: dist
+
+    - name: Publish preflight check
+      id: preflight
+      run: ./.github/scripts/publish_preflight_check.sh
+
+    # We pull this action from a custom fork of a contributor until
+    # https://github.com/actions/create-release/pull/32 is merged. Also note that v1 of
+    # this action does not support the "body" parameter.
+    - name: Create release tag
+      uses: fleskesvor/create-release@1a72e235c178bf2ae6c51a8ae36febc24568c5fe
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.preflight.outputs.version }}
+        release_name: Firebase Admin Python SDK ${{ steps.preflight.outputs.version }}
+        body: ${{ steps.preflight.outputs.changelog }}
+        draft: false
+        prerelease: false
+
+    - name: Publish to Pypi
+      uses: pypa/gh-action-pypi-publish@v1.0.0a0
+      with:
+        user: firebase
+        password: ${{ secrets.PYPI_PASSWORD }}
+
+    # Post to Twitter if explicitly opted-in by adding the label 'release:tweet'.
+    - name: Post to Twitter
+      if: success() &&
+        contains(github.event.pull_request.labels.*.name, 'release:tweet')
+      uses: firebase/firebase-admin-node/.github/actions/send-tweet@master
+      with:
+        status: >
+          ${{ steps.preflight.outputs.version }} of @Firebase Admin Python SDK is avaialble.
+          https://github.com/firebase/firebase-admin-python/releases/tag/${{ steps.preflight.outputs.version }}
+        consumer-key: ${{ secrets.TWITTER_CONSUMER_KEY }}
+        consumer-secret: ${{ secrets.TWITTER_CONSUMER_SECRET }}
+        access-token: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+        access-token-secret: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
+      continue-on-error: true

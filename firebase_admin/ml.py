@@ -27,6 +27,7 @@ from urllib import parse
 
 import requests
 
+import firebase_admin
 from firebase_admin import _http_client
 from firebase_admin import _utils
 from firebase_admin import exceptions
@@ -785,6 +786,9 @@ class _MLService:
         self._project_url = _MLService.PROJECT_URL.format(self._project_id)
         self._client = _http_client.JsonHttpClient(
             credential=app.credential.get_credential(),
+            headers={
+                'X-FIREBASE-CLIENT': 'fire-admin-python/{0}'.format(firebase_admin.__version__),
+            },
             base_url=self._project_url)
         self._operation_client = _http_client.JsonHttpClient(
             credential=app.credential.get_credential(),

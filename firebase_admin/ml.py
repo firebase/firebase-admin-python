@@ -784,17 +784,16 @@ class _MLService:
                 'Project ID is required to access ML service. Either set the '
                 'projectId option, or use service account credentials.')
         self._project_url = _MLService.PROJECT_URL.format(self._project_id)
+        ml_headers = {
+            'X-FIREBASE-CLIENT': 'fire-admin-python/{0}'.format(firebase_admin.__version__),
+        }
         self._client = _http_client.JsonHttpClient(
             credential=app.credential.get_credential(),
-            headers={
-                'X-FIREBASE-CLIENT': 'fire-admin-python/{0}'.format(firebase_admin.__version__),
-            },
+            headers=ml_headers,
             base_url=self._project_url)
         self._operation_client = _http_client.JsonHttpClient(
             credential=app.credential.get_credential(),
-            headers={
-                'X-FIREBASE-CLIENT': 'fire-admin-python/{0}'.format(firebase_admin.__version__),
-            },
+            headers=ml_headers,
             base_url=_MLService.OPERATION_URL)
 
     def get_operation(self, op_name):

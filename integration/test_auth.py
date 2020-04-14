@@ -506,110 +506,161 @@ def test_email_sign_in_with_settings(new_user_email_unverified, api_key):
     assert id_token is not None and len(id_token) > 0
     assert auth.get_user(new_user_email_unverified.uid).email_verified
 
-def test_oidc_provider_config():
-    provider_id = 'oidc.{0}'.format(_random_string())
-    # Create OIDC provider config
-    provider_config = auth.create_oidc_provider_config(
-        provider_id=provider_id, client_id='OIDC_CLIENT_ID', issuer='https://oidc.com/issuer',
-        display_name='OIDC_DISPLAY_NAME', enabled=True)
 
-    try:
-        _check_oidc_provider_config(provider_config, provider_id)
-
-        # Get OIDC provider config
-        provider_config = auth.get_oidc_provider_config(provider_id)
-        _check_oidc_provider_config(provider_config, provider_id)
-
-        # List OIDC provider configs
-        page = auth.list_oidc_provider_configs()
-        result = None
-        for provider_config in page.iterate_all():
-            if provider_config.provider_id == provider_id:
-                result = provider_config
-                break
-        _check_oidc_provider_config(result, provider_id)
-
-        # Update OIDC provider config
-        provider_config = auth.update_oidc_provider_config(
-            provider_id, client_id='UPDATED_OIDC_CLIENT_ID',
-            display_name='UPDATED_OIDC_DISPLAY_NAME')
-        assert provider_config.client_id == 'UPDATED_OIDC_CLIENT_ID'
-        assert provider_config.display_name == 'UPDATED_OIDC_DISPLAY_NAME'
-
-        # Delete OIDC provider config
-        auth.delete_oidc_provider_config(provider_id)
-        with pytest.raises(auth.ConfigurationNotFoundError):
-            auth.get_oidc_provider_config(provider_id)
-        provider_id = None
-    finally:
-        if provider_id:
-            auth.delete_oidc_provider_config(provider_id)
-
-def test_saml_provider_config():
-    provider_id = 'saml.{0}'.format(_random_string())
-    # Create SAML provider config
-    provider_config = auth.create_saml_provider_config(
-        provider_id=provider_id, idp_entity_id='IDP_ENTITY_ID',
-        sso_url='https://example.com/login',
-        x509_certificates=[X509_CERTIFICATES[0]],
-        rp_entity_id='RP_ENTITY_ID',
-        callback_url='https://projectId.firebaseapp.com/__/auth/handler',
-        display_name='SAML_DISPLAY_NAME', enabled=True)
-
-    try:
-        _check_saml_provider_config(provider_config, provider_id)
-
-        # Get SAML provider config
-        provider_config = auth.get_saml_provider_config(provider_id)
-        _check_saml_provider_config(provider_config, provider_id)
-
-        # List SAML provider configs
-        page = auth.list_saml_provider_configs()
-        result = None
-        for provider_config in page.iterate_all():
-            if provider_config.provider_id == provider_id:
-                result = provider_config
-                break
-        _check_saml_provider_config(result, provider_id)
-
-        # Update SAML provider config
-        provider_config = auth.update_saml_provider_config(
-            provider_id, idp_entity_id='UPDATED_IDP_ENTITY_ID',
-            x509_certificates=[X509_CERTIFICATES[1]],
-            display_name='UPDATED_SAML_DISPLAY_NAME')
-        assert provider_config.idp_entity_id == 'UPDATED_IDP_ENTITY_ID'
-        assert provider_config.x509_certificates == [X509_CERTIFICATES[1]]
-        assert provider_config.display_name == 'UPDATED_SAML_DISPLAY_NAME'
-
-        # Delete SAML provider config
-        auth.delete_saml_provider_config(provider_id)
-        with pytest.raises(auth.ConfigurationNotFoundError):
-            auth.get_saml_provider_config(provider_id)
-        provider_id = None
-    finally:
-        if provider_id:
-            auth.delete_saml_provider_config(provider_id)
+@pytest.fixture(scope='module')
+def oidc_provider():
+    provider_config = _create_oidc_provider_config()
+    yield provider_config
+    auth.delete_oidc_provider_config(provider_config.provider_id)
 
 
-def _check_oidc_provider_config(provider_config, provider_id):
+def test_create_oidc_provider_config(oidc_provider):
+    assert isinstance(oidc_provider, auth.OIDCProviderConfig)
+    assert oidc_provider.client_id == 'OIDC_CLIENT_ID'
+    assert oidc_provider.issuer == 'https://oidc.com/issuer'
+    assert oidc_provider.display_name == 'OIDC_DISPLAY_NAME'
+    assert oidc_provider.enabled is True
+
+
+def test_get_oidc_provider_config(oidc_provider):
+    provider_config = auth.get_oidc_provider_config(oidc_provider.provider_id)
     assert isinstance(provider_config, auth.OIDCProviderConfig)
-    assert provider_config.provider_id == provider_id
+    assert provider_config.provider_id == oidc_provider.provider_id
     assert provider_config.client_id == 'OIDC_CLIENT_ID'
     assert provider_config.issuer == 'https://oidc.com/issuer'
     assert provider_config.display_name == 'OIDC_DISPLAY_NAME'
-    assert provider_config.enabled
+    assert provider_config.enabled is True
 
 
-def _check_saml_provider_config(provider_config, provider_id):
+def test_list_oidc_provider_configs(oidc_provider):
+    page = auth.list_oidc_provider_configs()
+    result = None
+    for provider_config in page.iterate_all():
+        if provider_config.provider_id == oidc_provider.provider_id:
+            result = provider_config
+            break
+
+    assert result is not None
+
+
+def test_update_oidc_provider_config():
+    provider_config = _create_oidc_provider_config()
+    try:
+        provider_config = auth.update_oidc_provider_config(
+            provider_config.provider_id,
+            client_id='UPDATED_OIDC_CLIENT_ID',
+            issuer='https://oidc.com/updated_issuer',
+            display_name='UPDATED_OIDC_DISPLAY_NAME',
+            enabled=False)
+        assert provider_config.client_id == 'UPDATED_OIDC_CLIENT_ID'
+        assert provider_config.issuer == 'https://oidc.com/updated_issuer'
+        assert provider_config.display_name == 'UPDATED_OIDC_DISPLAY_NAME'
+        assert provider_config.enabled is False
+    finally:
+        auth.delete_oidc_provider_config(provider_config.provider_id)
+
+
+def test_delete_oidc_provider_config():
+    provider_config = _create_oidc_provider_config()
+    auth.delete_oidc_provider_config(provider_config.provider_id)
+    with pytest.raises(auth.ConfigurationNotFoundError):
+        auth.get_oidc_provider_config(provider_config.provider_id)
+
+
+@pytest.fixture(scope='module')
+def saml_provider():
+    provider_config = _create_saml_provider_config()
+    yield provider_config
+    auth.delete_saml_provider_config(provider_config.provider_id)
+
+
+def test_create_saml_provider_config(saml_provider):
+    assert isinstance(saml_provider, auth.SAMLProviderConfig)
+    assert saml_provider.idp_entity_id == 'IDP_ENTITY_ID'
+    assert saml_provider.sso_url == 'https://example.com/login'
+    assert saml_provider.x509_certificates == [X509_CERTIFICATES[0]]
+    assert saml_provider.rp_entity_id == 'RP_ENTITY_ID'
+    assert saml_provider.callback_url == 'https://projectId.firebaseapp.com/__/auth/handler'
+    assert saml_provider.display_name == 'SAML_DISPLAY_NAME'
+    assert saml_provider.enabled is True
+
+
+def test_get_saml_provider_config(saml_provider):
+    provider_config = auth.get_saml_provider_config(saml_provider.provider_id)
     assert isinstance(provider_config, auth.SAMLProviderConfig)
-    assert provider_config.provider_id == provider_id
+    assert provider_config.provider_id == saml_provider.provider_id
     assert provider_config.idp_entity_id == 'IDP_ENTITY_ID'
     assert provider_config.sso_url == 'https://example.com/login'
     assert provider_config.x509_certificates == [X509_CERTIFICATES[0]]
     assert provider_config.rp_entity_id == 'RP_ENTITY_ID'
     assert provider_config.callback_url == 'https://projectId.firebaseapp.com/__/auth/handler'
     assert provider_config.display_name == 'SAML_DISPLAY_NAME'
-    assert provider_config.enabled
+    assert provider_config.enabled is True
+
+
+def test_list_saml_provider_configs(saml_provider):
+    page = auth.list_saml_provider_configs()
+    result = None
+    for provider_config in page.iterate_all():
+        if provider_config.provider_id == saml_provider.provider_id:
+            result = provider_config
+            break
+
+    assert result is not None
+
+
+def test_update_saml_provider_config():
+    provider_config = _create_saml_provider_config()
+    try:
+        provider_config = auth.update_saml_provider_config(
+            provider_config.provider_id,
+            idp_entity_id='UPDATED_IDP_ENTITY_ID',
+            sso_url='https://example.com/updated_login',
+            x509_certificates=[X509_CERTIFICATES[1]],
+            rp_entity_id='UPDATED_RP_ENTITY_ID',
+            callback_url='https://updatedProjectId.firebaseapp.com/__/auth/handler',
+            display_name='UPDATED_SAML_DISPLAY_NAME',
+            enabled=False)
+        assert provider_config.idp_entity_id == 'UPDATED_IDP_ENTITY_ID'
+        assert provider_config.sso_url == 'https://example.com/updated_login'
+        assert provider_config.x509_certificates == [X509_CERTIFICATES[1]]
+        assert provider_config.rp_entity_id == 'UPDATED_RP_ENTITY_ID'
+        assert provider_config.callback_url == ('https://updatedProjectId.firebaseapp.com/'
+                                                '__/auth/handler')
+        assert provider_config.display_name == 'UPDATED_SAML_DISPLAY_NAME'
+        assert provider_config.enabled is False
+    finally:
+        auth.delete_saml_provider_config(provider_config.provider_id)
+
+
+def test_delete_saml_provider_config():
+    provider_config = _create_saml_provider_config()
+    auth.delete_saml_provider_config(provider_config.provider_id)
+    with pytest.raises(auth.ConfigurationNotFoundError):
+        auth.get_saml_provider_config(provider_config.provider_id)
+
+
+def _create_oidc_provider_config():
+    provider_id = 'oidc.{0}'.format(_random_string())
+    return auth.create_oidc_provider_config(
+        provider_id=provider_id,
+        client_id='OIDC_CLIENT_ID',
+        issuer='https://oidc.com/issuer',
+        display_name='OIDC_DISPLAY_NAME',
+        enabled=True)
+
+
+def _create_saml_provider_config():
+    provider_id = 'saml.{0}'.format(_random_string())
+    return auth.create_saml_provider_config(
+        provider_id=provider_id,
+        idp_entity_id='IDP_ENTITY_ID',
+        sso_url='https://example.com/login',
+        x509_certificates=[X509_CERTIFICATES[0]],
+        rp_entity_id='RP_ENTITY_ID',
+        callback_url='https://projectId.firebaseapp.com/__/auth/handler',
+        display_name='SAML_DISPLAY_NAME',
+        enabled=True)
 
 
 class CredentialWrapper(credentials.Base):

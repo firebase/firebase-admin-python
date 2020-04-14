@@ -16,6 +16,7 @@
 import base64
 import datetime
 import random
+import string
 import time
 from urllib import parse
 import uuid
@@ -38,6 +39,30 @@ _email_sign_in_url = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty
 
 ACTION_LINK_CONTINUE_URL = 'http://localhost?a=1&b=5#f=1'
 
+X509_CERTIFICATES = [
+    ('-----BEGIN CERTIFICATE-----\nMIICZjCCAc+gAwIBAgIBADANBgkqhkiG9w0BAQ0FADBQMQswCQYDVQQGEwJ1czE'
+     'L\nMAkGA1UECAwCQ0ExDTALBgNVBAoMBEFjbWUxETAPBgNVBAMMCGFjbWUuY29tMRIw\nEAYDVQQHDAlTdW5ueXZhbGU'
+     'wHhcNMTgxMjA2MDc1MTUxWhcNMjgxMjAzMDc1MTUx\nWjBQMQswCQYDVQQGEwJ1czELMAkGA1UECAwCQ0ExDTALBgNVB'
+     'AoMBEFjbWUxETAP\nBgNVBAMMCGFjbWUuY29tMRIwEAYDVQQHDAlTdW5ueXZhbGUwgZ8wDQYJKoZIhvcN\nAQEBBQADg'
+     'Y0AMIGJAoGBAKphmggjiVgqMLXyzvI7cKphscIIQ+wcv7Dld6MD4aKv\n7Jqr8ltujMxBUeY4LFEKw8Terb01snYpDot'
+     'filaG6NxpF/GfVVmMalzwWp0mT8+H\nyzyPj89mRcozu17RwuooR6n1ofXjGcBE86lqC21UhA3WVgjPOLqB42rlE9gPn'
+     'ZLB\nAgMBAAGjUDBOMB0GA1UdDgQWBBS0iM7WnbCNOnieOP1HIA+Oz/ML+zAfBgNVHSME\nGDAWgBS0iM7WnbCNOnieO'
+     'P1HIA+Oz/ML+zAMBgNVHRMEBTADAQH/MA0GCSqGSIb3\nDQEBDQUAA4GBAF3jBgS+wP+K/jTupEQur6iaqS4UvXd//d4'
+     'vo1MV06oTLQMTz+rP\nOSMDNwxzfaOn6vgYLKP/Dcy9dSTnSzgxLAxfKvDQZA0vE3udsw0Bd245MmX4+GOp\nlbrN99X'
+     'P1u+lFxCSdMUzvQ/jW4ysw/Nq4JdJ0gPAyPvL6Qi/3mQdIQwx\n-----END CERTIFICATE-----\n'),
+    ('-----BEGIN CERTIFICATE-----\nMIICZjCCAc+gAwIBAgIBADANBgkqhkiG9w0BAQ0FADBQMQswCQYDVQQGEwJ1czE'
+     'L\nMAkGA1UECAwCQ0ExDTALBgNVBAoMBEFjbWUxETAPBgNVBAMMCGFjbWUuY29tMRIw\nEAYDVQQHDAlTdW5ueXZhbGU'
+     'wHhcNMTgxMjA2MDc1ODE4WhcNMjgxMjAzMDc1ODE4\nWjBQMQswCQYDVQQGEwJ1czELMAkGA1UECAwCQ0ExDTALBgNVB'
+     'AoMBEFjbWUxETAP\nBgNVBAMMCGFjbWUuY29tMRIwEAYDVQQHDAlTdW5ueXZhbGUwgZ8wDQYJKoZIhvcN\nAQEBBQADg'
+     'Y0AMIGJAoGBAKuzYKfDZGA6DJgQru3wNUqv+S0hMZfP/jbp8ou/8UKu\nrNeX7cfCgt3yxoGCJYKmF6t5mvo76JY0MWw'
+     'A53BxeP/oyXmJ93uHG5mFRAsVAUKs\ncVVb0Xi6ujxZGVdDWFV696L0BNOoHTfXmac6IBoZQzNNK4n1AATqwo+z7a0pf'
+     'RrJ\nAgMBAAGjUDBOMB0GA1UdDgQWBBSKmi/ZKMuLN0ES7/jPa7q7jAjPiDAfBgNVHSME\nGDAWgBSKmi/ZKMuLN0ES7'
+     '/jPa7q7jAjPiDAMBgNVHRMEBTADAQH/MA0GCSqGSIb3\nDQEBDQUAA4GBAAg2a2kSn05NiUOuWOHwPUjW3wQRsGxPXtb'
+     'hWMhmNdCfKKteM2+/\nLd/jz5F3qkOgGQ3UDgr3SHEoWhnLaJMF4a2tm6vL2rEIfPEK81KhTTRxSsAgMVbU\nJXBz1md'
+     '6Ur0HlgQC7d1CHC8/xi2DDwHopLyxhogaZUxy9IaRxUEa2vJW\n-----END CERTIFICATE-----\n'),
+]
+
+
 def _sign_in(custom_token, api_key):
     body = {'token' : custom_token.decode(), 'returnSecureToken' : True}
     params = {'key' : api_key}
@@ -51,6 +76,10 @@ def _sign_in_with_password(email, password, api_key):
     resp = requests.request('post', _verify_password_url, params=params, json=body)
     resp.raise_for_status()
     return resp.json().get('idToken')
+
+def _random_string(length=10):
+    letters = string.ascii_lowercase
+    return ''.join(random.choice(letters) for i in range(length))
 
 def _random_id():
     random_id = str(uuid.uuid4()).lower().replace('-', '')
@@ -476,6 +505,112 @@ def test_email_sign_in_with_settings(new_user_email_unverified, api_key):
     id_token = _sign_in_with_email_link(new_user_email_unverified.email, oob_code, api_key)
     assert id_token is not None and len(id_token) > 0
     assert auth.get_user(new_user_email_unverified.uid).email_verified
+
+def test_oidc_provider_config():
+    provider_id = 'oidc.{0}'.format(_random_string())
+    # Create OIDC provider config
+    provider_config = auth.create_oidc_provider_config(
+        provider_id=provider_id, client_id='OIDC_CLIENT_ID', issuer='https://oidc.com/issuer',
+        display_name='OIDC_DISPLAY_NAME', enabled=True)
+
+    try:
+        _check_oidc_provider_config(provider_config, provider_id)
+
+        # Get OIDC provider config
+        provider_config = auth.get_oidc_provider_config(provider_id)
+        _check_oidc_provider_config(provider_config, provider_id)
+
+        # List OIDC provider configs
+        page = auth.list_oidc_provider_configs()
+        result = None
+        for provider_config in page.iterate_all():
+            if provider_config.provider_id == provider_id:
+                result = provider_config
+                break
+        _check_oidc_provider_config(result, provider_id)
+
+        # Update OIDC provider config
+        provider_config = auth.update_oidc_provider_config(
+            provider_id, client_id='UPDATED_OIDC_CLIENT_ID',
+            display_name='UPDATED_OIDC_DISPLAY_NAME')
+        assert provider_config.client_id == 'UPDATED_OIDC_CLIENT_ID'
+        assert provider_config.display_name == 'UPDATED_OIDC_DISPLAY_NAME'
+
+        # Delete OIDC provider config
+        auth.delete_oidc_provider_config(provider_id)
+        with pytest.raises(auth.ConfigurationNotFoundError):
+            auth.get_oidc_provider_config(provider_id)
+        provider_id = None
+    finally:
+        if provider_id:
+            auth.delete_oidc_provider_config(provider_id)
+
+def test_saml_provider_config():
+    provider_id = 'saml.{0}'.format(_random_string())
+    # Create SAML provider config
+    provider_config = auth.create_saml_provider_config(
+        provider_id=provider_id, idp_entity_id='IDP_ENTITY_ID',
+        sso_url='https://example.com/login',
+        x509_certificates=[X509_CERTIFICATES[0]],
+        rp_entity_id='RP_ENTITY_ID',
+        callback_url='https://projectId.firebaseapp.com/__/auth/handler',
+        display_name='SAML_DISPLAY_NAME', enabled=True)
+
+    try:
+        _check_saml_provider_config(provider_config, provider_id)
+
+        # Get SAML provider config
+        provider_config = auth.get_saml_provider_config(provider_id)
+        _check_saml_provider_config(provider_config, provider_id)
+
+        # List SAML provider configs
+        page = auth.list_saml_provider_configs()
+        result = None
+        for provider_config in page.iterate_all():
+            if provider_config.provider_id == provider_id:
+                result = provider_config
+                break
+        _check_saml_provider_config(result, provider_id)
+
+        # Update SAML provider config
+        provider_config = auth.update_saml_provider_config(
+            provider_id, idp_entity_id='UPDATED_IDP_ENTITY_ID',
+            x509_certificates=[X509_CERTIFICATES[1]],
+            display_name='UPDATED_SAML_DISPLAY_NAME')
+        assert provider_config.idp_entity_id == 'UPDATED_IDP_ENTITY_ID'
+        assert provider_config.x509_certificates == [X509_CERTIFICATES[1]]
+        assert provider_config.display_name == 'UPDATED_SAML_DISPLAY_NAME'
+
+        # Delete SAML provider config
+        auth.delete_saml_provider_config(provider_id)
+        with pytest.raises(auth.ConfigurationNotFoundError):
+            auth.get_saml_provider_config(provider_id)
+        provider_id = None
+    finally:
+        if provider_id:
+            auth.delete_saml_provider_config(provider_id)
+
+
+def _check_oidc_provider_config(provider_config, provider_id):
+    assert isinstance(provider_config, auth.OIDCProviderConfig)
+    assert provider_config.provider_id == provider_id
+    assert provider_config.client_id == 'OIDC_CLIENT_ID'
+    assert provider_config.issuer == 'https://oidc.com/issuer'
+    assert provider_config.display_name == 'OIDC_DISPLAY_NAME'
+    assert provider_config.enabled
+
+
+def _check_saml_provider_config(provider_config, provider_id):
+    assert isinstance(provider_config, auth.SAMLProviderConfig)
+    assert provider_config.provider_id == provider_id
+    assert provider_config.idp_entity_id == 'IDP_ENTITY_ID'
+    assert provider_config.sso_url == 'https://example.com/login'
+    assert provider_config.x509_certificates == [X509_CERTIFICATES[0]]
+    assert provider_config.rp_entity_id == 'RP_ENTITY_ID'
+    assert provider_config.callback_url == 'https://projectId.firebaseapp.com/__/auth/handler'
+    assert provider_config.display_name == 'SAML_DISPLAY_NAME'
+    assert provider_config.enabled
+
 
 class CredentialWrapper(credentials.Base):
     """A custom Firebase credential that wraps an OAuth2 token."""

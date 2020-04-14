@@ -27,6 +27,7 @@ from tests import testutils
 USER_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v2beta1/projects/mock-project-id'
 OIDC_PROVIDER_CONFIG_RESPONSE = testutils.resource('oidc_provider_config.json')
 SAML_PROVIDER_CONFIG_RESPONSE = testutils.resource('saml_provider_config.json')
+LIST_OIDC_PROVIDER_CONFIGS_RESPONSE = testutils.resource('list_oidc_provider_configs.json')
 LIST_SAML_PROVIDER_CONFIGS_RESPONSE = testutils.resource('list_saml_provider_configs.json')
 
 CONFIG_NOT_FOUND_RESPONSE = """{
@@ -237,6 +238,109 @@ class TestOIDCProviderConfig:
         assert req.method == 'DELETE'
         assert req.url == '{0}{1}'.format(USER_MGT_URL_PREFIX, '/oauthIdpConfigs/oidc.provider')
 
+    @pytest.mark.parametrize('arg', [None, 'foo', list(), dict(), 0, -1, 101, False])
+    def test_invalid_max_results(self, user_mgt_app, arg):
+        with pytest.raises(ValueError):
+            auth.list_oidc_provider_configs(max_results=arg, app=user_mgt_app)
+
+    @pytest.mark.parametrize('arg', ['', list(), dict(), 0, -1, 101, False])
+    def test_invalid_page_token(self, user_mgt_app, arg):
+        with pytest.raises(ValueError):
+            auth.list_oidc_provider_configs(page_token=arg, app=user_mgt_app)
+
+    def test_list_single_page(self, user_mgt_app):
+        recorder = _instrument_provider_mgt(user_mgt_app, 200, LIST_OIDC_PROVIDER_CONFIGS_RESPONSE)
+        page = auth.list_oidc_provider_configs(app=user_mgt_app)
+
+        self._assert_page(page)
+        provider_configs = list(config for config in page.iterate_all())
+        assert len(provider_configs) == 2
+
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'GET'
+        assert req.url == '{0}{1}'.format(USER_MGT_URL_PREFIX, '/oauthIdpConfigs?pageSize=100')
+
+    def test_list_multiple_pages(self, user_mgt_app):
+        sample_response = json.loads(OIDC_PROVIDER_CONFIG_RESPONSE)
+        configs = _create_list_response(sample_response)
+
+        # Page 1
+        response = {
+            'oauthIdpConfigs': configs[:2],
+            'nextPageToken': 'token'
+        }
+        recorder = _instrument_provider_mgt(user_mgt_app, 200, json.dumps(response))
+        page = auth.list_oidc_provider_configs(max_results=10, app=user_mgt_app)
+
+        self._assert_page(page, next_page_token='token')
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'GET'
+        assert req.url == '{0}/oauthIdpConfigs?pageSize=10'.format(USER_MGT_URL_PREFIX)
+
+        # Page 2 (also the last page)
+        response = {'oauthIdpConfigs': configs[2:]}
+        recorder = _instrument_provider_mgt(user_mgt_app, 200, json.dumps(response))
+        page = page.get_next_page()
+
+        self._assert_page(page, count=1, start=2)
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'GET'
+        assert req.url == '{0}/oauthIdpConfigs?pageSize=10&pageToken=token'.format(
+            USER_MGT_URL_PREFIX)
+
+    def test_paged_iteration(self, user_mgt_app):
+        sample_response = json.loads(OIDC_PROVIDER_CONFIG_RESPONSE)
+        configs = _create_list_response(sample_response)
+
+        # Page 1
+        response = {
+            'oauthIdpConfigs': configs[:2],
+            'nextPageToken': 'token'
+        }
+        recorder = _instrument_provider_mgt(user_mgt_app, 200, json.dumps(response))
+        page = auth.list_oidc_provider_configs(app=user_mgt_app)
+        iterator = page.iterate_all()
+
+        for index in range(2):
+            provider_config = next(iterator)
+            assert provider_config.provider_id == 'oidc.provider{0}'.format(index)
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'GET'
+        assert req.url == '{0}/oauthIdpConfigs?pageSize=100'.format(USER_MGT_URL_PREFIX)
+
+        # Page 2 (also the last page)
+        response = {'oauthIdpConfigs': configs[2:]}
+        recorder = _instrument_provider_mgt(user_mgt_app, 200, json.dumps(response))
+
+        provider_config = next(iterator)
+        assert provider_config.provider_id == 'oidc.provider2'
+        assert len(recorder) == 1
+        req = recorder[0]
+        assert req.method == 'GET'
+        assert req.url == '{0}/oauthIdpConfigs?pageSize=100&pageToken=token'.format(
+            USER_MGT_URL_PREFIX)
+
+        with pytest.raises(StopIteration):
+            next(iterator)
+
+    def test_list_empty_response(self, user_mgt_app):
+        response = {'oauthIdpConfigs': []}
+        _instrument_provider_mgt(user_mgt_app, 200, json.dumps(response))
+        page = auth.list_oidc_provider_configs(app=user_mgt_app)
+        assert len(page.provider_configs) == 0
+        provider_configs = list(config for config in page.iterate_all())
+        assert len(provider_configs) == 0
+
+    def test_list_error(self, user_mgt_app):
+        _instrument_provider_mgt(user_mgt_app, 500, '{"error":"test"}')
+        with pytest.raises(exceptions.InternalError) as excinfo:
+            auth.list_oidc_provider_configs(app=user_mgt_app)
+        assert str(excinfo.value) == 'Unexpected error response: {"error":"test"}'
+
     def test_config_not_found(self, user_mgt_app):
         _instrument_provider_mgt(user_mgt_app, 500, CONFIG_NOT_FOUND_RESPONSE)
 
@@ -256,6 +360,22 @@ class TestOIDCProviderConfig:
         assert provider_config.enabled is True
         assert provider_config.issuer == 'https://oidc.com/issuer'
         assert provider_config.client_id == 'CLIENT_ID'
+
+    def _assert_page(self, page, count=2, start=0, next_page_token=''):
+        assert isinstance(page, auth.ListProviderConfigsPage)
+        index = start
+        assert len(page.provider_configs) == count
+        for provider_config in page.provider_configs:
+            self._assert_provider_config(provider_config, want_id='oidc.provider{0}'.format(index))
+            index += 1
+
+        if next_page_token:
+            assert page.next_page_token == next_page_token
+            assert page.has_next_page is True
+        else:
+            assert page.next_page_token == ''
+            assert page.has_next_page is False
+            assert page.get_next_page() is None
 
 
 class TestSAMLProviderConfig:
@@ -497,7 +617,7 @@ class TestSAMLProviderConfig:
 
     def test_list_multiple_pages(self, user_mgt_app):
         sample_response = json.loads(SAML_PROVIDER_CONFIG_RESPONSE)
-        configs = self._create_list_response(sample_response)
+        configs = _create_list_response(sample_response)
 
         # Page 1
         response = {
@@ -527,7 +647,7 @@ class TestSAMLProviderConfig:
 
     def test_paged_iteration(self, user_mgt_app):
         sample_response = json.loads(SAML_PROVIDER_CONFIG_RESPONSE)
-        configs = self._create_list_response(sample_response)
+        configs = _create_list_response(sample_response)
 
         # Page 1
         response = {
@@ -602,10 +722,11 @@ class TestSAMLProviderConfig:
             assert page.has_next_page is False
             assert page.get_next_page() is None
 
-    def _create_list_response(self, sample_response, count=3):
-        configs = []
-        for idx in range(count):
-            config = dict(sample_response)
-            config['name'] += str(idx)
-            configs.append(config)
-        return configs
+
+def _create_list_response(sample_response, count=3):
+    configs = []
+    for idx in range(count):
+        config = dict(sample_response)
+        config['name'] += str(idx)
+        configs.append(config)
+    return configs

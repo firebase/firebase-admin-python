@@ -1,0 +1,18 @@
+{
+  "oauthIdpConfigs": [
+    {
+      "name":"projects/mock-project-id/oauthIdpConfigs/oidc.provider0",
+      "clientId": "CLIENT_ID",
+      "issuer": "https://oidc.com/issuer",
+      "displayName": "oidcProviderName",
+      "enabled": true
+    },
+    {
+      "name":"projects/mock-project-id/oauthIdpConfigs/oidc.provider1",
+      "clientId": "CLIENT_ID",
+      "issuer": "https://oidc.com/issuer",
+      "displayName": "oidcProviderName",
+      "enabled": true
+    }
+  ]
+}

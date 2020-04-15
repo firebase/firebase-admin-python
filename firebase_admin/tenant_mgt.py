@@ -18,6 +18,7 @@ This module contains functions for creating and configuring authentication tenan
 Google Cloud Identity Platform (GCIP) instance.
 """
 
+import re
 import threading
 
 import requests
@@ -31,6 +32,7 @@ from firebase_admin import _utils
 
 _TENANT_MGT_ATTRIBUTE = '_tenant_mgt'
 _MAX_LIST_TENANTS_RESULTS = 100
+_DISPLAY_NAME_PATTERN = re.compile('^[a-zA-Z][a-zA-Z0-9-]{3,19}$')
 
 
 __all__ = [
@@ -89,15 +91,16 @@ def get_tenant(tenant_id, app=None):
 
 
 def create_tenant(
-        display_name=None, allow_password_sign_up=None, enable_email_link_sign_in=None, app=None):
+        display_name, allow_password_sign_up=None, enable_email_link_sign_in=None, app=None):
     """Creates a new tenant from the given options.
 
     Args:
-        display_name: Display name string for the new tenant (optional).
+        display_name: Display name string for the new tenant. Must begin with a letter and contain
+            only letters, digits and hyphens. Length must be between 4 and 20.
         allow_password_sign_up: A boolean indicating whether to enable or disable the email sign-in
-            provider.
+            provider (optional).
         enable_email_link_sign_in: A boolean indicating whether to enable or disable email link
-            sign-in. Disabling this makes the password required for email sign-in.
+            sign-in (optional). Disabling this makes the password required for email sign-in.
         app: An App instance (optional).
 
     Returns:
@@ -120,7 +123,7 @@ def update_tenant(
 
     Args:
         tenant_id: ID of the tenant to update.
-        display_name: Display name string for the new tenant (optional).
+        display_name: Updated display name string for the tenant (optional).
         allow_password_sign_up: A boolean indicating whether to enable or disable the email sign-in
             provider.
         enable_email_link_sign_in: A boolean indicating whether to enable or disable email link
@@ -269,11 +272,10 @@ class _TenantManagementService:
             return Tenant(body)
 
     def create_tenant(
-            self, display_name=None, allow_password_sign_up=None, enable_email_link_sign_in=None):
+            self, display_name, allow_password_sign_up=None, enable_email_link_sign_in=None):
         """Creates a new tenant from the given parameters."""
-        payload = {}
-        if display_name is not None:
-            payload['displayName'] = _auth_utils.validate_string(display_name, 'displayName')
+
+        payload = {'displayName': _validate_display_name(display_name)}
         if allow_password_sign_up is not None:
             payload['allowPasswordSignup'] = _auth_utils.validate_boolean(
                 allow_password_sign_up, 'allowPasswordSignup')
@@ -297,7 +299,7 @@ class _TenantManagementService:
 
         payload = {}
         if display_name is not None:
-            payload['displayName'] = _auth_utils.validate_string(display_name, 'displayName')
+            payload['displayName'] = _validate_display_name(display_name)
         if allow_password_sign_up is not None:
             payload['allowPasswordSignup'] = _auth_utils.validate_boolean(
                 allow_password_sign_up, 'allowPasswordSignup')
@@ -431,3 +433,13 @@ class _TenantIterator:
 
     def __iter__(self):
         return self
+
+
+def _validate_display_name(display_name):
+    if not isinstance(display_name, str):
+        raise ValueError('Invalid type for displayName')
+    if not _DISPLAY_NAME_PATTERN.search(display_name):
+        raise ValueError(
+            'displayName must start with a letter and only consist of letters, digits and '
+            'hyphens with 4-20 characters.')
+    return display_name

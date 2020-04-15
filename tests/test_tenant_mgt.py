@@ -211,32 +211,40 @@ class TestGetTenant:
 class TestCreateTenant:
 
     @pytest.mark.parametrize('display_name', [True, False, 1, 0, list(), tuple(), dict()])
-    def test_invalid_display_name(self, display_name, tenant_mgt_app):
+    def test_invalid_display_name_type(self, display_name, tenant_mgt_app):
         with pytest.raises(ValueError) as excinfo:
             tenant_mgt.create_tenant(display_name=display_name, app=tenant_mgt_app)
         assert str(excinfo.value).startswith('Invalid type for displayName')
 
+    @pytest.mark.parametrize('display_name', ['', 'foo', '1test', 'foo bar', 'a'*21])
+    def test_invalid_display_name_value(self, display_name, tenant_mgt_app):
+        with pytest.raises(ValueError) as excinfo:
+            tenant_mgt.create_tenant(display_name=display_name, app=tenant_mgt_app)
+        assert str(excinfo.value).startswith('displayName must start')
+
     @pytest.mark.parametrize('allow', INVALID_BOOLEANS)
     def test_invalid_allow_password_sign_up(self, allow, tenant_mgt_app):
         with pytest.raises(ValueError) as excinfo:
-            tenant_mgt.create_tenant(allow_password_sign_up=allow, app=tenant_mgt_app)
+            tenant_mgt.create_tenant(
+                display_name='test', allow_password_sign_up=allow, app=tenant_mgt_app)
         assert str(excinfo.value).startswith('Invalid type for allowPasswordSignup')
 
     @pytest.mark.parametrize('enable', INVALID_BOOLEANS)
     def test_invalid_enable_email_link_sign_in(self, enable, tenant_mgt_app):
         with pytest.raises(ValueError) as excinfo:
-            tenant_mgt.create_tenant(enable_email_link_sign_in=enable, app=tenant_mgt_app)
+            tenant_mgt.create_tenant(
+                display_name='test', enable_email_link_sign_in=enable, app=tenant_mgt_app)
         assert str(excinfo.value).startswith('Invalid type for enableEmailLinkSignin')
 
     def test_create_tenant(self, tenant_mgt_app):
         _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
         tenant = tenant_mgt.create_tenant(
-            display_name='My Tenant', allow_password_sign_up=True, enable_email_link_sign_in=True,
+            display_name='My-Tenant', allow_password_sign_up=True, enable_email_link_sign_in=True,
             app=tenant_mgt_app)
 
         _assert_tenant(tenant)
         self._assert_request(recorder, {
-            'displayName': 'My Tenant',
+            'displayName': 'My-Tenant',
             'allowPasswordSignup': True,
             'enableEmailLinkSignin': True,
         })
@@ -244,27 +252,27 @@ class TestCreateTenant:
     def test_create_tenant_false_values(self, tenant_mgt_app):
         _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
         tenant = tenant_mgt.create_tenant(
-            display_name='', allow_password_sign_up=False, enable_email_link_sign_in=False,
+            display_name='test', allow_password_sign_up=False, enable_email_link_sign_in=False,
             app=tenant_mgt_app)
 
         _assert_tenant(tenant)
         self._assert_request(recorder, {
-            'displayName': '',
+            'displayName': 'test',
             'allowPasswordSignup': False,
             'enableEmailLinkSignin': False,
         })
 
     def test_create_tenant_minimal(self, tenant_mgt_app):
         _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
-        tenant = tenant_mgt.create_tenant(app=tenant_mgt_app)
+        tenant = tenant_mgt.create_tenant(display_name='test', app=tenant_mgt_app)
 
         _assert_tenant(tenant)
-        self._assert_request(recorder, {})
+        self._assert_request(recorder, {'displayName': 'test'})
 
     def test_error(self, tenant_mgt_app):
         _instrument_tenant_mgt(tenant_mgt_app, 500, '{}')
         with pytest.raises(exceptions.InternalError) as excinfo:
-            tenant_mgt.create_tenant(app=tenant_mgt_app)
+            tenant_mgt.create_tenant(display_name='test', app=tenant_mgt_app)
 
         error_msg = 'Unexpected error response: {}'
         assert excinfo.value.code == exceptions.INTERNAL
@@ -290,10 +298,16 @@ class TestUpdateTenant:
         assert str(excinfo.value).startswith('Tenant ID must be a non-empty string')
 
     @pytest.mark.parametrize('display_name', [True, False, 1, 0, list(), tuple(), dict()])
-    def test_invalid_display_name(self, display_name, tenant_mgt_app):
+    def test_invalid_display_name_type(self, display_name, tenant_mgt_app):
         with pytest.raises(ValueError) as excinfo:
             tenant_mgt.update_tenant('tenant-id', display_name=display_name, app=tenant_mgt_app)
         assert str(excinfo.value).startswith('Invalid type for displayName')
+
+    @pytest.mark.parametrize('display_name', ['', 'foo', '1test', 'foo bar', 'a'*21])
+    def test_invalid_display_name_value(self, display_name, tenant_mgt_app):
+        with pytest.raises(ValueError) as excinfo:
+            tenant_mgt.update_tenant('tenant-id', display_name=display_name, app=tenant_mgt_app)
+        assert str(excinfo.value).startswith('displayName must start')
 
     @pytest.mark.parametrize('allow', INVALID_BOOLEANS)
     def test_invalid_allow_password_sign_up(self, allow, tenant_mgt_app):
@@ -316,12 +330,12 @@ class TestUpdateTenant:
     def test_update_tenant(self, tenant_mgt_app):
         _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
         tenant = tenant_mgt.update_tenant(
-            'tenant-id', display_name='My Tenant', allow_password_sign_up=True,
+            'tenant-id', display_name='My-Tenant', allow_password_sign_up=True,
             enable_email_link_sign_in=True, app=tenant_mgt_app)
 
         _assert_tenant(tenant)
         body = {
-            'displayName': 'My Tenant',
+            'displayName': 'My-Tenant',
             'allowPasswordSignup': True,
             'enableEmailLinkSignin': True,
         }
@@ -331,32 +345,31 @@ class TestUpdateTenant:
     def test_update_tenant_false_values(self, tenant_mgt_app):
         _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
         tenant = tenant_mgt.update_tenant(
-            'tenant-id', display_name='', allow_password_sign_up=False,
+            'tenant-id', allow_password_sign_up=False,
             enable_email_link_sign_in=False, app=tenant_mgt_app)
 
         _assert_tenant(tenant)
         body = {
-            'displayName': '',
             'allowPasswordSignup': False,
             'enableEmailLinkSignin': False,
         }
-        mask = ['allowPasswordSignup', 'displayName', 'enableEmailLinkSignin']
+        mask = ['allowPasswordSignup', 'enableEmailLinkSignin']
         self._assert_request(recorder, body, mask)
 
     def test_update_tenant_minimal(self, tenant_mgt_app):
         _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
         tenant = tenant_mgt.update_tenant(
-            'tenant-id', display_name='My Tenant', app=tenant_mgt_app)
+            'tenant-id', display_name='My-Tenant', app=tenant_mgt_app)
 
         _assert_tenant(tenant)
-        body = {'displayName': 'My Tenant'}
+        body = {'displayName': 'My-Tenant'}
         mask = ['displayName']
         self._assert_request(recorder, body, mask)
 
     def test_tenant_not_found_error(self, tenant_mgt_app):
         _instrument_tenant_mgt(tenant_mgt_app, 500, TENANT_NOT_FOUND_RESPONSE)
         with pytest.raises(tenant_mgt.TenantNotFoundError) as excinfo:
-            tenant_mgt.update_tenant('tenant', display_name='My Tenant', app=tenant_mgt_app)
+            tenant_mgt.update_tenant('tenant', display_name='My-Tenant', app=tenant_mgt_app)
 
         error_msg = 'No tenant found for the given identifier (TENANT_NOT_FOUND).'
         assert excinfo.value.code == exceptions.NOT_FOUND

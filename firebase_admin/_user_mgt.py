@@ -244,6 +244,15 @@ class UserRecord(UserInfo):
                 return parsed
         return None
 
+    @property
+    def tenant_id(self):
+        """Returns the tenant ID of this user.
+
+        Returns:
+          string: A tenant ID string or None.
+        """
+        return self._data.get('tenantId')
+
 
 class ExportedUserRecord(UserRecord):
     """Contains metadata associated with a user including password hash and salt."""

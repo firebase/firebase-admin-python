@@ -42,7 +42,7 @@ class ProviderConfig:
 
     @property
     def enabled(self):
-        return self._data['enabled']
+        return self._data.get('enabled', False)
 
 
 class OIDCProviderConfig(ProviderConfig):

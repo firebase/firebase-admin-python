@@ -81,6 +81,7 @@ def _check_user_record(user, expected_uid='testuser'):
     assert user.user_metadata.creation_timestamp == 1234567890000
     assert user.user_metadata.last_sign_in_timestamp is None
     assert user.provider_id == 'firebase'
+    assert user.tenant_id is None
 
     claims = user.custom_claims
     assert claims['admin'] is True
@@ -206,6 +207,10 @@ class TestUserRecord:
     def test_no_tokens_valid_after_time(self):
         user = auth.UserRecord({'localId' : 'user'})
         assert user.tokens_valid_after_timestamp == 0
+
+    def test_tenant_id(self):
+        user = auth.UserRecord({'localId' : 'user', 'tenantId': 'test-tenant'})
+        assert user.tenant_id == 'test-tenant'
 
 
 class TestGetUser:

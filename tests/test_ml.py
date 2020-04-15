@@ -26,7 +26,7 @@ from tests import testutils
 
 BASE_URL = 'https://firebaseml.googleapis.com/v1beta2/'
 HEADER_CLIENT_KEY = 'X-FIREBASE-CLIENT'
-HEADER_CLIENT_VALUE = 'fire-admin-python/3.2.1'
+HEADER_CLIENT_VALUE = 'fire-admin-python/{0}'.format(firebase_admin.__version__)
 PROJECT_ID = 'my-project-1'
 
 PAGE_TOKEN = 'pageToken'

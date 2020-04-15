@@ -216,7 +216,7 @@ class TestCreateTenant:
             tenant_mgt.create_tenant(display_name=display_name, app=tenant_mgt_app)
         assert str(excinfo.value).startswith('Invalid type for displayName')
 
-    @pytest.mark.parametrize('display_name', ['', 'foo', '1test', 'foo bar'])
+    @pytest.mark.parametrize('display_name', ['', 'foo', '1test', 'foo bar', 'a'*21])
     def test_invalid_display_name_value(self, display_name, tenant_mgt_app):
         with pytest.raises(ValueError) as excinfo:
             tenant_mgt.create_tenant(display_name=display_name, app=tenant_mgt_app)
@@ -303,7 +303,7 @@ class TestUpdateTenant:
             tenant_mgt.update_tenant('tenant-id', display_name=display_name, app=tenant_mgt_app)
         assert str(excinfo.value).startswith('Invalid type for displayName')
 
-    @pytest.mark.parametrize('display_name', ['', 'foo', '1test', 'foo bar'])
+    @pytest.mark.parametrize('display_name', ['', 'foo', '1test', 'foo bar', 'a'*21])
     def test_invalid_display_name_value(self, display_name, tenant_mgt_app):
         with pytest.raises(ValueError) as excinfo:
             tenant_mgt.update_tenant('tenant-id', display_name=display_name, app=tenant_mgt_app)

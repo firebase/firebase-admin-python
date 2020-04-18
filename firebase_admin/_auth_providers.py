@@ -368,7 +368,7 @@ def _validate_non_empty_string(value, label):
 
 
 def _validate_url(url, label):
-    """Validates that the given value is a wellformed URL string."""
+    """Validates that the given value is a well-formed URL string."""
     if not isinstance(url, str) or not url:
         raise ValueError(
             'Invalid photo URL: "{0}". {1} must be a non-empty '

@@ -79,7 +79,7 @@ def get_tenant(tenant_id, app=None):
         app: An App instance (optional).
 
     Returns:
-        Tenant: A Tenant object.
+        Tenant: A tenant object.
 
     Raises:
         ValueError: If the tenant ID is None, empty or not a string.
@@ -104,7 +104,7 @@ def create_tenant(
         app: An App instance (optional).
 
     Returns:
-        Tenant: A Tenant object.
+        Tenant: A tenant object.
 
     Raises:
         ValueError: If any of the given arguments are invalid.
@@ -131,7 +131,7 @@ def update_tenant(
         app: An App instance (optional).
 
     Returns:
-        Tenant: The updated Tenant object.
+        Tenant: The updated tenant object.
 
     Raises:
         ValueError: If any of the given arguments are invalid.
@@ -176,7 +176,7 @@ def list_tenants(page_token=None, max_results=_MAX_LIST_TENANTS_RESULTS, app=Non
         app: An App instance (optional).
 
     Returns:
-        ListTenantsPage: A ListTenantsPage instance.
+        ListTenantsPage: A page of tenants.
 
     Raises:
         ValueError: If ``max_results`` or ``page_token`` are invalid.

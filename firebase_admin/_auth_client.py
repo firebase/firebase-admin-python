@@ -30,7 +30,7 @@ class Client:
 
     def __init__(self, app, tenant_id=None):
         if not app.project_id:
-            raise ValueError("""Project ID is required to access the auth service.
+            raise ValueError("""A project ID is required to access the auth service.
             1. Use a service account credential, or
             2. set the project ID explicitly via Firebase App options, or
             3. set the project ID via the GOOGLE_CLOUD_PROJECT environment variable.""")
@@ -73,7 +73,7 @@ class Client:
     def verify_id_token(self, id_token, check_revoked=False):
         """Verifies the signature and data for the provided JWT.
 
-        Accepts a signed token string, verifies that it is current, and issued
+        Accepts a signed token string, verifies that it is current, was issued
         to this project, and that it was correctly signed by Google.
 
         Args:
@@ -113,7 +113,7 @@ class Client:
     def revoke_refresh_tokens(self, uid):
         """Revokes all refresh tokens for an existing user.
 
-        revoke_refresh_tokens updates the user's tokens_valid_after_timestamp to the current UTC
+        This method updates the user's ``tokens_valid_after_timestamp`` to the current UTC
         in seconds since the epoch. It is important that the server on which this is called has its
         clock set correctly and synchronized.
 
@@ -138,7 +138,7 @@ class Client:
             uid: A user ID string.
 
         Returns:
-            UserRecord: A UserRecord instance.
+            UserRecord: A user record instance.
 
         Raises:
             ValueError: If the user ID is None, empty or malformed.
@@ -155,7 +155,7 @@ class Client:
             email: A user email address string.
 
         Returns:
-            UserRecord: A UserRecord instance.
+            UserRecord: A user record instance.
 
         Raises:
             ValueError: If the email is None, empty or malformed.
@@ -172,10 +172,10 @@ class Client:
             phone_number: A phone number string.
 
         Returns:
-            UserRecord: A UserRecord instance.
+            UserRecord: A user record instance.
 
         Raises:
-            ValueError: If the phone number is None, empty or malformed.
+            ValueError: If the phone number is ``None``, empty or malformed.
             UserNotFoundError: If no user exists by the specified phone number.
             FirebaseError: If an error occurs while retrieving the user.
         """
@@ -187,7 +187,7 @@ class Client:
 
         The ``page_token`` argument governs the starting point of the page. The ``max_results``
         argument governs the maximum number of user accounts that may be included in the returned
-        page. This function never returns None. If there are no user accounts in the Firebase
+        page. This function never returns ``None``. If there are no user accounts in the Firebase
         project, this returns an empty page.
 
         Args:
@@ -198,7 +198,7 @@ class Client:
                 allowed.
 
         Returns:
-            ListUsersPage: A ListUsersPage instance.
+            ListUsersPage: A page of user accounts.
 
         Raises:
             ValueError: If max_results or page_token are invalid.
@@ -310,7 +310,7 @@ class Client:
         """Imports the specified list of users into Firebase Auth.
 
         At most 1000 users can be imported at a time. This operation is optimized for bulk imports
-        and will ignore checks on identifier uniqueness which could result in duplications. The
+        and ignores checks on identifier uniqueness, which could result in duplications. The
         ``hash_alg`` parameter must be specified when importing users with passwords. Refer to the
         ``UserImportHash`` class for supported hash algorithms.
 
@@ -391,13 +391,13 @@ class Client:
             'EMAIL_SIGNIN', email, action_code_settings=action_code_settings)
 
     def get_oidc_provider_config(self, provider_id):
-        """Returns the OIDCProviderConfig with the given ID.
+        """Returns the ``OIDCProviderConfig`` with the given ID.
 
         Args:
             provider_id: Provider ID string.
 
         Returns:
-            SAMLProviderConfig: An OIDCProviderConfig instance.
+            SAMLProviderConfig: An OIDC provider config instance.
 
         Raises:
             ValueError: If the provider ID is invalid, empty or does not have ``oidc.`` prefix.
@@ -423,7 +423,7 @@ class Client:
                 (optional). A user cannot sign in using a disabled provider.
 
         Returns:
-            OIDCProviderConfig: The newly created OIDCProviderConfig instance.
+            OIDCProviderConfig: The newly created OIDC provider config instance.
 
         Raises:
             ValueError: If any of the specified input parameters are invalid.
@@ -447,7 +447,7 @@ class Client:
                 (optional).
 
         Returns:
-            OIDCProviderConfig: The updated OIDCProviderConfig instance.
+            OIDCProviderConfig: The updated OIDC provider config instance.
 
         Raises:
             ValueError: If any of the specified input parameters are invalid.
@@ -458,7 +458,7 @@ class Client:
             enabled=enabled)
 
     def delete_oidc_provider_config(self, provider_id):
-        """Deletes the OIDCProviderConfig with the given ID.
+        """Deletes the ``OIDCProviderConfig`` with the given ID.
 
         Args:
             provider_id: Provider ID string.
@@ -476,7 +476,7 @@ class Client:
 
         The ``page_token`` argument governs the starting point of the page. The ``max_results``
         argument governs the maximum number of configs that may be included in the returned
-        page. This function never returns None. If there are no OIDC configs in the Firebase
+        page. This function never returns ``None``. If there are no OIDC configs in the Firebase
         project, this returns an empty page.
 
         Args:
@@ -487,22 +487,22 @@ class Client:
                 allowed.
 
         Returns:
-            ListProviderConfigsPage: A ListProviderConfigsPage instance.
+            ListProviderConfigsPage: A page of OIDC provider config instances.
 
         Raises:
-            ValueError: If max_results or page_token are invalid.
+            ValueError: If ``max_results`` or ``page_token`` are invalid.
             FirebaseError: If an error occurs while retrieving the OIDC provider configs.
         """
         return self._provider_manager.list_oidc_provider_configs(page_token, max_results)
 
     def get_saml_provider_config(self, provider_id):
-        """Returns the SAMLProviderConfig with the given ID.
+        """Returns the ``SAMLProviderConfig`` with the given ID.
 
         Args:
             provider_id: Provider ID string.
 
         Returns:
-            SAMLProviderConfig: A SAMLProviderConfig instance.
+            SAMLProviderConfig: A SAML provider config instance.
 
         Raises:
             ValueError: If the provider ID is invalid, empty or does not have ``saml.`` prefix.
@@ -540,7 +540,7 @@ class Client:
                 (optional). A user cannot sign in using a disabled provider.
 
         Returns:
-            SAMLProviderConfig: The newly created SAMLProviderConfig instance.
+            SAMLProviderConfig: The newly created SAML provider config instance.
 
         Raises:
             ValueError: If any of the specified input parameters are invalid.
@@ -564,13 +564,13 @@ class Client:
                 provider  (optional).
             rp_entity_id: The SAML relying party entity ID (optional).
             callback_url: Callback URL string  (optional).
-            display_name: The user-friendly display name to the current configuration (optional).
+            display_name: The user-friendly display name of the current configuration (optional).
                 Pass ``auth.DELETE_ATTRIBUTE`` to delete the current display name.
             enabled: A boolean indicating whether the provider configuration is enabled or disabled
                 (optional).
 
         Returns:
-            SAMLProviderConfig: The updated SAMLProviderConfig instance.
+            SAMLProviderConfig: The updated SAML provider config instance.
 
         Raises:
             ValueError: If any of the specified input parameters are invalid.
@@ -582,7 +582,7 @@ class Client:
             callback_url=callback_url, display_name=display_name, enabled=enabled)
 
     def delete_saml_provider_config(self, provider_id):
-        """Deletes the SAMLProviderConfig with the given ID.
+        """Deletes the ``SAMLProviderConfig`` with the given ID.
 
         Args:
             provider_id: Provider ID string.
@@ -600,7 +600,7 @@ class Client:
 
         The ``page_token`` argument governs the starting point of the page. The ``max_results``
         argument governs the maximum number of configs that may be included in the returned
-        page. This function never returns None. If there are no SAML configs in the Firebase
+        page. This function never returns ``None``. If there are no SAML configs in the Firebase
         project, this returns an empty page.
 
         Args:
@@ -611,10 +611,10 @@ class Client:
                 allowed.
 
         Returns:
-            ListProviderConfigsPage: A ListProviderConfigsPage instance.
+            ListProviderConfigsPage: A page of SAML provider config instances.
 
         Raises:
-            ValueError: If max_results or page_token are invalid.
+            ValueError: If ``max_results`` or ``page_token`` are invalid.
             FirebaseError: If an error occurs while retrieving the SAML provider configs.
         """
         return self._provider_manager.list_saml_provider_configs(page_token, max_results)

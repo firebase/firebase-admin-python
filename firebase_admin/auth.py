@@ -35,6 +35,7 @@ __all__ = [
     'ActionCodeSettings',
     'CertificateFetchError',
     'Client',
+    'ConfigurationNotFoundError',
     'DELETE_ATTRIBUTE',
     'EmailAlreadyExistsError',
     'ErrorInfo',
@@ -48,6 +49,7 @@ __all__ = [
     'InvalidSessionCookieError',
     'ListProviderConfigsPage',
     'ListUsersPage',
+    'OIDCProviderConfig',
     'PhoneNumberAlreadyExistsError',
     'ProviderConfig',
     'RevokedIdTokenError',
@@ -65,14 +67,17 @@ __all__ = [
     'UserRecord',
 
     'create_custom_token',
+    'create_oidc_provider_config',
     'create_saml_provider_config',
     'create_session_cookie',
     'create_user',
+    'delete_oidc_provider_config',
     'delete_saml_provider_config',
     'delete_user',
     'generate_email_verification_link',
     'generate_password_reset_link',
     'generate_sign_in_with_email_link',
+    'get_oidc_provider_config',
     'get_saml_provider_config',
     'get_user',
     'get_user_by_email',
@@ -82,6 +87,7 @@ __all__ = [
     'list_users',
     'revoke_refresh_tokens',
     'set_custom_user_claims',
+    'update_oidc_provider_config',
     'update_saml_provider_config',
     'update_user',
     'verify_id_token',
@@ -107,7 +113,7 @@ ListProviderConfigsPage = _auth_providers.ListProviderConfigsPage
 ListUsersPage = _user_mgt.ListUsersPage
 OIDCProviderConfig = _auth_providers.OIDCProviderConfig
 PhoneNumberAlreadyExistsError = _auth_utils.PhoneNumberAlreadyExistsError
-ProviderConfig = _auth_providers.ProviderConfigClient
+ProviderConfig = _auth_providers.ProviderConfig
 RevokedIdTokenError = _token_gen.RevokedIdTokenError
 RevokedSessionCookieError = _token_gen.RevokedSessionCookieError
 SAMLProviderConfig = _auth_providers.SAMLProviderConfig

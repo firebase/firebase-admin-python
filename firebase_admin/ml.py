@@ -148,7 +148,7 @@ def list_models(list_filter=None, page_size=None, page_token=None, app=None):
     """Lists models from Firebase ML.
 
     Args:
-        list_filter: a list filter string such as "tags:'tag_1'". None will return all models.
+        list_filter: a list filter string such as ``tags:'tag_1'``. None will return all models.
         page_size: A number between 1 and 100 inclusive that specifies the maximum
             number of models to return per page. None for default.
         page_token: A next page token returned from a previous page of results. None

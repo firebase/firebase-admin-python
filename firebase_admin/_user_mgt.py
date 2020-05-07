@@ -265,6 +265,15 @@ class UserRecord(UserInfo):
                 return parsed
         return None
 
+    @property
+    def tenant_id(self):
+        """Returns the tenant ID of this user.
+
+        Returns:
+          string: A tenant ID string or None.
+        """
+        return self._data.get('tenantId')
+
 
 class ExportedUserRecord(UserRecord):
     """Contains metadata associated with a user including password hash and salt."""
@@ -561,8 +570,13 @@ def encode_action_code_settings(settings):
 class UserManager:
     """Provides methods for interacting with the Google Identity Toolkit."""
 
-    def __init__(self, client):
-        self._client = client
+    ID_TOOLKIT_URL = 'https://identitytoolkit.googleapis.com/v1'
+
+    def __init__(self, http_client, project_id, tenant_id=None):
+        self.http_client = http_client
+        self.base_url = '{0}/projects/{1}'.format(self.ID_TOOLKIT_URL, project_id)
+        if tenant_id:
+            self.base_url += '/tenants/{0}'.format(tenant_id)
 
     def get_user(self, **kwargs):
         """Gets the user data corresponding to the provided key."""
@@ -578,17 +592,12 @@ class UserManager:
         else:
             raise TypeError('Unsupported keyword arguments: {0}.'.format(kwargs))
 
-        try:
-            body, http_resp = self._client.body_and_response(
-                'post', '/accounts:lookup', json=payload)
-        except requests.exceptions.RequestException as error:
-            raise _auth_utils.handle_auth_backend_error(error)
-        else:
-            if not body or not body.get('users'):
-                raise _auth_utils.UserNotFoundError(
-                    'No user record found for the provided {0}: {1}.'.format(key_type, key),
-                    http_response=http_resp)
-            return body['users'][0]
+        body, http_resp = self._make_request('post', '/accounts:lookup', json=payload)
+        if not body or not body.get('users'):
+            raise _auth_utils.UserNotFoundError(
+                'No user record found for the provided {0}: {1}.'.format(key_type, key),
+                http_response=http_resp)
+        return body['users'][0]
 
     def get_users(self, identifiers):
         """Looks up multiple users by their identifiers (uid, email, etc.)
@@ -661,10 +670,8 @@ class UserManager:
         payload = {'maxResults': max_results}
         if page_token:
             payload['nextPageToken'] = page_token
-        try:
-            return self._client.body('get', '/accounts:batchGet', params=payload)
-        except requests.exceptions.RequestException as error:
-            raise _auth_utils.handle_auth_backend_error(error)
+        body, _ = self._make_request('get', '/accounts:batchGet', params=payload)
+        return body
 
     def create_user(self, uid=None, display_name=None, email=None, phone_number=None,
                     photo_url=None, password=None, disabled=None, email_verified=None):
@@ -680,15 +687,11 @@ class UserManager:
             'disabled': bool(disabled) if disabled is not None else None,
         }
         payload = {k: v for k, v in payload.items() if v is not None}
-        try:
-            body, http_resp = self._client.body_and_response('post', '/accounts', json=payload)
-        except requests.exceptions.RequestException as error:
-            raise _auth_utils.handle_auth_backend_error(error)
-        else:
-            if not body or not body.get('localId'):
-                raise _auth_utils.UnexpectedResponseError(
-                    'Failed to create new user.', http_response=http_resp)
-            return body.get('localId')
+        body, http_resp = self._make_request('post', '/accounts', json=payload)
+        if not body or not body.get('localId'):
+            raise _auth_utils.UnexpectedResponseError(
+                'Failed to create new user.', http_response=http_resp)
+        return body.get('localId')
 
     def update_user(self, uid, display_name=None, email=None, phone_number=None,
                     photo_url=None, password=None, disabled=None, email_verified=None,
@@ -731,29 +734,19 @@ class UserManager:
             payload['customAttributes'] = _auth_utils.validate_custom_claims(json_claims)
 
         payload = {k: v for k, v in payload.items() if v is not None}
-        try:
-            body, http_resp = self._client.body_and_response(
-                'post', '/accounts:update', json=payload)
-        except requests.exceptions.RequestException as error:
-            raise _auth_utils.handle_auth_backend_error(error)
-        else:
-            if not body or not body.get('localId'):
-                raise _auth_utils.UnexpectedResponseError(
-                    'Failed to update user: {0}.'.format(uid), http_response=http_resp)
-            return body.get('localId')
+        body, http_resp = self._make_request('post', '/accounts:update', json=payload)
+        if not body or not body.get('localId'):
+            raise _auth_utils.UnexpectedResponseError(
+                'Failed to update user: {0}.'.format(uid), http_response=http_resp)
+        return body.get('localId')
 
     def delete_user(self, uid):
         """Deletes the user identified by the specified user ID."""
         _auth_utils.validate_uid(uid, required=True)
-        try:
-            body, http_resp = self._client.body_and_response(
-                'post', '/accounts:delete', json={'localId' : uid})
-        except requests.exceptions.RequestException as error:
-            raise _auth_utils.handle_auth_backend_error(error)
-        else:
-            if not body or not body.get('kind'):
-                raise _auth_utils.UnexpectedResponseError(
-                    'Failed to delete user: {0}.'.format(uid), http_response=http_resp)
+        body, http_resp = self._make_request('post', '/accounts:delete', json={'localId' : uid})
+        if not body or not body.get('kind'):
+            raise _auth_utils.UnexpectedResponseError(
+                'Failed to delete user: {0}.'.format(uid), http_response=http_resp)
 
     def delete_users(self, uids, force_delete=False):
         """Deletes the users identified by the specified user ids.
@@ -813,16 +806,11 @@ class UserManager:
             if not isinstance(hash_alg, _user_import.UserImportHash):
                 raise ValueError('A UserImportHash is required to import users with passwords.')
             payload.update(hash_alg.to_dict())
-        try:
-            body, http_resp = self._client.body_and_response(
-                'post', '/accounts:batchCreate', json=payload)
-        except requests.exceptions.RequestException as error:
-            raise _auth_utils.handle_auth_backend_error(error)
-        else:
-            if not isinstance(body, dict):
-                raise _auth_utils.UnexpectedResponseError(
-                    'Failed to import users.', http_response=http_resp)
-            return body
+        body, http_resp = self._make_request('post', '/accounts:batchCreate', json=payload)
+        if not isinstance(body, dict):
+            raise _auth_utils.UnexpectedResponseError(
+                'Failed to import users.', http_response=http_resp)
+        return body
 
     def generate_email_action_link(self, action_type, email, action_code_settings=None):
         """Fetches the email action links for types
@@ -850,45 +838,22 @@ class UserManager:
         if action_code_settings:
             payload.update(encode_action_code_settings(action_code_settings))
 
+        body, http_resp = self._make_request('post', '/accounts:sendOobCode', json=payload)
+        if not body or not body.get('oobLink'):
+            raise _auth_utils.UnexpectedResponseError(
+                'Failed to generate email action link.', http_response=http_resp)
+        return body.get('oobLink')
+
+    def _make_request(self, method, path, **kwargs):
+        url = '{0}{1}'.format(self.base_url, path)
         try:
-            body, http_resp = self._client.body_and_response(
-                'post', '/accounts:sendOobCode', json=payload)
+            return self.http_client.body_and_response(method, url, **kwargs)
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)
-        else:
-            if not body or not body.get('oobLink'):
-                raise _auth_utils.UnexpectedResponseError(
-                    'Failed to generate email action link.', http_response=http_resp)
-            return body.get('oobLink')
 
 
-class _UserIterator:
-    """An iterator that allows iterating over user accounts, one at a time.
+class _UserIterator(_auth_utils.PageIterator):
 
-    This implementation loads a page of users into memory, and iterates on them. When the whole
-    page has been traversed, it loads another page. This class never keeps more than one page
-    of entries in memory.
-    """
-
-    def __init__(self, current_page):
-        if not current_page:
-            raise ValueError('Current page must not be None.')
-        self._current_page = current_page
-        self._index = 0
-
-    def next(self):
-        if self._index == len(self._current_page.users):
-            if self._current_page.has_next_page:
-                self._current_page = self._current_page.get_next_page()
-                self._index = 0
-        if self._index < len(self._current_page.users):
-            result = self._current_page.users[self._index]
-            self._index += 1
-            return result
-        raise StopIteration
-
-    def __next__(self):
-        return self.next()
-
-    def __iter__(self):
-        return self
+    @property
+    def items(self):
+        return self._current_page.users

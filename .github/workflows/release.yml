@@ -54,6 +54,8 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install setuptools wheel
+        pip install tensorflow
+        pip install keras
 
     - name: Run unit tests
       run: pytest
@@ -129,7 +131,7 @@ jobs:
     - name: Post to Twitter
       if: success() &&
         contains(github.event.pull_request.labels.*.name, 'release:tweet')
-      uses: ethomson/send-tweet-action@288f9339e0412e3038dce350e0da5ecdf12133a6
+      uses: firebase/firebase-admin-node/.github/actions/send-tweet@master
       with:
         status: >
           ${{ steps.preflight.outputs.version }} of @Firebase Admin Python SDK is avaialble.

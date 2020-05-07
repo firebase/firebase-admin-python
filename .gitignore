@@ -7,8 +7,8 @@
 build/
 dist/
 *~
-scripts/cert.json
-scripts/apikey.txt
+cert.json
+apikey.txt
 htmlcov/
 .pytest_cache/
 .vscode/

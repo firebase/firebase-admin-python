@@ -2286,7 +2286,7 @@ class TestTopicManagement:
             status=status, payload=self._DEFAULT_ERROR_RESPONSE)
         with pytest.raises(exc_type) as excinfo:
             messaging.subscribe_to_topic('foo', 'test-topic')
-        assert str(excinfo.value) == 'error_reason'
+        assert str(excinfo.value) == 'Error while calling the IID service: error_reason'
         assert len(recorder) == 1
         assert recorder[0].method == 'POST'
         assert recorder[0].url == self._get_url('iid/v1:batchAdd')
@@ -2318,7 +2318,7 @@ class TestTopicManagement:
             status=status, payload=self._DEFAULT_ERROR_RESPONSE)
         with pytest.raises(exc_type) as excinfo:
             messaging.unsubscribe_from_topic('foo', 'test-topic')
-        assert str(excinfo.value) == 'error_reason'
+        assert str(excinfo.value) == 'Error while calling the IID service: error_reason'
         assert len(recorder) == 1
         assert recorder[0].method == 'POST'
         assert recorder[0].url == self._get_url('iid/v1:batchRemove')

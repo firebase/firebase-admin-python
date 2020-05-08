@@ -230,7 +230,8 @@ class Client:
                 False)
 
         users = [_user_mgt.UserRecord(user) for user in response]
-        not_found = [identifier for identifier in identifiers if not _is_user_found(identifier, users)]
+        not_found = [
+            identifier for identifier in identifiers if not _is_user_found(identifier, users)]
 
         return _user_mgt.GetUsersResult(users=users, not_found=not_found)
 
@@ -382,7 +383,7 @@ class Client:
             ValueError: If any of the identifiers are invalid or if more than 1000
                 identifiers are specified.
         """
-        result =  self._user_manager.delete_users(uids, force_delete=True)
+        result = self._user_manager.delete_users(uids, force_delete=True)
         return _user_mgt.DeleteUsersResult(result, len(uids))
 
     def import_users(self, users, hash_alg=None):

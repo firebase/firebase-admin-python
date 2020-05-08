@@ -645,7 +645,7 @@ class UserManager:
                     .format(type(identifier)))
 
         body, http_resp = self._make_request(
-                'post', '/accounts:lookup', json=payload)
+            'post', '/accounts:lookup', json=payload)
         if not http_resp.ok:
             raise _auth_utils.UnexpectedResponseError(
                 'Failed to get users.', http_response=http_resp)
@@ -773,7 +773,7 @@ class UserManager:
             _auth_utils.validate_uid(uid, required=True)
 
         body, http_resp = self._make_request('post', '/accounts:batchDelete',
-                json={'localIds': uids, 'force': force_delete})
+                                             json={'localIds': uids, 'force': force_delete})
         if not isinstance(body, dict):
             raise _auth_utils.UnexpectedResponseError(
                 'Unexpected response from server while attempting to delete users.',

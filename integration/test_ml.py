@@ -42,22 +42,22 @@ def _random_identifier(prefix):
 
 
 NAME_ONLY_ARGS = {
-    'display_name': _random_identifier('TestModel123_')
+    'display_name': _random_identifier('TestModel_')
 }
 NAME_ONLY_ARGS_UPDATED = {
-    'display_name': _random_identifier('TestModel123_updated_')
+    'display_name': _random_identifier('TestModel_updated_')
 }
 NAME_AND_TAGS_ARGS = {
-    'display_name': _random_identifier('TestModel123_tags_'),
+    'display_name': _random_identifier('TestModel_tags_'),
     'tags': ['test_tag123']
 }
 FULL_MODEL_ARGS = {
-    'display_name': _random_identifier('TestModel123_full_'),
+    'display_name': _random_identifier('TestModel_full_'),
     'tags': ['test_tag567'],
     'file_name': 'model1.tflite'
 }
 INVALID_FULL_MODEL_ARGS = {
-    'display_name': _random_identifier('TestModel123_invalid_full_'),
+    'display_name': _random_identifier('TestModel_invalid_full_'),
     'tags': ['test_tag890'],
     'file_name': 'invalid_model.tflite'
 }

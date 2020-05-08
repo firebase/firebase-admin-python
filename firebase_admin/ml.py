@@ -49,8 +49,8 @@ except ImportError:
 _ML_ATTRIBUTE = '_ml'
 _MAX_PAGE_SIZE = 100
 _MODEL_ID_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,60}$')
-_DISPLAY_NAME_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,60}$')
-_TAG_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,60}$')
+_DISPLAY_NAME_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,32}$')
+_TAG_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,32}$')
 _GCS_TFLITE_URI_PATTERN = re.compile(
     r'^gs://(?P<bucket_name>[a-z0-9_.-]{3,63})/(?P<blob_name>.+)$')
 _RESOURCE_NAME_PATTERN = re.compile(

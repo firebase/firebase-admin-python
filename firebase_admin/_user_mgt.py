@@ -425,7 +425,7 @@ class DeleteUsersResult:
 
     @property
     def errors(self):
-        """A list of ``auth.ErrorInfo`` instances describing the errors that
+        """A list of `auth.ErrorInfo` instances describing the errors that
         were encountered during the deletion. Length of this list is equal to
         `failure_count`.
         """

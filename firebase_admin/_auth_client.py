@@ -361,9 +361,9 @@ class Client:
     def delete_users(self, uids):
         """Deletes the users specified by the given identifiers.
 
-        Deleting a non-existing user won't generate an error. (i.e. this method is
+        Deleting a non-existing user does not generate an error (the method is
         idempotent.) Non-existing users are considered to be successfully
-        deleted, and will therefore be counted in the
+        deleted and are therefore included in the
         `DeleteUserResult.success_count` value.
 
         A maximum of 1000 identifiers may be supplied. If more than 1000

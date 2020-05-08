@@ -369,34 +369,8 @@ def get_users(identifiers, app=None):
         ValueError: If any of the identifiers are invalid or if more than 100
             identifiers are specified.
     """
-    user_manager = _get_auth_service(app).user_manager
-    response = user_manager.get_users(identifiers=identifiers)
-
-    def _matches(identifier, user_record):
-        if isinstance(identifier, UidIdentifier):
-            return identifier.uid == user_record.uid
-        if isinstance(identifier, EmailIdentifier):
-            return identifier.email == user_record.email
-        if isinstance(identifier, PhoneIdentifier):
-            return identifier.phone_number == user_record.phone_number
-        if isinstance(identifier, ProviderIdentifier):
-            return next((
-                True
-                for user_info in user_record.provider_data
-                if identifier.provider_id == user_info.provider_id
-                and identifier.provider_uid == user_info.uid
-            ), False)
-        raise TypeError("Unexpected type: {}".format(type(identifier)))
-
-    def _is_user_found(identifier, user_records):
-        return next(
-            (True for user_record in user_records if _matches(identifier, user_record)),
-            False)
-
-    users = [UserRecord(user) for user in response]
-    not_found = [identifier for identifier in identifiers if not _is_user_found(identifier, users)]
-
-    return GetUsersResult(users=users, not_found=not_found)
+    client = _get_client(app)
+    return client.get_users(identifiers)
 
 
 def list_users(page_token=None, max_results=_user_mgt.MAX_LIST_USERS_RESULTS, app=None):
@@ -556,9 +530,8 @@ def delete_users(uids, app=None):
         ValueError: If any of the identifiers are invalid or if more than 1000
             identifiers are specified.
     """
-    user_manager = _get_auth_service(app).user_manager
-    result = user_manager.delete_users(uids, force_delete=True)
-    return DeleteUsersResult(result, len(uids))
+    client = _get_client(app)
+    return client.delete_users(uids)
 
 
 def import_users(users, hash_alg=None, app=None):

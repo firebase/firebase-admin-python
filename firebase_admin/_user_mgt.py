@@ -644,16 +644,12 @@ class UserManager:
                     'Invalid entry in "identifiers" list. Unsupported type: {}'
                     .format(type(identifier)))
 
-        try:
-            body, http_resp = self._client.body_and_response(
+        body, http_resp = self._make_request(
                 'post', '/accounts:lookup', json=payload)
-        except requests.exceptions.RequestException as error:
-            raise _auth_utils.handle_auth_backend_error(error)
-        else:
-            if not http_resp.ok:
-                raise _auth_utils.UnexpectedResponseError(
-                    'Failed to get users.', http_response=http_resp)
-            return body.get('users', [])
+        if not http_resp.ok:
+            raise _auth_utils.UnexpectedResponseError(
+                'Failed to get users.', http_response=http_resp)
+        return body.get('users', [])
 
     def list_users(self, page_token=None, max_results=MAX_LIST_USERS_RESULTS):
         """Retrieves a batch of users."""
@@ -776,18 +772,13 @@ class UserManager:
         for uid in uids:
             _auth_utils.validate_uid(uid, required=True)
 
-        try:
-            body, http_resp = self._client.body_and_response(
-                'post', '/accounts:batchDelete',
+        body, http_resp = self._make_request('post', '/accounts:batchDelete',
                 json={'localIds': uids, 'force': force_delete})
-        except requests.exceptions.RequestException as error:
-            raise _auth_utils.handle_auth_backend_error(error)
-        else:
-            if not isinstance(body, dict):
-                raise _auth_utils.UnexpectedResponseError(
-                    'Unexpected response from server while attempting to delete users.',
-                    http_response=http_resp)
-            return BatchDeleteAccountsResponse(body.get('errors', []))
+        if not isinstance(body, dict):
+            raise _auth_utils.UnexpectedResponseError(
+                'Unexpected response from server while attempting to delete users.',
+                http_response=http_resp)
+        return BatchDeleteAccountsResponse(body.get('errors', []))
 
     def import_users(self, users, hash_alg=None):
         """Imports the given list of users to Firebase Auth."""

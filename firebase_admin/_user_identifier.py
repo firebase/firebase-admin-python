@@ -32,8 +32,7 @@ class UidIdentifier(UserIdentifier):
         Args:
             uid: A user ID string.
         """
-        _auth_utils.validate_uid(uid, required=True)
-        self._uid = uid
+        self._uid = _auth_utils.validate_uid(uid, required=True)
 
     @property
     def uid(self):
@@ -52,8 +51,7 @@ class EmailIdentifier(UserIdentifier):
         Args:
             email: A user email address string.
         """
-        _auth_utils.validate_email(email, required=True)
-        self._email = email
+        self._email = _auth_utils.validate_email(email, required=True)
 
     @property
     def email(self):
@@ -72,8 +70,7 @@ class PhoneIdentifier(UserIdentifier):
         Args:
             phone_number: A phone number string.
         """
-        _auth_utils.validate_phone(phone_number, required=True)
-        self._phone_number = phone_number
+        self._phone_number = _auth_utils.validate_phone(phone_number, required=True)
 
     @property
     def phone_number(self):
@@ -93,10 +90,9 @@ class ProviderIdentifier(UserIdentifier):
             provider_id: A provider ID string.
             provider_uid: A provider UID string.
         """
-        _auth_utils.validate_provider_id(provider_id, required=True)
-        _auth_utils.validate_provider_uid(provider_uid, required=True)
-        self._provider_id = provider_id
-        self._provider_uid = provider_uid
+        self._provider_id = _auth_utils.validate_provider_id(provider_id, required=True)
+        self._provider_uid = _auth_utils.validate_provider_uid(
+            provider_uid, required=True)
 
     @property
     def provider_id(self):

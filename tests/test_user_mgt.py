@@ -349,34 +349,21 @@ class TestGetUsers:
         assert get_users_results.users == []
         assert get_users_results.not_found == not_found_ids
 
-    def test_invalid_uid(self, user_mgt_app):
+    def test_invalid_uid(self):
         with pytest.raises(ValueError):
-            auth.get_users([auth.UidIdentifier('too long ' + '.'*128)], app=user_mgt_app)
+            auth.UidIdentifier('too long ' + '.'*128)
 
-    def test_invalid_email(self, user_mgt_app):
+    def test_invalid_email(self):
         with pytest.raises(ValueError):
-            auth.get_users([auth.EmailIdentifier('invalid email addr')], app=user_mgt_app)
+            auth.EmailIdentifier('invalid email addr')
 
-    def test_invalid_phone_number(self, user_mgt_app):
+    def test_invalid_phone_number(self):
         with pytest.raises(ValueError):
-            auth.get_users([auth.PhoneIdentifier('invalid phone number')], app=user_mgt_app)
+            auth.PhoneIdentifier('invalid phone number')
 
-    def test_invalid_provider(self, user_mgt_app):
+    def test_invalid_provider(self):
         with pytest.raises(ValueError):
-            auth.get_users(
-                [auth.ProviderIdentifier(provider_id='', provider_uid='')],
-                app=user_mgt_app)
-
-    def test_single_bad_identifier(self, user_mgt_app):
-        identifiers = [
-            auth.UidIdentifier('valid_id1'),
-            auth.UidIdentifier('valid_id2'),
-            auth.UidIdentifier('invalid id; too long. ' + '.'*128),
-            auth.UidIdentifier('valid_id4'),
-            auth.UidIdentifier('valid_id5')]
-
-        with pytest.raises(ValueError):
-            auth.get_users(identifiers, app=user_mgt_app)
+            auth.ProviderIdentifier(provider_id='', provider_uid='')
 
     def test_success(self, user_mgt_app):
         mock_users = [{

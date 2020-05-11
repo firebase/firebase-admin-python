@@ -15,6 +15,7 @@
 """Firebase user management sub module."""
 
 import base64
+from collections import defaultdict
 import json
 from urllib import parse
 
@@ -621,24 +622,19 @@ class UserManager:
         if len(identifiers) > 100:
             raise ValueError('`identifiers` parameter must have <= 100 entries.')
 
-        payload = {}
+        payload = defaultdict(list)
         for identifier in identifiers:
             if isinstance(identifier, _user_identifier.UidIdentifier):
-                _auth_utils.validate_uid(identifier.uid, required=True)
-                payload['localId'] = payload.get('localId', []) + [identifier.uid]
+                payload['localId'].append(identifier.uid)
             elif isinstance(identifier, _user_identifier.EmailIdentifier):
-                _auth_utils.validate_email(identifier.email, required=True)
-                payload['email'] = payload.get('email', []) + [identifier.email]
+                payload['email'].append(identifier.email)
             elif isinstance(identifier, _user_identifier.PhoneIdentifier):
-                _auth_utils.validate_phone(identifier.phone_number, required=True)
-                payload['phoneNumber'] = payload.get('phoneNumber', []) + [identifier.phone_number]
+                payload['phoneNumber'].append(identifier.phone_number)
             elif isinstance(identifier, _user_identifier.ProviderIdentifier):
-                _auth_utils.validate_provider_id(identifier.provider_id, required=True)
-                _auth_utils.validate_provider_uid(identifier.provider_uid, required=True)
-                payload['federatedUserId'] = payload.get('federatedUserId', []) + [{
+                payload['federatedUserId'].append({
                     'providerId': identifier.provider_id,
                     'rawId': identifier.provider_uid
-                }]
+                })
             else:
                 raise ValueError(
                     'Invalid entry in "identifiers" list. Unsupported type: {}'

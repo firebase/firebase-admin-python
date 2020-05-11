@@ -225,9 +225,7 @@ class Client:
             raise TypeError("Unexpected type: {}".format(type(identifier)))
 
         def _is_user_found(identifier, user_records):
-            return next(
-                (True for user_record in user_records if _matches(identifier, user_record)),
-                False)
+            return any(_matches(identifier, user_record) for user_record in user_records)
 
         users = [_user_mgt.UserRecord(user) for user in response]
         not_found = [

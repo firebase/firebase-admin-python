@@ -14,6 +14,8 @@
 
 """Classes to uniquely identify a user."""
 
+from firebase_admin import _auth_utils
+
 class UserIdentifier:
     """Identifies a user to be looked up."""
 
@@ -30,7 +32,12 @@ class UidIdentifier(UserIdentifier):
         Args:
             uid: A user ID string.
         """
-        self.uid = uid
+        _auth_utils.validate_uid(uid, required=True)
+        self._uid = uid
+
+    @property
+    def uid(self):
+        return self._uid
 
 
 class EmailIdentifier(UserIdentifier):
@@ -45,7 +52,12 @@ class EmailIdentifier(UserIdentifier):
         Args:
             email: A user email address string.
         """
-        self.email = email
+        _auth_utils.validate_email(email, required=True)
+        self._email = email
+
+    @property
+    def email(self):
+        return self._email
 
 
 class PhoneIdentifier(UserIdentifier):
@@ -60,7 +72,12 @@ class PhoneIdentifier(UserIdentifier):
         Args:
             phone_number: A phone number string.
         """
-        self.phone_number = phone_number
+        _auth_utils.validate_phone(phone_number, required=True)
+        self._phone_number = phone_number
+
+    @property
+    def phone_number(self):
+        return self._phone_number
 
 
 class ProviderIdentifier(UserIdentifier):
@@ -76,5 +93,15 @@ class ProviderIdentifier(UserIdentifier):
             provider_id: A provider ID string.
             provider_uid: A provider UID string.
         """
-        self.provider_id = provider_id
-        self.provider_uid = provider_uid
+        _auth_utils.validate_provider_id(provider_id, required=True)
+        _auth_utils.validate_provider_uid(provider_uid, required=True)
+        self._provider_id = provider_id
+        self._provider_uid = provider_uid
+
+    @property
+    def provider_id(self):
+        return self._provider_id
+
+    @property
+    def provider_uid(self):
+        return self._provider_uid

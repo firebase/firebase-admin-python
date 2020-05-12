@@ -34,7 +34,6 @@ _AUTH_ATTRIBUTE = '_auth'
 
 __all__ = [
     'ActionCodeSettings',
-    'BatchDeleteAccountsResponse',
     'CertificateFetchError',
     'Client',
     'ConfigurationNotFoundError',

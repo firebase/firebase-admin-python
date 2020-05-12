@@ -34,6 +34,7 @@ _AUTH_ATTRIBUTE = '_auth'
 
 __all__ = [
     'ActionCodeSettings',
+    'BatchDeleteAccountsResponse',
     'CertificateFetchError',
     'Client',
     'ConfigurationNotFoundError',
@@ -43,6 +44,8 @@ __all__ = [
     'ExpiredIdTokenError',
     'ExpiredSessionCookieError',
     'ExportedUserRecord',
+    'DeleteUsersResult',
+    'GetUsersResult',
     'ImportUserRecord',
     'InsufficientPermissionError',
     'InvalidDynamicLinkDomainError',

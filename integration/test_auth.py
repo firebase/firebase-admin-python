@@ -18,6 +18,7 @@ import datetime
 import random
 import string
 import time
+from typing import List
 from urllib import parse
 import uuid
 
@@ -71,7 +72,7 @@ def _sign_in(custom_token, api_key):
     return resp.json().get('idToken')
 
 def _sign_in_with_password(email, password, api_key):
-    body = {'email': email, 'password': password}
+    body = {'email': email, 'password': password, 'returnSecureToken': True}
     params = {'key' : api_key}
     resp = requests.request('post', _verify_password_url, params=params, json=body)
     resp.raise_for_status()
@@ -191,7 +192,7 @@ def new_user():
     auth.delete_user(user.uid)
 
 @pytest.fixture
-def new_user_with_params():
+def new_user_with_params() -> auth.UserRecord:
     random_id, email = _random_id()
     phone = _random_phone()
     user = auth.create_user(
@@ -214,8 +215,51 @@ def new_user_list():
         auth.create_user(password='password').uid,
     ]
     yield users
+    # TODO(rsgowman): Using auth.delete_users() would make more sense here, but
+    # that's currently rate limited to 1qps, so using it in this context would
+    # almost certainly trigger errors. When/if that limit is relaxed, switch to
+    # batch delete.
     for uid in users:
         auth.delete_user(uid)
+
+@pytest.fixture
+def new_user_record_list() -> List[auth.UserRecord]:
+    uid1, email1 = _random_id()
+    uid2, email2 = _random_id()
+    uid3, email3 = _random_id()
+    users = [
+        auth.create_user(
+            uid=uid1, email=email1, password='password', phone_number=_random_phone()),
+        auth.create_user(
+            uid=uid2, email=email2, password='password', phone_number=_random_phone()),
+        auth.create_user(
+            uid=uid3, email=email3, password='password', phone_number=_random_phone()),
+    ]
+    yield users
+    for user in users:
+        auth.delete_user(user.uid)
+
+@pytest.fixture
+def new_user_with_provider() -> auth.UserRecord:
+    uid4, email4 = _random_id()
+    google_uid, google_email = _random_id()
+    import_user1 = auth.ImportUserRecord(
+        uid=uid4,
+        email=email4,
+        provider_data=[
+            auth.UserProvider(
+                uid=google_uid,
+                provider_id='google.com',
+                email=google_email,
+            )
+        ])
+    user_import_result = auth.import_users([import_user1])
+    assert user_import_result.success_count == 1
+    assert user_import_result.failure_count == 0
+
+    user = auth.get_user(uid4)
+    yield user
+    auth.delete_user(user.uid)
 
 @pytest.fixture
 def new_user_email_unverified():
@@ -247,6 +291,87 @@ def test_get_user(new_user_with_params):
     assert len(user.provider_data) == 2
     provider_ids = sorted([provider.provider_id for provider in user.provider_data])
     assert provider_ids == ['password', 'phone']
+
+class TestGetUsers:
+    @staticmethod
+    def _map_user_record_to_uid_email_phones(user_record):
+        return {
+            'uid': user_record.uid,
+            'email': user_record.email,
+            'phone_number': user_record.phone_number
+        }
+
+    def test_multiple_uid_types(self, new_user_record_list, new_user_with_provider):
+        get_users_results = auth.get_users([
+            auth.UidIdentifier(new_user_record_list[0].uid),
+            auth.EmailIdentifier(new_user_record_list[1].email),
+            auth.PhoneIdentifier(new_user_record_list[2].phone_number),
+            auth.ProviderIdentifier(
+                new_user_with_provider.provider_data[0].provider_id,
+                new_user_with_provider.provider_data[0].uid,
+            )])
+        actual = sorted([
+            self._map_user_record_to_uid_email_phones(user)
+            for user in get_users_results.users
+        ], key=lambda user: user['uid'])
+        expected = sorted([
+            self._map_user_record_to_uid_email_phones(user)
+            for user in new_user_record_list + [new_user_with_provider]
+        ], key=lambda user: user['uid'])
+
+        assert actual == expected
+
+    def test_existing_and_non_existing_users(self, new_user_record_list):
+        get_users_results = auth.get_users([
+            auth.UidIdentifier(new_user_record_list[0].uid),
+            auth.UidIdentifier('uid_that_doesnt_exist'),
+            auth.UidIdentifier(new_user_record_list[2].uid)])
+        actual = sorted([
+            self._map_user_record_to_uid_email_phones(user)
+            for user in get_users_results.users
+        ], key=lambda user: user['uid'])
+        expected = sorted([
+            self._map_user_record_to_uid_email_phones(user)
+            for user in [new_user_record_list[0], new_user_record_list[2]]
+        ], key=lambda user: user['uid'])
+
+        assert actual == expected
+
+    def test_non_existing_users(self):
+        not_found_ids = [auth.UidIdentifier('non-existing user')]
+        get_users_results = auth.get_users(not_found_ids)
+
+        assert get_users_results.users == []
+        assert get_users_results.not_found == not_found_ids
+
+    def test_de_dups_duplicate_users(self, new_user):
+        get_users_results = auth.get_users([
+            auth.UidIdentifier(new_user.uid),
+            auth.UidIdentifier(new_user.uid)])
+        actual = [
+            self._map_user_record_to_uid_email_phones(user)
+            for user in get_users_results.users]
+        expected = [self._map_user_record_to_uid_email_phones(new_user)]
+        assert actual == expected
+
+def test_last_refresh_timestamp(new_user_with_params: auth.UserRecord, api_key):
+    # new users should not have a last_refresh_timestamp set
+    assert new_user_with_params.user_metadata.last_refresh_timestamp is None
+
+    # login to cause the last_refresh_timestamp to be set
+    _sign_in_with_password(new_user_with_params.email, 'secret', api_key)
+    new_user_with_params = auth.get_user(new_user_with_params.uid)
+
+    # Ensure the last refresh time occurred at approximately 'now'. (With a
+    # tolerance of up to 1 minute; we ideally want to ensure that any timezone
+    # considerations are handled properly, so as long as we're within an hour,
+    # we're in good shape.)
+    millis_per_second = 1000
+    millis_per_minute = millis_per_second * 60
+
+    last_refresh_timestamp = new_user_with_params.user_metadata.last_refresh_timestamp
+    assert last_refresh_timestamp == pytest.approx(
+        time.time()*millis_per_second, 1*millis_per_minute)
 
 def test_list_users(new_user_list):
     err_msg_template = (
@@ -365,6 +490,36 @@ def test_delete_user():
     auth.delete_user(user.uid)
     with pytest.raises(auth.UserNotFoundError):
         auth.get_user(user.uid)
+
+
+class TestDeleteUsers:
+    def test_delete_multiple_users(self):
+        uid1 = auth.create_user(disabled=True).uid
+        uid2 = auth.create_user(disabled=False).uid
+        uid3 = auth.create_user(disabled=True).uid
+
+        delete_users_result = auth.delete_users([uid1, uid2, uid3])
+        assert delete_users_result.success_count == 3
+        assert delete_users_result.failure_count == 0
+        assert len(delete_users_result.errors) == 0
+
+        get_users_results = auth.get_users(
+            [auth.UidIdentifier(uid1), auth.UidIdentifier(uid2), auth.UidIdentifier(uid3)])
+        assert len(get_users_results.users) == 0
+
+    def test_is_idempotent(self):
+        uid = auth.create_user().uid
+
+        delete_users_result = auth.delete_users([uid])
+        assert delete_users_result.success_count == 1
+        assert delete_users_result.failure_count == 0
+
+        # Delete the user again, ensuring that everything still counts as a
+        # success.
+        delete_users_result = auth.delete_users([uid])
+        assert delete_users_result.success_count == 1
+        assert delete_users_result.failure_count == 0
+
 
 def test_revoke_refresh_tokens(new_user):
     user = auth.get_user(new_user.uid)

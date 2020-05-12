@@ -15,13 +15,17 @@
 """Firebase user management sub module."""
 
 import base64
+from collections import defaultdict
 import json
 from urllib import parse
 
 import requests
 
 from firebase_admin import _auth_utils
+from firebase_admin import _rfc3339
+from firebase_admin import _user_identifier
 from firebase_admin import _user_import
+from firebase_admin._user_import import ErrorInfo
 
 
 MAX_LIST_USERS_RESULTS = 1000
@@ -41,11 +45,14 @@ DELETE_ATTRIBUTE = Sentinel('Value used to delete an attribute from a user profi
 class UserMetadata:
     """Contains additional metadata associated with a user account."""
 
-    def __init__(self, creation_timestamp=None, last_sign_in_timestamp=None):
+    def __init__(self, creation_timestamp=None, last_sign_in_timestamp=None,
+                 last_refresh_timestamp=None):
         self._creation_timestamp = _auth_utils.validate_timestamp(
             creation_timestamp, 'creation_timestamp')
         self._last_sign_in_timestamp = _auth_utils.validate_timestamp(
             last_sign_in_timestamp, 'last_sign_in_timestamp')
+        self._last_refresh_timestamp = _auth_utils.validate_timestamp(
+            last_refresh_timestamp, 'last_refresh_timestamp')
 
     @property
     def creation_timestamp(self):
@@ -64,6 +71,16 @@ class UserMetadata:
           integer: The last sign in timestamp in milliseconds since the epoch.
         """
         return self._last_sign_in_timestamp
+
+    @property
+    def last_refresh_timestamp(self):
+        """The time at which the user was last active (ID token refreshed).
+
+        Returns:
+          integer: Milliseconds since epoch timestamp, or `None` if the user was
+            never active.
+        """
+        return self._last_refresh_timestamp
 
 
 class UserInfo:
@@ -216,7 +233,12 @@ class UserRecord(UserInfo):
             if key in self._data:
                 return int(self._data[key])
             return None
-        return UserMetadata(_int_or_none('createdAt'), _int_or_none('lastLoginAt'))
+        last_refresh_at_millis = None
+        last_refresh_at_rfc3339 = self._data.get('lastRefreshAt', None)
+        if last_refresh_at_rfc3339:
+            last_refresh_at_millis = int(_rfc3339.parse_to_epoch(last_refresh_at_rfc3339) * 1000)
+        return UserMetadata(
+            _int_or_none('createdAt'), _int_or_none('lastLoginAt'), last_refresh_at_millis)
 
     @property
     def provider_data(self):
@@ -289,6 +311,35 @@ class ExportedUserRecord(UserRecord):
         return self._data.get('salt')
 
 
+class GetUsersResult:
+    """Represents the result of the ``auth.get_users()`` API."""
+
+    def __init__(self, users, not_found):
+        """Constructs a `GetUsersResult` object.
+
+        Args:
+            users: List of `UserRecord` instances.
+            not_found: List of `UserIdentifier` instances.
+        """
+        self._users = users
+        self._not_found = not_found
+
+    @property
+    def users(self):
+        """Set of `UserRecord` instances, corresponding to the set of users
+        that were requested. Only users that were found are listed here. The
+        result set is unordered.
+        """
+        return self._users
+
+    @property
+    def not_found(self):
+        """Set of `UserIdentifier` instances that were requested, but not
+        found.
+        """
+        return self._not_found
+
+
 class ListUsersPage:
     """Represents a page of user records exported from a Firebase project.
 
@@ -338,6 +389,63 @@ class ListUsersPage:
             iterator: An iterator of ExportedUserRecord instances.
         """
         return _UserIterator(self)
+
+
+class DeleteUsersResult:
+    """Represents the result of the ``auth.delete_users()`` API."""
+
+    def __init__(self, result, total):
+        """Constructs a `DeleteUsersResult` object.
+
+        Args:
+          result: The proto response, wrapped in a
+            `BatchDeleteAccountsResponse` instance.
+          total: Total integer number of deletion attempts.
+        """
+        errors = result.errors
+        self._success_count = total - len(errors)
+        self._failure_count = len(errors)
+        self._errors = errors
+
+    @property
+    def success_count(self):
+        """Returns the number of users that were deleted successfully (possibly
+        zero).
+
+        Users that did not exist prior to calling `delete_users()` are
+        considered to be successfully deleted.
+        """
+        return self._success_count
+
+    @property
+    def failure_count(self):
+        """Returns the number of users that failed to be deleted (possibly
+        zero).
+        """
+        return self._failure_count
+
+    @property
+    def errors(self):
+        """A list of `auth.ErrorInfo` instances describing the errors that
+        were encountered during the deletion. Length of this list is equal to
+        `failure_count`.
+        """
+        return self._errors
+
+
+class BatchDeleteAccountsResponse:
+    """Represents the results of a `delete_users()` call."""
+
+    def __init__(self, errors=None):
+        """Constructs a `BatchDeleteAccountsResponse` instance, corresponding to
+        the JSON representing the `BatchDeleteAccountsResponse` proto.
+
+        Args:
+            errors: List of dictionaries, with each dictionary representing an
+                `ErrorInfo` instance as returned by the server. `None` implies
+                an empty list.
+        """
+        self.errors = [ErrorInfo(err) for err in errors] if errors else []
 
 
 class ProviderUserInfo(UserInfo):
@@ -492,6 +600,53 @@ class UserManager:
                 http_response=http_resp)
         return body['users'][0]
 
+    def get_users(self, identifiers):
+        """Looks up multiple users by their identifiers (uid, email, etc.)
+
+        Args:
+            identifiers: UserIdentifier[]: The identifiers indicating the user
+                to be looked up. Must have <= 100 entries.
+
+        Returns:
+            list[dict[string, string]]: List of dicts representing the JSON
+            `UserInfo` responses from the server.
+
+        Raises:
+            ValueError: If any of the identifiers are invalid or if more than
+                100 identifiers are specified.
+            UnexpectedResponseError: If the backend server responds with an
+                unexpected message.
+        """
+        if not identifiers:
+            return []
+        if len(identifiers) > 100:
+            raise ValueError('`identifiers` parameter must have <= 100 entries.')
+
+        payload = defaultdict(list)
+        for identifier in identifiers:
+            if isinstance(identifier, _user_identifier.UidIdentifier):
+                payload['localId'].append(identifier.uid)
+            elif isinstance(identifier, _user_identifier.EmailIdentifier):
+                payload['email'].append(identifier.email)
+            elif isinstance(identifier, _user_identifier.PhoneIdentifier):
+                payload['phoneNumber'].append(identifier.phone_number)
+            elif isinstance(identifier, _user_identifier.ProviderIdentifier):
+                payload['federatedUserId'].append({
+                    'providerId': identifier.provider_id,
+                    'rawId': identifier.provider_uid
+                })
+            else:
+                raise ValueError(
+                    'Invalid entry in "identifiers" list. Unsupported type: {}'
+                    .format(type(identifier)))
+
+        body, http_resp = self._make_request(
+            'post', '/accounts:lookup', json=payload)
+        if not http_resp.ok:
+            raise _auth_utils.UnexpectedResponseError(
+                'Failed to get users.', http_response=http_resp)
+        return body.get('users', [])
+
     def list_users(self, page_token=None, max_results=MAX_LIST_USERS_RESULTS):
         """Retrieves a batch of users."""
         if page_token is not None:
@@ -584,6 +739,42 @@ class UserManager:
         if not body or not body.get('kind'):
             raise _auth_utils.UnexpectedResponseError(
                 'Failed to delete user: {0}.'.format(uid), http_response=http_resp)
+
+    def delete_users(self, uids, force_delete=False):
+        """Deletes the users identified by the specified user ids.
+
+        Args:
+            uids: A list of strings indicating the uids of the users to be deleted.
+                Must have <= 1000 entries.
+            force_delete: Optional parameter that indicates if users should be
+                deleted, even if they're not disabled. Defaults to False.
+
+
+        Returns:
+            BatchDeleteAccountsResponse: Server's proto response, wrapped in a
+                python object.
+
+        Raises:
+            ValueError: If any of the identifiers are invalid or if more than 1000
+                identifiers are specified.
+            UnexpectedResponseError: If the backend server responds with an
+                unexpected message.
+        """
+        if not uids:
+            return BatchDeleteAccountsResponse()
+
+        if len(uids) > 1000:
+            raise ValueError("`uids` paramter must have <= 1000 entries.")
+        for uid in uids:
+            _auth_utils.validate_uid(uid, required=True)
+
+        body, http_resp = self._make_request('post', '/accounts:batchDelete',
+                                             json={'localIds': uids, 'force': force_delete})
+        if not isinstance(body, dict):
+            raise _auth_utils.UnexpectedResponseError(
+                'Unexpected response from server while attempting to delete users.',
+                http_response=http_resp)
+        return BatchDeleteAccountsResponse(body.get('errors', []))
 
     def import_users(self, users, hash_alg=None):
         """Imports the given list of users to Firebase Auth."""

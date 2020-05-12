@@ -21,6 +21,7 @@ from firebase_admin import _auth_providers
 from firebase_admin import _auth_utils
 from firebase_admin import _http_client
 from firebase_admin import _token_gen
+from firebase_admin import _user_identifier
 from firebase_admin import _user_import
 from firebase_admin import _user_mgt
 
@@ -182,6 +183,56 @@ class Client:
         response = self._user_manager.get_user(phone_number=phone_number)
         return _user_mgt.UserRecord(response)
 
+    def get_users(self, identifiers):
+        """Gets the user data corresponding to the specified identifiers.
+
+        There are no ordering guarantees; in particular, the nth entry in the
+        result list is not guaranteed to correspond to the nth entry in the input
+        parameters list.
+
+        A maximum of 100 identifiers may be supplied. If more than 100
+        identifiers are supplied, this method raises a `ValueError`.
+
+        Args:
+            identifiers (list[Identifier]): A list of ``Identifier`` instances used
+                to indicate which user records should be returned. Must have <= 100
+                entries.
+
+        Returns:
+            GetUsersResult: A ``GetUsersResult`` instance corresponding to the
+                specified identifiers.
+
+        Raises:
+            ValueError: If any of the identifiers are invalid or if more than 100
+                identifiers are specified.
+        """
+        response = self._user_manager.get_users(identifiers=identifiers)
+
+        def _matches(identifier, user_record):
+            if isinstance(identifier, _user_identifier.UidIdentifier):
+                return identifier.uid == user_record.uid
+            if isinstance(identifier, _user_identifier.EmailIdentifier):
+                return identifier.email == user_record.email
+            if isinstance(identifier, _user_identifier.PhoneIdentifier):
+                return identifier.phone_number == user_record.phone_number
+            if isinstance(identifier, _user_identifier.ProviderIdentifier):
+                return next((
+                    True
+                    for user_info in user_record.provider_data
+                    if identifier.provider_id == user_info.provider_id
+                    and identifier.provider_uid == user_info.uid
+                ), False)
+            raise TypeError("Unexpected type: {}".format(type(identifier)))
+
+        def _is_user_found(identifier, user_records):
+            return any(_matches(identifier, user_record) for user_record in user_records)
+
+        users = [_user_mgt.UserRecord(user) for user in response]
+        not_found = [
+            identifier for identifier in identifiers if not _is_user_found(identifier, users)]
+
+        return _user_mgt.GetUsersResult(users=users, not_found=not_found)
+
     def list_users(self, page_token=None, max_results=_user_mgt.MAX_LIST_USERS_RESULTS):
         """Retrieves a page of user accounts from a Firebase project.
 
@@ -305,6 +356,33 @@ class Client:
             FirebaseError: If an error occurs while deleting the user account.
         """
         self._user_manager.delete_user(uid)
+
+    def delete_users(self, uids):
+        """Deletes the users specified by the given identifiers.
+
+        Deleting a non-existing user does not generate an error (the method is
+        idempotent.) Non-existing users are considered to be successfully
+        deleted and are therefore included in the
+        `DeleteUserResult.success_count` value.
+
+        A maximum of 1000 identifiers may be supplied. If more than 1000
+        identifiers are supplied, this method raises a `ValueError`.
+
+        Args:
+            uids: A list of strings indicating the uids of the users to be deleted.
+                Must have <= 1000 entries.
+
+        Returns:
+            DeleteUsersResult: The total number of successful/failed deletions, as
+                well as the array of errors that correspond to the failed
+                deletions.
+
+        Raises:
+            ValueError: If any of the identifiers are invalid or if more than 1000
+                identifiers are specified.
+        """
+        result = self._user_manager.delete_users(uids, force_delete=True)
+        return _user_mgt.DeleteUsersResult(result, len(uids))
 
     def import_users(self, users, hash_alg=None):
         """Imports the specified list of users into Firebase Auth.

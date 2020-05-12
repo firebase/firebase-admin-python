@@ -322,6 +322,92 @@ class TestGetUser:
         assert excinfo.value.cause is not None
 
 
+class TestGetUsers:
+
+    @staticmethod
+    def _map_user_record_to_uid_email_phones(user_record):
+        return {
+            'uid': user_record.uid,
+            'email': user_record.email,
+            'phone_number': user_record.phone_number
+        }
+
+    def test_more_than_100_identifiers(self, user_mgt_app):
+        identifiers = [auth.UidIdentifier('id' + str(i)) for i in range(101)]
+        with pytest.raises(ValueError):
+            auth.get_users(identifiers, app=user_mgt_app)
+
+    def test_no_identifiers(self, user_mgt_app):
+        get_users_results = auth.get_users([], app=user_mgt_app)
+        assert get_users_results.users == []
+        assert get_users_results.not_found == []
+
+    def test_identifiers_that_do_not_exist(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 200, '{}')
+        not_found_ids = [auth.UidIdentifier('id that doesnt exist')]
+        get_users_results = auth.get_users(not_found_ids, app=user_mgt_app)
+        assert get_users_results.users == []
+        assert get_users_results.not_found == not_found_ids
+
+    def test_invalid_uid(self):
+        with pytest.raises(ValueError):
+            auth.UidIdentifier('too long ' + '.'*128)
+
+    def test_invalid_email(self):
+        with pytest.raises(ValueError):
+            auth.EmailIdentifier('invalid email addr')
+
+    def test_invalid_phone_number(self):
+        with pytest.raises(ValueError):
+            auth.PhoneIdentifier('invalid phone number')
+
+    def test_invalid_provider(self):
+        with pytest.raises(ValueError):
+            auth.ProviderIdentifier(provider_id='', provider_uid='')
+
+    def test_success(self, user_mgt_app):
+        mock_users = [{
+            "localId": "uid1",
+            "email": "user1@example.com",
+            "phoneNumber": "+15555550001"
+        }, {
+            "localId": "uid2",
+            "email": "user2@example.com",
+            "phoneNumber": "+15555550002"
+        }, {
+            "localId": "uid3",
+            "email": "user3@example.com",
+            "phoneNumber": "+15555550003"
+        }, {
+            "localId": "uid4",
+            "email": "user4@example.com",
+            "phoneNumber": "+15555550004",
+            "providerUserInfo": [{
+                "providerId": "google.com",
+                "rawId": "google_uid4"
+            }]
+        }]
+        _instrument_user_manager(user_mgt_app, 200, '{ "users": ' + json.dumps(mock_users) + '}')
+
+        get_users_results = auth.get_users([
+            auth.UidIdentifier('uid1'),
+            auth.EmailIdentifier('user2@example.com'),
+            auth.PhoneIdentifier('+15555550003'),
+            auth.ProviderIdentifier(provider_id='google.com', provider_uid='google_uid4'),
+            auth.UidIdentifier('this-user-doesnt-exist'),
+            ], app=user_mgt_app)
+
+        actual = sorted(
+            [self._map_user_record_to_uid_email_phones(user) for user in get_users_results.users],
+            key=lambda user: user['uid'])
+        expected = sorted([
+            self._map_user_record_to_uid_email_phones(auth.UserRecord(user))
+            for user in mock_users
+        ], key=lambda user: user['uid'])
+        assert actual == expected
+        assert [u.uid for u in get_users_results.not_found] == ['this-user-doesnt-exist']
+
+
 class TestCreateUser:
 
     already_exists_errors = {
@@ -631,6 +717,54 @@ class TestDeleteUser:
         assert excinfo.value.http_response is not None
         assert excinfo.value.cause is None
         assert isinstance(excinfo.value, exceptions.UnknownError)
+
+
+class TestDeleteUsers:
+
+    def test_empty_list(self, user_mgt_app):
+        delete_users_result = auth.delete_users([], app=user_mgt_app)
+        assert delete_users_result.success_count == 0
+        assert delete_users_result.failure_count == 0
+        assert len(delete_users_result.errors) == 0
+
+    def test_too_many_identifiers_should_fail(self, user_mgt_app):
+        ids = ['id' + str(i) for i in range(1001)]
+        with pytest.raises(ValueError):
+            auth.delete_users(ids, app=user_mgt_app)
+
+    def test_invalid_id_should_fail(self, user_mgt_app):
+        ids = ['too long ' + '.'*128]
+        with pytest.raises(ValueError):
+            auth.delete_users(ids, app=user_mgt_app)
+
+    def test_should_index_errors_correctly_in_results(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 200, """{
+            "errors": [{
+                "index": 0,
+                "localId": "uid1",
+                "message": "NOT_DISABLED : Disable the account before batch deletion."
+            }, {
+                "index": 2,
+                "localId": "uid3",
+                "message": "something awful"
+            }]
+        }""")
+
+        delete_users_result = auth.delete_users(['uid1', 'uid2', 'uid3', 'uid4'], app=user_mgt_app)
+        assert delete_users_result.success_count == 2
+        assert delete_users_result.failure_count == 2
+        assert len(delete_users_result.errors) == 2
+        assert delete_users_result.errors[0].index == 0
+        assert delete_users_result.errors[0].reason.startswith('NOT_DISABLED')
+        assert delete_users_result.errors[1].index == 2
+        assert delete_users_result.errors[1].reason == 'something awful'
+
+    def test_success(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 200, '{}')
+        delete_users_result = auth.delete_users(['uid1', 'uid2', 'uid3'], app=user_mgt_app)
+        assert delete_users_result.success_count == 3
+        assert delete_users_result.failure_count == 0
+        assert len(delete_users_result.errors) == 0
 
 
 class TestListUsers:

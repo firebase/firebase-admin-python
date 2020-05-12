@@ -22,6 +22,7 @@ creating and managing user accounts in Firebase projects.
 from firebase_admin import _auth_client
 from firebase_admin import _auth_providers
 from firebase_admin import _auth_utils
+from firebase_admin import _user_identifier
 from firebase_admin import _token_gen
 from firebase_admin import _user_import
 from firebase_admin import _user_mgt
@@ -66,6 +67,12 @@ __all__ = [
     'UserProvider',
     'UserRecord',
 
+    'UserIdentifier',
+    'UidIdentifier',
+    'EmailIdentifier',
+    'PhoneIdentifier',
+    'ProviderIdentifier',
+
     'create_custom_token',
     'create_oidc_provider_config',
     'create_saml_provider_config',
@@ -74,6 +81,7 @@ __all__ = [
     'delete_oidc_provider_config',
     'delete_saml_provider_config',
     'delete_user',
+    'delete_users',
     'generate_email_verification_link',
     'generate_password_reset_link',
     'generate_sign_in_with_email_link',
@@ -82,6 +90,7 @@ __all__ = [
     'get_user',
     'get_user_by_email',
     'get_user_by_phone_number',
+    'get_users',
     'import_users',
     'list_saml_provider_configs',
     'list_users',
@@ -99,11 +108,13 @@ CertificateFetchError = _token_gen.CertificateFetchError
 Client = _auth_client.Client
 ConfigurationNotFoundError = _auth_utils.ConfigurationNotFoundError
 DELETE_ATTRIBUTE = _user_mgt.DELETE_ATTRIBUTE
+DeleteUsersResult = _user_mgt.DeleteUsersResult
 EmailAlreadyExistsError = _auth_utils.EmailAlreadyExistsError
 ErrorInfo = _user_import.ErrorInfo
 ExpiredIdTokenError = _token_gen.ExpiredIdTokenError
 ExpiredSessionCookieError = _token_gen.ExpiredSessionCookieError
 ExportedUserRecord = _user_mgt.ExportedUserRecord
+GetUsersResult = _user_mgt.GetUsersResult
 ImportUserRecord = _user_import.ImportUserRecord
 InsufficientPermissionError = _auth_utils.InsufficientPermissionError
 InvalidDynamicLinkDomainError = _auth_utils.InvalidDynamicLinkDomainError
@@ -127,6 +138,12 @@ UserMetadata = _user_mgt.UserMetadata
 UserNotFoundError = _auth_utils.UserNotFoundError
 UserProvider = _user_import.UserProvider
 UserRecord = _user_mgt.UserRecord
+
+UserIdentifier = _user_identifier.UserIdentifier
+UidIdentifier = _user_identifier.UidIdentifier
+EmailIdentifier = _user_identifier.EmailIdentifier
+PhoneIdentifier = _user_identifier.PhoneIdentifier
+ProviderIdentifier = _user_identifier.ProviderIdentifier
 
 
 def _get_client(app):
@@ -328,6 +345,34 @@ def get_user_by_phone_number(phone_number, app=None):
     return client.get_user_by_phone_number(phone_number=phone_number)
 
 
+def get_users(identifiers, app=None):
+    """Gets the user data corresponding to the specified identifiers.
+
+    There are no ordering guarantees; in particular, the nth entry in the
+    result list is not guaranteed to correspond to the nth entry in the input
+    parameters list.
+
+    A maximum of 100 identifiers may be supplied. If more than 100
+    identifiers are supplied, this method raises a `ValueError`.
+
+    Args:
+        identifiers (list[Identifier]): A list of ``Identifier`` instances used
+            to indicate which user records should be returned. Must have <= 100
+            entries.
+        app: An App instance (optional).
+
+    Returns:
+        GetUsersResult: A ``GetUsersResult`` instance corresponding to the
+            specified identifiers.
+
+    Raises:
+        ValueError: If any of the identifiers are invalid or if more than 100
+            identifiers are specified.
+    """
+    client = _get_client(app)
+    return client.get_users(identifiers)
+
+
 def list_users(page_token=None, max_results=_user_mgt.MAX_LIST_USERS_RESULTS, app=None):
     """Retrieves a page of user accounts from a Firebase project.
 
@@ -458,6 +503,34 @@ def delete_user(uid, app=None):
     """
     client = _get_client(app)
     client.delete_user(uid)
+
+
+def delete_users(uids, app=None):
+    """Deletes the users specified by the given identifiers.
+
+    Deleting a non-existing user does not generate an error (the method is
+    idempotent.) Non-existing users are considered to be successfully deleted
+    and are therefore included in the `DeleteUserResult.success_count` value.
+
+    A maximum of 1000 identifiers may be supplied. If more than 1000
+    identifiers are supplied, this method raises a `ValueError`.
+
+    Args:
+        uids: A list of strings indicating the uids of the users to be deleted.
+            Must have <= 1000 entries.
+        app: An App instance (optional).
+
+    Returns:
+        DeleteUsersResult: The total number of successful/failed deletions, as
+            well as the array of errors that correspond to the failed
+            deletions.
+
+    Raises:
+        ValueError: If any of the identifiers are invalid or if more than 1000
+            identifiers are specified.
+    """
+    client = _get_client(app)
+    return client.delete_users(uids)
 
 
 def import_users(users, hash_alg=None, app=None):

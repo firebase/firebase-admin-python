@@ -374,8 +374,8 @@ class Client:
 
         Returns:
             DeleteUsersResult: The total number of successful/failed deletions, as
-                well as the array of errors that correspond to the failed
-                deletions.
+            well as the array of errors that correspond to the failed
+            deletions.
 
         Raises:
             ValueError: If any of the identifiers are invalid or if more than 1000

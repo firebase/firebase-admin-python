@@ -358,9 +358,9 @@ def get_users(identifiers, app=None):
     identifiers are supplied, this method raises a `ValueError`.
 
     Args:
-        identifiers (list[Identifier]): A list of ``Identifier`` instances used
-            to indicate which user records should be returned. Must have <= 100
-            entries.
+        identifiers (list[UserIdentifier]): A list of ``UserIdentifier``
+            instances used to indicate which user records should be returned.
+            Must have <= 100 entries.
         app: An App instance (optional).
 
     Returns:

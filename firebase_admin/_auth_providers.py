@@ -121,7 +121,7 @@ class ListProviderConfigsPage:
 
         Returns:
             ListProviderConfigsPage: Next page of provider configs, or None if this is the last
-                page.
+            page.
         """
         if self.has_next_page:
             return self.__class__(self._download, self.next_page_token, self._max_results)

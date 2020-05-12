@@ -366,7 +366,7 @@ def get_users(identifiers, app=None):
 
     Returns:
         GetUsersResult: A ``GetUsersResult`` instance corresponding to the
-            specified identifiers.
+        specified identifiers.
 
     Raises:
         ValueError: If any of the identifiers are invalid or if more than 100
@@ -525,8 +525,7 @@ def delete_users(uids, app=None):
 
     Returns:
         DeleteUsersResult: The total number of successful/failed deletions, as
-            well as the array of errors that correspond to the failed
-            deletions.
+        well as the array of errors that correspond to the failed deletions.
 
     Raises:
         ValueError: If any of the identifiers are invalid or if more than 1000

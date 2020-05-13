@@ -78,7 +78,7 @@ class UserMetadata:
 
         Returns:
           integer: Milliseconds since epoch timestamp, or `None` if the user was
-            never active.
+          never active.
         """
         return self._last_refresh_timestamp
 
@@ -215,7 +215,7 @@ class UserRecord(UserInfo):
 
         Returns:
             int: Timestamp in milliseconds since the epoch, truncated to the second.
-                 All tokens issued before that time are considered revoked.
+            All tokens issued before that time are considered revoked.
         """
         valid_since = self._data.get('validSince')
         if valid_since is not None:
@@ -752,7 +752,7 @@ class UserManager:
 
         Returns:
             BatchDeleteAccountsResponse: Server's proto response, wrapped in a
-                python object.
+            python object.
 
         Raises:
             ValueError: If any of the identifiers are invalid or if more than 1000

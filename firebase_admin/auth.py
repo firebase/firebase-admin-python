@@ -43,6 +43,8 @@ __all__ = [
     'ExpiredIdTokenError',
     'ExpiredSessionCookieError',
     'ExportedUserRecord',
+    'DeleteUsersResult',
+    'GetUsersResult',
     'ImportUserRecord',
     'InsufficientPermissionError',
     'InvalidDynamicLinkDomainError',
@@ -356,14 +358,14 @@ def get_users(identifiers, app=None):
     identifiers are supplied, this method raises a `ValueError`.
 
     Args:
-        identifiers (list[Identifier]): A list of ``Identifier`` instances used
-            to indicate which user records should be returned. Must have <= 100
-            entries.
+        identifiers (list[UserIdentifier]): A list of ``UserIdentifier``
+            instances used to indicate which user records should be returned.
+            Must have <= 100 entries.
         app: An App instance (optional).
 
     Returns:
         GetUsersResult: A ``GetUsersResult`` instance corresponding to the
-            specified identifiers.
+        specified identifiers.
 
     Raises:
         ValueError: If any of the identifiers are invalid or if more than 100
@@ -522,8 +524,7 @@ def delete_users(uids, app=None):
 
     Returns:
         DeleteUsersResult: The total number of successful/failed deletions, as
-            well as the array of errors that correspond to the failed
-            deletions.
+        well as the array of errors that correspond to the failed deletions.
 
     Raises:
         ValueError: If any of the identifiers are invalid or if more than 1000

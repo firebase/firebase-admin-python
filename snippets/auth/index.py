@@ -207,7 +207,7 @@ def bulk_get_users():
     for user in result.users:
         print(user)
 
-    print ('Unable to find users corresponding to these identifiers:')
+    print('Unable to find users corresponding to these identifiers:')
     for uid in result.notfound:
         print(uid)
     # [END bulk_get_users]

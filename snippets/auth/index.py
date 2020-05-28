@@ -205,10 +205,10 @@ def bulk_get_users():
 
     print('Successfully fetched user data:')
     for user in result.users:
-        print(user)
+        print(user.uid)
 
     print('Unable to find users corresponding to these identifiers:')
-    for uid in result.notfound:
+    for uid in result.not_found:
         print(uid)
     # [END bulk_get_users]
 
@@ -271,7 +271,7 @@ def bulk_delete_users():
     print('Successfully deleted {0} users'.format(result.success_count))
     print('Failed to delete {0} users'.format(result.failure_count))
     for err in result.errors:
-        print(err)
+        print('error #{0}, reason: {1}'.format(result.index, result.reason))
     # [END bulk_delete_users]
 
 def set_custom_user_claims(uid):

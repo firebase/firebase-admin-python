@@ -192,6 +192,26 @@ def get_user_by_email():
     print('Successfully fetched user data: {0}'.format(user.uid))
     # [END get_user_by_email]
 
+def bulk_get_users():
+    # [START bulk_get_users]
+    from firebase_admin import auth
+
+    result = auth.get_users([
+        auth.UidIdentifier('uid1'),
+        auth.EmailIdentifier('user2@example.com'),
+        auth.PhoneIdentifier(+15555550003),
+        auth.ProviderIdentifier('google.com', 'google_uid4')
+    ])
+
+    print('Successfully fetched user data:')
+    for user in result.users:
+        print(user.uid)
+
+    print('Unable to find users corresponding to these identifiers:')
+    for uid in result.not_found:
+        print(uid)
+    # [END bulk_get_users]
+
 def get_user_by_phone_number():
     phone = '+1 555 555 0100'
     # [START get_user_by_phone]
@@ -241,6 +261,18 @@ def delete_user(uid):
     auth.delete_user(uid)
     print('Successfully deleted user')
     # [END delete_user]
+
+def bulk_delete_users():
+    # [START bulk_delete_users]
+    from firebase_admin import auth
+
+    result = auth.delete_users(["uid1", "uid2", "uid3"])
+
+    print('Successfully deleted {0} users'.format(result.success_count))
+    print('Failed to delete {0} users'.format(result.failure_count))
+    for err in result.errors:
+        print('error #{0}, reason: {1}'.format(result.index, result.reason))
+    # [END bulk_delete_users]
 
 def set_custom_user_claims(uid):
     # [START set_custom_user_claims]

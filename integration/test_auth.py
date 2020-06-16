@@ -366,13 +366,13 @@ def test_last_refresh_timestamp(new_user_with_params: auth.UserRecord, api_key):
     # lastLoginTime/lastRefreshTime set; possibly because it's hitting a
     # different server than the login request uses.
     user_record = None
-    for i in range(0, 3):
+    for iteration in range(0, 3):
         user_record = auth.get_user(new_user_with_params.uid)
 
         if user_record.user_metadata.last_refresh_timestamp is not None:
             break
 
-        time.sleep(2 ** i)
+        time.sleep(2 ** iteration)
 
     # Ensure the last refresh time occurred at approximately 'now'. (With a
     # tolerance of up to 1 minute; we ideally want to ensure that any timezone

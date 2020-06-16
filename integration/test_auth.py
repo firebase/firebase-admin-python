@@ -360,7 +360,18 @@ def test_last_refresh_timestamp(new_user_with_params: auth.UserRecord, api_key):
 
     # login to cause the last_refresh_timestamp to be set
     _sign_in_with_password(new_user_with_params.email, 'secret', api_key)
-    new_user_with_params = auth.get_user(new_user_with_params.uid)
+
+    # Attempt to retrieve the user 3 times (with a small delay between each
+    # attempt). Occassionally, this call retrieves the user data without the
+    # lastLoginTime/lastRefreshTime set; possibly because it's hitting a
+    # different server than the login request uses.
+    user_record = None
+    for iteration in range(0, 3):
+        user_record = auth.get_user(new_user_with_params.uid)
+        if user_record.user_metadata.last_refresh_timestamp is not None:
+            break
+
+        time.sleep(2 ** iteration)
 
     # Ensure the last refresh time occurred at approximately 'now'. (With a
     # tolerance of up to 1 minute; we ideally want to ensure that any timezone
@@ -369,7 +380,7 @@ def test_last_refresh_timestamp(new_user_with_params: auth.UserRecord, api_key):
     millis_per_second = 1000
     millis_per_minute = millis_per_second * 60
 
-    last_refresh_timestamp = new_user_with_params.user_metadata.last_refresh_timestamp
+    last_refresh_timestamp = user_record.user_metadata.last_refresh_timestamp
     assert last_refresh_timestamp == pytest.approx(
         time.time()*millis_per_second, 1*millis_per_minute)
 
@@ -498,7 +509,7 @@ class TestDeleteUsers:
         uid2 = auth.create_user(disabled=False).uid
         uid3 = auth.create_user(disabled=True).uid
 
-        delete_users_result = auth.delete_users([uid1, uid2, uid3])
+        delete_users_result = self._slow_delete_users(auth, [uid1, uid2, uid3])
         assert delete_users_result.success_count == 3
         assert delete_users_result.failure_count == 0
         assert len(delete_users_result.errors) == 0
@@ -510,15 +521,21 @@ class TestDeleteUsers:
     def test_is_idempotent(self):
         uid = auth.create_user().uid
 
-        delete_users_result = auth.delete_users([uid])
+        delete_users_result = self._slow_delete_users(auth, [uid])
         assert delete_users_result.success_count == 1
         assert delete_users_result.failure_count == 0
 
         # Delete the user again, ensuring that everything still counts as a
         # success.
-        delete_users_result = auth.delete_users([uid])
+        delete_users_result = self._slow_delete_users(auth, [uid])
         assert delete_users_result.success_count == 1
         assert delete_users_result.failure_count == 0
+
+    def _slow_delete_users(self, auth, uids):
+        """The batchDelete endpoint has a rate limit of 1 QPS. Use this test
+        helper to ensure you don't exceed the quota."""
+        time.sleep(1)
+        return auth.delete_users(uids)
 
 
 def test_revoke_refresh_tokens(new_user):

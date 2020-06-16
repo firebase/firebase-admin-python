@@ -368,7 +368,6 @@ def test_last_refresh_timestamp(new_user_with_params: auth.UserRecord, api_key):
     user_record = None
     for iteration in range(0, 3):
         user_record = auth.get_user(new_user_with_params.uid)
-
         if user_record.user_metadata.last_refresh_timestamp is not None:
             break
 

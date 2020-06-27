@@ -752,11 +752,13 @@ class _ProjectManagementService:
             platform_resource_name=_ProjectManagementService.WEB_APPS_RESOURCE_NAME, app_id=app_id)
 
     def _get_app_config(self, platform_resource_name, app_id):
+        """Fetches Firebase app specific configuration"""
         path = '/v1beta1/projects/-/{0}/{1}/config'.format(platform_resource_name, app_id)
         response = self._make_request('get', path)
         try:
             config_file_contents = response['configFileContents']
         except KeyError:
+            # Web apps return a plain dict
             return response
         else:
             # In Python 2.7, the base64 module works with strings, while in Python 3, it works with

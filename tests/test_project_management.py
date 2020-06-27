@@ -102,6 +102,36 @@ IOS_APP_NO_DISPLAY_NAME_METADATA_RESPONSE = json.dumps({
     'projectId': 'test-project-id',
     'bundleId': 'com.hello.world.ios',
 })
+WEB_APP_OPERATION_SUCCESSFUL_RESPONSE = json.dumps({
+    'name': 'operations/abcdefg',
+    'done': True,
+    'response': {
+        'name': 'projects/test-project-id/webApps/1:12345678:web:deepweb',
+        'appId': '1:12345678:web:deepweb',
+        'displayName': 'My Web App',
+        'projectId': 'test-project-id',
+    },
+})
+WEB_APP_NO_DISPLAY_NAME_OPERATION_SUCCESSFUL_RESPONSE = json.dumps({
+    'name': 'operations/abcdefg',
+    'done': True,
+    'response': {
+        'name': 'projects/test-project-id/webApps/1:12345678:web:deepweb',
+        'appId': '1:12345678:web:deepweb',
+        'projectId': 'test-project-id',
+    },
+})
+WEB_APP_METADATA_RESPONSE = json.dumps({
+    'name': 'projects/test-project-id/webApps/1:12345678:web:deepweb',
+    'appId': '1:12345678:web:deepweb',
+    'displayName': 'My Web App',
+    'projectId': 'test-project-id',
+})
+WEB_APP_NO_DISPLAY_NAME_METADATA_RESPONSE = json.dumps({
+    'name': 'projects/test-project-id/webApps/1:12345678:web:deepweb',
+    'appId': '1:12345678:web:deepweb',
+    'projectId': 'test-project-id',
+})
 
 LIST_ANDROID_APPS_RESPONSE = json.dumps({'apps': [
     {
@@ -165,6 +195,33 @@ LIST_IOS_APPS_PAGE_2_RESPONSE = json.dumps({
         'projectId': 'test-project-id',
         'bundleId': 'com.hello.world.ios2',
     }]})
+LIST_WEB_APPS_RESPONSE = json.dumps({'apps': [
+    {
+        'name': 'projects/test-project-id/webApps/1:12345678:web:deepweb',
+        'appId': '1:12345678:web:deepweb',
+        'displayName': 'My Web App',
+        'projectId': 'test-project-id',
+    },
+    {
+        'name': 'projects/test-project-id/webApps/1:12345678:web:darkweb',
+        'appId': '1:12345678:web:darkweb',
+        'projectId': 'test-project-id',
+    }]})
+LIST_WEB_APPS_PAGE_1_RESPONSE = json.dumps({
+    'apps': [{
+        'name': 'projects/test-project-id/webApps/1:12345678:web:deepweb',
+        'appId': '1:12345678:web:deepweb',
+        'displayName': 'My Web App',
+        'projectId': 'test-project-id',
+    }],
+    'nextPageToken': 'nextpagetoken',
+})
+LIST_WEB_APPS_PAGE_2_RESPONSE = json.dumps({
+    'apps': [{
+        'name': 'projects/test-project-id/webApps/1:12345678:web:darkweb',
+        'appId': '1:12345678:web:darkweb',
+        'projectId': 'test-project-id',
+    }]})
 
 # In Python 2.7, the base64 module works with strings, while in Python 3, it works with bytes
 # objects. This line works in both versions.
@@ -196,6 +253,11 @@ IOS_APP_METADATA = project_management.IOSAppMetadata(
     name='projects/test-project-id/iosApps/1:12345678:ios:ca5cade5',
     app_id='1:12345678:android:deadbeef',
     display_name='My iOS App',
+    project_id='test-project-id')
+WEB_APP_METADATA = project_management.WebAppMetadata(
+    name='projects/test-project-id/webApps/1:12345678:web:deepweb',
+    app_id='1:12345678:web:deepweb',
+    display_name='My Web App',
     project_id='test-project-id')
 
 ALREADY_EXISTS_RESPONSE = ('{"error": {"status": "ALREADY_EXISTS", '
@@ -494,6 +556,90 @@ class TestSHACertificate:
         assert SHA_256_CERTIFICATE.cert_type == 'SHA_256'
 
 
+class TestWebAppMetadata:
+
+    def test_create_web_app_metadata_errors(self):
+        # name must be a non-empty string.
+        with pytest.raises(ValueError):
+            project_management.WebAppMetadata(
+                name='',
+                app_id='1:12345678:web:deepweb',
+                display_name='My Web App',
+                project_id='test-project-id')
+        # app_id must be a non-empty string.
+        with pytest.raises(ValueError):
+            project_management.WebAppMetadata(
+                name='projects/test-project-id/androidApps/1:12345678:web:deepweb',
+                app_id='',
+                display_name='My Web App',
+                project_id='test-project-id')
+        # display_name must be a string or None.
+        with pytest.raises(ValueError):
+            project_management.WebAppMetadata(
+                name='projects/test-project-id/androidApps/1:12345678:web:deepweb',
+                app_id='1:12345678:web:deepweb',
+                display_name=0,
+                project_id='test-project-id')
+        # project_id must be a nonempty string.
+        with pytest.raises(ValueError):
+            project_management.WebAppMetadata(
+                name='projects/test-project-id/androidApps/1:12345678:web:deepweb',
+                app_id='1:12345678:web:deepweb',
+                display_name='projects/test-project-id/androidApps/1:12345678:web:deepweb',
+                project_id='')
+
+    def test_web_app_metadata_eq_and_hash(self):
+        metadata_1 = WEB_APP_METADATA
+        metadata_2 = project_management.WebAppMetadata(
+            name='different',
+            app_id='1:12345678:web:deepweb',
+            display_name='My Web App',
+            project_id='test-project-id')
+        metadata_3 = project_management.WebAppMetadata(
+            name='projects/test-project-id/webApps/1:12345678:web:deepweb',
+            app_id='different',
+            display_name='My Web App',
+            project_id='test-project-id')
+        metadata_4 = project_management.WebAppMetadata(
+            name='projects/test-project-id/webApps/1:12345678:web:deepweb',
+            app_id='1:12345678:web:deepweb',
+            display_name=None,
+            project_id='test-project-id')
+        metadata_5 = project_management.WebAppMetadata(
+            name='projects/test-project-id/webApps/1:12345678:web:deepweb',
+            app_id='1:12345678:web:deepweb',
+            display_name='My Web App',
+            project_id='different')
+        metadata_6 = project_management.WebAppMetadata(
+            name='projects/test-project-id/webApps/1:12345678:web:deepweb',
+            app_id='1:12345678:web:deepweb',
+            display_name='My Web App',
+            project_id='test-project-id')
+        ios_metadata = IOS_APP_METADATA
+
+        # Don't trigger __ne__.
+        assert not metadata_1 == ios_metadata  # pylint: disable=unneeded-not
+        assert metadata_1 != ios_metadata
+        assert metadata_1 != metadata_2
+        assert metadata_1 != metadata_3
+        assert metadata_1 != metadata_4
+        assert metadata_1 != metadata_5
+        assert set([metadata_1, metadata_2, metadata_6]) == set([metadata_1, metadata_2])
+
+    def test_web_app_metadata_name(self):
+        assert (WEB_APP_METADATA._name ==
+                'projects/test-project-id/webApps/1:12345678:web:deepweb')
+
+    def test_web_app_metadata_app_id(self):
+        assert WEB_APP_METADATA.app_id == '1:12345678:web:deepweb'
+
+    def test_web_app_metadata_display_name(self):
+        assert WEB_APP_METADATA.display_name == 'My Web App'
+
+    def test_web_app_metadata_project_id(self):
+        assert WEB_APP_METADATA.project_id == 'test-project-id'
+
+
 class BaseProjectManagementTest:
     @classmethod
     def setup_class(cls):
@@ -790,6 +936,113 @@ class TestCreateIOSApp(BaseProjectManagementTest):
         assert len(recorder) == 3
 
 
+class TestCreateWebApp(BaseProjectManagementTest):
+    _CREATION_URL = 'https://firebase.googleapis.com/v1beta1/projects/test-project-id/webApps'
+
+    def test_create_web_app_without_display_name(self):
+        recorder = self._instrument_service(
+            statuses=[200, 200, 200],
+            responses=[
+                OPERATION_IN_PROGRESS_RESPONSE,  # Request to create Web app asynchronously.
+                OPERATION_IN_PROGRESS_RESPONSE,  # Creation operation is still not done.
+                WEB_APP_NO_DISPLAY_NAME_OPERATION_SUCCESSFUL_RESPONSE,  # Operation completed.
+            ])
+
+        web_app = project_management.create_web_app()
+
+        assert web_app.app_id == '1:12345678:web:deepweb'
+        assert len(recorder) == 3
+        self._assert_request_is_correct(
+            recorder[0], 'POST', TestCreateWebApp._CREATION_URL, {})
+        self._assert_request_is_correct(
+            recorder[1], 'GET', 'https://firebase.googleapis.com/v1/operations/abcdefg')
+        self._assert_request_is_correct(
+            recorder[2], 'GET', 'https://firebase.googleapis.com/v1/operations/abcdefg')
+
+    def test_create_web_app(self):
+        recorder = self._instrument_service(
+            statuses=[200, 200, 200],
+            responses=[
+                OPERATION_IN_PROGRESS_RESPONSE,  # Request to create Web app asynchronously.
+                OPERATION_IN_PROGRESS_RESPONSE,  # Creation operation is still not done.
+                WEB_APP_OPERATION_SUCCESSFUL_RESPONSE,  # Creation operation completed.
+            ])
+
+        web_app = project_management.create_web_app(display_name='My Web App')
+
+        assert web_app.app_id == '1:12345678:web:deepweb'
+        assert len(recorder) == 3
+        body = {'displayName': 'My Web App'}
+        self._assert_request_is_correct(
+            recorder[0], 'POST', TestCreateWebApp._CREATION_URL, body)
+        self._assert_request_is_correct(
+            recorder[1], 'GET', 'https://firebase.googleapis.com/v1/operations/abcdefg')
+        self._assert_request_is_correct(
+            recorder[2], 'GET', 'https://firebase.googleapis.com/v1/operations/abcdefg')
+
+    def test_create_web_app_already_exists(self):
+        recorder = self._instrument_service(statuses=[409], responses=[ALREADY_EXISTS_RESPONSE])
+
+        with pytest.raises(exceptions.AlreadyExistsError) as excinfo:
+            project_management.create_web_app(display_name='My Web App')
+
+        assert 'The resource already exists' in str(excinfo.value)
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
+        assert len(recorder) == 1
+
+    def test_create_web_app_polling_rpc_error(self):
+        recorder = self._instrument_service(
+            statuses=[200, 200, 503],  # Error 503 means that backend servers are over capacity.
+            responses=[
+                OPERATION_IN_PROGRESS_RESPONSE,  # Request to create Web app asynchronously.
+                OPERATION_IN_PROGRESS_RESPONSE,  # Creation operation is still not done.
+                UNAVAILABLE_RESPONSE,  # Error 503.
+            ])
+
+        with pytest.raises(exceptions.UnavailableError) as excinfo:
+            project_management.create_web_app(display_name='My Web App')
+
+        assert 'Backend servers are over capacity' in str(excinfo.value)
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
+        assert len(recorder) == 3
+
+    def test_create_web_app_polling_failure(self):
+        recorder = self._instrument_service(
+            statuses=[200, 200, 200],
+            responses=[
+                OPERATION_IN_PROGRESS_RESPONSE,  # Request to create Web app asynchronously.
+                OPERATION_IN_PROGRESS_RESPONSE,  # Creation operation is still not done.
+                OPERATION_FAILED_RESPONSE,  # Operation is finished, but terminated with an error.
+            ])
+
+        with pytest.raises(exceptions.UnknownError) as excinfo:
+            project_management.create_web_app(display_name='My Web App')
+
+        assert 'Polling finished, but the operation terminated in an error' in str(excinfo.value)
+        assert excinfo.value.cause is None
+        assert excinfo.value.http_response is not None
+        assert len(recorder) == 3
+
+    def test_create_web_app_polling_limit_exceeded(self):
+        project_management._ProjectManagementService.MAXIMUM_POLLING_ATTEMPTS = 2
+        recorder = self._instrument_service(
+            statuses=[200, 200, 200],
+            responses=[
+                OPERATION_IN_PROGRESS_RESPONSE,  # Request to create Web app asynchronously.
+                OPERATION_IN_PROGRESS_RESPONSE,  # Creation Operation is still not done.
+                OPERATION_IN_PROGRESS_RESPONSE,  # Creation Operation is still not done.
+            ])
+
+        with pytest.raises(exceptions.DeadlineExceededError) as excinfo:
+            project_management.create_web_app(display_name='My Web App')
+
+        assert 'Polling deadline exceeded' in str(excinfo.value)
+        assert excinfo.value.cause is None
+        assert len(recorder) == 3
+
+
 class TestListAndroidApps(BaseProjectManagementTest):
     _LISTING_URL = ('https://firebase.googleapis.com/v1beta1/projects/test-project-id/'
                     'androidApps?pageSize=100')
@@ -909,6 +1162,69 @@ class TestListIOSApps(BaseProjectManagementTest):
 
         with pytest.raises(exceptions.UnavailableError) as excinfo:
             project_management.list_ios_apps()
+
+        assert 'Backend servers are over capacity' in str(excinfo.value)
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
+        assert len(recorder) == 2
+
+
+class TestListWebApps(BaseProjectManagementTest):
+    _LISTING_URL = ('https://firebase.googleapis.com/v1beta1/projects/test-project-id/'
+                    'webApps?pageSize=100')
+    _LISTING_PAGE_2_URL = ('https://firebase.googleapis.com/v1beta1/projects/test-project-id/'
+                           'webApps?pageToken=nextpagetoken&pageSize=100')
+
+    def test_list_web_apps(self):
+        recorder = self._instrument_service(statuses=[200], responses=[LIST_WEB_APPS_RESPONSE])
+
+        web_apps = project_management.list_web_apps()
+
+        expected_app_ids = set(['1:12345678:web:deepweb', '1:12345678:web:darkweb'])
+        assert set(app.app_id for app in web_apps) == expected_app_ids
+        assert len(recorder) == 1
+        self._assert_request_is_correct(recorder[0], 'GET', TestListWebApps._LISTING_URL)
+
+    def test_list_web_apps_rpc_error(self):
+        recorder = self._instrument_service(statuses=[503], responses=[UNAVAILABLE_RESPONSE])
+
+        with pytest.raises(exceptions.UnavailableError) as excinfo:
+            project_management.list_web_apps()
+
+        assert 'Backend servers are over capacity' in str(excinfo.value)
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
+        assert len(recorder) == 1
+
+    def test_list_web_apps_empty_list(self):
+        recorder = self._instrument_service(statuses=[200], responses=[json.dumps(dict())])
+
+        web_apps = project_management.list_web_apps()
+
+        assert web_apps == []
+        assert len(recorder) == 1
+        self._assert_request_is_correct(recorder[0], 'GET', TestListWebApps._LISTING_URL)
+
+    def test_list_web_apps_multiple_pages(self):
+        recorder = self._instrument_service(
+            statuses=[200, 200],
+            responses=[LIST_WEB_APPS_PAGE_1_RESPONSE, LIST_WEB_APPS_PAGE_2_RESPONSE])
+
+        web_apps = project_management.list_web_apps()
+
+        expected_app_ids = set(['1:12345678:web:deepweb', '1:12345678:web:darkweb'])
+        assert set(app.app_id for app in web_apps) == expected_app_ids
+        assert len(recorder) == 2
+        self._assert_request_is_correct(recorder[0], 'GET', TestListWebApps._LISTING_URL)
+        self._assert_request_is_correct(recorder[1], 'GET', TestListWebApps._LISTING_PAGE_2_URL)
+
+    def test_list_web_apps_multiple_pages_rpc_error(self):
+        recorder = self._instrument_service(
+            statuses=[200, 503],
+            responses=[LIST_WEB_APPS_PAGE_1_RESPONSE, UNAVAILABLE_RESPONSE])
+
+        with pytest.raises(exceptions.UnavailableError) as excinfo:
+            project_management.list_web_apps()
 
         assert 'Backend servers are over capacity' in str(excinfo.value)
         assert excinfo.value.cause is not None
@@ -1246,5 +1562,119 @@ class TestIOSApp(BaseProjectManagementTest):
 
             with pytest.raises(ValueError):
                 project_management.ios_app(app_id='1:12345678:ios:ca5cade5', app=app)
+
+        testutils.run_without_project_id(evaluate)
+
+
+class TestWebApp(BaseProjectManagementTest):
+    _GET_METADATA_URL = ('https://firebase.googleapis.com/v1beta1/projects/-/webApps/'
+                         '1:12345678:web:deepweb')
+    _SET_DISPLAY_NAME_URL = ('https://firebase.googleapis.com/v1beta1/projects/-/webApps/'
+                             '1:12345678:web:deepweb?updateMask=displayName')
+    _GET_CONFIG_URL = ('https://firebase.googleapis.com/v1beta1/projects/-/webApps/'
+                       '1:12345678:web:deepweb/config')
+
+    @pytest.fixture
+    def web_app(self):
+        return project_management.web_app('1:12345678:web:deepweb')
+
+    def test_get_metadata_no_display_name(self, web_app):
+        recorder = self._instrument_service(
+            statuses=[200], responses=[WEB_APP_NO_DISPLAY_NAME_METADATA_RESPONSE])
+
+        metadata = web_app.get_metadata()
+
+        assert metadata._name == 'projects/test-project-id/webApps/1:12345678:web:deepweb'
+        assert metadata.app_id == '1:12345678:web:deepweb'
+        assert metadata.display_name is None
+        assert metadata.project_id == 'test-project-id'
+        assert len(recorder) == 1
+        self._assert_request_is_correct(recorder[0], 'GET', TestWebApp._GET_METADATA_URL)
+
+    def test_get_metadata(self, web_app):
+        recorder = self._instrument_service(statuses=[200], responses=[WEB_APP_METADATA_RESPONSE])
+
+        metadata = web_app.get_metadata()
+
+        assert metadata._name == 'projects/test-project-id/webApps/1:12345678:web:deepweb'
+        assert metadata.app_id == '1:12345678:web:deepweb'
+        assert metadata.display_name == 'My Web App'
+        assert metadata.project_id == 'test-project-id'
+        assert len(recorder) == 1
+        self._assert_request_is_correct(recorder[0], 'GET', TestWebApp._GET_METADATA_URL)
+
+    def test_get_metadata_unknown_error(self, web_app):
+        recorder = self._instrument_service(
+            statuses=[428], responses=['precondition required error'])
+
+        with pytest.raises(exceptions.UnknownError) as excinfo:
+            web_app.get_metadata()
+
+        message = 'Unexpected HTTP response with status: 428; body: precondition required error'
+        assert str(excinfo.value) == message
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
+        assert len(recorder) == 1
+
+    def test_get_metadata_not_found(self, web_app):
+        recorder = self._instrument_service(statuses=[404], responses=[NOT_FOUND_RESPONSE])
+
+        with pytest.raises(exceptions.NotFoundError) as excinfo:
+            web_app.get_metadata()
+
+        assert 'Failed to find the resource' in str(excinfo.value)
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
+        assert len(recorder) == 1
+
+    def test_set_display_name(self, web_app):
+        recorder = self._instrument_service(statuses=[200], responses=[json.dumps({})])
+        new_display_name = 'A new display name!'
+
+        web_app.set_display_name(new_display_name)
+
+        assert len(recorder) == 1
+        body = {'displayName': new_display_name}
+        self._assert_request_is_correct(
+            recorder[0], 'PATCH', TestWebApp._SET_DISPLAY_NAME_URL, body)
+
+    def test_set_display_name_not_found(self, web_app):
+        recorder = self._instrument_service(statuses=[404], responses=[NOT_FOUND_RESPONSE])
+        new_display_name = 'A new display name!'
+
+        with pytest.raises(exceptions.NotFoundError) as excinfo:
+            web_app.set_display_name(new_display_name)
+
+        assert 'Failed to find the resource' in str(excinfo.value)
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
+        assert len(recorder) == 1
+
+    def test_get_config(self, web_app):
+        recorder = self._instrument_service(statuses=[200], responses=[TEST_APP_CONFIG_RESPONSE])
+
+        config = web_app.get_config()
+
+        assert config == 'hello world'
+        assert len(recorder) == 1
+        self._assert_request_is_correct(recorder[0], 'GET', TestWebApp._GET_CONFIG_URL)
+
+    def test_get_config_not_found(self, web_app):
+        recorder = self._instrument_service(statuses=[404], responses=[NOT_FOUND_RESPONSE])
+
+        with pytest.raises(exceptions.NotFoundError) as excinfo:
+            web_app.get_config()
+
+        assert 'Failed to find the resource' in str(excinfo.value)
+        assert excinfo.value.cause is not None
+        assert excinfo.value.http_response is not None
+        assert len(recorder) == 1
+
+    def test_raises_if_app_has_no_project_id(self):
+        def evaluate():
+            app = firebase_admin.initialize_app(testutils.MockCredential(), name='no_project_id')
+
+            with pytest.raises(ValueError):
+                project_management.web_app(app_id='1:12345678:web:deepweb', app=app)
 
         testutils.run_without_project_id(evaluate)

@@ -19,11 +19,10 @@ authenticating against Firebase services. It also provides functions for
 creating and managing user accounts in Firebase projects.
 """
 
-import time
-
-import firebase_admin
+from firebase_admin import _auth_client
+from firebase_admin import _auth_providers
 from firebase_admin import _auth_utils
-from firebase_admin import _http_client
+from firebase_admin import _user_identifier
 from firebase_admin import _token_gen
 from firebase_admin import _user_import
 from firebase_admin import _user_mgt
@@ -36,21 +35,29 @@ _AUTH_ATTRIBUTE = '_auth'
 __all__ = [
     'ActionCodeSettings',
     'CertificateFetchError',
+    'Client',
+    'ConfigurationNotFoundError',
     'DELETE_ATTRIBUTE',
     'EmailAlreadyExistsError',
     'ErrorInfo',
     'ExpiredIdTokenError',
     'ExpiredSessionCookieError',
     'ExportedUserRecord',
+    'DeleteUsersResult',
+    'GetUsersResult',
     'ImportUserRecord',
     'InsufficientPermissionError',
     'InvalidDynamicLinkDomainError',
     'InvalidIdTokenError',
     'InvalidSessionCookieError',
+    'ListProviderConfigsPage',
     'ListUsersPage',
+    'OIDCProviderConfig',
     'PhoneNumberAlreadyExistsError',
+    'ProviderConfig',
     'RevokedIdTokenError',
     'RevokedSessionCookieError',
+    'SAMLProviderConfig',
     'TokenSignError',
     'UidAlreadyExistsError',
     'UnexpectedResponseError',
@@ -62,20 +69,37 @@ __all__ = [
     'UserProvider',
     'UserRecord',
 
+    'UserIdentifier',
+    'UidIdentifier',
+    'EmailIdentifier',
+    'PhoneIdentifier',
+    'ProviderIdentifier',
+
     'create_custom_token',
+    'create_oidc_provider_config',
+    'create_saml_provider_config',
     'create_session_cookie',
     'create_user',
+    'delete_oidc_provider_config',
+    'delete_saml_provider_config',
     'delete_user',
+    'delete_users',
     'generate_email_verification_link',
     'generate_password_reset_link',
     'generate_sign_in_with_email_link',
+    'get_oidc_provider_config',
+    'get_saml_provider_config',
     'get_user',
     'get_user_by_email',
     'get_user_by_phone_number',
+    'get_users',
     'import_users',
+    'list_saml_provider_configs',
     'list_users',
     'revoke_refresh_tokens',
     'set_custom_user_claims',
+    'update_oidc_provider_config',
+    'update_saml_provider_config',
     'update_user',
     'verify_id_token',
     'verify_session_cookie',
@@ -83,21 +107,29 @@ __all__ = [
 
 ActionCodeSettings = _user_mgt.ActionCodeSettings
 CertificateFetchError = _token_gen.CertificateFetchError
+Client = _auth_client.Client
+ConfigurationNotFoundError = _auth_utils.ConfigurationNotFoundError
 DELETE_ATTRIBUTE = _user_mgt.DELETE_ATTRIBUTE
+DeleteUsersResult = _user_mgt.DeleteUsersResult
 EmailAlreadyExistsError = _auth_utils.EmailAlreadyExistsError
 ErrorInfo = _user_import.ErrorInfo
 ExpiredIdTokenError = _token_gen.ExpiredIdTokenError
 ExpiredSessionCookieError = _token_gen.ExpiredSessionCookieError
 ExportedUserRecord = _user_mgt.ExportedUserRecord
+GetUsersResult = _user_mgt.GetUsersResult
 ImportUserRecord = _user_import.ImportUserRecord
 InsufficientPermissionError = _auth_utils.InsufficientPermissionError
 InvalidDynamicLinkDomainError = _auth_utils.InvalidDynamicLinkDomainError
 InvalidIdTokenError = _auth_utils.InvalidIdTokenError
 InvalidSessionCookieError = _token_gen.InvalidSessionCookieError
+ListProviderConfigsPage = _auth_providers.ListProviderConfigsPage
 ListUsersPage = _user_mgt.ListUsersPage
+OIDCProviderConfig = _auth_providers.OIDCProviderConfig
 PhoneNumberAlreadyExistsError = _auth_utils.PhoneNumberAlreadyExistsError
+ProviderConfig = _auth_providers.ProviderConfig
 RevokedIdTokenError = _token_gen.RevokedIdTokenError
 RevokedSessionCookieError = _token_gen.RevokedSessionCookieError
+SAMLProviderConfig = _auth_providers.SAMLProviderConfig
 TokenSignError = _token_gen.TokenSignError
 UidAlreadyExistsError = _auth_utils.UidAlreadyExistsError
 UnexpectedResponseError = _auth_utils.UnexpectedResponseError
@@ -109,24 +141,30 @@ UserNotFoundError = _auth_utils.UserNotFoundError
 UserProvider = _user_import.UserProvider
 UserRecord = _user_mgt.UserRecord
 
+UserIdentifier = _user_identifier.UserIdentifier
+UidIdentifier = _user_identifier.UidIdentifier
+EmailIdentifier = _user_identifier.EmailIdentifier
+PhoneIdentifier = _user_identifier.PhoneIdentifier
+ProviderIdentifier = _user_identifier.ProviderIdentifier
 
-def _get_auth_service(app):
-    """Returns an _AuthService instance for an App.
 
-    If the App already has an _AuthService associated with it, simply returns
-    it. Otherwise creates a new _AuthService, and adds it to the App before
+def _get_client(app):
+    """Returns a client instance for an App.
+
+    If the App already has a client associated with it, simply returns
+    it. Otherwise creates a new client, and adds it to the App before
     returning it.
 
     Args:
-        app: A Firebase App instance (or None to use the default App).
+        app: A Firebase App instance (or ``None`` to use the default App).
 
     Returns:
-        _AuthService: An _AuthService for the specified App instance.
+        Client: A client for the specified App instance.
 
     Raises:
         ValueError: If the app argument is invalid.
     """
-    return _utils.get_app_service(app, _AUTH_ATTRIBUTE, _AuthService)
+    return _utils.get_app_service(app, _AUTH_ATTRIBUTE, Client)
 
 
 def create_custom_token(uid, developer_claims=None, app=None):
@@ -145,8 +183,8 @@ def create_custom_token(uid, developer_claims=None, app=None):
         ValueError: If input parameters are invalid.
         TokenSignError: If an error occurs while signing the token using the remote IAM service.
     """
-    token_generator = _get_auth_service(app).token_generator
-    return token_generator.create_custom_token(uid, developer_claims)
+    client = _get_client(app)
+    return client.create_custom_token(uid, developer_claims)
 
 
 def verify_id_token(id_token, app=None, check_revoked=False):
@@ -171,15 +209,8 @@ def verify_id_token(id_token, app=None, check_revoked=False):
         CertificateFetchError: If an error occurs while fetching the public key certificates
             required to verify the ID token.
     """
-    if not isinstance(check_revoked, bool):
-        # guard against accidental wrong assignment.
-        raise ValueError('Illegal check_revoked argument. Argument must be of type '
-                         ' bool, but given "{0}".'.format(type(check_revoked)))
-    token_verifier = _get_auth_service(app).token_verifier
-    verified_claims = token_verifier.verify_id_token(id_token)
-    if check_revoked:
-        _check_jwt_revoked(verified_claims, RevokedIdTokenError, 'ID token', app)
-    return verified_claims
+    client = _get_client(app)
+    return client.verify_id_token(id_token, check_revoked=check_revoked)
 
 
 def create_session_cookie(id_token, expires_in, app=None):
@@ -200,8 +231,9 @@ def create_session_cookie(id_token, expires_in, app=None):
         ValueError: If input parameters are invalid.
         FirebaseError: If an error occurs while creating the cookie.
     """
-    token_generator = _get_auth_service(app).token_generator
-    return token_generator.create_session_cookie(id_token, expires_in)
+    client = _get_client(app)
+    # pylint: disable=protected-access
+    return client._token_generator.create_session_cookie(id_token, expires_in)
 
 
 def verify_session_cookie(session_cookie, check_revoked=False, app=None):
@@ -226,17 +258,18 @@ def verify_session_cookie(session_cookie, check_revoked=False, app=None):
         CertificateFetchError: If an error occurs while fetching the public key certificates
             required to verify the session cookie.
     """
-    token_verifier = _get_auth_service(app).token_verifier
-    verified_claims = token_verifier.verify_session_cookie(session_cookie)
+    client = _get_client(app)
+    # pylint: disable=protected-access
+    verified_claims = client._token_verifier.verify_session_cookie(session_cookie)
     if check_revoked:
-        _check_jwt_revoked(verified_claims, RevokedSessionCookieError, 'session cookie', app)
+        client._check_jwt_revoked(verified_claims, RevokedSessionCookieError, 'session cookie')
     return verified_claims
 
 
 def revoke_refresh_tokens(uid, app=None):
     """Revokes all refresh tokens for an existing user.
 
-    revoke_refresh_tokens updates the user's tokens_valid_after_timestamp to the current UTC
+    This function updates the user's ``tokens_valid_after_timestamp`` to the current UTC
     in seconds since the epoch. It is important that the server on which this is called has its
     clock set correctly and synchronized.
 
@@ -244,9 +277,17 @@ def revoke_refresh_tokens(uid, app=None):
     existing sessions from getting minted, existing ID tokens may remain active until their
     natural expiration (one hour). To verify that ID tokens are revoked, use
     ``verify_id_token(idToken, check_revoked=True)``.
+
+    Args:
+        uid: A user ID string.
+        app: An App instance (optional).
+
+    Raises:
+        ValueError: If the user ID is None, empty or malformed.
+        FirebaseError: If an error occurs while revoking the refresh token.
     """
-    user_manager = _get_auth_service(app).user_manager
-    user_manager.update_user(uid, valid_since=int(time.time()))
+    client = _get_client(app)
+    client.revoke_refresh_tokens(uid)
 
 
 def get_user(uid, app=None):
@@ -257,16 +298,15 @@ def get_user(uid, app=None):
         app: An App instance (optional).
 
     Returns:
-        UserRecord: A UserRecord instance.
+        UserRecord: A user record instance.
 
     Raises:
         ValueError: If the user ID is None, empty or malformed.
         UserNotFoundError: If the specified user ID does not exist.
         FirebaseError: If an error occurs while retrieving the user.
     """
-    user_manager = _get_auth_service(app).user_manager
-    response = user_manager.get_user(uid=uid)
-    return UserRecord(response)
+    client = _get_client(app)
+    return client.get_user(uid=uid)
 
 
 def get_user_by_email(email, app=None):
@@ -277,16 +317,15 @@ def get_user_by_email(email, app=None):
         app: An App instance (optional).
 
     Returns:
-        UserRecord: A UserRecord instance.
+        UserRecord: A user record instance.
 
     Raises:
         ValueError: If the email is None, empty or malformed.
         UserNotFoundError: If no user exists by the specified email address.
         FirebaseError: If an error occurs while retrieving the user.
     """
-    user_manager = _get_auth_service(app).user_manager
-    response = user_manager.get_user(email=email)
-    return UserRecord(response)
+    client = _get_client(app)
+    return client.get_user_by_email(email=email)
 
 
 def get_user_by_phone_number(phone_number, app=None):
@@ -297,16 +336,43 @@ def get_user_by_phone_number(phone_number, app=None):
         app: An App instance (optional).
 
     Returns:
-        UserRecord: A UserRecord instance.
+        UserRecord: A user record instance.
 
     Raises:
         ValueError: If the phone number is None, empty or malformed.
         UserNotFoundError: If no user exists by the specified phone number.
         FirebaseError: If an error occurs while retrieving the user.
     """
-    user_manager = _get_auth_service(app).user_manager
-    response = user_manager.get_user(phone_number=phone_number)
-    return UserRecord(response)
+    client = _get_client(app)
+    return client.get_user_by_phone_number(phone_number=phone_number)
+
+
+def get_users(identifiers, app=None):
+    """Gets the user data corresponding to the specified identifiers.
+
+    There are no ordering guarantees; in particular, the nth entry in the
+    result list is not guaranteed to correspond to the nth entry in the input
+    parameters list.
+
+    A maximum of 100 identifiers may be supplied. If more than 100
+    identifiers are supplied, this method raises a `ValueError`.
+
+    Args:
+        identifiers (list[UserIdentifier]): A list of ``UserIdentifier``
+            instances used to indicate which user records should be returned.
+            Must have <= 100 entries.
+        app: An App instance (optional).
+
+    Returns:
+        GetUsersResult: A ``GetUsersResult`` instance corresponding to the
+        specified identifiers.
+
+    Raises:
+        ValueError: If any of the identifiers are invalid or if more than 100
+            identifiers are specified.
+    """
+    client = _get_client(app)
+    return client.get_users(identifiers)
 
 
 def list_users(page_token=None, max_results=_user_mgt.MAX_LIST_USERS_RESULTS, app=None):
@@ -325,16 +391,14 @@ def list_users(page_token=None, max_results=_user_mgt.MAX_LIST_USERS_RESULTS, ap
         app: An App instance (optional).
 
     Returns:
-        ListUsersPage: A ListUsersPage instance.
+        ListUsersPage: A page of user accounts.
 
     Raises:
-        ValueError: If max_results or page_token are invalid.
+        ValueError: If ``max_results`` or ``page_token`` are invalid.
         FirebaseError: If an error occurs while retrieving the user accounts.
     """
-    user_manager = _get_auth_service(app).user_manager
-    def download(page_token, max_results):
-        return user_manager.list_users(page_token, max_results)
-    return ListUsersPage(download, page_token, max_results)
+    client = _get_client(app)
+    return client.list_users(page_token=page_token, max_results=max_results)
 
 
 def create_user(**kwargs): # pylint: disable=differing-param-doc
@@ -356,16 +420,15 @@ def create_user(**kwargs): # pylint: disable=differing-param-doc
         app: An App instance (optional).
 
     Returns:
-        UserRecord: A UserRecord instance for the newly created user.
+        UserRecord: A user record instance for the newly created user.
 
     Raises:
         ValueError: If the specified user properties are invalid.
         FirebaseError: If an error occurs while creating the user account.
     """
     app = kwargs.pop('app', None)
-    user_manager = _get_auth_service(app).user_manager
-    uid = user_manager.create_user(**kwargs)
-    return UserRecord(user_manager.get_user(uid=uid))
+    client = _get_client(app)
+    return client.create_user(**kwargs)
 
 
 def update_user(uid, **kwargs): # pylint: disable=differing-param-doc
@@ -389,20 +452,20 @@ def update_user(uid, **kwargs): # pylint: disable=differing-param-doc
         disabled: A boolean indicating whether or not the user account is disabled (optional).
         custom_claims: A dictionary or a JSON string contining the custom claims to be set on the
             user account (optional). To remove all custom claims, pass ``auth.DELETE_ATTRIBUTE``.
-        valid_since: An integer signifying the seconds since the epoch. This field is set by
-            ``revoke_refresh_tokens`` and it is discouraged to set this field directly.
+        valid_since: An integer signifying the seconds since the epoch (optional). This field is
+            set by ``revoke_refresh_tokens`` and it is discouraged to set this field directly.
+        app: An App instance (optional).
 
     Returns:
-        UserRecord: An updated UserRecord instance for the user.
+        UserRecord: An updated user record instance for the user.
 
     Raises:
         ValueError: If the specified user ID or properties are invalid.
         FirebaseError: If an error occurs while updating the user account.
     """
     app = kwargs.pop('app', None)
-    user_manager = _get_auth_service(app).user_manager
-    user_manager.update_user(uid, **kwargs)
-    return UserRecord(user_manager.get_user(uid=uid))
+    client = _get_client(app)
+    return client.update_user(uid, **kwargs)
 
 
 def set_custom_user_claims(uid, custom_claims, app=None):
@@ -425,10 +488,8 @@ def set_custom_user_claims(uid, custom_claims, app=None):
         ValueError: If the specified user ID or the custom claims are invalid.
         FirebaseError: If an error occurs while updating the user account.
     """
-    user_manager = _get_auth_service(app).user_manager
-    if custom_claims is None:
-        custom_claims = DELETE_ATTRIBUTE
-    user_manager.update_user(uid, custom_claims=custom_claims)
+    client = _get_client(app)
+    client.set_custom_user_claims(uid, custom_claims=custom_claims)
 
 
 def delete_user(uid, app=None):
@@ -442,8 +503,35 @@ def delete_user(uid, app=None):
         ValueError: If the user ID is None, empty or malformed.
         FirebaseError: If an error occurs while deleting the user account.
     """
-    user_manager = _get_auth_service(app).user_manager
-    user_manager.delete_user(uid)
+    client = _get_client(app)
+    client.delete_user(uid)
+
+
+def delete_users(uids, app=None):
+    """Deletes the users specified by the given identifiers.
+
+    Deleting a non-existing user does not generate an error (the method is
+    idempotent.) Non-existing users are considered to be successfully deleted
+    and are therefore included in the `DeleteUserResult.success_count` value.
+
+    A maximum of 1000 identifiers may be supplied. If more than 1000
+    identifiers are supplied, this method raises a `ValueError`.
+
+    Args:
+        uids: A list of strings indicating the uids of the users to be deleted.
+            Must have <= 1000 entries.
+        app: An App instance (optional).
+
+    Returns:
+        DeleteUsersResult: The total number of successful/failed deletions, as
+        well as the array of errors that correspond to the failed deletions.
+
+    Raises:
+        ValueError: If any of the identifiers are invalid or if more than 1000
+            identifiers are specified.
+    """
+    client = _get_client(app)
+    return client.delete_users(uids)
 
 
 def import_users(users, hash_alg=None, app=None):
@@ -468,9 +556,8 @@ def import_users(users, hash_alg=None, app=None):
         ValueError: If the provided arguments are invalid.
         FirebaseError: If an error occurs while importing users.
     """
-    user_manager = _get_auth_service(app).user_manager
-    result = user_manager.import_users(users, hash_alg)
-    return UserImportResult(result, len(users))
+    client = _get_client(app)
+    return client.import_users(users, hash_alg)
 
 
 def generate_password_reset_link(email, action_code_settings=None, app=None):
@@ -490,9 +577,8 @@ def generate_password_reset_link(email, action_code_settings=None, app=None):
         ValueError: If the provided arguments are invalid
         FirebaseError: If an error occurs while generating the link
     """
-    user_manager = _get_auth_service(app).user_manager
-    return user_manager.generate_email_action_link(
-        'PASSWORD_RESET', email, action_code_settings=action_code_settings)
+    client = _get_client(app)
+    return client.generate_password_reset_link(email, action_code_settings=action_code_settings)
 
 
 def generate_email_verification_link(email, action_code_settings=None, app=None):
@@ -512,9 +598,9 @@ def generate_email_verification_link(email, action_code_settings=None, app=None)
         ValueError: If the provided arguments are invalid
         FirebaseError: If an error occurs while generating the link
     """
-    user_manager = _get_auth_service(app).user_manager
-    return user_manager.generate_email_action_link(
-        'VERIFY_EMAIL', email, action_code_settings=action_code_settings)
+    client = _get_client(app)
+    return client.generate_email_verification_link(
+        email, action_code_settings=action_code_settings)
 
 
 def generate_sign_in_with_email_link(email, action_code_settings, app=None):
@@ -527,6 +613,7 @@ def generate_sign_in_with_email_link(email, action_code_settings, app=None):
             the link is to be handled by a mobile app and the additional state information to be
             passed in the deep link.
         app: An App instance (optional).
+
     Returns:
         link: The email sign-in link created by the API
 
@@ -534,47 +621,263 @@ def generate_sign_in_with_email_link(email, action_code_settings, app=None):
         ValueError: If the provided arguments are invalid
         FirebaseError: If an error occurs while generating the link
     """
-    user_manager = _get_auth_service(app).user_manager
-    return user_manager.generate_email_action_link(
-        'EMAIL_SIGNIN', email, action_code_settings=action_code_settings)
+    client = _get_client(app)
+    return client.generate_sign_in_with_email_link(
+        email, action_code_settings=action_code_settings)
 
 
-def _check_jwt_revoked(verified_claims, exc_type, label, app):
-    user = get_user(verified_claims.get('uid'), app=app)
-    if verified_claims.get('iat') * 1000 < user.tokens_valid_after_timestamp:
-        raise exc_type('The Firebase {0} has been revoked.'.format(label))
+def get_oidc_provider_config(provider_id, app=None):
+    """Returns the ``OIDCProviderConfig`` with the given ID.
+
+    Args:
+        provider_id: Provider ID string.
+        app: An App instance (optional).
+
+    Returns:
+        OIDCProviderConfig: An OIDC provider config instance.
+
+    Raises:
+        ValueError: If the provider ID is invalid, empty or does not have ``oidc.`` prefix.
+        ConfigurationNotFoundError: If no OIDC provider is available with the given identifier.
+        FirebaseError: If an error occurs while retrieving the OIDC provider.
+    """
+    client = _get_client(app)
+    return client.get_oidc_provider_config(provider_id)
+
+def create_oidc_provider_config(
+        provider_id, client_id, issuer, display_name=None, enabled=None, app=None):
+    """Creates a new OIDC provider config from the given parameters.
+
+    OIDC provider support requires Google Cloud's Identity Platform (GCIP). To learn more about
+    GCIP, including pricing and features, see https://cloud.google.com/identity-platform.
+
+    Args:
+        provider_id: Provider ID string. Must have the prefix ``oidc.``.
+        client_id: Client ID of the new config.
+        issuer: Issuer of the new config. Must be a valid URL.
+        display_name: The user-friendly display name to the current configuration (optional).
+            This name is also used as the provider label in the Cloud Console.
+        enabled: A boolean indicating whether the provider configuration is enabled or disabled
+            (optional). A user cannot sign in using a disabled provider.
+        app: An App instance (optional).
+
+    Returns:
+        OIDCProviderConfig: The newly created OIDC provider config instance.
+
+    Raises:
+        ValueError: If any of the specified input parameters are invalid.
+        FirebaseError: If an error occurs while creating the new OIDC provider config.
+    """
+    client = _get_client(app)
+    return client.create_oidc_provider_config(
+        provider_id, client_id=client_id, issuer=issuer, display_name=display_name,
+        enabled=enabled)
 
 
-class _AuthService:
-    """Firebase Authentication service."""
+def update_oidc_provider_config(
+        provider_id, client_id=None, issuer=None, display_name=None, enabled=None, app=None):
+    """Updates an existing OIDC provider config with the given parameters.
 
-    ID_TOOLKIT_URL = 'https://identitytoolkit.googleapis.com/v1/projects/'
+    Args:
+        provider_id: Provider ID string. Must have the prefix ``oidc.``.
+        client_id: Client ID of the new config (optional).
+        issuer: Issuer of the new config (optional). Must be a valid URL.
+        display_name: The user-friendly display name of the current configuration (optional).
+            Pass ``auth.DELETE_ATTRIBUTE`` to delete the current display name.
+        enabled: A boolean indicating whether the provider configuration is enabled or disabled
+            (optional).
+        app: An App instance (optional).
 
-    def __init__(self, app):
-        credential = app.credential.get_credential()
-        version_header = 'Python/Admin/{0}'.format(firebase_admin.__version__)
+    Returns:
+        OIDCProviderConfig: The updated OIDC provider config instance.
 
-        if not app.project_id:
-            raise ValueError("""Project ID is required to access the auth service.
-            1. Use a service account credential, or
-            2. set the project ID explicitly via Firebase App options, or
-            3. set the project ID via the GOOGLE_CLOUD_PROJECT environment variable.""")
+    Raises:
+        ValueError: If any of the specified input parameters are invalid.
+        FirebaseError: If an error occurs while updating the OIDC provider config.
+    """
+    client = _get_client(app)
+    return client.update_oidc_provider_config(
+        provider_id, client_id=client_id, issuer=issuer, display_name=display_name,
+        enabled=enabled)
 
-        client = _http_client.JsonHttpClient(
-            credential=credential, base_url=self.ID_TOOLKIT_URL + app.project_id,
-            headers={'X-Client-Version': version_header})
-        self._token_generator = _token_gen.TokenGenerator(app, client)
-        self._token_verifier = _token_gen.TokenVerifier(app)
-        self._user_manager = _user_mgt.UserManager(client)
 
-    @property
-    def token_generator(self):
-        return self._token_generator
+def delete_oidc_provider_config(provider_id, app=None):
+    """Deletes the ``OIDCProviderConfig`` with the given ID.
 
-    @property
-    def token_verifier(self):
-        return self._token_verifier
+    Args:
+        provider_id: Provider ID string.
+        app: An App instance (optional).
 
-    @property
-    def user_manager(self):
-        return self._user_manager
+    Raises:
+        ValueError: If the provider ID is invalid, empty or does not have ``oidc.`` prefix.
+        ConfigurationNotFoundError: If no OIDC provider is available with the given identifier.
+        FirebaseError: If an error occurs while deleting the OIDC provider.
+    """
+    client = _get_client(app)
+    client.delete_oidc_provider_config(provider_id)
+
+
+def list_oidc_provider_configs(
+        page_token=None, max_results=_auth_providers.MAX_LIST_CONFIGS_RESULTS, app=None):
+    """Retrieves a page of OIDC provider configs from a Firebase project.
+
+    The ``page_token`` argument governs the starting point of the page. The ``max_results``
+    argument governs the maximum number of configs that may be included in the returned
+    page. This function never returns ``None``. If there are no OIDC configs in the Firebase
+    project, this returns an empty page.
+
+    Args:
+        page_token: A non-empty page token string, which indicates the starting point of the
+            page (optional). Defaults to ``None``, which will retrieve the first page of users.
+        max_results: A positive integer indicating the maximum number of users to include in
+            the returned page (optional). Defaults to 100, which is also the maximum number
+            allowed.
+        app: An App instance (optional).
+
+    Returns:
+        ListProviderConfigsPage: A page of OIDC provider config instances.
+
+    Raises:
+        ValueError: If ``max_results`` or ``page_token`` are invalid.
+        FirebaseError: If an error occurs while retrieving the OIDC provider configs.
+    """
+    client = _get_client(app)
+    return client.list_oidc_provider_configs(page_token, max_results)
+
+
+def get_saml_provider_config(provider_id, app=None):
+    """Returns the ``SAMLProviderConfig`` with the given ID.
+
+    Args:
+        provider_id: Provider ID string.
+        app: An App instance (optional).
+
+    Returns:
+        SAMLProviderConfig: A SAML provider config instance.
+
+    Raises:
+        ValueError: If the provider ID is invalid, empty or does not have ``saml.`` prefix.
+        ConfigurationNotFoundError: If no SAML provider is available with the given identifier.
+        FirebaseError: If an error occurs while retrieving the SAML provider.
+    """
+    client = _get_client(app)
+    return client.get_saml_provider_config(provider_id)
+
+
+def create_saml_provider_config(
+        provider_id, idp_entity_id, sso_url, x509_certificates, rp_entity_id, callback_url,
+        display_name=None, enabled=None, app=None):
+    """Creates a new SAML provider config from the given parameters.
+
+    SAML provider support requires Google Cloud's Identity Platform (GCIP). To learn more about
+    GCIP, including pricing and features, see https://cloud.google.com/identity-platform.
+
+    Args:
+        provider_id: Provider ID string. Must have the prefix ``saml.``.
+        idp_entity_id: The SAML IdP entity identifier.
+        sso_url: The SAML IdP SSO URL. Must be a valid URL.
+        x509_certificates: The list of SAML IdP X.509 certificates issued by CA for this provider.
+            Multiple certificates are accepted to prevent outages during IdP key rotation (for
+            example ADFS rotates every 10 days). When the Auth server receives a SAML response, it
+            will match the SAML response with the certificate on record. Otherwise the response is
+            rejected. Developers are expected to manage the certificate updates as keys are
+            rotated.
+        rp_entity_id: The SAML relying party (service provider) entity ID. This is defined by the
+            developer but needs to be provided to the SAML IdP.
+        callback_url: Callback URL string. This is fixed and must always be the same as the OAuth
+            redirect URL provisioned by Firebase Auth, unless a custom authDomain is used.
+        display_name: The user-friendly display name to the current configuration (optional). This
+            name is also used as the provider label in the Cloud Console.
+        enabled: A boolean indicating whether the provider configuration is enabled or disabled
+            (optional). A user cannot sign in using a disabled provider.
+        app: An App instance (optional).
+
+    Returns:
+        SAMLProviderConfig: The newly created SAML provider config instance.
+
+    Raises:
+        ValueError: If any of the specified input parameters are invalid.
+        FirebaseError: If an error occurs while creating the new SAML provider config.
+    """
+    client = _get_client(app)
+    return client.create_saml_provider_config(
+        provider_id, idp_entity_id=idp_entity_id, sso_url=sso_url,
+        x509_certificates=x509_certificates, rp_entity_id=rp_entity_id, callback_url=callback_url,
+        display_name=display_name, enabled=enabled)
+
+
+def update_saml_provider_config(
+        provider_id, idp_entity_id=None, sso_url=None, x509_certificates=None,
+        rp_entity_id=None, callback_url=None, display_name=None, enabled=None, app=None):
+    """Updates an existing SAML provider config with the given parameters.
+
+    Args:
+        provider_id: Provider ID string. Must have the prefix ``saml.``.
+        idp_entity_id: The SAML IdP entity identifier (optional).
+        sso_url: The SAML IdP SSO URL. Must be a valid URL (optional).
+        x509_certificates: The list of SAML IdP X.509 certificates issued by CA for this
+            provider  (optional).
+        rp_entity_id: The SAML relying party entity ID (optional).
+        callback_url: Callback URL string  (optional).
+        display_name: The user-friendly display name of the current configuration (optional).
+            Pass ``auth.DELETE_ATTRIBUTE`` to delete the current display name.
+        enabled: A boolean indicating whether the provider configuration is enabled or disabled
+            (optional).
+        app: An App instance (optional).
+
+    Returns:
+        SAMLProviderConfig: The updated SAML provider config instance.
+
+    Raises:
+        ValueError: If any of the specified input parameters are invalid.
+        FirebaseError: If an error occurs while updating the SAML provider config.
+    """
+    client = _get_client(app)
+    return client.update_saml_provider_config(
+        provider_id, idp_entity_id=idp_entity_id, sso_url=sso_url,
+        x509_certificates=x509_certificates, rp_entity_id=rp_entity_id,
+        callback_url=callback_url, display_name=display_name, enabled=enabled)
+
+
+def delete_saml_provider_config(provider_id, app=None):
+    """Deletes the ``SAMLProviderConfig`` with the given ID.
+
+    Args:
+        provider_id: Provider ID string.
+        app: An App instance (optional).
+
+    Raises:
+        ValueError: If the provider ID is invalid, empty or does not have ``saml.`` prefix.
+        ConfigurationNotFoundError: If no SAML provider is available with the given identifier.
+        FirebaseError: If an error occurs while deleting the SAML provider.
+    """
+    client = _get_client(app)
+    client.delete_saml_provider_config(provider_id)
+
+
+def list_saml_provider_configs(
+        page_token=None, max_results=_auth_providers.MAX_LIST_CONFIGS_RESULTS, app=None):
+    """Retrieves a page of SAML provider configs from a Firebase project.
+
+    The ``page_token`` argument governs the starting point of the page. The ``max_results``
+    argument governs the maximum number of configs that may be included in the returned
+    page. This function never returns ``None``. If there are no SAML configs in the Firebase
+    project, this returns an empty page.
+
+    Args:
+        page_token: A non-empty page token string, which indicates the starting point of the
+            page (optional). Defaults to ``None``, which will retrieve the first page of users.
+        max_results: A positive integer indicating the maximum number of users to include in
+            the returned page (optional). Defaults to 100, which is also the maximum number
+            allowed.
+        app: An App instance (optional).
+
+    Returns:
+        ListProviderConfigsPage: A page of SAML provider config instances.
+
+    Raises:
+        ValueError: If ``max_results`` or ``page_token`` are invalid.
+        FirebaseError: If an error occurs while retrieving the SAML provider configs.
+    """
+    client = _get_client(app)
+    return client.list_saml_provider_configs(page_token, max_results)

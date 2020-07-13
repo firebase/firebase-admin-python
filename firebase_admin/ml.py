@@ -27,6 +27,7 @@ from urllib import parse
 
 import requests
 
+import firebase_admin
 from firebase_admin import _http_client
 from firebase_admin import _utils
 from firebase_admin import exceptions
@@ -48,8 +49,8 @@ except ImportError:
 _ML_ATTRIBUTE = '_ml'
 _MAX_PAGE_SIZE = 100
 _MODEL_ID_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,60}$')
-_DISPLAY_NAME_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,60}$')
-_TAG_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,60}$')
+_DISPLAY_NAME_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,32}$')
+_TAG_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,32}$')
 _GCS_TFLITE_URI_PATTERN = re.compile(
     r'^gs://(?P<bucket_name>[a-z0-9_.-]{3,63})/(?P<blob_name>.+)$')
 _AUTO_ML_MODEL_PATTERN = re.compile(
@@ -150,7 +151,7 @@ def list_models(list_filter=None, page_size=None, page_token=None, app=None):
     """Lists models from Firebase ML.
 
     Args:
-        list_filter: a list filter string such as "tags:'tag_1'". None will return all models.
+        list_filter: a list filter string such as ``tags:'tag_1'``. None will return all models.
         page_size: A number between 1 and 100 inclusive that specifies the maximum
             number of models to return per page. None for default.
         page_token: A next page token returned from a previous page of results. None
@@ -826,11 +827,16 @@ class _MLService:
                 'Project ID is required to access ML service. Either set the '
                 'projectId option, or use service account credentials.')
         self._project_url = _MLService.PROJECT_URL.format(self._project_id)
+        ml_headers = {
+            'X-FIREBASE-CLIENT': 'fire-admin-python/{0}'.format(firebase_admin.__version__),
+        }
         self._client = _http_client.JsonHttpClient(
             credential=app.credential.get_credential(),
+            headers=ml_headers,
             base_url=self._project_url)
         self._operation_client = _http_client.JsonHttpClient(
             credential=app.credential.get_credential(),
+            headers=ml_headers,
             base_url=_MLService.OPERATION_URL)
 
     def get_operation(self, op_name):

@@ -372,7 +372,8 @@ class _MessagingService:
             send_response = SendResponse(response, exception)
             responses.append(send_response)
 
-        batch = http.BatchHttpRequest(batch_callback, _MessagingService.FCM_BATCH_URL)
+        batch = http.BatchHttpRequest(
+            callback=batch_callback, batch_uri=_MessagingService.FCM_BATCH_URL)
         for message in messages:
             body = json.dumps(self._message_data(message, dry_run))
             req = http.HttpRequest(
@@ -452,9 +453,12 @@ class _MessagingService:
         except ValueError:
             pass
 
-        # IID error response format: {"error": "some error message"}
-        msg = data.get('error')
-        if not msg:
+        # IID error response format: {"error": "ErrorCode"}
+        code = data.get('error')
+        msg = None
+        if code:
+            msg = 'Error while calling the IID service: {0}'.format(code)
+        else:
             msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(
                 error.response.status_code, error.response.content.decode())
 

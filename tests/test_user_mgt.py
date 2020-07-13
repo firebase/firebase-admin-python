@@ -50,6 +50,9 @@ MOCK_ACTION_CODE_DATA = {
 }
 MOCK_ACTION_CODE_SETTINGS = auth.ActionCodeSettings(**MOCK_ACTION_CODE_DATA)
 
+USER_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v1/projects/mock-project-id'
+
+
 @pytest.fixture(scope='module')
 def user_mgt_app():
     app = firebase_admin.initialize_app(testutils.MockCredential(), name='userMgt',
@@ -58,11 +61,11 @@ def user_mgt_app():
     firebase_admin.delete_app(app)
 
 def _instrument_user_manager(app, status, payload):
-    auth_service = auth._get_auth_service(app)
-    user_manager = auth_service.user_manager
+    client = auth._get_client(app)
+    user_manager = client._user_manager
     recorder = []
-    user_manager._client.session.mount(
-        auth._AuthService.ID_TOOLKIT_URL,
+    user_manager.http_client.session.mount(
+        _user_mgt.UserManager.ID_TOOLKIT_URL,
         testutils.MockAdapter(payload, status, recorder))
     return user_manager, recorder
 
@@ -78,6 +81,7 @@ def _check_user_record(user, expected_uid='testuser'):
     assert user.user_metadata.creation_timestamp == 1234567890000
     assert user.user_metadata.last_sign_in_timestamp is None
     assert user.provider_id == 'firebase'
+    assert user.tenant_id is None
 
     claims = user.custom_claims
     assert claims['admin'] is True
@@ -101,17 +105,27 @@ def _check_user_record(user, expected_uid='testuser'):
     assert provider.provider_id == 'phone'
 
 
+def _check_request(recorder, want_url, want_body=None):
+    assert len(recorder) == 1
+    req = recorder[0]
+    assert req.method == 'POST'
+    assert req.url == '{0}{1}'.format(USER_MGT_URL_PREFIX, want_url)
+    if want_body:
+        body = json.loads(req.body.decode())
+        assert body == want_body
+
+
 class TestAuthServiceInitialization:
 
     def test_default_timeout(self, user_mgt_app):
-        auth_service = auth._get_auth_service(user_mgt_app)
-        user_manager = auth_service.user_manager
-        assert user_manager._client.timeout == _http_client.DEFAULT_TIMEOUT_SECONDS
+        client = auth._get_client(user_mgt_app)
+        user_manager = client._user_manager
+        assert user_manager.http_client.timeout == _http_client.DEFAULT_TIMEOUT_SECONDS
 
     def test_fail_on_no_project_id(self):
         app = firebase_admin.initialize_app(testutils.MockCredential(), name='userMgt2')
         with pytest.raises(ValueError):
-            auth._get_auth_service(app)
+            auth._get_client(app)
         firebase_admin.delete_app(app)
 
 
@@ -194,6 +208,10 @@ class TestUserRecord:
         user = auth.UserRecord({'localId' : 'user'})
         assert user.tokens_valid_after_timestamp == 0
 
+    def test_tenant_id(self):
+        user = auth.UserRecord({'localId' : 'user', 'tenantId': 'test-tenant'})
+        assert user.tenant_id == 'test-tenant'
+
 
 class TestGetUser:
 
@@ -203,8 +221,9 @@ class TestGetUser:
             auth.get_user(arg, app=user_mgt_app)
 
     def test_get_user(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_RESPONSE)
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_RESPONSE)
         _check_user_record(auth.get_user('testuser', user_mgt_app))
+        _check_request(recorder, '/accounts:lookup', {'localId': ['testuser']})
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-an-email'])
     def test_invalid_get_user_by_email(self, arg, user_mgt_app):
@@ -212,8 +231,9 @@ class TestGetUser:
             auth.get_user_by_email(arg, app=user_mgt_app)
 
     def test_get_user_by_email(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_RESPONSE)
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_RESPONSE)
         _check_user_record(auth.get_user_by_email('testuser@example.com', user_mgt_app))
+        _check_request(recorder, '/accounts:lookup', {'email': ['testuser@example.com']})
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-a-phone'])
     def test_invalid_get_user_by_phone(self, arg, user_mgt_app):
@@ -221,8 +241,9 @@ class TestGetUser:
             auth.get_user_by_phone_number(arg, app=user_mgt_app)
 
     def test_get_user_by_phone(self, user_mgt_app):
-        _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_RESPONSE)
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_RESPONSE)
         _check_user_record(auth.get_user_by_phone_number('+1234567890', user_mgt_app))
+        _check_request(recorder, '/accounts:lookup', {'phoneNumber': ['+1234567890']})
 
     def test_get_user_non_existing(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 200, '{"users":[]}')
@@ -299,6 +320,92 @@ class TestGetUser:
         assert str(excinfo.value) == error_msg
         assert excinfo.value.http_response is not None
         assert excinfo.value.cause is not None
+
+
+class TestGetUsers:
+
+    @staticmethod
+    def _map_user_record_to_uid_email_phones(user_record):
+        return {
+            'uid': user_record.uid,
+            'email': user_record.email,
+            'phone_number': user_record.phone_number
+        }
+
+    def test_more_than_100_identifiers(self, user_mgt_app):
+        identifiers = [auth.UidIdentifier('id' + str(i)) for i in range(101)]
+        with pytest.raises(ValueError):
+            auth.get_users(identifiers, app=user_mgt_app)
+
+    def test_no_identifiers(self, user_mgt_app):
+        get_users_results = auth.get_users([], app=user_mgt_app)
+        assert get_users_results.users == []
+        assert get_users_results.not_found == []
+
+    def test_identifiers_that_do_not_exist(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 200, '{}')
+        not_found_ids = [auth.UidIdentifier('id that doesnt exist')]
+        get_users_results = auth.get_users(not_found_ids, app=user_mgt_app)
+        assert get_users_results.users == []
+        assert get_users_results.not_found == not_found_ids
+
+    def test_invalid_uid(self):
+        with pytest.raises(ValueError):
+            auth.UidIdentifier('too long ' + '.'*128)
+
+    def test_invalid_email(self):
+        with pytest.raises(ValueError):
+            auth.EmailIdentifier('invalid email addr')
+
+    def test_invalid_phone_number(self):
+        with pytest.raises(ValueError):
+            auth.PhoneIdentifier('invalid phone number')
+
+    def test_invalid_provider(self):
+        with pytest.raises(ValueError):
+            auth.ProviderIdentifier(provider_id='', provider_uid='')
+
+    def test_success(self, user_mgt_app):
+        mock_users = [{
+            "localId": "uid1",
+            "email": "user1@example.com",
+            "phoneNumber": "+15555550001"
+        }, {
+            "localId": "uid2",
+            "email": "user2@example.com",
+            "phoneNumber": "+15555550002"
+        }, {
+            "localId": "uid3",
+            "email": "user3@example.com",
+            "phoneNumber": "+15555550003"
+        }, {
+            "localId": "uid4",
+            "email": "user4@example.com",
+            "phoneNumber": "+15555550004",
+            "providerUserInfo": [{
+                "providerId": "google.com",
+                "rawId": "google_uid4"
+            }]
+        }]
+        _instrument_user_manager(user_mgt_app, 200, '{ "users": ' + json.dumps(mock_users) + '}')
+
+        get_users_results = auth.get_users([
+            auth.UidIdentifier('uid1'),
+            auth.EmailIdentifier('user2@example.com'),
+            auth.PhoneIdentifier('+15555550003'),
+            auth.ProviderIdentifier(provider_id='google.com', provider_uid='google_uid4'),
+            auth.UidIdentifier('this-user-doesnt-exist'),
+            ], app=user_mgt_app)
+
+        actual = sorted(
+            [self._map_user_record_to_uid_email_phones(user) for user in get_users_results.users],
+            key=lambda user: user['uid'])
+        expected = sorted([
+            self._map_user_record_to_uid_email_phones(auth.UserRecord(user))
+            for user in mock_users
+        ], key=lambda user: user['uid'])
+        assert actual == expected
+        assert [u.uid for u in get_users_results.not_found] == ['this-user-doesnt-exist']
 
 
 class TestCreateUser:
@@ -610,6 +717,54 @@ class TestDeleteUser:
         assert excinfo.value.http_response is not None
         assert excinfo.value.cause is None
         assert isinstance(excinfo.value, exceptions.UnknownError)
+
+
+class TestDeleteUsers:
+
+    def test_empty_list(self, user_mgt_app):
+        delete_users_result = auth.delete_users([], app=user_mgt_app)
+        assert delete_users_result.success_count == 0
+        assert delete_users_result.failure_count == 0
+        assert len(delete_users_result.errors) == 0
+
+    def test_too_many_identifiers_should_fail(self, user_mgt_app):
+        ids = ['id' + str(i) for i in range(1001)]
+        with pytest.raises(ValueError):
+            auth.delete_users(ids, app=user_mgt_app)
+
+    def test_invalid_id_should_fail(self, user_mgt_app):
+        ids = ['too long ' + '.'*128]
+        with pytest.raises(ValueError):
+            auth.delete_users(ids, app=user_mgt_app)
+
+    def test_should_index_errors_correctly_in_results(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 200, """{
+            "errors": [{
+                "index": 0,
+                "localId": "uid1",
+                "message": "NOT_DISABLED : Disable the account before batch deletion."
+            }, {
+                "index": 2,
+                "localId": "uid3",
+                "message": "something awful"
+            }]
+        }""")
+
+        delete_users_result = auth.delete_users(['uid1', 'uid2', 'uid3', 'uid4'], app=user_mgt_app)
+        assert delete_users_result.success_count == 2
+        assert delete_users_result.failure_count == 2
+        assert len(delete_users_result.errors) == 2
+        assert delete_users_result.errors[0].index == 0
+        assert delete_users_result.errors[0].reason.startswith('NOT_DISABLED')
+        assert delete_users_result.errors[1].index == 2
+        assert delete_users_result.errors[1].reason == 'something awful'
+
+    def test_success(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 200, '{}')
+        delete_users_result = auth.delete_users(['uid1', 'uid2', 'uid3'], app=user_mgt_app)
+        assert delete_users_result.success_count == 3
+        assert delete_users_result.failure_count == 0
+        assert len(delete_users_result.errors) == 0
 
 
 class TestListUsers:
@@ -1050,7 +1205,7 @@ class TestImportUsers:
         assert result.failure_count == 0
         assert result.errors == []
         expected = {'users': [{'localId': 'user1'}, {'localId': 'user2'}]}
-        self._check_rpc_calls(recorder, expected)
+        _check_request(recorder, '/accounts:batchCreate', expected)
 
     def test_import_users_error(self, user_mgt_app):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, """{"error": [
@@ -1073,7 +1228,7 @@ class TestImportUsers:
         assert err.index == 2
         assert err.reason == 'Another error occured in user3'
         expected = {'users': [{'localId': 'user1'}, {'localId': 'user2'}, {'localId': 'user3'}]}
-        self._check_rpc_calls(recorder, expected)
+        _check_request(recorder, '/accounts:batchCreate', expected)
 
     def test_import_users_missing_required_hash(self, user_mgt_app):
         users = [
@@ -1106,7 +1261,7 @@ class TestImportUsers:
             'memoryCost': 14,
             'saltSeparator': _user_import.b64_encode(b'sep'),
         }
-        self._check_rpc_calls(recorder, expected)
+        _check_request(recorder, '/accounts:batchCreate', expected)
 
     def test_import_users_http_error(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 401, '{"error": {"message": "ERROR_CODE"}}')
@@ -1126,11 +1281,6 @@ class TestImportUsers:
         ]
         with pytest.raises(auth.UnexpectedResponseError):
             auth.import_users(users, app=user_mgt_app)
-
-    def _check_rpc_calls(self, recorder, expected):
-        assert len(recorder) == 1
-        request = json.loads(recorder[0].body.decode())
-        assert request == expected
 
 
 class TestRevokeRefreshTokkens:
@@ -1301,8 +1451,8 @@ class TestGenerateEmailActionLink:
 
     def test_bad_action_type(self, user_mgt_app):
         with pytest.raises(ValueError):
-            auth._get_auth_service(user_mgt_app) \
-                .user_manager \
+            auth._get_client(user_mgt_app) \
+                ._user_manager \
                 .generate_email_action_link('BAD_TYPE', 'test@test.com',
                                             action_code_settings=MOCK_ACTION_CODE_SETTINGS)
 

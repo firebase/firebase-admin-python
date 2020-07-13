@@ -15,13 +15,17 @@
 """Firebase user management sub module."""
 
 import base64
+from collections import defaultdict
 import json
 from urllib import parse
 
 import requests
 
 from firebase_admin import _auth_utils
+from firebase_admin import _rfc3339
+from firebase_admin import _user_identifier
 from firebase_admin import _user_import
+from firebase_admin._user_import import ErrorInfo
 
 
 MAX_LIST_USERS_RESULTS = 1000
@@ -41,11 +45,14 @@ DELETE_ATTRIBUTE = Sentinel('Value used to delete an attribute from a user profi
 class UserMetadata:
     """Contains additional metadata associated with a user account."""
 
-    def __init__(self, creation_timestamp=None, last_sign_in_timestamp=None):
+    def __init__(self, creation_timestamp=None, last_sign_in_timestamp=None,
+                 last_refresh_timestamp=None):
         self._creation_timestamp = _auth_utils.validate_timestamp(
             creation_timestamp, 'creation_timestamp')
         self._last_sign_in_timestamp = _auth_utils.validate_timestamp(
             last_sign_in_timestamp, 'last_sign_in_timestamp')
+        self._last_refresh_timestamp = _auth_utils.validate_timestamp(
+            last_refresh_timestamp, 'last_refresh_timestamp')
 
     @property
     def creation_timestamp(self):
@@ -64,6 +71,16 @@ class UserMetadata:
           integer: The last sign in timestamp in milliseconds since the epoch.
         """
         return self._last_sign_in_timestamp
+
+    @property
+    def last_refresh_timestamp(self):
+        """The time at which the user was last active (ID token refreshed).
+
+        Returns:
+          integer: Milliseconds since epoch timestamp, or `None` if the user was
+          never active.
+        """
+        return self._last_refresh_timestamp
 
 
 class UserInfo:
@@ -198,7 +215,7 @@ class UserRecord(UserInfo):
 
         Returns:
             int: Timestamp in milliseconds since the epoch, truncated to the second.
-                 All tokens issued before that time are considered revoked.
+            All tokens issued before that time are considered revoked.
         """
         valid_since = self._data.get('validSince')
         if valid_since is not None:
@@ -216,7 +233,12 @@ class UserRecord(UserInfo):
             if key in self._data:
                 return int(self._data[key])
             return None
-        return UserMetadata(_int_or_none('createdAt'), _int_or_none('lastLoginAt'))
+        last_refresh_at_millis = None
+        last_refresh_at_rfc3339 = self._data.get('lastRefreshAt', None)
+        if last_refresh_at_rfc3339:
+            last_refresh_at_millis = int(_rfc3339.parse_to_epoch(last_refresh_at_rfc3339) * 1000)
+        return UserMetadata(
+            _int_or_none('createdAt'), _int_or_none('lastLoginAt'), last_refresh_at_millis)
 
     @property
     def provider_data(self):
@@ -243,6 +265,15 @@ class UserRecord(UserInfo):
             if parsed != {}:
                 return parsed
         return None
+
+    @property
+    def tenant_id(self):
+        """Returns the tenant ID of this user.
+
+        Returns:
+          string: A tenant ID string or None.
+        """
+        return self._data.get('tenantId')
 
 
 class ExportedUserRecord(UserRecord):
@@ -278,6 +309,35 @@ class ExportedUserRecord(UserRecord):
         read the password, then this is ``None``.
         """
         return self._data.get('salt')
+
+
+class GetUsersResult:
+    """Represents the result of the ``auth.get_users()`` API."""
+
+    def __init__(self, users, not_found):
+        """Constructs a `GetUsersResult` object.
+
+        Args:
+            users: List of `UserRecord` instances.
+            not_found: List of `UserIdentifier` instances.
+        """
+        self._users = users
+        self._not_found = not_found
+
+    @property
+    def users(self):
+        """Set of `UserRecord` instances, corresponding to the set of users
+        that were requested. Only users that were found are listed here. The
+        result set is unordered.
+        """
+        return self._users
+
+    @property
+    def not_found(self):
+        """Set of `UserIdentifier` instances that were requested, but not
+        found.
+        """
+        return self._not_found
 
 
 class ListUsersPage:
@@ -329,6 +389,63 @@ class ListUsersPage:
             iterator: An iterator of ExportedUserRecord instances.
         """
         return _UserIterator(self)
+
+
+class DeleteUsersResult:
+    """Represents the result of the ``auth.delete_users()`` API."""
+
+    def __init__(self, result, total):
+        """Constructs a `DeleteUsersResult` object.
+
+        Args:
+          result: The proto response, wrapped in a
+            `BatchDeleteAccountsResponse` instance.
+          total: Total integer number of deletion attempts.
+        """
+        errors = result.errors
+        self._success_count = total - len(errors)
+        self._failure_count = len(errors)
+        self._errors = errors
+
+    @property
+    def success_count(self):
+        """Returns the number of users that were deleted successfully (possibly
+        zero).
+
+        Users that did not exist prior to calling `delete_users()` are
+        considered to be successfully deleted.
+        """
+        return self._success_count
+
+    @property
+    def failure_count(self):
+        """Returns the number of users that failed to be deleted (possibly
+        zero).
+        """
+        return self._failure_count
+
+    @property
+    def errors(self):
+        """A list of `auth.ErrorInfo` instances describing the errors that
+        were encountered during the deletion. Length of this list is equal to
+        `failure_count`.
+        """
+        return self._errors
+
+
+class BatchDeleteAccountsResponse:
+    """Represents the results of a `delete_users()` call."""
+
+    def __init__(self, errors=None):
+        """Constructs a `BatchDeleteAccountsResponse` instance, corresponding to
+        the JSON representing the `BatchDeleteAccountsResponse` proto.
+
+        Args:
+            errors: List of dictionaries, with each dictionary representing an
+                `ErrorInfo` instance as returned by the server. `None` implies
+                an empty list.
+        """
+        self.errors = [ErrorInfo(err) for err in errors] if errors else []
 
 
 class ProviderUserInfo(UserInfo):
@@ -454,8 +571,13 @@ def encode_action_code_settings(settings):
 class UserManager:
     """Provides methods for interacting with the Google Identity Toolkit."""
 
-    def __init__(self, client):
-        self._client = client
+    ID_TOOLKIT_URL = 'https://identitytoolkit.googleapis.com/v1'
+
+    def __init__(self, http_client, project_id, tenant_id=None):
+        self.http_client = http_client
+        self.base_url = '{0}/projects/{1}'.format(self.ID_TOOLKIT_URL, project_id)
+        if tenant_id:
+            self.base_url += '/tenants/{0}'.format(tenant_id)
 
     def get_user(self, **kwargs):
         """Gets the user data corresponding to the provided key."""
@@ -471,17 +593,59 @@ class UserManager:
         else:
             raise TypeError('Unsupported keyword arguments: {0}.'.format(kwargs))
 
-        try:
-            body, http_resp = self._client.body_and_response(
-                'post', '/accounts:lookup', json=payload)
-        except requests.exceptions.RequestException as error:
-            raise _auth_utils.handle_auth_backend_error(error)
-        else:
-            if not body or not body.get('users'):
-                raise _auth_utils.UserNotFoundError(
-                    'No user record found for the provided {0}: {1}.'.format(key_type, key),
-                    http_response=http_resp)
-            return body['users'][0]
+        body, http_resp = self._make_request('post', '/accounts:lookup', json=payload)
+        if not body or not body.get('users'):
+            raise _auth_utils.UserNotFoundError(
+                'No user record found for the provided {0}: {1}.'.format(key_type, key),
+                http_response=http_resp)
+        return body['users'][0]
+
+    def get_users(self, identifiers):
+        """Looks up multiple users by their identifiers (uid, email, etc.)
+
+        Args:
+            identifiers: UserIdentifier[]: The identifiers indicating the user
+                to be looked up. Must have <= 100 entries.
+
+        Returns:
+            list[dict[string, string]]: List of dicts representing the JSON
+            `UserInfo` responses from the server.
+
+        Raises:
+            ValueError: If any of the identifiers are invalid or if more than
+                100 identifiers are specified.
+            UnexpectedResponseError: If the backend server responds with an
+                unexpected message.
+        """
+        if not identifiers:
+            return []
+        if len(identifiers) > 100:
+            raise ValueError('`identifiers` parameter must have <= 100 entries.')
+
+        payload = defaultdict(list)
+        for identifier in identifiers:
+            if isinstance(identifier, _user_identifier.UidIdentifier):
+                payload['localId'].append(identifier.uid)
+            elif isinstance(identifier, _user_identifier.EmailIdentifier):
+                payload['email'].append(identifier.email)
+            elif isinstance(identifier, _user_identifier.PhoneIdentifier):
+                payload['phoneNumber'].append(identifier.phone_number)
+            elif isinstance(identifier, _user_identifier.ProviderIdentifier):
+                payload['federatedUserId'].append({
+                    'providerId': identifier.provider_id,
+                    'rawId': identifier.provider_uid
+                })
+            else:
+                raise ValueError(
+                    'Invalid entry in "identifiers" list. Unsupported type: {}'
+                    .format(type(identifier)))
+
+        body, http_resp = self._make_request(
+            'post', '/accounts:lookup', json=payload)
+        if not http_resp.ok:
+            raise _auth_utils.UnexpectedResponseError(
+                'Failed to get users.', http_response=http_resp)
+        return body.get('users', [])
 
     def list_users(self, page_token=None, max_results=MAX_LIST_USERS_RESULTS):
         """Retrieves a batch of users."""
@@ -498,10 +662,8 @@ class UserManager:
         payload = {'maxResults': max_results}
         if page_token:
             payload['nextPageToken'] = page_token
-        try:
-            return self._client.body('get', '/accounts:batchGet', params=payload)
-        except requests.exceptions.RequestException as error:
-            raise _auth_utils.handle_auth_backend_error(error)
+        body, _ = self._make_request('get', '/accounts:batchGet', params=payload)
+        return body
 
     def create_user(self, uid=None, display_name=None, email=None, phone_number=None,
                     photo_url=None, password=None, disabled=None, email_verified=None):
@@ -517,15 +679,11 @@ class UserManager:
             'disabled': bool(disabled) if disabled is not None else None,
         }
         payload = {k: v for k, v in payload.items() if v is not None}
-        try:
-            body, http_resp = self._client.body_and_response('post', '/accounts', json=payload)
-        except requests.exceptions.RequestException as error:
-            raise _auth_utils.handle_auth_backend_error(error)
-        else:
-            if not body or not body.get('localId'):
-                raise _auth_utils.UnexpectedResponseError(
-                    'Failed to create new user.', http_response=http_resp)
-            return body.get('localId')
+        body, http_resp = self._make_request('post', '/accounts', json=payload)
+        if not body or not body.get('localId'):
+            raise _auth_utils.UnexpectedResponseError(
+                'Failed to create new user.', http_response=http_resp)
+        return body.get('localId')
 
     def update_user(self, uid, display_name=None, email=None, phone_number=None,
                     photo_url=None, password=None, disabled=None, email_verified=None,
@@ -568,29 +726,55 @@ class UserManager:
             payload['customAttributes'] = _auth_utils.validate_custom_claims(json_claims)
 
         payload = {k: v for k, v in payload.items() if v is not None}
-        try:
-            body, http_resp = self._client.body_and_response(
-                'post', '/accounts:update', json=payload)
-        except requests.exceptions.RequestException as error:
-            raise _auth_utils.handle_auth_backend_error(error)
-        else:
-            if not body or not body.get('localId'):
-                raise _auth_utils.UnexpectedResponseError(
-                    'Failed to update user: {0}.'.format(uid), http_response=http_resp)
-            return body.get('localId')
+        body, http_resp = self._make_request('post', '/accounts:update', json=payload)
+        if not body or not body.get('localId'):
+            raise _auth_utils.UnexpectedResponseError(
+                'Failed to update user: {0}.'.format(uid), http_response=http_resp)
+        return body.get('localId')
 
     def delete_user(self, uid):
         """Deletes the user identified by the specified user ID."""
         _auth_utils.validate_uid(uid, required=True)
-        try:
-            body, http_resp = self._client.body_and_response(
-                'post', '/accounts:delete', json={'localId' : uid})
-        except requests.exceptions.RequestException as error:
-            raise _auth_utils.handle_auth_backend_error(error)
-        else:
-            if not body or not body.get('kind'):
-                raise _auth_utils.UnexpectedResponseError(
-                    'Failed to delete user: {0}.'.format(uid), http_response=http_resp)
+        body, http_resp = self._make_request('post', '/accounts:delete', json={'localId' : uid})
+        if not body or not body.get('kind'):
+            raise _auth_utils.UnexpectedResponseError(
+                'Failed to delete user: {0}.'.format(uid), http_response=http_resp)
+
+    def delete_users(self, uids, force_delete=False):
+        """Deletes the users identified by the specified user ids.
+
+        Args:
+            uids: A list of strings indicating the uids of the users to be deleted.
+                Must have <= 1000 entries.
+            force_delete: Optional parameter that indicates if users should be
+                deleted, even if they're not disabled. Defaults to False.
+
+
+        Returns:
+            BatchDeleteAccountsResponse: Server's proto response, wrapped in a
+            python object.
+
+        Raises:
+            ValueError: If any of the identifiers are invalid or if more than 1000
+                identifiers are specified.
+            UnexpectedResponseError: If the backend server responds with an
+                unexpected message.
+        """
+        if not uids:
+            return BatchDeleteAccountsResponse()
+
+        if len(uids) > 1000:
+            raise ValueError("`uids` paramter must have <= 1000 entries.")
+        for uid in uids:
+            _auth_utils.validate_uid(uid, required=True)
+
+        body, http_resp = self._make_request('post', '/accounts:batchDelete',
+                                             json={'localIds': uids, 'force': force_delete})
+        if not isinstance(body, dict):
+            raise _auth_utils.UnexpectedResponseError(
+                'Unexpected response from server while attempting to delete users.',
+                http_response=http_resp)
+        return BatchDeleteAccountsResponse(body.get('errors', []))
 
     def import_users(self, users, hash_alg=None):
         """Imports the given list of users to Firebase Auth."""
@@ -609,16 +793,11 @@ class UserManager:
             if not isinstance(hash_alg, _user_import.UserImportHash):
                 raise ValueError('A UserImportHash is required to import users with passwords.')
             payload.update(hash_alg.to_dict())
-        try:
-            body, http_resp = self._client.body_and_response(
-                'post', '/accounts:batchCreate', json=payload)
-        except requests.exceptions.RequestException as error:
-            raise _auth_utils.handle_auth_backend_error(error)
-        else:
-            if not isinstance(body, dict):
-                raise _auth_utils.UnexpectedResponseError(
-                    'Failed to import users.', http_response=http_resp)
-            return body
+        body, http_resp = self._make_request('post', '/accounts:batchCreate', json=payload)
+        if not isinstance(body, dict):
+            raise _auth_utils.UnexpectedResponseError(
+                'Failed to import users.', http_response=http_resp)
+        return body
 
     def generate_email_action_link(self, action_type, email, action_code_settings=None):
         """Fetches the email action links for types
@@ -646,45 +825,22 @@ class UserManager:
         if action_code_settings:
             payload.update(encode_action_code_settings(action_code_settings))
 
+        body, http_resp = self._make_request('post', '/accounts:sendOobCode', json=payload)
+        if not body or not body.get('oobLink'):
+            raise _auth_utils.UnexpectedResponseError(
+                'Failed to generate email action link.', http_response=http_resp)
+        return body.get('oobLink')
+
+    def _make_request(self, method, path, **kwargs):
+        url = '{0}{1}'.format(self.base_url, path)
         try:
-            body, http_resp = self._client.body_and_response(
-                'post', '/accounts:sendOobCode', json=payload)
+            return self.http_client.body_and_response(method, url, **kwargs)
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)
-        else:
-            if not body or not body.get('oobLink'):
-                raise _auth_utils.UnexpectedResponseError(
-                    'Failed to generate email action link.', http_response=http_resp)
-            return body.get('oobLink')
 
 
-class _UserIterator:
-    """An iterator that allows iterating over user accounts, one at a time.
+class _UserIterator(_auth_utils.PageIterator):
 
-    This implementation loads a page of users into memory, and iterates on them. When the whole
-    page has been traversed, it loads another page. This class never keeps more than one page
-    of entries in memory.
-    """
-
-    def __init__(self, current_page):
-        if not current_page:
-            raise ValueError('Current page must not be None.')
-        self._current_page = current_page
-        self._index = 0
-
-    def next(self):
-        if self._index == len(self._current_page.users):
-            if self._current_page.has_next_page:
-                self._current_page = self._current_page.get_next_page()
-                self._index = 0
-        if self._index < len(self._current_page.users):
-            result = self._current_page.users[self._index]
-            self._index += 1
-            return result
-        raise StopIteration
-
-    def __next__(self):
-        return self.next()
-
-    def __iter__(self):
-        return self
+    @property
+    def items(self):
+        return self._current_page.users

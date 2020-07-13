@@ -66,7 +66,7 @@ def _merge_jwt_claims(defaults, overrides):
             del defaults[key]
     return defaults
 
-def _verify_custom_token(custom_token, expected_claims):
+def verify_custom_token(custom_token, expected_claims, tenant_id=None):
     assert isinstance(custom_token, bytes)
     token = google.oauth2.id_token.verify_token(
         custom_token,
@@ -75,6 +75,11 @@ def _verify_custom_token(custom_token, expected_claims):
     assert token['uid'] == MOCK_UID
     assert token['iss'] == MOCK_SERVICE_ACCOUNT_EMAIL
     assert token['sub'] == MOCK_SERVICE_ACCOUNT_EMAIL
+    if tenant_id is None:
+        assert 'tenant_id' not in token
+    else:
+        assert token['tenant_id'] == tenant_id
+
     header = jwt.decode_header(custom_token)
     assert header.get('typ') == 'JWT'
     assert header.get('alg') == 'RS256'
@@ -94,6 +99,9 @@ def _get_id_token(payload_overrides=None, header_overrides=None):
         'exp': int(time.time()) + 3600,
         'sub': '1234567890',
         'admin': True,
+        'firebase': {
+            'sign_in_provider': 'provider',
+        },
     }
     if header_overrides:
         headers = _merge_jwt_claims(headers, header_overrides)
@@ -109,21 +117,21 @@ def _get_session_cookie(payload_overrides=None, header_overrides=None):
     return _get_id_token(payload_overrides, header_overrides)
 
 def _instrument_user_manager(app, status, payload):
-    auth_service = auth._get_auth_service(app)
-    user_manager = auth_service.user_manager
+    client = auth._get_client(app)
+    user_manager = client._user_manager
     recorder = []
-    user_manager._client.session.mount(
-        auth._AuthService.ID_TOOLKIT_URL,
+    user_manager.http_client.session.mount(
+        _token_gen.TokenGenerator.ID_TOOLKIT_URL,
         testutils.MockAdapter(payload, status, recorder))
     return user_manager, recorder
 
 def _overwrite_cert_request(app, request):
-    auth_service = auth._get_auth_service(app)
-    auth_service.token_verifier.request = request
+    client = auth._get_client(app)
+    client._token_verifier.request = request
 
 def _overwrite_iam_request(app, request):
-    auth_service = auth._get_auth_service(app)
-    auth_service.token_generator.request = request
+    client = auth._get_client(app)
+    client._token_generator.request = request
 
 @pytest.fixture(scope='module')
 def auth_app():
@@ -195,7 +203,7 @@ class TestCreateCustomToken:
     def test_valid_params(self, auth_app, values):
         user, claims = values
         custom_token = auth.create_custom_token(user, claims, app=auth_app)
-        _verify_custom_token(custom_token, claims)
+        verify_custom_token(custom_token, claims)
 
     @pytest.mark.parametrize('values', invalid_args.values(), ids=list(invalid_args))
     def test_invalid_params(self, auth_app, values):
@@ -245,8 +253,9 @@ class TestCreateCustomToken:
         try:
             _overwrite_iam_request(app, request)
             # Force initialization of the signing provider. This will invoke the Metadata service.
-            auth_service = auth._get_auth_service(app)
-            assert auth_service.token_generator.signing_provider is not None
+            client = auth._get_client(app)
+            assert client._token_generator.signing_provider is not None
+
             # Now invoke the IAM signer.
             signature = base64.b64encode(b'test').decode()
             request.response = testutils.MockResponse(
@@ -346,6 +355,11 @@ class TestCreateSessionCookie:
 
 MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
 TEST_ID_TOKEN = _get_id_token()
+TEST_ID_TOKEN_WITH_TENANT = _get_id_token({
+    'firebase': {
+        'tenant': 'test-tenant',
+    }
+})
 TEST_SESSION_COOKIE = _get_session_cookie()
 
 
@@ -380,6 +394,14 @@ class TestVerifyIdToken:
         claims = auth.verify_id_token(id_token, app=user_mgt_app)
         assert claims['admin'] is True
         assert claims['uid'] == claims['sub']
+        assert claims['firebase']['sign_in_provider'] == 'provider'
+
+    def test_valid_token_with_tenant(self, user_mgt_app):
+        _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
+        claims = auth.verify_id_token(TEST_ID_TOKEN_WITH_TENANT, app=user_mgt_app)
+        assert claims['admin'] is True
+        assert claims['uid'] == claims['sub']
+        assert claims['firebase']['tenant'] == 'test-tenant'
 
     @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
     def test_valid_token_check_revoked(self, user_mgt_app, id_token):

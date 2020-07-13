@@ -138,38 +138,45 @@ def check_model(model, args):
     assert model.locked is False
     assert model.etag is not None
 
+# Model Format Checks
 
-def check_model_format(model, has_model_format=False, validation_error=None, is_automl=False):
-    if has_model_format:
-        assert model.validation_error == validation_error
-        assert model.published is False
-        if is_automl:
-            assert model.model_format.model_source.auto_ml_model.startswith('projects/')
-        else:
-            assert model.model_format.model_source.gcs_tflite_uri.startswith('gs://')
-            if validation_error:
-                assert model.model_format.size_bytes is None
-                assert model.model_hash is None
-            else:
-                assert model.model_format.size_bytes is not None
-                assert model.model_hash is not None
-    else:
-        assert model.model_format is None
-        assert model.validation_error == 'No model file has been uploaded.'
-        assert model.published is False
+def check_no_model_format(model):
+    assert model.model_format is None
+    assert model.validation_error == 'No model file has been uploaded.'
+    assert model.published is False
+    assert model.model_hash is None
+
+
+def check_tflite_gcs_format(model, validation_error=None):
+    assert model.validation_error == validation_error
+    assert model.published is False
+    assert model.model_format.model_source.gcs_tflite_uri.startswith('gs://')
+    if validation_error:
+        assert model.model_format.size_bytes is None
         assert model.model_hash is None
+    else:
+        assert model.model_format.size_bytes is not None
+        assert model.model_hash is not None
+
+
+def check_tflite_automl_format(model):
+    assert model.validation_error is None
+    assert model.published is False
+    assert model.model_format.model_source.auto_ml_model.startswith('projects/')
+    # Automl models don't have validation errors since they are references
+    # to valid automl models.
 
 
 @pytest.mark.parametrize('firebase_model', [NAME_AND_TAGS_ARGS], indirect=True)
 def test_create_simple_model(firebase_model):
     check_model(firebase_model, NAME_AND_TAGS_ARGS)
-    check_model_format(firebase_model)
+    check_no_model_format(firebase_model)
 
 
 @pytest.mark.parametrize('firebase_model', [FULL_MODEL_ARGS], indirect=True)
 def test_create_full_model(firebase_model):
     check_model(firebase_model, FULL_MODEL_ARGS)
-    check_model_format(firebase_model, True)
+    check_tflite_gcs_format(firebase_model)
 
 
 @pytest.mark.parametrize('firebase_model', [FULL_MODEL_ARGS], indirect=True)
@@ -184,14 +191,14 @@ def test_create_already_existing_fails(firebase_model):
 @pytest.mark.parametrize('firebase_model', [INVALID_FULL_MODEL_ARGS], indirect=True)
 def test_create_invalid_model(firebase_model):
     check_model(firebase_model, INVALID_FULL_MODEL_ARGS)
-    check_model_format(firebase_model, True, 'Invalid flatbuffer format')
+    check_tflite_gcs_format(firebase_model, 'Invalid flatbuffer format')
 
 
 @pytest.mark.parametrize('firebase_model', [NAME_AND_TAGS_ARGS], indirect=True)
 def test_get_model(firebase_model):
     get_model = ml.get_model(firebase_model.model_id)
     check_model(get_model, NAME_AND_TAGS_ARGS)
-    check_model_format(get_model)
+    check_no_model_format(get_model)
 
 
 @pytest.mark.parametrize('firebase_model', [NAME_ONLY_ARGS], indirect=True)
@@ -210,12 +217,12 @@ def test_update_model(firebase_model):
     firebase_model.display_name = new_model_name
     updated_model = ml.update_model(firebase_model)
     check_model(updated_model, NAME_ONLY_ARGS_UPDATED)
-    check_model_format(updated_model)
+    check_no_model_format(updated_model)
 
     # Second call with same model does not cause error
     updated_model2 = ml.update_model(updated_model)
     check_model(updated_model2, NAME_ONLY_ARGS_UPDATED)
-    check_model_format(updated_model2)
+    check_no_model_format(updated_model2)
 
 
 @pytest.mark.parametrize('firebase_model', [NAME_ONLY_ARGS], indirect=True)
@@ -358,7 +365,7 @@ def test_from_keras_model(keras_model):
 
     try:
         check_model(created_model, {'display_name': model.display_name})
-        check_model_format(created_model, True)
+        check_tflite_gcs_format(created_model)
     finally:
         _clean_up_model(created_model)
 
@@ -385,7 +392,7 @@ def test_from_saved_model(saved_model_dir):
 
 # Test AutoML functionality if AutoML is enabled.
 #'pip install google-cloud-automl' in the environment if you want _AUTOML_ENABLED = True
-# You will also need a predefined AutoML model named 'py_sdk_integ_test1' to run the
+# You will also need a predefined AutoML model named 'admin_sdk_integ_test1' to run the
 # successful test. (Test is skipped otherwise)
 
 @pytest.fixture
@@ -393,12 +400,12 @@ def automl_model():
     assert _AUTOML_ENABLED
 
     # It takes > 20 minutes to train a model, so we expect a predefined AutoMl
-    # model named 'py_sdk_integ_test1' to exist in the project, or we skip
+    # model named 'admin_sdk_integ_test1' to exist in the project, or we skip
     # the test.
     automl_client = automl_v1.AutoMlClient()
     project_id = firebase_admin.get_app().project_id
     parent = automl_client.location_path(project_id, 'us-central1')
-    models = automl_client.list_models(parent, filter_="display_name=py_sdk_integ_test1")
+    models = automl_client.list_models(parent, filter_="display_name=admin_sdk_integ_test1")
     # Expecting exactly one. (Ok to use last one if somehow more than 1)
     automl_ref = None
     for model in models:
@@ -420,11 +427,11 @@ def automl_model():
 
 @pytest.mark.skipif(not _AUTOML_ENABLED, reason='AutoML is required for this test.')
 def test_automl_model(automl_model):
-  # This test looks for a predefined automl model with display_name = 'py_sdk_integ_test1'
+  # This test looks for a predefined automl model with display_name = 'admin_sdk_integ_test1'
     automl_model.wait_for_unlocked()
 
     check_model(automl_model, {
         'display_name': automl_model.display_name,
         'tags': ['test_automl'],
     })
-    check_model_format(automl_model, has_model_format=True, validation_error=None, is_automl=True)
+    check_tflite_automl_format(automl_model)

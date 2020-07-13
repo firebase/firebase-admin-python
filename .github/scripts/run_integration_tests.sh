@@ -1,4 +1,6 @@
-# Copyright 2017 Google Inc.
+#!/bin/bash
+
+# Copyright 2020 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,14 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#!/bin/bash
+set -e
+set -u
 
-function parseVersion {
-    if [[ ! "$1" =~ ^([0-9]*)\.([0-9]*)\.([0-9]*)$ ]]; then
-        return 1
-    fi
-    MAJOR_VERSION=$(echo "$1" | sed -e 's/^\([0-9]*\)\.\([0-9]*\)\.\([0-9]*\)$/\1/')
-    MINOR_VERSION=$(echo "$1" | sed -e 's/^\([0-9]*\)\.\([0-9]*\)\.\([0-9]*\)$/\2/')
-    PATCH_VERSION=$(echo "$1" | sed -e 's/^\([0-9]*\)\.\([0-9]*\)\.\([0-9]*\)$/\3/')
-    return 0
-}
+gpg --quiet --batch --yes --decrypt --passphrase="${FIREBASE_SERVICE_ACCT_KEY}" \
+  --output integ-service-account.json .github/resources/integ-service-account.json.gpg
+
+echo "${FIREBASE_API_KEY}" > integ-api-key.txt
+
+pytest integration/ --cert integ-service-account.json --apikey integ-api-key.txt

@@ -551,6 +551,17 @@ class TestListenerRegistration:
         finally:
             testutils.cleanup_apps()
 
+    def test_listener_session(self):
+        firebase_admin.initialize_app(testutils.MockCredential(), {
+            'databaseURL' : 'https://test.firebaseio.com',
+        })
+        try:
+            ref = db.reference()
+            session = ref._client.create_listener_session()
+            assert isinstance(session, _sseclient.KeepAuthSession)
+        finally:
+            testutils.cleanup_apps()
+
     def test_single_event(self):
         self.events = []
         def callback(event):

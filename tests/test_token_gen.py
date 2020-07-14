@@ -221,7 +221,7 @@ class TestCreateCustomToken:
             testutils.MockCredential(), name='iam-signer-app', options=options)
         try:
             signature = base64.b64encode(b'test').decode()
-            iam_resp = '{{"signature": "{0}"}}'.format(signature)
+            iam_resp = '{{"signedBlob": "{0}"}}'.format(signature)
             _overwrite_iam_request(app, testutils.MockRequest(200, iam_resp))
             custom_token = auth.create_custom_token(MOCK_UID, app=app).decode()
             assert custom_token.endswith('.' + signature.rstrip('='))
@@ -259,7 +259,7 @@ class TestCreateCustomToken:
             # Now invoke the IAM signer.
             signature = base64.b64encode(b'test').decode()
             request.response = testutils.MockResponse(
-                200, '{{"signature": "{0}"}}'.format(signature))
+                200, '{{"signedBlob": "{0}"}}'.format(signature))
             custom_token = auth.create_custom_token(MOCK_UID, app=app).decode()
             assert custom_token.endswith('.' + signature.rstrip('='))
             self._verify_signer(custom_token, 'discovered-service-account')

@@ -78,7 +78,7 @@ def _get_ml_service(app):
 
 
 def create_model(model, app=None):
-    """Creates a model in Firebase ML.
+    """Creates a model in the current Firebase project.
 
     Args:
         model: An ml.Model to create.
@@ -92,7 +92,7 @@ def create_model(model, app=None):
 
 
 def update_model(model, app=None):
-    """Updates a model in Firebase ML.
+    """Updates a model's metadata or model file.
 
     Args:
         model: The ml.Model to update.
@@ -106,7 +106,9 @@ def update_model(model, app=None):
 
 
 def publish_model(model_id, app=None):
-    """Publishes a model in Firebase ML.
+    """Publishes a Firebase ML model.
+    
+    A published model can be downloaded to client apps.
 
     Args:
         model_id: The id of the model to publish.
@@ -120,7 +122,7 @@ def publish_model(model_id, app=None):
 
 
 def unpublish_model(model_id, app=None):
-    """Unpublishes a model in Firebase ML.
+    """Unpublishes a Firebase ML model.
 
     Args:
         model_id: The id of the model to unpublish.
@@ -134,7 +136,7 @@ def unpublish_model(model_id, app=None):
 
 
 def get_model(model_id, app=None):
-    """Gets a model from Firebase ML.
+    """Gets the model specified by the given ID.
 
     Args:
         model_id: The id of the model to get.
@@ -148,7 +150,7 @@ def get_model(model_id, app=None):
 
 
 def list_models(list_filter=None, page_size=None, page_token=None, app=None):
-    """Lists models from Firebase ML.
+    """Lists the current project's models.
 
     Args:
         list_filter: a list filter string such as ``tags:'tag_1'``. None will return all models.
@@ -167,7 +169,7 @@ def list_models(list_filter=None, page_size=None, page_token=None, app=None):
 
 
 def delete_model(model_id, app=None):
-    """Deletes a model from Firebase ML.
+    """Deletes a model from the current project.
 
     Args:
         model_id: The id of the model you wish to delete.
@@ -602,7 +604,7 @@ class TFLiteGCSModelSource(TFLiteModelSource):
 
 
 class TFLiteAutoMlSource(TFLiteModelSource):
-    """TFLite model source representing a tflite model created via AutoML."""
+    """TFLite model source representing a tflite model created with AutoML."""
 
     def __init__(self, auto_ml_model, app=None):
         self._app = app
@@ -618,7 +620,7 @@ class TFLiteAutoMlSource(TFLiteModelSource):
 
     @property
     def auto_ml_model(self):
-        """Resource name of the model created by the AutoML API."""
+        """Resource name of the model, created by the AutoML API or Cloud console."""
         return self._auto_ml_model
 
     @auto_ml_model.setter
@@ -632,7 +634,7 @@ class TFLiteAutoMlSource(TFLiteModelSource):
 
 
 class ListModelsPage:
-    """Represents a page of models in a firebase project.
+    """Represents a page of models in a Firebase project.
 
     Provides methods for traversing the models included in this page, as well as
     retrieving subsequent pages of models. The iterator returned by

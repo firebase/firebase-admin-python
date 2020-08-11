@@ -107,7 +107,7 @@ def update_model(model, app=None):
 
 def publish_model(model_id, app=None):
     """Publishes a Firebase ML model.
-    
+
     A published model can be downloaded to client apps.
 
     Args:

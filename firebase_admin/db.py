@@ -979,7 +979,9 @@ class _Client(_http_client.JsonHttpClient):
 
         return message
 
-
+# Temporarily disable the lint rule. For more information see:
+# https://github.com/googleapis/google-auth-library-python/pull/561
+# pylint: disable=abstract-method
 class _EmulatorAdminCredentials(google.auth.credentials.Credentials):
     def __init__(self):
         google.auth.credentials.Credentials.__init__(self)

@@ -27,7 +27,7 @@ import sys
 import threading
 from urllib import parse
 
-import google.auth
+from google.auth import credentials
 import requests
 
 import firebase_admin
@@ -802,7 +802,7 @@ class _DatabaseService:
             credential = self._credential.get_credential()
         else:
             # Emulator base_url. Use fake credentials and specify ?ns=foo in query params.
-            credential = _EmulatorAdminCredentials()
+            credential = credentials.AnonymousCredentials()
             params = {'ns': namespace}
         if self._auth_override:
             params['auth_variable_override'] = self._auth_override
@@ -978,12 +978,3 @@ class _Client(_http_client.JsonHttpClient):
             message = 'Unexpected response from database: {0}'.format(response.content.decode())
 
         return message
-
-
-class _EmulatorAdminCredentials(google.auth.credentials.Credentials):
-    def __init__(self):
-        google.auth.credentials.Credentials.__init__(self)
-        self.token = 'owner'
-
-    def refresh(self, request):
-        pass

@@ -105,6 +105,9 @@ class MockFailedRequest(transport.Request):
         raise self.error
 
 
+# Temporarily disable the lint rule. For more information see:
+# https://github.com/googleapis/google-auth-library-python/pull/561
+# pylint: disable=abstract-method
 class MockGoogleCredential(credentials.Credentials):
     """A mock Google authentication credential."""
     def refresh(self, request):

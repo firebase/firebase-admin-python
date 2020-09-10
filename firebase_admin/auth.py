@@ -450,7 +450,7 @@ def update_user(uid, **kwargs): # pylint: disable=differing-param-doc
             ``auth.DELETE_ATTRIBUTE``.
         password: The user's raw, unhashed password. (optional).
         disabled: A boolean indicating whether or not the user account is disabled (optional).
-        custom_claims: A dictionary or a JSON string contining the custom claims to be set on the
+        custom_claims: A dictionary or a JSON string containing the custom claims to be set on the
             user account (optional). To remove all custom claims, pass ``auth.DELETE_ATTRIBUTE``.
         valid_since: An integer signifying the seconds since the epoch (optional). This field is
             set by ``revoke_refresh_tokens`` and it is discouraged to set this field directly.

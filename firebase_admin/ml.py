@@ -53,6 +53,9 @@ _DISPLAY_NAME_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,32}$')
 _TAG_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,32}$')
 _GCS_TFLITE_URI_PATTERN = re.compile(
     r'^gs://(?P<bucket_name>[a-z0-9_.-]{3,63})/(?P<blob_name>.+)$')
+_AUTO_ML_MODEL_PATTERN = re.compile(
+    r'^projects/(?P<project_id>[a-z0-9-]{6,30})/locations/(?P<location_id>[^/]+)/' +
+    r'models/(?P<model_id>[A-Za-z0-9]+)$')
 _RESOURCE_NAME_PATTERN = re.compile(
     r'^projects/(?P<project_id>[a-z0-9-]{6,30})/models/(?P<model_id>[A-Za-z0-9_-]{1,60})$')
 _OPERATION_NAME_PATTERN = re.compile(
@@ -75,7 +78,7 @@ def _get_ml_service(app):
 
 
 def create_model(model, app=None):
-    """Creates a model in Firebase ML.
+    """Creates a model in the current Firebase project.
 
     Args:
         model: An ml.Model to create.
@@ -89,7 +92,7 @@ def create_model(model, app=None):
 
 
 def update_model(model, app=None):
-    """Updates a model in Firebase ML.
+    """Updates a model's metadata or model file.
 
     Args:
         model: The ml.Model to update.
@@ -103,7 +106,9 @@ def update_model(model, app=None):
 
 
 def publish_model(model_id, app=None):
-    """Publishes a model in Firebase ML.
+    """Publishes a Firebase ML model.
+
+    A published model can be downloaded to client apps.
 
     Args:
         model_id: The id of the model to publish.
@@ -117,7 +122,7 @@ def publish_model(model_id, app=None):
 
 
 def unpublish_model(model_id, app=None):
-    """Unpublishes a model in Firebase ML.
+    """Unpublishes a Firebase ML model.
 
     Args:
         model_id: The id of the model to unpublish.
@@ -131,7 +136,7 @@ def unpublish_model(model_id, app=None):
 
 
 def get_model(model_id, app=None):
-    """Gets a model from Firebase ML.
+    """Gets the model specified by the given ID.
 
     Args:
         model_id: The id of the model to get.
@@ -145,7 +150,7 @@ def get_model(model_id, app=None):
 
 
 def list_models(list_filter=None, page_size=None, page_token=None, app=None):
-    """Lists models from Firebase ML.
+    """Lists the current project's models.
 
     Args:
         list_filter: a list filter string such as ``tags:'tag_1'``. None will return all models.
@@ -164,7 +169,7 @@ def list_models(list_filter=None, page_size=None, page_token=None, app=None):
 
 
 def delete_model(model_id, app=None):
-    """Deletes a model from Firebase ML.
+    """Deletes a model from the current project.
 
     Args:
         model_id: The id of the model you wish to delete.
@@ -363,14 +368,9 @@ class TFLiteFormat(ModelFormat):
     def from_dict(cls, data):
         """Create an instance of the object from a dict."""
         data_copy = dict(data)
-        model_source = None
-        gcs_tflite_uri = data_copy.pop('gcsTfliteUri', None)
-        if gcs_tflite_uri:
-            model_source = TFLiteGCSModelSource(gcs_tflite_uri=gcs_tflite_uri)
-        tflite_format = TFLiteFormat(model_source=model_source)
+        tflite_format = TFLiteFormat(model_source=cls._init_model_source(data_copy))
         tflite_format._data = data_copy # pylint: disable=protected-access
         return tflite_format
-
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -380,6 +380,16 @@ class TFLiteFormat(ModelFormat):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    @staticmethod
+    def _init_model_source(data):
+        gcs_tflite_uri = data.pop('gcsTfliteUri', None)
+        if gcs_tflite_uri:
+            return TFLiteGCSModelSource(gcs_tflite_uri=gcs_tflite_uri)
+        auto_ml_model = data.pop('automlModel', None)
+        if auto_ml_model:
+            return TFLiteAutoMlSource(auto_ml_model=auto_ml_model)
+        return None
 
     @property
     def model_source(self):
@@ -593,8 +603,38 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         return {'gcsTfliteUri': self._gcs_tflite_uri}
 
 
+class TFLiteAutoMlSource(TFLiteModelSource):
+    """TFLite model source representing a tflite model created with AutoML."""
+
+    def __init__(self, auto_ml_model, app=None):
+        self._app = app
+        self.auto_ml_model = auto_ml_model
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.auto_ml_model == other.auto_ml_model
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    @property
+    def auto_ml_model(self):
+        """Resource name of the model, created by the AutoML API or Cloud console."""
+        return self._auto_ml_model
+
+    @auto_ml_model.setter
+    def auto_ml_model(self, auto_ml_model):
+        self._auto_ml_model = _validate_auto_ml_model(auto_ml_model)
+
+    def as_dict(self, for_upload=False):
+        """Returns a serializable representation of the object."""
+        # Upload is irrelevant for auto_ml models
+        return {'automlModel': self._auto_ml_model}
+
+
 class ListModelsPage:
-    """Represents a page of models in a firebase project.
+    """Represents a page of models in a Firebase project.
 
     Provides methods for traversing the models included in this page, as well as
     retrieving subsequent pages of models. The iterator returned by
@@ -739,6 +779,11 @@ def _validate_gcs_tflite_uri(uri):
     if not _GCS_TFLITE_URI_PATTERN.match(uri):
         raise ValueError('GCS TFLite URI format is invalid.')
     return uri
+
+def _validate_auto_ml_model(model):
+    if not _AUTO_ML_MODEL_PATTERN.match(model):
+        raise ValueError('Model resource name format is invalid.')
+    return model
 
 
 def _validate_model_format(model_format):

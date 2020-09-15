@@ -75,7 +75,7 @@ def test_send_invalid_token():
         token=_REGISTRATION_TOKEN,
         notification=messaging.Notification('test-title', 'test-body')
     )
-    with pytest.raises(messaging.SenderIdMismatchError):
+    with pytest.raises(messaging.UnregisteredError):
         messaging.send(msg, dry_run=True)
 
 def test_send_malformed_token():

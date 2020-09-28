@@ -99,8 +99,8 @@ OPERATION_NOT_DONE_JSON_1 = {
 }
 
 GCS_BUCKET_NAME = 'my_bucket'
-GCS_BLOB_NAME = 'mymodel.tflite'
-GCS_TFLITE_URI = 'gs://{0}/{1}'.format(GCS_BUCKET_NAME, GCS_BLOB_NAME)
+GCS_TFLITE_NAME = 'mymodel.tflite'
+GCS_TFLITE_URI = 'gs://{0}/{1}'.format(GCS_BUCKET_NAME, GCS_TFLITE_NAME)
 GCS_TFLITE_URI_JSON = {'gcsTfliteUri': GCS_TFLITE_URI}
 GCS_TFLITE_MODEL_SOURCE = ml.TFLiteGCSModelSource(GCS_TFLITE_URI)
 TFLITE_FORMAT_JSON = {
@@ -109,9 +109,9 @@ TFLITE_FORMAT_JSON = {
 }
 TFLITE_FORMAT = ml.TFLiteFormat.from_dict(TFLITE_FORMAT_JSON)
 
-GCS_TFLITE_SIGNED_URI_PATTERN = (
+GCS_SIGNED_URI_PATTERN = (
     'https://storage.googleapis.com/{0}/{1}?X-Goog-Algorithm=GOOG4-RSA-SHA256&foo')
-GCS_TFLITE_SIGNED_URI = GCS_TFLITE_SIGNED_URI_PATTERN.format(GCS_BUCKET_NAME, GCS_BLOB_NAME)
+GCS_TFLITE_SIGNED_URI = GCS_SIGNED_URI_PATTERN.format(GCS_BUCKET_NAME, GCS_TFLITE_NAME)
 
 GCS_TFLITE_URI_2 = 'gs://my_bucket/mymodel2.tflite'
 GCS_TFLITE_URI_JSON_2 = {'gcsTfliteUri': GCS_TFLITE_URI_2}
@@ -121,6 +121,26 @@ TFLITE_FORMAT_JSON_2 = {
     'sizeBytes': '2345678'
 }
 TFLITE_FORMAT_2 = ml.TFLiteFormat.from_dict(TFLITE_FORMAT_JSON_2)
+
+GCS_COREML_NAME = 'mymodel.mlmodel'
+GCS_COREML_URI = 'gs://{0}/{1}'.format(GCS_BUCKET_NAME, GCS_COREML_NAME)
+GCS_COREML_URI_JSON = {'gcsCoremlUri': GCS_COREML_URI}
+GCS_COREML_MODEL_SOURCE = ml.CoreMlGCSModelSource(GCS_COREML_URI)
+COREML_FORMAT_JSON = {
+    'gcsCoremlUri': GCS_COREML_URI,
+    'sizeBytes': '23456789'
+}
+COREML_FORMAT = ml.CoreMlFormat.from_dict(COREML_FORMAT_JSON)
+GCS_COREML_SIGNED_URI = GCS_SIGNED_URI_PATTERN.format(GCS_BUCKET_NAME, GCS_COREML_NAME)
+
+GCS_COREML_URI_2 = 'gs://my_bucket/mymodel2.mlmodel'
+GCS_COREML_URI_JSON_2 = {'gcsCoremlUri': GCS_COREML_URI_2}
+GCS_COREML_MODEL_SOURCE_2 = ml.CoreMlGCSModelSource(GCS_COREML_URI_2)
+COREML_FORMAT_JSON_2 = {
+    'gcsCoremlUri': GCS_COREML_URI_2,
+    'sizeBytes': '3456789'
+}
+COREML_FORMAT_2 = ml.CoreMlFormat.from_dict(COREML_FORMAT_JSON_2)
 
 AUTOML_MODEL_NAME = 'projects/111111111111/locations/us-central1/models/ICN7683346839371803263'
 AUTOML_MODEL_SOURCE = ml.TFLiteAutoMlSource(AUTOML_MODEL_NAME)
@@ -133,6 +153,21 @@ TFLITE_FORMAT_3 = ml.TFLiteFormat.from_dict(TFLITE_FORMAT_JSON_3)
 AUTOML_MODEL_NAME_2 = 'projects/2222222222/locations/us-central1/models/ICN2222222222222222222'
 AUTOML_MODEL_NAME_JSON_2 = {'automlModel': AUTOML_MODEL_NAME_2}
 AUTOML_MODEL_SOURCE_2 = ml.TFLiteAutoMlSource(AUTOML_MODEL_NAME_2)
+
+TFLITE_MANAGED_MODEL_SOURCE = ml.TFLiteManagedUploadSource()
+TFLITE_FORMAT_MANAGED_JSON = {
+    'managedUpload': True,
+    'sizeBytes': '456789'
+}
+TFLITE_FORMAT_MANAGED = ml.TFLiteFormat.from_dict(TFLITE_FORMAT_MANAGED_JSON)
+
+COREML_MANAGED_MODEL_SOURCE = ml.CoreMlManagedUploadSource()
+COREML_FORMAT_MANAGED_JSON = {
+    'managedUpload': True,
+    'sizeBytes': '7890123'
+}
+COREML_FORMAT_MANAGED = ml.CoreMlFormat.from_dict(COREML_FORMAT_MANAGED_JSON)
+
 
 CREATED_UPDATED_MODEL_JSON_1 = {
     'name': MODEL_NAME_1,
@@ -198,7 +233,7 @@ FULL_MODEL_ERR_STATE_LRO_JSON = {
     'tags': TAGS,
     'activeOperations': [OPERATION_NOT_DONE_JSON_1],
 }
-FULL_MODEL_PUBLISHED_JSON = {
+FULL_TFLITE_MODEL_PUBLISHED_JSON = {
     'name': MODEL_NAME_1,
     'displayName': DISPLAY_NAME_1,
     'createTime': CREATE_TIME,
@@ -209,17 +244,35 @@ FULL_MODEL_PUBLISHED_JSON = {
     'tags': TAGS,
     'tfliteModel': TFLITE_FORMAT_JSON
 }
-FULL_MODEL_PUBLISHED = ml.Model.from_dict(FULL_MODEL_PUBLISHED_JSON)
-OPERATION_DONE_FULL_MODEL_PUBLISHED_JSON = {
+FULL_TFLITE_MODEL_PUBLISHED = ml.Model.from_dict(FULL_TFLITE_MODEL_PUBLISHED_JSON)
+OPERATION_DONE_FULL_TFLITE_MODEL_PUBLISHED_JSON = {
     'name': OPERATION_NAME_1,
     'done': True,
-    'response': FULL_MODEL_PUBLISHED_JSON
+    'response': FULL_TFLITE_MODEL_PUBLISHED_JSON
+}
+FULL_COREML_MODEL_PUBLISHED_JSON = {
+    'name': MODEL_NAME_1,
+    'displayName': DISPLAY_NAME_1,
+    'createTime': CREATE_TIME,
+    'updateTime': UPDATE_TIME,
+    'state': MODEL_STATE_PUBLISHED_JSON,
+    'etag': ETAG,
+    'modelHash': MODEL_HASH,
+    'tags': TAGS,
+    'coremlModel': COREML_FORMAT_JSON
+}
+FULL_COREML_MODEL_PUBLISHED = ml.Model.from_dict(FULL_COREML_MODEL_PUBLISHED_JSON)
+OPERATION_DONE_FULL_COREML_MODEL_PUBLISHED_JSON = {
+    'name': OPERATION_NAME_1,
+    'done': True,
+    'response': FULL_COREML_MODEL_PUBLISHED_JSON
 }
 
 EMPTY_RESPONSE = json.dumps({})
 OPERATION_NOT_DONE_RESPONSE = json.dumps(OPERATION_NOT_DONE_JSON_1)
 OPERATION_DONE_RESPONSE = json.dumps(OPERATION_DONE_MODEL_JSON_1)
-OPERATION_DONE_PUBLISHED_RESPONSE = json.dumps(OPERATION_DONE_FULL_MODEL_PUBLISHED_JSON)
+OPERATION_DONE_TFLITE_PUBLISHED_RESPONSE = json.dumps(OPERATION_DONE_FULL_TFLITE_MODEL_PUBLISHED_JSON)
+OPERATION_DONE_COREML_PUBLISHED_RESPONSE = json.dumps(OPERATION_DONE_FULL_COREML_MODEL_PUBLISHED_JSON)
 OPERATION_ERROR_RESPONSE = json.dumps(OPERATION_ERROR_JSON_1)
 OPERATION_MALFORMED_RESPONSE = json.dumps(OPERATION_MALFORMED_JSON_1)
 OPERATION_MISSING_NAME_RESPONSE = json.dumps(OPERATION_MISSING_NAME)
@@ -346,8 +399,8 @@ class _TestStorageClient:
     @staticmethod
     def sign_uri(gcs_tflite_uri, app):
         del app # unused variable
-        bucket_name, blob_name = ml._CloudStorageClient._parse_gcs_tflite_uri(gcs_tflite_uri)
-        return GCS_TFLITE_SIGNED_URI_PATTERN.format(bucket_name, blob_name)
+        bucket_name, blob_name = ml._CloudStorageClient._parse_gcs_uri(gcs_tflite_uri)
+        return GCS_SIGNED_URI_PATTERN.format(bucket_name, blob_name)
 
 class TestModel:
     """Tests ml.Model class."""
@@ -357,6 +410,7 @@ class TestModel:
         firebase_admin.initialize_app(cred, {'projectId': PROJECT_ID})
         ml._MLService.POLL_BASE_WAIT_TIME_SECONDS = 0.1  # shorter for test
         ml.TFLiteGCSModelSource._STORAGE_CLIENT = _TestStorageClient()
+        ml.CoreMlGCSModelSource._STORAGE_CLIENT = _TestStorageClient()
 
     @classmethod
     def teardown_class(cls):
@@ -382,8 +436,8 @@ class TestModel:
         assert model.model_format is None
         assert model.as_dict() == FULL_MODEL_ERR_STATE_LRO_JSON
 
-    def test_model_success_published(self):
-        model = ml.Model.from_dict(FULL_MODEL_PUBLISHED_JSON)
+    def test_tflite_model_success_published(self):
+        model = ml.Model.from_dict(FULL_TFLITE_MODEL_PUBLISHED_JSON)
         assert model.model_id == MODEL_ID_1
         assert model.display_name == DISPLAY_NAME_1
         assert model.create_time == CREATE_TIME_MILLIS
@@ -395,9 +449,24 @@ class TestModel:
         assert model.tags == TAGS
         assert model.locked is False
         assert model.model_format == TFLITE_FORMAT
-        assert model.as_dict() == FULL_MODEL_PUBLISHED_JSON
+        assert model.as_dict() == FULL_TFLITE_MODEL_PUBLISHED_JSON
 
-    def test_model_keyword_based_creation_and_setters(self):
+    def test_coreml_model_success_published(self):
+        model = ml.Model.from_dict(FULL_COREML_MODEL_PUBLISHED_JSON)
+        assert model.model_id == MODEL_ID_1
+        assert model.display_name == DISPLAY_NAME_1
+        assert model.create_time == CREATE_TIME_MILLIS
+        assert model.update_time == UPDATE_TIME_MILLIS
+        assert model.validation_error is None
+        assert model.published is True
+        assert model.etag == ETAG
+        assert model.model_hash == MODEL_HASH
+        assert model.tags == TAGS
+        assert model.locked is False
+        assert model.model_format == COREML_FORMAT
+        assert model.as_dict() == FULL_COREML_MODEL_PUBLISHED_JSON
+
+    def test_tflite_model_keyword_based_creation_and_setters(self):
         model = ml.Model(display_name=DISPLAY_NAME_1, tags=TAGS, model_format=TFLITE_FORMAT)
         assert model.display_name == DISPLAY_NAME_1
         assert model.tags == TAGS
@@ -424,6 +493,34 @@ class TestModel:
             'tfliteModel': TFLITE_FORMAT_JSON_3
         }
 
+        model.model_format = TFLITE_FORMAT_MANAGED
+        assert model.as_dict() == {
+            'displayName': DISPLAY_NAME_2,
+            'tags': TAGS_2,
+            'tfliteModel': TFLITE_FORMAT_MANAGED_JSON
+        }
+
+    def test_coreml_model_keyword_based_creation_and_setters(self):
+        model = ml.Model(display_name=DISPLAY_NAME_1, tags=TAGS, model_format=COREML_FORMAT)
+        assert model.as_dict() == {
+            'displayName': DISPLAY_NAME_1,
+            'tags': TAGS,
+            'coremlModel': COREML_FORMAT_JSON
+        }
+
+        model.model_format = COREML_FORMAT_2
+        assert model.as_dict() == {
+            'displayName': DISPLAY_NAME_1,
+            'tags': TAGS,
+            'coremlModel': COREML_FORMAT_JSON_2
+        }
+
+        model.model_format = COREML_FORMAT_MANAGED
+        assert model.as_dict() == {
+            'displayName': DISPLAY_NAME_1,
+            'tags': TAGS,
+            'coremlModel': COREML_FORMAT_MANAGED_JSON
+        }
 
     def test_gcs_tflite_model_format_source_creation(self):
         model_source = ml.TFLiteGCSModelSource(gcs_tflite_uri=GCS_TFLITE_URI)
@@ -433,6 +530,17 @@ class TestModel:
             'displayName': DISPLAY_NAME_1,
             'tfliteModel': {
                 'gcsTfliteUri': GCS_TFLITE_URI
+            }
+        }
+
+    def test_gcs_coreml_model_format_source_creation(self):
+        model_source = ml.CoreMlGCSModelSource(gcs_coreml_uri=GCS_COREML_URI)
+        model_format = ml.CoreMlFormat(model_source=model_source)
+        model = ml.Model(display_name=DISPLAY_NAME_1, model_format=model_format)
+        assert model.as_dict() == {
+            'displayName': DISPLAY_NAME_1,
+            'coremlModel': {
+                'gcsCoremlUri': GCS_COREML_URI
             }
         }
 
@@ -447,11 +555,40 @@ class TestModel:
             }
         }
 
+    def test_managed_tflite_model_format_source_creation(self):
+        model_source = ml.TFLiteManagedUploadSource()
+        model_format = ml.TFLiteFormat(model_source=model_source)
+        model = ml.Model(display_name=DISPLAY_NAME_1, model_format=model_format)
+        assert model.as_dict() == {
+            'displayName': DISPLAY_NAME_1,
+            'tfliteModel': {
+                'managedUpload': True
+            }
+        }
+
+    def test_managed_coreml_model_format_source_creation(self):
+        model_source = ml.CoreMlManagedUploadSource()
+        model_format = ml.CoreMlFormat(model_source=model_source)
+        model = ml.Model(display_name=DISPLAY_NAME_1, model_format=model_format)
+        assert model.as_dict() == {
+            'displayName': DISPLAY_NAME_1,
+            'coremlModel': {
+                'managedUpload': True
+            }
+        }
+
     def test_source_creation_from_tflite_file(self):
         model_source = ml.TFLiteGCSModelSource.from_tflite_model_file(
             "my_model.tflite", "my_bucket")
         assert model_source.as_dict() == {
             'gcsTfliteUri': 'gs://my_bucket/Firebase/ML/Models/my_model.tflite'
+        }
+
+    def test_source_creation_from_coreml_file(self):
+        model_source = ml.CoreMlGCSModelSource.from_coreml_model_file(
+          "my_model.mlmodel", "my_bucket")
+        assert model_source.as_dict() == {
+            'gcsCoremlUri': 'gs://my_bucket/Firebase/ML/Models/my_model.mlmodel'
         }
 
     def test_gcs_tflite_model_source_setters(self):
@@ -466,8 +603,13 @@ class TestModel:
         assert model_source.auto_ml_model == AUTOML_MODEL_NAME_2
         assert model_source.as_dict() == AUTOML_MODEL_NAME_JSON_2
 
+    def test_gcs_coreml_model_source_setters(self):
+        model_source = ml.CoreMlGCSModelSource(GCS_COREML_URI)
+        model_source.gcs_coreml_uri = GCS_COREML_URI_2
+        assert model_source.gcs_coreml_uri == GCS_COREML_URI_2
+        assert model_source.as_dict() == GCS_COREML_URI_JSON_2
 
-    def test_model_format_setters(self):
+    def test_tflite_model_format_setters(self):
         model_format = ml.TFLiteFormat(model_source=GCS_TFLITE_MODEL_SOURCE)
         model_format.model_source = GCS_TFLITE_MODEL_SOURCE_2
         assert model_format.model_source == GCS_TFLITE_MODEL_SOURCE_2
@@ -485,7 +627,33 @@ class TestModel:
             }
         }
 
-    def test_model_as_dict_for_upload(self):
+        model_format.model_source = TFLITE_MANAGED_MODEL_SOURCE
+        assert model_format.model_source == TFLITE_MANAGED_MODEL_SOURCE
+        assert model_format.as_dict() == {
+            'tfliteModel': {
+                'managedUpload': True
+            }
+        }
+
+    def test_coreml_model_format_setters(self):
+        model_format = ml.CoreMlFormat(model_source=GCS_COREML_MODEL_SOURCE)
+        model_format.model_source = GCS_COREML_MODEL_SOURCE_2
+        assert model_format.model_source == GCS_COREML_MODEL_SOURCE_2
+        assert model_format.as_dict() == {
+            'coremlModel': {
+                'gcsCoremlUri': GCS_COREML_URI_2
+            }
+        }
+
+        model_format.model_source = COREML_MANAGED_MODEL_SOURCE
+        assert model_format.model_source == COREML_MANAGED_MODEL_SOURCE
+        assert model_format.as_dict() == {
+            'coremlModel': {
+                'managedUpload': True
+            }
+        }
+
+    def test_tflite_model_as_dict_for_upload(self):
         model_source = ml.TFLiteGCSModelSource(gcs_tflite_uri=GCS_TFLITE_URI)
         model_format = ml.TFLiteFormat(model_source=model_source)
         model = ml.Model(display_name=DISPLAY_NAME_1, model_format=model_format)
@@ -493,6 +661,17 @@ class TestModel:
             'displayName': DISPLAY_NAME_1,
             'tfliteModel': {
                 'gcsTfliteUri': GCS_TFLITE_SIGNED_URI
+            }
+        }
+
+    def test_coreml_model_as_dict_for_upload(self):
+        model_source = ml.CoreMlGCSModelSource(gcs_coreml_uri=GCS_COREML_URI)
+        model_format = ml.CoreMlFormat(model_source=model_source)
+        model = ml.Model(display_name=DISPLAY_NAME_1, model_format=model_format)
+        assert model.as_dict(for_upload=True) == {
+            'displayName': DISPLAY_NAME_1,
+            'coremlModel': {
+                'gcsCoremlUri': GCS_COREML_SIGNED_URI
             }
         }
 
@@ -547,12 +726,29 @@ class TestModel:
         "abc",
         {},
         [],
-        True
+        True,
+        COREML_FORMAT,
+        COREML_FORMAT_MANAGED,
     ])
-    def test_model_source_validation_errors(self, model_source):
+    def test_tflite_model_source_validation_errors(self, model_source):
         with pytest.raises(TypeError) as excinfo:
             ml.TFLiteFormat(model_source=model_source)
         check_error(excinfo, TypeError, 'Model source must be a TFLiteModelSource object.')
+
+    @pytest.mark.parametrize('model_source', [
+        123,
+        "abc",
+        {},
+        [],
+        True,
+        TFLITE_FORMAT,
+        AUTOML_MODEL_SOURCE,
+        TFLITE_FORMAT_MANAGED,
+    ])
+    def test_tflite_model_source_validation_errors(self, model_source):
+        with pytest.raises(TypeError) as excinfo:
+            ml.CoreMlFormat(model_source=model_source)
+        check_error(excinfo, TypeError, 'Model source must be a CoreMlModelSource object.')
 
     @pytest.mark.parametrize('uri, exc_type', [
         (123, TypeError),
@@ -568,6 +764,22 @@ class TestModel:
     def test_gcs_tflite_source_validation_errors(self, uri, exc_type):
         with pytest.raises(exc_type) as excinfo:
             ml.TFLiteGCSModelSource(gcs_tflite_uri=uri)
+        check_error(excinfo, exc_type)
+
+    @pytest.mark.parametrize('uri, exc_type', [
+        (123, TypeError),
+        ('abc', ValueError),
+        ('gs://NO_CAPITALS', ValueError),
+        ('gs://abc/', ValueError),
+        ('gs://aa/model.tflite', ValueError),
+        ('gs://@#$%/model.tflite', ValueError),
+        ('gs://invalid space/model.tflite', ValueError),
+        ('gs://sixty-four-characters_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/model.tflite',
+         ValueError)
+    ])
+    def test_gcs_coreml_source_validation_errors(self, uri, exc_type):
+        with pytest.raises(exc_type) as excinfo:
+            ml.CoreMlGCSModelSource(gcs_coreml_uri=uri)
         check_error(excinfo, exc_type)
 
     @pytest.mark.parametrize('auto_ml_model, exc_type', [
@@ -591,17 +803,30 @@ class TestModel:
         model = ml.Model(display_name="not_locked")
         model.wait_for_unlocked()
 
-    def test_wait_for_unlocked(self):
+    def test_wait_for_unlocked_tflite(self):
         recorder = instrument_ml_service(status=200,
                                          operations=True,
-                                         payload=OPERATION_DONE_PUBLISHED_RESPONSE)
+                                         payload=OPERATION_DONE_TFLITE_PUBLISHED_RESPONSE)
         model = ml.Model.from_dict(LOCKED_MODEL_JSON_1)
         model.wait_for_unlocked()
-        assert model == FULL_MODEL_PUBLISHED
+        assert model == FULL_TFLITE_MODEL_PUBLISHED
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
         assert recorder[0].url == TestModel._op_url(PROJECT_ID)
         assert recorder[0].headers[HEADER_CLIENT_KEY] == HEADER_CLIENT_VALUE
+
+    def test_wait_for_unlocked_coreml(self):
+        recorder = instrument_ml_service(status=200,
+                                         operations=True,
+                                         payload=OPERATION_DONE_COREML_PUBLISHED_RESPONSE)
+        model = ml.Model.from_dict(LOCKED_MODEL_JSON_1)
+        model.wait_for_unlocked()
+        assert model == FULL_COREML_MODEL_PUBLISHED
+        assert len(recorder) == 1
+        assert recorder[0].method == 'GET'
+        assert recorder[0].url == TestModel._op_url(PROJECT_ID)
+        assert recorder[0].headers[HEADER_CLIENT_KEY] == HEADER_CLIENT_VALUE
+
 
     def test_wait_for_unlocked_timeout(self):
         recorder = instrument_ml_service(

@@ -51,7 +51,7 @@ _MAX_PAGE_SIZE = 100
 _MODEL_ID_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,60}$')
 _DISPLAY_NAME_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,32}$')
 _TAG_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,32}$')
-_GCS_TFLITE_URI_PATTERN = re.compile(
+_GCS_URI_PATTERN = re.compile(
     r'^gs://(?P<bucket_name>[a-z0-9_.-]{3,63})/(?P<blob_name>.+)$')
 _AUTO_ML_MODEL_PATTERN = re.compile(
     r'^projects/(?P<project_id>[a-z0-9-]{6,30})/locations/(?P<location_id>[^/]+)/' +
@@ -203,12 +203,18 @@ class Model:
     def from_dict(cls, data, app=None):
         """Create an instance of the object from a dict."""
         data_copy = dict(data)
-        tflite_format = None
-        tflite_format_data = data_copy.pop('tfliteModel', None)
         data_copy.pop('@type', None)  # Returned by Operations. (Not needed)
+        model_format = None
+
+        tflite_format_data = data_copy.pop('tfliteModel', None)
         if tflite_format_data:
-            tflite_format = TFLiteFormat.from_dict(tflite_format_data)
-        model = Model(model_format=tflite_format)
+            model_format = TFLiteFormat.from_dict(tflite_format_data)
+
+        coreml_format_data = data_copy.pop('coremlModel', None)
+        if coreml_format_data:
+            model_format = CoreMlFormat.from_dict(coreml_format_data)
+
+        model = Model(model_format=model_format)
         model._data = data_copy  # pylint: disable=protected-access
         model._app = app # pylint: disable=protected-access
         return model
@@ -383,12 +389,19 @@ class TFLiteFormat(ModelFormat):
 
     @staticmethod
     def _init_model_source(data):
+        """Creates the model source from the data object."""
         gcs_tflite_uri = data.pop('gcsTfliteUri', None)
         if gcs_tflite_uri:
             return TFLiteGCSModelSource(gcs_tflite_uri=gcs_tflite_uri)
+
         auto_ml_model = data.pop('automlModel', None)
         if auto_ml_model:
             return TFLiteAutoMlSource(auto_ml_model=auto_ml_model)
+
+        managed_upload = data.pop('managedUpload', None)
+        if managed_upload:
+            return TFLiteManagedUploadSource()
+
         return None
 
     @property
@@ -436,12 +449,12 @@ class _CloudStorageClient:
                               'to install the "google-cloud-storage" module.')
 
     @staticmethod
-    def _parse_gcs_tflite_uri(uri):
+    def _parse_gcs_uri(uri):
         # GCS Bucket naming rules are complex. The regex is not comprehensive.
         # See https://cloud.google.com/storage/docs/naming for full details.
-        matcher = _GCS_TFLITE_URI_PATTERN.match(uri)
+        matcher = _GCS_URI_PATTERN.match(uri)
         if not matcher:
-            raise ValueError('GCS TFLite URI format is invalid.')
+            raise ValueError('GCS URI format is invalid.')
         return matcher.group('bucket_name'), matcher.group('blob_name')
 
     @staticmethod
@@ -457,10 +470,10 @@ class _CloudStorageClient:
         return _CloudStorageClient.GCS_URI.format(bucket.name, blob_name)
 
     @staticmethod
-    def sign_uri(gcs_tflite_uri, app):
+    def sign_uri(gcs_uri, app):
         """Makes the gcs_tflite_uri readable for GET for 10 minutes via signed_uri."""
         _CloudStorageClient._assert_gcs_enabled()
-        bucket_name, blob_name = _CloudStorageClient._parse_gcs_tflite_uri(gcs_tflite_uri)
+        bucket_name, blob_name = _CloudStorageClient._parse_gcs_uri(gcs_uri)
         bucket = storage.bucket(bucket_name, app=app)
         blob = bucket.blob(blob_name)
         return blob.generate_signed_url(
@@ -477,7 +490,7 @@ class TFLiteGCSModelSource(TFLiteModelSource):
 
     def __init__(self, gcs_tflite_uri, app=None):
         self._app = app
-        self._gcs_tflite_uri = _validate_gcs_tflite_uri(gcs_tflite_uri)
+        self._gcs_tflite_uri = _validate_gcs_uri(gcs_tflite_uri)
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -589,7 +602,7 @@ class TFLiteGCSModelSource(TFLiteModelSource):
 
     @gcs_tflite_uri.setter
     def gcs_tflite_uri(self, gcs_tflite_uri):
-        self._gcs_tflite_uri = _validate_gcs_tflite_uri(gcs_tflite_uri)
+        self._gcs_tflite_uri = _validate_gcs_uri(gcs_tflite_uri)
 
     def _get_signed_gcs_tflite_uri(self):
         """Signs the GCS uri, so the model file can be uploaded to Firebase ML and verified."""
@@ -631,6 +644,183 @@ class TFLiteAutoMlSource(TFLiteModelSource):
         """Returns a serializable representation of the object."""
         # Upload is irrelevant for auto_ml models
         return {'automlModel': self._auto_ml_model}
+
+
+class TFLiteManagedUploadSource(TFLiteModelSource):
+    """TFLite model source representing a TFLite model uploaded in the console. (Output only)."""
+    def __init__(self):
+        pass
+
+    def __eq__(self, other):
+        return isinstance(other, self.__class__)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    @property
+    def managed_upload(self):
+        return True
+
+    def as_dict(self, for_upload=False):
+        # This class is output only, you can't create
+        # a model from a Managed Upload Source since that
+        # indicates it was created through the console, and
+        # this is not the console.
+        # (the backend will ignore the managed_upload field)
+        return {'managedUpload': True}
+
+
+class CoreMlFormat(ModelFormat):
+    """Model format representing a Core ML model.
+
+    Args:
+      model_source: A CoreMlModelSource sub class. Specifies the details of the model source.
+    """
+    def __init__(self, model_source=None):
+        self._data = {}
+        self._model_source = None
+
+        if model_source is not None:
+            self.model_source = model_source
+
+    @classmethod
+    def from_dict(cls, data):
+        """Create an instance of the object from a dict."""
+        data_copy = dict(data)
+        coreml_format = CoreMlFormat(model_source=cls._init_model_source(data_copy))
+        coreml_format._data = data_copy  #pylint: disable=protected-access
+        return coreml_format
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            #pylint: disable=protected-access
+            return self._data == other._data and self._model_source == other._model_source
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    @staticmethod
+    def _init_model_source(data):
+        """Create the model source from the data object."""
+        gcs_coreml_uri = data.pop('gcsCoremlUri', None)
+        if gcs_coreml_uri:
+            return CoreMlGCSModelSource(gcs_coreml_uri=gcs_coreml_uri)
+
+        managed_upload = data.pop('managedUpload', None)
+        if managed_upload:
+            return CoreMlManagedUploadSource()
+
+        return None
+
+    @property
+    def model_source(self):
+        """The CoreML model's source."""
+        return self._model_source
+
+    @model_source.setter
+    def model_source(self, model_source):
+        if model_source is not None:
+            if not isinstance(model_source, CoreMlModelSource):
+                raise TypeError('Model source must be a CoreMlModelSource object.')
+        self._model_source = model_source # Can be None
+
+    @property
+    def size_bytes(self):
+        """The size in bytes of the Core ML model."""
+        return self._data.get('sizeBytes')
+
+    def as_dict(self, for_upload=False):
+        """Returns a serializable representation of the object."""
+        copy = dict(self._data)
+        if self._model_source:
+            copy.update(self._model_source.as_dict(for_upload=for_upload))
+        return {'coremlModel': copy}
+
+class CoreMlModelSource:
+    """Abstract base class representing a model source for Core ML format models."""
+    def as_dict(self, for_upload=False):
+        """Returns a serializable representation of the object."""
+        raise NotImplementedError
+
+class CoreMlGCSModelSource(CoreMlModelSource):
+    """Core ML model source representing a Core ML model stored in GCS."""
+
+    _STORAGE_CLIENT = _CloudStorageClient()
+
+    def __init__(self, gcs_coreml_uri, app=None):
+        self._app = app
+        self._gcs_coreml_uri = _validate_gcs_uri(gcs_coreml_uri)
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self._gcs_coreml_uri == other._gcs_coreml_uri # pylint: disable=protected-access
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    @classmethod
+    def from_coreml_model_file(cls, model_file_name, bucket_name=None, app=None):
+        """Uploads the model file to an existing Google Cloud Storage bucket.
+
+        Args:
+            model_file_name: The name of the model file.
+            bucket_name: The name of an existing bucket. None to use the default bucket configured
+                in the app.
+            app: A Firebase app instance (or None to use the default app).
+
+        Returns:
+            CoreMlGCSModelSource: The source created from the model_file
+
+        Raises:
+            ImportError: If the Cloud Storage Library has not been installed.
+        """
+        gcs_uri = CoreMlGCSModelSource._STORAGE_CLIENT.upload(bucket_name, model_file_name, app)
+        return CoreMlGCSModelSource(gcs_coreml_uri=gcs_uri, app=app)
+
+    @property
+    def gcs_coreml_uri(self):
+        """URI of the model file in Cloud Storage."""
+        return self._gcs_coreml_uri
+
+    @gcs_coreml_uri.setter
+    def gcs_coreml_uri(self, gcs_coreml_uri):
+        self._gcs_coreml_uri = _validate_gcs_uri(gcs_coreml_uri)
+
+    def _get_signed_gcs_coreml_uri(self):
+        """Signs the GCS uri, so the model filecan be uploaded to Firebase ML and verified."""
+        return CoreMlGCSModelSource._STORAGE_CLIENT.sign_uri(self._gcs_coreml_uri, self._app)
+
+    def as_dict(self, for_upload=False):
+        """Returns a serializable representation of the object."""
+        if for_upload:
+            return {'gcsCoremlUri': self._get_signed_gcs_coreml_uri()}
+
+        return {'gcsCoremlUri': self._gcs_coreml_uri}
+
+class CoreMlManagedUploadSource(CoreMlModelSource):
+    """Core ML model source representing a Core ML model uploaded in the console. (Output only)"""
+    def __init__(self):
+        pass
+
+    def __eq__(self, other):
+        return isinstance(other, self.__class__)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    @property
+    def managed_upload(self):
+        return True
+
+    def as_dict(self, for_upload=False):
+        # This class is output only, you can't create
+        # a model from a Managed Upload Source since that
+        # indicates it was created through the console, and
+        # this is not the console.
+        # (the backend will ignore the managed_upload field)
+        return {'managedUpload': True}
 
 
 class ListModelsPage:
@@ -773,11 +963,11 @@ def _validate_tags(tags):
     return tags
 
 
-def _validate_gcs_tflite_uri(uri):
+def _validate_gcs_uri(uri):
     # GCS Bucket naming rules are complex. The regex is not comprehensive.
     # See https://cloud.google.com/storage/docs/naming for full details.
-    if not _GCS_TFLITE_URI_PATTERN.match(uri):
-        raise ValueError('GCS TFLite URI format is invalid.')
+    if not _GCS_URI_PATTERN.match(uri):
+        raise ValueError('GCS URI format is invalid.')
     return uri
 
 def _validate_auto_ml_model(model):

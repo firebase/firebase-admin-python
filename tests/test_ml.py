@@ -271,8 +271,8 @@ OPERATION_DONE_FULL_COREML_MODEL_PUBLISHED_JSON = {
 EMPTY_RESPONSE = json.dumps({})
 OPERATION_NOT_DONE_RESPONSE = json.dumps(OPERATION_NOT_DONE_JSON_1)
 OPERATION_DONE_RESPONSE = json.dumps(OPERATION_DONE_MODEL_JSON_1)
-OPERATION_DONE_TFLITE_PUBLISHED_RESPONSE = json.dumps(OPERATION_DONE_FULL_TFLITE_MODEL_PUBLISHED_JSON)
-OPERATION_DONE_COREML_PUBLISHED_RESPONSE = json.dumps(OPERATION_DONE_FULL_COREML_MODEL_PUBLISHED_JSON)
+OP_DONE_TFLITE_PUBLISHED_RESPONSE = json.dumps(OPERATION_DONE_FULL_TFLITE_MODEL_PUBLISHED_JSON)
+OP_DONE_COREML_PUBLISHED_RESPONSE = json.dumps(OPERATION_DONE_FULL_COREML_MODEL_PUBLISHED_JSON)
 OPERATION_ERROR_RESPONSE = json.dumps(OPERATION_ERROR_JSON_1)
 OPERATION_MALFORMED_RESPONSE = json.dumps(OPERATION_MALFORMED_JSON_1)
 OPERATION_MISSING_NAME_RESPONSE = json.dumps(OPERATION_MISSING_NAME)
@@ -586,7 +586,7 @@ class TestModel:
 
     def test_source_creation_from_coreml_file(self):
         model_source = ml.CoreMlGCSModelSource.from_coreml_model_file(
-          "my_model.mlmodel", "my_bucket")
+            "my_model.mlmodel", "my_bucket")
         assert model_source.as_dict() == {
             'gcsCoremlUri': 'gs://my_bucket/Firebase/ML/Models/my_model.mlmodel'
         }
@@ -745,7 +745,7 @@ class TestModel:
         AUTOML_MODEL_SOURCE,
         TFLITE_FORMAT_MANAGED,
     ])
-    def test_tflite_model_source_validation_errors(self, model_source):
+    def test_coreml_model_source_validation_errors(self, model_source):
         with pytest.raises(TypeError) as excinfo:
             ml.CoreMlFormat(model_source=model_source)
         check_error(excinfo, TypeError, 'Model source must be a CoreMlModelSource object.')
@@ -806,7 +806,7 @@ class TestModel:
     def test_wait_for_unlocked_tflite(self):
         recorder = instrument_ml_service(status=200,
                                          operations=True,
-                                         payload=OPERATION_DONE_TFLITE_PUBLISHED_RESPONSE)
+                                         payload=OP_DONE_TFLITE_PUBLISHED_RESPONSE)
         model = ml.Model.from_dict(LOCKED_MODEL_JSON_1)
         model.wait_for_unlocked()
         assert model == FULL_TFLITE_MODEL_PUBLISHED
@@ -818,7 +818,7 @@ class TestModel:
     def test_wait_for_unlocked_coreml(self):
         recorder = instrument_ml_service(status=200,
                                          operations=True,
-                                         payload=OPERATION_DONE_COREML_PUBLISHED_RESPONSE)
+                                         payload=OP_DONE_COREML_PUBLISHED_RESPONSE)
         model = ml.Model.from_dict(LOCKED_MODEL_JSON_1)
         model.wait_for_unlocked()
         assert model == FULL_COREML_MODEL_PUBLISHED

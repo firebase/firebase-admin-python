@@ -366,10 +366,7 @@ class TFLiteFormat(ModelFormat):
     """
     def __init__(self, model_source=None):
         self._data = {}
-        self._model_source = None
-
-        if model_source is not None:
-            self.model_source = model_source
+        self.model_source = model_source
 
     @classmethod
     def from_dict(cls, data):
@@ -491,7 +488,7 @@ class TFLiteGCSModelSource(TFLiteModelSource):
 
     def __init__(self, gcs_tflite_uri, app=None):
         self._app = app
-        self._gcs_tflite_uri = _validate_gcs_uri(gcs_tflite_uri)
+        self.gcs_tflite_uri = gcs_tflite_uri
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -679,10 +676,7 @@ class CoreMlFormat(ModelFormat):
     """
     def __init__(self, model_source=None):
         self._data = {}
-        self._model_source = None
-
-        if model_source is not None:
-            self.model_source = model_source
+        self.model_source = model_source
 
     @classmethod
     def from_dict(cls, data):
@@ -738,11 +732,13 @@ class CoreMlFormat(ModelFormat):
             copy.update(self._model_source.as_dict(for_upload=for_upload))
         return {'coremlModel': copy}
 
+
 class CoreMlModelSource:
     """Abstract base class representing a model source for Core ML format models."""
     def as_dict(self, for_upload=False):
         """Returns a serializable representation of the object."""
         raise NotImplementedError
+
 
 class CoreMlGCSModelSource(CoreMlModelSource):
     """Core ML model source representing a Core ML model stored in GCS."""
@@ -751,7 +747,7 @@ class CoreMlGCSModelSource(CoreMlModelSource):
 
     def __init__(self, gcs_coreml_uri, app=None):
         self._app = app
-        self._gcs_coreml_uri = _validate_gcs_uri(gcs_coreml_uri)
+        self.gcs_coreml_uri = gcs_coreml_uri
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -799,6 +795,7 @@ class CoreMlGCSModelSource(CoreMlModelSource):
             return {'gcsCoremlUri': self._get_signed_gcs_coreml_uri()}
 
         return {'gcsCoremlUri': self._gcs_coreml_uri}
+
 
 class CoreMlManagedUploadSource(CoreMlModelSource):
     """Core ML model source representing a Core ML model uploaded in the console. (Output only)"""

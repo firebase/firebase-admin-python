@@ -56,7 +56,6 @@ MODEL_JSON_1 = {
     'name': MODEL_NAME_1,
     'displayName': DISPLAY_NAME_1
 }
-MODEL_1 = ml.Model.from_dict(MODEL_JSON_1)
 
 MODEL_ID_2 = 'modelId2'
 MODEL_NAME_2 = 'projects/{0}/models/{1}'.format(PROJECT_ID, MODEL_ID_2)
@@ -65,7 +64,6 @@ MODEL_JSON_2 = {
     'name': MODEL_NAME_2,
     'displayName': DISPLAY_NAME_2
 }
-MODEL_2 = ml.Model.from_dict(MODEL_JSON_2)
 
 MODEL_ID_3 = 'modelId3'
 MODEL_NAME_3 = 'projects/{0}/models/{1}'.format(PROJECT_ID, MODEL_ID_3)
@@ -74,7 +72,6 @@ MODEL_JSON_3 = {
     'name': MODEL_NAME_3,
     'displayName': DISPLAY_NAME_3
 }
-MODEL_3 = ml.Model.from_dict(MODEL_JSON_3)
 
 MODEL_STATE_PUBLISHED_JSON = {
     'published': True
@@ -107,7 +104,6 @@ TFLITE_FORMAT_JSON = {
     'gcsTfliteUri': GCS_TFLITE_URI,
     'sizeBytes': '1234567'
 }
-TFLITE_FORMAT = ml.TFLiteFormat.from_dict(TFLITE_FORMAT_JSON)
 
 GCS_SIGNED_URI_PATTERN = (
     'https://storage.googleapis.com/{0}/{1}?X-Goog-Algorithm=GOOG4-RSA-SHA256&foo')
@@ -120,7 +116,6 @@ TFLITE_FORMAT_JSON_2 = {
     'gcsTfliteUri': GCS_TFLITE_URI_2,
     'sizeBytes': '2345678'
 }
-TFLITE_FORMAT_2 = ml.TFLiteFormat.from_dict(TFLITE_FORMAT_JSON_2)
 
 GCS_COREML_NAME = 'mymodel.mlmodel'
 GCS_COREML_URI = 'gs://{0}/{1}'.format(GCS_BUCKET_NAME, GCS_COREML_NAME)
@@ -130,7 +125,6 @@ COREML_FORMAT_JSON = {
     'gcsCoremlUri': GCS_COREML_URI,
     'sizeBytes': '23456789'
 }
-COREML_FORMAT = ml.CoreMlFormat.from_dict(COREML_FORMAT_JSON)
 GCS_COREML_SIGNED_URI = GCS_SIGNED_URI_PATTERN.format(GCS_BUCKET_NAME, GCS_COREML_NAME)
 
 GCS_COREML_URI_2 = 'gs://my_bucket/mymodel2.mlmodel'
@@ -140,7 +134,6 @@ COREML_FORMAT_JSON_2 = {
     'gcsCoremlUri': GCS_COREML_URI_2,
     'sizeBytes': '3456789'
 }
-COREML_FORMAT_2 = ml.CoreMlFormat.from_dict(COREML_FORMAT_JSON_2)
 
 AUTOML_MODEL_NAME = 'projects/111111111111/locations/us-central1/models/ICN7683346839371803263'
 AUTOML_MODEL_SOURCE = ml.TFLiteAutoMlSource(AUTOML_MODEL_NAME)
@@ -148,7 +141,6 @@ TFLITE_FORMAT_JSON_3 = {
     'automlModel': AUTOML_MODEL_NAME,
     'sizeBytes': '3456789'
 }
-TFLITE_FORMAT_3 = ml.TFLiteFormat.from_dict(TFLITE_FORMAT_JSON_3)
 
 AUTOML_MODEL_NAME_2 = 'projects/2222222222/locations/us-central1/models/ICN2222222222222222222'
 AUTOML_MODEL_NAME_JSON_2 = {'automlModel': AUTOML_MODEL_NAME_2}
@@ -159,14 +151,12 @@ TFLITE_FORMAT_MANAGED_JSON = {
     'managedUpload': True,
     'sizeBytes': '456789'
 }
-TFLITE_FORMAT_MANAGED = ml.TFLiteFormat.from_dict(TFLITE_FORMAT_MANAGED_JSON)
 
 COREML_MANAGED_MODEL_SOURCE = ml.CoreMlManagedUploadSource()
 COREML_FORMAT_MANAGED_JSON = {
     'managedUpload': True,
     'sizeBytes': '7890123'
 }
-COREML_FORMAT_MANAGED = ml.CoreMlFormat.from_dict(COREML_FORMAT_MANAGED_JSON)
 
 
 CREATED_UPDATED_MODEL_JSON_1 = {
@@ -179,7 +169,6 @@ CREATED_UPDATED_MODEL_JSON_1 = {
     'modelHash': MODEL_HASH,
     'tags': TAGS,
 }
-CREATED_UPDATED_MODEL_1 = ml.Model.from_dict(CREATED_UPDATED_MODEL_JSON_1)
 
 LOCKED_MODEL_JSON_1 = {
     'name': MODEL_NAME_1,
@@ -199,28 +188,9 @@ LOCKED_MODEL_JSON_2 = {
     'activeOperations': [OPERATION_NOT_DONE_JSON_1]
 }
 
-OPERATION_DONE_MODEL_JSON_1 = {
-    'done': True,
-    'response': CREATED_UPDATED_MODEL_JSON_1
-}
-OPERATION_MALFORMED_JSON_1 = {
-    'done': True,
-    # if done is true then either response or error should be populated
-}
-OPERATION_MISSING_NAME = {
-    # Name is required if the operation is not done.
-    'done': False
-}
 OPERATION_ERROR_CODE = 3
 OPERATION_ERROR_MSG = "Invalid argument"
 OPERATION_ERROR_EXPECTED_STATUS = 'INVALID_ARGUMENT'
-OPERATION_ERROR_JSON_1 = {
-    'done': True,
-    'error': {
-        'code': OPERATION_ERROR_CODE,
-        'message': OPERATION_ERROR_MSG,
-    }
-}
 
 FULL_MODEL_ERR_STATE_LRO_JSON = {
     'name': MODEL_NAME_1,
@@ -244,12 +214,7 @@ FULL_TFLITE_MODEL_PUBLISHED_JSON = {
     'tags': TAGS,
     'tfliteModel': TFLITE_FORMAT_JSON
 }
-FULL_TFLITE_MODEL_PUBLISHED = ml.Model.from_dict(FULL_TFLITE_MODEL_PUBLISHED_JSON)
-OPERATION_DONE_FULL_TFLITE_MODEL_PUBLISHED_JSON = {
-    'name': OPERATION_NAME_1,
-    'done': True,
-    'response': FULL_TFLITE_MODEL_PUBLISHED_JSON
-}
+
 FULL_COREML_MODEL_PUBLISHED_JSON = {
     'name': MODEL_NAME_1,
     'displayName': DISPLAY_NAME_1,
@@ -261,21 +226,38 @@ FULL_COREML_MODEL_PUBLISHED_JSON = {
     'tags': TAGS,
     'coremlModel': COREML_FORMAT_JSON
 }
-FULL_COREML_MODEL_PUBLISHED = ml.Model.from_dict(FULL_COREML_MODEL_PUBLISHED_JSON)
-OPERATION_DONE_FULL_COREML_MODEL_PUBLISHED_JSON = {
-    'name': OPERATION_NAME_1,
-    'done': True,
-    'response': FULL_COREML_MODEL_PUBLISHED_JSON
-}
 
 EMPTY_RESPONSE = json.dumps({})
 OPERATION_NOT_DONE_RESPONSE = json.dumps(OPERATION_NOT_DONE_JSON_1)
-OPERATION_DONE_RESPONSE = json.dumps(OPERATION_DONE_MODEL_JSON_1)
-OP_DONE_TFLITE_PUBLISHED_RESPONSE = json.dumps(OPERATION_DONE_FULL_TFLITE_MODEL_PUBLISHED_JSON)
-OP_DONE_COREML_PUBLISHED_RESPONSE = json.dumps(OPERATION_DONE_FULL_COREML_MODEL_PUBLISHED_JSON)
-OPERATION_ERROR_RESPONSE = json.dumps(OPERATION_ERROR_JSON_1)
-OPERATION_MALFORMED_RESPONSE = json.dumps(OPERATION_MALFORMED_JSON_1)
-OPERATION_MISSING_NAME_RESPONSE = json.dumps(OPERATION_MISSING_NAME)
+OPERATION_DONE_RESPONSE = json.dumps({
+    'done': True,
+    'response': CREATED_UPDATED_MODEL_JSON_1
+})
+OP_DONE_TFLITE_PUBLISHED_RESPONSE = json.dumps({
+    'name': OPERATION_NAME_1,
+    'done': True,
+    'response': FULL_TFLITE_MODEL_PUBLISHED_JSON
+})
+OP_DONE_COREML_PUBLISHED_RESPONSE = json.dumps({
+    'name': OPERATION_NAME_1,
+    'done': True,
+    'response': FULL_COREML_MODEL_PUBLISHED_JSON
+})
+OPERATION_ERROR_RESPONSE = json.dumps({
+    'done': True,
+    'error': {
+        'code': OPERATION_ERROR_CODE,
+        'message': OPERATION_ERROR_MSG,
+    }
+})
+OPERATION_MALFORMED_RESPONSE = json.dumps({
+    'done': True,
+    # if done is true then either response or error should be populated
+})
+OPERATION_MISSING_NAME_RESPONSE = json.dumps({
+    # Name is required if the operation is not done.
+    'done': False
+})
 DEFAULT_GET_RESPONSE = json.dumps(MODEL_JSON_1)
 LOCKED_MODEL_2_RESPONSE = json.dumps(LOCKED_MODEL_JSON_2)
 NO_MODELS_LIST_RESPONSE = json.dumps({})
@@ -293,26 +275,24 @@ ONE_PAGE_LIST_RESPONSE = json.dumps({
 ERROR_CODE_NOT_FOUND = 404
 ERROR_MSG_NOT_FOUND = 'The resource was not found'
 ERROR_STATUS_NOT_FOUND = 'NOT_FOUND'
-ERROR_JSON_NOT_FOUND = {
+ERROR_RESPONSE_NOT_FOUND = json.dumps({
     'error': {
         'code': ERROR_CODE_NOT_FOUND,
         'message': ERROR_MSG_NOT_FOUND,
         'status': ERROR_STATUS_NOT_FOUND
     }
-}
-ERROR_RESPONSE_NOT_FOUND = json.dumps(ERROR_JSON_NOT_FOUND)
+})
 
 ERROR_CODE_BAD_REQUEST = 400
 ERROR_MSG_BAD_REQUEST = 'Invalid Argument'
 ERROR_STATUS_BAD_REQUEST = 'INVALID_ARGUMENT'
-ERROR_JSON_BAD_REQUEST = {
+ERROR_RESPONSE_BAD_REQUEST = json.dumps({
     'error': {
         'code': ERROR_CODE_BAD_REQUEST,
         'message': ERROR_MSG_BAD_REQUEST,
         'status': ERROR_STATUS_BAD_REQUEST
     }
-}
-ERROR_RESPONSE_BAD_REQUEST = json.dumps(ERROR_JSON_BAD_REQUEST)
+})
 
 INVALID_MODEL_ID_ARGS = [
     ('', ValueError),
@@ -448,7 +428,7 @@ class TestModel:
         assert model.model_hash == MODEL_HASH
         assert model.tags == TAGS
         assert model.locked is False
-        assert model.model_format == TFLITE_FORMAT
+        assert model.model_format == ml.TFLiteFormat.from_dict(TFLITE_FORMAT_JSON)
         assert model.as_dict() == FULL_TFLITE_MODEL_PUBLISHED_JSON
 
     def test_coreml_model_success_published(self):
@@ -463,14 +443,17 @@ class TestModel:
         assert model.model_hash == MODEL_HASH
         assert model.tags == TAGS
         assert model.locked is False
-        assert model.model_format == COREML_FORMAT
+        assert model.model_format == ml.CoreMlFormat.from_dict(COREML_FORMAT_JSON)
         assert model.as_dict() == FULL_COREML_MODEL_PUBLISHED_JSON
 
     def test_tflite_model_keyword_based_creation_and_setters(self):
-        model = ml.Model(display_name=DISPLAY_NAME_1, tags=TAGS, model_format=TFLITE_FORMAT)
+        model = ml.Model(
+            display_name=DISPLAY_NAME_1,
+            tags=TAGS,
+            model_format=ml.TFLiteFormat.from_dict(TFLITE_FORMAT_JSON))
         assert model.display_name == DISPLAY_NAME_1
         assert model.tags == TAGS
-        assert model.model_format == TFLITE_FORMAT
+        assert model.model_format == ml.TFLiteFormat.from_dict(TFLITE_FORMAT_JSON)
         assert model.as_dict() == {
             'displayName': DISPLAY_NAME_1,
             'tags': TAGS,
@@ -479,21 +462,21 @@ class TestModel:
 
         model.display_name = DISPLAY_NAME_2
         model.tags = TAGS_2
-        model.model_format = TFLITE_FORMAT_2
+        model.model_format = ml.TFLiteFormat.from_dict(TFLITE_FORMAT_JSON_2)
         assert model.as_dict() == {
             'displayName': DISPLAY_NAME_2,
             'tags': TAGS_2,
             'tfliteModel': TFLITE_FORMAT_JSON_2
         }
 
-        model.model_format = TFLITE_FORMAT_3
+        model.model_format = ml.TFLiteFormat.from_dict(TFLITE_FORMAT_JSON_3)
         assert model.as_dict() == {
             'displayName': DISPLAY_NAME_2,
             'tags': TAGS_2,
             'tfliteModel': TFLITE_FORMAT_JSON_3
         }
 
-        model.model_format = TFLITE_FORMAT_MANAGED
+        model.model_format = ml.TFLiteFormat.from_dict(TFLITE_FORMAT_MANAGED_JSON)
         assert model.as_dict() == {
             'displayName': DISPLAY_NAME_2,
             'tags': TAGS_2,
@@ -501,21 +484,24 @@ class TestModel:
         }
 
     def test_coreml_model_keyword_based_creation_and_setters(self):
-        model = ml.Model(display_name=DISPLAY_NAME_1, tags=TAGS, model_format=COREML_FORMAT)
+        model = ml.Model(
+            display_name=DISPLAY_NAME_1,
+            tags=TAGS,
+            model_format=ml.CoreMlFormat.from_dict(COREML_FORMAT_JSON))
         assert model.as_dict() == {
             'displayName': DISPLAY_NAME_1,
             'tags': TAGS,
             'coremlModel': COREML_FORMAT_JSON
         }
 
-        model.model_format = COREML_FORMAT_2
+        model.model_format = ml.CoreMlFormat.from_dict(COREML_FORMAT_JSON_2)
         assert model.as_dict() == {
             'displayName': DISPLAY_NAME_1,
             'tags': TAGS,
             'coremlModel': COREML_FORMAT_JSON_2
         }
 
-        model.model_format = COREML_FORMAT_MANAGED
+        model.model_format = ml.CoreMlFormat.from_dict(COREML_FORMAT_MANAGED_JSON)
         assert model.as_dict() == {
             'displayName': DISPLAY_NAME_1,
             'tags': TAGS,
@@ -727,8 +713,8 @@ class TestModel:
         {},
         [],
         True,
-        COREML_FORMAT,
-        COREML_FORMAT_MANAGED,
+        ml.CoreMlFormat.from_dict(COREML_FORMAT_JSON),
+        ml.CoreMlFormat.from_dict(COREML_FORMAT_MANAGED_JSON),
     ])
     def test_tflite_model_source_validation_errors(self, model_source):
         with pytest.raises(TypeError) as excinfo:
@@ -741,9 +727,9 @@ class TestModel:
         {},
         [],
         True,
-        TFLITE_FORMAT,
+        ml.TFLiteFormat.from_dict(TFLITE_FORMAT_JSON),
         AUTOML_MODEL_SOURCE,
-        TFLITE_FORMAT_MANAGED,
+        ml.TFLiteFormat.from_dict(TFLITE_FORMAT_MANAGED_JSON),
     ])
     def test_coreml_model_source_validation_errors(self, model_source):
         with pytest.raises(TypeError) as excinfo:
@@ -809,7 +795,7 @@ class TestModel:
                                          payload=OP_DONE_TFLITE_PUBLISHED_RESPONSE)
         model = ml.Model.from_dict(LOCKED_MODEL_JSON_1)
         model.wait_for_unlocked()
-        assert model == FULL_TFLITE_MODEL_PUBLISHED
+        assert model == ml.Model.from_dict(FULL_TFLITE_MODEL_PUBLISHED_JSON)
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
         assert recorder[0].url == TestModel._op_url(PROJECT_ID)
@@ -821,7 +807,7 @@ class TestModel:
                                          payload=OP_DONE_COREML_PUBLISHED_RESPONSE)
         model = ml.Model.from_dict(LOCKED_MODEL_JSON_1)
         model.wait_for_unlocked()
-        assert model == FULL_COREML_MODEL_PUBLISHED
+        assert model == ml.Model.from_dict(FULL_COREML_MODEL_PUBLISHED_JSON)
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
         assert recorder[0].url == TestModel._op_url(PROJECT_ID)
@@ -866,15 +852,15 @@ class TestCreateModel:
 
     def test_immediate_done(self):
         instrument_ml_service(status=200, payload=OPERATION_DONE_RESPONSE)
-        model = ml.create_model(MODEL_1)
-        assert model == CREATED_UPDATED_MODEL_1
+        model = ml.create_model(ml.Model.from_dict(MODEL_JSON_1))
+        assert model == ml.Model.from_dict(CREATED_UPDATED_MODEL_JSON_1)
 
     def test_returns_locked(self):
         recorder = instrument_ml_service(
             status=[200, 200],
             payload=[OPERATION_NOT_DONE_RESPONSE, LOCKED_MODEL_2_RESPONSE])
         expected_model = ml.Model.from_dict(LOCKED_MODEL_JSON_2)
-        model = ml.create_model(MODEL_1)
+        model = ml.create_model(ml.Model.from_dict(MODEL_JSON_1))
 
         assert model == expected_model
         assert len(recorder) == 2
@@ -888,21 +874,21 @@ class TestCreateModel:
     def test_operation_error(self):
         instrument_ml_service(status=200, payload=OPERATION_ERROR_RESPONSE)
         with pytest.raises(Exception) as excinfo:
-            ml.create_model(MODEL_1)
+            ml.create_model(ml.Model.from_dict(MODEL_JSON_1))
         # The http request succeeded, the operation returned contains a create failure
         check_operation_error(excinfo, OPERATION_ERROR_EXPECTED_STATUS, OPERATION_ERROR_MSG)
 
     def test_malformed_operation(self):
         instrument_ml_service(status=200, payload=OPERATION_MALFORMED_RESPONSE)
         with pytest.raises(Exception) as excinfo:
-            ml.create_model(MODEL_1)
+            ml.create_model(ml.Model.from_dict(MODEL_JSON_1))
         check_error(excinfo, exceptions.UnknownError, 'Internal Error: Malformed Operation.')
 
     def test_rpc_error_create(self):
         create_recorder = instrument_ml_service(
             status=400, payload=ERROR_RESPONSE_BAD_REQUEST)
         with pytest.raises(Exception) as excinfo:
-            ml.create_model(MODEL_1)
+            ml.create_model(ml.Model.from_dict(MODEL_JSON_1))
         check_firebase_error(
             excinfo,
             ERROR_STATUS_BAD_REQUEST,
@@ -925,7 +911,7 @@ class TestCreateModel:
     def test_missing_op_name(self):
         instrument_ml_service(status=200, payload=OPERATION_MISSING_NAME_RESPONSE)
         with pytest.raises(Exception) as excinfo:
-            ml.create_model(MODEL_1)
+            ml.create_model(ml.Model.from_dict(MODEL_JSON_1))
         check_error(excinfo, TypeError)
 
     @pytest.mark.parametrize('op_name', INVALID_OP_NAME_ARGS)
@@ -933,7 +919,7 @@ class TestCreateModel:
         payload = json.dumps({'name': op_name})
         instrument_ml_service(status=200, payload=payload)
         with pytest.raises(Exception) as excinfo:
-            ml.create_model(MODEL_1)
+            ml.create_model(ml.Model.from_dict(MODEL_JSON_1))
         check_error(excinfo, ValueError, 'Operation name format is invalid.')
 
 
@@ -960,15 +946,15 @@ class TestUpdateModel:
 
     def test_immediate_done(self):
         instrument_ml_service(status=200, payload=OPERATION_DONE_RESPONSE)
-        model = ml.update_model(MODEL_1)
-        assert model == CREATED_UPDATED_MODEL_1
+        model = ml.update_model(ml.Model.from_dict(MODEL_JSON_1))
+        assert model == ml.Model.from_dict(CREATED_UPDATED_MODEL_JSON_1)
 
     def test_returns_locked(self):
         recorder = instrument_ml_service(
             status=[200, 200],
             payload=[OPERATION_NOT_DONE_RESPONSE, LOCKED_MODEL_2_RESPONSE])
         expected_model = ml.Model.from_dict(LOCKED_MODEL_JSON_2)
-        model = ml.update_model(MODEL_1)
+        model = ml.update_model(ml.Model.from_dict(MODEL_JSON_1))
 
         assert model == expected_model
         assert len(recorder) == 2
@@ -982,21 +968,21 @@ class TestUpdateModel:
     def test_operation_error(self):
         instrument_ml_service(status=200, payload=OPERATION_ERROR_RESPONSE)
         with pytest.raises(Exception) as excinfo:
-            ml.update_model(MODEL_1)
+            ml.update_model(ml.Model.from_dict(MODEL_JSON_1))
         # The http request succeeded, the operation returned contains an update failure
         check_operation_error(excinfo, OPERATION_ERROR_EXPECTED_STATUS, OPERATION_ERROR_MSG)
 
     def test_malformed_operation(self):
         instrument_ml_service(status=200, payload=OPERATION_MALFORMED_RESPONSE)
         with pytest.raises(Exception) as excinfo:
-            ml.update_model(MODEL_1)
+            ml.update_model(ml.Model.from_dict(MODEL_JSON_1))
         check_error(excinfo, exceptions.UnknownError, 'Internal Error: Malformed Operation.')
 
     def test_rpc_error(self):
         create_recorder = instrument_ml_service(
             status=400, payload=ERROR_RESPONSE_BAD_REQUEST)
         with pytest.raises(Exception) as excinfo:
-            ml.update_model(MODEL_1)
+            ml.update_model(ml.Model.from_dict(MODEL_JSON_1))
         check_firebase_error(
             excinfo,
             ERROR_STATUS_BAD_REQUEST,
@@ -1019,7 +1005,7 @@ class TestUpdateModel:
     def test_missing_op_name(self):
         instrument_ml_service(status=200, payload=OPERATION_MISSING_NAME_RESPONSE)
         with pytest.raises(Exception) as excinfo:
-            ml.update_model(MODEL_1)
+            ml.update_model(ml.Model.from_dict(MODEL_JSON_1))
         check_error(excinfo, TypeError)
 
     @pytest.mark.parametrize('op_name', INVALID_OP_NAME_ARGS)
@@ -1027,7 +1013,7 @@ class TestUpdateModel:
         payload = json.dumps({'name': op_name})
         instrument_ml_service(status=200, payload=payload)
         with pytest.raises(Exception) as excinfo:
-            ml.update_model(MODEL_1)
+            ml.update_model(ml.Model.from_dict(MODEL_JSON_1))
         check_error(excinfo, ValueError, 'Operation name format is invalid.')
 
 
@@ -1069,7 +1055,7 @@ class TestPublishUnpublish:
     def test_immediate_done(self, publish_function, published):
         recorder = instrument_ml_service(status=200, payload=OPERATION_DONE_RESPONSE)
         model = publish_function(MODEL_ID_1)
-        assert model == CREATED_UPDATED_MODEL_1
+        assert model == ml.Model.from_dict(CREATED_UPDATED_MODEL_JSON_1)
         assert len(recorder) == 1
         assert recorder[0].method == 'PATCH'
         assert recorder[0].url == TestPublishUnpublish._update_url(PROJECT_ID, MODEL_ID_1)
@@ -1146,7 +1132,7 @@ class TestGetModel:
         assert recorder[0].method == 'GET'
         assert recorder[0].url == TestGetModel._url(PROJECT_ID, MODEL_ID_1)
         assert recorder[0].headers[HEADER_CLIENT_KEY] == HEADER_CLIENT_VALUE
-        assert model == MODEL_1
+        assert model == ml.Model.from_dict(MODEL_JSON_1)
         assert model.model_id == MODEL_ID_1
         assert model.display_name == DISPLAY_NAME_1
 
@@ -1263,8 +1249,8 @@ class TestListModels:
         TestListModels._check_page(models_page, 2)
         assert models_page.has_next_page
         assert models_page.next_page_token == NEXT_PAGE_TOKEN
-        assert models_page.models[0] == MODEL_1
-        assert models_page.models[1] == MODEL_2
+        assert models_page.models[0] == ml.Model.from_dict(MODEL_JSON_1)
+        assert models_page.models[1] == ml.Model.from_dict(MODEL_JSON_2)
 
     def test_list_models_with_all_args(self):
         recorder = instrument_ml_service(status=200, payload=LAST_PAGE_LIST_RESPONSE)
@@ -1281,7 +1267,7 @@ class TestListModels:
         assert recorder[0].headers[HEADER_CLIENT_KEY] == HEADER_CLIENT_VALUE
         assert isinstance(models_page, ml.ListModelsPage)
         assert len(models_page.models) == 1
-        assert models_page.models[0] == MODEL_3
+        assert models_page.models[0] == ml.Model.from_dict(MODEL_JSON_3)
         assert not models_page.has_next_page
 
     @pytest.mark.parametrize('list_filter', INVALID_STRING_OR_NONE_ARGS)

@@ -165,7 +165,7 @@ class RefreshToken(Base):
     def __init__(self, refresh_token):
         """Initializes a credential from a refresh token JSON file.
 
-        The JSON must consist of client_id, client_secert and refresh_token fields. Refresh
+        The JSON must consist of client_id, client_secret and refresh_token fields. Refresh
         token files are typically created and managed by the gcloud SDK. To instantiate
         a credential from a refresh token file, either specify the file path or a dict
         representing the parsed contents of the file.

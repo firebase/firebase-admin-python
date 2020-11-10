@@ -28,7 +28,7 @@ _ANY_METHOD = None
 # Retries up to 4 times on HTTP 500 and 503 errors, with exponential backoff. Returns the
 # last response upon exhausting all retries.
 DEFAULT_RETRY_CONFIG = retry.Retry(
-    connect=1, read=1, status=4, status_forcelist=[500, 503], method_whitelist=_ANY_METHOD,
+    connect=1, read=1, status_forcelist=[500, 503], method_whitelist=_ANY_METHOD,
     raise_on_status=False, backoff_factor=0.5)
 
 

@@ -1792,6 +1792,15 @@ class TestSend:
         assert json.loads(recorder[0].body.decode()) == body
 
 
+class _HttpMockException:
+
+    def __init__(self, exc):
+        self._exc = exc
+
+    def request(self, url, **kwargs):
+        raise self._exc
+
+
 class TestBatch:
 
     @classmethod
@@ -1803,17 +1812,21 @@ class TestBatch:
     def teardown_class(cls):
         testutils.cleanup_apps()
 
-    def _instrument_batch_messaging_service(self, app=None, status=200, payload=''):
+    def _instrument_batch_messaging_service(self, app=None, status=200, payload='', exc=None):
         if not app:
             app = firebase_admin.get_app()
+
         fcm_service = messaging._get_messaging_service(app)
-        if status == 200:
-            content_type = 'multipart/mixed; boundary=boundary'
+        if exc:
+            fcm_service._transport = _HttpMockException(exc)
         else:
-            content_type = 'application/json'
-        fcm_service._transport = http.HttpMockSequence([
-            ({'status': str(status), 'content-type': content_type}, payload),
-        ])
+            if status == 200:
+                content_type = 'multipart/mixed; boundary=boundary'
+            else:
+                content_type = 'application/json'
+            fcm_service._transport = http.HttpMockSequence([
+                ({'status': str(status), 'content-type': content_type}, payload),
+            ])
         return fcm_service
 
     def _batch_payload(self, payloads):
@@ -2027,6 +2040,19 @@ class TestSendAll(TestBatch):
             messaging.send_all([msg])
         check_exception(excinfo.value, 'test error', status)
 
+    def test_send_all_runtime_exception(self):
+        exc = BrokenPipeError('Test error')
+        _ = self._instrument_batch_messaging_service(exc=exc)
+        msg = messaging.Message(topic='foo')
+
+        with pytest.raises(exceptions.UnknownError) as excinfo:
+            messaging.send_all([msg])
+
+        expected = 'Unknown error while making a remote service call: Test error'
+        assert str(excinfo.value) == expected
+        assert excinfo.value.cause is exc
+        assert excinfo.value.http_response is None
+
 
 class TestSendMulticast(TestBatch):
 
@@ -2203,6 +2229,19 @@ class TestSendMulticast(TestBatch):
         with pytest.raises(messaging.UnregisteredError) as excinfo:
             messaging.send_multicast(msg)
         check_exception(excinfo.value, 'test error', status)
+
+    def test_send_multicast_runtime_exception(self):
+        exc = BrokenPipeError('Test error')
+        _ = self._instrument_batch_messaging_service(exc=exc)
+        msg = messaging.MulticastMessage(tokens=['foo'])
+
+        with pytest.raises(exceptions.UnknownError) as excinfo:
+            messaging.send_multicast(msg)
+
+        expected = 'Unknown error while making a remote service call: Test error'
+        assert str(excinfo.value) == expected
+        assert excinfo.value.cause is exc
+        assert excinfo.value.http_response is None
 
 
 class TestTopicManagement:

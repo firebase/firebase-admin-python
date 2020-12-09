@@ -729,6 +729,10 @@ class TestDatabaseInitialization:
             ref = db.reference()
             assert ref._client._base_url == expected_base_url
             assert ref._client.params.get('ns') == expected_namespace
+            if expected_base_url.startswith('http://localhost'):
+                assert isinstance(ref._client.credential, db._EmulatorAdminCredentials)
+            else:
+                assert isinstance(ref._client.credential, testutils.MockGoogleCredential)
         finally:
             if _EMULATOR_HOST_ENV_VAR in os.environ:
                 del os.environ[_EMULATOR_HOST_ENV_VAR]

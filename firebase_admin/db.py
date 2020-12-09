@@ -806,15 +806,17 @@ class _DatabaseService:
                 'Invalid database URL: "{0}". Database URL must be a wellformed '
                 'URL string.'.format(db_url))
 
-        base_url = 'https://{0}'.format(parsed_url.netloc)
-        params = {}
-        credential = self._credential.get_credential()
-
         emulator_config = self._get_emulator_config(parsed_url)
         if emulator_config:
-            base_url = emulator_config.base_url
-            params['ns'] = emulator_config.namespace
             credential = _EmulatorAdminCredentials()
+            base_url = emulator_config.base_url
+            params = {'ns': emulator_config.namespace}
+        else:
+            # Defer credential lookup until we are certain it's going to be prod connection.
+            credential = self._credential.get_credential()
+            base_url = 'https://{0}'.format(parsed_url.netloc)
+            params = {}
+
 
         if self._auth_override:
             params['auth_variable_override'] = self._auth_override

@@ -768,10 +768,10 @@ class _DatabaseService:
         self._credential = app.credential
         db_url = app.options.get('databaseURL')
         if db_url:
-            _DatabaseService._parse_db_url(db_url)  # Just for validation.
             self._db_url = db_url
         else:
             self._db_url = None
+
         auth_override = _DatabaseService._get_auth_override(app)
         if auth_override not in (self._DEFAULT_AUTH_OVERRIDE, {}):
             self._auth_override = json.dumps(auth_override, separators=(',', ':'))
@@ -795,15 +795,29 @@ class _DatabaseService:
         if db_url is None:
             db_url = self._db_url
 
-        base_url, namespace = _DatabaseService._parse_db_url(db_url, self._emulator_host)
-        if base_url == 'https://{0}.firebaseio.com'.format(namespace):
-            # Production base_url. No need to specify namespace in query params.
-            params = {}
-            credential = self._credential.get_credential()
-        else:
-            # Emulator base_url. Use fake credentials and specify ?ns=foo in query params.
+        if not db_url or not isinstance(db_url, str):
+            raise ValueError(
+                'Invalid database URL: "{0}". Database URL must be a non-empty '
+                'URL string.'.format(db_url))
+
+        parsed_url = parse.urlparse(db_url)
+        if not parsed_url.netloc:
+            raise ValueError(
+                'Invalid database URL: "{0}". Database URL must be a wellformed '
+                'URL string.'.format(db_url))
+
+        emulator_config = self._get_emulator_config(parsed_url)
+        if emulator_config:
             credential = _EmulatorAdminCredentials()
-            params = {'ns': namespace}
+            base_url = emulator_config.base_url
+            params = {'ns': emulator_config.namespace}
+        else:
+            # Defer credential lookup until we are certain it's going to be prod connection.
+            credential = self._credential.get_credential()
+            base_url = 'https://{0}'.format(parsed_url.netloc)
+            params = {}
+
+
         if self._auth_override:
             params['auth_variable_override'] = self._auth_override
 
@@ -813,47 +827,20 @@ class _DatabaseService:
             self._clients[client_cache_key] = client
         return self._clients[client_cache_key]
 
-    @classmethod
-    def _parse_db_url(cls, url, emulator_host=None):
-        """Parses (base_url, namespace) from a database URL.
-
-        The input can be either a production URL (https://foo-bar.firebaseio.com/)
-        or an Emulator URL (http://localhost:8080/?ns=foo-bar). In case of Emulator
-        URL, the namespace is extracted from the query param ns. The resulting
-        base_url never includes query params.
-
-        If url is a production URL and emulator_host is specified, the result
-        base URL will use emulator_host instead. emulator_host is ignored
-        if url is already an emulator URL.
-        """
-        if not url or not isinstance(url, str):
-            raise ValueError(
-                'Invalid database URL: "{0}". Database URL must be a non-empty '
-                'URL string.'.format(url))
-        parsed_url = parse.urlparse(url)
-        if parsed_url.netloc.endswith('.firebaseio.com'):
-            return cls._parse_production_url(parsed_url, emulator_host)
-
-        return cls._parse_emulator_url(parsed_url)
-
-    @classmethod
-    def _parse_production_url(cls, parsed_url, emulator_host):
-        """Parses production URL like https://foo-bar.firebaseio.com/"""
+    def _get_emulator_config(self, parsed_url):
+        """Checks whether the SDK should connect to the RTDB emulator."""
+        EmulatorConfig = collections.namedtuple('EmulatorConfig', ['base_url', 'namespace'])
         if parsed_url.scheme != 'https':
-            raise ValueError(
-                'Invalid database URL scheme: "{0}". Database URL must be an HTTPS URL.'.format(
-                    parsed_url.scheme))
-        namespace = parsed_url.netloc.split('.')[0]
-        if not namespace:
-            raise ValueError(
-                'Invalid database URL: "{0}". Database URL must be a valid URL to a '
-                'Firebase Realtime Database instance.'.format(parsed_url.geturl()))
+            # Emulator mode enabled by passing http URL via AppOptions
+            base_url, namespace = _DatabaseService._parse_emulator_url(parsed_url)
+            return EmulatorConfig(base_url, namespace)
+        if self._emulator_host:
+            # Emulator mode enabled via environment variable
+            base_url = 'http://{0}'.format(self._emulator_host)
+            namespace = parsed_url.netloc.split('.')[0]
+            return EmulatorConfig(base_url, namespace)
 
-        if emulator_host:
-            base_url = 'http://{0}'.format(emulator_host)
-        else:
-            base_url = 'https://{0}'.format(parsed_url.netloc)
-        return base_url, namespace
+        return None
 
     @classmethod
     def _parse_emulator_url(cls, parsed_url):

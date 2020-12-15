@@ -15,6 +15,7 @@
 """Tests for firebase_admin.db."""
 import collections
 import json
+import os
 import sys
 import time
 
@@ -26,6 +27,9 @@ from firebase_admin import exceptions
 from firebase_admin import _http_client
 from firebase_admin import _sseclient
 from tests import testutils
+
+
+_EMULATOR_HOST_ENV_VAR = 'FIREBASE_DATABASE_EMULATOR_HOST'
 
 
 class MockAdapter(testutils.MockAdapter):
@@ -702,52 +706,70 @@ class TestDatabaseInitialization:
         'url,emulator_host,expected_base_url,expected_namespace',
         [
             # Production URLs with no override:
-            ('https://test.firebaseio.com', None, 'https://test.firebaseio.com', 'test'),
-            ('https://test.firebaseio.com/', None, 'https://test.firebaseio.com', 'test'),
+            ('https://test.firebaseio.com', None, 'https://test.firebaseio.com', None),
+            ('https://test.firebaseio.com/', None, 'https://test.firebaseio.com', None),
 
             # Production URLs with emulator_host override:
             ('https://test.firebaseio.com', 'localhost:9000', 'http://localhost:9000', 'test'),
             ('https://test.firebaseio.com/', 'localhost:9000', 'http://localhost:9000', 'test'),
 
-            # Emulator URLs with no override.
+            # Emulator URL with no override.
             ('http://localhost:8000/?ns=test', None, 'http://localhost:8000', 'test'),
+
             # emulator_host is ignored when the original URL is already emulator.
             ('http://localhost:8000/?ns=test', 'localhost:9999', 'http://localhost:8000', 'test'),
         ]
     )
     def test_parse_db_url(self, url, emulator_host, expected_base_url, expected_namespace):
-        base_url, namespace = db._DatabaseService._parse_db_url(url, emulator_host)
-        assert base_url == expected_base_url
-        assert namespace == expected_namespace
+        if emulator_host:
+            os.environ[_EMULATOR_HOST_ENV_VAR] = emulator_host
 
-    @pytest.mark.parametrize('url,emulator_host', [
-        ('', None),
-        (None, None),
-        (42, None),
-        ('test.firebaseio.com', None),  # Not a URL.
-        ('http://test.firebaseio.com', None),  # Use of non-HTTPs in production URLs.
-        ('ftp://test.firebaseio.com', None),  # Use of non-HTTPs in production URLs.
-        ('https://example.com', None),  # Invalid RTDB URL.
-        ('http://localhost:9000/', None),  # No ns specified.
-        ('http://localhost:9000/?ns=', None),  # No ns specified.
-        ('http://localhost:9000/?ns=test1&ns=test2', None),  # Two ns parameters specified.
-        ('ftp://localhost:9000/?ns=test', None),  # Neither HTTP or HTTPS.
-    ])
-    def test_parse_db_url_errors(self, url, emulator_host):
-        with pytest.raises(ValueError):
-            db._DatabaseService._parse_db_url(url, emulator_host)
+        try:
+            firebase_admin.initialize_app(testutils.MockCredential(), {'databaseURL' : url})
+            ref = db.reference()
+            assert ref._client._base_url == expected_base_url
+            assert ref._client.params.get('ns') == expected_namespace
+            if expected_base_url.startswith('http://localhost'):
+                assert isinstance(ref._client.credential, db._EmulatorAdminCredentials)
+            else:
+                assert isinstance(ref._client.credential, testutils.MockGoogleCredential)
+        finally:
+            if _EMULATOR_HOST_ENV_VAR in os.environ:
+                del os.environ[_EMULATOR_HOST_ENV_VAR]
 
     @pytest.mark.parametrize('url', [
-        'https://test.firebaseio.com', 'https://test.firebaseio.com/'
+        '',
+        None,
+        42,
+        'test.firebaseio.com',  # Not a URL.
+        'http://test.firebaseio.com',  # Use of non-HTTPs in production URLs.
+        'ftp://test.firebaseio.com',  # Use of non-HTTPs in production URLs.
+        'http://localhost:9000/',  # No ns specified.
+        'http://localhost:9000/?ns=',  # No ns specified.
+        'http://localhost:9000/?ns=test1&ns=test2',  # Two ns parameters specified.
+        'ftp://localhost:9000/?ns=test',  # Neither HTTP or HTTPS.
+    ])
+    def test_parse_db_url_errors(self, url):
+        firebase_admin.initialize_app(testutils.MockCredential(), {'databaseURL' : url})
+        with pytest.raises(ValueError):
+            db.reference()
+
+    @pytest.mark.parametrize('url', [
+        'https://test.firebaseio.com', 'https://test.firebaseio.com/',
+        'https://test.eu-west1.firebasdatabase.app', 'https://test.eu-west1.firebasdatabase.app/'
     ])
     def test_valid_db_url(self, url):
         firebase_admin.initialize_app(testutils.MockCredential(), {'databaseURL' : url})
         ref = db.reference()
-        assert ref._client.base_url == 'https://test.firebaseio.com'
+        expected_url = url
+        if url.endswith('/'):
+            expected_url = url[:-1]
+        assert ref._client.base_url == expected_url
         assert 'auth_variable_override' not in ref._client.params
+        assert 'ns' not in ref._client.params
 
     @pytest.mark.parametrize('url', [
-        None, '', 'foo', 'http://test.firebaseio.com', 'https://google.com',
+        None, '', 'foo', 'http://test.firebaseio.com', 'http://test.firebasedatabase.app',
         True, False, 1, 0, dict(), list(), tuple(), _Object()
     ])
     def test_invalid_db_url(self, url):

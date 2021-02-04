@@ -18,6 +18,7 @@ import io
 import json
 import socket
 
+import google.auth
 import googleapiclient
 import httplib2
 import requests
@@ -339,3 +340,20 @@ def _parse_platform_error(content, status_code):
     if not msg:
         msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(status_code, content)
     return error_dict, msg
+
+
+# Temporarily disable the lint rule. For more information see:
+# https://github.com/googleapis/google-auth-library-python/pull/561
+# pylint: disable=abstract-method
+class EmulatorAdminCredentials(google.auth.credentials.Credentials):
+    """ Credentials for use with the firebase local emulator.
+
+    This is used instead of user-supplied credentials or ADC.  It will silently do nothing when
+    asked to refresh credentials.
+    """
+    def __init__(self):
+        google.auth.credentials.Credentials.__init__(self)
+        self.token = 'owner'
+
+    def refresh(self, request):
+        pass

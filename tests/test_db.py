@@ -26,6 +26,7 @@ from firebase_admin import db
 from firebase_admin import exceptions
 from firebase_admin import _http_client
 from firebase_admin import _sseclient
+from firebase_admin import _utils
 from tests import testutils
 
 
@@ -730,7 +731,7 @@ class TestDatabaseInitialization:
             assert ref._client._base_url == expected_base_url
             assert ref._client.params.get('ns') == expected_namespace
             if expected_base_url.startswith('http://localhost'):
-                assert isinstance(ref._client.credential, db._EmulatorAdminCredentials)
+                assert isinstance(ref._client.credential, _utils.EmulatorAdminCredentials)
             else:
                 assert isinstance(ref._client.credential, testutils.MockGoogleCredential)
         finally:

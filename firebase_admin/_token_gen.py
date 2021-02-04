@@ -84,11 +84,12 @@ class TokenGenerator:
 
     ID_TOOLKIT_URL = 'https://identitytoolkit.googleapis.com/v1'
 
-    def __init__(self, app, http_client):
+    def __init__(self, app, http_client, url_override=None):
         self.app = app
         self.http_client = http_client
         self.request = transport.requests.Request()
-        self.base_url = '{0}/projects/{1}'.format(self.ID_TOOLKIT_URL, app.project_id)
+        url_prefix = url_override or self.ID_TOOLKIT_URL
+        self.base_url = '{0}/projects/{1}'.format(url_prefix, app.project_id)
         self._signing_provider = None
 
     def _init_signing_provider(self):

@@ -166,9 +166,10 @@ class ProviderConfigClient:
 
     PROVIDER_CONFIG_URL = 'https://identitytoolkit.googleapis.com/v2beta1'
 
-    def __init__(self, http_client, project_id, tenant_id=None):
+    def __init__(self, http_client, project_id, tenant_id=None, url_override=None):
         self.http_client = http_client
-        self.base_url = '{0}/projects/{1}'.format(self.PROVIDER_CONFIG_URL, project_id)
+        url_prefix = url_override or self.PROVIDER_CONFIG_URL
+        self.base_url = '{0}/projects/{1}'.format(url_prefix, project_id)
         if tenant_id:
             self.base_url += '/tenants/{0}'.format(tenant_id)
 

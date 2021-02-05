@@ -55,6 +55,14 @@ INVALID_JWT_ARGS = {
     'NonEmptyDictToken': {'a': 1},
 }
 
+ID_TOOLKIT_URL = 'https://identitytoolkit.googleapis.com/v1'
+EMULATOR_HOST_ENV_VAR = 'FIREBASE_AUTH_EMULATOR_HOST'
+AUTH_EMULATOR_HOST = 'localhost:9099'
+EMULATED_ID_TOOLKIT_URL = 'http://{}/identitytoolkit.googleapis.com/v1'.format(AUTH_EMULATOR_HOST)
+TOKEN_MGT_URLS = {
+    'ID_TOOLKIT': ID_TOOLKIT_URL,
+}
+
 # Fixture for mocking a HTTP server
 httpserver = plugin.httpserver
 
@@ -121,7 +129,7 @@ def _instrument_user_manager(app, status, payload):
     user_manager = client._user_manager
     recorder = []
     user_manager.http_client.session.mount(
-        _token_gen.TokenGenerator.ID_TOOLKIT_URL,
+        TOKEN_MGT_URLS['ID_TOOLKIT'],
         testutils.MockAdapter(payload, status, recorder))
     return user_manager, recorder
 
@@ -133,23 +141,33 @@ def _overwrite_iam_request(app, request):
     client = auth._get_client(app)
     client._token_generator.request = request
 
-@pytest.fixture(scope='module')
-def auth_app():
+@pytest.fixture(scope='module', params=[{'emulated': False}, {'emulated': True}])
+def auth_app(request):
     """Returns an App initialized with a mock service account credential.
 
     This can be used in any scenario where the private key is required. Use user_mgt_app
     for everything else.
     """
+    monkeypatch = pytest.MonkeyPatch()
+    if request.param['emulated']:
+        monkeypatch.setenv(EMULATOR_HOST_ENV_VAR, AUTH_EMULATOR_HOST)
+        monkeypatch.setitem(TOKEN_MGT_URLS, 'ID_TOOLKIT', EMULATED_ID_TOOLKIT_URL)
     app = firebase_admin.initialize_app(MOCK_CREDENTIAL, name='tokenGen')
     yield app
     firebase_admin.delete_app(app)
+    monkeypatch.undo()
 
-@pytest.fixture(scope='module')
-def user_mgt_app():
+@pytest.fixture(scope='module', params=[{'emulated': False}, {'emulated': True}])
+def user_mgt_app(request):
+    monkeypatch = pytest.MonkeyPatch()
+    if request.param['emulated']:
+        monkeypatch.setenv(EMULATOR_HOST_ENV_VAR, AUTH_EMULATOR_HOST)
+        monkeypatch.setitem(TOKEN_MGT_URLS, 'ID_TOOLKIT', EMULATED_ID_TOOLKIT_URL)
     app = firebase_admin.initialize_app(testutils.MockCredential(), name='userMgt',
                                         options={'projectId': 'mock-project-id'})
     yield app
     firebase_admin.delete_app(app)
+    monkeypatch.undo()
 
 @pytest.fixture
 def env_var_app(request):

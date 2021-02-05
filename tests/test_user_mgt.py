@@ -50,17 +50,30 @@ MOCK_ACTION_CODE_DATA = {
 }
 MOCK_ACTION_CODE_SETTINGS = auth.ActionCodeSettings(**MOCK_ACTION_CODE_DATA)
 
-USER_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v1/projects/mock-project-id'
-
 TEST_TIMEOUT = 42
 
+ID_TOOLKIT_URL = 'https://identitytoolkit.googleapis.com/v1'
+EMULATOR_HOST_ENV_VAR = 'FIREBASE_AUTH_EMULATOR_HOST'
+AUTH_EMULATOR_HOST = 'localhost:9099'
+EMULATED_ID_TOOLKIT_URL = 'http://{}/identitytoolkit.googleapis.com/v1'.format(AUTH_EMULATOR_HOST)
+URL_PROJECT_SUFFIX = '/projects/mock-project-id'
+USER_MGT_URLS = {
+    'ID_TOOLKIT': ID_TOOLKIT_URL,
+    'PREFIX': ID_TOOLKIT_URL + URL_PROJECT_SUFFIX,
+}
 
-@pytest.fixture(scope='module')
-def user_mgt_app():
+@pytest.fixture(scope='module', params=[{'emulated': False}, {'emulated': True}])
+def user_mgt_app(request):
+    monkeypatch = pytest.MonkeyPatch()
+    if request.param['emulated']:
+        monkeypatch.setenv(EMULATOR_HOST_ENV_VAR, AUTH_EMULATOR_HOST)
+        monkeypatch.setitem(USER_MGT_URLS, 'ID_TOOLKIT', EMULATED_ID_TOOLKIT_URL)
+        monkeypatch.setitem(USER_MGT_URLS, 'PREFIX', EMULATED_ID_TOOLKIT_URL + URL_PROJECT_SUFFIX)
     app = firebase_admin.initialize_app(testutils.MockCredential(), name='userMgt',
                                         options={'projectId': 'mock-project-id'})
     yield app
     firebase_admin.delete_app(app)
+    monkeypatch.undo()
 
 @pytest.fixture(scope='module')
 def user_mgt_app_with_timeout():
@@ -77,7 +90,7 @@ def _instrument_user_manager(app, status, payload):
     user_manager = client._user_manager
     recorder = []
     user_manager.http_client.session.mount(
-        _user_mgt.UserManager.ID_TOOLKIT_URL,
+        USER_MGT_URLS['ID_TOOLKIT'],
         testutils.MockAdapter(payload, status, recorder))
     return user_manager, recorder
 
@@ -121,7 +134,7 @@ def _check_request(recorder, want_url, want_body=None, want_timeout=None):
     assert len(recorder) == 1
     req = recorder[0]
     assert req.method == 'POST'
-    assert req.url == '{0}{1}'.format(USER_MGT_URL_PREFIX, want_url)
+    assert req.url == '{0}{1}'.format(USER_MGT_URLS['PREFIX'], want_url)
     if want_body:
         body = json.loads(req.body.decode())
         assert body == want_body

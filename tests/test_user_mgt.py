@@ -64,7 +64,7 @@ USER_MGT_URLS = {
 
 @pytest.fixture(scope='module', params=[{'emulated': False}, {'emulated': True}])
 def user_mgt_app(request):
-    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch = testutils.new_monkeypatch()
     if request.param['emulated']:
         monkeypatch.setenv(EMULATOR_HOST_ENV_VAR, AUTH_EMULATOR_HOST)
         monkeypatch.setitem(USER_MGT_URLS, 'ID_TOOLKIT', EMULATED_ID_TOOLKIT_URL)

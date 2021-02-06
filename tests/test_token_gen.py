@@ -148,7 +148,7 @@ def auth_app(request):
     This can be used in any scenario where the private key is required. Use user_mgt_app
     for everything else.
     """
-    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch = testutils.new_monkeypatch()
     if request.param['emulated']:
         monkeypatch.setenv(EMULATOR_HOST_ENV_VAR, AUTH_EMULATOR_HOST)
         monkeypatch.setitem(TOKEN_MGT_URLS, 'ID_TOOLKIT', EMULATED_ID_TOOLKIT_URL)
@@ -159,7 +159,7 @@ def auth_app(request):
 
 @pytest.fixture(scope='module', params=[{'emulated': False}, {'emulated': True}])
 def user_mgt_app(request):
-    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch = testutils.new_monkeypatch()
     if request.param['emulated']:
         monkeypatch.setenv(EMULATOR_HOST_ENV_VAR, AUTH_EMULATOR_HOST)
         monkeypatch.setitem(TOKEN_MGT_URLS, 'ID_TOOLKIT', EMULATED_ID_TOOLKIT_URL)

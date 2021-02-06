@@ -16,6 +16,8 @@
 import io
 import os
 
+import pytest
+
 from google.auth import credentials
 from google.auth import transport
 from requests import adapters
@@ -56,6 +58,15 @@ def run_without_project_id(func):
             gcloud_project = env_values[idx]
             if gcloud_project:
                 os.environ[env_var] = gcloud_project
+
+
+def new_monkeypatch():
+    try:
+        return pytest.MonkeyPatch()
+    except AttributeError:
+        # Fallback for Python 3.5
+        from _pytest.monkeypatch import MonkeyPatch
+        return MonkeyPatch()
 
 
 class MockResponse(transport.Response):

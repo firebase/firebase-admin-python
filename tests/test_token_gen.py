@@ -76,13 +76,18 @@ def _merge_jwt_claims(defaults, overrides):
 
 def verify_custom_token(custom_token, expected_claims, tenant_id=None):
     assert isinstance(custom_token, bytes)
-    token = google.oauth2.id_token.verify_token(
-        custom_token,
-        testutils.MockRequest(200, MOCK_PUBLIC_CERTS),
-        _token_gen.FIREBASE_AUDIENCE)
+    expected_email = MOCK_SERVICE_ACCOUNT_EMAIL
+    if _is_emulated():
+        expected_email = _token_gen.AUTH_EMULATOR_EMAIL
+        token = jwt.decode(custom_token, verify=False)
+    else:
+        token = google.oauth2.id_token.verify_token(
+            custom_token,
+            testutils.MockRequest(200, MOCK_PUBLIC_CERTS),
+            _token_gen.FIREBASE_AUDIENCE)
     assert token['uid'] == MOCK_UID
-    assert token['iss'] == MOCK_SERVICE_ACCOUNT_EMAIL
-    assert token['sub'] == MOCK_SERVICE_ACCOUNT_EMAIL
+    assert token['iss'] == expected_email
+    assert token['sub'] == expected_email
     if tenant_id is None:
         assert 'tenant_id' not in token
     else:
@@ -141,7 +146,15 @@ def _overwrite_iam_request(app, request):
     client = auth._get_client(app)
     client._token_generator.request = request
 
-@pytest.fixture(scope='module', params=[{'emulated': False}, {'emulated': True}])
+
+def _is_emulated():
+    emulator_host = os.getenv(EMULATOR_HOST_ENV_VAR, '')
+    return emulator_host and '//' not in emulator_host
+
+
+# These fixtures are set to the default function scope as the emulator environment variable bleeds
+# over when in module scope.
+@pytest.fixture(params=[{'emulated': False}, {'emulated': True}])
 def auth_app(request):
     """Returns an App initialized with a mock service account credential.
 
@@ -157,7 +170,7 @@ def auth_app(request):
     firebase_admin.delete_app(app)
     monkeypatch.undo()
 
-@pytest.fixture(scope='module', params=[{'emulated': False}, {'emulated': True}])
+@pytest.fixture(params=[{'emulated': False}, {'emulated': True}])
 def user_mgt_app(request):
     monkeypatch = testutils.new_monkeypatch()
     if request.param['emulated']:
@@ -230,6 +243,12 @@ class TestCreateCustomToken:
             auth.create_custom_token(user, claims, app=auth_app)
 
     def test_noncert_credential(self, user_mgt_app):
+        if _is_emulated():
+            # Should work fine with the emulator, so do a condensed version of
+            # test_sign_with_iam below.
+            custom_token = auth.create_custom_token(MOCK_UID, app=user_mgt_app).decode()
+            self._verify_signer(custom_token, _token_gen.AUTH_EMULATOR_EMAIL)
+            return
         with pytest.raises(ValueError):
             auth.create_custom_token(MOCK_UID, app=user_mgt_app)
 
@@ -304,7 +323,7 @@ class TestCreateCustomToken:
     def _verify_signer(self, token, signer):
         segments = token.split('.')
         assert len(segments) == 3
-        body = json.loads(base64.b64decode(segments[1]).decode())
+        body = jwt.decode(token, verify=False)
         assert body['iss'] == signer
         assert body['sub'] == signer
 
@@ -406,13 +425,23 @@ class TestVerifyIdToken:
         'BadFormatToken': 'foobar'
     }
 
-    @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
-    def test_valid_token(self, user_mgt_app, id_token):
-        _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
-        claims = auth.verify_id_token(id_token, app=user_mgt_app)
+    tokens_accepted_in_emulator = [
+        'NoKid',
+        'WrongKid',
+        'FutureToken',
+        'ExpiredToken'
+    ]
+
+    def _assert_valid_token(self, id_token, app):
+        claims = auth.verify_id_token(id_token, app=app)
         assert claims['admin'] is True
         assert claims['uid'] == claims['sub']
         assert claims['firebase']['sign_in_provider'] == 'provider'
+
+    @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
+    def test_valid_token(self, user_mgt_app, id_token):
+        _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
+        self._assert_valid_token(id_token, app=user_mgt_app)
 
     def test_valid_token_with_tenant(self, user_mgt_app):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
@@ -458,8 +487,12 @@ class TestVerifyIdToken:
             auth.verify_id_token(id_token, app=user_mgt_app)
         assert 'Illegal ID token provided' in str(excinfo.value)
 
-    @pytest.mark.parametrize('id_token', invalid_tokens.values(), ids=list(invalid_tokens))
-    def test_invalid_token(self, user_mgt_app, id_token):
+    @pytest.mark.parametrize('id_token_key', list(invalid_tokens))
+    def test_invalid_token(self, user_mgt_app, id_token_key):
+        id_token = self.invalid_tokens[id_token_key]
+        if _is_emulated() and id_token_key in self.tokens_accepted_in_emulator:
+            self._assert_valid_token(id_token, user_mgt_app)
+            return
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
         with pytest.raises(auth.InvalidIdTokenError) as excinfo:
             auth.verify_id_token(id_token, app=user_mgt_app)
@@ -469,6 +502,9 @@ class TestVerifyIdToken:
     def test_expired_token(self, user_mgt_app):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
         id_token = self.invalid_tokens['ExpiredToken']
+        if _is_emulated():
+            self._assert_valid_token(id_token, user_mgt_app)
+            return
         with pytest.raises(auth.ExpiredIdTokenError) as excinfo:
             auth.verify_id_token(id_token, app=user_mgt_app)
         assert isinstance(excinfo.value, auth.InvalidIdTokenError)
@@ -506,6 +542,10 @@ class TestVerifyIdToken:
 
     def test_certificate_request_failure(self, user_mgt_app):
         _overwrite_cert_request(user_mgt_app, testutils.MockRequest(404, 'not found'))
+        if _is_emulated():
+            # Shouldn't fetch certificates in emulator mode.
+            self._assert_valid_token(TEST_ID_TOKEN, app=user_mgt_app)
+            return
         with pytest.raises(auth.CertificateFetchError) as excinfo:
             auth.verify_id_token(TEST_ID_TOKEN, app=user_mgt_app)
         assert 'Could not fetch certificates' in str(excinfo.value)
@@ -540,20 +580,28 @@ class TestVerifySessionCookie:
         'IDToken': TEST_ID_TOKEN,
     }
 
+    cookies_accepted_in_emulator = [
+        'NoKid',
+        'WrongKid',
+        'FutureCookie',
+        'ExpiredCookie'
+    ]
+
+    def _assert_valid_cookie(self, cookie, app, check_revoked=False):
+        claims = auth.verify_session_cookie(cookie, app=app, check_revoked=check_revoked)
+        assert claims['admin'] is True
+        assert claims['uid'] == claims['sub']
+
     @pytest.mark.parametrize('cookie', valid_cookies.values(), ids=list(valid_cookies))
     def test_valid_cookie(self, user_mgt_app, cookie):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
-        claims = auth.verify_session_cookie(cookie, app=user_mgt_app)
-        assert claims['admin'] is True
-        assert claims['uid'] == claims['sub']
+        self._assert_valid_cookie(cookie, user_mgt_app)
 
     @pytest.mark.parametrize('cookie', valid_cookies.values(), ids=list(valid_cookies))
     def test_valid_cookie_check_revoked(self, user_mgt_app, cookie):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
         _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_RESPONSE)
-        claims = auth.verify_session_cookie(cookie, app=user_mgt_app, check_revoked=True)
-        assert claims['admin'] is True
-        assert claims['uid'] == claims['sub']
+        self._assert_valid_cookie(cookie, app=user_mgt_app, check_revoked=True)
 
     @pytest.mark.parametrize('cookie', valid_cookies.values(), ids=list(valid_cookies))
     def test_revoked_cookie_check_revoked(self, user_mgt_app, revoked_tokens, cookie):
@@ -567,9 +615,7 @@ class TestVerifySessionCookie:
     def test_revoked_cookie_does_not_check_revoked(self, user_mgt_app, revoked_tokens, cookie):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
         _instrument_user_manager(user_mgt_app, 200, revoked_tokens)
-        claims = auth.verify_session_cookie(cookie, app=user_mgt_app, check_revoked=False)
-        assert claims['admin'] is True
-        assert claims['uid'] == claims['sub']
+        self._assert_valid_cookie(cookie, app=user_mgt_app, check_revoked=False)
 
     @pytest.mark.parametrize('cookie', INVALID_JWT_ARGS.values(), ids=list(INVALID_JWT_ARGS))
     def test_invalid_args(self, user_mgt_app, cookie):
@@ -578,8 +624,12 @@ class TestVerifySessionCookie:
             auth.verify_session_cookie(cookie, app=user_mgt_app)
         assert 'Illegal session cookie provided' in str(excinfo.value)
 
-    @pytest.mark.parametrize('cookie', invalid_cookies.values(), ids=list(invalid_cookies))
-    def test_invalid_cookie(self, user_mgt_app, cookie):
+    @pytest.mark.parametrize('cookie_key', list(invalid_cookies))
+    def test_invalid_cookie(self, user_mgt_app, cookie_key):
+        cookie = self.invalid_cookies[cookie_key]
+        if _is_emulated() and cookie_key in self.cookies_accepted_in_emulator:
+            self._assert_valid_cookie(cookie, user_mgt_app)
+            return
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
         with pytest.raises(auth.InvalidSessionCookieError) as excinfo:
             auth.verify_session_cookie(cookie, app=user_mgt_app)
@@ -589,6 +639,9 @@ class TestVerifySessionCookie:
     def test_expired_cookie(self, user_mgt_app):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
         cookie = self.invalid_cookies['ExpiredCookie']
+        if _is_emulated():
+            self._assert_valid_cookie(cookie, user_mgt_app)
+            return
         with pytest.raises(auth.ExpiredSessionCookieError) as excinfo:
             auth.verify_session_cookie(cookie, app=user_mgt_app)
         assert isinstance(excinfo.value, auth.InvalidSessionCookieError)
@@ -621,6 +674,10 @@ class TestVerifySessionCookie:
 
     def test_certificate_request_failure(self, user_mgt_app):
         _overwrite_cert_request(user_mgt_app, testutils.MockRequest(404, 'not found'))
+        if _is_emulated():
+            # Shouldn't fetch certificates in emulator mode.
+            auth.verify_session_cookie(TEST_SESSION_COOKIE, app=user_mgt_app)
+            return
         with pytest.raises(auth.CertificateFetchError) as excinfo:
             auth.verify_session_cookie(TEST_SESSION_COOKIE, app=user_mgt_app)
         assert 'Could not fetch certificates' in str(excinfo.value)
@@ -637,9 +694,11 @@ class TestCertificateCaching:
         verifier.cookie_verifier.cert_url = httpserver.url
         verifier.id_token_verifier.cert_url = httpserver.url
         verifier.verify_session_cookie(TEST_SESSION_COOKIE)
-        assert len(httpserver.requests) == 1
+        # No requests should be made in emulated mode
+        request_count = 0 if _is_emulated() else 1
+        assert len(httpserver.requests) == request_count
         # Subsequent requests should not fetch certs from the server
         verifier.verify_session_cookie(TEST_SESSION_COOKIE)
-        assert len(httpserver.requests) == 1
+        assert len(httpserver.requests) == request_count
         verifier.verify_id_token(TEST_ID_TOKEN)
-        assert len(httpserver.requests) == 1
+        assert len(httpserver.requests) == request_count

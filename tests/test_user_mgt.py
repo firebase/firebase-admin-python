@@ -62,7 +62,7 @@ USER_MGT_URLS = {
     'PREFIX': ID_TOOLKIT_URL + URL_PROJECT_SUFFIX,
 }
 
-@pytest.fixture(scope='module', params=[{'emulated': False}, {'emulated': True}])
+@pytest.fixture(params=[{'emulated': False}, {'emulated': True}])
 def user_mgt_app(request):
     monkeypatch = testutils.new_monkeypatch()
     if request.param['emulated']:
@@ -75,7 +75,7 @@ def user_mgt_app(request):
     firebase_admin.delete_app(app)
     monkeypatch.undo()
 
-@pytest.fixture(scope='module')
+@pytest.fixture
 def user_mgt_app_with_timeout():
     app = firebase_admin.initialize_app(
         testutils.MockCredential(),

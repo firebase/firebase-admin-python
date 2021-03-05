@@ -128,7 +128,7 @@ class Client:
                 raise _auth_utils.TenantIdMismatchError(
                     'Invalid tenant ID: {0}'.format(token_tenant_id))
 
-        if not self.emulated and check_revoked:
+        if check_revoked:
             self._check_jwt_revoked(verified_claims, _token_gen.RevokedIdTokenError, 'ID token')
         return verified_claims
 

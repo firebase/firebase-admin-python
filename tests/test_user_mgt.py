@@ -52,11 +52,23 @@ MOCK_ACTION_CODE_SETTINGS = auth.ActionCodeSettings(**MOCK_ACTION_CODE_DATA)
 
 USER_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v1/projects/mock-project-id'
 
+TEST_TIMEOUT = 42
+
 
 @pytest.fixture(scope='module')
 def user_mgt_app():
     app = firebase_admin.initialize_app(testutils.MockCredential(), name='userMgt',
                                         options={'projectId': 'mock-project-id'})
+    yield app
+    firebase_admin.delete_app(app)
+
+@pytest.fixture(scope='module')
+def user_mgt_app_with_timeout():
+    app = firebase_admin.initialize_app(
+        testutils.MockCredential(),
+        name='userMgtTimeout',
+        options={'projectId': 'mock-project-id', 'httpTimeout': TEST_TIMEOUT}
+    )
     yield app
     firebase_admin.delete_app(app)
 
@@ -105,7 +117,7 @@ def _check_user_record(user, expected_uid='testuser'):
     assert provider.provider_id == 'phone'
 
 
-def _check_request(recorder, want_url, want_body=None):
+def _check_request(recorder, want_url, want_body=None, want_timeout=None):
     assert len(recorder) == 1
     req = recorder[0]
     assert req.method == 'POST'
@@ -113,6 +125,8 @@ def _check_request(recorder, want_url, want_body=None):
     if want_body:
         body = json.loads(req.body.decode())
         assert body == want_body
+    if want_timeout:
+        assert recorder[0]._extra_kwargs['timeout'] == pytest.approx(want_timeout, 0.001)
 
 
 class TestAuthServiceInitialization:
@@ -121,6 +135,11 @@ class TestAuthServiceInitialization:
         client = auth._get_client(user_mgt_app)
         user_manager = client._user_manager
         assert user_manager.http_client.timeout == _http_client.DEFAULT_TIMEOUT_SECONDS
+
+    def test_app_options_timeout(self, user_mgt_app_with_timeout):
+        client = auth._get_client(user_mgt_app_with_timeout)
+        user_manager = client._user_manager
+        assert user_manager.http_client.timeout == TEST_TIMEOUT
 
     def test_fail_on_no_project_id(self):
         app = firebase_admin.initialize_app(testutils.MockCredential(), name='userMgt2')
@@ -224,6 +243,12 @@ class TestGetUser:
         _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_GET_USER_RESPONSE)
         _check_user_record(auth.get_user('testuser', user_mgt_app))
         _check_request(recorder, '/accounts:lookup', {'localId': ['testuser']})
+
+    def test_get_user_with_timeout(self, user_mgt_app_with_timeout):
+        _, recorder = _instrument_user_manager(
+            user_mgt_app_with_timeout, 200, MOCK_GET_USER_RESPONSE)
+        _check_user_record(auth.get_user('testuser', user_mgt_app_with_timeout))
+        _check_request(recorder, '/accounts:lookup', {'localId': ['testuser']}, TEST_TIMEOUT)
 
     @pytest.mark.parametrize('arg', INVALID_STRINGS + ['not-an-email'])
     def test_invalid_get_user_by_email(self, arg, user_mgt_app):

@@ -38,8 +38,9 @@ class Client:
 
         credential = app.credential.get_credential()
         version_header = 'Python/Admin/{0}'.format(firebase_admin.__version__)
+        timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
         http_client = _http_client.JsonHttpClient(
-            credential=credential, headers={'X-Client-Version': version_header})
+            credential=credential, headers={'X-Client-Version': version_header}, timeout=timeout)
 
         self._tenant_id = tenant_id
         self._token_generator = _token_gen.TokenGenerator(app, http_client)

@@ -14,7 +14,7 @@
 
 """About information (version, etc) for Firebase Admin SDK."""
 
-__version__ = '4.5.2'
+__version__ = '4.5.3'
 __title__ = 'firebase_admin'
 __author__ = 'Firebase'
 __license__ = 'Apache License 2.0'

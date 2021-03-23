@@ -15,6 +15,7 @@
 """Firebase auth utils."""
 
 import json
+import os
 import re
 from urllib import parse
 
@@ -22,6 +23,7 @@ from firebase_admin import exceptions
 from firebase_admin import _utils
 
 
+EMULATOR_HOST_ENV_VAR = 'FIREBASE_AUTH_EMULATOR_HOST'
 MAX_CLAIMS_PAYLOAD_SIZE = 1000
 RESERVED_CLAIMS = set([
     'acr', 'amr', 'at_hash', 'aud', 'auth_time', 'azp', 'cnf', 'c_hash', 'exp', 'iat',
@@ -64,6 +66,19 @@ class PageIterator:
 
     def __iter__(self):
         return self
+
+
+def get_emulator_host():
+    emulator_host = os.getenv(EMULATOR_HOST_ENV_VAR, '')
+    if emulator_host and '//' in emulator_host:
+        raise ValueError(
+            'Invalid {0}: "{1}". It must follow format "host:port".'.format(
+                EMULATOR_HOST_ENV_VAR, emulator_host))
+    return emulator_host
+
+
+def is_emulated():
+    return get_emulator_host() != ''
 
 
 def validate_uid(uid, required=False):

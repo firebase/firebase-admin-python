@@ -24,6 +24,7 @@ from firebase_admin import _token_gen
 from firebase_admin import _user_identifier
 from firebase_admin import _user_import
 from firebase_admin import _user_mgt
+from firebase_admin import _utils
 
 
 class Client:
@@ -36,18 +37,37 @@ class Client:
             2. set the project ID explicitly via Firebase App options, or
             3. set the project ID via the GOOGLE_CLOUD_PROJECT environment variable.""")
 
-        credential = app.credential.get_credential()
+        credential = None
         version_header = 'Python/Admin/{0}'.format(firebase_admin.__version__)
         timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
+        # Non-default endpoint URLs for emulator support are set in this dict later.
+        endpoint_urls = {}
+        self.emulated = False
+
+        # If an emulator is present, check that the given value matches the expected format and set
+        # endpoint URLs to use the emulator. Additionally, use a fake credential.
+        emulator_host = _auth_utils.get_emulator_host()
+        if emulator_host:
+            base_url = 'http://{0}/identitytoolkit.googleapis.com'.format(emulator_host)
+            endpoint_urls['v1'] = base_url + '/v1'
+            endpoint_urls['v2beta1'] = base_url + '/v2beta1'
+            credential = _utils.EmulatorAdminCredentials()
+            self.emulated = True
+        else:
+            # Use credentials if provided
+            credential = app.credential.get_credential()
+
         http_client = _http_client.JsonHttpClient(
             credential=credential, headers={'X-Client-Version': version_header}, timeout=timeout)
 
         self._tenant_id = tenant_id
-        self._token_generator = _token_gen.TokenGenerator(app, http_client)
+        self._token_generator = _token_gen.TokenGenerator(
+            app, http_client, url_override=endpoint_urls.get('v1'))
         self._token_verifier = _token_gen.TokenVerifier(app)
-        self._user_manager = _user_mgt.UserManager(http_client, app.project_id, tenant_id)
+        self._user_manager = _user_mgt.UserManager(
+            http_client, app.project_id, tenant_id, url_override=endpoint_urls.get('v1'))
         self._provider_manager = _auth_providers.ProviderConfigClient(
-            http_client, app.project_id, tenant_id)
+            http_client, app.project_id, tenant_id, url_override=endpoint_urls.get('v2beta1'))
 
     @property
     def tenant_id(self):

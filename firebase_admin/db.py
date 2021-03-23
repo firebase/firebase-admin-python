@@ -27,7 +27,6 @@ import sys
 import threading
 from urllib import parse
 
-import google.auth
 import requests
 
 import firebase_admin
@@ -808,7 +807,7 @@ class _DatabaseService:
 
         emulator_config = self._get_emulator_config(parsed_url)
         if emulator_config:
-            credential = _EmulatorAdminCredentials()
+            credential = _utils.EmulatorAdminCredentials()
             base_url = emulator_config.base_url
             params = {'ns': emulator_config.namespace}
         else:
@@ -965,14 +964,3 @@ class _Client(_http_client.JsonHttpClient):
             message = 'Unexpected response from database: {0}'.format(response.content.decode())
 
         return message
-
-# Temporarily disable the lint rule. For more information see:
-# https://github.com/googleapis/google-auth-library-python/pull/561
-# pylint: disable=abstract-method
-class _EmulatorAdminCredentials(google.auth.credentials.Credentials):
-    def __init__(self):
-        google.auth.credentials.Credentials.__init__(self)
-        self.token = 'owner'
-
-    def refresh(self, request):
-        pass

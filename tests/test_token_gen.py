@@ -26,7 +26,6 @@ import google.auth.exceptions
 import google.oauth2.id_token
 import pytest
 from pytest_localserver import plugin
-import requests
 
 import firebase_admin
 from firebase_admin import auth

@@ -29,6 +29,7 @@ import google.oauth2.service_account
 
 from firebase_admin import exceptions
 from firebase_admin import _auth_utils
+from firebase_admin import _http_client
 
 
 # ID token constants
@@ -231,12 +232,37 @@ class TokenGenerator:
             return body.get('sessionCookie')
 
 
+class CertificateFetchRequest(transport.Request):
+    """A google-auth transport that supports HTTP cache-control.
+
+    Also injects a timeout to each outgoing HTTP request.
+    """
+
+    def __init__(self, timeout_seconds=None):
+        self._session = cachecontrol.CacheControl(requests.Session())
+        self._delegate = transport.requests.Request(self.session)
+        self._timeout_seconds = timeout_seconds
+
+    @property
+    def session(self):
+        return self._session
+
+    @property
+    def timeout_seconds(self):
+        return self._timeout_seconds
+
+    def __call__(self, url, method='GET', body=None, headers=None, timeout=None, **kwargs):
+        timeout = timeout or self.timeout_seconds
+        return self._delegate(
+            url, method=method, body=body, headers=headers, timeout=timeout, **kwargs)
+
+
 class TokenVerifier:
     """Verifies ID tokens and session cookies."""
 
     def __init__(self, app):
-        session = cachecontrol.CacheControl(requests.Session())
-        self.request = transport.requests.Request(session=session)
+        timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
+        self.request = CertificateFetchRequest(timeout)
         self.id_token_verifier = _JWTVerifier(
             project_id=app.project_id, short_name='ID token',
             operation='verify_id_token()',

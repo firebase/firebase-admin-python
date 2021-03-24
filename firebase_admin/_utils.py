@@ -18,6 +18,7 @@ import io
 import json
 import socket
 
+import google.auth
 import googleapiclient
 import httplib2
 import requests
@@ -59,6 +60,26 @@ _HTTP_STATUS_TO_ERROR_CODE = {
 }
 
 
+# See https://github.com/googleapis/googleapis/blob/master/google/rpc/code.proto
+_RPC_CODE_TO_ERROR_CODE = {
+    1: exceptions.CANCELLED,
+    2: exceptions.UNKNOWN,
+    3: exceptions.INVALID_ARGUMENT,
+    4: exceptions.DEADLINE_EXCEEDED,
+    5: exceptions.NOT_FOUND,
+    6: exceptions.ALREADY_EXISTS,
+    7: exceptions.PERMISSION_DENIED,
+    8: exceptions.RESOURCE_EXHAUSTED,
+    9: exceptions.FAILED_PRECONDITION,
+    10: exceptions.ABORTED,
+    11: exceptions.OUT_OF_RANGE,
+    13: exceptions.INTERNAL,
+    14: exceptions.UNAVAILABLE,
+    15: exceptions.DATA_LOSS,
+    16: exceptions.UNAUTHENTICATED,
+}
+
+
 def _get_initialized_app(app):
     """Returns a reference to an initialized App instance."""
     if app is None:
@@ -73,6 +94,7 @@ def _get_initialized_app(app):
 
     raise ValueError('Illegal app argument. Argument must be of type '
                      ' firebase_admin.App, but given "{0}".'.format(type(app)))
+
 
 
 def get_app_service(app, name, initializer):
@@ -106,6 +128,27 @@ def handle_platform_error_from_requests(error, handle_func=None):
         exc = handle_func(error, message, error_dict)
 
     return exc if exc else _handle_func_requests(error, message, error_dict)
+
+
+def handle_operation_error(error):
+    """Constructs a ``FirebaseError`` from the given operation error.
+
+    Args:
+        error: An error returned by a long running operation.
+
+    Returns:
+        FirebaseError: A ``FirebaseError`` that can be raised to the user code.
+    """
+    if not isinstance(error, dict):
+        return exceptions.UnknownError(
+            message='Unknown error while making a remote service call: {0}'.format(error),
+            cause=error)
+
+    rpc_code = error.get('code')
+    message = error.get('message')
+    error_code = _rpc_code_to_error_code(rpc_code)
+    err_type = _error_code_to_exception_type(error_code)
+    return err_type(message=message)
 
 
 def _handle_func_requests(error, message, error_dict):
@@ -264,6 +307,9 @@ def _http_status_to_error_code(status):
     """Maps an HTTP status to a platform error code."""
     return _HTTP_STATUS_TO_ERROR_CODE.get(status, exceptions.UNKNOWN)
 
+def _rpc_code_to_error_code(rpc_code):
+    """Maps an RPC code to a platform error code."""
+    return _RPC_CODE_TO_ERROR_CODE.get(rpc_code, exceptions.UNKNOWN)
 
 def _error_code_to_exception_type(code):
     """Maps a platform error code to an exception type."""
@@ -294,3 +340,20 @@ def _parse_platform_error(content, status_code):
     if not msg:
         msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(status_code, content)
     return error_dict, msg
+
+
+# Temporarily disable the lint rule. For more information see:
+# https://github.com/googleapis/google-auth-library-python/pull/561
+# pylint: disable=abstract-method
+class EmulatorAdminCredentials(google.auth.credentials.Credentials):
+    """ Credentials for use with the firebase local emulator.
+
+    This is used instead of user-supplied credentials or ADC.  It will silently do nothing when
+    asked to refresh credentials.
+    """
+    def __init__(self):
+        google.auth.credentials.Credentials.__init__(self)
+        self.token = 'owner'
+
+    def refresh(self, request):
+        pass

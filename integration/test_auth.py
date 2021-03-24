@@ -16,7 +16,9 @@
 import base64
 import datetime
 import random
+import string
 import time
+from typing import List
 from urllib import parse
 import uuid
 
@@ -38,6 +40,30 @@ _email_sign_in_url = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty
 
 ACTION_LINK_CONTINUE_URL = 'http://localhost?a=1&b=5#f=1'
 
+X509_CERTIFICATES = [
+    ('-----BEGIN CERTIFICATE-----\nMIICZjCCAc+gAwIBAgIBADANBgkqhkiG9w0BAQ0FADBQMQswCQYDVQQGEwJ1czE'
+     'L\nMAkGA1UECAwCQ0ExDTALBgNVBAoMBEFjbWUxETAPBgNVBAMMCGFjbWUuY29tMRIw\nEAYDVQQHDAlTdW5ueXZhbGU'
+     'wHhcNMTgxMjA2MDc1MTUxWhcNMjgxMjAzMDc1MTUx\nWjBQMQswCQYDVQQGEwJ1czELMAkGA1UECAwCQ0ExDTALBgNVB'
+     'AoMBEFjbWUxETAP\nBgNVBAMMCGFjbWUuY29tMRIwEAYDVQQHDAlTdW5ueXZhbGUwgZ8wDQYJKoZIhvcN\nAQEBBQADg'
+     'Y0AMIGJAoGBAKphmggjiVgqMLXyzvI7cKphscIIQ+wcv7Dld6MD4aKv\n7Jqr8ltujMxBUeY4LFEKw8Terb01snYpDot'
+     'filaG6NxpF/GfVVmMalzwWp0mT8+H\nyzyPj89mRcozu17RwuooR6n1ofXjGcBE86lqC21UhA3WVgjPOLqB42rlE9gPn'
+     'ZLB\nAgMBAAGjUDBOMB0GA1UdDgQWBBS0iM7WnbCNOnieOP1HIA+Oz/ML+zAfBgNVHSME\nGDAWgBS0iM7WnbCNOnieO'
+     'P1HIA+Oz/ML+zAMBgNVHRMEBTADAQH/MA0GCSqGSIb3\nDQEBDQUAA4GBAF3jBgS+wP+K/jTupEQur6iaqS4UvXd//d4'
+     'vo1MV06oTLQMTz+rP\nOSMDNwxzfaOn6vgYLKP/Dcy9dSTnSzgxLAxfKvDQZA0vE3udsw0Bd245MmX4+GOp\nlbrN99X'
+     'P1u+lFxCSdMUzvQ/jW4ysw/Nq4JdJ0gPAyPvL6Qi/3mQdIQwx\n-----END CERTIFICATE-----\n'),
+    ('-----BEGIN CERTIFICATE-----\nMIICZjCCAc+gAwIBAgIBADANBgkqhkiG9w0BAQ0FADBQMQswCQYDVQQGEwJ1czE'
+     'L\nMAkGA1UECAwCQ0ExDTALBgNVBAoMBEFjbWUxETAPBgNVBAMMCGFjbWUuY29tMRIw\nEAYDVQQHDAlTdW5ueXZhbGU'
+     'wHhcNMTgxMjA2MDc1ODE4WhcNMjgxMjAzMDc1ODE4\nWjBQMQswCQYDVQQGEwJ1czELMAkGA1UECAwCQ0ExDTALBgNVB'
+     'AoMBEFjbWUxETAP\nBgNVBAMMCGFjbWUuY29tMRIwEAYDVQQHDAlTdW5ueXZhbGUwgZ8wDQYJKoZIhvcN\nAQEBBQADg'
+     'Y0AMIGJAoGBAKuzYKfDZGA6DJgQru3wNUqv+S0hMZfP/jbp8ou/8UKu\nrNeX7cfCgt3yxoGCJYKmF6t5mvo76JY0MWw'
+     'A53BxeP/oyXmJ93uHG5mFRAsVAUKs\ncVVb0Xi6ujxZGVdDWFV696L0BNOoHTfXmac6IBoZQzNNK4n1AATqwo+z7a0pf'
+     'RrJ\nAgMBAAGjUDBOMB0GA1UdDgQWBBSKmi/ZKMuLN0ES7/jPa7q7jAjPiDAfBgNVHSME\nGDAWgBSKmi/ZKMuLN0ES7'
+     '/jPa7q7jAjPiDAMBgNVHRMEBTADAQH/MA0GCSqGSIb3\nDQEBDQUAA4GBAAg2a2kSn05NiUOuWOHwPUjW3wQRsGxPXtb'
+     'hWMhmNdCfKKteM2+/\nLd/jz5F3qkOgGQ3UDgr3SHEoWhnLaJMF4a2tm6vL2rEIfPEK81KhTTRxSsAgMVbU\nJXBz1md'
+     '6Ur0HlgQC7d1CHC8/xi2DDwHopLyxhogaZUxy9IaRxUEa2vJW\n-----END CERTIFICATE-----\n'),
+]
+
+
 def _sign_in(custom_token, api_key):
     body = {'token' : custom_token.decode(), 'returnSecureToken' : True}
     params = {'key' : api_key}
@@ -46,11 +72,15 @@ def _sign_in(custom_token, api_key):
     return resp.json().get('idToken')
 
 def _sign_in_with_password(email, password, api_key):
-    body = {'email': email, 'password': password}
+    body = {'email': email, 'password': password, 'returnSecureToken': True}
     params = {'key' : api_key}
     resp = requests.request('post', _verify_password_url, params=params, json=body)
     resp.raise_for_status()
     return resp.json().get('idToken')
+
+def _random_string(length=10):
+    letters = string.ascii_lowercase
+    return ''.join(random.choice(letters) for i in range(length))
 
 def _random_id():
     random_id = str(uuid.uuid4()).lower().replace('-', '')
@@ -162,7 +192,7 @@ def new_user():
     auth.delete_user(user.uid)
 
 @pytest.fixture
-def new_user_with_params():
+def new_user_with_params() -> auth.UserRecord:
     random_id, email = _random_id()
     phone = _random_phone()
     user = auth.create_user(
@@ -185,8 +215,51 @@ def new_user_list():
         auth.create_user(password='password').uid,
     ]
     yield users
+    # TODO(rsgowman): Using auth.delete_users() would make more sense here, but
+    # that's currently rate limited to 1qps, so using it in this context would
+    # almost certainly trigger errors. When/if that limit is relaxed, switch to
+    # batch delete.
     for uid in users:
         auth.delete_user(uid)
+
+@pytest.fixture
+def new_user_record_list() -> List[auth.UserRecord]:
+    uid1, email1 = _random_id()
+    uid2, email2 = _random_id()
+    uid3, email3 = _random_id()
+    users = [
+        auth.create_user(
+            uid=uid1, email=email1, password='password', phone_number=_random_phone()),
+        auth.create_user(
+            uid=uid2, email=email2, password='password', phone_number=_random_phone()),
+        auth.create_user(
+            uid=uid3, email=email3, password='password', phone_number=_random_phone()),
+    ]
+    yield users
+    for user in users:
+        auth.delete_user(user.uid)
+
+@pytest.fixture
+def new_user_with_provider() -> auth.UserRecord:
+    uid4, email4 = _random_id()
+    google_uid, google_email = _random_id()
+    import_user1 = auth.ImportUserRecord(
+        uid=uid4,
+        email=email4,
+        provider_data=[
+            auth.UserProvider(
+                uid=google_uid,
+                provider_id='google.com',
+                email=google_email,
+            )
+        ])
+    user_import_result = auth.import_users([import_user1])
+    assert user_import_result.success_count == 1
+    assert user_import_result.failure_count == 0
+
+    user = auth.get_user(uid4)
+    yield user
+    auth.delete_user(user.uid)
 
 @pytest.fixture
 def new_user_email_unverified():
@@ -218,6 +291,98 @@ def test_get_user(new_user_with_params):
     assert len(user.provider_data) == 2
     provider_ids = sorted([provider.provider_id for provider in user.provider_data])
     assert provider_ids == ['password', 'phone']
+
+class TestGetUsers:
+    @staticmethod
+    def _map_user_record_to_uid_email_phones(user_record):
+        return {
+            'uid': user_record.uid,
+            'email': user_record.email,
+            'phone_number': user_record.phone_number
+        }
+
+    def test_multiple_uid_types(self, new_user_record_list, new_user_with_provider):
+        get_users_results = auth.get_users([
+            auth.UidIdentifier(new_user_record_list[0].uid),
+            auth.EmailIdentifier(new_user_record_list[1].email),
+            auth.PhoneIdentifier(new_user_record_list[2].phone_number),
+            auth.ProviderIdentifier(
+                new_user_with_provider.provider_data[0].provider_id,
+                new_user_with_provider.provider_data[0].uid,
+            )])
+        actual = sorted([
+            self._map_user_record_to_uid_email_phones(user)
+            for user in get_users_results.users
+        ], key=lambda user: user['uid'])
+        expected = sorted([
+            self._map_user_record_to_uid_email_phones(user)
+            for user in new_user_record_list + [new_user_with_provider]
+        ], key=lambda user: user['uid'])
+
+        assert actual == expected
+
+    def test_existing_and_non_existing_users(self, new_user_record_list):
+        get_users_results = auth.get_users([
+            auth.UidIdentifier(new_user_record_list[0].uid),
+            auth.UidIdentifier('uid_that_doesnt_exist'),
+            auth.UidIdentifier(new_user_record_list[2].uid)])
+        actual = sorted([
+            self._map_user_record_to_uid_email_phones(user)
+            for user in get_users_results.users
+        ], key=lambda user: user['uid'])
+        expected = sorted([
+            self._map_user_record_to_uid_email_phones(user)
+            for user in [new_user_record_list[0], new_user_record_list[2]]
+        ], key=lambda user: user['uid'])
+
+        assert actual == expected
+
+    def test_non_existing_users(self):
+        not_found_ids = [auth.UidIdentifier('non-existing user')]
+        get_users_results = auth.get_users(not_found_ids)
+
+        assert get_users_results.users == []
+        assert get_users_results.not_found == not_found_ids
+
+    def test_de_dups_duplicate_users(self, new_user):
+        get_users_results = auth.get_users([
+            auth.UidIdentifier(new_user.uid),
+            auth.UidIdentifier(new_user.uid)])
+        actual = [
+            self._map_user_record_to_uid_email_phones(user)
+            for user in get_users_results.users]
+        expected = [self._map_user_record_to_uid_email_phones(new_user)]
+        assert actual == expected
+
+def test_last_refresh_timestamp(new_user_with_params: auth.UserRecord, api_key):
+    # new users should not have a last_refresh_timestamp set
+    assert new_user_with_params.user_metadata.last_refresh_timestamp is None
+
+    # login to cause the last_refresh_timestamp to be set
+    _sign_in_with_password(new_user_with_params.email, 'secret', api_key)
+
+    # Attempt to retrieve the user 3 times (with a small delay between each
+    # attempt). Occassionally, this call retrieves the user data without the
+    # lastLoginTime/lastRefreshTime set; possibly because it's hitting a
+    # different server than the login request uses.
+    user_record = None
+    for iteration in range(0, 3):
+        user_record = auth.get_user(new_user_with_params.uid)
+        if user_record.user_metadata.last_refresh_timestamp is not None:
+            break
+
+        time.sleep(2 ** iteration)
+
+    # Ensure the last refresh time occurred at approximately 'now'. (With a
+    # tolerance of up to 1 minute; we ideally want to ensure that any timezone
+    # considerations are handled properly, so as long as we're within an hour,
+    # we're in good shape.)
+    millis_per_second = 1000
+    millis_per_minute = millis_per_second * 60
+
+    last_refresh_timestamp = user_record.user_metadata.last_refresh_timestamp
+    assert last_refresh_timestamp == pytest.approx(
+        time.time()*millis_per_second, 1*millis_per_minute)
 
 def test_list_users(new_user_list):
     err_msg_template = (
@@ -336,6 +501,42 @@ def test_delete_user():
     auth.delete_user(user.uid)
     with pytest.raises(auth.UserNotFoundError):
         auth.get_user(user.uid)
+
+
+class TestDeleteUsers:
+    def test_delete_multiple_users(self):
+        uid1 = auth.create_user(disabled=True).uid
+        uid2 = auth.create_user(disabled=False).uid
+        uid3 = auth.create_user(disabled=True).uid
+
+        delete_users_result = self._slow_delete_users(auth, [uid1, uid2, uid3])
+        assert delete_users_result.success_count == 3
+        assert delete_users_result.failure_count == 0
+        assert len(delete_users_result.errors) == 0
+
+        get_users_results = auth.get_users(
+            [auth.UidIdentifier(uid1), auth.UidIdentifier(uid2), auth.UidIdentifier(uid3)])
+        assert len(get_users_results.users) == 0
+
+    def test_is_idempotent(self):
+        uid = auth.create_user().uid
+
+        delete_users_result = self._slow_delete_users(auth, [uid])
+        assert delete_users_result.success_count == 1
+        assert delete_users_result.failure_count == 0
+
+        # Delete the user again, ensuring that everything still counts as a
+        # success.
+        delete_users_result = self._slow_delete_users(auth, [uid])
+        assert delete_users_result.success_count == 1
+        assert delete_users_result.failure_count == 0
+
+    def _slow_delete_users(self, auth, uids):
+        """The batchDelete endpoint has a rate limit of 1 QPS. Use this test
+        helper to ensure you don't exceed the quota."""
+        time.sleep(1)
+        return auth.delete_users(uids)
+
 
 def test_revoke_refresh_tokens(new_user):
     user = auth.get_user(new_user.uid)
@@ -476,6 +677,163 @@ def test_email_sign_in_with_settings(new_user_email_unverified, api_key):
     id_token = _sign_in_with_email_link(new_user_email_unverified.email, oob_code, api_key)
     assert id_token is not None and len(id_token) > 0
     assert auth.get_user(new_user_email_unverified.uid).email_verified
+
+
+@pytest.fixture(scope='module')
+def oidc_provider():
+    provider_config = _create_oidc_provider_config()
+    yield provider_config
+    auth.delete_oidc_provider_config(provider_config.provider_id)
+
+
+def test_create_oidc_provider_config(oidc_provider):
+    assert isinstance(oidc_provider, auth.OIDCProviderConfig)
+    assert oidc_provider.client_id == 'OIDC_CLIENT_ID'
+    assert oidc_provider.issuer == 'https://oidc.com/issuer'
+    assert oidc_provider.display_name == 'OIDC_DISPLAY_NAME'
+    assert oidc_provider.enabled is True
+
+
+def test_get_oidc_provider_config(oidc_provider):
+    provider_config = auth.get_oidc_provider_config(oidc_provider.provider_id)
+    assert isinstance(provider_config, auth.OIDCProviderConfig)
+    assert provider_config.provider_id == oidc_provider.provider_id
+    assert provider_config.client_id == 'OIDC_CLIENT_ID'
+    assert provider_config.issuer == 'https://oidc.com/issuer'
+    assert provider_config.display_name == 'OIDC_DISPLAY_NAME'
+    assert provider_config.enabled is True
+
+
+def test_list_oidc_provider_configs(oidc_provider):
+    page = auth.list_oidc_provider_configs()
+    result = None
+    for provider_config in page.iterate_all():
+        if provider_config.provider_id == oidc_provider.provider_id:
+            result = provider_config
+            break
+
+    assert result is not None
+
+
+def test_update_oidc_provider_config():
+    provider_config = _create_oidc_provider_config()
+    try:
+        provider_config = auth.update_oidc_provider_config(
+            provider_config.provider_id,
+            client_id='UPDATED_OIDC_CLIENT_ID',
+            issuer='https://oidc.com/updated_issuer',
+            display_name='UPDATED_OIDC_DISPLAY_NAME',
+            enabled=False)
+        assert provider_config.client_id == 'UPDATED_OIDC_CLIENT_ID'
+        assert provider_config.issuer == 'https://oidc.com/updated_issuer'
+        assert provider_config.display_name == 'UPDATED_OIDC_DISPLAY_NAME'
+        assert provider_config.enabled is False
+    finally:
+        auth.delete_oidc_provider_config(provider_config.provider_id)
+
+
+def test_delete_oidc_provider_config():
+    provider_config = _create_oidc_provider_config()
+    auth.delete_oidc_provider_config(provider_config.provider_id)
+    with pytest.raises(auth.ConfigurationNotFoundError):
+        auth.get_oidc_provider_config(provider_config.provider_id)
+
+
+@pytest.fixture(scope='module')
+def saml_provider():
+    provider_config = _create_saml_provider_config()
+    yield provider_config
+    auth.delete_saml_provider_config(provider_config.provider_id)
+
+
+def test_create_saml_provider_config(saml_provider):
+    assert isinstance(saml_provider, auth.SAMLProviderConfig)
+    assert saml_provider.idp_entity_id == 'IDP_ENTITY_ID'
+    assert saml_provider.sso_url == 'https://example.com/login'
+    assert saml_provider.x509_certificates == [X509_CERTIFICATES[0]]
+    assert saml_provider.rp_entity_id == 'RP_ENTITY_ID'
+    assert saml_provider.callback_url == 'https://projectId.firebaseapp.com/__/auth/handler'
+    assert saml_provider.display_name == 'SAML_DISPLAY_NAME'
+    assert saml_provider.enabled is True
+
+
+def test_get_saml_provider_config(saml_provider):
+    provider_config = auth.get_saml_provider_config(saml_provider.provider_id)
+    assert isinstance(provider_config, auth.SAMLProviderConfig)
+    assert provider_config.provider_id == saml_provider.provider_id
+    assert provider_config.idp_entity_id == 'IDP_ENTITY_ID'
+    assert provider_config.sso_url == 'https://example.com/login'
+    assert provider_config.x509_certificates == [X509_CERTIFICATES[0]]
+    assert provider_config.rp_entity_id == 'RP_ENTITY_ID'
+    assert provider_config.callback_url == 'https://projectId.firebaseapp.com/__/auth/handler'
+    assert provider_config.display_name == 'SAML_DISPLAY_NAME'
+    assert provider_config.enabled is True
+
+
+def test_list_saml_provider_configs(saml_provider):
+    page = auth.list_saml_provider_configs()
+    result = None
+    for provider_config in page.iterate_all():
+        if provider_config.provider_id == saml_provider.provider_id:
+            result = provider_config
+            break
+
+    assert result is not None
+
+
+def test_update_saml_provider_config():
+    provider_config = _create_saml_provider_config()
+    try:
+        provider_config = auth.update_saml_provider_config(
+            provider_config.provider_id,
+            idp_entity_id='UPDATED_IDP_ENTITY_ID',
+            sso_url='https://example.com/updated_login',
+            x509_certificates=[X509_CERTIFICATES[1]],
+            rp_entity_id='UPDATED_RP_ENTITY_ID',
+            callback_url='https://updatedProjectId.firebaseapp.com/__/auth/handler',
+            display_name='UPDATED_SAML_DISPLAY_NAME',
+            enabled=False)
+        assert provider_config.idp_entity_id == 'UPDATED_IDP_ENTITY_ID'
+        assert provider_config.sso_url == 'https://example.com/updated_login'
+        assert provider_config.x509_certificates == [X509_CERTIFICATES[1]]
+        assert provider_config.rp_entity_id == 'UPDATED_RP_ENTITY_ID'
+        assert provider_config.callback_url == ('https://updatedProjectId.firebaseapp.com/'
+                                                '__/auth/handler')
+        assert provider_config.display_name == 'UPDATED_SAML_DISPLAY_NAME'
+        assert provider_config.enabled is False
+    finally:
+        auth.delete_saml_provider_config(provider_config.provider_id)
+
+
+def test_delete_saml_provider_config():
+    provider_config = _create_saml_provider_config()
+    auth.delete_saml_provider_config(provider_config.provider_id)
+    with pytest.raises(auth.ConfigurationNotFoundError):
+        auth.get_saml_provider_config(provider_config.provider_id)
+
+
+def _create_oidc_provider_config():
+    provider_id = 'oidc.{0}'.format(_random_string())
+    return auth.create_oidc_provider_config(
+        provider_id=provider_id,
+        client_id='OIDC_CLIENT_ID',
+        issuer='https://oidc.com/issuer',
+        display_name='OIDC_DISPLAY_NAME',
+        enabled=True)
+
+
+def _create_saml_provider_config():
+    provider_id = 'saml.{0}'.format(_random_string())
+    return auth.create_saml_provider_config(
+        provider_id=provider_id,
+        idp_entity_id='IDP_ENTITY_ID',
+        sso_url='https://example.com/login',
+        x509_certificates=[X509_CERTIFICATES[0]],
+        rp_entity_id='RP_ENTITY_ID',
+        callback_url='https://projectId.firebaseapp.com/__/auth/handler',
+        display_name='SAML_DISPLAY_NAME',
+        enabled=True)
+
 
 class CredentialWrapper(credentials.Base):
     """A custom Firebase credential that wraps an OAuth2 token."""

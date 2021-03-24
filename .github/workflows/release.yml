@@ -54,6 +54,8 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install setuptools wheel
+        pip install tensorflow
+        pip install keras
 
     - name: Run unit tests
       run: pytest
@@ -132,7 +134,7 @@ jobs:
       uses: firebase/firebase-admin-node/.github/actions/send-tweet@master
       with:
         status: >
-          ${{ steps.preflight.outputs.version }} of @Firebase Admin Python SDK is avaialble.
+          ${{ steps.preflight.outputs.version }} of @Firebase Admin Python SDK is available.
           https://github.com/firebase/firebase-admin-python/releases/tag/${{ steps.preflight.outputs.version }}
         consumer-key: ${{ secrets.TWITTER_CONSUMER_KEY }}
         consumer-secret: ${{ secrets.TWITTER_CONSUMER_SECRET }}

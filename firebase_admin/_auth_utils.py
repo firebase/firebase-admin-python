@@ -15,6 +15,7 @@
 """Firebase auth utils."""
 
 import json
+import os
 import re
 from urllib import parse
 
@@ -22,12 +23,62 @@ from firebase_admin import exceptions
 from firebase_admin import _utils
 
 
+EMULATOR_HOST_ENV_VAR = 'FIREBASE_AUTH_EMULATOR_HOST'
 MAX_CLAIMS_PAYLOAD_SIZE = 1000
 RESERVED_CLAIMS = set([
     'acr', 'amr', 'at_hash', 'aud', 'auth_time', 'azp', 'cnf', 'c_hash', 'exp', 'iat',
     'iss', 'jti', 'nbf', 'nonce', 'sub', 'firebase',
 ])
 VALID_EMAIL_ACTION_TYPES = set(['VERIFY_EMAIL', 'EMAIL_SIGNIN', 'PASSWORD_RESET'])
+
+
+class PageIterator:
+    """An iterator that allows iterating over a sequence of items, one at a time.
+
+    This implementation loads a page of items into memory, and iterates on them. When the whole
+    page has been traversed, it loads another page. This class never keeps more than one page
+    of entries in memory.
+    """
+
+    def __init__(self, current_page):
+        if not current_page:
+            raise ValueError('Current page must not be None.')
+        self._current_page = current_page
+        self._index = 0
+
+    def next(self):
+        if self._index == len(self.items):
+            if self._current_page.has_next_page:
+                self._current_page = self._current_page.get_next_page()
+                self._index = 0
+        if self._index < len(self.items):
+            result = self.items[self._index]
+            self._index += 1
+            return result
+        raise StopIteration
+
+    @property
+    def items(self):
+        raise NotImplementedError
+
+    def __next__(self):
+        return self.next()
+
+    def __iter__(self):
+        return self
+
+
+def get_emulator_host():
+    emulator_host = os.getenv(EMULATOR_HOST_ENV_VAR, '')
+    if emulator_host and '//' in emulator_host:
+        raise ValueError(
+            'Invalid {0}: "{1}". It must follow format "host:port".'.format(
+                EMULATOR_HOST_ENV_VAR, emulator_host))
+    return emulator_host
+
+
+def is_emulated():
+    return get_emulator_host() != ''
 
 
 def validate_uid(uid, required=False):
@@ -100,6 +151,15 @@ def validate_provider_id(provider_id, required=True):
             'string.'.format(provider_id))
     return provider_id
 
+def validate_provider_uid(provider_uid, required=True):
+    if provider_uid is None and not required:
+        return None
+    if not isinstance(provider_uid, str) or not provider_uid:
+        raise ValueError(
+            'Invalid provider UID: "{0}". Provider UID must be a non-empty '
+            'string.'.format(provider_uid))
+    return provider_uid
+
 def validate_photo_url(photo_url, required=False):
     """Parses and validates the given URL string."""
     if photo_url is None and not required:
@@ -157,6 +217,18 @@ def validate_int(value, label, low=None, high=None):
             raise ValueError('{0} must not be larger than {1}.'.format(label, high))
         return val_int
 
+def validate_string(value, label):
+    """Validates that the given value is a string."""
+    if not isinstance(value, str):
+        raise ValueError('Invalid type for {0}: {1}.'.format(label, value))
+    return value
+
+def validate_boolean(value, label):
+    """Validates that the given value is a boolean."""
+    if not isinstance(value, bool):
+        raise ValueError('Invalid type for {0}: {1}.'.format(label, value))
+    return value
+
 def validate_custom_claims(custom_claims, required=False):
     """Validates the specified custom claims.
 
@@ -191,6 +263,19 @@ def validate_action_type(action_type):
         raise ValueError('Invalid action type provided action_type: {0}. \
             Valid values are {1}'.format(action_type, ', '.join(VALID_EMAIL_ACTION_TYPES)))
     return action_type
+
+def build_update_mask(params):
+    """Creates an update mask list from the given dictionary."""
+    mask = []
+    for key, value in params.items():
+        if isinstance(value, dict):
+            child_mask = build_update_mask(value)
+            for child in child_mask:
+                mask.append('{0}.{1}'.format(key, child))
+        else:
+            mask.append(key)
+
+    return sorted(mask)
 
 
 class UidAlreadyExistsError(exceptions.AlreadyExistsError):
@@ -266,7 +351,33 @@ class UserNotFoundError(exceptions.NotFoundError):
         exceptions.NotFoundError.__init__(self, message, cause, http_response)
 
 
+class TenantNotFoundError(exceptions.NotFoundError):
+    """No tenant found for the specified identifier."""
+
+    default_message = 'No tenant found for the given identifier'
+
+    def __init__(self, message, cause=None, http_response=None):
+        exceptions.NotFoundError.__init__(self, message, cause, http_response)
+
+
+class TenantIdMismatchError(exceptions.InvalidArgumentError):
+    """Missing or invalid tenant ID field in the given JWT."""
+
+    def __init__(self, message):
+        exceptions.InvalidArgumentError.__init__(self, message)
+
+
+class ConfigurationNotFoundError(exceptions.NotFoundError):
+    """No auth provider found for the specified identifier."""
+
+    default_message = 'No auth provider found for the given identifier'
+
+    def __init__(self, message, cause=None, http_response=None):
+        exceptions.NotFoundError.__init__(self, message, cause, http_response)
+
+
 _CODE_TO_EXC_TYPE = {
+    'CONFIGURATION_NOT_FOUND': ConfigurationNotFoundError,
     'DUPLICATE_EMAIL': EmailAlreadyExistsError,
     'DUPLICATE_LOCAL_ID': UidAlreadyExistsError,
     'EMAIL_EXISTS': EmailAlreadyExistsError,
@@ -274,6 +385,7 @@ _CODE_TO_EXC_TYPE = {
     'INVALID_DYNAMIC_LINK_DOMAIN': InvalidDynamicLinkDomainError,
     'INVALID_ID_TOKEN': InvalidIdTokenError,
     'PHONE_NUMBER_EXISTS': PhoneNumberAlreadyExistsError,
+    'TENANT_NOT_FOUND': TenantNotFoundError,
     'USER_NOT_FOUND': UserNotFoundError,
 }
 
@@ -281,12 +393,12 @@ _CODE_TO_EXC_TYPE = {
 def handle_auth_backend_error(error):
     """Converts a requests error received from the Firebase Auth service into a FirebaseError."""
     if error.response is None:
-        raise _utils.handle_requests_error(error)
+        return _utils.handle_requests_error(error)
 
     code, custom_message = _parse_error_body(error.response)
     if not code:
         msg = 'Unexpected error response: {0}'.format(error.response.content.decode())
-        raise _utils.handle_requests_error(error, message=msg)
+        return _utils.handle_requests_error(error, message=msg)
 
     exc_type = _CODE_TO_EXC_TYPE.get(code)
     msg = _build_error_message(code, exc_type, custom_message)

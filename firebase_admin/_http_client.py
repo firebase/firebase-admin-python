@@ -22,14 +22,16 @@ import requests
 from requests.packages.urllib3.util import retry # pylint: disable=import-error
 
 
-_ANY_METHOD = None
-
+if hasattr(retry.Retry.DEFAULT, 'allowed_methods'):
+    _ANY_METHOD = {'allowed_methods': None}
+else:
+    _ANY_METHOD = {'method_whitelist': None}
 # Default retry configuration: Retries once on low-level connection and socket read errors.
 # Retries up to 4 times on HTTP 500 and 503 errors, with exponential backoff. Returns the
 # last response upon exhausting all retries.
 DEFAULT_RETRY_CONFIG = retry.Retry(
-    connect=1, read=1, status=4, status_forcelist=[500, 503], method_whitelist=_ANY_METHOD,
-    raise_on_status=False, backoff_factor=0.5)
+    connect=1, read=1, status=4, status_forcelist=[500, 503],
+    raise_on_status=False, backoff_factor=0.5, **_ANY_METHOD)
 
 
 DEFAULT_TIMEOUT_SECONDS = 120

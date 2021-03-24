@@ -53,6 +53,19 @@ RESERVED_CLAIMS = set([
 METADATA_SERVICE_URL = ('http://metadata.google.internal/computeMetadata/v1/instance/'
                         'service-accounts/default/email')
 
+# Emulator fake account
+AUTH_EMULATOR_EMAIL = 'firebase-auth-emulator@example.com'
+
+
+class _EmulatedSigner(google.auth.crypt.Signer):
+    key_id = None
+
+    def __init__(self):
+        pass
+
+    def sign(self, message):
+        return b''
+
 
 class _SigningProvider:
     """Stores a reference to a google.auth.crypto.Signer."""
@@ -78,18 +91,28 @@ class _SigningProvider:
         signer = iam.Signer(request, google_cred, service_account)
         return _SigningProvider(signer, service_account)
 
+    @classmethod
+    def for_emulator(cls):
+        return _SigningProvider(_EmulatedSigner(), AUTH_EMULATOR_EMAIL)
+
 
 class TokenGenerator:
     """Generates custom tokens and session cookies."""
 
-    def __init__(self, app, client):
+    ID_TOOLKIT_URL = 'https://identitytoolkit.googleapis.com/v1'
+
+    def __init__(self, app, http_client, url_override=None):
         self.app = app
-        self.client = client
+        self.http_client = http_client
         self.request = transport.requests.Request()
+        url_prefix = url_override or self.ID_TOOLKIT_URL
+        self.base_url = '{0}/projects/{1}'.format(url_prefix, app.project_id)
         self._signing_provider = None
 
     def _init_signing_provider(self):
         """Initializes a signing provider by following the go/firebase-admin-sign protocol."""
+        if _auth_utils.is_emulated():
+            return _SigningProvider.for_emulator()
         # If the SDK was initialized with a service account, use it to sign bytes.
         google_cred = self.app.credential.get_credential()
         if isinstance(google_cred, google.oauth2.service_account.Credentials):
@@ -130,7 +153,7 @@ class TokenGenerator:
                     'details on creating custom tokens.'.format(error, url))
         return self._signing_provider
 
-    def create_custom_token(self, uid, developer_claims=None):
+    def create_custom_token(self, uid, developer_claims=None, tenant_id=None):
         """Builds and signs a Firebase custom auth token."""
         if developer_claims is not None:
             if not isinstance(developer_claims, dict):
@@ -161,6 +184,8 @@ class TokenGenerator:
             'iat': now,
             'exp': now + MAX_TOKEN_LIFETIME_SECONDS,
         }
+        if tenant_id:
+            payload['tenant_id'] = tenant_id
 
         if developer_claims is not None:
             payload['claims'] = developer_claims
@@ -190,13 +215,13 @@ class TokenGenerator:
             raise ValueError('Illegal expiry duration: {0}. Duration must be at most {1} '
                              'seconds.'.format(expires_in, MAX_SESSION_COOKIE_DURATION_SECONDS))
 
+        url = '{0}:createSessionCookie'.format(self.base_url)
         payload = {
             'idToken': id_token,
             'validDuration': expires_in,
         }
         try:
-            body, http_resp = self.client.body_and_response(
-                'post', ':createSessionCookie', json=payload)
+            body, http_resp = self.http_client.body_and_response('post', url, json=payload)
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)
         else:
@@ -280,12 +305,14 @@ class _JWTVerifier:
         verify_id_token_msg = (
             'See {0} for details on how to retrieve {1}.'.format(self.url, self.short_name))
 
+        emulated = _auth_utils.is_emulated()
+
         error_message = None
         if audience == FIREBASE_AUDIENCE:
             error_message = (
                 '{0} expects {1}, but was given a custom '
                 'token.'.format(self.operation, self.articled_short_name))
-        elif not header.get('kid'):
+        elif not emulated and not header.get('kid'):
             if header.get('alg') == 'HS256' and payload.get(
                     'v') == 0 and 'uid' in payload.get('d', {}):
                 error_message = (
@@ -293,7 +320,7 @@ class _JWTVerifier:
                     'token.'.format(self.operation, self.articled_short_name))
             else:
                 error_message = 'Firebase {0} has no "kid" claim.'.format(self.short_name)
-        elif header.get('alg') != 'RS256':
+        elif not emulated and header.get('alg') != 'RS256':
             error_message = (
                 'Firebase {0} has incorrect algorithm. Expected "RS256" but got '
                 '"{1}". {2}'.format(self.short_name, header.get('alg'), verify_id_token_msg))
@@ -324,11 +351,14 @@ class _JWTVerifier:
             raise self._invalid_token_error(error_message)
 
         try:
-            verified_claims = google.oauth2.id_token.verify_token(
-                token,
-                request=request,
-                audience=self.project_id,
-                certs_url=self.cert_url)
+            if emulated:
+                verified_claims = payload
+            else:
+                verified_claims = google.oauth2.id_token.verify_token(
+                    token,
+                    request=request,
+                    audience=self.project_id,
+                    certs_url=self.cert_url)
             verified_claims['uid'] = verified_claims['sub']
             return verified_claims
         except google.auth.exceptions.TransportError as error:

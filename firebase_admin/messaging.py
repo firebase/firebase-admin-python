@@ -16,7 +16,6 @@
 
 import json
 
-import googleapiclient
 from googleapiclient import http
 from googleapiclient import _auth
 import requests
@@ -388,7 +387,7 @@ class _MessagingService:
 
         try:
             batch.execute()
-        except googleapiclient.http.HttpError as error:
+        except Exception as error:
             raise self._handle_batch_error(error)
         else:
             return BatchResponse(responses)

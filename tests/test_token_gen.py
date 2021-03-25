@@ -31,6 +31,7 @@ import firebase_admin
 from firebase_admin import auth
 from firebase_admin import credentials
 from firebase_admin import exceptions
+from firebase_admin import _http_client
 from firebase_admin import _token_gen
 from tests import testutils
 
@@ -702,3 +703,52 @@ class TestCertificateCaching:
         assert len(httpserver.requests) == request_count
         verifier.verify_id_token(TEST_ID_TOKEN)
         assert len(httpserver.requests) == request_count
+
+
+class TestCertificateFetchTimeout:
+
+    timeout_configs = [
+        ({'httpTimeout': 4}, 4),
+        ({'httpTimeout': None}, None),
+        ({}, _http_client.DEFAULT_TIMEOUT_SECONDS),
+    ]
+
+    @pytest.mark.parametrize('options, timeout', timeout_configs)
+    def test_init_request(self, options, timeout):
+        app = firebase_admin.initialize_app(MOCK_CREDENTIAL, options=options)
+
+        client = auth._get_client(app)
+        request = client._token_verifier.request
+
+        assert isinstance(request, _token_gen.CertificateFetchRequest)
+        assert request.timeout_seconds == timeout
+
+    @pytest.mark.parametrize('options, timeout', timeout_configs)
+    def test_verify_id_token_timeout(self, options, timeout):
+        app = firebase_admin.initialize_app(MOCK_CREDENTIAL, options=options)
+        recorder = self._instrument_session(app)
+
+        auth.verify_id_token(TEST_ID_TOKEN)
+
+        assert len(recorder) == 1
+        assert recorder[0]._extra_kwargs['timeout'] == timeout
+
+    @pytest.mark.parametrize('options, timeout', timeout_configs)
+    def test_verify_session_cookie_timeout(self, options, timeout):
+        app = firebase_admin.initialize_app(MOCK_CREDENTIAL, options=options)
+        recorder = self._instrument_session(app)
+
+        auth.verify_session_cookie(TEST_SESSION_COOKIE)
+
+        assert len(recorder) == 1
+        assert recorder[0]._extra_kwargs['timeout'] == timeout
+
+    def _instrument_session(self, app):
+        client = auth._get_client(app)
+        request = client._token_verifier.request
+        recorder = []
+        request.session.mount('https://', testutils.MockAdapter(MOCK_PUBLIC_CERTS, 200, recorder))
+        return recorder
+
+    def teardown(self):
+        testutils.cleanup_apps()

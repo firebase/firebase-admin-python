@@ -78,14 +78,20 @@ def _merge_jwt_claims(defaults, overrides):
 def verify_custom_token(custom_token, expected_claims, tenant_id=None):
     assert isinstance(custom_token, bytes)
     expected_email = MOCK_SERVICE_ACCOUNT_EMAIL
+    header = jwt.decode_header(custom_token)
+    assert header.get('typ') == 'JWT'
     if _is_emulated():
+        assert header.get('alg') == 'none'
+        assert custom_token.split(b'.')[2] == b''
         expected_email = _token_gen.AUTH_EMULATOR_EMAIL
         token = jwt.decode(custom_token, verify=False)
     else:
+        assert header.get('alg') == 'RS256'
         token = google.oauth2.id_token.verify_token(
             custom_token,
             testutils.MockRequest(200, MOCK_PUBLIC_CERTS),
             _token_gen.FIREBASE_AUDIENCE)
+
     assert token['uid'] == MOCK_UID
     assert token['iss'] == expected_email
     assert token['sub'] == expected_email
@@ -94,9 +100,6 @@ def verify_custom_token(custom_token, expected_claims, tenant_id=None):
     else:
         assert token['tenant_id'] == tenant_id
 
-    header = jwt.decode_header(custom_token)
-    assert header.get('typ') == 'JWT'
-    assert header.get('alg') == 'RS256'
     if expected_claims:
         for key, value in expected_claims.items():
             assert value == token['claims'][key]

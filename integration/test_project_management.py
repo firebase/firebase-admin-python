@@ -28,8 +28,6 @@ TEST_APP_BUNDLE_ID = 'com.firebase.adminsdk-python-integration-test'
 TEST_APP_PACKAGE_NAME = 'com.firebase.adminsdk_python_integration_test'
 TEST_APP_DISPLAY_NAME_PREFIX = 'Created By Firebase AdminSDK Python Integration Testing'
 
-SHA_1_HASH_1 = '123456789a123456789a123456789a123456789a'
-SHA_1_HASH_2 = 'aaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbb'
 SHA_256_HASH_1 = '123456789a123456789a123456789a123456789a123456789a123456789a1234'
 SHA_256_HASH_2 = 'cafef00dba5eba11b01dfaceacc01adeda7aba5eca55e77e0b57ac1e5ca1ab1e'
 SHA_1 = project_management.SHACertificate.SHA_1
@@ -119,17 +117,13 @@ def test_android_sha_certificates(android_app):
     for cert in android_app.get_sha_certificates():
         android_app.delete_sha_certificate(cert)
 
-    # Add four different certs and assert that they have all been added successfully.
-    android_app.add_sha_certificate(project_management.SHACertificate(SHA_1_HASH_1))
-    android_app.add_sha_certificate(project_management.SHACertificate(SHA_1_HASH_2))
+    # Add two different certs and assert that they have all been added successfully.
     android_app.add_sha_certificate(project_management.SHACertificate(SHA_256_HASH_1))
     android_app.add_sha_certificate(project_management.SHACertificate(SHA_256_HASH_2))
 
     cert_list = android_app.get_sha_certificates()
 
-    sha_1_hashes = set(cert.sha_hash for cert in cert_list if cert.cert_type == SHA_1)
     sha_256_hashes = set(cert.sha_hash for cert in cert_list if cert.cert_type == SHA_256)
-    assert sha_1_hashes == set([SHA_1_HASH_1, SHA_1_HASH_2])
     assert sha_256_hashes == set([SHA_256_HASH_1, SHA_256_HASH_2])
     for cert in cert_list:
         assert cert.name

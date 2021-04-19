@@ -16,7 +16,7 @@
 import io
 import os
 
-from _pytest.monkeypatch import MonkeyPatch
+import pytest
 
 from google.auth import credentials
 from google.auth import transport
@@ -61,7 +61,7 @@ def run_without_project_id(func):
 
 
 def new_monkeypatch():
-    return MonkeyPatch()
+    return pytest.MonkeyPatch()
 
 
 class MockResponse(transport.Response):

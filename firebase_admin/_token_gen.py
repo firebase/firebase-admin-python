@@ -53,6 +53,8 @@ RESERVED_CLAIMS = set([
 ])
 METADATA_SERVICE_URL = ('http://metadata.google.internal/computeMetadata/v1/instance/'
                         'service-accounts/default/email')
+ALGORITHM_RS256 = 'RS256'
+ALGORITHM_NONE = 'none'
 
 # Emulator fake account
 AUTH_EMULATOR_EMAIL = 'firebase-auth-emulator@example.com'
@@ -71,9 +73,10 @@ class _EmulatedSigner(google.auth.crypt.Signer):
 class _SigningProvider:
     """Stores a reference to a google.auth.crypto.Signer."""
 
-    def __init__(self, signer, signer_email):
+    def __init__(self, signer, signer_email, alg=ALGORITHM_RS256):
         self._signer = signer
         self._signer_email = signer_email
+        self._alg = alg
 
     @property
     def signer(self):
@@ -82,6 +85,10 @@ class _SigningProvider:
     @property
     def signer_email(self):
         return self._signer_email
+
+    @property
+    def alg(self):
+        return self._alg
 
     @classmethod
     def from_credential(cls, google_cred):
@@ -94,7 +101,7 @@ class _SigningProvider:
 
     @classmethod
     def for_emulator(cls):
-        return _SigningProvider(_EmulatedSigner(), AUTH_EMULATOR_EMAIL)
+        return _SigningProvider(_EmulatedSigner(), AUTH_EMULATOR_EMAIL, ALGORITHM_NONE)
 
 
 class TokenGenerator:
@@ -190,8 +197,10 @@ class TokenGenerator:
 
         if developer_claims is not None:
             payload['claims'] = developer_claims
+
+        header = {'alg': signing_provider.alg}
         try:
-            return jwt.encode(signing_provider.signer, payload)
+            return jwt.encode(signing_provider.signer, payload, header=header)
         except google.auth.exceptions.TransportError as error:
             msg = 'Failed to sign custom token. {0}'.format(error)
             raise TokenSignError(msg, error)

@@ -28,9 +28,6 @@ _REGISTRATION_TOKEN = ('fGw0qy4TGgk:APA91bGtWGjuhp4WRhHXgbabIYp1jxEKI08ofj_v1bKh
                        '1SsRoE')
 
 
-def test_to_trigger_nightly_email_notification():
-    assert 'a' == 'b'
-
 def test_send():
     msg = messaging.Message(
         topic='foo-bar',

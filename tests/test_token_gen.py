@@ -18,7 +18,6 @@ import base64
 import datetime
 import json
 import os
-import sys
 import time
 
 from google.auth import crypt
@@ -77,21 +76,13 @@ def _merge_jwt_claims(defaults, overrides):
     return defaults
 
 
-def _is_py_35():
-    return sys.version_info.minor == 5
-
-
 def verify_custom_token(custom_token, expected_claims, tenant_id=None):
     assert isinstance(custom_token, bytes)
     expected_email = MOCK_SERVICE_ACCOUNT_EMAIL
     header = jwt.decode_header(custom_token)
     assert header.get('typ') == 'JWT'
     if _is_emulated():
-        # Setting alg requires https://github.com/googleapis/google-auth-library-python/pull/729
-        # which is only available in latest google-auth versions that's supported on Python 3.6
-        # and up. Skip the test on Python 3.5 for now.
-        if not _is_py_35():
-            assert header.get('alg') == 'none'
+        assert header.get('alg') == 'none'
         assert custom_token.split(b'.')[2] == b''
         expected_email = _token_gen.AUTH_EMULATOR_EMAIL
         token = jwt.decode(custom_token, verify=False)

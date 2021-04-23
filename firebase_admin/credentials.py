@@ -15,6 +15,7 @@
 """Firebase credentials module."""
 import collections
 import json
+import pathlib
 
 import google.auth
 from google.auth.transport import requests
@@ -78,7 +79,7 @@ class Certificate(Base):
           ValueError: If the specified certificate is invalid.
         """
         super(Certificate, self).__init__()
-        if isinstance(cert, str):
+        if _is_file_path(cert):
             with open(cert) as json_file:
                 json_data = json.load(json_file)
         elif isinstance(cert, dict):
@@ -179,7 +180,7 @@ class RefreshToken(Base):
           ValueError: If the refresh token configuration is invalid.
         """
         super(RefreshToken, self).__init__()
-        if isinstance(refresh_token, str):
+        if _is_file_path(refresh_token):
             with open(refresh_token) as json_file:
                 json_data = json.load(json_file)
         elif isinstance(refresh_token, dict):
@@ -212,3 +213,11 @@ class RefreshToken(Base):
         Returns:
           google.auth.credentials.Credentials: A Google Auth credential instance."""
         return self._g_credential
+
+
+def _is_file_path(path):
+    try:
+        pathlib.Path(path)
+        return True
+    except TypeError:
+        return False

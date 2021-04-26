@@ -106,7 +106,7 @@ def send(message, dry_run=False, app=None):
         app: An App instance (optional).
 
     Returns:
-        string: A message ID string that uniquely identifies the sent the message.
+        string: A message ID string that uniquely identifies the sent message.
 
     Raises:
         FirebaseError: If an error occurs while sending the message to the FCM service.

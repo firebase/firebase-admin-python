@@ -506,7 +506,8 @@ class Client:
         return self._provider_manager.get_oidc_provider_config(provider_id)
 
     def create_oidc_provider_config(
-            self, provider_id, client_id, issuer, display_name=None, enabled=None):
+            self, provider_id, client_id, issuer, display_name=None, enabled=None,
+            client_secret=None, id_token_response_type=None, code_response_type=None):
         """Creates a new OIDC provider config from the given parameters.
 
         OIDC provider support requires Google Cloud's Identity Platform (GCIP). To learn more about
@@ -530,10 +531,11 @@ class Client:
         """
         return self._provider_manager.create_oidc_provider_config(
             provider_id, client_id=client_id, issuer=issuer, display_name=display_name,
-            enabled=enabled)
+            enabled=enabled, client_secret=client_secret,
+            id_token_response_type=id_token_response_type, code_response_type=code_response_type)
 
     def update_oidc_provider_config(
-            self, provider_id, client_id=None, issuer=None, display_name=None, enabled=None):
+            self, provider_id, client_id=None, issuer=None, display_name=None, enabled=None, client_secret=None, id_token_response_type=None, code_response_type=None):
         """Updates an existing OIDC provider config with the given parameters.
 
         Args:
@@ -554,7 +556,8 @@ class Client:
         """
         return self._provider_manager.update_oidc_provider_config(
             provider_id, client_id=client_id, issuer=issuer, display_name=display_name,
-            enabled=enabled)
+            enabled=enabled, client_secret=client_secret,
+            id_token_response_type=id_token_response_type, code_response_type=code_response_type)
 
     def delete_oidc_provider_config(self, provider_id):
         """Deletes the ``OIDCProviderConfig`` with the given ID.

@@ -1445,11 +1445,12 @@ class TestGenerateEmailActionLink:
         assert str(excinfo.value) == 'Error while calling Auth service (UNEXPECTED_CODE).'
         assert excinfo.value.http_response is not None
         assert excinfo.value.cause is not None
-    
+
     def test_password_reset_non_existing(self, user_mgt_app):
         _instrument_user_manager(user_mgt_app, 400, '{"error":{"message": "EMAIL_NOT_FOUND"}}')
         with pytest.raises(auth.EmailNotFoundError) as excinfo:
-            auth.generate_password_reset_link('nonexistent@user', MOCK_ACTION_CODE_SETTINGS, app=user_mgt_app)
+            auth.generate_password_reset_link(
+                'nonexistent@user', MOCK_ACTION_CODE_SETTINGS, app=user_mgt_app)
         error_msg = 'No user record found for the given email (EMAIL_NOT_FOUND).'
         assert excinfo.value.code == exceptions.NOT_FOUND
         assert str(excinfo.value) == error_msg

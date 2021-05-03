@@ -444,6 +444,7 @@ class Client:
 
         Raises:
             ValueError: If the provided arguments are invalid
+            EmailNotFoundError: If no user exists by the specified email address.
             FirebaseError: If an error occurs while generating the link
         """
         return self._user_manager.generate_email_action_link(
@@ -464,6 +465,7 @@ class Client:
 
         Raises:
             ValueError: If the provided arguments are invalid
+            UserNotFoundError: If no user exists by the specified email address.
             FirebaseError: If an error occurs while generating the link
         """
         return self._user_manager.generate_email_action_link(

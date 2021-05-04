@@ -181,7 +181,7 @@ class Client:
 
         Raises:
             ValueError: If the email is None, empty or malformed.
-            UserNotFoundError: If no user exists by the specified email address.
+            UserNotFoundError: If no user exists for the specified email address.
             FirebaseError: If an error occurs while retrieving the user.
         """
         response = self._user_manager.get_user(email=email)
@@ -198,7 +198,7 @@ class Client:
 
         Raises:
             ValueError: If the phone number is ``None``, empty or malformed.
-            UserNotFoundError: If no user exists by the specified phone number.
+            UserNotFoundError: If no user exists for the specified phone number.
             FirebaseError: If an error occurs while retrieving the user.
         """
         response = self._user_manager.get_user(phone_number=phone_number)
@@ -444,7 +444,7 @@ class Client:
 
         Raises:
             ValueError: If the provided arguments are invalid
-            EmailNotFoundError: If no user exists by the specified email address.
+            EmailNotFoundError: If no user exists for the specified email address.
             FirebaseError: If an error occurs while generating the link
         """
         return self._user_manager.generate_email_action_link(
@@ -465,7 +465,7 @@ class Client:
 
         Raises:
             ValueError: If the provided arguments are invalid
-            UserNotFoundError: If no user exists by the specified email address.
+            UserNotFoundError: If no user exists for the specified email address.
             FirebaseError: If an error occurs while generating the link
         """
         return self._user_manager.generate_email_action_link(

@@ -39,6 +39,7 @@ __all__ = [
     'ConfigurationNotFoundError',
     'DELETE_ATTRIBUTE',
     'EmailAlreadyExistsError',
+    'EmailNotFoundError',
     'ErrorInfo',
     'ExpiredIdTokenError',
     'ExpiredSessionCookieError',
@@ -112,6 +113,7 @@ ConfigurationNotFoundError = _auth_utils.ConfigurationNotFoundError
 DELETE_ATTRIBUTE = _user_mgt.DELETE_ATTRIBUTE
 DeleteUsersResult = _user_mgt.DeleteUsersResult
 EmailAlreadyExistsError = _auth_utils.EmailAlreadyExistsError
+EmailNotFoundError = _auth_utils.EmailNotFoundError
 ErrorInfo = _user_import.ErrorInfo
 ExpiredIdTokenError = _token_gen.ExpiredIdTokenError
 ExpiredSessionCookieError = _token_gen.ExpiredSessionCookieError

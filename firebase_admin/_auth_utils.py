@@ -351,6 +351,15 @@ class UserNotFoundError(exceptions.NotFoundError):
         exceptions.NotFoundError.__init__(self, message, cause, http_response)
 
 
+class EmailNotFoundError(exceptions.NotFoundError):
+    """No user record found for the specified email."""
+
+    default_message = 'No user record found for the given email'
+
+    def __init__(self, message, cause=None, http_response=None):
+        exceptions.NotFoundError.__init__(self, message, cause, http_response)
+
+
 class TenantNotFoundError(exceptions.NotFoundError):
     """No tenant found for the specified identifier."""
 
@@ -381,6 +390,7 @@ _CODE_TO_EXC_TYPE = {
     'DUPLICATE_EMAIL': EmailAlreadyExistsError,
     'DUPLICATE_LOCAL_ID': UidAlreadyExistsError,
     'EMAIL_EXISTS': EmailAlreadyExistsError,
+    'EMAIL_NOT_FOUND': EmailNotFoundError,
     'INSUFFICIENT_PERMISSION': InsufficientPermissionError,
     'INVALID_DYNAMIC_LINK_DOMAIN': InvalidDynamicLinkDomainError,
     'INVALID_ID_TOKEN': InvalidIdTokenError,

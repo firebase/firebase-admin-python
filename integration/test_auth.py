@@ -692,9 +692,9 @@ def test_create_oidc_provider_config(oidc_provider):
     assert oidc_provider.issuer == 'https://oidc.com/issuer'
     assert oidc_provider.display_name == 'OIDC_DISPLAY_NAME'
     assert oidc_provider.enabled is True
-    assert oidc_provider.response_type.id_token == False
-    assert oidc_provider.response_type.code == False
-    assert oidc_provider.client_secret == None
+    assert oidc_provider.response_type.id_token is True
+    assert oidc_provider.response_type.code is False
+    assert oidc_provider.client_secret is None
 
 
 def test_get_oidc_provider_config(oidc_provider):
@@ -705,9 +705,9 @@ def test_get_oidc_provider_config(oidc_provider):
     assert provider_config.issuer == 'https://oidc.com/issuer'
     assert provider_config.display_name == 'OIDC_DISPLAY_NAME'
     assert provider_config.enabled is True
-    assert oidc_provider.response_type.id_token == False
-    assert oidc_provider.response_type.code == False
-    assert oidc_provider.client_secret == None
+    assert provider_config.response_type.id_token is True
+    assert provider_config.response_type.code is False
+    assert provider_config.client_secret is None
 
 
 def test_list_oidc_provider_configs(oidc_provider):
@@ -729,20 +729,14 @@ def test_update_oidc_provider_config():
             client_id='UPDATED_OIDC_CLIENT_ID',
             issuer='https://oidc.com/updated_issuer',
             display_name='UPDATED_OIDC_DISPLAY_NAME',
-            enabled=False,
-            client_secret='CLIENT_SECRET',
-            id_token_response_type=False,
-            code_response_type=True)
+            enabled=False)
         assert provider_config.client_id == 'UPDATED_OIDC_CLIENT_ID'
         assert provider_config.issuer == 'https://oidc.com/updated_issuer'
         assert provider_config.display_name == 'UPDATED_OIDC_DISPLAY_NAME'
         assert provider_config.enabled is False
-        assert provider_config.response_type.code == True
-        assert provider_config.response_type.id_token == True
-        assert provider_config.client_secret == True
-        assert oidc_provider.response_type.id_token == False
-        assert oidc_provider.response_type.code == True
-        assert oidc_provider.client_secret == 'CLIENT_SECRET'
+        assert provider_config.response_type.id_token is False
+        assert provider_config.response_type.code is True
+        assert provider_config.client_secret == 'CLIENT_SECRET'
     finally:
         auth.delete_oidc_provider_config(provider_config.provider_id)
 
@@ -834,9 +828,7 @@ def _create_oidc_provider_config():
         client_id='OIDC_CLIENT_ID',
         issuer='https://oidc.com/issuer',
         display_name='OIDC_DISPLAY_NAME',
-        enabled=True,
-        id_token_response_type=True,
-        code_response_type=False)
+        enabled=True)
 
 
 def _create_saml_provider_config():

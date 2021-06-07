@@ -123,6 +123,7 @@ class TestOIDCProviderConfig:
         {'id_token_response_type': 'true'}, {'code_response_type': 'true'},
         {'code_response_type': True, 'client_secret': ''}, {'code_response_type': True, 'client_secret': True},
         {'code_response_type': True, 'client_secret': None},
+        {'code_response_type': False, 'id_token_response_type': False},
     ])
     def test_create_invalid_args(self, user_mgt_app, invalid_opts):
         options = dict(self.VALID_CREATE_OPTIONS)
@@ -176,13 +177,12 @@ class TestOIDCProviderConfig:
         options['display_name'] = ''
         options['enabled'] = False
         options['code_response_type'] = False
-        options['id_token_response_type'] = False
         want = dict(self.OIDC_CONFIG_REQUEST)
         want['displayName'] = ''
         want['enabled'] = False
         want['responseType'] = {
             'code': False,
-            'idToken': False,
+            'idToken': True,
         }
         del want['clientSecret']
 
@@ -207,6 +207,7 @@ class TestOIDCProviderConfig:
         {'id_token_response_type': 'true'}, {'code_response_type': 'true'},
         {'code_response_type': True, 'client_secret': ''}, {'code_response_type': True, 'client_secret': True},
         {'code_response_type': True, 'client_secret': None},
+        {'code_response_type': False, 'id_token_response_type': False},
     ])
     def test_update_invalid_args(self, user_mgt_app, invalid_opts):
         options = {'provider_id': 'oidc.provider'}
@@ -249,17 +250,17 @@ class TestOIDCProviderConfig:
         recorder = _instrument_provider_mgt(user_mgt_app, 200, OIDC_PROVIDER_CONFIG_RESPONSE)
 
         provider_config = auth.update_oidc_provider_config(
-            'oidc.provider', display_name=auth.DELETE_ATTRIBUTE, enabled=False, id_token_response_type=False, code_response_type=False, app=user_mgt_app)
+            'oidc.provider', display_name=auth.DELETE_ATTRIBUTE, enabled=False, id_token_response_type=False, app=user_mgt_app)
 
         self._assert_provider_config(provider_config)
         assert len(recorder) == 1
         req = recorder[0]
         assert req.method == 'PATCH'
-        mask = ['displayName', 'enabled', 'responseType.code', 'responseType.idToken']
+        mask = ['displayName', 'enabled', 'responseType.idToken']
         assert req.url == '{0}/oauthIdpConfigs/oidc.provider?updateMask={1}'.format(
             USER_MGT_URLS['PREFIX'], ','.join(mask))
         got = json.loads(req.body.decode())
-        assert got == {'displayName': None, 'enabled': False, 'responseType': {'code': False, 'idToken': False}}
+        assert got == {'displayName': None, 'enabled': False, 'responseType': {'idToken': False}}
 
     @pytest.mark.parametrize('provider_id', INVALID_PROVIDER_IDS + ['saml.provider'])
     def test_delete_invalid_provider_id(self, user_mgt_app, provider_id):

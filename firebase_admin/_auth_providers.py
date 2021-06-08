@@ -203,6 +203,14 @@ class ProviderConfigClient:
             req['displayName'] = _auth_utils.validate_string(display_name, 'display_name')
         if enabled is not None:
             req['enabled'] = _auth_utils.validate_boolean(enabled, 'enabled')
+        if id_token_response_type is not None or code_response_type is not None:
+            req['responseType'] = {}
+            if id_token_response_type is not None:
+                req['responseType']['idToken'] = _auth_utils.validate_boolean(id_token_response_type, 'id_token_response_type')
+            if code_response_type is not None:
+                req['responseType']['code'] = _auth_utils.validate_boolean(code_response_type, 'code_response_type')
+                if code_response_type:
+                    req['clientSecret'] = _validate_non_empty_string(client_secret, 'client_secret')
 
         response_type = {}
         if id_token_response_type is False and code_response_type is False:
@@ -238,6 +246,14 @@ class ProviderConfigClient:
             req['clientId'] = _validate_non_empty_string(client_id, 'client_id')
         if issuer:
             req['issuer'] = _validate_url(issuer, 'issuer')
+        if id_token_response_type is not None or code_response_type is not None:
+            req['responseType'] = {}
+            if id_token_response_type is not None:
+                req['responseType']['idToken'] = _auth_utils.validate_boolean(id_token_response_type, 'id_token_response_type')
+            if code_response_type is not None:
+                if code_response_type:
+                    req['clientSecret'] = _validate_non_empty_string(client_secret, 'client_secret')
+                req['responseType']['code'] = _auth_utils.validate_boolean(code_response_type, 'code_response_type')
 
         response_type = {}
         if id_token_response_type is False and code_response_type is False:

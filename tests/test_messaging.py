@@ -2056,6 +2056,29 @@ class TestSendAll(TestBatch):
         assert excinfo.value.cause is exc
         assert excinfo.value.http_response is None
 
+    def test_send_transport_init(self):
+        def track_call_count(build_transport):
+            def wrapper(credential):
+                wrapper.calls += 1
+                return build_transport(credential)
+            wrapper.calls = 0
+            return wrapper
+
+        payload = json.dumps({'name': 'message-id'})
+        fcm_service = self._instrument_batch_messaging_service(
+            payload=self._batch_payload([(200, payload), (200, payload)]))
+        build_mock_transport = fcm_service._build_transport
+        fcm_service._build_transport = track_call_count(build_mock_transport)
+        msg = messaging.Message(topic='foo')
+
+        batch_response = messaging.send_all([msg, msg], dry_run=True)
+        assert batch_response.success_count == 2
+        assert fcm_service._build_transport.calls == 1
+
+        batch_response = messaging.send_all([msg, msg], dry_run=True)
+        assert batch_response.success_count == 2
+        assert fcm_service._build_transport.calls == 2
+
 
 class TestSendMulticast(TestBatch):
 

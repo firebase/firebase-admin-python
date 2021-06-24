@@ -1813,20 +1813,23 @@ class TestBatch:
         testutils.cleanup_apps()
 
     def _instrument_batch_messaging_service(self, app=None, status=200, payload='', exc=None):
-        if not app:
-            app = firebase_admin.get_app()
+        def build_mock_transport(_):
+            if exc:
+                return _HttpMockException(exc)
 
-        fcm_service = messaging._get_messaging_service(app)
-        if exc:
-            fcm_service._transport = _HttpMockException(exc)
-        else:
             if status == 200:
                 content_type = 'multipart/mixed; boundary=boundary'
             else:
                 content_type = 'application/json'
-            fcm_service._transport = http.HttpMockSequence([
+            return http.HttpMockSequence([
                 ({'status': str(status), 'content-type': content_type}, payload),
             ])
+
+        if not app:
+            app = firebase_admin.get_app()
+
+        fcm_service = messaging._get_messaging_service(app)
+        fcm_service._build_transport = build_mock_transport
         return fcm_service
 
     def _batch_payload(self, payloads):

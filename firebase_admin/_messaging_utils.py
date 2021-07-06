@@ -341,7 +341,7 @@ class APNSPayload:
 
     Args:
         aps: A ``messaging.Aps`` instance to be included in the payload.
-        kwargs: Arbitrary keyword arguments to be included as custom fields in the payload
+        **kwargs: Arbitrary keyword arguments to be included as custom fields in the payload
             (optional).
     """
 

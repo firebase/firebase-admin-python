@@ -32,6 +32,7 @@ from firebase_admin import _utils
 
 
 _FIRESTORE_ATTRIBUTE = '_firestore'
+_FIRESTORE_ASYNC_ATTRIBUTE = '_firestore_async'
 
 
 def client(app=None):
@@ -51,6 +52,27 @@ def client(app=None):
           /firestore/client.html
     """
     fs_client = _utils.get_app_service(app, _FIRESTORE_ATTRIBUTE, _FirestoreClient.from_app)
+    return fs_client.get()
+
+
+def async_client(app=None):
+    """Returns an async client that can be used to interact with Google Cloud Firestore.
+
+    Args:
+      app: An App instance (optional).
+
+    Returns:
+      google.cloud.firestore.Firestore: A `Firestore Client`_.
+
+    Raises:
+      ValueError: If a project ID is not specified either via options, credentials or
+          environment variables, or if the specified project ID is not a valid string.
+
+    .. _Firestore Client: https://googlecloudplatform.github.io/google-cloud-python/latest\
+          /firestore/client.html
+    """
+    fs_client = _utils.get_app_service(
+        app, _FIRESTORE_ASYNC_ATTRIBUTE, _FirestoreAsyncClient.from_app)
     return fs_client.get()
 
 
@@ -74,3 +96,25 @@ class _FirestoreClient:
                 'or use service account credentials. Alternatively, set the GOOGLE_CLOUD_PROJECT '
                 'environment variable.')
         return _FirestoreClient(credentials, project)
+
+
+class _FirestoreAsyncClient:
+    """Holds a Google Cloud Async Firestore client instance."""
+
+    def __init__(self, credentials, project):
+        self._client = firestore.AsyncClient(credentials=credentials, project=project)
+
+    def get(self):
+        return self._client
+
+    @classmethod
+    def from_app(cls, app):
+        """Creates a new _FirestoreAsyncClient for the specified app."""
+        credentials = app.credential.get_credential_async()
+        project = app.project_id
+        if not project:
+            raise ValueError(
+                'Project ID is required to access Firestore. Either set the projectId option, '
+                'or use service account credentials. Alternatively, set the GOOGLE_CLOUD_PROJECT '
+                'environment variable.')
+        return _FirestoreAsyncClient(credentials, project)

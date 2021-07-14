@@ -17,7 +17,10 @@
  This module provides utilities for making HTTP calls using the requests library.
  """
 
+import aiohttp
+
 from google.auth import transport
+from google.auth.transport import _aiohttp_requests
 import requests
 from requests.packages.urllib3.util import retry # pylint: disable=import-error
 
@@ -148,3 +151,96 @@ class JsonHttpClient(HttpClient):
 
     def parse_body(self, resp):
         return resp.json()
+
+
+class HttpClientAsync:
+    """Base HTTP client used to make HTTP calls.
+
+    HttpClient maintains an HTTP session, and handles request authentication and retries if
+    necessary.
+    """
+
+    def __init__(
+            self, credential=None, session=None, base_url='', headers=None,
+            retries=DEFAULT_RETRY_CONFIG, timeout=DEFAULT_TIMEOUT_SECONDS):
+        """Creates a new HttpClient instance from the provided arguments.
+
+        If a credential is provided, initializes a new HTTP session authorized with it. If neither
+        a credential nor a session is provided, initializes a new unauthorized session.
+
+        Args:
+          credential: A Google credential that can be used to authenticate requests (optional).
+          session: A custom HTTP session (optional).
+          base_url: A URL prefix to be added to all outgoing requests (optional).
+          headers: A map of headers to be added to all outgoing requests (optional).
+          retries: A urllib retry configuration. Default settings would retry once for low-level
+              connection and socket read errors, and up to 4 times for HTTP 500 and 503 errors.
+              Pass a False value to disable retries (optional).
+          timeout: HTTP timeout in seconds. Defaults to 120 seconds when not specified. Set to
+              None to disable timeouts (optional).
+        """
+        if credential:
+            self._session = _aiohttp_requests.AuthorizedSession(credential)
+        elif session:
+            self._session = session
+        else:
+            self._session = aiohttp.ClientSession()
+
+        if headers:
+            self._session.headers.update(headers)
+        '''
+        if retries:
+            self._session.mount('http://', requests.adapters.HTTPAdapter(max_retries=retries))
+            self._session.mount('https://', requests.adapters.HTTPAdapter(max_retries=retries))
+        '''
+        self._base_url = base_url
+        self._timeout = timeout
+
+    @property
+    def session(self):
+        return self._session
+
+    @property
+    def base_url(self):
+        return self._base_url
+
+    @property
+    def timeout(self):
+        return self._timeout
+
+    async def request(self, method, url, **kwargs):
+        """Makes an HTTP call using the Python requests library.
+
+        This is the sole entry point to the requests library. All other helper methods in this
+        class call this method to send HTTP requests out. Refer to
+        http://docs.python-requests.org/en/master/api/ for more information on supported options
+        and features.
+
+        Args:
+          method: HTTP method name as a string (e.g. get, post).
+          url: URL of the remote endpoint.
+          kwargs: An additional set of keyword arguments to be passed into the requests API
+              (e.g. json, params, timeout).
+
+        Returns:
+          Response: An HTTP response object.
+
+        Raises:
+          RequestException: Any requests exceptions encountered while making the HTTP call.
+        """
+        if 'timeout' not in kwargs:
+            kwargs['timeout'] = self.timeout
+
+        resp = await self._session.request(method, self.base_url + url, **kwargs)
+        resp.raise_for_status()
+        return resp
+
+    async def body_and_response(self, method, url, **kwargs):
+        resp = await self.request(method, url, **kwargs)
+        return await self.parse_body(resp), resp
+
+    async def parse_body(self, resp):
+        return await resp.json()
+
+    async def close(self):
+        await self._session.close()

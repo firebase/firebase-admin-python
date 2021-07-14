@@ -357,3 +357,19 @@ class EmulatorAdminCredentials(google.auth.credentials.Credentials):
 
     def refresh(self, request):
         pass
+
+# Temporarily disable the lint rule. For more information see:
+# https://github.com/googleapis/google-auth-library-python/pull/561
+# pylint: disable=abstract-method
+class EmulatorAdminCredentialsAsync(google.auth._credentials_async.Credentials):
+    """ Credentials for use with the firebase local emulator.
+
+    This is used instead of user-supplied credentials or ADC.  It will silently do nothing when
+    asked to refresh credentials.
+    """
+    def __init__(self):
+        google.auth._credentials_async.Credentials.__init__(self)
+        self.token = 'owner'
+
+    def refresh(self, request):
+        pass

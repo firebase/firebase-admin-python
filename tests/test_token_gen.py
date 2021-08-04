@@ -493,11 +493,10 @@ class TestVerifyIdToken:
         assert str(excinfo.value) == 'The user record is disabled.'
 
     @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
-    def test_disabled_revoked_check_revoked(
+    def test_check_disabled_before_revoked(
             self, user_mgt_app, user_disabled_and_revoked, id_token):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
         _instrument_user_manager(user_mgt_app, 200, user_disabled_and_revoked)
-        # User disabled check should have higher priority.
         with pytest.raises(auth.UserDisabledError) as excinfo:
             auth.verify_id_token(id_token, app=user_mgt_app, check_revoked=True)
         assert str(excinfo.value) == 'The user record is disabled.'
@@ -670,11 +669,10 @@ class TestVerifySessionCookie:
         assert str(excinfo.value) == 'The user record is disabled.'
 
     @pytest.mark.parametrize('cookie', valid_cookies.values(), ids=list(valid_cookies))
-    def test_disabled_revoked_check_revoked(
+    def test_check_disabled_before_revoked(
             self, user_mgt_app, user_disabled_and_revoked, cookie):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
         _instrument_user_manager(user_mgt_app, 200, user_disabled_and_revoked)
-        # User disabled check should have higher priority.
         with pytest.raises(auth.UserDisabledError) as excinfo:
             auth.verify_session_cookie(cookie, app=user_mgt_app, check_revoked=True)
         assert str(excinfo.value) == 'The user record is disabled.'

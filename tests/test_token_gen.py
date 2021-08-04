@@ -209,9 +209,16 @@ def revoked_tokens():
     return json.dumps(mock_user)
 
 @pytest.fixture(scope='module')
-def get_user_disabled_response():
+def user_disabled():
     mock_user = json.loads(testutils.resource('get_user.json'))
     mock_user['users'][0]['disabled'] = True
+    return json.dumps(mock_user)
+
+@pytest.fixture(scope='module')
+def user_disabled_and_revoked():
+    mock_user = json.loads(testutils.resource('get_user.json'))
+    mock_user['users'][0]['disabled'] = True
+    mock_user['users'][0]['validSince'] = str(int(time.time())+100)
     return json.dumps(mock_user)
 
 
@@ -478,9 +485,19 @@ class TestVerifyIdToken:
         assert str(excinfo.value) == 'The Firebase ID token has been revoked.'
 
     @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
-    def test_disabled_user_check_revoked(self, user_mgt_app, get_user_disabled_response, id_token):
+    def test_disabled_user_check_revoked(self, user_mgt_app, user_disabled, id_token):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
-        _instrument_user_manager(user_mgt_app, 200, get_user_disabled_response)
+        _instrument_user_manager(user_mgt_app, 200, user_disabled)
+        with pytest.raises(auth.UserDisabledError) as excinfo:
+            auth.verify_id_token(id_token, app=user_mgt_app, check_revoked=True)
+        assert str(excinfo.value) == 'The user record is disabled.'
+
+    @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
+    def test_disabled_revoked_check_revoked(
+            self, user_mgt_app, user_disabled_and_revoked, id_token):
+        _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
+        _instrument_user_manager(user_mgt_app, 200, user_disabled_and_revoked)
+        # User disabled check should have higher priority.
         with pytest.raises(auth.UserDisabledError) as excinfo:
             auth.verify_id_token(id_token, app=user_mgt_app, check_revoked=True)
         assert str(excinfo.value) == 'The user record is disabled.'
@@ -500,10 +517,9 @@ class TestVerifyIdToken:
         assert claims['uid'] == claims['sub']
 
     @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
-    def test_disabled_user_do_not_check_revoked(
-            self, user_mgt_app, get_user_disabled_response, id_token):
+    def test_disabled_user_do_not_check_revoked(self, user_mgt_app, user_disabled, id_token):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
-        _instrument_user_manager(user_mgt_app, 200, get_user_disabled_response)
+        _instrument_user_manager(user_mgt_app, 200, user_disabled)
         claims = auth.verify_id_token(id_token, app=user_mgt_app, check_revoked=False)
         assert claims['admin'] is True
         assert claims['uid'] == claims['sub']
@@ -646,18 +662,27 @@ class TestVerifySessionCookie:
         self._assert_valid_cookie(cookie, app=user_mgt_app, check_revoked=False)
 
     @pytest.mark.parametrize('cookie', valid_cookies.values(), ids=list(valid_cookies))
-    def test_disabled_user_check_revoked(self, user_mgt_app, get_user_disabled_response, cookie):
+    def test_disabled_user_check_revoked(self, user_mgt_app, user_disabled, cookie):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
-        _instrument_user_manager(user_mgt_app, 200, get_user_disabled_response)
+        _instrument_user_manager(user_mgt_app, 200, user_disabled)
         with pytest.raises(auth.UserDisabledError) as excinfo:
             auth.verify_session_cookie(cookie, app=user_mgt_app, check_revoked=True)
         assert str(excinfo.value) == 'The user record is disabled.'
 
     @pytest.mark.parametrize('cookie', valid_cookies.values(), ids=list(valid_cookies))
-    def test_disabled_user_does_not_check_revoked(
-            self, user_mgt_app, get_user_disabled_response, cookie):
+    def test_disabled_revoked_check_revoked(
+            self, user_mgt_app, user_disabled_and_revoked, cookie):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
-        _instrument_user_manager(user_mgt_app, 200, get_user_disabled_response)
+        _instrument_user_manager(user_mgt_app, 200, user_disabled_and_revoked)
+        # User disabled check should have higher priority.
+        with pytest.raises(auth.UserDisabledError) as excinfo:
+            auth.verify_session_cookie(cookie, app=user_mgt_app, check_revoked=True)
+        assert str(excinfo.value) == 'The user record is disabled.'
+
+    @pytest.mark.parametrize('cookie', valid_cookies.values(), ids=list(valid_cookies))
+    def test_disabled_user_does_not_check_revoked(self, user_mgt_app, user_disabled, cookie):
+        _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
+        _instrument_user_manager(user_mgt_app, 200, user_disabled)
         self._assert_valid_cookie(cookie, app=user_mgt_app, check_revoked=False)
 
     @pytest.mark.parametrize('cookie', INVALID_JWT_ARGS.values(), ids=list(INVALID_JWT_ARGS))

@@ -726,7 +726,7 @@ class Client:
 
     def _check_jwt_revoked_or_disabled(self, verified_claims, exc_type, label):
         user = self.get_user(verified_claims.get('uid'))
-        if verified_claims.get('iat') * 1000 < user.tokens_valid_after_timestamp:
-            raise exc_type('The Firebase {0} has been revoked.'.format(label))
         if user.disabled:
             raise _auth_utils.UserDisabledError('The user record is disabled.')
+        if verified_claims.get('iat') * 1000 < user.tokens_valid_after_timestamp:
+            raise exc_type('The Firebase {0} has been revoked.'.format(label))

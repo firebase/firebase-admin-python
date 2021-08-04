@@ -385,6 +385,15 @@ class ConfigurationNotFoundError(exceptions.NotFoundError):
         exceptions.NotFoundError.__init__(self, message, cause, http_response)
 
 
+class UserDisabledError(exceptions.FailedPreconditionError):
+    """An operation failed due to a user record being disabled."""
+
+    default_message = 'The user record is disabled'
+
+    def __init__(self, message, cause=None, http_response=None):
+        exceptions.FailedPreconditionError.__init__(self, message, cause, http_response)
+
+
 _CODE_TO_EXC_TYPE = {
     'CONFIGURATION_NOT_FOUND': ConfigurationNotFoundError,
     'DUPLICATE_EMAIL': EmailAlreadyExistsError,

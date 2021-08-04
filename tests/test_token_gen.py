@@ -500,7 +500,7 @@ class TestVerifyIdToken:
         assert claims['uid'] == claims['sub']
 
     @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
-    def test_disabled_user_do_not_check_disabled(
+    def test_disabled_user_do_not_check_revoked(
             self, user_mgt_app, get_user_disabled_response, id_token):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
         _instrument_user_manager(user_mgt_app, 200, get_user_disabled_response)
@@ -654,7 +654,7 @@ class TestVerifySessionCookie:
         assert str(excinfo.value) == 'The user record is disabled.'
 
     @pytest.mark.parametrize('cookie', valid_cookies.values(), ids=list(valid_cookies))
-    def test_disabled_user_does_not_check_disabled(
+    def test_disabled_user_does_not_check_revoked(
             self, user_mgt_app, get_user_disabled_response, cookie):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
         _instrument_user_manager(user_mgt_app, 200, get_user_disabled_response)

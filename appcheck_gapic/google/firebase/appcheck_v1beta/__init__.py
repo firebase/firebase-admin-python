@@ -15,6 +15,7 @@
 #
 
 from .services.config_service import ConfigServiceClient
+from .services.token_exchange_service import TokenExchangeServiceClient
 
 from .types.configuration import AppAttestConfig
 from .types.configuration import BatchGetAppAttestConfigsRequest
@@ -50,9 +51,25 @@ from .types.configuration import UpdateDeviceCheckConfigRequest
 from .types.configuration import UpdateRecaptchaConfigRequest
 from .types.configuration import UpdateSafetyNetConfigRequest
 from .types.configuration import UpdateServiceRequest
+from .types.token_exchange_service import AppAttestChallengeResponse
+from .types.token_exchange_service import AttestationTokenResponse
+from .types.token_exchange_service import ExchangeAppAttestAssertionRequest
+from .types.token_exchange_service import ExchangeAppAttestAttestationRequest
+from .types.token_exchange_service import ExchangeAppAttestAttestationResponse
+from .types.token_exchange_service import ExchangeCustomTokenRequest
+from .types.token_exchange_service import ExchangeDebugTokenRequest
+from .types.token_exchange_service import ExchangeDeviceCheckTokenRequest
+from .types.token_exchange_service import ExchangeRecaptchaTokenRequest
+from .types.token_exchange_service import ExchangeSafetyNetTokenRequest
+from .types.token_exchange_service import GenerateAppAttestChallengeRequest
+from .types.token_exchange_service import GetPublicJwkSetRequest
+from .types.token_exchange_service import PublicJwk
+from .types.token_exchange_service import PublicJwkSet
 
 __all__ = (
+'AppAttestChallengeResponse',
 'AppAttestConfig',
+'AttestationTokenResponse',
 'BatchGetAppAttestConfigsRequest',
 'BatchGetAppAttestConfigsResponse',
 'BatchGetDeviceCheckConfigsRequest',
@@ -68,9 +85,19 @@ __all__ = (
 'DebugToken',
 'DeleteDebugTokenRequest',
 'DeviceCheckConfig',
+'ExchangeAppAttestAssertionRequest',
+'ExchangeAppAttestAttestationRequest',
+'ExchangeAppAttestAttestationResponse',
+'ExchangeCustomTokenRequest',
+'ExchangeDebugTokenRequest',
+'ExchangeDeviceCheckTokenRequest',
+'ExchangeRecaptchaTokenRequest',
+'ExchangeSafetyNetTokenRequest',
+'GenerateAppAttestChallengeRequest',
 'GetAppAttestConfigRequest',
 'GetDebugTokenRequest',
 'GetDeviceCheckConfigRequest',
+'GetPublicJwkSetRequest',
 'GetRecaptchaConfigRequest',
 'GetSafetyNetConfigRequest',
 'GetServiceRequest',
@@ -78,9 +105,12 @@ __all__ = (
 'ListDebugTokensResponse',
 'ListServicesRequest',
 'ListServicesResponse',
+'PublicJwk',
+'PublicJwkSet',
 'RecaptchaConfig',
 'SafetyNetConfig',
 'Service',
+'TokenExchangeServiceClient',
 'UpdateAppAttestConfigRequest',
 'UpdateDebugTokenRequest',
 'UpdateDeviceCheckConfigRequest',

@@ -15,6 +15,7 @@
 #
 
 from google.firebase.appcheck_v1beta.services.config_service.client import ConfigServiceClient
+from google.firebase.appcheck_v1beta.services.token_exchange_service.client import TokenExchangeServiceClient
 
 from google.firebase.appcheck_v1beta.types.configuration import AppAttestConfig
 from google.firebase.appcheck_v1beta.types.configuration import BatchGetAppAttestConfigsRequest
@@ -50,8 +51,23 @@ from google.firebase.appcheck_v1beta.types.configuration import UpdateDeviceChec
 from google.firebase.appcheck_v1beta.types.configuration import UpdateRecaptchaConfigRequest
 from google.firebase.appcheck_v1beta.types.configuration import UpdateSafetyNetConfigRequest
 from google.firebase.appcheck_v1beta.types.configuration import UpdateServiceRequest
+from google.firebase.appcheck_v1beta.types.token_exchange_service import AppAttestChallengeResponse
+from google.firebase.appcheck_v1beta.types.token_exchange_service import AttestationTokenResponse
+from google.firebase.appcheck_v1beta.types.token_exchange_service import ExchangeAppAttestAssertionRequest
+from google.firebase.appcheck_v1beta.types.token_exchange_service import ExchangeAppAttestAttestationRequest
+from google.firebase.appcheck_v1beta.types.token_exchange_service import ExchangeAppAttestAttestationResponse
+from google.firebase.appcheck_v1beta.types.token_exchange_service import ExchangeCustomTokenRequest
+from google.firebase.appcheck_v1beta.types.token_exchange_service import ExchangeDebugTokenRequest
+from google.firebase.appcheck_v1beta.types.token_exchange_service import ExchangeDeviceCheckTokenRequest
+from google.firebase.appcheck_v1beta.types.token_exchange_service import ExchangeRecaptchaTokenRequest
+from google.firebase.appcheck_v1beta.types.token_exchange_service import ExchangeSafetyNetTokenRequest
+from google.firebase.appcheck_v1beta.types.token_exchange_service import GenerateAppAttestChallengeRequest
+from google.firebase.appcheck_v1beta.types.token_exchange_service import GetPublicJwkSetRequest
+from google.firebase.appcheck_v1beta.types.token_exchange_service import PublicJwk
+from google.firebase.appcheck_v1beta.types.token_exchange_service import PublicJwkSet
 
 __all__ = ('ConfigServiceClient',
+    'TokenExchangeServiceClient',
     'AppAttestConfig',
     'BatchGetAppAttestConfigsRequest',
     'BatchGetAppAttestConfigsResponse',
@@ -86,4 +102,18 @@ __all__ = ('ConfigServiceClient',
     'UpdateRecaptchaConfigRequest',
     'UpdateSafetyNetConfigRequest',
     'UpdateServiceRequest',
+    'AppAttestChallengeResponse',
+    'AttestationTokenResponse',
+    'ExchangeAppAttestAssertionRequest',
+    'ExchangeAppAttestAttestationRequest',
+    'ExchangeAppAttestAttestationResponse',
+    'ExchangeCustomTokenRequest',
+    'ExchangeDebugTokenRequest',
+    'ExchangeDeviceCheckTokenRequest',
+    'ExchangeRecaptchaTokenRequest',
+    'ExchangeSafetyNetTokenRequest',
+    'GenerateAppAttestChallengeRequest',
+    'GetPublicJwkSetRequest',
+    'PublicJwk',
+    'PublicJwkSet',
 )

@@ -4,3 +4,4 @@ Services for Google Firebase Appcheck v1beta API
     :maxdepth: 2
 
     config_service
+    token_exchange_service

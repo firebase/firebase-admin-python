@@ -118,6 +118,60 @@
           }
         }
       }
+    },
+    "TokenExchangeService": {
+      "clients": {
+        "rest": {
+          "libraryClient": "TokenExchangeServiceClient",
+          "rpcs": {
+            "ExchangeAppAttestAssertion": {
+              "methods": [
+                "exchange_app_attest_assertion"
+              ]
+            },
+            "ExchangeAppAttestAttestation": {
+              "methods": [
+                "exchange_app_attest_attestation"
+              ]
+            },
+            "ExchangeCustomToken": {
+              "methods": [
+                "exchange_custom_token"
+              ]
+            },
+            "ExchangeDebugToken": {
+              "methods": [
+                "exchange_debug_token"
+              ]
+            },
+            "ExchangeDeviceCheckToken": {
+              "methods": [
+                "exchange_device_check_token"
+              ]
+            },
+            "ExchangeRecaptchaToken": {
+              "methods": [
+                "exchange_recaptcha_token"
+              ]
+            },
+            "ExchangeSafetyNetToken": {
+              "methods": [
+                "exchange_safety_net_token"
+              ]
+            },
+            "GenerateAppAttestChallenge": {
+              "methods": [
+                "generate_app_attest_challenge"
+              ]
+            },
+            "GetPublicJwkSet": {
+              "methods": [
+                "get_public_jwk_set"
+              ]
+            }
+          }
+        }
+      }
     }
   }
 }

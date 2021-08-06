@@ -49,6 +49,22 @@ from .configuration import (
     UpdateSafetyNetConfigRequest,
     UpdateServiceRequest,
 )
+from .token_exchange_service import (
+    AppAttestChallengeResponse,
+    AttestationTokenResponse,
+    ExchangeAppAttestAssertionRequest,
+    ExchangeAppAttestAttestationRequest,
+    ExchangeAppAttestAttestationResponse,
+    ExchangeCustomTokenRequest,
+    ExchangeDebugTokenRequest,
+    ExchangeDeviceCheckTokenRequest,
+    ExchangeRecaptchaTokenRequest,
+    ExchangeSafetyNetTokenRequest,
+    GenerateAppAttestChallengeRequest,
+    GetPublicJwkSetRequest,
+    PublicJwk,
+    PublicJwkSet,
+)
 
 __all__ = (
     'AppAttestConfig',
@@ -85,4 +101,18 @@ __all__ = (
     'UpdateRecaptchaConfigRequest',
     'UpdateSafetyNetConfigRequest',
     'UpdateServiceRequest',
+    'AppAttestChallengeResponse',
+    'AttestationTokenResponse',
+    'ExchangeAppAttestAssertionRequest',
+    'ExchangeAppAttestAttestationRequest',
+    'ExchangeAppAttestAttestationResponse',
+    'ExchangeCustomTokenRequest',
+    'ExchangeDebugTokenRequest',
+    'ExchangeDeviceCheckTokenRequest',
+    'ExchangeRecaptchaTokenRequest',
+    'ExchangeSafetyNetTokenRequest',
+    'GenerateAppAttestChallengeRequest',
+    'GetPublicJwkSetRequest',
+    'PublicJwk',
+    'PublicJwkSet',
 )

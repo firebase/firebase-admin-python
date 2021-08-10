@@ -244,3 +244,4 @@ class HttpClientAsync:
 
     async def close(self):
         await self._session.close()
+        self._session = None

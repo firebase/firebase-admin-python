@@ -41,6 +41,8 @@ Client = _auth_client_async.Client
 UserNotFoundError = _auth_utils.UserNotFoundError
 UserRecord = _user_mgt.UserRecord
 
+def client(app=None):
+    return _utils.get_app_service(app, _AUTH_ATTRIBUTE, Client)
 
 def _get_client(app):
     """Returns a client instance for an App.

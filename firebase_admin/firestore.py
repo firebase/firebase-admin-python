@@ -110,7 +110,7 @@ class _FirestoreAsyncClient:
     @classmethod
     def from_app(cls, app):
         """Creates a new _FirestoreAsyncClient for the specified app."""
-        credentials = app.credential.get_credential_async()
+        credentials = app.credential.get_credential()
         project = app.project_id
         if not project:
             raise ValueError(

@@ -25,9 +25,25 @@ from firebase_admin import _utils
 class Client:
     """Firebase Authentication client scoped to a specific tenant."""
 
+    async def __aexit__(self, exc_type, exc, tb):
+        print("clean up -------------")
+        await self.http_client.close()
+        self.http_client = None
+
+    async def __aenter__(self):
+        print('__aenter__')
+        if self.http_client is None:
+            print('http_client is None')
+            self.http_client = _http_client.HttpClientAsync(
+            credential=self.credential, headers={'X-Client-Version': self.version_header}, timeout=self.timeout)
+        print(self.http_client)
+        return self
+
     def close(self):
         print("Closing async auth session ----------")
+        #asyncio.run(self.http_client.close()) ## python 3.7
         asyncio.get_event_loop().run_until_complete(self.http_client.close())
+        self.http_client = None
 
     def __init__(self, app, tenant_id=None):
         if not app.project_id:
@@ -58,6 +74,10 @@ class Client:
 
         self.http_client = _http_client.HttpClientAsync(
             credential=credential, headers={'X-Client-Version': version_header}, timeout=timeout)
+
+        self.credential = credential
+        self.version_header = version_header
+        self.timeout = timeout
 
         self._tenant_id = tenant_id
         self._user_manager = _user_mgt_async.UserManager(

@@ -43,29 +43,31 @@ class PageIterator:
     def __init__(self, current_page):
         if not current_page:
             raise ValueError('Current page must not be None.')
-        self._current_page = current_page
-        self._index = 0
 
-    def next(self):
-        if self._index == len(self.items):
+        self._current_page = current_page
+        self._iter = None
+
+    def __next__(self):
+        if self._iter is None:
+            self._iter = iter(self.items)
+
+        try:
+            return next(self._iter)
+        except StopIteration:
             if self._current_page.has_next_page:
                 self._current_page = self._current_page.get_next_page()
-                self._index = 0
-        if self._index < len(self.items):
-            result = self.items[self._index]
-            self._index += 1
-            return result
-        raise StopIteration
+                self._iter = iter(self.items)
+
+                return next(self._iter)
+
+            raise
+
+    def __iter__(self):
+        return self
 
     @property
     def items(self):
         raise NotImplementedError
-
-    def __next__(self):
-        return self.next()
-
-    def __iter__(self):
-        return self
 
 
 def get_emulator_host():

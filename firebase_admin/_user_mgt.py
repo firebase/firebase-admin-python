@@ -700,7 +700,7 @@ class UserManager:
         }
 
         remove = []
-        removeProvider = []
+        remove_provider = []
         if display_name is not None:
             if display_name is DELETE_ATTRIBUTE:
                 remove.append('DISPLAY_NAME')
@@ -716,7 +716,7 @@ class UserManager:
 
         if phone_number is not None:
             if phone_number is DELETE_ATTRIBUTE:
-                removeProvider.append('phone')
+                remove_provider.append('phone')
             else:
                 payload['phoneNumber'] = _auth_utils.validate_phone(phone_number)
 
@@ -728,9 +728,9 @@ class UserManager:
             payload['customAttributes'] = _auth_utils.validate_custom_claims(json_claims)
 
         if delete_providers is not None and isinstance(delete_providers, list):
-            removeProvider += delete_providers
-        if removeProvider:
-            payload['deleteProvider'] = list(set(removeProvider))
+            remove_provider += delete_providers
+        if remove_provider:
+            payload['deleteProvider'] = list(set(remove_provider))
 
         payload = {k: v for k, v in payload.items() if v is not None}
         body, http_resp = self._make_request('post', '/accounts:update', json=payload)

@@ -688,7 +688,7 @@ class UserManager:
 
     def update_user(self, uid, display_name=None, email=None, phone_number=None,
                     photo_url=None, password=None, disabled=None, email_verified=None,
-                    valid_since=None, custom_claims=None):
+                    valid_since=None, custom_claims=None, delete_providers=None):
         """Updates an existing user account with the specified properties"""
         payload = {
             'localId': _auth_utils.validate_uid(uid, required=True),
@@ -700,6 +700,7 @@ class UserManager:
         }
 
         remove = []
+        removeProvider = []
         if display_name is not None:
             if display_name is DELETE_ATTRIBUTE:
                 remove.append('DISPLAY_NAME')
@@ -715,7 +716,7 @@ class UserManager:
 
         if phone_number is not None:
             if phone_number is DELETE_ATTRIBUTE:
-                payload['deleteProvider'] = ['phone']
+                removeProvider.append('phone')
             else:
                 payload['phoneNumber'] = _auth_utils.validate_phone(phone_number)
 
@@ -725,6 +726,11 @@ class UserManager:
             json_claims = json.dumps(custom_claims) if isinstance(
                 custom_claims, dict) else custom_claims
             payload['customAttributes'] = _auth_utils.validate_custom_claims(json_claims)
+
+        if delete_providers is not None and isinstance(delete_providers, list):
+            removeProvider += delete_providers
+        if removeProvider:
+            payload['deleteProvider'] = list(set(removeProvider))
 
         payload = {k: v for k, v in payload.items() if v is not None}
         body, http_resp = self._make_request('post', '/accounts:update', json=payload)

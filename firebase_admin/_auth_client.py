@@ -336,6 +336,7 @@ class Client:
             valid_since: An integer signifying the seconds since the epoch (optional). This field
                 is set by ``revoke_refresh_tokens`` and it is discouraged to set this field
                 directly.
+            delete_providers: The list of provider IDs to unlink, eg: 'google.com', 'password', etc. 
 
         Returns:
             UserRecord: An updated UserRecord instance for the user.

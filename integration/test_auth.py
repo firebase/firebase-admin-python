@@ -496,6 +496,14 @@ def test_disable_user(new_user_with_params):
     assert user.disabled is True
     assert len(user.provider_data) == 1
 
+def test_remove_provider(new_user_with_provider):
+    provider_ids = map(lambda x: x.provider_id, user.provider_data)
+    assert 'google.com' in provider_ids
+    user = auth.update_user(new_user_with_provider, delete_providers=['google.com'])
+    assert user.uid == new_user_with_params.uid
+    new_provider_ids = map(lambda x: x.provider_id, user.provider_data)
+    assert 'google.com' not in new_provider_ids
+
 def test_delete_user():
     user = auth.create_user()
     auth.delete_user(user.uid)

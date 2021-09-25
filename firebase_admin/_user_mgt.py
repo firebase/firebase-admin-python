@@ -688,7 +688,7 @@ class UserManager:
 
     def update_user(self, uid, display_name=None, email=None, phone_number=None,
                     photo_url=None, password=None, disabled=None, email_verified=None,
-                    valid_since=None, custom_claims=None, delete_providers=None):
+                    valid_since=None, custom_claims=None, providers_to_delete=None):
         """Updates an existing user account with the specified properties"""
         payload = {
             'localId': _auth_utils.validate_uid(uid, required=True),
@@ -700,7 +700,7 @@ class UserManager:
         }
 
         remove = []
-        remove_provider = []
+        remove_provider = _auth_utils.validate_provider_ids(providers_to_delete)
         if display_name is not None:
             if display_name is DELETE_ATTRIBUTE:
                 remove.append('DISPLAY_NAME')
@@ -727,8 +727,6 @@ class UserManager:
                 custom_claims, dict) else custom_claims
             payload['customAttributes'] = _auth_utils.validate_custom_claims(json_claims)
 
-        if delete_providers is not None and isinstance(delete_providers, list):
-            remove_provider += delete_providers
         if remove_provider:
             payload['deleteProvider'] = list(set(remove_provider))
 

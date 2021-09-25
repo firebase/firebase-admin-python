@@ -266,6 +266,15 @@ def validate_action_type(action_type):
             Valid values are {1}'.format(action_type, ', '.join(VALID_EMAIL_ACTION_TYPES)))
     return action_type
 
+def validate_provider_ids(provider_ids, required=False):
+    if provider_ids is None:
+        if required:
+            raise ValueError('Invalid provider IDs. The list must be non-empty.')
+        return []
+    for provider_id in provider_ids:
+        validate_provider_id(provider_id, True)
+    return provider_ids
+
 def build_update_mask(params):
     """Creates an update mask list from the given dictionary."""
     mask = []

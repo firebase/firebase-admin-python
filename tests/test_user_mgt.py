@@ -666,14 +666,14 @@ class TestUpdateUser:
     @pytest.mark.parametrize('arg', [['phone'], ['google.com', 'phone']])
     def test_update_user_delete_provider(self, user_mgt_app, arg):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
-        user_mgt.update_user('testuser', delete_providers=arg)
+        user_mgt.update_user('testuser', providers_to_delete=arg)
         request = json.loads(recorder[0].body.decode())
         assert set(request['deleteProvider']) == set(arg)
 
     @pytest.mark.parametrize('arg', [['phone'], ['google.com', 'phone']])
     def test_update_user_delete_provider_and_phone(self, user_mgt_app, arg):
         user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
-        user_mgt.update_user('testuser', delete_providers=arg, phone_number=auth.DELETE_ATTRIBUTE)
+        user_mgt.update_user('testuser', providers_to_delete=arg, phone_number=auth.DELETE_ATTRIBUTE)
         request = json.loads(recorder[0].body.decode())
         assert 'phone' in request['deleteProvider']
         assert len(set(request['deleteProvider'])) == len(request['deleteProvider'])

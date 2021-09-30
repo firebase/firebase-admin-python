@@ -24,6 +24,7 @@ import firebase_admin
 from firebase_admin import _http_client
 from firebase_admin import _messaging_encoder
 from firebase_admin import _messaging_utils
+from firebase_admin import _gapic_utils
 from firebase_admin import _utils
 
 
@@ -466,7 +467,7 @@ class _MessagingService:
 
     def _handle_batch_error(self, error):
         """Handles errors received from the googleapiclient while making batch requests."""
-        return _utils.handle_platform_error_from_googleapiclient(
+        return _gapic_utils.handle_platform_error_from_googleapiclient(
             error, _MessagingService._build_fcm_error_googleapiclient)
 
     @classmethod

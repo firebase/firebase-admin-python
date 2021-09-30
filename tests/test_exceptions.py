@@ -24,6 +24,7 @@ from requests import models
 from googleapiclient import errors
 from firebase_admin import exceptions
 from firebase_admin import _utils
+from firebase_admin import _gapic_utils
 
 
 _NOT_FOUND_ERROR_DICT = {
@@ -186,7 +187,7 @@ class TestGoogleApiClient:
         socket.error('Read timed out')
     ])
     def test_googleapicleint_timeout_error(self, error):
-        firebase_error = _utils.handle_googleapiclient_error(error)
+        firebase_error = _gapic_utils.handle_googleapiclient_error(error)
         assert isinstance(firebase_error, exceptions.DeadlineExceededError)
         assert str(firebase_error) == 'Timed out while making an API call: {0}'.format(error)
         assert firebase_error.cause is error
@@ -194,7 +195,7 @@ class TestGoogleApiClient:
 
     def test_googleapiclient_connection_error(self):
         error = httplib2.ServerNotFoundError('Test error')
-        firebase_error = _utils.handle_googleapiclient_error(error)
+        firebase_error = _gapic_utils.handle_googleapiclient_error(error)
         assert isinstance(firebase_error, exceptions.UnavailableError)
         assert str(firebase_error) == 'Failed to establish a connection: Test error'
         assert firebase_error.cause is error
@@ -202,7 +203,7 @@ class TestGoogleApiClient:
 
     def test_unknown_transport_error(self):
         error = socket.error('Test error')
-        firebase_error = _utils.handle_googleapiclient_error(error)
+        firebase_error = _gapic_utils.handle_googleapiclient_error(error)
         assert isinstance(firebase_error, exceptions.UnknownError)
         assert str(firebase_error) == 'Unknown error while making a remote service call: Test error'
         assert firebase_error.cause is error
@@ -210,7 +211,7 @@ class TestGoogleApiClient:
 
     def test_http_response(self):
         error = self._create_http_error()
-        firebase_error = _utils.handle_googleapiclient_error(error)
+        firebase_error = _gapic_utils.handle_googleapiclient_error(error)
         assert isinstance(firebase_error, exceptions.InternalError)
         assert str(firebase_error) == str(error)
         assert firebase_error.cause is error
@@ -219,7 +220,7 @@ class TestGoogleApiClient:
 
     def test_http_response_with_unknown_status(self):
         error = self._create_http_error(status=501)
-        firebase_error = _utils.handle_googleapiclient_error(error)
+        firebase_error = _gapic_utils.handle_googleapiclient_error(error)
         assert isinstance(firebase_error, exceptions.UnknownError)
         assert str(firebase_error) == str(error)
         assert firebase_error.cause is error
@@ -228,7 +229,7 @@ class TestGoogleApiClient:
 
     def test_http_response_with_message(self):
         error = self._create_http_error()
-        firebase_error = _utils.handle_googleapiclient_error(
+        firebase_error = _gapic_utils.handle_googleapiclient_error(
             error, message='Explicit error message')
         assert isinstance(firebase_error, exceptions.InternalError)
         assert str(firebase_error) == 'Explicit error message'
@@ -238,7 +239,7 @@ class TestGoogleApiClient:
 
     def test_http_response_with_code(self):
         error = self._create_http_error()
-        firebase_error = _utils.handle_googleapiclient_error(
+        firebase_error = _gapic_utils.handle_googleapiclient_error(
             error, code=exceptions.UNAVAILABLE)
         assert isinstance(firebase_error, exceptions.UnavailableError)
         assert str(firebase_error) == str(error)
@@ -248,7 +249,7 @@ class TestGoogleApiClient:
 
     def test_http_response_with_message_and_code(self):
         error = self._create_http_error()
-        firebase_error = _utils.handle_googleapiclient_error(
+        firebase_error = _gapic_utils.handle_googleapiclient_error(
             error, message='Explicit error message', code=exceptions.UNAVAILABLE)
         assert isinstance(firebase_error, exceptions.UnavailableError)
         assert str(firebase_error) == 'Explicit error message'
@@ -258,7 +259,7 @@ class TestGoogleApiClient:
 
     def test_handle_platform_error(self):
         error = self._create_http_error(payload=_NOT_FOUND_PAYLOAD)
-        firebase_error = _utils.handle_platform_error_from_googleapiclient(error)
+        firebase_error = _gapic_utils.handle_platform_error_from_googleapiclient(error)
         assert isinstance(firebase_error, exceptions.NotFoundError)
         assert str(firebase_error) == 'test error'
         assert firebase_error.cause is error
@@ -267,7 +268,7 @@ class TestGoogleApiClient:
 
     def test_handle_platform_error_with_no_response(self):
         error = socket.error('Test error')
-        firebase_error = _utils.handle_platform_error_from_googleapiclient(error)
+        firebase_error = _gapic_utils.handle_platform_error_from_googleapiclient(error)
         assert isinstance(firebase_error, exceptions.UnknownError)
         assert str(firebase_error) == 'Unknown error while making a remote service call: Test error'
         assert firebase_error.cause is error
@@ -275,7 +276,7 @@ class TestGoogleApiClient:
 
     def test_handle_platform_error_with_no_error_code(self):
         error = self._create_http_error(payload='no error code')
-        firebase_error = _utils.handle_platform_error_from_googleapiclient(error)
+        firebase_error = _gapic_utils.handle_platform_error_from_googleapiclient(error)
         assert isinstance(firebase_error, exceptions.InternalError)
         message = 'Unexpected HTTP response with status: 500; body: no error code'
         assert str(firebase_error) == message
@@ -291,7 +292,8 @@ class TestGoogleApiClient:
             invocations.append((cause, message, error_dict, http_response))
             return exceptions.InvalidArgumentError('Custom message', cause, http_response)
 
-        firebase_error = _utils.handle_platform_error_from_googleapiclient(error, _custom_handler)
+        firebase_error = _gapic_utils.handle_platform_error_from_googleapiclient(
+            error, _custom_handler)
 
         assert isinstance(firebase_error, exceptions.InvalidArgumentError)
         assert str(firebase_error) == 'Custom message'
@@ -313,7 +315,8 @@ class TestGoogleApiClient:
         def _custom_handler(cause, message, error_dict, http_response):
             invocations.append((cause, message, error_dict, http_response))
 
-        firebase_error = _utils.handle_platform_error_from_googleapiclient(error, _custom_handler)
+        firebase_error = _gapic_utils.handle_platform_error_from_googleapiclient(
+            error, _custom_handler)
 
         assert isinstance(firebase_error, exceptions.NotFoundError)
         assert str(firebase_error) == 'test error'

@@ -267,9 +267,9 @@ def validate_action_type(action_type):
     return action_type
 
 def validate_provider_ids(provider_ids, required=False):
-    if provider_ids is None:
+    if not provider_ids:
         if required:
-            raise ValueError('Invalid provider IDs. The list must be non-empty.')
+            raise ValueError('Invalid provider IDs. Provider ids should be provided')
         return []
     for provider_id in provider_ids:
         validate_provider_id(provider_id, True)

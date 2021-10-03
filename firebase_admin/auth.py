@@ -39,6 +39,7 @@ __all__ = [
     'ConfigurationNotFoundError',
     'DELETE_ATTRIBUTE',
     'EmailAlreadyExistsError',
+    'EmailNotFoundError',
     'ErrorInfo',
     'ExpiredIdTokenError',
     'ExpiredSessionCookieError',
@@ -61,6 +62,7 @@ __all__ = [
     'TokenSignError',
     'UidAlreadyExistsError',
     'UnexpectedResponseError',
+    'UserDisabledError',
     'UserImportHash',
     'UserImportResult',
     'UserInfo',
@@ -112,6 +114,7 @@ ConfigurationNotFoundError = _auth_utils.ConfigurationNotFoundError
 DELETE_ATTRIBUTE = _user_mgt.DELETE_ATTRIBUTE
 DeleteUsersResult = _user_mgt.DeleteUsersResult
 EmailAlreadyExistsError = _auth_utils.EmailAlreadyExistsError
+EmailNotFoundError = _auth_utils.EmailNotFoundError
 ErrorInfo = _user_import.ErrorInfo
 ExpiredIdTokenError = _token_gen.ExpiredIdTokenError
 ExpiredSessionCookieError = _token_gen.ExpiredSessionCookieError
@@ -133,6 +136,7 @@ SAMLProviderConfig = _auth_providers.SAMLProviderConfig
 TokenSignError = _token_gen.TokenSignError
 UidAlreadyExistsError = _auth_utils.UidAlreadyExistsError
 UnexpectedResponseError = _auth_utils.UnexpectedResponseError
+UserDisabledError = _auth_utils.UserDisabledError
 UserImportHash = _user_import.UserImportHash
 UserImportResult = _user_import.UserImportResult
 UserInfo = _user_mgt.UserInfo
@@ -196,7 +200,8 @@ def verify_id_token(id_token, app=None, check_revoked=False):
     Args:
         id_token: A string of the encoded JWT.
         app: An App instance (optional).
-        check_revoked: Boolean, If true, checks whether the token has been revoked (optional).
+        check_revoked: Boolean, If true, checks whether the token has been revoked or
+            the user disabled (optional).
 
     Returns:
         dict: A dictionary of key-value pairs parsed from the decoded JWT.
@@ -208,6 +213,8 @@ def verify_id_token(id_token, app=None, check_revoked=False):
         RevokedIdTokenError: If ``check_revoked`` is ``True`` and the ID token has been revoked.
         CertificateFetchError: If an error occurs while fetching the public key certificates
             required to verify the ID token.
+        UserDisabledError: If ``check_revoked`` is ``True`` and the corresponding user
+            record is disabled.
     """
     client = _get_client(app)
     return client.verify_id_token(id_token, check_revoked=check_revoked)
@@ -244,7 +251,8 @@ def verify_session_cookie(session_cookie, check_revoked=False, app=None):
 
     Args:
         session_cookie: A session cookie string to verify.
-        check_revoked: Boolean, if true, checks whether the cookie has been revoked (optional).
+        check_revoked: Boolean, if true, checks whether the cookie has been revoked or the
+            user disabled (optional).
         app: An App instance (optional).
 
     Returns:
@@ -257,12 +265,15 @@ def verify_session_cookie(session_cookie, check_revoked=False, app=None):
         RevokedSessionCookieError: If ``check_revoked`` is ``True`` and the cookie has been revoked.
         CertificateFetchError: If an error occurs while fetching the public key certificates
             required to verify the session cookie.
+        UserDisabledError: If ``check_revoked`` is ``True`` and the corresponding user
+            record is disabled.
     """
     client = _get_client(app)
     # pylint: disable=protected-access
     verified_claims = client._token_verifier.verify_session_cookie(session_cookie)
     if check_revoked:
-        client._check_jwt_revoked(verified_claims, RevokedSessionCookieError, 'session cookie')
+        client._check_jwt_revoked_or_disabled(
+            verified_claims, RevokedSessionCookieError, 'session cookie')
     return verified_claims
 
 
@@ -450,7 +461,7 @@ def update_user(uid, **kwargs): # pylint: disable=differing-param-doc
             ``auth.DELETE_ATTRIBUTE``.
         password: The user's raw, unhashed password. (optional).
         disabled: A boolean indicating whether or not the user account is disabled (optional).
-        custom_claims: A dictionary or a JSON string contining the custom claims to be set on the
+        custom_claims: A dictionary or a JSON string containing the custom claims to be set on the
             user account (optional). To remove all custom claims, pass ``auth.DELETE_ATTRIBUTE``.
         valid_since: An integer signifying the seconds since the epoch (optional). This field is
             set by ``revoke_refresh_tokens`` and it is discouraged to set this field directly.

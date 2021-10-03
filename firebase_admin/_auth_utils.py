@@ -15,6 +15,7 @@
 """Firebase auth utils."""
 
 import json
+import os
 import re
 from urllib import parse
 
@@ -22,6 +23,7 @@ from firebase_admin import exceptions
 from firebase_admin import _utils
 
 
+EMULATOR_HOST_ENV_VAR = 'FIREBASE_AUTH_EMULATOR_HOST'
 MAX_CLAIMS_PAYLOAD_SIZE = 1000
 RESERVED_CLAIMS = set([
     'acr', 'amr', 'at_hash', 'aud', 'auth_time', 'azp', 'cnf', 'c_hash', 'exp', 'iat',
@@ -41,29 +43,44 @@ class PageIterator:
     def __init__(self, current_page):
         if not current_page:
             raise ValueError('Current page must not be None.')
-        self._current_page = current_page
-        self._index = 0
 
-    def next(self):
-        if self._index == len(self.items):
+        self._current_page = current_page
+        self._iter = None
+
+    def __next__(self):
+        if self._iter is None:
+            self._iter = iter(self.items)
+
+        try:
+            return next(self._iter)
+        except StopIteration:
             if self._current_page.has_next_page:
                 self._current_page = self._current_page.get_next_page()
-                self._index = 0
-        if self._index < len(self.items):
-            result = self.items[self._index]
-            self._index += 1
-            return result
-        raise StopIteration
+                self._iter = iter(self.items)
+
+                return next(self._iter)
+
+            raise
+
+    def __iter__(self):
+        return self
 
     @property
     def items(self):
         raise NotImplementedError
 
-    def __next__(self):
-        return self.next()
 
-    def __iter__(self):
-        return self
+def get_emulator_host():
+    emulator_host = os.getenv(EMULATOR_HOST_ENV_VAR, '')
+    if emulator_host and '//' in emulator_host:
+        raise ValueError(
+            'Invalid {0}: "{1}". It must follow format "host:port".'.format(
+                EMULATOR_HOST_ENV_VAR, emulator_host))
+    return emulator_host
+
+
+def is_emulated():
+    return get_emulator_host() != ''
 
 
 def validate_uid(uid, required=False):
@@ -336,6 +353,15 @@ class UserNotFoundError(exceptions.NotFoundError):
         exceptions.NotFoundError.__init__(self, message, cause, http_response)
 
 
+class EmailNotFoundError(exceptions.NotFoundError):
+    """No user record found for the specified email."""
+
+    default_message = 'No user record found for the given email'
+
+    def __init__(self, message, cause=None, http_response=None):
+        exceptions.NotFoundError.__init__(self, message, cause, http_response)
+
+
 class TenantNotFoundError(exceptions.NotFoundError):
     """No tenant found for the specified identifier."""
 
@@ -361,11 +387,21 @@ class ConfigurationNotFoundError(exceptions.NotFoundError):
         exceptions.NotFoundError.__init__(self, message, cause, http_response)
 
 
+class UserDisabledError(exceptions.InvalidArgumentError):
+    """An operation failed due to a user record being disabled."""
+
+    default_message = 'The user record is disabled'
+
+    def __init__(self, message, cause=None, http_response=None):
+        exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
+
+
 _CODE_TO_EXC_TYPE = {
     'CONFIGURATION_NOT_FOUND': ConfigurationNotFoundError,
     'DUPLICATE_EMAIL': EmailAlreadyExistsError,
     'DUPLICATE_LOCAL_ID': UidAlreadyExistsError,
     'EMAIL_EXISTS': EmailAlreadyExistsError,
+    'EMAIL_NOT_FOUND': EmailNotFoundError,
     'INSUFFICIENT_PERMISSION': InsufficientPermissionError,
     'INVALID_DYNAMIC_LINK_DOMAIN': InvalidDynamicLinkDomainError,
     'INVALID_ID_TOKEN': InvalidIdTokenError,

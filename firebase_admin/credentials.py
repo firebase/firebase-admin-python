@@ -15,6 +15,7 @@
 """Firebase credentials module."""
 import collections
 import json
+import pathlib
 
 import google.auth
 from google.auth.transport import requests
@@ -78,7 +79,7 @@ class Certificate(Base):
           ValueError: If the specified certificate is invalid.
         """
         super(Certificate, self).__init__()
-        if isinstance(cert, str):
+        if _is_file_path(cert):
             with open(cert) as json_file:
                 json_data = json.load(json_file)
         elif isinstance(cert, dict):
@@ -165,7 +166,7 @@ class RefreshToken(Base):
     def __init__(self, refresh_token):
         """Initializes a credential from a refresh token JSON file.
 
-        The JSON must consist of client_id, client_secert and refresh_token fields. Refresh
+        The JSON must consist of client_id, client_secret and refresh_token fields. Refresh
         token files are typically created and managed by the gcloud SDK. To instantiate
         a credential from a refresh token file, either specify the file path or a dict
         representing the parsed contents of the file.
@@ -179,7 +180,7 @@ class RefreshToken(Base):
           ValueError: If the refresh token configuration is invalid.
         """
         super(RefreshToken, self).__init__()
-        if isinstance(refresh_token, str):
+        if _is_file_path(refresh_token):
             with open(refresh_token) as json_file:
                 json_data = json.load(json_file)
         elif isinstance(refresh_token, dict):
@@ -212,3 +213,11 @@ class RefreshToken(Base):
         Returns:
           google.auth.credentials.Credentials: A Google Auth credential instance."""
         return self._g_credential
+
+
+def _is_file_path(path):
+    try:
+        pathlib.Path(path)
+        return True
+    except TypeError:
+        return False

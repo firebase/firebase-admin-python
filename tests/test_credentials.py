@@ -16,6 +16,7 @@
 import datetime
 import json
 import os
+import pathlib
 
 import google.auth
 from google.auth import crypt
@@ -46,6 +47,12 @@ class TestCertificate:
         credential = credentials.Certificate(
             testutils.resource_filename('service_account.json'))
         self._verify_credential(credential)
+
+    def test_init_from_path_like(self):
+        path = pathlib.Path(testutils.resource_filename('service_account.json'))
+        credential = credentials.Certificate(path)
+        self._verify_credential(credential)
+
 
     def test_init_from_dict(self):
         parsed_json = json.loads(testutils.resource('service_account.json'))
@@ -127,6 +134,11 @@ class TestRefreshToken:
     def test_init_from_file(self):
         credential = credentials.RefreshToken(
             testutils.resource_filename('refresh_token.json'))
+        self._verify_credential(credential)
+
+    def test_init_from_path_like(self):
+        path = pathlib.Path(testutils.resource_filename('refresh_token.json'))
+        credential = credentials.RefreshToken(path)
         self._verify_credential(credential)
 
     def test_init_from_dict(self):

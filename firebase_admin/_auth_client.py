@@ -24,6 +24,7 @@ from firebase_admin import _token_gen
 from firebase_admin import _user_identifier
 from firebase_admin import _user_import
 from firebase_admin import _user_mgt
+from firebase_admin import _utils
 
 
 class Client:
@@ -36,17 +37,37 @@ class Client:
             2. set the project ID explicitly via Firebase App options, or
             3. set the project ID via the GOOGLE_CLOUD_PROJECT environment variable.""")
 
-        credential = app.credential.get_credential()
+        credential = None
         version_header = 'Python/Admin/{0}'.format(firebase_admin.__version__)
+        timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
+        # Non-default endpoint URLs for emulator support are set in this dict later.
+        endpoint_urls = {}
+        self.emulated = False
+
+        # If an emulator is present, check that the given value matches the expected format and set
+        # endpoint URLs to use the emulator. Additionally, use a fake credential.
+        emulator_host = _auth_utils.get_emulator_host()
+        if emulator_host:
+            base_url = 'http://{0}/identitytoolkit.googleapis.com'.format(emulator_host)
+            endpoint_urls['v1'] = base_url + '/v1'
+            endpoint_urls['v2beta1'] = base_url + '/v2beta1'
+            credential = _utils.EmulatorAdminCredentials()
+            self.emulated = True
+        else:
+            # Use credentials if provided
+            credential = app.credential.get_credential()
+
         http_client = _http_client.JsonHttpClient(
-            credential=credential, headers={'X-Client-Version': version_header})
+            credential=credential, headers={'X-Client-Version': version_header}, timeout=timeout)
 
         self._tenant_id = tenant_id
-        self._token_generator = _token_gen.TokenGenerator(app, http_client)
+        self._token_generator = _token_gen.TokenGenerator(
+            app, http_client, url_override=endpoint_urls.get('v1'))
         self._token_verifier = _token_gen.TokenVerifier(app)
-        self._user_manager = _user_mgt.UserManager(http_client, app.project_id, tenant_id)
+        self._user_manager = _user_mgt.UserManager(
+            http_client, app.project_id, tenant_id, url_override=endpoint_urls.get('v1'))
         self._provider_manager = _auth_providers.ProviderConfigClient(
-            http_client, app.project_id, tenant_id)
+            http_client, app.project_id, tenant_id, url_override=endpoint_urls.get('v2beta1'))
 
     @property
     def tenant_id(self):
@@ -79,7 +100,8 @@ class Client:
 
         Args:
             id_token: A string of the encoded JWT.
-            check_revoked: Boolean, If true, checks whether the token has been revoked (optional).
+            check_revoked: Boolean, If true, checks whether the token has been revoked or
+                the user disabled (optional).
 
         Returns:
             dict: A dictionary of key-value pairs parsed from the decoded JWT.
@@ -94,6 +116,8 @@ class Client:
                 this ``Client`` instance.
             CertificateFetchError: If an error occurs while fetching the public key certificates
                 required to verify the ID token.
+            UserDisabledError: If ``check_revoked`` is ``True`` and the corresponding user
+                record is disabled.
         """
         if not isinstance(check_revoked, bool):
             # guard against accidental wrong assignment.
@@ -108,7 +132,8 @@ class Client:
                     'Invalid tenant ID: {0}'.format(token_tenant_id))
 
         if check_revoked:
-            self._check_jwt_revoked(verified_claims, _token_gen.RevokedIdTokenError, 'ID token')
+            self._check_jwt_revoked_or_disabled(
+                verified_claims, _token_gen.RevokedIdTokenError, 'ID token')
         return verified_claims
 
     def revoke_refresh_tokens(self, uid):
@@ -160,7 +185,7 @@ class Client:
 
         Raises:
             ValueError: If the email is None, empty or malformed.
-            UserNotFoundError: If no user exists by the specified email address.
+            UserNotFoundError: If no user exists for the specified email address.
             FirebaseError: If an error occurs while retrieving the user.
         """
         response = self._user_manager.get_user(email=email)
@@ -177,7 +202,7 @@ class Client:
 
         Raises:
             ValueError: If the phone number is ``None``, empty or malformed.
-            UserNotFoundError: If no user exists by the specified phone number.
+            UserNotFoundError: If no user exists for the specified phone number.
             FirebaseError: If an error occurs while retrieving the user.
         """
         response = self._user_manager.get_user(phone_number=phone_number)
@@ -423,6 +448,7 @@ class Client:
 
         Raises:
             ValueError: If the provided arguments are invalid
+            EmailNotFoundError: If no user exists for the specified email address.
             FirebaseError: If an error occurs while generating the link
         """
         return self._user_manager.generate_email_action_link(
@@ -443,6 +469,7 @@ class Client:
 
         Raises:
             ValueError: If the provided arguments are invalid
+            UserNotFoundError: If no user exists for the specified email address.
             FirebaseError: If an error occurs while generating the link
         """
         return self._user_manager.generate_email_action_link(
@@ -697,7 +724,9 @@ class Client:
         """
         return self._provider_manager.list_saml_provider_configs(page_token, max_results)
 
-    def _check_jwt_revoked(self, verified_claims, exc_type, label):
+    def _check_jwt_revoked_or_disabled(self, verified_claims, exc_type, label):
         user = self.get_user(verified_claims.get('uid'))
+        if user.disabled:
+            raise _auth_utils.UserDisabledError('The user record is disabled.')
         if verified_claims.get('iat') * 1000 < user.tokens_valid_after_timestamp:
             raise exc_type('The Firebase {0} has been revoked.'.format(label))

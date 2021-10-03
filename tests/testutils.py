@@ -16,6 +16,8 @@
 import io
 import os
 
+import pytest
+
 from google.auth import credentials
 from google.auth import transport
 from requests import adapters
@@ -56,6 +58,10 @@ def run_without_project_id(func):
             gcloud_project = env_values[idx]
             if gcloud_project:
                 os.environ[env_var] = gcloud_project
+
+
+def new_monkeypatch():
+    return pytest.MonkeyPatch()
 
 
 class MockResponse(transport.Response):
@@ -105,6 +111,9 @@ class MockFailedRequest(transport.Request):
         raise self.error
 
 
+# Temporarily disable the lint rule. For more information see:
+# https://github.com/googleapis/google-auth-library-python/pull/561
+# pylint: disable=abstract-method
 class MockGoogleCredential(credentials.Credentials):
     """A mock Google authentication credential."""
     def refresh(self, request):

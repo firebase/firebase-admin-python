@@ -29,6 +29,7 @@ import google.oauth2.service_account
 
 from firebase_admin import exceptions
 from firebase_admin import _auth_utils
+from firebase_admin import _http_client
 
 
 # ID token constants
@@ -52,14 +53,30 @@ RESERVED_CLAIMS = set([
 ])
 METADATA_SERVICE_URL = ('http://metadata.google.internal/computeMetadata/v1/instance/'
                         'service-accounts/default/email')
+ALGORITHM_RS256 = 'RS256'
+ALGORITHM_NONE = 'none'
+
+# Emulator fake account
+AUTH_EMULATOR_EMAIL = 'firebase-auth-emulator@example.com'
+
+
+class _EmulatedSigner(google.auth.crypt.Signer):
+    key_id = None
+
+    def __init__(self):
+        pass
+
+    def sign(self, message):
+        return b''
 
 
 class _SigningProvider:
     """Stores a reference to a google.auth.crypto.Signer."""
 
-    def __init__(self, signer, signer_email):
+    def __init__(self, signer, signer_email, alg=ALGORITHM_RS256):
         self._signer = signer
         self._signer_email = signer_email
+        self._alg = alg
 
     @property
     def signer(self):
@@ -68,6 +85,10 @@ class _SigningProvider:
     @property
     def signer_email(self):
         return self._signer_email
+
+    @property
+    def alg(self):
+        return self._alg
 
     @classmethod
     def from_credential(cls, google_cred):
@@ -78,21 +99,28 @@ class _SigningProvider:
         signer = iam.Signer(request, google_cred, service_account)
         return _SigningProvider(signer, service_account)
 
+    @classmethod
+    def for_emulator(cls):
+        return _SigningProvider(_EmulatedSigner(), AUTH_EMULATOR_EMAIL, ALGORITHM_NONE)
+
 
 class TokenGenerator:
     """Generates custom tokens and session cookies."""
 
     ID_TOOLKIT_URL = 'https://identitytoolkit.googleapis.com/v1'
 
-    def __init__(self, app, http_client):
+    def __init__(self, app, http_client, url_override=None):
         self.app = app
         self.http_client = http_client
         self.request = transport.requests.Request()
-        self.base_url = '{0}/projects/{1}'.format(self.ID_TOOLKIT_URL, app.project_id)
+        url_prefix = url_override or self.ID_TOOLKIT_URL
+        self.base_url = '{0}/projects/{1}'.format(url_prefix, app.project_id)
         self._signing_provider = None
 
     def _init_signing_provider(self):
         """Initializes a signing provider by following the go/firebase-admin-sign protocol."""
+        if _auth_utils.is_emulated():
+            return _SigningProvider.for_emulator()
         # If the SDK was initialized with a service account, use it to sign bytes.
         google_cred = self.app.credential.get_credential()
         if isinstance(google_cred, google.oauth2.service_account.Credentials):
@@ -169,8 +197,10 @@ class TokenGenerator:
 
         if developer_claims is not None:
             payload['claims'] = developer_claims
+
+        header = {'alg': signing_provider.alg}
         try:
-            return jwt.encode(signing_provider.signer, payload)
+            return jwt.encode(signing_provider.signer, payload, header=header)
         except google.auth.exceptions.TransportError as error:
             msg = 'Failed to sign custom token. {0}'.format(error)
             raise TokenSignError(msg, error)
@@ -211,12 +241,37 @@ class TokenGenerator:
             return body.get('sessionCookie')
 
 
+class CertificateFetchRequest(transport.Request):
+    """A google-auth transport that supports HTTP cache-control.
+
+    Also injects a timeout to each outgoing HTTP request.
+    """
+
+    def __init__(self, timeout_seconds=None):
+        self._session = cachecontrol.CacheControl(requests.Session())
+        self._delegate = transport.requests.Request(self.session)
+        self._timeout_seconds = timeout_seconds
+
+    @property
+    def session(self):
+        return self._session
+
+    @property
+    def timeout_seconds(self):
+        return self._timeout_seconds
+
+    def __call__(self, url, method='GET', body=None, headers=None, timeout=None, **kwargs):
+        timeout = timeout or self.timeout_seconds
+        return self._delegate(
+            url, method=method, body=body, headers=headers, timeout=timeout, **kwargs)
+
+
 class TokenVerifier:
     """Verifies ID tokens and session cookies."""
 
     def __init__(self, app):
-        session = cachecontrol.CacheControl(requests.Session())
-        self.request = transport.requests.Request(session=session)
+        timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
+        self.request = CertificateFetchRequest(timeout)
         self.id_token_verifier = _JWTVerifier(
             project_id=app.project_id, short_name='ID token',
             operation='verify_id_token()',
@@ -285,12 +340,14 @@ class _JWTVerifier:
         verify_id_token_msg = (
             'See {0} for details on how to retrieve {1}.'.format(self.url, self.short_name))
 
+        emulated = _auth_utils.is_emulated()
+
         error_message = None
         if audience == FIREBASE_AUDIENCE:
             error_message = (
                 '{0} expects {1}, but was given a custom '
                 'token.'.format(self.operation, self.articled_short_name))
-        elif not header.get('kid'):
+        elif not emulated and not header.get('kid'):
             if header.get('alg') == 'HS256' and payload.get(
                     'v') == 0 and 'uid' in payload.get('d', {}):
                 error_message = (
@@ -298,7 +355,7 @@ class _JWTVerifier:
                     'token.'.format(self.operation, self.articled_short_name))
             else:
                 error_message = 'Firebase {0} has no "kid" claim.'.format(self.short_name)
-        elif header.get('alg') != 'RS256':
+        elif not emulated and header.get('alg') != 'RS256':
             error_message = (
                 'Firebase {0} has incorrect algorithm. Expected "RS256" but got '
                 '"{1}". {2}'.format(self.short_name, header.get('alg'), verify_id_token_msg))
@@ -329,11 +386,14 @@ class _JWTVerifier:
             raise self._invalid_token_error(error_message)
 
         try:
-            verified_claims = google.oauth2.id_token.verify_token(
-                token,
-                request=request,
-                audience=self.project_id,
-                certs_url=self.cert_url)
+            if emulated:
+                verified_claims = payload
+            else:
+                verified_claims = google.oauth2.id_token.verify_token(
+                    token,
+                    request=request,
+                    audience=self.project_id,
+                    certs_url=self.cert_url)
             verified_claims['uid'] = verified_claims['sub']
             return verified_claims
         except google.auth.exceptions.TransportError as error:

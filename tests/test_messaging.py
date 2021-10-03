@@ -1792,6 +1792,15 @@ class TestSend:
         assert json.loads(recorder[0].body.decode()) == body
 
 
+class _HttpMockException:
+
+    def __init__(self, exc):
+        self._exc = exc
+
+    def request(self, url, **kwargs):
+        raise self._exc
+
+
 class TestBatch:
 
     @classmethod
@@ -1803,17 +1812,24 @@ class TestBatch:
     def teardown_class(cls):
         testutils.cleanup_apps()
 
-    def _instrument_batch_messaging_service(self, app=None, status=200, payload=''):
+    def _instrument_batch_messaging_service(self, app=None, status=200, payload='', exc=None):
+        def build_mock_transport(_):
+            if exc:
+                return _HttpMockException(exc)
+
+            if status == 200:
+                content_type = 'multipart/mixed; boundary=boundary'
+            else:
+                content_type = 'application/json'
+            return http.HttpMockSequence([
+                ({'status': str(status), 'content-type': content_type}, payload),
+            ])
+
         if not app:
             app = firebase_admin.get_app()
+
         fcm_service = messaging._get_messaging_service(app)
-        if status == 200:
-            content_type = 'multipart/mixed; boundary=boundary'
-        else:
-            content_type = 'application/json'
-        fcm_service._transport = http.HttpMockSequence([
-            ({'status': str(status), 'content-type': content_type}, payload),
-        ])
+        fcm_service._build_transport = build_mock_transport
         return fcm_service
 
     def _batch_payload(self, payloads):
@@ -2027,6 +2043,42 @@ class TestSendAll(TestBatch):
             messaging.send_all([msg])
         check_exception(excinfo.value, 'test error', status)
 
+    def test_send_all_runtime_exception(self):
+        exc = BrokenPipeError('Test error')
+        _ = self._instrument_batch_messaging_service(exc=exc)
+        msg = messaging.Message(topic='foo')
+
+        with pytest.raises(exceptions.UnknownError) as excinfo:
+            messaging.send_all([msg])
+
+        expected = 'Unknown error while making a remote service call: Test error'
+        assert str(excinfo.value) == expected
+        assert excinfo.value.cause is exc
+        assert excinfo.value.http_response is None
+
+    def test_send_transport_init(self):
+        def track_call_count(build_transport):
+            def wrapper(credential):
+                wrapper.calls += 1
+                return build_transport(credential)
+            wrapper.calls = 0
+            return wrapper
+
+        payload = json.dumps({'name': 'message-id'})
+        fcm_service = self._instrument_batch_messaging_service(
+            payload=self._batch_payload([(200, payload), (200, payload)]))
+        build_mock_transport = fcm_service._build_transport
+        fcm_service._build_transport = track_call_count(build_mock_transport)
+        msg = messaging.Message(topic='foo')
+
+        batch_response = messaging.send_all([msg, msg], dry_run=True)
+        assert batch_response.success_count == 2
+        assert fcm_service._build_transport.calls == 1
+
+        batch_response = messaging.send_all([msg, msg], dry_run=True)
+        assert batch_response.success_count == 2
+        assert fcm_service._build_transport.calls == 2
+
 
 class TestSendMulticast(TestBatch):
 
@@ -2203,6 +2255,19 @@ class TestSendMulticast(TestBatch):
         with pytest.raises(messaging.UnregisteredError) as excinfo:
             messaging.send_multicast(msg)
         check_exception(excinfo.value, 'test error', status)
+
+    def test_send_multicast_runtime_exception(self):
+        exc = BrokenPipeError('Test error')
+        _ = self._instrument_batch_messaging_service(exc=exc)
+        msg = messaging.MulticastMessage(tokens=['foo'])
+
+        with pytest.raises(exceptions.UnknownError) as excinfo:
+            messaging.send_multicast(msg)
+
+        expected = 'Unknown error while making a remote service call: Test error'
+        assert str(excinfo.value) == expected
+        assert excinfo.value.cause is exc
+        assert excinfo.value.http_response is None
 
 
 class TestTopicManagement:

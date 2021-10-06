@@ -206,7 +206,7 @@ class ProviderConfigClient:
 
         response_type = {}
         if id_token_response_type is False and code_response_type is False:
-            raise ValueError("At least one response type must be returned.")
+            raise ValueError('At least one response type must be returned.')
         if id_token_response_type is not None:
             response_type['idToken'] = _auth_utils.validate_boolean(id_token_response_type, 'id_token_response_type')
         if code_response_type is not None:
@@ -241,7 +241,7 @@ class ProviderConfigClient:
 
         response_type = {}
         if id_token_response_type is False and code_response_type is False:
-            raise ValueError("At least one response type must be returned.")
+            raise ValueError('At least one response type must be returned.')
         if id_token_response_type is not None:
             response_type['idToken'] = _auth_utils.validate_boolean(id_token_response_type, 'id_token_response_type')
         if code_response_type is not None:

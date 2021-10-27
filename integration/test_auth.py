@@ -729,10 +729,7 @@ def test_update_oidc_provider_config():
             client_id='UPDATED_OIDC_CLIENT_ID',
             issuer='https://oidc.com/updated_issuer',
             display_name='UPDATED_OIDC_DISPLAY_NAME',
-            enabled=False,
-            client_secret='CLIENT_SECRET',
-            id_token_response_type=False,
-            code_response_type=True)
+            enabled=False)
         assert provider_config.client_id == 'UPDATED_OIDC_CLIENT_ID'
         assert provider_config.issuer == 'https://oidc.com/updated_issuer'
         assert provider_config.display_name == 'UPDATED_OIDC_DISPLAY_NAME'
@@ -831,9 +828,7 @@ def _create_oidc_provider_config():
         client_id='OIDC_CLIENT_ID',
         issuer='https://oidc.com/issuer',
         display_name='OIDC_DISPLAY_NAME',
-        enabled=True,
-        id_token_response_type=True,
-        code_response_type=False)
+        enabled=True)
 
 
 def _create_saml_provider_config():

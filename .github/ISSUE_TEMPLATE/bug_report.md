@@ -1,10 +1,21 @@
+---
+name: Bug report
+about: Bug reports related to any component in this repo
+title: ''
+labels: ''
+assignees: ''
+
+---
+
 ### [READ] Step 1: Are you in the right place?
 
-  * For issues or feature requests related to __the code in this repository__
-    file a Github issue.
-    * If this is a __feature request__ make sure the issue title starts with "FR:".
+  * For issues related to __the code in this repository__ file a GitHub issue.
+  * If the issue pertains to __Cloud Firestore__, report directly in the
+    [Python Firestore](https://github.com/googleapis/python-firestore) GitHub repo. Firestore
+    bugs reported in this repo will be closed with a reference to the Python Firestore
+    project.
   * For general technical questions, post a question on [StackOverflow](http://stackoverflow.com/)
-    with the firebase tag.
+    with the `firebase` tag.
   * For general Firebase discussion, use the [firebase-talk](https://groups.google.com/forum/#!forum/firebase-talk)
     google group.
   * For help troubleshooting your application that does not fall under one
@@ -15,8 +26,9 @@
 
   * Operating System version: _____
   * Firebase SDK version: _____
-  * Library version: _____
   * Firebase Product: _____ (auth, database, storage, etc)
+  * Python version: _____
+  * Pip version: _____
 
 ### [REQUIRED] Step 3: Describe the problem
 

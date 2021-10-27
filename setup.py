@@ -38,7 +38,7 @@ long_description = ('The Firebase Admin Python SDK enables server-side (backend)
                     'to integrate Firebase into their services and applications.')
 install_requires = [
     'cachecontrol>=0.12.6',
-    'google-api-core[grpc] >= 1.22.1, < 2.0.0dev; platform.python_implementation != "PyPy"',
+    'google-api-core[grpc] >= 1.22.1, < 3.0.0dev; platform.python_implementation != "PyPy"',
     'google-api-python-client >= 1.7.8',
     'google-cloud-firestore>=2.1.0; platform.python_implementation != "PyPy"',
     'google-cloud-storage>=1.37.1',

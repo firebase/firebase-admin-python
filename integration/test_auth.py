@@ -496,6 +496,14 @@ def test_disable_user(new_user_with_params):
     assert user.disabled is True
     assert len(user.provider_data) == 1
 
+def test_remove_provider(new_user_with_provider):
+    provider_ids = [provider.provider_id for provider in new_user_with_provider.provider_data]
+    assert 'google.com' in provider_ids
+    user = auth.update_user(new_user_with_provider.uid, providers_to_delete=['google.com'])
+    assert user.uid == new_user_with_provider.uid
+    new_provider_ids = [provider.provider_id for provider in user.provider_data]
+    assert 'google.com' not in new_provider_ids
+
 def test_delete_user():
     user = auth.create_user()
     auth.delete_user(user.uid)
@@ -569,6 +577,24 @@ def test_verify_id_token_revoked(new_user, api_key):
     claims = auth.verify_id_token(id_token, check_revoked=True)
     assert claims['iat'] * 1000 >= user.tokens_valid_after_timestamp
 
+def test_verify_id_token_disabled(new_user, api_key):
+    custom_token = auth.create_custom_token(new_user.uid)
+    id_token = _sign_in(custom_token, api_key)
+    claims = auth.verify_id_token(id_token, check_revoked=True)
+
+    # Disable the user record.
+    auth.update_user(new_user.uid, disabled=True)
+    # Verify the ID token without checking revocation. This should
+    # not raise.
+    claims = auth.verify_id_token(id_token, check_revoked=False)
+    assert claims['sub'] == new_user.uid
+
+    # Verify the ID token while checking revocation. This should
+    # raise an exception.
+    with pytest.raises(auth.UserDisabledError) as excinfo:
+        auth.verify_id_token(id_token, check_revoked=True)
+    assert str(excinfo.value) == 'The user record is disabled.'
+
 def test_verify_session_cookie_revoked(new_user, api_key):
     custom_token = auth.create_custom_token(new_user.uid)
     id_token = _sign_in(custom_token, api_key)
@@ -590,6 +616,24 @@ def test_verify_session_cookie_revoked(new_user, api_key):
     session_cookie = auth.create_session_cookie(id_token, expires_in=datetime.timedelta(days=1))
     claims = auth.verify_session_cookie(session_cookie, check_revoked=True)
     assert claims['iat'] * 1000 >= user.tokens_valid_after_timestamp
+
+def test_verify_session_cookie_disabled(new_user, api_key):
+    custom_token = auth.create_custom_token(new_user.uid)
+    id_token = _sign_in(custom_token, api_key)
+    session_cookie = auth.create_session_cookie(id_token, expires_in=datetime.timedelta(days=1))
+
+    # Disable the user record.
+    auth.update_user(new_user.uid, disabled=True)
+    # Verify the session cookie without checking revocation. This should
+    # not raise.
+    claims = auth.verify_session_cookie(session_cookie, check_revoked=False)
+    assert claims['sub'] == new_user.uid
+
+    # Verify the session cookie while checking revocation. This should
+    # raise an exception.
+    with pytest.raises(auth.UserDisabledError) as excinfo:
+        auth.verify_session_cookie(session_cookie, check_revoked=True)
+    assert str(excinfo.value) == 'The user record is disabled.'
 
 def test_import_users():
     uid, email = _random_id()

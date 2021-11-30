@@ -30,7 +30,7 @@ from firebase_admin import _utils
 
 _STORAGE_ATTRIBUTE = '_storage'
 
-def bucket(name=None, app=None):
+def bucket(name=None, app=None) -> storage.Bucket:
     """Returns a handle to a Google Cloud Storage bucket.
 
     If the name argument is not provided, uses the 'storageBucket' option specified when

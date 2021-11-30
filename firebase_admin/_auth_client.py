@@ -100,7 +100,8 @@ class Client:
 
         Args:
             id_token: A string of the encoded JWT.
-            check_revoked: Boolean, If true, checks whether the token has been revoked (optional).
+            check_revoked: Boolean, If true, checks whether the token has been revoked or
+                the user disabled (optional).
 
         Returns:
             dict: A dictionary of key-value pairs parsed from the decoded JWT.
@@ -115,6 +116,8 @@ class Client:
                 this ``Client`` instance.
             CertificateFetchError: If an error occurs while fetching the public key certificates
                 required to verify the ID token.
+            UserDisabledError: If ``check_revoked`` is ``True`` and the corresponding user
+                record is disabled.
         """
         if not isinstance(check_revoked, bool):
             # guard against accidental wrong assignment.
@@ -129,7 +132,8 @@ class Client:
                     'Invalid tenant ID: {0}'.format(token_tenant_id))
 
         if check_revoked:
-            self._check_jwt_revoked(verified_claims, _token_gen.RevokedIdTokenError, 'ID token')
+            self._check_jwt_revoked_or_disabled(
+                verified_claims, _token_gen.RevokedIdTokenError, 'ID token')
         return verified_claims
 
     def revoke_refresh_tokens(self, uid):
@@ -332,6 +336,8 @@ class Client:
             valid_since: An integer signifying the seconds since the epoch (optional). This field
                 is set by ``revoke_refresh_tokens`` and it is discouraged to set this field
                 directly.
+            providers_to_delete: The list of provider IDs to unlink,
+                eg: 'google.com', 'password', etc.
 
         Returns:
             UserRecord: An updated UserRecord instance for the user.
@@ -720,7 +726,9 @@ class Client:
         """
         return self._provider_manager.list_saml_provider_configs(page_token, max_results)
 
-    def _check_jwt_revoked(self, verified_claims, exc_type, label):
+    def _check_jwt_revoked_or_disabled(self, verified_claims, exc_type, label):
         user = self.get_user(verified_claims.get('uid'))
+        if user.disabled:
+            raise _auth_utils.UserDisabledError('The user record is disabled.')
         if verified_claims.get('iat') * 1000 < user.tokens_valid_after_timestamp:
             raise exc_type('The Firebase {0} has been revoked.'.format(label))

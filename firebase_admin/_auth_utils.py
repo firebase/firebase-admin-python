@@ -43,29 +43,31 @@ class PageIterator:
     def __init__(self, current_page):
         if not current_page:
             raise ValueError('Current page must not be None.')
-        self._current_page = current_page
-        self._index = 0
 
-    def next(self):
-        if self._index == len(self.items):
+        self._current_page = current_page
+        self._iter = None
+
+    def __next__(self):
+        if self._iter is None:
+            self._iter = iter(self.items)
+
+        try:
+            return next(self._iter)
+        except StopIteration:
             if self._current_page.has_next_page:
                 self._current_page = self._current_page.get_next_page()
-                self._index = 0
-        if self._index < len(self.items):
-            result = self.items[self._index]
-            self._index += 1
-            return result
-        raise StopIteration
+                self._iter = iter(self.items)
+
+                return next(self._iter)
+
+            raise
+
+    def __iter__(self):
+        return self
 
     @property
     def items(self):
         raise NotImplementedError
-
-    def __next__(self):
-        return self.next()
-
-    def __iter__(self):
-        return self
 
 
 def get_emulator_host():
@@ -264,6 +266,15 @@ def validate_action_type(action_type):
             Valid values are {1}'.format(action_type, ', '.join(VALID_EMAIL_ACTION_TYPES)))
     return action_type
 
+def validate_provider_ids(provider_ids, required=False):
+    if not provider_ids:
+        if required:
+            raise ValueError('Invalid provider IDs. Provider ids should be provided')
+        return []
+    for provider_id in provider_ids:
+        validate_provider_id(provider_id, True)
+    return provider_ids
+
 def build_update_mask(params):
     """Creates an update mask list from the given dictionary."""
     mask = []
@@ -383,6 +394,15 @@ class ConfigurationNotFoundError(exceptions.NotFoundError):
 
     def __init__(self, message, cause=None, http_response=None):
         exceptions.NotFoundError.__init__(self, message, cause, http_response)
+
+
+class UserDisabledError(exceptions.InvalidArgumentError):
+    """An operation failed due to a user record being disabled."""
+
+    default_message = 'The user record is disabled'
+
+    def __init__(self, message, cause=None, http_response=None):
+        exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
 
 
 _CODE_TO_EXC_TYPE = {

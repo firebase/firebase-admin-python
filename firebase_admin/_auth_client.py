@@ -529,6 +529,15 @@ class Client:
                 This name is also used as the provider label in the Cloud Console.
             enabled: A boolean indicating whether the provider configuration is enabled or disabled
                 (optional). A user cannot sign in using a disabled provider.
+            client_secret: A string which sets the client secret for the new provider.
+                This is required for the code flow.
+            code_response_type: Sets whether to enable the code response flow for the new provider.
+                By default, this is not enabled if no response type is specified.
+                A client secret must be set for this response type.
+                Having both the code and ID token response flows is currently not supported.
+            id_token_response_type: Sets whether to enable the ID token response flow for the new
+                provider. By default, this is enabled if no response type is specified.
+                Having both the code and ID token response flows is currently not supported.
 
         Returns:
             OIDCProviderConfig: The newly created OIDC provider config instance.
@@ -543,7 +552,8 @@ class Client:
             id_token_response_type=id_token_response_type, code_response_type=code_response_type)
 
     def update_oidc_provider_config(
-            self, provider_id, client_id=None, issuer=None, display_name=None, enabled=None, client_secret=None, id_token_response_type=None, code_response_type=None):
+            self, provider_id, client_id=None, issuer=None, display_name=None, enabled=None,
+            client_secret=None, id_token_response_type=None, code_response_type=None):
         """Updates an existing OIDC provider config with the given parameters.
 
         Args:
@@ -554,6 +564,15 @@ class Client:
                 Pass ``auth.DELETE_ATTRIBUTE`` to delete the current display name.
             enabled: A boolean indicating whether the provider configuration is enabled or disabled
                 (optional).
+            client_secret: A string which sets the client secret for the new provider.
+                This is required for the code flow.
+            code_response_type: Sets whether to enable the code response flow for the new provider.
+                By default, this is not enabled if no response type is specified.
+                A client secret must be set for this response type.
+                Having both the code and ID token response flows is currently not supported.
+            id_token_response_type: Sets whether to enable the ID token response flow for the new
+                provider. By default, this is enabled if no response type is specified.
+                Having both the code and ID token response flows is currently not supported.
 
         Returns:
             OIDCProviderConfig: The updated OIDC provider config instance.

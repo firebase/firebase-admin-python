@@ -104,7 +104,7 @@ class HttpClient:
         Args:
           method: HTTP method name as a string (e.g. get, post).
           url: URL of the remote endpoint.
-          kwargs: An additional set of keyword arguments to be passed into the requests API
+          **kwargs: An additional set of keyword arguments to be passed into the requests API
               (e.g. json, params, timeout).
 
         Returns:

@@ -416,7 +416,7 @@ def create_user(**kwargs): # pylint: disable=differing-param-doc
     """Creates a new user account with the specified properties.
 
     Args:
-        kwargs: A series of keyword arguments (optional).
+        **kwargs: A series of keyword arguments (optional).
 
     Keyword Args:
         uid: User ID to assign to the newly created user (optional).
@@ -447,7 +447,7 @@ def update_user(uid, **kwargs): # pylint: disable=differing-param-doc
 
     Args:
         uid: A user ID string.
-        kwargs: A series of keyword arguments (optional).
+        **kwargs: A series of keyword arguments (optional).
 
     Keyword Args:
         display_name: The user's display name (optional). Can be removed by explicitly passing

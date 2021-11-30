@@ -288,7 +288,7 @@ class Client:
         """Creates a new user account with the specified properties.
 
         Args:
-            kwargs: A series of keyword arguments (optional).
+            **kwargs: A series of keyword arguments (optional).
 
         Keyword Args:
             uid: User ID to assign to the newly created user (optional).
@@ -316,7 +316,7 @@ class Client:
 
         Args:
             uid: A user ID string.
-            kwargs: A series of keyword arguments (optional).
+            **kwargs: A series of keyword arguments (optional).
 
         Keyword Args:
             display_name: The user's display name (optional). Can be removed by explicitly passing

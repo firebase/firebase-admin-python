@@ -121,7 +121,8 @@ class TestOIDCProviderConfig:
         {'display_name': True},
         {'enabled': 'true'},
         {'id_token_response_type': 'true'}, {'code_response_type': 'true'},
-        {'code_response_type': True, 'client_secret': ''}, {'code_response_type': True, 'client_secret': True},
+        {'code_response_type': True, 'client_secret': ''},
+        {'code_response_type': True, 'client_secret': True},
         {'code_response_type': True, 'client_secret': None},
         {'code_response_type': False, 'id_token_response_type': False},
     ])
@@ -205,7 +206,8 @@ class TestOIDCProviderConfig:
         {'display_name': True},
         {'enabled': 'true'},
         {'id_token_response_type': 'true'}, {'code_response_type': 'true'},
-        {'code_response_type': True, 'client_secret': ''}, {'code_response_type': True, 'client_secret': True},
+        {'code_response_type': True, 'client_secret': ''},
+        {'code_response_type': True, 'client_secret': True},
         {'code_response_type': True, 'client_secret': None},
         {'code_response_type': False, 'id_token_response_type': False},
     ])
@@ -225,7 +227,8 @@ class TestOIDCProviderConfig:
         assert len(recorder) == 1
         req = recorder[0]
         assert req.method == 'PATCH'
-        mask = ['clientId', 'clientSecret', 'displayName', 'enabled', 'issuer', 'responseType.code', 'responseType.idToken']
+        mask = ['clientId', 'clientSecret', 'displayName', 'enabled', 'issuer',
+            'responseType.code', 'responseType.idToken']
         assert req.url == '{0}/oauthIdpConfigs/oidc.provider?updateMask={1}'.format(
             USER_MGT_URLS['PREFIX'], ','.join(mask))
         got = json.loads(req.body.decode())
@@ -250,7 +253,8 @@ class TestOIDCProviderConfig:
         recorder = _instrument_provider_mgt(user_mgt_app, 200, OIDC_PROVIDER_CONFIG_RESPONSE)
 
         provider_config = auth.update_oidc_provider_config(
-            'oidc.provider', display_name=auth.DELETE_ATTRIBUTE, enabled=False, id_token_response_type=False, app=user_mgt_app)
+            'oidc.provider', display_name=auth.DELETE_ATTRIBUTE, enabled=False,
+            id_token_response_type=False, app=user_mgt_app)
 
         self._assert_provider_config(provider_config)
         assert len(recorder) == 1

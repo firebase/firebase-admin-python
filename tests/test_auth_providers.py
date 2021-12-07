@@ -228,7 +228,7 @@ class TestOIDCProviderConfig:
         req = recorder[0]
         assert req.method == 'PATCH'
         mask = ['clientId', 'clientSecret', 'displayName', 'enabled', 'issuer',
-            'responseType.code', 'responseType.idToken']
+                'responseType.code', 'responseType.idToken']
         assert req.url == '{0}/oauthIdpConfigs/oidc.provider?updateMask={1}'.format(
             USER_MGT_URLS['PREFIX'], ','.join(mask))
         got = json.loads(req.body.decode())

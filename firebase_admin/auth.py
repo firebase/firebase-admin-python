@@ -674,12 +674,12 @@ def create_oidc_provider_config(
         app: An App instance (optional).
         client_secret: A string which sets the client secret for the new provider.
             This is required for the code flow.
-        code_response_type: Sets whether to enable the code response flow for the new provider.
-            By default, this is not enabled if no response type is specified.
+        code_response_type: A boolean which sets whether to enable the code response flow for the
+            new provider. By default, this is not enabled if no response type is specified.
             A client secret must be set for this response type.
             Having both the code and ID token response flows is currently not supported.
-        id_token_response_type: Sets whether to enable the ID token response flow for the new
-            provider. By default, this is enabled if no response type is specified.
+        id_token_response_type: A boolean which sets whether to enable the ID token response flow
+            for the new provider. By default, this is enabled if no response type is specified.
             Having both the code and ID token response flows is currently not supported.
 
     Returns:
@@ -712,12 +712,12 @@ def update_oidc_provider_config(
         app: An App instance (optional).
         client_secret: A string which sets the client secret for the new provider.
             This is required for the code flow.
-        code_response_type: Sets whether to enable the code response flow for the new provider.
-            By default, this is not enabled if no response type is specified.
+        code_response_type: A boolean which sets whether to enable the code response flow for the
+            new provider. By default, this is not enabled if no response type is specified.
             A client secret must be set for this response type.
             Having both the code and ID token response flows is currently not supported.
-        id_token_response_type: Sets whether to enable the ID token response flow for the new
-            provider. By default, this is enabled if no response type is specified.
+        id_token_response_type: A boolean which sets whether to enable the ID token response flow
+            for the new provider. By default, this is enabled if no response type is specified.
             Having both the code and ID token response flows is currently not supported.
 
     Returns:

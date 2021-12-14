@@ -656,7 +656,8 @@ def get_oidc_provider_config(provider_id, app=None):
     return client.get_oidc_provider_config(provider_id)
 
 def create_oidc_provider_config(
-        provider_id, client_id, issuer, display_name=None, enabled=None, app=None):
+        provider_id, client_id, issuer, display_name=None, enabled=None, client_secret=None,
+        id_token_response_type=None, code_response_type=None, app=None):
     """Creates a new OIDC provider config from the given parameters.
 
     OIDC provider support requires Google Cloud's Identity Platform (GCIP). To learn more about
@@ -671,6 +672,15 @@ def create_oidc_provider_config(
         enabled: A boolean indicating whether the provider configuration is enabled or disabled
             (optional). A user cannot sign in using a disabled provider.
         app: An App instance (optional).
+        client_secret: A string which sets the client secret for the new provider.
+            This is required for the code flow.
+        code_response_type: A boolean which sets whether to enable the code response flow for the
+            new provider. By default, this is not enabled if no response type is specified.
+            A client secret must be set for this response type.
+            Having both the code and ID token response flows is currently not supported.
+        id_token_response_type: A boolean which sets whether to enable the ID token response flow
+            for the new provider. By default, this is enabled if no response type is specified.
+            Having both the code and ID token response flows is currently not supported.
 
     Returns:
         OIDCProviderConfig: The newly created OIDC provider config instance.
@@ -682,11 +692,13 @@ def create_oidc_provider_config(
     client = _get_client(app)
     return client.create_oidc_provider_config(
         provider_id, client_id=client_id, issuer=issuer, display_name=display_name,
-        enabled=enabled)
+        enabled=enabled, client_secret=client_secret, id_token_response_type=id_token_response_type,
+        code_response_type=code_response_type)
 
 
 def update_oidc_provider_config(
-        provider_id, client_id=None, issuer=None, display_name=None, enabled=None, app=None):
+        provider_id, client_id=None, issuer=None, display_name=None, enabled=None,
+        client_secret=None, id_token_response_type=None, code_response_type=None, app=None):
     """Updates an existing OIDC provider config with the given parameters.
 
     Args:
@@ -698,6 +710,15 @@ def update_oidc_provider_config(
         enabled: A boolean indicating whether the provider configuration is enabled or disabled
             (optional).
         app: An App instance (optional).
+        client_secret: A string which sets the client secret for the new provider.
+            This is required for the code flow.
+        code_response_type: A boolean which sets whether to enable the code response flow for the
+            new provider. By default, this is not enabled if no response type is specified.
+            A client secret must be set for this response type.
+            Having both the code and ID token response flows is currently not supported.
+        id_token_response_type: A boolean which sets whether to enable the ID token response flow
+            for the new provider. By default, this is enabled if no response type is specified.
+            Having both the code and ID token response flows is currently not supported.
 
     Returns:
         OIDCProviderConfig: The updated OIDC provider config instance.
@@ -709,7 +730,8 @@ def update_oidc_provider_config(
     client = _get_client(app)
     return client.update_oidc_provider_config(
         provider_id, client_id=client_id, issuer=issuer, display_name=display_name,
-        enabled=enabled)
+        enabled=enabled, client_secret=client_secret, id_token_response_type=id_token_response_type,
+        code_response_type=code_response_type)
 
 
 def delete_oidc_provider_config(provider_id, app=None):

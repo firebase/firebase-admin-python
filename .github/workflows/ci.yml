@@ -22,10 +22,10 @@ jobs:
         pip install -r requirements.txt
     - name: Test with pytest
       run: pytest
-    - name: Set up Node.js 10
+    - name: Set up Node.js 16
       uses: actions/setup-node@v1
       with:
-        node-version: 10.x
+        node-version: 16.x
     - name: Run integration tests against emulator
       run: |
         npm install -g firebase-tools

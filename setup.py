@@ -50,6 +50,9 @@ setup(
     description='Firebase Admin Python SDK',
     long_description=long_description,
     url=about['__url__'],
+    project_urls={
+        'Source': 'https://github.com/firebase/firebase-admin-python',
+    },
     author=about['__author__'],
     license=about['__license__'],
     keywords='firebase cloud development',

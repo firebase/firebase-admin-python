@@ -1,4 +1,4 @@
-# Copyright 2017 Google Inc.
+# Copyright 2022 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +14,21 @@
 
 """Cloud Firestore Async module.
 
-This module contains utilities for accessing the Google Cloud Firestore databases associated with
-Firebase apps. This requires the ``google-cloud-firestore`` Python module.
+This module contains utilities for asynchronusly accessing the Google Cloud Firestore databases
+associated with Firebase apps. This requires the ``google-cloud-firestore`` Python module.
 """
 
+from __future__ import annotations
+from typing import Type
+
+from firebase_admin import (
+    App,
+    _utils,
+)
+from firebase_admin.credentials import Base
+
 try:
-    from google.cloud import firestore # pylint: disable=import-error,no-name-in-module
+    from google.cloud import firestore # type: ignore # pylint: disable=import-error,no-name-in-module
     existing = globals().keys()
     for key, value in firestore.__dict__.items():
         if not key.startswith('_') and key not in existing:
@@ -28,14 +37,11 @@ except ImportError:
     raise ImportError('Failed to import the Cloud Firestore library for Python. Make sure '
                       'to install the "google-cloud-firestore" module.')
 
-from firebase_admin import _utils
+_FIRESTORE_ASYNC_ATTRIBUTE: str = '_firestore_async'
 
 
-_FIRESTORE_ASYNC_ATTRIBUTE = '_firestore_async'
-
-
-def client(app=None):
-    """Returns a client that can be used to interact with Google Cloud Firestore.
+def client(app: App = None) -> firestore.AsyncClient:
+    """Returns an async client that can be used to interact with Google Cloud Firestore.
 
     Args:
       app: An App instance (optional).
@@ -57,14 +63,14 @@ def client(app=None):
 class _FirestoreAsyncClient:
     """Holds a Google Cloud Firestore Async Client instance."""
 
-    def __init__(self, credentials, project):
+    def __init__(self, credentials: Type[Base], project: str) -> None:
         self._client = firestore.AsyncClient(credentials=credentials, project=project)
 
     def get(self):
         return self._client
 
     @classmethod
-    def from_app(cls, app):
+    def from_app(cls, app: App) -> _FirestoreAsyncClient:
         """Creates a new _FirestoreAsyncClient for the specified app."""
         credentials = app.credential.get_credential()
         project = app.project_id

@@ -70,7 +70,7 @@ class _FirestoreAsyncClient:
 
     @classmethod
     def from_app(cls, app: App) -> "_FirestoreAsyncClient":
-        # Replace remove future reference quotes by importing annotations in Python 3.7+ (b/238779406)
+        # Replace remove future reference quotes by importing annotations in Python 3.7+ b/238779406
         """Creates a new _FirestoreAsyncClient for the specified app."""
         credentials = app.credential.get_credential()
         project = app.project_id

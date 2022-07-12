@@ -65,11 +65,12 @@ class _FirestoreAsyncClient:
     def __init__(self, credentials: Type[Base], project: str) -> None:
         self._client = firestore.AsyncClient(credentials=credentials, project=project)
 
-    def get(self):
+    def get(self) -> firestore.AsyncClient:
         return self._client
 
     @classmethod
     def from_app(cls, app: App) -> "_FirestoreAsyncClient":
+        # Replace remove future reference quotes by importing annotations in Python 3.7+ (b/238779406)
         """Creates a new _FirestoreAsyncClient for the specified app."""
         credentials = app.credential.get_credential()
         project = app.project_id

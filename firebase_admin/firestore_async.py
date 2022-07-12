@@ -18,7 +18,6 @@ This module contains utilities for asynchronusly accessing the Google Cloud Fire
 associated with Firebase apps. This requires the ``google-cloud-firestore`` Python module.
 """
 
-from __future__ import annotations
 from typing import Type
 
 from firebase_admin import (
@@ -70,7 +69,7 @@ class _FirestoreAsyncClient:
         return self._client
 
     @classmethod
-    def from_app(cls, app: App) -> _FirestoreAsyncClient:
+    def from_app(cls, app: App) -> "_FirestoreAsyncClient":
         """Creates a new _FirestoreAsyncClient for the specified app."""
         credentials = app.credential.get_credential()
         project = app.project_id

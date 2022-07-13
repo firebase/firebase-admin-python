@@ -1,4 +1,4 @@
-# Copyright 2017 Google Inc.
+# Copyright 2022 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 """pytest configuration and global fixtures for integration tests."""
 import json
 
+import asyncio
 import pytest
 
 import firebase_admin
@@ -70,3 +71,12 @@ def api_key(request):
                          'command-line option.')
     with open(path) as keyfile:
         return keyfile.read().strip()
+
+@pytest.fixture(scope="session")
+def event_loop():
+    """Create an instance of the default event loop for test session.
+    This avoids early eventloop closure.
+    """
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()

@@ -393,7 +393,8 @@ class _JWTVerifier:
                     token,
                     request=request,
                     audience=self.project_id,
-                    certs_url=self.cert_url)
+                    certs_url=self.cert_url,
+                    clock_skew_in_seconds=60)
             verified_claims['uid'] = verified_claims['sub']
             return verified_claims
         except google.auth.exceptions.TransportError as error:

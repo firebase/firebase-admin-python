@@ -14,9 +14,11 @@
 
 """Integration tests for firebase_admin.firestore_async module."""
 import datetime
+import pytest
 
 from firebase_admin import firestore_async
 
+@pytest.mark.asyncio
 async def test_firestore_async():
     client = firestore_async.client()
     expected = {
@@ -35,6 +37,7 @@ async def test_firestore_async():
     data = await doc.get()
     assert data.exists is False
 
+@pytest.mark.asyncio
 async def test_server_timestamp():
     client = firestore_async.client()
     expected = {

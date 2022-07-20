@@ -95,6 +95,7 @@ UnregisteredError = _messaging_utils.UnregisteredError
 def _get_messaging_service(app):
     return _utils.get_app_service(app, _MESSAGING_ATTRIBUTE, _MessagingService)
 
+
 def send(message, dry_run=False, app=None):
     """Sends the given message via Firebase Cloud Messaging (FCM).
 
@@ -115,6 +116,7 @@ def send(message, dry_run=False, app=None):
     """
     return _get_messaging_service(app).send(message, dry_run)
 
+
 def send_all(messages, dry_run=False, app=None):
     """Sends the given list of messages via Firebase Cloud Messaging as a single batch.
 
@@ -134,6 +136,7 @@ def send_all(messages, dry_run=False, app=None):
         ValueError: If the input arguments are invalid.
     """
     return _get_messaging_service(app).send_all(messages, dry_run)
+
 
 def send_multicast(multicast_message, dry_run=False, app=None):
     """Sends the given mutlicast message to all tokens via Firebase Cloud Messaging (FCM).
@@ -166,6 +169,7 @@ def send_multicast(multicast_message, dry_run=False, app=None):
     ) for token in multicast_message.tokens]
     return _get_messaging_service(app).send_all(messages, dry_run)
 
+
 def subscribe_to_topic(tokens, topic, app=None):
     """Subscribes a list of registration tokens to an FCM topic.
 
@@ -184,6 +188,7 @@ def subscribe_to_topic(tokens, topic, app=None):
     """
     return _get_messaging_service(app).make_topic_management_request(
         tokens, topic, 'iid/v1:batchAdd')
+
 
 def unsubscribe_from_topic(tokens, topic, app=None):
     """Unsubscribes a list of registration tokens from an FCM topic.

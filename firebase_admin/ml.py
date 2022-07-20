@@ -211,13 +211,13 @@ class Model:
             tflite_format = TFLiteFormat.from_dict(tflite_format_data)
         model = Model(model_format=tflite_format)
         model._data = data_copy  # pylint: disable=protected-access
-        model._app = app # pylint: disable=protected-access
+        model._app = app  # pylint: disable=protected-access
         return model
 
     def _update_from_dict(self, data):
         copy = Model.from_dict(data)
         self.model_format = copy.model_format
-        self._data = copy._data # pylint: disable=protected-access
+        self._data = copy._data  # pylint: disable=protected-access
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -334,7 +334,7 @@ class Model:
     def model_format(self, model_format):
         if model_format is not None:
             _validate_model_format(model_format)
-        self._model_format = model_format  #Can be None
+        self._model_format = model_format  # Can be None
         return self
 
     def as_dict(self, for_upload=False):
@@ -370,7 +370,7 @@ class TFLiteFormat(ModelFormat):
         """Create an instance of the object from a dict."""
         data_copy = dict(data)
         tflite_format = TFLiteFormat(model_source=cls._init_model_source(data_copy))
-        tflite_format._data = data_copy # pylint: disable=protected-access
+        tflite_format._data = data_copy  # pylint: disable=protected-access
         return tflite_format
 
     def __eq__(self, other):
@@ -405,7 +405,7 @@ class TFLiteFormat(ModelFormat):
         if model_source is not None:
             if not isinstance(model_source, TFLiteModelSource):
                 raise TypeError('Model source must be a TFLiteModelSource object.')
-        self._model_source = model_source # Can be None
+        self._model_source = model_source  # Can be None
 
     @property
     def size_bytes(self):
@@ -485,7 +485,7 @@ class TFLiteGCSModelSource(TFLiteModelSource):
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
-            return self._gcs_tflite_uri == other._gcs_tflite_uri # pylint: disable=protected-access
+            return self._gcs_tflite_uri == other._gcs_tflite_uri  # pylint: disable=protected-access
         return False
 
     def __ne__(self, other):
@@ -775,7 +775,7 @@ def _validate_display_name(display_name):
 
 def _validate_tags(tags):
     if not isinstance(tags, list) or not \
-        all(isinstance(tag, str) for tag in tags):
+       all(isinstance(tag, str) for tag in tags):
         raise TypeError('Tags must be a list of strings.')
     if not all(_TAG_PATTERN.match(tag) for tag in tags):
         raise ValueError('Tag format is invalid.')
@@ -788,6 +788,7 @@ def _validate_gcs_tflite_uri(uri):
     if not _GCS_TFLITE_URI_PATTERN.match(uri):
         raise ValueError('GCS TFLite URI format is invalid.')
     return uri
+
 
 def _validate_auto_ml_model(model):
     if not _AUTO_ML_MODEL_PATTERN.match(model):
@@ -809,7 +810,7 @@ def _validate_list_filter(list_filter):
 
 def _validate_page_size(page_size):
     if page_size is not None:
-        if type(page_size) is not int: # pylint: disable=unidiomatic-typecheck
+        if type(page_size) is not int:  # pylint: disable=unidiomatic-typecheck
             # Specifically type() to disallow boolean which is a subtype of int
             raise TypeError('Page size must be a number or None.')
         if page_size < 1 or page_size > _MAX_PAGE_SIZE:
@@ -864,7 +865,7 @@ class _MLService:
 
         if stop_time is not None:
             max_seconds_left = (stop_time - datetime.datetime.now()).total_seconds()
-            if max_seconds_left < 1: # allow a bit of time for rpc
+            if max_seconds_left < 1:  # allow a bit of time for rpc
                 raise exceptions.DeadlineExceededError('Polling max time exceeded.')
             wait_time_seconds = min(wait_time_seconds, max_seconds_left - 1)
         time.sleep(wait_time_seconds)
@@ -924,7 +925,6 @@ class _MLService:
 
         # If the operation is not complete or timed out, return a (locked) model instead
         return get_model(model_id).as_dict()
-
 
     def create_model(self, model):
         _validate_model(model)

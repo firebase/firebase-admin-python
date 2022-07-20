@@ -17,6 +17,7 @@ import datetime
 import json
 import os
 import threading
+from typing import Any, Callable, Dict, Optional
 
 from firebase_admin import credentials
 from firebase_admin.__about__ import __version__
@@ -31,7 +32,8 @@ _FIREBASE_CONFIG_ENV_VAR = 'FIREBASE_CONFIG'
 _CONFIG_VALID_KEYS = ['databaseAuthVariableOverride', 'databaseURL', 'httpTimeout', 'projectId',
                       'storageBucket']
 
-def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
+
+def initialize_app(credential: Optional[credentials.Base] = None, options: Optional[Dict[str, Any]] = None, name: str = _DEFAULT_APP_NAME) -> "App":
     """Initializes and returns a new App instance.
 
     Creates a new App instance using the specified options
@@ -83,7 +85,7 @@ def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
         'you call initialize_app().').format(name))
 
 
-def delete_app(app):
+def delete_app(app: "App"):
     """Gracefully deletes an App instance.
 
     Args:
@@ -98,7 +100,7 @@ def delete_app(app):
     with _apps_lock:
         if _apps.get(app.name) is app:
             del _apps[app.name]
-            app._cleanup() # pylint: disable=protected-access
+            app._cleanup()  # pylint: disable=protected-access
             return
     if app.name == _DEFAULT_APP_NAME:
         raise ValueError(
@@ -111,7 +113,7 @@ def delete_app(app):
          'second argument.').format(app.name))
 
 
-def get_app(name=_DEFAULT_APP_NAME):
+def get_app(name: str = _DEFAULT_APP_NAME) -> "App":
     """Retrieves an App instance by name.
 
     Args:
@@ -190,7 +192,7 @@ class App:
     common to all Firebase APIs.
     """
 
-    def __init__(self, name, credential, options):
+    def __init__(self, name: str, credential: credentials.Base, options: Optional[Dict[str, Any]]):
         """Constructs a new App using the provided name and options.
 
         Args:
@@ -265,7 +267,7 @@ class App:
         App._validate_project_id(self._options.get('projectId'))
         return project_id
 
-    def _get_service(self, name, initializer):
+    def _get_service(self, name: str, initializer: Callable):
         """Returns the service instance identified by the given name.
 
         Services are functional entities exposed by the Admin SDK (e.g. auth, database). Each

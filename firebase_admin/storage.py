@@ -25,12 +25,14 @@ except ImportError:
     raise ImportError('Failed to import the Cloud Storage library for Python. Make sure '
                       'to install the "google-cloud-storage" module.')
 
-from firebase_admin import _utils
+from firebase_admin import _utils, App
+from typing import Optional
 
 
 _STORAGE_ATTRIBUTE = '_storage'
 
-def bucket(name=None, app=None) -> storage.Bucket:
+
+def bucket(name: Optional[str] = None, app: Optional[App] = None) -> storage.Bucket:
     """Returns a handle to a Google Cloud Storage bucket.
 
     If the name argument is not provided, uses the 'storageBucket' option specified when
@@ -67,7 +69,7 @@ class _StorageClient:
         # significantly speeds up the initialization of the storage client.
         return _StorageClient(credentials, app.project_id, default_bucket)
 
-    def bucket(self, name=None):
+    def bucket(self, name: Optional[str] = None):
         """Returns a handle to the specified Cloud Storage Bucket."""
         bucket_name = name if name is not None else self._default_bucket
         if bucket_name is None:

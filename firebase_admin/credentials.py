@@ -17,7 +17,10 @@ import collections
 import json
 import pathlib
 
-from typing import Type
+from typing import (
+    Type,
+    List
+)
 
 import google.auth  # type: ignore
 from google.auth import default
@@ -32,7 +35,7 @@ from google.oauth2 import _service_account_async as service_account_async
 
 _request: requests.Request = requests.Request()
 _request_async: aiohttp_requests.Request = aiohttp_requests.Request()
-_scopes: list[str] = [
+_scopes: List[str] = [
     'https://www.googleapis.com/auth/cloud-platform',
     'https://www.googleapis.com/auth/datastore',
     'https://www.googleapis.com/auth/devstorage.read_write',

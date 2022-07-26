@@ -17,14 +17,22 @@ import collections
 import json
 import pathlib
 
-import google.auth
-from google.auth.transport import requests
-from google.oauth2 import credentials
+from typing import Type
+
+import google.auth  # type: ignore
+from google.auth import default
+from google.auth._default_async import default_async    # type: ignore
+from google.auth.transport import requests  # type: ignore
+from google.auth.transport import _aiohttp_requests as aiohttp_requests
+from google.oauth2 import credentials   # type: ignore
+from google.oauth2 import _credentials_async as credentials_async
 from google.oauth2 import service_account
+from google.oauth2 import _service_account_async as service_account_async
 
 
-_request = requests.Request()
-_scopes = [
+_request: requests.Request = requests.Request()
+_request_async: aiohttp_requests.Request = aiohttp_requests.Request()
+_scopes: list[str] = [
     'https://www.googleapis.com/auth/cloud-platform',
     'https://www.googleapis.com/auth/datastore',
     'https://www.googleapis.com/auth/devstorage.read_write',
@@ -33,7 +41,7 @@ _scopes = [
     'https://www.googleapis.com/auth/userinfo.email'
 ]
 
-AccessTokenInfo = collections.namedtuple('AccessTokenInfo', ['access_token', 'expiry'])
+AccessTokenInfo: Type[tuple] = collections.namedtuple('AccessTokenInfo', ['access_token', 'expiry'])
 """Data included in an OAuth2 access token.
 
 Contains the access token string and the expiry time. The expirty time is exposed as a
@@ -44,8 +52,8 @@ Contains the access token string and the expiry time. The expirty time is expose
 class Base:
     """Provides OAuth2 access tokens for accessing Firebase services."""
 
-    def get_access_token(self):
-        """Fetches a Google OAuth2 access token using this credential instance.
+    def get_access_token(self) -> tuple:
+        """Fetches a Google OAuth2 access token using the synchronous credential instance.
 
         Returns:
           AccessTokenInfo: An access token obtained using the credential.
@@ -54,8 +62,22 @@ class Base:
         google_cred.refresh(_request)
         return AccessTokenInfo(google_cred.token, google_cred.expiry)
 
+    async def get_access_token_async(self) -> tuple:
+        """Fetches a Google OAuth2 access token using the asynchronous credential instance.
+
+        Returns:
+          AccessTokenInfo: An access token obtained using the credential.
+        """
+        google_cred = self.get_credential_async()
+        await google_cred.refresh(_request_async)
+        return AccessTokenInfo(google_cred.token, google_cred.expiry)
+
     def get_credential(self):
-        """Returns the Google credential instance used for authentication."""
+        """Returns the Google synchronous credential instance used for authentication."""
+        raise NotImplementedError
+
+    def get_credential_async(self):
+        """Returns the Google asynchronous credential instance used for authentication."""
         raise NotImplementedError
 
 
@@ -64,8 +86,8 @@ class Certificate(Base):
 
     _CREDENTIAL_TYPE = 'service_account'
 
-    def __init__(self, cert):
-        """Initializes a credential from a Google service account certificate.
+    def __init__(self, cert: str) -> None:
+        """Initializes credentials from a Google service account certificate.
 
         Service account certificates can be downloaded as JSON files from the Firebase console.
         To instantiate a credential from a certificate file, either specify the file path or a
@@ -95,44 +117,54 @@ class Certificate(Base):
         try:
             self._g_credential = service_account.Credentials.from_service_account_info(
                 json_data, scopes=_scopes)
+            self._g_credential_async = service_account_async.Credentials.from_service_account_info(
+                json_data, scopes=_scopes)
         except ValueError as error:
             raise ValueError('Failed to initialize a certificate credential. '
                              'Caused by: "{0}"'.format(error))
 
     @property
-    def project_id(self):
+    def project_id(self) -> str:
         return self._g_credential.project_id
 
     @property
-    def signer(self):
+    def signer(self) -> google.auth.crypt.Signer:
         return self._g_credential.signer
 
     @property
-    def service_account_email(self):
+    def service_account_email(self) -> str:
         return self._g_credential.service_account_email
 
-    def get_credential(self):
-        """Returns the underlying Google credential.
+    def get_credential(self) -> service_account.Credentials:
+        """Returns the underlying Google synchronous credential.
 
         Returns:
-          google.auth.credentials.Credentials: A Google Auth credential instance."""
+          google.auth.credentials.Credentials: A Google Auth synchronous credential instance."""
         return self._g_credential
 
+    def get_credential_async(self) -> service_account_async.Credentials:
+        """Returns the underlying Google asynchronous credential.
+
+        Returns:
+          google.auth._credentials_async.Credentials: A Google Auth asynchronous credential
+          instance."""
+        return self._g_credential_async
 
 class ApplicationDefault(Base):
     """A Google Application Default credential."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Creates an instance that will use Application Default credentials.
 
-        The credentials will be lazily initialized when get_credential() or
-        project_id() is called. See those methods for possible errors raised.
+        The credentials will be lazily initialized when get_credential(), get_credential_async()
+        or project_id() is called. See those methods for possible errors raised.
         """
         super(ApplicationDefault, self).__init__()
         self._g_credential = None  # Will be lazily-loaded via _load_credential().
+        self._g_credential_async = None  # Will be lazily-loaded via _load_credential_async().
 
-    def get_credential(self):
-        """Returns the underlying Google credential.
+    def get_credential(self) -> credentials.Credentials:
+        """Returns the underlying Google synchronous credential.
 
         Raises:
           google.auth.exceptions.DefaultCredentialsError: If Application Default
@@ -142,9 +174,20 @@ class ApplicationDefault(Base):
         self._load_credential()
         return self._g_credential
 
+    def get_credential_async(self) -> credentials_async.Credentials:
+        """Returns the underlying Google asynchronous credential.
+
+        Raises:
+          google.auth.exceptions.DefaultCredentialsError: If Application Default
+              credentials cannot be initialized in the current environment.
+        Returns:
+          google.auth._credentials_async.Credentials: A Google Auth credential instance."""
+        self._load_credential_async()
+        return self._g_credential_async
+
     @property
-    def project_id(self):
-        """Returns the project_id from the underlying Google credential.
+    def project_id(self) -> str:
+        """Returns the project_id from the underlying Google credentials.
 
         Raises:
           google.auth.exceptions.DefaultCredentialsError: If Application Default
@@ -154,21 +197,25 @@ class ApplicationDefault(Base):
         self._load_credential()
         return self._project_id
 
-    def _load_credential(self):
+    def _load_credential(self) -> None:
         if not self._g_credential:
-            self._g_credential, self._project_id = google.auth.default(scopes=_scopes)
+            self._g_credential, self._project_id = default(scopes=_scopes)
+
+    def _load_credential_async(self) -> None:
+        if not self._g_credential_async:
+            self._g_credential_async, self._project_id = default_async(scopes=_scopes)
 
 class RefreshToken(Base):
-    """A credential initialized from an existing refresh token."""
+    """Credentials initialized from an existing refresh token."""
 
     _CREDENTIAL_TYPE = 'authorized_user'
 
-    def __init__(self, refresh_token):
-        """Initializes a credential from a refresh token JSON file.
+    def __init__(self, refresh_token: str) -> None:
+        """Initializes credentials from a refresh token JSON file.
 
         The JSON must consist of client_id, client_secret and refresh_token fields. Refresh
         token files are typically created and managed by the gcloud SDK. To instantiate
-        a credential from a refresh token file, either specify the file path or a dict
+        credentials from a refresh token file, either specify the file path or a dict
         representing the parsed contents of the file.
 
         Args:
@@ -194,28 +241,40 @@ class RefreshToken(Base):
             raise ValueError('Invalid refresh token configuration. JSON must contain a '
                              '"type" field set to "{0}".'.format(self._CREDENTIAL_TYPE))
         self._g_credential = credentials.Credentials.from_authorized_user_info(json_data, _scopes)
+        self._g_credential_async = credentials_async.Credentials.from_authorized_user_info(
+            json_data,
+            _scopes
+        )
 
     @property
-    def client_id(self):
+    def client_id(self) -> str:
         return self._g_credential.client_id
 
     @property
-    def client_secret(self):
+    def client_secret(self) -> str:
         return self._g_credential.client_secret
 
     @property
-    def refresh_token(self):
+    def refresh_token(self) -> str:
         return self._g_credential.refresh_token
 
-    def get_credential(self):
-        """Returns the underlying Google credential.
+    def get_credential(self) -> credentials.Credentials:
+        """Returns the underlying Google synchronous credential.
 
         Returns:
-          google.auth.credentials.Credentials: A Google Auth credential instance."""
+          google.auth.credentials.Credentials: A Google Auth synchronous credential instance."""
         return self._g_credential
 
+    def get_credential_async(self) -> credentials_async.Credentials:
+        """Returns the underlying Google asynchronous credential.
 
-def _is_file_path(path):
+        Returns:
+          google.auth._credentials_async.Credentials: A Google Auth asynchronous credential
+          instance."""
+        return self._g_credential_async
+
+
+def _is_file_path(path) -> bool:
     try:
         pathlib.Path(path)
         return True

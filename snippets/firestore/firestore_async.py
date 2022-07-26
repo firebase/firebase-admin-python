@@ -17,18 +17,18 @@ import asyncio
 from firebase_admin import firestore_async
 
 # pylint: disable=invalid-name
-def init_firestore_client():
-    # [START init_firestore_client]
+def init_firestore_async_client():
+    # [START init_firestore_async_client]
     import firebase_admin
     from firebase_admin import firestore_async
 
     # Application Default credentials are automatically created.
     app = firebase_admin.initialize_app()
     db = firestore_async.client()
-    # [END init_firestore_client]
+    # [END init_firestore_async_client]
 
-def init_firestore_client_application_default():
-    # [START init_firestore_client_application_default]
+def init_firestore_async_client_application_default():
+    # [START init_firestore_async_client_application_default]
     import firebase_admin
     from firebase_admin import credentials
     from firebase_admin import firestore_async
@@ -38,10 +38,10 @@ def init_firestore_client_application_default():
 
     firebase_admin.initialize_app(cred)
     db = firestore_async.client()
-    # [END init_firestore_client_application_default]
+    # [END init_firestore_async_client_application_default]
 
-def init_firestore_client_service_account():
-    # [START init_firestore_client_service_account]
+def init_firestore_async_client_service_account():
+    # [START init_firestore_async_client_service_account]
     import firebase_admin
     from firebase_admin import credentials
     from firebase_admin import firestore_async
@@ -52,7 +52,7 @@ def init_firestore_client_service_account():
     app = firebase_admin.initialize_app(cred)
 
     db = firestore_async.client()
-    # [END init_firestore_client_service_account]
+    # [END init_firestore_async_client_service_account]
 
 def close_async_sessions():
     import firebase_admin
@@ -98,8 +98,8 @@ async def add_data():
     })
     # [END add_data]
 
-def firestore_with_asyncio_eventloop():
-    # [START firestore_with_asyncio_eventloop]
+def firestore_async_client_with_asyncio_eventloop():
+    # [START firestore_async_client_with_asyncio_eventloop]
     import asyncio
     import firebase_admin
     from firebase_admin import firestore_async
@@ -129,4 +129,4 @@ def firestore_with_asyncio_eventloop():
     tasks = [add_data(), while_waiting()]
     loop.run_until_complete(asyncio.gather(*tasks))
     firebase_admin.delete_app(app)
-    # [END firestore_with_asyncio_eventloop]
+    # [END firestore_async_client_with_asyncio_eventloop]

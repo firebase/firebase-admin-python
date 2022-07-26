@@ -82,4 +82,3 @@ def add_data():
         "born": 1815
     })
     # [END add_data]
-    

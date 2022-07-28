@@ -47,7 +47,7 @@ def init_firestore_async_client_service_account():
     from firebase_admin import firestore_async
 
     # Use a service account.
-    cred = credentials.Certificate('<var>path/to/serviceAccount.json</var>')
+    cred = credentials.Certificate('path/to/serviceAccount.json')
 
     app = firebase_admin.initialize_app(cred)
 

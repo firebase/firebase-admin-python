@@ -17,11 +17,17 @@ import io
 import os
 
 import pytest
+import urllib3
 
 from google.auth import credentials
+from google.auth import _credentials_async
 from google.auth import transport
+from google.auth.transport._aiohttp_requests import AuthorizedSession
 from requests import adapters
 from requests import models
+
+import aiohttp
+import asyncio
 
 import firebase_admin
 
@@ -119,6 +125,12 @@ class MockGoogleCredential(credentials.Credentials):
     def refresh(self, request):
         self.token = 'mock-token'
 
+class MockGoogleCredentialAsync(_credentials_async.Credentials):
+    """A mock Google authentication credential."""
+    async def refresh(self, request):
+        self.token = 'mock-token'
+        await asyncio.sleep(1)
+
 
 class MockCredential(firebase_admin.credentials.Base):
     """A mock Firebase credential implementation."""
@@ -129,6 +141,14 @@ class MockCredential(firebase_admin.credentials.Base):
     def get_credential(self):
         return self._g_credential
 
+class MockCredentialAsync(firebase_admin.credentials.Base):
+    """A mock Firebase credential implementation."""
+
+    def __init__(self):
+        self._g_credential_async = MockGoogleCredentialAsync()
+
+    def get_credential_async(self):
+        return self._g_credential_async
 
 class MockMultiRequestAdapter(adapters.HTTPAdapter):
     """A mock HTTP adapter that supports multiple responses for the Python requests module."""
@@ -171,3 +191,71 @@ class MockAdapter(MockMultiRequestAdapter):
     @property
     def data(self):
         return self._responses[0]
+
+class MockClientResponse(aiohttp.ClientResponse):
+    def __init__(self, responses, statuses, recorder, current_response, method, url, **kwargs):
+        if len(responses) != len(statuses):
+            raise ValueError('The lengths of responses and statuses do not match.')
+
+        self._url = url
+        self.status_code = statuses[current_response]
+        self.content = responses[current_response]
+        self.raw = io.BytesIO(responses[current_response].encode())
+
+    @property
+    def url(self):
+        return self._url
+
+    @property
+    def status(self):
+        return self.status_code
+
+    @property
+    def data(self):
+        return self
+    
+    @property
+    def text(self):
+        return self.content
+
+class MockSession(aiohttp.ClientSession):
+    def __init__(self, data, status, recorder, credentials=None):
+        super(MockSession, self).__init__(credentials)
+        # self._response = MockClientResponse(data, status, recorder, method, url)
+        self._current_response = 0
+        self._data = data
+        self._responses = [data]
+        self._status = status
+        self._statuses = [status]
+        self.recorder = recorder
+
+        # self._extra_kwargs = None
+    
+    async def _request(self, method, url, *args, **kwargs):
+        
+        self.method = method
+        self.url = url
+        self.args = args
+        self.extra_kwargs = kwargs
+        self.recorder.append(self)
+        resp = MockClientResponse(self._responses, self._statuses, self.recorder, self._current_response, method, url)
+        self._current_response = min(self._current_response + 1, len(self._responses) - 1)
+        return resp
+
+    @property
+    def status(self):
+        return self._status_code
+
+    @property
+    def data(self):
+        return self
+
+class MockClientSession(MockSession):
+    def __init__(self, data, status, recorder):
+        super(MockClientSession, self).__init__(data, status, recorder)
+
+
+class MockAuthorizedSession(MockClientSession, AuthorizedSession):
+    def __init__(self, data, status, recorder, credentials):
+        super(MockAuthorizedSession, self).__init__(data, status, recorder)
+        self.credentials = credentials

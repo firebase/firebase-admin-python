@@ -108,16 +108,6 @@ class TestCertificateAsync:
         credential = credentials.Certificate(parsed_json)
         await self._verify_credential(credential)
 
-    @pytest.mark.parametrize('file_name,error', invalid_certs.values(), ids=list(invalid_certs))
-    def test_init_from_invalid_certificate(self, file_name, error):
-        with pytest.raises(error):
-            credentials.Certificate(testutils.resource_filename(file_name))
-
-    @pytest.mark.parametrize('arg', [None, 0, 1, True, False, list(), tuple(), dict()])
-    def test_invalid_args(self, arg):
-        with pytest.raises(ValueError):
-            credentials.Certificate(arg)
-
     @pytest.mark.asyncio
     async def _verify_credential(self, credential):
         assert credential.project_id == 'mock-project-id'
@@ -294,33 +284,6 @@ class TestRefreshTokenAsync:
         parsed_json = json.loads(testutils.resource('refresh_token.json'))
         credential = credentials.RefreshToken(parsed_json)
         await self._verify_credential(credential)
-
-    def test_init_from_nonexisting_file(self):
-        with pytest.raises(IOError):
-            credentials.RefreshToken(
-                testutils.resource_filename('non_existing.json'))
-
-    def test_init_from_invalid_file(self):
-        with pytest.raises(ValueError):
-            credentials.RefreshToken(
-                testutils.resource_filename('service_account.json'))
-
-    @pytest.mark.parametrize('arg', [None, 0, 1, True, False, list(), tuple(), dict()])
-    def test_invalid_args(self, arg):
-        with pytest.raises(ValueError):
-            credentials.RefreshToken(arg)
-
-    @pytest.mark.parametrize('key', ['client_id', 'client_secret', 'refresh_token'])
-    def test_required_field(self, key):
-        data = {
-            'client_id': 'value',
-            'client_secret': 'value',
-            'refresh_token': 'value',
-            'type': 'authorized_user'
-        }
-        del data[key]
-        with pytest.raises(ValueError):
-            credentials.RefreshToken(data)
 
     @pytest.mark.asyncio
     async def _verify_credential(self, credential):

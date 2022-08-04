@@ -898,13 +898,24 @@ class CredentialWrapper(credentials.Base):
 
     def __init__(self, token):
         self._delegate = google.oauth2.credentials.Credentials(token)
+        self._delegate_async = google.oauth2._credentials_async.Credentials(token)
 
     def get_credential(self):
         return self._delegate
+
+    def get_credential_async(self):
+        return self._delegate_async
 
     @classmethod
     def from_existing_credential(cls, google_cred):
         if not google_cred.token:
             request = transport.requests.Request()
             google_cred.refresh(request)
+        return CredentialWrapper(google_cred.token)
+
+    @classmethod
+    async def from_existing_credential_async(cls, google_cred):
+        if not google_cred.token:
+            request = transport._aiohttp_requests.Request()
+            await google_cred.refresh(request)
         return CredentialWrapper(google_cred.token)

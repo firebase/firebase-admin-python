@@ -22,7 +22,9 @@ import google.auth
 from google.auth import crypt
 from google.auth import exceptions
 from google.oauth2 import credentials as gcredentials
+from google.oauth2 import _credentials_async as gcredentials_async
 from google.oauth2 import service_account
+from google.oauth2 import _service_account_async as service_account_async
 import pytest
 
 from firebase_admin import credentials
@@ -33,15 +35,14 @@ def check_scopes(g_credential):
     assert isinstance(g_credential, google.auth.credentials.ReadOnlyScoped)
     assert sorted(credentials._scopes) == sorted(g_credential.scopes)
 
+invalid_certs = {
+    'NonExistingFile': ('non_existing.json', IOError),
+    'RefreskToken': ('refresh_token.json', ValueError),
+    'MalformedPrivateKey': ('malformed_key.json', ValueError),
+    'MissingClientId': ('no_client_email_service_account.json', ValueError),
+}
 
 class TestCertificate:
-
-    invalid_certs = {
-        'NonExistingFile': ('non_existing.json', IOError),
-        'RefreskToken': ('refresh_token.json', ValueError),
-        'MalformedPrivateKey': ('malformed_key.json', ValueError),
-        'MissingClientId': ('no_client_email_service_account.json', ValueError),
-    }
 
     def test_init_from_file(self):
         credential = credentials.Certificate(
@@ -86,6 +87,55 @@ class TestCertificate:
         assert isinstance(access_token.expiry, datetime.datetime)
 
 
+class TestCertificateAsync:
+
+    @pytest.mark.asyncio
+    async def test_init_from_file(self):
+        credential = credentials.Certificate(
+            testutils.resource_filename('service_account.json'))
+        await self._verify_credential(credential)
+
+    @pytest.mark.asyncio
+    async def test_init_from_path_like(self):
+        path = pathlib.Path(testutils.resource_filename('service_account.json'))
+        credential = credentials.Certificate(path)
+        await self._verify_credential(credential)
+
+
+    @pytest.mark.asyncio
+    async def test_init_from_dict(self):
+        parsed_json = json.loads(testutils.resource('service_account.json'))
+        credential = credentials.Certificate(parsed_json)
+        await self._verify_credential(credential)
+
+    @pytest.mark.parametrize('file_name,error', invalid_certs.values(), ids=list(invalid_certs))
+    def test_init_from_invalid_certificate(self, file_name, error):
+        with pytest.raises(error):
+            credentials.Certificate(testutils.resource_filename(file_name))
+
+    @pytest.mark.parametrize('arg', [None, 0, 1, True, False, list(), tuple(), dict()])
+    def test_invalid_args(self, arg):
+        with pytest.raises(ValueError):
+            credentials.Certificate(arg)
+
+    @pytest.mark.asyncio
+    async def _verify_credential(self, credential):
+        assert credential.project_id == 'mock-project-id'
+        assert credential.service_account_email == 'mock-email@mock-project.iam.gserviceaccount.com'
+        assert isinstance(credential.signer, crypt.Signer)
+
+        g_credential_async = credential.get_credential_async()
+        assert isinstance(g_credential_async, service_account_async.Credentials)
+        assert g_credential_async.token is None
+        check_scopes(g_credential_async)
+
+        mock_response = {'access_token': 'mock_access_token', 'expires_in': 3600}
+        credentials._request_async = testutils.MockAsyncRequest(200, json.dumps(mock_response))
+        access_token_async = await credential.get_access_token_async()
+        assert access_token_async.access_token == 'mock_access_token'
+        assert isinstance(access_token_async.expiry, datetime.datetime)
+
+
 @pytest.fixture
 def app_default(request):
     var_name = 'GOOGLE_APPLICATION_CREDENTIALS'
@@ -127,6 +177,38 @@ class TestApplicationDefault:
 
         with pytest.raises(exceptions.DefaultCredentialsError):
             creds.get_credential()  # This now throws.
+
+
+class TestApplicationDefaultAsync:
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('app_default', [testutils.resource_filename('service_account.json')],
+                             indirect=True)
+    async def test_init(self, app_default):
+        del app_default
+        credential = credentials.ApplicationDefault()
+        assert credential.project_id == 'mock-project-id'
+
+        g_credential_async = credential.get_credential_async()
+        assert isinstance(g_credential_async, google.auth.credentials.Credentials)
+        assert g_credential_async.token is None
+        check_scopes(g_credential_async)
+
+        mock_response = {'access_token': 'mock_access_token', 'expires_in': 3600}
+        credentials._request_async = testutils.MockAsyncRequest(200, json.dumps(mock_response))
+        access_token_async = await credential.get_access_token_async()
+        assert access_token_async.access_token == 'mock_access_token'
+        assert isinstance(access_token_async.expiry, datetime.datetime)
+
+    @pytest.mark.parametrize('app_default', [testutils.resource_filename('non_existing.json')],
+                             indirect=True)
+    def test_nonexisting_path(self, app_default):
+        del app_default
+        # This does not yet throw because the credentials are lazily loaded.
+        creds = credentials.ApplicationDefault()
+
+        with pytest.raises(exceptions.DefaultCredentialsError):
+            creds.get_credential_async()  # This now throws.
 
 
 class TestRefreshToken:
@@ -191,3 +273,71 @@ class TestRefreshToken:
         access_token = credential.get_access_token()
         assert access_token.access_token == 'mock_access_token'
         assert isinstance(access_token.expiry, datetime.datetime)
+
+
+class TestRefreshTokenAsync:
+
+    @pytest.mark.asyncio
+    async def test_init_from_file(self):
+        credential = credentials.RefreshToken(
+            testutils.resource_filename('refresh_token.json'))
+        await self._verify_credential(credential)
+
+    @pytest.mark.asyncio
+    async def test_init_from_path_like(self):
+        path = pathlib.Path(testutils.resource_filename('refresh_token.json'))
+        credential = credentials.RefreshToken(path)
+        await self._verify_credential(credential)
+
+    @pytest.mark.asyncio
+    async def test_init_from_dict(self):
+        parsed_json = json.loads(testutils.resource('refresh_token.json'))
+        credential = credentials.RefreshToken(parsed_json)
+        await self._verify_credential(credential)
+
+    def test_init_from_nonexisting_file(self):
+        with pytest.raises(IOError):
+            credentials.RefreshToken(
+                testutils.resource_filename('non_existing.json'))
+
+    def test_init_from_invalid_file(self):
+        with pytest.raises(ValueError):
+            credentials.RefreshToken(
+                testutils.resource_filename('service_account.json'))
+
+    @pytest.mark.parametrize('arg', [None, 0, 1, True, False, list(), tuple(), dict()])
+    def test_invalid_args(self, arg):
+        with pytest.raises(ValueError):
+            credentials.RefreshToken(arg)
+
+    @pytest.mark.parametrize('key', ['client_id', 'client_secret', 'refresh_token'])
+    def test_required_field(self, key):
+        data = {
+            'client_id': 'value',
+            'client_secret': 'value',
+            'refresh_token': 'value',
+            'type': 'authorized_user'
+        }
+        del data[key]
+        with pytest.raises(ValueError):
+            credentials.RefreshToken(data)
+
+    @pytest.mark.asyncio
+    async def _verify_credential(self, credential):
+        assert credential.client_id == 'mock.apps.googleusercontent.com'
+        assert credential.client_secret == 'mock-secret'
+        assert credential.refresh_token == 'mock-refresh-token'
+
+        g_credential_async = credential.get_credential_async()
+        assert isinstance(g_credential_async, gcredentials_async.Credentials)
+        assert g_credential_async.token is None
+        check_scopes(g_credential_async)
+
+        mock_response = {
+            'access_token': 'mock_access_token',
+            'expires_in': 3600
+        }
+        credentials._request_async = testutils.MockAsyncRequest(200, json.dumps(mock_response))
+        access_token_async = await credential.get_access_token_async()
+        assert access_token_async.access_token == 'mock_access_token'
+        assert isinstance(access_token_async.expiry, datetime.datetime)

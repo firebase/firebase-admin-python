@@ -28,7 +28,7 @@ _clock = datetime.datetime.utcnow
 
 _DEFAULT_APP_NAME = '[DEFAULT]'
 _FIREBASE_CONFIG_ENV_VAR = 'FIREBASE_CONFIG'
-_CONFIG_VALID_KEYS = ['databaseAuthVariableOverride', 'databaseURL', 'httpTimeout', 'projectId',
+_CONFIG_VALID_KEYS = ['clockSkewInSeconds', 'databaseAuthVariableOverride', 'databaseURL', 'httpTimeout', 'projectId',
                       'storageBucket']
 
 def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
@@ -48,9 +48,10 @@ def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
       credential: A credential object used to initialize the SDK (optional). If none is provided,
           Google Application Default Credentials are used.
       options: A dictionary of configuration options (optional). Supported options include
-          ``databaseURL``, ``storageBucket``, ``projectId``, ``databaseAuthVariableOverride``,
-          ``serviceAccountId`` and ``httpTimeout``. If ``httpTimeout`` is not set, the SDK
-          uses a default timeout of 120 seconds.
+          ``clockSkewInSeconds``, ``databaseURL``, ``storageBucket``, ``projectId``,
+          ``databaseAuthVariableOverride``, ``serviceAccountId`` and ``httpTimeout``.
+          If ``httpTimeout`` is not set, the SDK uses a default timeout of 120 seconds.
+          If ``clockSkewInSeconds`` is not set, 0 is used when verifying a token.
       name: Name of the app (optional).
     Returns:
       App: A newly initialized instance of App.

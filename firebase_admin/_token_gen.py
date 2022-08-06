@@ -55,6 +55,7 @@ METADATA_SERVICE_URL = ('http://metadata.google.internal/computeMetadata/v1/inst
                         'service-accounts/default/email')
 ALGORITHM_RS256 = 'RS256'
 ALGORITHM_NONE = 'none'
+DEFAULT_CLOCK_SKEW_IN_SECONDS = 0
 
 # Emulator fake account
 AUTH_EMULATOR_EMAIL = 'firebase-auth-emulator@example.com'
@@ -271,6 +272,7 @@ class TokenVerifier:
 
     def __init__(self, app):
         timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
+        clock_skew_in_seconds = app.options.get('clockSkewInSeconds', DEFAULT_CLOCK_SKEW_IN_SECONDS)
         self.request = CertificateFetchRequest(timeout)
         self.id_token_verifier = _JWTVerifier(
             project_id=app.project_id, short_name='ID token',
@@ -278,6 +280,7 @@ class TokenVerifier:
             doc_url='https://firebase.google.com/docs/auth/admin/verify-id-tokens',
             cert_url=ID_TOKEN_CERT_URI,
             issuer=ID_TOKEN_ISSUER_PREFIX,
+            clock_skew_in_seconds=clock_skew_in_seconds,
             invalid_token_error=_auth_utils.InvalidIdTokenError,
             expired_token_error=ExpiredIdTokenError)
         self.cookie_verifier = _JWTVerifier(
@@ -312,6 +315,7 @@ class _JWTVerifier:
             self.articled_short_name = 'a {0}'.format(self.short_name)
         self._invalid_token_error = kwargs.pop('invalid_token_error')
         self._expired_token_error = kwargs.pop('expired_token_error')
+        self._clock_skew_in_seconds = kwargs.pop('clock_skew_in_seconds',DEFAULT_CLOCK_SKEW_IN_SECONDS)
 
     def verify(self, token, request):
         """Verifies the signature and data for the provided JWT."""
@@ -394,7 +398,7 @@ class _JWTVerifier:
                     request=request,
                     audience=self.project_id,
                     certs_url=self.cert_url,
-                    clock_skew_in_seconds=60)
+                    clock_skew_in_seconds=self._clock_skew_in_seconds)
             verified_claims['uid'] = verified_claims['sub']
             return verified_claims
         except google.auth.exceptions.TransportError as error:

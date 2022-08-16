@@ -15,6 +15,7 @@
 """pytest configuration and global fixtures for integration tests."""
 import json
 
+import asyncio
 import pytest
 
 import firebase_admin
@@ -60,7 +61,9 @@ def default_app(request):
         'databaseURL' : 'https://{0}.firebaseio.com'.format(project_id),
         'storageBucket' : '{0}.appspot.com'.format(project_id)
     }
-    return firebase_admin.initialize_app(cred, ops)
+    app = firebase_admin.initialize_app(cred, ops)
+    yield app
+    firebase_admin.delete_app(app)
 
 @pytest.fixture(scope='session')
 def api_key(request):
@@ -70,3 +73,12 @@ def api_key(request):
                          'command-line option.')
     with open(path) as keyfile:
         return keyfile.read().strip()
+
+@pytest.fixture(scope="session")
+def event_loop():
+    """Create an instance of the default event loop for test session.
+    This avoids early eventloop closure.
+    """
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()

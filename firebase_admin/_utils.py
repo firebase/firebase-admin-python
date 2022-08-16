@@ -125,6 +125,33 @@ def handle_platform_error_from_requests(error, handle_func=None):
 
     return exc if exc else _handle_func_requests(error, message, error_dict)
 
+async def handle_platform_error_from_aiohttp(error, handle_func=None):
+    """Constructs a ``FirebaseError`` from the given requests error.
+
+    This can be used to handle errors returned by Google Cloud Platform (GCP) APIs.
+
+    Args:
+        error: An error raised by the aiohttp module while making an HTTP call to a GCP API.
+        handle_func: A function that can be used to handle platform errors in a custom way. When
+            specified, this function will be called with three arguments. It has the same
+            signature as ```_handle_func_requests``, but may return ``None``.
+
+    Returns:
+        FirebaseError: A ``FirebaseError`` that can be raised to the user code.
+    """
+    if error.response is None:
+        return handle_requests_error(error)
+
+    response = error.response
+    content = error.response_content.decode()
+    status_code = response.status
+    error_dict, message = _parse_platform_error(content, status_code)
+    exc = None
+    if handle_func:
+        exc = handle_func(error, message, error_dict)
+
+    return exc if exc else _handle_func_requests(error, message, error_dict)
+
 
 def handle_operation_error(error):
     """Constructs a ``FirebaseError`` from the given operation error.

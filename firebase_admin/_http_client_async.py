@@ -12,36 +12,35 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Internal HTTP client module.
+"""Internal async HTTP client module.
 
- This module provides utilities for making HTTP calls using the requests library.
+ This module provides utilities for making async HTTP calls using the aiohttp library.
  """
 import json
 
 import aiohttp
+from aiohttp.client_exceptions import ClientResponseError
 from google.auth.transport import _aiohttp_requests
-import requests
-from requests.packages.urllib3.util import retry # pylint: disable=import-error
-
-import urllib3  # type: ignore
+from google.auth.transport._aiohttp_requests import _CombinedResponse
 
 
 DEFAULT_RETRY_ATTEMPTS = 4
-DEFAULT_RETRY_CODES = [500, 503]
+DEFAULT_RETRY_CODES = (500, 503)
 DEFAULT_TIMEOUT_SECONDS = 120
 
 
 
 
 class HttpClientAsync:
-    """Base HTTP client used to make HTTP calls.
+    """Base HTTP client used to make aiohttp calls.
 
-    HttpClient maintains an HTTP session, and handles request authentication and retries if
+    HttpClientAsync maintains an aiohttp session, and handles request authentication and retries if
     necessary.
     """
 
     def __init__(
-            self, credential=None,
+            self,
+            credential=None,
             session=None,
             base_url='',
             headers=None,
@@ -51,22 +50,23 @@ class HttpClientAsync:
         ):
         """Creates a new HttpClientAsync instance from the provided arguments.
 
-        If a credential is provided, initializes a new HTTP session authorized with it. If neither
-        a credential nor a session is provided, initializes a new unauthorized session.
+        If a credential is provided, initializes a new aiohttp client session authorized with it.
+        If neither a credential nor a session is provided, initializes a new unauthorized client
+        session.
 
         Args:
           credential: A Google credential that can be used to authenticate requests (optional).
-          session: A custom HTTP session (optional).
+          session: A custom aiohttp session (optional).
           base_url: A URL prefix to be added to all outgoing requests (optional).
           headers: A map of headers to be added to all outgoing requests (optional).
-          retries: A urllib retry configuration. Default settings would retry once for low-level
-              connection and socket read errors, and up to 4 times for HTTP 500 and 503 errors.
-              Pass a False value to disable retries (optional).
-          timeout: HTTP timeout in seconds. Defaults to 120 seconds when not specified. Set to
+          retry_attempts: The maximum number of retries that should be attempeted for a request
+              (optional).
+          retry_codes: A list of status codes for which the request retry should be attempted
+              (optional).
+          timeout: A request timeout in seconds. Defaults to 120 seconds when not specified. Set to
               None to disable timeouts (optional).
         """
         if credential:
-            # self._session = _aiohttp_requests.AuthorizedSession(credential)
             self._session = _aiohttp_requests.AuthorizedSession(
                 credential,
                 refresh_status_codes=retry_codes,
@@ -99,30 +99,44 @@ class HttpClientAsync:
         raise NotImplementedError
 
     async def request(self, method, url, **kwargs):
-        """Makes an HTTP call using the Python requests library.
+        """Makes an async HTTP call using the aiohttp library.
 
-        This is the sole entry point to the requests library. All other helper methods in this
-        class call this method to send HTTP requests out. Refer to
+        This is the sole entry point to the aiohttp library. All other helper methods in this
+        class call this method to send async HTTP requests out. Refer to
         http://docs.python-requests.org/en/master/api/ for more information on supported options
         and features.
 
         Args:
           method: HTTP method name as a string (e.g. get, post).
           url: URL of the remote endpoint.
-          **kwargs: An additional set of keyword arguments to be passed into the requests API
+          **kwargs: An additional set of keyword arguments to be passed into the aiohttp API
               (e.g. json, params, timeout).
 
         Returns:
-          Response: An HTTP response object.
+          Response: A ``_CombinedResponse`` wrapped ``ClientResponse`` object.
 
         Raises:
-          RequestException: Any requests exceptions encountered while making the HTTP call.
+          ClientResponseError: Any requests exceptions encountered while making the HTTP call.
         """
         if 'timeout' not in kwargs:
             kwargs['timeout'] = self.timeout
         resp = await self._session.request(method, self.base_url + url, **kwargs)
-        resp.raise_for_status()
-        return resp
+        wrapped_resp = _CombinedResponse(resp)
+
+        try:
+            # Get response content from StreamReader before it is closed by error.
+            print(wrapped_resp.content, "idk")
+            resp_content = await wrapped_resp.content()
+            # print(wrapped_resp._response.content)
+            resp.raise_for_status()
+
+        # Catch response error and re-release it with after appending response body needed to
+        # determine the underlying reason for the error.
+        except ClientResponseError as err:
+            err.response = wrapped_resp
+            err.response_content = resp_content
+            raise err
+        return wrapped_resp
 
     async def headers(self, method, url, **kwargs):
         resp = await self.request(method, url, **kwargs)
@@ -135,27 +149,23 @@ class HttpClientAsync:
     async def body(self, method, url, **kwargs):
         resp = await self.request(method, url, **kwargs)
         return await self.parse_body(resp)
-        return resp
 
     async def headers_and_body(self, method, url, **kwargs):
         resp = await self.request(method, url, **kwargs)
         return await resp.headers, self.parse_body(resp)
 
     async def close(self):
-        await self._session.close()
-        self._session = None
-
-    async def parse_body(self, response):
-        wrapped_response = _aiohttp_requests._CombinedResponse(response)
-        content = await wrapped_response.content()
-        return json.loads(content)
+        if self._session is not None:
+            await self._session.close()
+            self._session = None
 
 
 class JsonHttpClientAsync(HttpClientAsync):
-    """An HTTP client that parses response messages as JSON."""
+    """An async HTTP client that parses response messages as JSON."""
 
     def __init__(self, **kwargs):
         HttpClientAsync.__init__(self, **kwargs)
 
-    def parse_body(self, resp):
-        return resp.json()
+    async def parse_body(self, resp):
+        content = await resp.content()
+        return json.loads(content)

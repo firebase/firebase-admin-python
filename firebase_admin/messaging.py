@@ -16,7 +16,7 @@
 
 import json
 
-from googleapiclient import http
+from googleapiclient import http # type: ignore
 from googleapiclient import _auth
 import requests
 

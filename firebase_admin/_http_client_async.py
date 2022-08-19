@@ -20,8 +20,8 @@ import json
 
 import aiohttp
 from aiohttp.client_exceptions import ClientResponseError
-from google.auth.transport import _aiohttp_requests
-from google.auth.transport._aiohttp_requests import _CombinedResponse
+from google.auth.transport import _aiohttp_requests # type: ignore
+from google.auth.transport._aiohttp_requests import _CombinedResponse # type: ignore
 
 
 DEFAULT_RETRY_ATTEMPTS = 4
@@ -69,8 +69,8 @@ class HttpClientAsync:
         if credential:
             self._session = _aiohttp_requests.AuthorizedSession(
                 credential,
-                refresh_status_codes=retry_codes,
                 max_refresh_attempts=retry_attempts,
+                refresh_status_codes=retry_codes,
                 refresh_timeout=timeout
             )
         elif session:
@@ -116,7 +116,8 @@ class HttpClientAsync:
           Response: A ``_CombinedResponse`` wrapped ``ClientResponse`` object.
 
         Raises:
-          ClientResponseError: Any requests exceptions encountered while making the HTTP call.
+          ClientResponseWithBodyError: Any requests exceptions encountered while making the async
+          HTTP call.
         """
         if 'timeout' not in kwargs:
             kwargs['timeout'] = self.timeout
@@ -124,18 +125,19 @@ class HttpClientAsync:
         wrapped_resp = _CombinedResponse(resp)
 
         try:
-            # Get response content from StreamReader before it is closed by error.
-            print(wrapped_resp.content, "idk")
+            # Get response content from StreamReader before it is closed by error throw.
             resp_content = await wrapped_resp.content()
-            # print(wrapped_resp._response.content)
             resp.raise_for_status()
 
-        # Catch response error and re-release it with after appending response body needed to
+        # Catch response error and re-release it after appending response body needed to
         # determine the underlying reason for the error.
         except ClientResponseError as err:
-            err.response = wrapped_resp
-            err.response_content = resp_content
-            raise err
+            raise ClientResponseWithBodyError(
+                err.request_info,
+                err.history,
+                wrapped_resp,
+                resp_content
+            ) from err
         return wrapped_resp
 
     async def headers(self, method, url, **kwargs):
@@ -169,3 +171,13 @@ class JsonHttpClientAsync(HttpClientAsync):
     async def parse_body(self, resp):
         content = await resp.content()
         return json.loads(content)
+
+
+class ClientResponseWithBodyError(aiohttp.ClientResponseError):
+    """A ClientResponseError wrapper to hold the response body of the underlying falied
+    aiohttp request.
+    """
+    def __init__(self, request_info, history, response, response_content):
+        super(ClientResponseWithBodyError, self).__init__(request_info, history)
+        self.response = response
+        self.response_content = response_content

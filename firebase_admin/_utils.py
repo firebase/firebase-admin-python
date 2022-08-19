@@ -16,7 +16,7 @@
 
 import json
 
-import google.auth
+import google.auth # type: ignore
 import requests
 
 import firebase_admin

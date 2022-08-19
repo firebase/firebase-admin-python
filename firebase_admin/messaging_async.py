@@ -16,11 +16,23 @@
 
 import asyncio
 
+from typing import (
+    Optional,
+    Any,
+    Type,
+    List,
+    Dict
+)
+
 import firebase_admin
+from firebase_admin.exceptions import FirebaseError
+from firebase_admin import (
+    App
+)
 from firebase_admin.messaging import TopicManagementResponse
 from firebase_admin._http_client_async import (
     JsonHttpClientAsync,
-    ClientResponseError,
+    ClientResponseWithBodyError,
     DEFAULT_TIMEOUT_SECONDS
 )
 from firebase_admin._messaging_encoder import (
@@ -40,7 +52,7 @@ from firebase_admin import _utils
 _MESSAGING_ATTRIBUTE = '_messaging_async'
 
 
-__all__ = [
+__all__: List[str] = [
     'send',
     # 'send_all',
     # 'send_multicast',
@@ -48,11 +60,14 @@ __all__ = [
     'unsubscribe_from_topic',
 ]
 
-
-def _get_messaging_service(app):
+# pylint: disable=unsubscriptable-object
+# TODO:(/b)Remove false positive unsubscriptable-object lint warnings caused by type hints Optional type.
+# This is fixed in pylint 2.7.0 but this version introduces new lint rules and requires multiple
+# file changes.
+def _get_messaging_service(app: Optional[App]) -> "_MessagingServiceAsync":
     return _utils.get_app_service(app, _MESSAGING_ATTRIBUTE, _MessagingServiceAsync)
 
-async def send(message, dry_run=False, app=None):
+async def send(message: Message, dry_run: bool = False, app: Optional[App] = None) -> str:
     """Sends the given message via Firebase Cloud Messaging (FCM).
 
     If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
@@ -72,7 +87,10 @@ async def send(message, dry_run=False, app=None):
     """
     return await _get_messaging_service(app).send(message, dry_run)
 
-async def subscribe_to_topic(tokens, topic, app=None):
+async def subscribe_to_topic(
+        tokens: List[str],
+        topic: str, app: Optional[App] = None
+    ) -> TopicManagementResponse:
     """Subscribes a list of registration tokens to an FCM topic.
 
     Args:
@@ -91,7 +109,11 @@ async def subscribe_to_topic(tokens, topic, app=None):
     return await _get_messaging_service(app).make_topic_management_request(
         tokens, topic, 'iid/v1:batchAdd')
 
-async def unsubscribe_from_topic(tokens, topic, app=None):
+async def unsubscribe_from_topic(
+        tokens: List[str],
+        topic: str,
+        app: Optional[App] = None
+    ) -> TopicManagementResponse:
     """Unsubscribes a list of registration tokens from an FCM topic.
 
     Args:
@@ -114,13 +136,13 @@ async def unsubscribe_from_topic(tokens, topic, app=None):
 class _MessagingServiceAsync:
     """Service class that implements Firebase Cloud Messaging (FCM) functionality asynchronously."""
 
-    FCM_URL = 'https://fcm.googleapis.com/v1/projects/{0}/messages:send'
-    FCM_BATCH_URL = 'https://fcm.googleapis.com/batch'
-    IID_URL = 'https://iid.googleapis.com'
-    IID_HEADERS = {'access_token_auth': 'true'}
-    JSON_ENCODER = MessageEncoder()
+    FCM_URL: str = 'https://fcm.googleapis.com/v1/projects/{0}/messages:send'
+    FCM_BATCH_URL: str = 'https://fcm.googleapis.com/batch'
+    IID_URL: str = 'https://iid.googleapis.com'
+    IID_HEADERS: Dict[str, str] = {'access_token_auth': 'true'}
+    JSON_ENCODER: MessageEncoder = MessageEncoder()
 
-    FCM_ERROR_TYPES = {
+    FCM_ERROR_TYPES: Dict[str, Type[FirebaseError]] = {
         'APNS_AUTH_ERROR': ThirdPartyAuthError,
         'QUOTA_EXCEEDED': QuotaExceededError,
         'SENDER_ID_MISMATCH': SenderIdMismatchError,
@@ -128,7 +150,7 @@ class _MessagingServiceAsync:
         'UNREGISTERED': UnregisteredError,
     }
 
-    def __init__(self, app):
+    def __init__(self, app: App) -> None:
         project_id = app.project_id
         if not project_id:
             raise ValueError(
@@ -145,18 +167,18 @@ class _MessagingServiceAsync:
         self._client = JsonHttpClientAsync(credential=self._credential, timeout=timeout)
         self._loop = asyncio.get_event_loop()
 
-    def close(self):
+    def close(self) -> None:
         if self._client is not None:
             self._loop.run_until_complete(self._client.close())
-            self._client = None
+            self._client = None # type: ignore[assignment]
 
     @classmethod
-    def encode_message(cls, message):
+    def encode_message(cls, message: Message) -> Dict[str, Any]:
         if not isinstance(message, Message):
             raise ValueError('Message must be an instance of messaging.Message class.')
         return cls.JSON_ENCODER.default(message)
 
-    async def send(self, message, dry_run=False):
+    async def send(self, message: Message, dry_run: bool = False) -> str:
         """Sends the given message to FCM via the FCM v1 API."""
         data = self._message_data(message, dry_run)
         try:
@@ -166,7 +188,7 @@ class _MessagingServiceAsync:
                 headers=self._fcm_headers,
                 json=data
             )
-        except ClientResponseError as error:
+        except ClientResponseWithBodyError as error:
             raise await self._handle_fcm_error(error)
         else:
             return resp['name']
@@ -197,23 +219,23 @@ class _MessagingServiceAsync:
                 json=data,
                 headers=_MessagingServiceAsync.IID_HEADERS
             )
-        except ClientResponseError as error:
+        except ClientResponseWithBodyError as error:
             raise self._handle_iid_error(error)
         else:
             return TopicManagementResponse(resp)
 
-    def _message_data(self, message, dry_run):
+    def _message_data(self, message: Message, dry_run: bool) -> Dict[str, Any]:
         data = {'message': _MessagingServiceAsync.encode_message(message)}
         if dry_run:
-            data['validate_only'] = True
+            data['validate_only'] = True # type: ignore[assignment]
         return data
 
-    async def _handle_fcm_error(self, error):
+    async def _handle_fcm_error(self, error: ClientResponseWithBodyError) -> FirebaseError:
         """Handles errors received from the FCM API."""
         return await _utils.handle_platform_error_from_aiohttp(
             error, _MessagingServiceAsync._build_fcm_error_aiohttp)
 
-    def _handle_iid_error(self, error):
+    def _handle_iid_error(self, error: ClientResponseWithBodyError) -> FirebaseError:
         """Handles errors received from the Instance ID API."""
         if error.response is None:
             raise _utils.handle_requests_error(error)
@@ -238,22 +260,28 @@ class _MessagingServiceAsync:
         return _utils.handle_requests_error(error, msg)
 
     @classmethod
-    def _build_fcm_error_aiohttp(cls, error, message, error_dict):
+    def _build_fcm_error_aiohttp(
+            cls,
+            error: ClientResponseWithBodyError,
+            message: Message,
+            error_dict: Dict[Any, Any]
+        ) -> Optional[FirebaseError]:
         """Parses an aiohttp error response from the FCM API and creates a FCM-specific exception if
         appropriate."""
-        exc_type = cls._build_fcm_error(error_dict)
-        return exc_type(
-            message, cause=error,
+        exc_type: Optional[Type[FirebaseError]] = cls._build_fcm_error(error_dict)
+        return exc_type( # type: ignore[call-arg]
+            message,
+            cause=error,
             http_response=error.request_info
         ) if exc_type else None
 
     @classmethod
-    def _build_fcm_error(cls, error_dict):
+    def _build_fcm_error(cls, error_dict: Dict[str, Any]) -> Optional[Type[FirebaseError]]:
         if not error_dict:
             return None
-        fcm_code = None
+        fcm_code: Optional[str] = None
         for detail in error_dict.get('details', []):
             if detail.get('@type') == 'type.googleapis.com/google.firebase.fcm.v1.FcmError':
                 fcm_code = detail.get('errorCode')
                 break
-        return _MessagingServiceAsync.FCM_ERROR_TYPES.get(fcm_code)
+        return _MessagingServiceAsync.FCM_ERROR_TYPES.get(fcm_code) # type: ignore[arg-type]

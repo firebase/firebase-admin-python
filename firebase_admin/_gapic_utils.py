@@ -17,8 +17,8 @@
 import io
 import socket
 
-import googleapiclient
-import httplib2
+import googleapiclient # type: ignore
+import httplib2 # type: ignore
 import requests
 
 from firebase_admin import exceptions

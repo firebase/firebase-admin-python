@@ -61,9 +61,9 @@ __all__: List[str] = [
 ]
 
 # pylint: disable=unsubscriptable-object
-# TODO:(/b)Remove false positive unsubscriptable-object lint warnings caused by type hints Optional type.
-# This is fixed in pylint 2.7.0 but this version introduces new lint rules and requires multiple
-# file changes.
+# TODO:(/b)Remove false positive unsubscriptable-object lint warnings caused by type hints Optional
+# type. This is fixed in pylint 2.7.0 but this version introduces new lint rules and requires
+# multiple file changes.
 def _get_messaging_service(app: Optional[App]) -> "_MessagingServiceAsync":
     return _utils.get_app_service(app, _MESSAGING_ATTRIBUTE, _MessagingServiceAsync)
 
@@ -160,7 +160,7 @@ class _MessagingServiceAsync:
         self._fcm_url = _MessagingServiceAsync.FCM_URL.format(project_id)
         self._fcm_headers = {
             'X-GOOG-API-FORMAT-VERSION': '2',
-            'X-FIREBASE-CLIENT': 'fire-admin-python/{0}'.format(firebase_admin.__version__),
+            'X-FIREBASE-CLIENT': f'fire-admin-python/{firebase_admin.__version__}'
         }
         timeout = app.options.get('httpTimeout', DEFAULT_TIMEOUT_SECONDS)
         self._credential = app.credential.get_credential_async()
@@ -206,12 +206,12 @@ class _MessagingServiceAsync:
         if not isinstance(topic, str) or not topic:
             raise ValueError('Topic must be a non-empty string.')
         if not topic.startswith('/topics/'):
-            topic = '/topics/{0}'.format(topic)
+            topic = f'/topics/{topic}'
         data = {
             'to': topic,
             'registration_tokens': tokens,
         }
-        url = '{0}/{1}'.format(_MessagingServiceAsync.IID_URL, operation)
+        url = f'{_MessagingServiceAsync.IID_URL}/{operation}'
         try:
             resp = await self._client.body(
                 'post',
@@ -252,10 +252,10 @@ class _MessagingServiceAsync:
         code = data.get('error')
         msg = None
         if code:
-            msg = 'Error while calling the IID service: {0}'.format(code)
+            msg = f'Error while calling the IID service: {code}'
         else:
-            msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(
-                error.response.status_code, error.response.content.decode())
+            msg = (f'Unexpected HTTP response with status: {error.response.status_code}; '
+                   f'body: {error.response.content.decode()}')
 
         return _utils.handle_requests_error(error, msg)
 

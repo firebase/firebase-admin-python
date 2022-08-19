@@ -95,7 +95,7 @@ class HttpClientAsync:
     def timeout(self):
         return self._timeout
 
-    def parse_body(self, resp):
+    async def parse_body(self, resp):
         raise NotImplementedError
 
     async def request(self, method, url, **kwargs):
@@ -124,13 +124,13 @@ class HttpClientAsync:
         resp = await self._session.request(method, self.base_url + url, **kwargs)
         wrapped_resp = _CombinedResponse(resp)
 
-        try:
-            # Get response content from StreamReader before it is closed by error throw.
-            resp_content = await wrapped_resp.content()
-            resp.raise_for_status()
+        # Get response content from StreamReader before it is closed by error throw.
+        resp_content = await wrapped_resp.content()
 
         # Catch response error and re-release it after appending response body needed to
         # determine the underlying reason for the error.
+        try:
+            resp.raise_for_status()
         except ClientResponseError as err:
             raise ClientResponseWithBodyError(
                 err.request_info,
@@ -178,6 +178,6 @@ class ClientResponseWithBodyError(aiohttp.ClientResponseError):
     aiohttp request.
     """
     def __init__(self, request_info, history, response, response_content):
-        super(ClientResponseWithBodyError, self).__init__(request_info, history)
+        super().__init__(request_info, history)
         self.response = response
         self.response_content = response_content

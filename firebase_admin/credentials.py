@@ -103,20 +103,20 @@ class Certificate(Base):
           IOError: If the specified certificate file doesn't exist or cannot be read.
           ValueError: If the specified certificate is invalid.
         """
-        super(Certificate, self).__init__()
+        super().__init__()
         if _is_file_path(cert):
-            with open(cert) as json_file:
+            with open(cert, encoding="utf-8") as json_file:
                 json_data = json.load(json_file)
         elif isinstance(cert, dict):
             json_data = cert
         else:
             raise ValueError(
-                'Invalid certificate argument: "{0}". Certificate argument must be a file path, '
-                'or a dict containing the parsed file contents.'.format(cert))
+                f'Invalid certificate argument: "{cert}". Certificate argument must be a file '
+                'path, or a dict containing the parsed file contents.')
 
         if json_data.get('type') != self._CREDENTIAL_TYPE:
             raise ValueError('Invalid service account certificate. Certificate must contain a '
-                             '"type" field set to "{0}".'.format(self._CREDENTIAL_TYPE))
+                             f'"type" field set to "{self._CREDENTIAL_TYPE}".')
         try:
             self._g_credential = service_account.Credentials.from_service_account_info(
                 json_data, scopes=_scopes)
@@ -124,7 +124,7 @@ class Certificate(Base):
                 json_data, scopes=_scopes)
         except ValueError as error:
             raise ValueError('Failed to initialize a certificate credential. '
-                             'Caused by: "{0}"'.format(error))
+                             f'Caused by: "{error}"') from error
 
     @property
     def project_id(self) -> str:
@@ -162,7 +162,7 @@ class ApplicationDefault(Base):
         The credentials will be lazily initialized when get_credential(), get_credential_async()
         or project_id() is called. See those methods for possible errors raised.
         """
-        super(ApplicationDefault, self).__init__()
+        super().__init__()
         self._g_credential = None  # Will be lazily-loaded via _load_credential().
         self._g_credential_async = None  # Will be lazily-loaded via _load_credential_async().
 
@@ -229,20 +229,20 @@ class RefreshToken(Base):
           IOError: If the specified file doesn't exist or cannot be read.
           ValueError: If the refresh token configuration is invalid.
         """
-        super(RefreshToken, self).__init__()
+        super().__init__()
         if _is_file_path(refresh_token):
-            with open(refresh_token) as json_file:
+            with open(refresh_token, encoding="utf-8") as json_file:
                 json_data = json.load(json_file)
         elif isinstance(refresh_token, dict):
             json_data = refresh_token
         else:
             raise ValueError(
-                'Invalid refresh token argument: "{0}". Refresh token argument must be a file '
-                'path, or a dict containing the parsed file contents.'.format(refresh_token))
+                f'Invalid refresh token argument: "{refresh_token}". Refresh token argument must be'
+                ' a file path, or a dict containing the parsed file contents.')
 
         if json_data.get('type') != self._CREDENTIAL_TYPE:
             raise ValueError('Invalid refresh token configuration. JSON must contain a '
-                             '"type" field set to "{0}".'.format(self._CREDENTIAL_TYPE))
+                             f'"type" field set to "{self._CREDENTIAL_TYPE}".')
         self._g_credential = credentials.Credentials.from_authorized_user_info(json_data, _scopes)
         self._g_credential_async = credentials_async.Credentials.from_authorized_user_info(
             json_data,

@@ -20,6 +20,7 @@ import pytest
 
 from google.auth import credentials
 from google.auth import transport
+from google.auth.transport import _aiohttp_requests as aiohttp_requests
 from requests import adapters
 from requests import models
 
@@ -110,6 +111,59 @@ class MockFailedRequest(transport.Request):
         self.log.append((args, kwargs))
         raise self.error
 
+
+class MockAsyncResponse(aiohttp_requests._CombinedResponse):
+    def __init__(self, status, response):
+        super(MockAsyncResponse, self).__init__(response)
+        self._status = status
+        self._response = response
+        self._raw_content = response
+
+    @property
+    def status(self):
+        return self._status
+
+    @property
+    def headers(self):
+        return {}
+
+    @property
+    def data(self):
+        return self._response.encode()
+
+    async def content(self):
+        return self._response.encode()
+
+class MockAsyncRequest(aiohttp_requests.Request):
+    """A mock async HTTP requests implementation.
+
+    This can be used whenever an async HTTP interaction needs to be mocked
+    for testing purposes. For example HTTP calls to fetch public key
+    certificates, and HTTP calls to retrieve access tokens can be
+    mocked using this class.
+    """
+
+    def __init__(self, status, response):
+        super(MockAsyncRequest, self).__init__()
+        self.response = MockAsyncResponse(status, response)
+        self.log = []
+
+    async def __call__(self, *args, **kwargs): # pylint: disable=arguments-differ
+        self.log.append((args, kwargs))
+        return self.response
+
+
+class MockFailedAsyncRequest(aiohttp_requests.Request):
+    """A mock HTTP request that fails by raising an exception."""
+
+    def __init__(self, error):
+        super(MockFailedAsyncRequest, self).__init__()
+        self.error = error
+        self.log = []
+
+    async def __call__(self, *args, **kwargs): # pylint: disable=arguments-differ
+        self.log.append((args, kwargs))
+        raise self.error
 
 # Temporarily disable the lint rule. For more information see:
 # https://github.com/googleapis/google-auth-library-python/pull/561

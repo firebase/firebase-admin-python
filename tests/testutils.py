@@ -16,9 +16,13 @@
 import io
 import os
 
+from unittest.mock import MagicMock
 import pytest
 
+import aiohttp
+from aiohttp import streams
 from google.auth import credentials
+from google.auth import _credentials_async
 from google.auth import transport
 from google.auth.transport import _aiohttp_requests as aiohttp_requests
 from requests import adapters
@@ -34,7 +38,7 @@ def resource_filename(filename):
 
 def resource(filename):
     """Returns the contents of a test resource."""
-    with open(resource_filename(filename), 'r') as file_obj:
+    with open(resource_filename(filename), 'r', encoding="utf-8") as file_obj:
         return file_obj.read()
 
 
@@ -114,7 +118,7 @@ class MockFailedRequest(transport.Request):
 
 class MockAsyncResponse(aiohttp_requests._CombinedResponse):
     def __init__(self, status, response):
-        super(MockAsyncResponse, self).__init__(response)
+        super().__init__(response)
         self._status = status
         self._response = response
         self._raw_content = response
@@ -144,7 +148,7 @@ class MockAsyncRequest(aiohttp_requests.Request):
     """
 
     def __init__(self, status, response):
-        super(MockAsyncRequest, self).__init__()
+        super().__init__()
         self.response = MockAsyncResponse(status, response)
         self.log = []
 
@@ -157,7 +161,7 @@ class MockFailedAsyncRequest(aiohttp_requests.Request):
     """A mock HTTP request that fails by raising an exception."""
 
     def __init__(self, error):
-        super(MockFailedAsyncRequest, self).__init__()
+        super().__init__()
         self.error = error
         self.log = []
 
@@ -173,6 +177,11 @@ class MockGoogleCredential(credentials.Credentials):
     def refresh(self, request):
         self.token = 'mock-token'
 
+class MockGoogleCredentialAsync(_credentials_async.Credentials):
+    """A mock Google authentication async credential."""
+    async def refresh(self, request):  # pylint: disable=invalid-overridden-method
+        self.token = 'mock-token'
+
 
 class MockCredential(firebase_admin.credentials.Base):
     """A mock Firebase credential implementation."""
@@ -183,6 +192,14 @@ class MockCredential(firebase_admin.credentials.Base):
     def get_credential(self):
         return self._g_credential
 
+class MockCredentialAsync(firebase_admin.credentials.Base):
+    """A mock Firebase async credential implementation."""
+
+    def __init__(self):
+        self._g_credential_async = MockGoogleCredentialAsync()
+
+    def get_credential_async(self):
+        return self._g_credential_async
 
 class MockMultiRequestAdapter(adapters.HTTPAdapter):
     """A mock HTTP adapter that supports multiple responses for the Python requests module."""
@@ -216,7 +233,7 @@ class MockMultiRequestAdapter(adapters.HTTPAdapter):
 class MockAdapter(MockMultiRequestAdapter):
     """A mock HTTP adapter for the Python requests module."""
     def __init__(self, data, status, recorder):
-        super(MockAdapter, self).__init__([data], [status], recorder)
+        super().__init__([data], [status], recorder)
 
     @property
     def status(self):
@@ -225,3 +242,46 @@ class MockAdapter(MockMultiRequestAdapter):
     @property
     def data(self):
         return self._responses[0]
+
+class MockClientResponse(aiohttp.ClientResponse):
+    def __init__(self, method, url, payload, status, recorder): # pylint: disable=super-init-not-called
+        self._cache = {}
+        self._url = url
+
+        mock_reader = AsyncMock(spec=streams.StreamReader)
+        mock_reader.read.return_value = str.encode(payload)
+        self.content = mock_reader
+        self.status = status
+        self.recorder = recorder
+        self._headers = []
+
+class MockSession(aiohttp.ClientSession):
+    def __init__(self, payload, status, recorder, credentials=None):
+        super().__init__(credentials)
+        self.payload = payload
+        self.status = status
+        self.recorder = recorder
+        self.current_response = 0
+
+    async def _request(self, method, url, *args, **kwargs): # pylint: disable=arguments-differ
+        self.method = method
+        self.url = url
+        self.args = args
+        self.extra_kwargs = kwargs
+        self.recorder.append(self)
+        self.current_response += 1
+        return MockClientResponse(method, url, self.payload, self.status, self.recorder)
+
+class MockClientSession(MockSession):
+    def __init__(self, payload, status, recorder):
+        super().__init__(payload, status, recorder)
+
+class MockAuthorizedSession(MockClientSession, aiohttp_requests.AuthorizedSession):
+    def __init__(self, payload, status, recorder, credentials):
+        super().__init__(payload, status, recorder)
+        self.credentials = credentials
+
+# Custom async mock class since unittest.mock.AsyncMock is only avaible in python 3.8+
+class AsyncMock(MagicMock):
+    async def __call__(self, *args, **kwargs):  # pylint: disable=invalid-overridden-method
+        return super().__call__(*args, **kwargs)

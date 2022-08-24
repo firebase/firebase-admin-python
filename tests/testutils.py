@@ -67,6 +67,22 @@ def run_without_project_id(func):
             if gcloud_project:
                 os.environ[env_var] = gcloud_project
 
+async def run_without_project_id_async(func):
+    env_vars = ['GCLOUD_PROJECT', 'GOOGLE_CLOUD_PROJECT']
+    env_values = []
+    for env_var in env_vars:
+        gcloud_project = os.environ.get(env_var)
+        if gcloud_project:
+            del os.environ[env_var]
+        env_values.append(gcloud_project)
+    try:
+        await func()
+    finally:
+        for idx, env_var in enumerate(env_vars):
+            gcloud_project = env_values[idx]
+            if gcloud_project:
+                os.environ[env_var] = gcloud_project
+
 
 def new_monkeypatch():
     return pytest.MonkeyPatch()
@@ -130,8 +146,6 @@ class MockGoogleCredential(credentials.Credentials):
 class MockGoogleCredentialAsync(_credentials_async.Credentials):
     """A mock Google authentication credential."""
     async def refresh(self, request):
-        # filename = inspect.stack()
-        # print("refresh async")
         self.token = 'mock-token'
 
 
@@ -201,7 +215,7 @@ class MockClientResponse(aiohttp.ClientResponse):
         self._url = url
 
         mock_reader = AsyncMock(spec=streams.StreamReader)
-        mock_reader.read.return_value = payload
+        mock_reader.read.return_value = str.encode(payload)
         self.content = mock_reader
         self.status = status
         self.recorder = recorder
@@ -233,7 +247,7 @@ class MockAuthorizedSession(MockClientSession, AuthorizedSession):
         super(MockAuthorizedSession, self).__init__(payload, status, recorder)
         self.credentials = credentials
 
-# Custom async mock class since unuttest.mock.AsyncMock is only avaible in python 3.8+
+# Custom async mock class since unittest.mock.AsyncMock is only avaible in python 3.8+
 class AsyncMock(MagicMock):
     async def __call__(self, *args, **kwargs):  # pylint: disable=useless-super-delegation
         return super(AsyncMock, self).__call__(*args, **kwargs)

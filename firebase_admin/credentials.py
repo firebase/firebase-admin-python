@@ -159,8 +159,9 @@ class ApplicationDefault(Base):
     def __init__(self) -> None:
         """Creates an instance that will use Application Default credentials.
 
-        The credentials will be lazily initialized when get_credential(), get_credential_async()
-        or project_id() is called. See those methods for possible errors raised.
+        The credentials will be lazily initialized when ``get_credential()``,
+        ``get_credential_async()`` or ``project_id()`` is called. See those methods for possible
+        errors raised.
         """
         super().__init__()
         self._g_credential = None  # Will be lazily-loaded via _load_credential().
@@ -216,8 +217,8 @@ class RefreshToken(Base):
     def __init__(self, refresh_token: str) -> None:
         """Initializes credentials from a refresh token JSON file.
 
-        The JSON must consist of client_id, client_secret and refresh_token fields. Refresh
-        token files are typically created and managed by the gcloud SDK. To instantiate
+        The JSON must consist of ``client_id``, ``client_secret`` and ``refresh_token`` fields.
+        Refresh token files are typically created and managed by the gcloud SDK. To instantiate
         credentials from a refresh token file, either specify the file path or a dict
         representing the parsed contents of the file.
 

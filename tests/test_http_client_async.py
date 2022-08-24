@@ -59,7 +59,8 @@ class TestHttpClient:
         assert self.client.base_url == ''
         resp = await self.client.request('GET', _TEST_URL)
         assert resp.status == 200
-        assert await resp.content() == 'body'
+        content = await resp.content()
+        assert content.decode() == 'body'
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
         assert recorder[0].url == _TEST_URL
@@ -72,7 +73,8 @@ class TestHttpClient:
         assert self.client.base_url == _TEST_URL
         resp = await self.client.request('GET', 'foo')
         assert resp.status == 200
-        assert await resp.content() == 'body'
+        content = await resp.content()
+        assert content.decode() == 'body'
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
         assert recorder[0].url == _TEST_URL + 'foo'
@@ -87,7 +89,8 @@ class TestHttpClient:
         self.client._session = session
         resp = await self.client.request('GET', _TEST_URL)
         assert resp.status == 200
-        assert await resp.content() == 'body'
+        content = await resp.content()
+        assert content.decode() == 'body'
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
         assert recorder[0].url == _TEST_URL

@@ -169,6 +169,8 @@ class _MessagingServiceAsync:
 
     def close(self) -> None:
         if self._client is not None:
+            if self._loop.is_closed():
+                self._loop = asyncio.get_event_loop()
             self._loop.run_until_complete(self._client.close())
             self._client = None # type: ignore[assignment]
 

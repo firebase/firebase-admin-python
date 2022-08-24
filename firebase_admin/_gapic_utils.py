@@ -17,8 +17,8 @@
 import io
 import socket
 
-import googleapiclient
-import httplib2
+import googleapiclient # type: ignore
+import httplib2 # type: ignore
 import requests
 
 from firebase_admin import exceptions
@@ -92,15 +92,15 @@ def handle_googleapiclient_error(error, message=None, code=None, http_response=N
     if isinstance(error, socket.timeout) or (
             isinstance(error, socket.error) and 'timed out' in str(error)):
         return exceptions.DeadlineExceededError(
-            message='Timed out while making an API call: {0}'.format(error),
+            message=f'Timed out while making an API call: {error}',
             cause=error)
     if isinstance(error, httplib2.ServerNotFoundError):
         return exceptions.UnavailableError(
-            message='Failed to establish a connection: {0}'.format(error),
+            message=f'Failed to establish a connection: {error}',
             cause=error)
     if not isinstance(error, googleapiclient.errors.HttpError):
         return exceptions.UnknownError(
-            message='Unknown error while making a remote service call: {0}'.format(error),
+            message=f'Unknown error while making a remote service call: {error}',
             cause=error)
 
     if not code:

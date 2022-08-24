@@ -15,6 +15,7 @@
 """pytest configuration and global fixtures for integration tests."""
 import json
 
+import asyncio
 import pytest
 
 import firebase_admin
@@ -36,7 +37,7 @@ def _get_cert_path(request):
 
 def integration_conf(request):
     cert_path = _get_cert_path(request)
-    with open(cert_path) as cert:
+    with open(cert_path, encoding='utf-8') as cert:
         project_id = json.load(cert).get('project_id')
     if not project_id:
         raise ValueError('Failed to determine project ID from service account certificate.')
@@ -57,10 +58,12 @@ def default_app(request):
     """
     cred, project_id = integration_conf(request)
     ops = {
-        'databaseURL' : 'https://{0}.firebaseio.com'.format(project_id),
-        'storageBucket' : '{0}.appspot.com'.format(project_id)
+        'databaseURL' : f'https://{project_id}.firebaseio.com',
+        'storageBucket' : f'{project_id}.appspot.com'
     }
-    return firebase_admin.initialize_app(cred, ops)
+    app = firebase_admin.initialize_app(cred, ops)
+    yield app
+    firebase_admin.delete_app(app)
 
 @pytest.fixture(scope='session')
 def api_key(request):
@@ -68,5 +71,14 @@ def api_key(request):
     if not path:
         raise ValueError('API key file not specified. Make sure to specify the "--apikey" '
                          'command-line option.')
-    with open(path) as keyfile:
+    with open(path, encoding='utf-8') as keyfile:
         return keyfile.read().strip()
+
+@pytest.fixture(scope="session")
+def event_loop():
+    """Create an instance of the default event loop for test session.
+    This avoids early eventloop closure.
+    """
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()

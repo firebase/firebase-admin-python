@@ -65,6 +65,22 @@ def run_without_project_id(func):
                 os.environ[env_var] = gcloud_project
 
 
+async def run_without_project_id_async(func):
+    env_vars = ['GCLOUD_PROJECT', 'GOOGLE_CLOUD_PROJECT']
+    env_values = []
+    for env_var in env_vars:
+        gcloud_project = os.environ.get(env_var)
+        if gcloud_project:
+            del os.environ[env_var]
+        env_values.append(gcloud_project)
+    try:
+        await func()
+    finally:
+        for idx, env_var in enumerate(env_vars):
+            gcloud_project = env_values[idx]
+            if gcloud_project:
+                os.environ[env_var] = gcloud_project
+
 def new_monkeypatch():
     return pytest.MonkeyPatch()
 

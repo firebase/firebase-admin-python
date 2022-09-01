@@ -17,9 +17,9 @@
  This module provides utilities for making HTTP calls using the requests library.
  """
 
-from google.auth import transport
+from google.auth import transport # type: ignore
 import requests
-from requests.packages.urllib3.util import retry # pylint: disable=import-error
+from requests.packages.urllib3.util import retry # type: ignore # pylint: disable=import-error
 
 
 if hasattr(retry.Retry.DEFAULT, 'allowed_methods'):

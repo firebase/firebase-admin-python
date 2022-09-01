@@ -16,7 +16,7 @@
 
 import json
 
-import google.auth
+import google.auth # type: ignore
 import requests
 
 import firebase_admin
@@ -89,7 +89,7 @@ def _get_initialized_app(app):
         return app
 
     raise ValueError('Illegal app argument. Argument must be of type '
-                     ' firebase_admin.App, but given "{0}".'.format(type(app)))
+                     f' firebase_admin.App, but given "{type(app)}".')
 
 
 
@@ -125,6 +125,34 @@ def handle_platform_error_from_requests(error, handle_func=None):
 
     return exc if exc else _handle_func_requests(error, message, error_dict)
 
+async def handle_platform_error_from_aiohttp(error, handle_func=None):
+    """Constructs a ``FirebaseError`` from the given requests error.
+
+    This can be used to handle errors returned by Google Cloud Platform (GCP) APIs.
+
+    Args:
+        error: An error raised by the aiohttp module while making an HTTP call to a GCP API.
+        handle_func: A function that can be used to handle platform errors in a custom way. When
+            specified, this function will be called with three arguments. It has the same
+            signature as ```_handle_func_requests``, but may return ``None``.
+
+    Returns:
+        FirebaseError: A ``FirebaseError`` that can be raised to the user code.
+    """
+    if error.response is None:
+        return handle_requests_error(error)
+
+    response = error.response
+    content = error.response_content.decode()
+    status_code = response.status
+    error_dict, message = _parse_platform_error(content, status_code)
+    exc = None
+    if handle_func:
+        exc = handle_func(error, message, error_dict)
+
+    # TODO: Implement aiohttp version of ``_handle_func_requests``.
+    return exc if exc else _handle_func_requests(error, message, error_dict)
+
 
 def handle_operation_error(error):
     """Constructs a ``FirebaseError`` from the given operation error.
@@ -137,7 +165,7 @@ def handle_operation_error(error):
     """
     if not isinstance(error, dict):
         return exceptions.UnknownError(
-            message='Unknown error while making a remote service call: {0}'.format(error),
+            message=f'Unknown error while making a remote service call: {error}',
             cause=error)
 
     rpc_code = error.get('code')
@@ -182,15 +210,15 @@ def handle_requests_error(error, message=None, code=None):
     """
     if isinstance(error, requests.exceptions.Timeout):
         return exceptions.DeadlineExceededError(
-            message='Timed out while making an API call: {0}'.format(error),
+            message=f'Timed out while making an API call: {error}',
             cause=error)
     if isinstance(error, requests.exceptions.ConnectionError):
         return exceptions.UnavailableError(
-            message='Failed to establish a connection: {0}'.format(error),
+            message=f'Failed to establish a connection: {error}',
             cause=error)
     if error.response is None:
         return exceptions.UnknownError(
-            message='Unknown error while making a remote service call: {0}'.format(error),
+            message=f'Unknown error while making a remote service call: {error}',
             cause=error)
 
     if not code:
@@ -237,7 +265,7 @@ def _parse_platform_error(content, status_code):
     error_dict = data.get('error', {})
     msg = error_dict.get('message')
     if not msg:
-        msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(status_code, content)
+        msg = f'Unexpected HTTP response with status: {status_code}; body: {content}'
     return error_dict, msg
 
 

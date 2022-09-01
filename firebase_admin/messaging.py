@@ -16,7 +16,7 @@
 
 import json
 
-from googleapiclient import http
+from googleapiclient import http # type: ignore
 from googleapiclient import _auth
 import requests
 
@@ -228,7 +228,7 @@ class TopicManagementResponse:
 
     def __init__(self, resp):
         if not isinstance(resp, dict) or 'results' not in resp:
-            raise ValueError('Unexpected topic management response: {0}.'.format(resp))
+            raise ValueError(f'Unexpected topic management response: {resp}.')
         self._success_count = 0
         self._failure_count = 0
         self._errors = []
@@ -328,7 +328,7 @@ class _MessagingService:
         self._fcm_url = _MessagingService.FCM_URL.format(project_id)
         self._fcm_headers = {
             'X-GOOG-API-FORMAT-VERSION': '2',
-            'X-FIREBASE-CLIENT': 'fire-admin-python/{0}'.format(firebase_admin.__version__),
+            'X-FIREBASE-CLIENT': f'fire-admin-python/{firebase_admin.__version__}',
         }
         timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
         self._credential = app.credential.get_credential()
@@ -407,12 +407,12 @@ class _MessagingService:
         if not isinstance(topic, str) or not topic:
             raise ValueError('Topic must be a non-empty string.')
         if not topic.startswith('/topics/'):
-            topic = '/topics/{0}'.format(topic)
+            topic = f'/topics/{topic}'
         data = {
             'to': topic,
             'registration_tokens': tokens,
         }
-        url = '{0}/{1}'.format(_MessagingService.IID_URL, operation)
+        url = f'{_MessagingService.IID_URL}/{operation}'
         try:
             resp = self._client.body(
                 'post',
@@ -458,10 +458,10 @@ class _MessagingService:
         code = data.get('error')
         msg = None
         if code:
-            msg = 'Error while calling the IID service: {0}'.format(code)
+            msg = f'Error while calling the IID service: {code}'
         else:
-            msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(
-                error.response.status_code, error.response.content.decode())
+            msg = (f'Unexpected HTTP response with status: {error.response.status_code}; '
+                   f'body: {error.response.content.decode()}')
 
         return _utils.handle_requests_error(error, msg)
 

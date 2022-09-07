@@ -12,16 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# See as an example from firebase_admin/messaging.py
-# def _get_messaging_service(app):
-#     return _utils.get_app_service(app, _MESSAGING_ATTRIBUTE, _MessagingService)
-
 """Firebase App Check module."""
 
 # ASK(lahiru) Do I need to add these imports to the requirements file?
 from typing import Any, Dict, List
 import jwt
-from jwt import PyJWKClient
+from jwt import PyJWKClient, DecodeError
 from firebase_admin import _utils
 
 _APP_CHECK_ATTRIBUTE = '_app_check'
@@ -31,13 +27,23 @@ def _get_app_check_service(app) -> Any:
 
 # should i accept an app (design doc doesn't have one) or just always make it none
 def verify_token(token: str, app=None) -> Dict[str, Any]:
+    """Verifies a Firebase App Check token.
+
+    Args:
+        token: A token from App Check.
+        app: An App instance (optional).
+
+    Returns:
+        Dict[str, Any]: A token's decoded claims
+        if the App Check token is valid; otherwise, a rejected promise..
+    """
     return _get_app_check_service(app).verify_token(token)
 
 class _AppCheckService:
     """Service class that implements Firebase App Check functionality."""
-  
-    _APP_CHECK_GCP_API_URL = "https://firebaseappcheck.googleapis.com"
-    _APP_CHECK_BETA_JWKS_RESOURCE = "/v1beta/jwks"
+
+    _APP_CHECK_GCP_API_URL = 'https://firebaseappcheck.googleapis.com'
+    _APP_CHECK_BETA_JWKS_RESOURCE = '/v1beta/jwks'
 
     def __init__(self, app):
         # the verification method should go in the service
@@ -48,32 +54,33 @@ class _AppCheckService:
                 'projectId option, or use service account credentials. Alternatively, set the '
                 'GOOGLE_CLOUD_PROJECT environment variable.')
         # Unsure what I should include in this constructor, or even if I should include one
-    
+
     @classmethod
-    def verify_token(self, token: str) -> Dict[str, Any]:
+    def verify_token(cls, token: str) -> Dict[str, Any]:
+        """Verifies a Firebase App Check token."""
         if token is None:
             return None
 
         # Obtain the Firebase App Check Public Keys
         # Note: It is not recommended to hard code these keys as they rotate,
         # but you should cache them for up to 6 hours.
-        url = f'{self._APP_CHECK_GCP_API_URL}{self._APP_CHECK_BETA_JWKS_RESOURCE}'
+        url = f'{cls._APP_CHECK_GCP_API_URL}{cls._APP_CHECK_BETA_JWKS_RESOURCE}'
 
         jwks_client = PyJWKClient(url)
         signing_key = jwks_client.get_signing_key_from_jwt(token)
 
-        header = jwt.get_unverified_header(token)
-        self._has_valid_token_headers(header)
-        
+        cls._has_valid_token_headers(jwt.get_unverified_header(token))
+
         # I don't see any method or property to just get key
         # from signing_key /*/lib/python3.10/site-packages/jwt/api_jwk.py
-        payload = self._decode_and_verify(token, signing_key.key, "project_number")
+        payload = cls._decode_and_verify(token, signing_key.key, "project_number")
 
         # The token's subject will be the app ID, you may optionally filter against
         # an allow list
         return payload.get('sub')
 
     def _has_valid_token_headers(self, header: Any) -> None:
+        """Checks whether the token has valid headers for App Check."""
         # Ensure the token's header has type JWT
         if header.get('typ') != 'JWT':
             raise ValueError("The token received is not a JWT")
@@ -82,6 +89,7 @@ class _AppCheckService:
             raise ValueError("JWT's algorithm does not have valid token headers")
 
     def _decode_token(self, token: str, signing_key: str, algorithms: List[str]) -> Dict[str, Any]:
+        """Decodes the JWT received from App Check."""
         payload = {}
         try:
             payload = jwt.decode(
@@ -89,11 +97,12 @@ class _AppCheckService:
                 signing_key,
                 algorithms
             )
-        except:
+        except DecodeError:
             ValueError('Unable to decode the token')
         return payload
 
     def _decode_and_verify(self, token: str, signing_key: str):
+        """Decodes and verifies the token from App Check."""
         payload = {}
         payload = self._decode_token(
             token,
@@ -103,7 +112,7 @@ class _AppCheckService:
 
         # within the aud property, there will be an array of project id & number
         if len(payload.aud) <= 1:
-            raise ValueError('Project ID and Project Number are required to access App Check.') 
+            raise ValueError('Project ID and Project Number are required to access App Check.')
         if self._APP_CHECK_GCP_API_URL not in payload.issuer:
             raise ValueError('Token does not contain the correct Issuer.')
 

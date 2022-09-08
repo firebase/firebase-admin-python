@@ -65,14 +65,12 @@ class _AppCheckService:
         # Note: It is not recommended to hard code these keys as they rotate,
         # but you should cache them for up to 6 hours.
         url = f'{cls._APP_CHECK_GCP_API_URL}{cls._APP_CHECK_BETA_JWKS_RESOURCE}'
-
         jwks_client = PyJWKClient(url)
         signing_key = jwks_client.get_signing_key_from_jwt(token)
 
+        # Getting error "No value for argument 'header' in unbound
+        # method call (no-value-for-parameter)"
         cls._has_valid_token_headers(jwt.get_unverified_header(token))
-
-        # I don't see any method or property to just get key
-        # from signing_key /*/lib/python3.10/site-packages/jwt/api_jwk.py
         payload = cls._decode_and_verify(token, signing_key.key, "project_number")
 
         # The token's subject will be the app ID, you may optionally filter against
@@ -103,7 +101,6 @@ class _AppCheckService:
 
     def _decode_and_verify(self, token: str, signing_key: str):
         """Decodes and verifies the token from App Check."""
-        payload = {}
         payload = self._decode_token(
             token,
             signing_key,
@@ -111,9 +108,9 @@ class _AppCheckService:
         )
 
         # within the aud property, there will be an array of project id & number
-        if len(payload.aud) <= 1:
+        if len(payload.get('aud')) <= 1:
             raise ValueError('Project ID and Project Number are required to access App Check.')
-        if self._APP_CHECK_GCP_API_URL not in payload.issuer:
+        if self._APP_CHECK_GCP_API_URL not in payload.get('issuer'):
             raise ValueError('Token does not contain the correct Issuer.')
 
         return payload

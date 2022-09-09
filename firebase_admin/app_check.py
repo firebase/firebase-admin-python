@@ -14,7 +14,6 @@
 
 """Firebase App Check module."""
 
-# ASK(lahiru) Do I need to add these imports to the requirements file?
 from typing import Any, Dict, List
 import jwt
 from jwt import PyJWKClient, DecodeError
@@ -25,7 +24,6 @@ _APP_CHECK_ATTRIBUTE = '_app_check'
 def _get_app_check_service(app) -> Any:
     return _utils.get_app_service(app, _APP_CHECK_ATTRIBUTE, _AppCheckService)
 
-# should i accept an app (design doc doesn't have one) or just always make it none
 def verify_token(token: str, app=None) -> Dict[str, Any]:
     """Verifies a Firebase App Check token.
 
@@ -35,43 +33,37 @@ def verify_token(token: str, app=None) -> Dict[str, Any]:
 
     Returns:
         Dict[str, Any]: A token's decoded claims
-        if the App Check token is valid; otherwise, a rejected promise..
+        if the App Check token is valid; otherwise, a rejected promise.
     """
     return _get_app_check_service(app).verify_token(token)
 
 class _AppCheckService:
     """Service class that implements Firebase App Check functionality."""
 
-    _APP_CHECK_GCP_API_URL = 'https://firebaseappcheck.googleapis.com'
-    _APP_CHECK_BETA_JWKS_RESOURCE = '/v1beta/jwks'
+    _APP_CHECK_ISSUER = 'https://firebaseappcheck.googleapis.com/'
+    _JWKS_URL = 'https://firebaseappcheck.googleapis.com/v1/jwks'
+    _project_id = None
 
     def __init__(self, app):
-        # the verification method should go in the service
-        project_id = app.project_id
-        if not project_id:
+        # Validate and store the project_id to validate the JWT claims
+        self._project_id = app.project_id
+        if not self._project_id:
             raise ValueError(
                 'Project ID is required to access App Check service. Either set the '
                 'projectId option, or use service account credentials. Alternatively, set the '
                 'GOOGLE_CLOUD_PROJECT environment variable.')
-        # Unsure what I should include in this constructor, or even if I should include one
 
-    @classmethod
-    def verify_token(cls, token: str) -> Dict[str, Any]:
+    def verify_token(self, token: str) -> Dict[str, Any]:
         """Verifies a Firebase App Check token."""
-        if token is None:
-            return None
+        _Validators.check_string("app check token", token)
 
         # Obtain the Firebase App Check Public Keys
         # Note: It is not recommended to hard code these keys as they rotate,
         # but you should cache them for up to 6 hours.
-        url = f'{cls._APP_CHECK_GCP_API_URL}{cls._APP_CHECK_BETA_JWKS_RESOURCE}'
-        jwks_client = PyJWKClient(url)
+        jwks_client = PyJWKClient(self._JWKS_URL)
         signing_key = jwks_client.get_signing_key_from_jwt(token)
-
-        # Getting error "No value for argument 'header' in unbound
-        # method call (no-value-for-parameter)"
-        cls._has_valid_token_headers(jwt.get_unverified_header(token))
-        payload = cls._decode_and_verify(token, signing_key.key, "project_number")
+        self._has_valid_token_headers(jwt.get_unverified_header(token))
+        payload = self._decode_and_verify(token, signing_key.get('key'))
 
         # The token's subject will be the app ID, you may optionally filter against
         # an allow list
@@ -81,10 +73,14 @@ class _AppCheckService:
         """Checks whether the token has valid headers for App Check."""
         # Ensure the token's header has type JWT
         if header.get('typ') != 'JWT':
-            raise ValueError("The token received is not a JWT")
+            raise ValueError("The provided App Check token has an incorrect type header")
         # Ensure the token's header uses the algorithm RS256
-        if header.get('alg') != 'RS256':
-            raise ValueError("JWT's algorithm does not have valid token headers")
+        algorithm = header.get('alg')
+        if algorithm != 'RS256':
+            raise ValueError(
+                f'The provided App Check token has an incorrect algorithm. '
+                'Expected RS256 but got {algorithm}.'
+                )
 
     def _decode_token(self, token: str, signing_key: str, algorithms: List[str]) -> Dict[str, Any]:
         """Decodes the JWT received from App Check."""
@@ -96,7 +92,10 @@ class _AppCheckService:
                 algorithms
             )
         except DecodeError:
-            ValueError('Unable to decode the token')
+            ValueError(
+                'Decoding App Check token failed. Make sure you passed the entire string JWT '
+                'which represents the Firebase App Check token.'
+                )
         return payload
 
     def _decode_and_verify(self, token: str, signing_key: str):
@@ -107,10 +106,25 @@ class _AppCheckService:
             algorithms=["RS256"]
         )
 
-        # within the aud property, there will be an array of project id & number
-        if len(payload.get('aud')) <= 1:
-            raise ValueError('Project ID and Project Number are required to access App Check.')
-        if self._APP_CHECK_GCP_API_URL not in payload.get('issuer'):
+        scoped_project_id = 'projects/' + self._project_id
+        audience = payload.get('aud')
+        if not isinstance(audience, list) and scoped_project_id not in audience:
+            raise ValueError('Firebase App Check token has incorrect "aud" (audience) claim.')
+        if not payload.get('issuer').startswith(self._APP_CHECK_ISSUER):
             raise ValueError('Token does not contain the correct Issuer.')
 
         return payload
+
+class _Validators:
+    """A collection of data validation utilities.
+
+    Methods provided in this class raise ``ValueErrors`` if any validations fail.
+    """
+
+    @classmethod
+    def check_string(cls, label: str, value: Any):
+        """Checks if the given value is a string."""
+        if value is None:
+            raise ValueError('{0} must be a non-empty string.'.format(label))
+        if not isinstance(value, str):
+            raise ValueError('{0} must be a string.'.format(label))

@@ -10,3 +10,4 @@ google-api-core[grpc] >= 1.22.1, < 3.0.0dev; platform.python_implementation != '
 google-api-python-client >= 1.7.8
 google-cloud-firestore >= 2.1.0; platform.python_implementation != 'PyPy'
 google-cloud-storage >= 1.37.1
+pyjwt[crypto] >= 2.4.0

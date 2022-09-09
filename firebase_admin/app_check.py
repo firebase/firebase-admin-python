@@ -63,11 +63,12 @@ class _AppCheckService:
         jwks_client = PyJWKClient(self._JWKS_URL)
         signing_key = jwks_client.get_signing_key_from_jwt(token)
         self._has_valid_token_headers(jwt.get_unverified_header(token))
-        payload = self._decode_and_verify(token, signing_key.get('key'))
+        verified_claims = self._decode_and_verify(token, signing_key.get('key'))
 
         # The token's subject will be the app ID, you may optionally filter against
         # an allow list
-        return payload.get('sub')
+        verified_claims['app_id'] = verified_claims.get('sub')
+        return verified_claims
 
     def _has_valid_token_headers(self, header: Any) -> None:
         """Checks whether the token has valid headers for App Check."""

@@ -128,25 +128,11 @@ def test_android_sha_certificates(android_app):
     for cert in cert_list:
         assert cert.name
 
-    # Adding the same cert twice should cause an already-exists error.
-    with pytest.raises(exceptions.AlreadyExistsError) as excinfo:
-        android_app.add_sha_certificate(project_management.SHACertificate(SHA_256_HASH_2))
-    assert 'Requested entity already exists' in str(excinfo.value)
-    assert excinfo.value.cause is not None
-    assert excinfo.value.http_response is not None
-
     # Delete all certs and assert that they have all been deleted successfully.
     for cert in cert_list:
         android_app.delete_sha_certificate(cert)
 
     assert android_app.get_sha_certificates() == []
-
-    # Deleting a nonexistent cert should cause a not-found error.
-    with pytest.raises(exceptions.NotFoundError) as excinfo:
-        android_app.delete_sha_certificate(cert_list[0])
-    assert 'Requested entity was not found' in str(excinfo.value)
-    assert excinfo.value.cause is not None
-    assert excinfo.value.http_response is not None
 
 
 def test_create_ios_app_already_exists(ios_app):

@@ -60,6 +60,7 @@ class _AppCheckService:
         # Obtain the Firebase App Check Public Keys
         # Note: It is not recommended to hard code these keys as they rotate,
         # but you should cache them for up to 6 hours.
+        # TODO(dwyfrequency): update cache lifespan
         jwks_client = PyJWKClient(self._JWKS_URL)
         signing_key = jwks_client.get_signing_key_from_jwt(token)
         self._has_valid_token_headers(jwt.get_unverified_header(token))
@@ -70,17 +71,17 @@ class _AppCheckService:
         verified_claims['app_id'] = verified_claims.get('sub')
         return verified_claims
 
-    def _has_valid_token_headers(self, header: Any) -> None:
+    def _has_valid_token_headers(self, headers: Any) -> None:
         """Checks whether the token has valid headers for App Check."""
         # Ensure the token's header has type JWT
-        if header.get('typ') != 'JWT':
+        if headers.get('typ') != 'JWT':
             raise ValueError("The provided App Check token has an incorrect type header")
         # Ensure the token's header uses the algorithm RS256
-        algorithm = header.get('alg')
+        algorithm = headers.get('alg')
         if algorithm != 'RS256':
             raise ValueError(
-                f'The provided App Check token has an incorrect algorithm. '
-                'Expected RS256 but got {algorithm}.'
+                'The provided App Check token has an incorrect algorithm. '
+                f'Expected RS256 but got {algorithm}.'
                 )
 
     def _decode_token(self, token: str, signing_key: str, algorithms: List[str]) -> Dict[str, Any]:

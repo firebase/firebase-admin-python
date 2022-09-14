@@ -16,11 +16,14 @@
 
 import pytest
 
+# import jwt
+# from jwt import PyJWK, DecodeError
+# from mock import Mock, sentinel
 import firebase_admin
 from firebase_admin import app_check
 from tests import testutils
-import jwt
-from jwt import PyJWK
+
+
 
 NON_STRING_ARGS = [list(), tuple(), dict(), True, False, 1, 0]
 
@@ -55,9 +58,9 @@ class TestVerifyToken(TestBatch):
         app = firebase_admin.get_app()
         app_check_service = app_check._get_app_check_service(app)
 
-        headers = {"alg": "RS256", 'typ': "JWT"} 
-        assert None == app_check_service._has_valid_token_headers(headers=headers)
-    
+        headers = {"alg": "RS256", 'typ': "JWT"}
+        assert app_check_service._has_valid_token_headers(headers=headers) is None
+
     def test_has_valid_token_headers_with_incorrect_type_raises_error(self):
         app = firebase_admin.get_app()
         app_check_service = app_check._get_app_check_service(app)
@@ -67,7 +70,7 @@ class TestVerifyToken(TestBatch):
 
         expected = 'The provided App Check token has an incorrect type header'
         assert str(excinfo.value) == expected
-    
+
     def test_has_valid_token_headers_with_incorrect_algorithm_raises_error(self):
         app = firebase_admin.get_app()
         app_check_service = app_check._get_app_check_service(app)
@@ -75,6 +78,33 @@ class TestVerifyToken(TestBatch):
         with pytest.raises(ValueError) as excinfo:
             app_check_service._has_valid_token_headers(headers=headers)
 
-        expected = 'The provided App Check token has an incorrect algorithm. Expected RS256 but got HS256.'
+        expected = ('The provided App Check token has an incorrect algorithm. '
+                    'Expected RS256 but got HS256.')
         assert str(excinfo.value) == expected
+
+    def test_decode_token(self, mocker):
+        decoded_token = {"aud": "projects/1234"}
+        jwt_decode_mock = mocker.patch("jwt.decode", return_value=decoded_token)
+        app = firebase_admin.get_app()
+        app_check_service = app_check._get_app_check_service(app)
+        payload = app_check_service._decode_token(
+            token=None,
+            signing_key="1234",
+            algorithms=["RS256"]
+        )
+
+        jwt_decode_mock.assert_called_once_with(None, "1234", ["RS256"])
+        assert payload == decoded_token
+
+    # def test_decode_token_with_invalid_token_raises_error(self, mocker):
+    #     jwt_decode_mock = mocker.patch("jwt.decode", side_effect=DecodeError())
+    #     app = firebase_admin.get_app()
+    #     app_check_service = app_check._get_app_check_service(app)
+    #     with pytest.raises(ValueError) as excinfo:
+    #         app_check_service._decode_token(token="2213213", signing_key=None, algorithms=["RS256"])
+
+    #     expected = ('Decoding App Check token failed. Make sure you passed the '
+    #                 'entire string JWT which represents the Firebase App Check token.')
+    #     jwt_decode_mock.assert_called_once_with(None, "1234", ["RS256"])
+    #     assert str(excinfo.value) == expected
     

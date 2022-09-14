@@ -96,12 +96,13 @@ class TestVerifyToken(TestBatch):
         jwt_decode_mock.assert_called_once_with(None, "1234", ["RS256"])
         assert payload == decoded_token
 
+    # it's been difficult to get the error to pop up, should I also try and have a catch all error
     # def test_decode_token_with_invalid_token_raises_error(self, mocker):
     #     jwt_decode_mock = mocker.patch("jwt.decode", side_effect=DecodeError())
     #     app = firebase_admin.get_app()
     #     app_check_service = app_check._get_app_check_service(app)
     #     with pytest.raises(ValueError) as excinfo:
-    #         app_check_service._decode_token(token="2213213", signing_key=None, algorithms=["RS256"])
+    #     app_check_service._decode_token(token="2213213", signing_key=None, algorithms=["RS256"])
 
     #     expected = ('Decoding App Check token failed. Make sure you passed the '
     #                 'entire string JWT which represents the Firebase App Check token.')

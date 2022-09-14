@@ -454,7 +454,7 @@ class UserImportHash:
         """Creates a new standard Scrypt algorithm instance.
 
         Args:
-            memory_cost: CPU Memory cost as a non-negaive integer.
+            memory_cost: CPU Memory cost as a non-negative integer.
             parallelization: Parallelization as a non-negative integer.
             block_size: Block size as a non-negative integer.
             derived_key_length: Derived key length as a non-negative integer.

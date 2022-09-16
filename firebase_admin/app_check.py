@@ -16,7 +16,7 @@
 
 from typing import Any, Dict, List
 import jwt
-from jwt import PyJWKClient, DecodeError
+from jwt import PyJWKClient, DecodeError, InvalidKeyError
 from firebase_admin import _utils
 
 _APP_CHECK_ATTRIBUTE = '_app_check'
@@ -93,7 +93,7 @@ class _AppCheckService:
                 signing_key,
                 algorithms
             )
-        except DecodeError:
+        except (DecodeError, InvalidKeyError):
             ValueError(
                 'Decoding App Check token failed. Make sure you passed the entire string JWT '
                 'which represents the Firebase App Check token.'
@@ -112,7 +112,7 @@ class _AppCheckService:
         audience = payload.get('aud')
         if not isinstance(audience, list) and scoped_project_id not in audience:
             raise ValueError('Firebase App Check token has incorrect "aud" (audience) claim.')
-        if not payload.get('issuer').startswith(self._APP_CHECK_ISSUER):
+        if not payload.get('iss').startswith(self._APP_CHECK_ISSUER):
             raise ValueError('Token does not contain the correct Issuer.')
 
         return payload

@@ -16,16 +16,23 @@
 
 import pytest
 
-# import jwt
-# from jwt import PyJWK, DecodeError
-# from mock import Mock, sentinel
 import firebase_admin
 from firebase_admin import app_check
 from tests import testutils
 
-
-
 NON_STRING_ARGS = [list(), tuple(), dict(), True, False, 1, 0]
+
+APP_ID = "1234567890"
+JWT_PAYLOAD_SAMPLE = {
+    "headers": {
+        "alg": "RS256",
+        "typ": "JWT"
+    },
+    "sub": APP_ID,
+    "name": "John Doe",
+    "iss": "https://firebaseappcheck.googleapis.com/",
+    "aud": ["projects/1334"]
+}
 
 class TestBatch:
 
@@ -83,8 +90,7 @@ class TestVerifyToken(TestBatch):
         assert str(excinfo.value) == expected
 
     def test_decode_token(self, mocker):
-        decoded_token = {"aud": "projects/1234"}
-        jwt_decode_mock = mocker.patch("jwt.decode", return_value=decoded_token)
+        jwt_decode_mock = mocker.patch("jwt.decode", return_value=JWT_PAYLOAD_SAMPLE)
         app = firebase_admin.get_app()
         app_check_service = app_check._get_app_check_service(app)
         payload = app_check_service._decode_token(
@@ -94,18 +100,15 @@ class TestVerifyToken(TestBatch):
         )
 
         jwt_decode_mock.assert_called_once_with(None, "1234", ["RS256"])
-        assert payload == decoded_token
+        assert payload == JWT_PAYLOAD_SAMPLE.copy()
 
-    # it's been difficult to get the error to pop up, should I also try and have a catch all error
-    # def test_decode_token_with_invalid_token_raises_error(self, mocker):
-    #     jwt_decode_mock = mocker.patch("jwt.decode", side_effect=DecodeError())
-    #     app = firebase_admin.get_app()
-    #     app_check_service = app_check._get_app_check_service(app)
-    #     with pytest.raises(ValueError) as excinfo:
-    #     app_check_service._decode_token(token="2213213", signing_key=None, algorithms=["RS256"])
+    def test_verify_token(self, mocker):
+        mocker.patch("jwt.decode", return_value=JWT_PAYLOAD_SAMPLE)
+        mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value={"key": "secret"})
+        mocker.patch("jwt.get_unverified_header", return_value=JWT_PAYLOAD_SAMPLE.get("headers"))
+        app = firebase_admin.get_app()
 
-    #     expected = ('Decoding App Check token failed. Make sure you passed the '
-    #                 'entire string JWT which represents the Firebase App Check token.')
-    #     jwt_decode_mock.assert_called_once_with(None, "1234", ["RS256"])
-    #     assert str(excinfo.value) == expected
-    
+        payload = app_check.verify_token("encoded", app)
+        expected = JWT_PAYLOAD_SAMPLE.copy()
+        expected['app_id'] = APP_ID
+        assert payload == expected

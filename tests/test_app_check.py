@@ -112,3 +112,31 @@ class TestVerifyToken(TestBatch):
         expected = JWT_PAYLOAD_SAMPLE.copy()
         expected['app_id'] = APP_ID
         assert payload == expected
+
+    def test_verify_token_with_non_list_audience_raises_error(self, mocker):
+        jwt_with_non_list_audience = JWT_PAYLOAD_SAMPLE.copy()
+        jwt_with_non_list_audience["aud"] = '1234'
+        mocker.patch("jwt.decode", return_value=jwt_with_non_list_audience)
+        mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value={"key": "secret"})
+        mocker.patch("jwt.get_unverified_header", return_value=JWT_PAYLOAD_SAMPLE.get("headers"))
+        app = firebase_admin.get_app()
+
+        with pytest.raises(ValueError) as excinfo:
+            app_check.verify_token("encoded", app)
+
+        expected = 'Firebase App Check token has incorrect "aud" (audience) claim.'
+        assert str(excinfo.value) == expected
+
+    def test_verify_token_with_incorrect_issuer_raises_error(self, mocker):
+        jwt_with_non_incorrect_issuer = JWT_PAYLOAD_SAMPLE.copy()
+        jwt_with_non_incorrect_issuer["iss"] = "https://dwyfrequency.googleapis.com/"
+        mocker.patch("jwt.decode", return_value=jwt_with_non_incorrect_issuer)
+        mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value={"key": "secret"})
+        mocker.patch("jwt.get_unverified_header", return_value=JWT_PAYLOAD_SAMPLE.get("headers"))
+        app = firebase_admin.get_app()
+
+        with pytest.raises(ValueError) as excinfo:
+            app_check.verify_token("encoded", app)
+
+        expected = 'Token does not contain the correct Issuer.'
+        assert str(excinfo.value) == expected

@@ -60,8 +60,8 @@ class _AppCheckService:
         # Obtain the Firebase App Check Public Keys
         # Note: It is not recommended to hard code these keys as they rotate,
         # but you should cache them for up to 6 hours.
-        # TODO(dwyfrequency): update cache lifespan
-        jwks_client = PyJWKClient(self._JWKS_URL)
+        # Default lifespan is 300 seconds (5 minutes) so we change it to 21600 seconds (6 hours).
+        jwks_client = PyJWKClient(self._JWKS_URL, lifespan=21600)
         signing_key = jwks_client.get_signing_key_from_jwt(token)
         self._has_valid_token_headers(jwt.get_unverified_header(token))
         verified_claims = self._decode_and_verify(token, signing_key.get('key'))

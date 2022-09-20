@@ -113,7 +113,7 @@ class _AppCheckService:
         if not isinstance(audience, list) and scoped_project_id not in audience:
             raise ValueError('Firebase App Check token has incorrect "aud" (audience) claim.')
         if not payload.get('iss').startswith(self._APP_CHECK_ISSUER):
-            raise ValueError('Token does not contain the correct Issuer.')
+            raise ValueError('Token does not contain the correct "iss" (issuer).')
 
         return payload
 

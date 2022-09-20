@@ -138,5 +138,5 @@ class TestVerifyToken(TestBatch):
         with pytest.raises(ValueError) as excinfo:
             app_check.verify_token("encoded", app)
 
-        expected = 'Token does not contain the correct Issuer.'
+        expected = 'Token does not contain the correct "iss" (issuer).'
         assert str(excinfo.value) == expected

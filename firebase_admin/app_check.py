@@ -43,6 +43,7 @@ class _AppCheckService:
     _APP_CHECK_ISSUER = 'https://firebaseappcheck.googleapis.com/'
     _JWKS_URL = 'https://firebaseappcheck.googleapis.com/v1/jwks'
     _project_id = None
+    _scoped_project_id = None
 
     def __init__(self, app):
         # Validate and store the project_id to validate the JWT claims
@@ -52,6 +53,8 @@ class _AppCheckService:
                 'Project ID is required to access App Check service. Either set the '
                 'projectId option, or use service account credentials. Alternatively, set the '
                 'GOOGLE_CLOUD_PROJECT environment variable.')
+        self._scoped_project_id = 'projects/' + app.project_id 
+
 
     def verify_token(self, token: str) -> Dict[str, Any]:
         """Verifies a Firebase App Check token."""
@@ -64,7 +67,7 @@ class _AppCheckService:
         jwks_client = PyJWKClient(self._JWKS_URL, lifespan=21600)
         signing_key = jwks_client.get_signing_key_from_jwt(token)
         self._has_valid_token_headers(jwt.get_unverified_header(token))
-        verified_claims = self._decode_and_verify(token, signing_key.get('key'))
+        verified_claims = self._decode_and_verify(token, signing_key.key)
 
         # The token's subject will be the app ID, you may optionally filter against
         # an allow list
@@ -91,7 +94,8 @@ class _AppCheckService:
             payload = jwt.decode(
                 token,
                 signing_key,
-                algorithms
+                algorithms,
+                audience=self._scoped_project_id
             )
         except (DecodeError, InvalidKeyError):
             ValueError(
@@ -108,9 +112,9 @@ class _AppCheckService:
             algorithms=["RS256"]
         )
 
-        scoped_project_id = 'projects/' + self._project_id
+        
         audience = payload.get('aud')
-        if not isinstance(audience, list) and scoped_project_id not in audience:
+        if not isinstance(audience, list) and self._scoped_project_id not in audience:
             raise ValueError('Firebase App Check token has incorrect "aud" (audience) claim.')
         if not payload.get('iss').startswith(self._APP_CHECK_ISSUER):
             raise ValueError('Token does not contain the correct "iss" (issuer).')

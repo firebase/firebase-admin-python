@@ -100,7 +100,7 @@ class _AppCheckService:
                 audience=self._scoped_project_id
             )
         except (DecodeError, InvalidKeyError):
-            ValueError(
+            raise ValueError(
                 'Decoding App Check token failed. Make sure you passed the entire string JWT '
                 'which represents the Firebase App Check token.'
                 )

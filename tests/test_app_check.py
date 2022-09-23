@@ -114,6 +114,21 @@ class TestVerifyToken(TestBatch):
             None, "1234", ["RS256"], audience=SCOPED_PROJECT_ID)
         assert payload == JWT_PAYLOAD_SAMPLE.copy()
 
+    def test_decode_token_with_incorrect_token_and_key(self):
+        app = firebase_admin.get_app()
+        app_check_service = app_check._get_app_check_service(app)
+        with pytest.raises(ValueError) as excinfo:
+            app_check_service._decode_token(
+                token="1232132",
+                signing_key=signing_key,
+                algorithms=["RS256"],
+            )
+
+        expected = (
+            'Decoding App Check token failed. Make sure you passed the entire string JWT '
+            'which represents the Firebase App Check token.')
+        assert str(excinfo.value) == expected
+
     def test_verify_token(self, mocker):
         mocker.patch("jwt.decode", return_value=JWT_PAYLOAD_SAMPLE)
         mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value=PyJWK(signing_key))

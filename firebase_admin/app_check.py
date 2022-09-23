@@ -116,7 +116,6 @@ class _AppCheckService:
         )
 
         audience = payload.get('aud')
-        print(audience, self._scoped_project_id)
         if not isinstance(audience, list) or self._scoped_project_id not in audience:
             raise ValueError('Firebase App Check token has incorrect "aud" (audience) claim.')
         if not payload.get('iss').startswith(self._APP_CHECK_ISSUER):

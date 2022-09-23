@@ -32,8 +32,7 @@ def verify_token(token: str, app=None) -> Dict[str, Any]:
         app: An App instance (optional).
 
     Returns:
-        Dict[str, Any]: A token's decoded claims
-        if the App Check token is valid; otherwise, a rejected promise.
+        Dict[str, Any]: A token's decoded claims if the App Check token
 
     Raises:
         ValueError: If ``project_id``, headers, or the decoded token payload is invalid.

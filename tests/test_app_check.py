@@ -13,9 +13,10 @@
 # limitations under the License.
 
 """Test cases for the firebase_admin.app_check module."""
-
+import base64
 import pytest
 
+from jwt import PyJWK
 import firebase_admin
 from firebase_admin import app_check
 from tests import testutils
@@ -23,6 +24,7 @@ from tests import testutils
 NON_STRING_ARGS = [list(), tuple(), dict(), True, False, 1, 0]
 
 APP_ID = "1234567890"
+SCOPED_PROJECT_ID = "projects/1334"
 JWT_PAYLOAD_SAMPLE = {
     "headers": {
         "alg": "RS256",
@@ -32,6 +34,14 @@ JWT_PAYLOAD_SAMPLE = {
     "name": "John Doe",
     "iss": "https://firebaseappcheck.googleapis.com/",
     "aud": ["projects/1334"]
+}
+
+secret_key = "secret"
+signing_key = {
+    "kty": "oct",
+    # Using HS256 for simplicity, production key will use RS256
+    "alg": "HS256",
+    "k": base64.urlsafe_b64encode(secret_key.encode())
 }
 
 class TestBatch:
@@ -96,15 +106,16 @@ class TestVerifyToken(TestBatch):
         payload = app_check_service._decode_token(
             token=None,
             signing_key="1234",
-            algorithms=["RS256"]
+            algorithms=["RS256"],
         )
 
-        jwt_decode_mock.assert_called_once_with(None, "1234", ["RS256"])
+        jwt_decode_mock.assert_called_once_with(
+            None, "1234", ["RS256"], audience="projects/explicit-project-id")
         assert payload == JWT_PAYLOAD_SAMPLE.copy()
 
     def test_verify_token(self, mocker):
         mocker.patch("jwt.decode", return_value=JWT_PAYLOAD_SAMPLE)
-        mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value={"key": "secret"})
+        mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value=PyJWK(signing_key))
         mocker.patch("jwt.get_unverified_header", return_value=JWT_PAYLOAD_SAMPLE.get("headers"))
         app = firebase_admin.get_app()
 
@@ -117,7 +128,7 @@ class TestVerifyToken(TestBatch):
         jwt_with_non_list_audience = JWT_PAYLOAD_SAMPLE.copy()
         jwt_with_non_list_audience["aud"] = '1234'
         mocker.patch("jwt.decode", return_value=jwt_with_non_list_audience)
-        mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value={"key": "secret"})
+        mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value=PyJWK(signing_key))
         mocker.patch("jwt.get_unverified_header", return_value=JWT_PAYLOAD_SAMPLE.get("headers"))
         app = firebase_admin.get_app()
 
@@ -131,7 +142,7 @@ class TestVerifyToken(TestBatch):
         jwt_with_non_incorrect_issuer = JWT_PAYLOAD_SAMPLE.copy()
         jwt_with_non_incorrect_issuer["iss"] = "https://dwyfrequency.googleapis.com/"
         mocker.patch("jwt.decode", return_value=jwt_with_non_incorrect_issuer)
-        mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value={"key": "secret"})
+        mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value=PyJWK(signing_key))
         mocker.patch("jwt.get_unverified_header", return_value=JWT_PAYLOAD_SAMPLE.get("headers"))
         app = firebase_admin.get_app()
 

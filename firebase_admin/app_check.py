@@ -53,7 +53,7 @@ class _AppCheckService:
                 'Project ID is required to access App Check service. Either set the '
                 'projectId option, or use service account credentials. Alternatively, set the '
                 'GOOGLE_CLOUD_PROJECT environment variable.')
-        self._scoped_project_id = 'projects/' + app.project_id 
+        self._scoped_project_id = 'projects/' + app.project_id
 
 
     def verify_token(self, token: str) -> Dict[str, Any]:
@@ -112,7 +112,6 @@ class _AppCheckService:
             algorithms=["RS256"]
         )
 
-        
         audience = payload.get('aud')
         if not isinstance(audience, list) and self._scoped_project_id not in audience:
             raise ValueError('Firebase App Check token has incorrect "aud" (audience) claim.')

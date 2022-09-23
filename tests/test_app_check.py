@@ -24,7 +24,8 @@ from tests import testutils
 NON_STRING_ARGS = [list(), tuple(), dict(), True, False, 1, 0]
 
 APP_ID = "1234567890"
-SCOPED_PROJECT_ID = "projects/1334"
+PROJECT_ID = "1334"
+SCOPED_PROJECT_ID = f"projects/{PROJECT_ID}"
 JWT_PAYLOAD_SAMPLE = {
     "headers": {
         "alg": "RS256",
@@ -33,7 +34,7 @@ JWT_PAYLOAD_SAMPLE = {
     "sub": APP_ID,
     "name": "John Doe",
     "iss": "https://firebaseappcheck.googleapis.com/",
-    "aud": ["projects/1334"]
+    "aud": [SCOPED_PROJECT_ID]
 }
 
 secret_key = "secret"
@@ -49,7 +50,7 @@ class TestBatch:
     @classmethod
     def setup_class(cls):
         cred = testutils.MockCredential()
-        firebase_admin.initialize_app(cred, {'projectId': 'explicit-project-id'})
+        firebase_admin.initialize_app(cred, {'projectId': PROJECT_ID})
 
     @classmethod
     def teardown_class(cls):
@@ -110,7 +111,7 @@ class TestVerifyToken(TestBatch):
         )
 
         jwt_decode_mock.assert_called_once_with(
-            None, "1234", ["RS256"], audience="projects/explicit-project-id")
+            None, "1234", ["RS256"], audience=SCOPED_PROJECT_ID)
         assert payload == JWT_PAYLOAD_SAMPLE.copy()
 
     def test_verify_token(self, mocker):
@@ -128,6 +129,20 @@ class TestVerifyToken(TestBatch):
         jwt_with_non_list_audience = JWT_PAYLOAD_SAMPLE.copy()
         jwt_with_non_list_audience["aud"] = '1234'
         mocker.patch("jwt.decode", return_value=jwt_with_non_list_audience)
+        mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value=PyJWK(signing_key))
+        mocker.patch("jwt.get_unverified_header", return_value=JWT_PAYLOAD_SAMPLE.get("headers"))
+        app = firebase_admin.get_app()
+
+        with pytest.raises(ValueError) as excinfo:
+            app_check.verify_token("encoded", app)
+
+        expected = 'Firebase App Check token has incorrect "aud" (audience) claim.'
+        assert str(excinfo.value) == expected
+
+    def test_verify_token_with_empty_list_audience_raises_error(self, mocker):
+        jwt_with_empty_list_audience = JWT_PAYLOAD_SAMPLE.copy()
+        jwt_with_empty_list_audience["aud"] = []
+        mocker.patch("jwt.decode", return_value=jwt_with_empty_list_audience)
         mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value=PyJWK(signing_key))
         mocker.patch("jwt.get_unverified_header", return_value=JWT_PAYLOAD_SAMPLE.get("headers"))
         app = firebase_admin.get_app()

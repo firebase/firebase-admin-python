@@ -34,6 +34,9 @@ def verify_token(token: str, app=None) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: A token's decoded claims
         if the App Check token is valid; otherwise, a rejected promise.
+
+    Raises:
+        ValueError: If ``project_id``, headers, or the decoded token payload is invalid.
     """
     return _get_app_check_service(app).verify_token(token)
 
@@ -113,7 +116,8 @@ class _AppCheckService:
         )
 
         audience = payload.get('aud')
-        if not isinstance(audience, list) and self._scoped_project_id not in audience:
+        print(audience, self._scoped_project_id)
+        if not isinstance(audience, list) or self._scoped_project_id not in audience:
             raise ValueError('Firebase App Check token has incorrect "aud" (audience) claim.')
         if not payload.get('iss').startswith(self._APP_CHECK_ISSUER):
             raise ValueError('Token does not contain the correct "iss" (issuer).')

@@ -12,3 +12,4 @@ apikey.txt
 htmlcov/
 .pytest_cache/
 .vscode/
+.DS_Store

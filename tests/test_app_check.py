@@ -16,7 +16,8 @@
 import base64
 import pytest
 
-from jwt import PyJWK
+from jwt import PyJWK, InvalidAudienceError, InvalidIssuerError
+from jwt import ExpiredSignatureError, InvalidSignatureError
 import firebase_admin
 from firebase_admin import app_check
 from tests import testutils
@@ -26,6 +27,7 @@ NON_STRING_ARGS = [list(), tuple(), dict(), True, False, 1, 0]
 APP_ID = "1234567890"
 PROJECT_ID = "1334"
 SCOPED_PROJECT_ID = f"projects/{PROJECT_ID}"
+ISSUER = "https://firebaseappcheck.googleapis.com/"
 JWT_PAYLOAD_SAMPLE = {
     "headers": {
         "alg": "RS256",
@@ -33,7 +35,7 @@ JWT_PAYLOAD_SAMPLE = {
     },
     "sub": APP_ID,
     "name": "John Doe",
-    "iss": "https://firebaseappcheck.googleapis.com/",
+    "iss": ISSUER,
     "aud": [SCOPED_PROJECT_ID]
 }
 
@@ -44,10 +46,6 @@ signing_key = {
     "alg": "HS256",
     "k": base64.urlsafe_b64encode(secret_key.encode())
 }
-
-EXPIRED_TOKEN = "eyJraWQiOiJsWUJXVmciLCJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxOjM4ODE4ODY2Njk2MzphbmRyb2lkOjYyZWNhZWEzOTYzMWIxZGM3NDFhYTYiLCJhdWQiOlsicHJvamVjdHNcLzM4ODE4ODY2Njk2MyIsInByb2plY3RzXC9hZG1pbi1qYXZhLWludGVncmF0aW9uIl0sImlzcyI6Imh0dHBzOlwvXC9maXJlYmFzZWFwcGNoZWNrLmdvb2dsZWFwaXMuY29tXC8zODgxODg2NjY5NjMiLCJleHAiOjE2NjM3OTUxNDcsImlhdCI6MTY2Mzc5MTU0N30.oQWIQFwUlWp1wXhZ-rQvrw7ud2fmPj7kagWWPlqvXrRKASjtMka09Anm25mRaOymm7jeu7r0JMOYTSJJM6Iz89qCndO92nC6Wuvlug1zVYSJDgUWAv6msGOK_qANMMbYYXjx912nCHT0A7CyeTSCKK3xxq8lD0YI6c2E9g6U1E23mbHn-ekI8K_fV3DjZ9staCYmymlhbdZwf6FMeBZzSgjfXaHzNwe37Ndj9C_HxdZwYS4Yt7JS_SWNXtgGM6kj-Ie5MWLGuzR-qkMglaS7KqTK3K-iYG1pMzKst4akDbhsr7CO3K4Z1q-iT-yBkTuwMvE40ztVXBm_v5zQQqE7IGWu79Fr-3yjmyf7MrvgP-WgAGc4MLozuXvasgRUnaf2XiXlMlmAk3BfiOB4maUhVktjexlzF1lD7MnDQ0mxpVz_Q2gzAus8ugbySGS0XvvDDTX3qlPIeVFsXRehwzwvUKc6li2hIdzG3nvOMWNBBGQzSs99-EbfGVm4caGmVoc3"
-
-INVALID_SIGNATURE_TOKEN = "eyJraWQiOiJsWUJXVmciLCJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxOjM4ODE4ODY2Njk2MzphbmRyb2lkOjYyZWNhZWEzOTYzMWIxZGM3NDFhYTYiLCJhdWQiOlsicHJvamVjdHNcLzM4ODE4ODY2Njk2MyIsInByb2plY3RzXC9hZG1pbi1qYXZhLWludGVncmF0aW9uIl0sImlzcyI6Imh0dHBzOlwvXC9maXJlYmFzZWFwcGNoZWNrLmdvb2dsZWFwaXMuY29tXC8zODgxODg2NjY5NjMiLCJleHAiOjE2NjM3OTUxNDcsImlhdCI6MTY2Mzc5MTU0N30.oQWIQFwUlWp1wXhZ-rQvrw7ud2fmPj7kagWWPlqvXrRKASjtMka09Anm25mRaOymm7jeuOYTSJJM6Iz89qCndO92nC6Wuvlug1zVYSJDgUWAv6msGOK_qANMMbYYXjx912nCHT0A7CyeTSCKK3xxq8lD0YI6c2E9g6U1E23mbHn-ekI8K_fV3DjZ9staCYmymlhbdZwf6FMeBZzSgjfXaHzNwe37Ndj9C_HxdZwYS4Yt7JS_SWNXtgGM6kj-Ie5MWLGuzR-qkMglaS7KqTK3K-iYG1pMzKst4akDbhsr7CO3K4Z1q-iT-yBkTuwMvE40ztVXBm_v5zQQqE7IGWu79Fr-3yjmyf7MrvgP-WgAGc4MLozuXvasgRUnaf2XiXlMlmAk3BfiOB4maUhVktjexlzF1lD7MnDQ0mxpVz_Q2gzAus8ugbySGS0XvvDDTX3qlPIeVFsXRehwzwvUKc6li2hIdzG3nvOMWNBBGQzSs99-EbfGVm4caGmVoc3"
 
 class TestBatch:
 
@@ -130,24 +128,62 @@ class TestVerifyToken(TestBatch):
             'Decoding App Check token failed. Error: Not enough segments')
         assert str(excinfo.value) == expected
 
-    def test_decode_and_verify_with_expired_token(self):
+    def test_decode_and_verify_with_expired_token_raises_error(self, mocker):
+        mocker.patch("jwt.decode", side_effect=ExpiredSignatureError)
         app = firebase_admin.get_app()
-        app_check._get_app_check_service(app)
+        app_check_service = app_check._get_app_check_service(app)
         with pytest.raises(ValueError) as excinfo:
-            app_check.verify_token(EXPIRED_TOKEN, app)
+            app_check_service._decode_and_verify(
+                token="1232132",
+                signing_key=signing_key,
+            )
 
         expected = (
             'The provided App Check token signature has expired.')
         assert str(excinfo.value) == expected
 
-    def test_decode_and_verify_with_invalid_signature(self):
+    def test_decode_and_verify_with_invalid_signature_raises_error(self, mocker):
+        mocker.patch("jwt.decode", side_effect=InvalidSignatureError)
         app = firebase_admin.get_app()
-        app_check._get_app_check_service(app)
+        app_check_service = app_check._get_app_check_service(app)
         with pytest.raises(ValueError) as excinfo:
-            app_check.verify_token(INVALID_SIGNATURE_TOKEN, app)
+            app_check_service._decode_and_verify(
+                token="1232132",
+                signing_key=signing_key,
+            )
 
         expected = (
             'The provided App Check token signature cannot be verified.')
+        assert str(excinfo.value) == expected
+
+    def test_decode_and_verify_with_invalid_aud_raises_error(self, mocker):
+        mocker.patch("jwt.decode", side_effect=InvalidAudienceError)
+        app = firebase_admin.get_app()
+        app_check_service = app_check._get_app_check_service(app)
+        with pytest.raises(ValueError) as excinfo:
+            app_check_service._decode_and_verify(
+                token="1232132",
+                signing_key=signing_key,
+            )
+
+        expected = (
+            'The provided App Check token has incorrect "aud" (audience) claim.'
+            f'Expected payload to include {SCOPED_PROJECT_ID}.')
+        assert str(excinfo.value) == expected
+
+    def test_decode_and_verify_with_invalid_iss_raises_error(self, mocker):
+        mocker.patch("jwt.decode", side_effect=InvalidIssuerError)
+        app = firebase_admin.get_app()
+        app_check_service = app_check._get_app_check_service(app)
+        with pytest.raises(ValueError) as excinfo:
+            app_check_service._decode_and_verify(
+                token="1232132",
+                signing_key=signing_key,
+            )
+
+        expected = (
+            'The provided App Check token has incorrect "iss" (issuer) claim.'
+            f'Expected claim to include {ISSUER}')
         assert str(excinfo.value) == expected
 
     def test_verify_token(self, mocker):

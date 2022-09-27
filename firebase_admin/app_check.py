@@ -107,8 +107,7 @@ class _AppCheckService:
         except InvalidAudienceError:
             raise ValueError(
                 'The provided App Check token has incorrect "aud" (audience) claim.'
-                f'Expected payload to include {self._scoped_project_id} but got '
-                f'{payload.get("aud")}. '
+                f'Expected payload to include {self._scoped_project_id}.'
                 )
         except InvalidIssuerError:
             raise ValueError(

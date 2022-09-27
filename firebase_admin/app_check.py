@@ -14,9 +14,10 @@
 
 """Firebase App Check module."""
 
-from typing import Any, Dict, List
+from typing import Any, Dict
 import jwt
-from jwt import PyJWKClient, DecodeError, InvalidKeyError
+from jwt import PyJWKClient, ExpiredSignatureError, InvalidTokenError
+from jwt import InvalidAudienceError, InvalidIssuerError, InvalidSignatureError
 from firebase_admin import _utils
 
 _APP_CHECK_ATTRIBUTE = '_app_check'
@@ -89,30 +90,39 @@ class _AppCheckService:
                 f'Expected RS256 but got {algorithm}.'
                 )
 
-    def _decode_token(self, token: str, signing_key: str, algorithms: List[str]) -> Dict[str, Any]:
-        """Decodes the JWT received from App Check."""
+    def _decode_and_verify(self, token: str, signing_key: str):
+        """Decodes and verifies the token from App Check."""
         payload = {}
         try:
             payload = jwt.decode(
                 token,
                 signing_key,
-                algorithms,
+                algorithms=["RS256"],
                 audience=self._scoped_project_id
             )
-        except (DecodeError, InvalidKeyError):
+        except InvalidSignatureError:
             raise ValueError(
-                'Decoding App Check token failed. Make sure you passed the entire string JWT '
-                'which represents the Firebase App Check token.'
+                'The provided App Check token signature cannot be verified.'
                 )
-        return payload
-
-    def _decode_and_verify(self, token: str, signing_key: str):
-        """Decodes and verifies the token from App Check."""
-        payload = self._decode_token(
-            token,
-            signing_key,
-            algorithms=["RS256"]
-        )
+        except InvalidAudienceError:
+            raise ValueError(
+                'The provided App Check token has incorrect "aud" (audience) claim.'
+                f'Expected payload to include {self._scoped_project_id} but got '
+                f'{payload.get("aud")}. '
+                )
+        except InvalidIssuerError:
+            raise ValueError(
+                'The provided App Check token has incorrect "iss" (issuer) claim.'
+                f'Expected claim to include {self._APP_CHECK_ISSUER}'
+                )
+        except ExpiredSignatureError:
+            raise ValueError(
+                'The provided App Check token signature has expired.'
+                )
+        except InvalidTokenError as exception:
+            raise ValueError(
+                f'Decoding App Check token failed. Error: {exception}'
+                )
 
         audience = payload.get('aud')
         if not isinstance(audience, list) or self._scoped_project_id not in audience:

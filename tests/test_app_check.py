@@ -45,6 +45,10 @@ signing_key = {
     "k": base64.urlsafe_b64encode(secret_key.encode())
 }
 
+EXPIRED_TOKEN = "eyJraWQiOiJsWUJXVmciLCJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxOjM4ODE4ODY2Njk2MzphbmRyb2lkOjYyZWNhZWEzOTYzMWIxZGM3NDFhYTYiLCJhdWQiOlsicHJvamVjdHNcLzM4ODE4ODY2Njk2MyIsInByb2plY3RzXC9hZG1pbi1qYXZhLWludGVncmF0aW9uIl0sImlzcyI6Imh0dHBzOlwvXC9maXJlYmFzZWFwcGNoZWNrLmdvb2dsZWFwaXMuY29tXC8zODgxODg2NjY5NjMiLCJleHAiOjE2NjM3OTUxNDcsImlhdCI6MTY2Mzc5MTU0N30.oQWIQFwUlWp1wXhZ-rQvrw7ud2fmPj7kagWWPlqvXrRKASjtMka09Anm25mRaOymm7jeu7r0JMOYTSJJM6Iz89qCndO92nC6Wuvlug1zVYSJDgUWAv6msGOK_qANMMbYYXjx912nCHT0A7CyeTSCKK3xxq8lD0YI6c2E9g6U1E23mbHn-ekI8K_fV3DjZ9staCYmymlhbdZwf6FMeBZzSgjfXaHzNwe37Ndj9C_HxdZwYS4Yt7JS_SWNXtgGM6kj-Ie5MWLGuzR-qkMglaS7KqTK3K-iYG1pMzKst4akDbhsr7CO3K4Z1q-iT-yBkTuwMvE40ztVXBm_v5zQQqE7IGWu79Fr-3yjmyf7MrvgP-WgAGc4MLozuXvasgRUnaf2XiXlMlmAk3BfiOB4maUhVktjexlzF1lD7MnDQ0mxpVz_Q2gzAus8ugbySGS0XvvDDTX3qlPIeVFsXRehwzwvUKc6li2hIdzG3nvOMWNBBGQzSs99-EbfGVm4caGmVoc3"
+
+INVALID_SIGNATURE_TOKEN = "eyJraWQiOiJsWUJXVmciLCJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxOjM4ODE4ODY2Njk2MzphbmRyb2lkOjYyZWNhZWEzOTYzMWIxZGM3NDFhYTYiLCJhdWQiOlsicHJvamVjdHNcLzM4ODE4ODY2Njk2MyIsInByb2plY3RzXC9hZG1pbi1qYXZhLWludGVncmF0aW9uIl0sImlzcyI6Imh0dHBzOlwvXC9maXJlYmFzZWFwcGNoZWNrLmdvb2dsZWFwaXMuY29tXC8zODgxODg2NjY5NjMiLCJleHAiOjE2NjM3OTUxNDcsImlhdCI6MTY2Mzc5MTU0N30.oQWIQFwUlWp1wXhZ-rQvrw7ud2fmPj7kagWWPlqvXrRKASjtMka09Anm25mRaOymm7jeuOYTSJJM6Iz89qCndO92nC6Wuvlug1zVYSJDgUWAv6msGOK_qANMMbYYXjx912nCHT0A7CyeTSCKK3xxq8lD0YI6c2E9g6U1E23mbHn-ekI8K_fV3DjZ9staCYmymlhbdZwf6FMeBZzSgjfXaHzNwe37Ndj9C_HxdZwYS4Yt7JS_SWNXtgGM6kj-Ie5MWLGuzR-qkMglaS7KqTK3K-iYG1pMzKst4akDbhsr7CO3K4Z1q-iT-yBkTuwMvE40ztVXBm_v5zQQqE7IGWu79Fr-3yjmyf7MrvgP-WgAGc4MLozuXvasgRUnaf2XiXlMlmAk3BfiOB4maUhVktjexlzF1lD7MnDQ0mxpVz_Q2gzAus8ugbySGS0XvvDDTX3qlPIeVFsXRehwzwvUKc6li2hIdzG3nvOMWNBBGQzSs99-EbfGVm4caGmVoc3"
+
 class TestBatch:
 
     @classmethod
@@ -100,33 +104,50 @@ class TestVerifyToken(TestBatch):
                     'Expected RS256 but got HS256.')
         assert str(excinfo.value) == expected
 
-    def test_decode_token(self, mocker):
+    def test_decode_and_verify(self, mocker):
         jwt_decode_mock = mocker.patch("jwt.decode", return_value=JWT_PAYLOAD_SAMPLE)
         app = firebase_admin.get_app()
         app_check_service = app_check._get_app_check_service(app)
-        payload = app_check_service._decode_token(
+        payload = app_check_service._decode_and_verify(
             token=None,
             signing_key="1234",
-            algorithms=["RS256"],
         )
 
         jwt_decode_mock.assert_called_once_with(
-            None, "1234", ["RS256"], audience=SCOPED_PROJECT_ID)
+            None, "1234", algorithms=["RS256"], audience=SCOPED_PROJECT_ID)
         assert payload == JWT_PAYLOAD_SAMPLE.copy()
 
-    def test_decode_token_with_incorrect_token_and_key(self):
+    def test_decode_and_verify_with_incorrect_token_and_key(self):
         app = firebase_admin.get_app()
         app_check_service = app_check._get_app_check_service(app)
         with pytest.raises(ValueError) as excinfo:
-            app_check_service._decode_token(
+            app_check_service._decode_and_verify(
                 token="1232132",
                 signing_key=signing_key,
-                algorithms=["RS256"],
             )
 
         expected = (
-            'Decoding App Check token failed. Make sure you passed the entire string JWT '
-            'which represents the Firebase App Check token.')
+            'Decoding App Check token failed. Error: Not enough segments')
+        assert str(excinfo.value) == expected
+
+    def test_decode_and_verify_with_expired_token(self):
+        app = firebase_admin.get_app()
+        app_check._get_app_check_service(app)
+        with pytest.raises(ValueError) as excinfo:
+            app_check.verify_token(EXPIRED_TOKEN, app)
+
+        expected = (
+            'The provided App Check token signature has expired.')
+        assert str(excinfo.value) == expected
+
+    def test_decode_and_verify_with_invalid_signature(self):
+        app = firebase_admin.get_app()
+        app_check._get_app_check_service(app)
+        with pytest.raises(ValueError) as excinfo:
+            app_check.verify_token(INVALID_SIGNATURE_TOKEN, app)
+
+        expected = (
+            'The provided App Check token signature cannot be verified.')
         assert str(excinfo.value) == expected
 
     def test_verify_token(self, mocker):

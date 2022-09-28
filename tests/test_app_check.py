@@ -139,7 +139,7 @@ class TestVerifyToken(TestBatch):
             )
 
         expected = (
-            'The provided App Check token signature has expired.')
+            'The provided App Check token has expired.')
         assert str(excinfo.value) == expected
 
     def test_decode_and_verify_with_invalid_signature_raises_error(self, mocker):
@@ -153,7 +153,7 @@ class TestVerifyToken(TestBatch):
             )
 
         expected = (
-            'The provided App Check token signature cannot be verified.')
+            'The provided App Check token has invalid signature..')
         assert str(excinfo.value) == expected
 
     def test_decode_and_verify_with_invalid_aud_raises_error(self, mocker):

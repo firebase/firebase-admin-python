@@ -72,8 +72,6 @@ class _AppCheckService:
         self._has_valid_token_headers(jwt.get_unverified_header(token))
         verified_claims = self._decode_and_verify(token, signing_key.key)
 
-        # The token's subject will be the app ID, you may optionally filter against
-        # an allow list
         verified_claims['app_id'] = verified_claims.get('sub')
         return verified_claims
 
@@ -102,7 +100,7 @@ class _AppCheckService:
             )
         except InvalidSignatureError:
             raise ValueError(
-                'The provided App Check token signature cannot be verified.'
+                'The provided App Check token has invalid signature..'
                 )
         except InvalidAudienceError:
             raise ValueError(
@@ -116,7 +114,7 @@ class _AppCheckService:
                 )
         except ExpiredSignatureError:
             raise ValueError(
-                'The provided App Check token signature has expired.'
+                'The provided App Check token has expired.'
                 )
         except InvalidTokenError as exception:
             raise ValueError(

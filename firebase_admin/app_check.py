@@ -127,6 +127,9 @@ class _AppCheckService:
             raise ValueError('Firebase App Check token has incorrect "aud" (audience) claim.')
         if not payload.get('iss').startswith(self._APP_CHECK_ISSUER):
             raise ValueError('Token does not contain the correct "iss" (issuer).')
+        _Validators.check_string(
+            'The provided App Check token "sub" (subject) claim',
+            payload.get('sub'))
 
         return payload
 

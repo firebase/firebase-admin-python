@@ -186,6 +186,41 @@ class TestVerifyToken(TestBatch):
             f'Expected claim to include {ISSUER}')
         assert str(excinfo.value) == expected
 
+    def test_decode_and_verify_with_none_sub_raises_error(self, mocker):
+        jwt_with_none_sub = JWT_PAYLOAD_SAMPLE.copy()
+        jwt_with_none_sub['sub'] = None
+        mocker.patch("jwt.decode", return_value=jwt_with_none_sub)
+        app = firebase_admin.get_app()
+        app_check_service = app_check._get_app_check_service(app)
+        with pytest.raises(ValueError) as excinfo:
+            app_check_service._decode_and_verify(
+                token="1232132",
+                signing_key=signing_key,
+            )
+
+        expected = (
+            'The provided App Check token "sub" (subject) claim '
+            f'"{None}" must be a non-empty string.')
+        assert str(excinfo.value) == expected
+
+    def test_decode_and_verify_with_non_string_sub_raises_error(self, mocker):
+        sub_number = 1234
+        jwt_with_none_sub = JWT_PAYLOAD_SAMPLE.copy()
+        jwt_with_none_sub['sub'] = sub_number
+        mocker.patch("jwt.decode", return_value=jwt_with_none_sub)
+        app = firebase_admin.get_app()
+        app_check_service = app_check._get_app_check_service(app)
+        with pytest.raises(ValueError) as excinfo:
+            app_check_service._decode_and_verify(
+                token="1232132",
+                signing_key=signing_key,
+            )
+
+        expected = (
+            'The provided App Check token "sub" (subject) claim '
+            f'"{sub_number}" must be a string.')
+        assert str(excinfo.value) == expected
+
     def test_verify_token(self, mocker):
         mocker.patch("jwt.decode", return_value=JWT_PAYLOAD_SAMPLE)
         mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value=PyJWK(signing_key))

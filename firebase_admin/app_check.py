@@ -47,6 +47,7 @@ class _AppCheckService:
     _JWKS_URL = 'https://firebaseappcheck.googleapis.com/v1/jwks'
     _project_id = None
     _scoped_project_id = None
+    _jwks_client = None
 
     def __init__(self, app):
         # Validate and store the project_id to validate the JWT claims
@@ -57,6 +58,8 @@ class _AppCheckService:
                 'projectId option, or use service account credentials. Alternatively, set the '
                 'GOOGLE_CLOUD_PROJECT environment variable.')
         self._scoped_project_id = 'projects/' + app.project_id
+        # Default lifespan is 300 seconds (5 minutes) so we change it to 21600 seconds (6 hours).
+        self._jwks_client = PyJWKClient(self._JWKS_URL, lifespan=21600)
 
 
     def verify_token(self, token: str) -> Dict[str, Any]:
@@ -66,9 +69,7 @@ class _AppCheckService:
         # Obtain the Firebase App Check Public Keys
         # Note: It is not recommended to hard code these keys as they rotate,
         # but you should cache them for up to 6 hours.
-        # Default lifespan is 300 seconds (5 minutes) so we change it to 21600 seconds (6 hours).
-        jwks_client = PyJWKClient(self._JWKS_URL, lifespan=21600)
-        signing_key = jwks_client.get_signing_key_from_jwt(token)
+        signing_key = self._jwks_client.get_signing_key_from_jwt(token)
         self._has_valid_token_headers(jwt.get_unverified_header(token))
         verified_claims = self._decode_and_verify(token, signing_key.key)
 

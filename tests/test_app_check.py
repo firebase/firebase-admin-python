@@ -98,7 +98,7 @@ class TestVerifyToken(TestBatch):
         with pytest.raises(ValueError) as excinfo:
             app_check_service._has_valid_token_headers(headers=headers)
 
-        expected = ('The provided App Check token has an incorrect algorithm. '
+        expected = ('The provided App Check token has an incorrect alg header. '
                     'Expected RS256 but got HS256.')
         assert str(excinfo.value) == expected
 
@@ -153,7 +153,7 @@ class TestVerifyToken(TestBatch):
             )
 
         expected = (
-            'The provided App Check token has invalid signature..')
+            'The provided App Check token has an invalid signature.')
         assert str(excinfo.value) == expected
 
     def test_decode_and_verify_with_invalid_aud_raises_error(self, mocker):
@@ -167,7 +167,7 @@ class TestVerifyToken(TestBatch):
             )
 
         expected = (
-            'The provided App Check token has incorrect "aud" (audience) claim.'
+            'The provided App Check token has an incorrect "aud" (audience) claim. '
             f'Expected payload to include {SCOPED_PROJECT_ID}.')
         assert str(excinfo.value) == expected
 
@@ -182,7 +182,7 @@ class TestVerifyToken(TestBatch):
             )
 
         expected = (
-            'The provided App Check token has incorrect "iss" (issuer) claim.'
+            'The provided App Check token has an incorrect "iss" (issuer) claim. '
             f'Expected claim to include {ISSUER}')
         assert str(excinfo.value) == expected
 

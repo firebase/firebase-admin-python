@@ -33,10 +33,11 @@ def verify_token(token: str, app=None) -> Dict[str, Any]:
         app: An App instance (optional).
 
     Returns:
-        Dict[str, Any]: A token's decoded claims if the App Check token
+        Dict[str, Any]: The token's decoded claims.
 
     Raises:
-        ValueError: If ``project_id``, headers, or the decoded token payload is invalid.
+        ValueError: If the app's ``project_id`` is invalid or unspecified,
+        or if the token's headers or payload are invalid.
     """
     return _get_app_check_service(app).verify_token(token)
 
@@ -54,8 +55,9 @@ class _AppCheckService:
         self._project_id = app.project_id
         if not self._project_id:
             raise ValueError(
-                'Project ID is required to access App Check service. Either set the '
-                'projectId option, or use service account credentials. Alternatively, set the '
+                'A project ID must be specified to access the App Check '
+                'service. Either set the projectId option, use service '
+                'account credentials, or set the '
                 'GOOGLE_CLOUD_PROJECT environment variable.')
         self._scoped_project_id = 'projects/' + app.project_id
         # Default lifespan is 300 seconds (5 minutes) so we change it to 21600 seconds (6 hours).
@@ -85,7 +87,7 @@ class _AppCheckService:
         algorithm = headers.get('alg')
         if algorithm != 'RS256':
             raise ValueError(
-                'The provided App Check token has an incorrect algorithm. '
+                'The provided App Check token has an incorrect alg header. '
                 f'Expected RS256 but got {algorithm}.'
                 )
 
@@ -101,16 +103,16 @@ class _AppCheckService:
             )
         except InvalidSignatureError:
             raise ValueError(
-                'The provided App Check token has invalid signature..'
+                'The provided App Check token has an invalid signature.'
                 )
         except InvalidAudienceError:
             raise ValueError(
-                'The provided App Check token has incorrect "aud" (audience) claim.'
+                'The provided App Check token has an incorrect "aud" (audience) claim. '
                 f'Expected payload to include {self._scoped_project_id}.'
                 )
         except InvalidIssuerError:
             raise ValueError(
-                'The provided App Check token has incorrect "iss" (issuer) claim.'
+                'The provided App Check token has an incorrect "iss" (issuer) claim. '
                 f'Expected claim to include {self._APP_CHECK_ISSUER}'
                 )
         except ExpiredSignatureError:

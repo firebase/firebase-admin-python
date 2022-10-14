@@ -571,8 +571,8 @@ def import_with_scrypt():
         auth.ImportUserRecord(
             uid='some-uid',
             email='user@example.com',
-            password_hash=b'password_hash',
-            password_salt=b'salt'
+            password_hash=base64.urlsafe_b64decode('password_hash'),
+            password_salt=base64.urlsafe_b64decode('salt')
         ),
     ]
 

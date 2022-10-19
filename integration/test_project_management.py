@@ -28,8 +28,6 @@ TEST_APP_BUNDLE_ID = 'com.firebase.adminsdk-python-integration-test'
 TEST_APP_PACKAGE_NAME = 'com.firebase.adminsdk_python_integration_test'
 TEST_APP_DISPLAY_NAME_PREFIX = 'Created By Firebase AdminSDK Python Integration Testing'
 
-SHA_1_HASH_1 = '123456789a123456789a123456789a123456789a'
-SHA_1_HASH_2 = 'aaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbb'
 SHA_256_HASH_1 = '123456789a123456789a123456789a123456789a123456789a123456789a1234'
 SHA_256_HASH_2 = 'cafef00dba5eba11b01dfaceacc01adeda7aba5eca55e77e0b57ac1e5ca1ab1e'
 SHA_1 = project_management.SHACertificate.SHA_1
@@ -119,40 +117,22 @@ def test_android_sha_certificates(android_app):
     for cert in android_app.get_sha_certificates():
         android_app.delete_sha_certificate(cert)
 
-    # Add four different certs and assert that they have all been added successfully.
-    android_app.add_sha_certificate(project_management.SHACertificate(SHA_1_HASH_1))
-    android_app.add_sha_certificate(project_management.SHACertificate(SHA_1_HASH_2))
+    # Add two different certs and assert that they have all been added successfully.
     android_app.add_sha_certificate(project_management.SHACertificate(SHA_256_HASH_1))
     android_app.add_sha_certificate(project_management.SHACertificate(SHA_256_HASH_2))
 
     cert_list = android_app.get_sha_certificates()
 
-    sha_1_hashes = set(cert.sha_hash for cert in cert_list if cert.cert_type == SHA_1)
     sha_256_hashes = set(cert.sha_hash for cert in cert_list if cert.cert_type == SHA_256)
-    assert sha_1_hashes == set([SHA_1_HASH_1, SHA_1_HASH_2])
     assert sha_256_hashes == set([SHA_256_HASH_1, SHA_256_HASH_2])
     for cert in cert_list:
         assert cert.name
-
-    # Adding the same cert twice should cause an already-exists error.
-    with pytest.raises(exceptions.AlreadyExistsError) as excinfo:
-        android_app.add_sha_certificate(project_management.SHACertificate(SHA_256_HASH_2))
-    assert 'Requested entity already exists' in str(excinfo.value)
-    assert excinfo.value.cause is not None
-    assert excinfo.value.http_response is not None
 
     # Delete all certs and assert that they have all been deleted successfully.
     for cert in cert_list:
         android_app.delete_sha_certificate(cert)
 
     assert android_app.get_sha_certificates() == []
-
-    # Deleting a nonexistent cert should cause a not-found error.
-    with pytest.raises(exceptions.NotFoundError) as excinfo:
-        android_app.delete_sha_certificate(cert_list[0])
-    assert 'Requested entity was not found' in str(excinfo.value)
-    assert excinfo.value.cause is not None
-    assert excinfo.value.http_response is not None
 
 
 def test_create_ios_app_already_exists(ios_app):
@@ -195,12 +175,8 @@ def test_list_ios_apps(ios_app):
 def test_get_ios_app_config(ios_app, project_id):
     config = ios_app.get_config()
 
-    # In Python 2.7, the plistlib module works with strings, while in Python 3, it is significantly
-    # redesigned and works with bytes objects instead.
-    try:
-        plist = plistlib.loads(config.encode('utf-8'))
-    except AttributeError:  # Python 2.7 plistlib does not have the loads attribute.
-        plist = plistlib.readPlistFromString(config)  # pylint: disable=no-member
+    plist = plistlib.loads(config.encode('utf-8'))
+
     assert plist['BUNDLE_ID'] == TEST_APP_BUNDLE_ID
     assert plist['PROJECT_ID'] == project_id
     assert plist['GOOGLE_APP_ID'] == ios_app.app_id

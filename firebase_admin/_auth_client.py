@@ -100,7 +100,8 @@ class Client:
 
         Args:
             id_token: A string of the encoded JWT.
-            check_revoked: Boolean, If true, checks whether the token has been revoked (optional).
+            check_revoked: Boolean, If true, checks whether the token has been revoked or
+                the user disabled (optional).
 
         Returns:
             dict: A dictionary of key-value pairs parsed from the decoded JWT.
@@ -115,6 +116,8 @@ class Client:
                 this ``Client`` instance.
             CertificateFetchError: If an error occurs while fetching the public key certificates
                 required to verify the ID token.
+            UserDisabledError: If ``check_revoked`` is ``True`` and the corresponding user
+                record is disabled.
         """
         if not isinstance(check_revoked, bool):
             # guard against accidental wrong assignment.
@@ -129,7 +132,8 @@ class Client:
                     'Invalid tenant ID: {0}'.format(token_tenant_id))
 
         if check_revoked:
-            self._check_jwt_revoked(verified_claims, _token_gen.RevokedIdTokenError, 'ID token')
+            self._check_jwt_revoked_or_disabled(
+                verified_claims, _token_gen.RevokedIdTokenError, 'ID token')
         return verified_claims
 
     def revoke_refresh_tokens(self, uid):
@@ -181,7 +185,7 @@ class Client:
 
         Raises:
             ValueError: If the email is None, empty or malformed.
-            UserNotFoundError: If no user exists by the specified email address.
+            UserNotFoundError: If no user exists for the specified email address.
             FirebaseError: If an error occurs while retrieving the user.
         """
         response = self._user_manager.get_user(email=email)
@@ -198,7 +202,7 @@ class Client:
 
         Raises:
             ValueError: If the phone number is ``None``, empty or malformed.
-            UserNotFoundError: If no user exists by the specified phone number.
+            UserNotFoundError: If no user exists for the specified phone number.
             FirebaseError: If an error occurs while retrieving the user.
         """
         response = self._user_manager.get_user(phone_number=phone_number)
@@ -284,7 +288,7 @@ class Client:
         """Creates a new user account with the specified properties.
 
         Args:
-            kwargs: A series of keyword arguments (optional).
+            **kwargs: A series of keyword arguments (optional).
 
         Keyword Args:
             uid: User ID to assign to the newly created user (optional).
@@ -312,7 +316,7 @@ class Client:
 
         Args:
             uid: A user ID string.
-            kwargs: A series of keyword arguments (optional).
+            **kwargs: A series of keyword arguments (optional).
 
         Keyword Args:
             display_name: The user's display name (optional). Can be removed by explicitly passing
@@ -332,6 +336,8 @@ class Client:
             valid_since: An integer signifying the seconds since the epoch (optional). This field
                 is set by ``revoke_refresh_tokens`` and it is discouraged to set this field
                 directly.
+            providers_to_delete: The list of provider IDs to unlink,
+                eg: 'google.com', 'password', etc.
 
         Returns:
             UserRecord: An updated UserRecord instance for the user.
@@ -444,6 +450,7 @@ class Client:
 
         Raises:
             ValueError: If the provided arguments are invalid
+            EmailNotFoundError: If no user exists for the specified email address.
             FirebaseError: If an error occurs while generating the link
         """
         return self._user_manager.generate_email_action_link(
@@ -464,6 +471,7 @@ class Client:
 
         Raises:
             ValueError: If the provided arguments are invalid
+            UserNotFoundError: If no user exists for the specified email address.
             FirebaseError: If an error occurs while generating the link
         """
         return self._user_manager.generate_email_action_link(
@@ -506,7 +514,8 @@ class Client:
         return self._provider_manager.get_oidc_provider_config(provider_id)
 
     def create_oidc_provider_config(
-            self, provider_id, client_id, issuer, display_name=None, enabled=None):
+            self, provider_id, client_id, issuer, display_name=None, enabled=None,
+            client_secret=None, id_token_response_type=None, code_response_type=None):
         """Creates a new OIDC provider config from the given parameters.
 
         OIDC provider support requires Google Cloud's Identity Platform (GCIP). To learn more about
@@ -520,6 +529,16 @@ class Client:
                 This name is also used as the provider label in the Cloud Console.
             enabled: A boolean indicating whether the provider configuration is enabled or disabled
                 (optional). A user cannot sign in using a disabled provider.
+            client_secret: A string which sets the client secret for the new provider.
+                This is required for the code flow.
+            code_response_type: A boolean which sets whether to enable the code response flow for
+                the new provider.  By default, this is not enabled if no response type is
+                specified. A client secret must be set for this response type.
+                Having both the code and ID token response flows is currently not supported.
+            id_token_response_type: A boolean which sets whether to enable the ID token response
+                flow for the new provider. By default, this is enabled if no response type is
+                specified.
+                Having both the code and ID token response flows is currently not supported.
 
         Returns:
             OIDCProviderConfig: The newly created OIDC provider config instance.
@@ -530,10 +549,12 @@ class Client:
         """
         return self._provider_manager.create_oidc_provider_config(
             provider_id, client_id=client_id, issuer=issuer, display_name=display_name,
-            enabled=enabled)
+            enabled=enabled, client_secret=client_secret,
+            id_token_response_type=id_token_response_type, code_response_type=code_response_type)
 
     def update_oidc_provider_config(
-            self, provider_id, client_id=None, issuer=None, display_name=None, enabled=None):
+            self, provider_id, client_id=None, issuer=None, display_name=None, enabled=None,
+            client_secret=None, id_token_response_type=None, code_response_type=None):
         """Updates an existing OIDC provider config with the given parameters.
 
         Args:
@@ -544,6 +565,16 @@ class Client:
                 Pass ``auth.DELETE_ATTRIBUTE`` to delete the current display name.
             enabled: A boolean indicating whether the provider configuration is enabled or disabled
                 (optional).
+            client_secret: A string which sets the client secret for the new provider.
+                This is required for the code flow.
+            code_response_type: A boolean which sets whether to enable the code response flow for
+                the new provider. By default, this is not enabled if no response type is specified.
+                A client secret must be set for this response type.
+                Having both the code and ID token response flows is currently not supported.
+            id_token_response_type: A boolean which sets whether to enable the ID token response
+                flow for the new provider. By default, this is enabled if no response type is
+                specified.
+                Having both the code and ID token response flows is currently not supported.
 
         Returns:
             OIDCProviderConfig: The updated OIDC provider config instance.
@@ -554,7 +585,8 @@ class Client:
         """
         return self._provider_manager.update_oidc_provider_config(
             provider_id, client_id=client_id, issuer=issuer, display_name=display_name,
-            enabled=enabled)
+            enabled=enabled, client_secret=client_secret,
+            id_token_response_type=id_token_response_type, code_response_type=code_response_type)
 
     def delete_oidc_provider_config(self, provider_id):
         """Deletes the ``OIDCProviderConfig`` with the given ID.
@@ -718,7 +750,9 @@ class Client:
         """
         return self._provider_manager.list_saml_provider_configs(page_token, max_results)
 
-    def _check_jwt_revoked(self, verified_claims, exc_type, label):
+    def _check_jwt_revoked_or_disabled(self, verified_claims, exc_type, label):
         user = self.get_user(verified_claims.get('uid'))
+        if user.disabled:
+            raise _auth_utils.UserDisabledError('The user record is disabled.')
         if verified_claims.get('iat') * 1000 < user.tokens_valid_after_timestamp:
             raise exc_type('The Firebase {0} has been revoked.'.format(label))

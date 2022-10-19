@@ -59,6 +59,18 @@ class OIDCProviderConfig(ProviderConfig):
     def client_id(self):
         return self._data['clientId']
 
+    @property
+    def client_secret(self):
+        return self._data.get('clientSecret')
+
+    @property
+    def id_token_response_type(self):
+        return self._data.get('responseType', {}).get('idToken', False)
+
+    @property
+    def code_response_type(self):
+        return self._data.get('responseType', {}).get('code', False)
+
 
 class SAMLProviderConfig(ProviderConfig):
     """Represents he SAML auth provider configuration.
@@ -179,7 +191,8 @@ class ProviderConfigClient:
         return OIDCProviderConfig(body)
 
     def create_oidc_provider_config(
-            self, provider_id, client_id, issuer, display_name=None, enabled=None):
+            self, provider_id, client_id, issuer, display_name=None, enabled=None,
+            client_secret=None, id_token_response_type=None, code_response_type=None):
         """Creates a new OIDC provider config from the given parameters."""
         _validate_oidc_provider_id(provider_id)
         req = {
@@ -191,12 +204,28 @@ class ProviderConfigClient:
         if enabled is not None:
             req['enabled'] = _auth_utils.validate_boolean(enabled, 'enabled')
 
+        response_type = {}
+        if id_token_response_type is False and code_response_type is False:
+            raise ValueError('At least one response type must be returned.')
+        if id_token_response_type is not None:
+            response_type['idToken'] = _auth_utils.validate_boolean(
+                id_token_response_type, 'id_token_response_type')
+        if code_response_type is not None:
+            response_type['code'] = _auth_utils.validate_boolean(
+                code_response_type, 'code_response_type')
+            if code_response_type:
+                req['clientSecret'] = _validate_non_empty_string(client_secret, 'client_secret')
+        if response_type:
+            req['responseType'] = response_type
+
         params = 'oauthIdpConfigId={0}'.format(provider_id)
         body = self._make_request('post', '/oauthIdpConfigs', json=req, params=params)
         return OIDCProviderConfig(body)
 
     def update_oidc_provider_config(
-            self, provider_id, client_id=None, issuer=None, display_name=None, enabled=None):
+            self, provider_id, client_id=None, issuer=None, display_name=None,
+            enabled=None, client_secret=None, id_token_response_type=None,
+            code_response_type=None):
         """Updates an existing OIDC provider config with the given parameters."""
         _validate_oidc_provider_id(provider_id)
         req = {}
@@ -211,6 +240,20 @@ class ProviderConfigClient:
             req['clientId'] = _validate_non_empty_string(client_id, 'client_id')
         if issuer:
             req['issuer'] = _validate_url(issuer, 'issuer')
+
+        response_type = {}
+        if id_token_response_type is False and code_response_type is False:
+            raise ValueError('At least one response type must be returned.')
+        if id_token_response_type is not None:
+            response_type['idToken'] = _auth_utils.validate_boolean(
+                id_token_response_type, 'id_token_response_type')
+        if code_response_type is not None:
+            response_type['code'] = _auth_utils.validate_boolean(
+                code_response_type, 'code_response_type')
+            if code_response_type:
+                req['clientSecret'] = _validate_non_empty_string(client_secret, 'client_secret')
+        if response_type:
+            req['responseType'] = response_type
 
         if not req:
             raise ValueError('At least one parameter must be specified for update.')

@@ -24,6 +24,7 @@ import firebase_admin
 from firebase_admin import _http_client
 from firebase_admin import _messaging_encoder
 from firebase_admin import _messaging_utils
+from firebase_admin import _gapic_utils
 from firebase_admin import _utils
 
 
@@ -106,7 +107,7 @@ def send(message, dry_run=False, app=None):
         app: An App instance (optional).
 
     Returns:
-        string: A message ID string that uniquely identifies the sent the message.
+        string: A message ID string that uniquely identifies the sent message.
 
     Raises:
         FirebaseError: If an error occurs while sending the message to the FCM service.
@@ -330,9 +331,9 @@ class _MessagingService:
             'X-FIREBASE-CLIENT': 'fire-admin-python/{0}'.format(firebase_admin.__version__),
         }
         timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
-        self._client = _http_client.JsonHttpClient(
-            credential=app.credential.get_credential(), timeout=timeout)
-        self._transport = _auth.authorized_http(app.credential.get_credential())
+        self._credential = app.credential.get_credential()
+        self._client = _http_client.JsonHttpClient(credential=self._credential, timeout=timeout)
+        self._build_transport = _auth.authorized_http
 
     @classmethod
     def encode_message(cls, message):
@@ -373,10 +374,11 @@ class _MessagingService:
 
         batch = http.BatchHttpRequest(
             callback=batch_callback, batch_uri=_MessagingService.FCM_BATCH_URL)
+        transport = self._build_transport(self._credential)
         for message in messages:
             body = json.dumps(self._message_data(message, dry_run))
             req = http.HttpRequest(
-                http=self._transport,
+                http=transport,
                 postproc=self._postproc,
                 uri=self._fcm_url,
                 method='POST',
@@ -465,7 +467,7 @@ class _MessagingService:
 
     def _handle_batch_error(self, error):
         """Handles errors received from the googleapiclient while making batch requests."""
-        return _utils.handle_platform_error_from_googleapiclient(
+        return _gapic_utils.handle_platform_error_from_googleapiclient(
             error, _MessagingService._build_fcm_error_googleapiclient)
 
     @classmethod

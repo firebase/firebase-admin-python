@@ -663,6 +663,23 @@ class TestUpdateUser:
         request = json.loads(recorder[0].body.decode())
         assert request == {'localId': 'testuser', 'validSince': int(arg)}
 
+    @pytest.mark.parametrize('arg', [['phone'], ['google.com', 'phone']])
+    def test_update_user_delete_provider(self, user_mgt_app, arg):
+        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        user_mgt.update_user('testuser', providers_to_delete=arg)
+        request = json.loads(recorder[0].body.decode())
+        assert set(request['deleteProvider']) == set(arg)
+
+    @pytest.mark.parametrize('arg', [[], ['phone'], ['google.com'], ['google.com', 'phone']])
+    def test_update_user_delete_provider_and_phone(self, user_mgt_app, arg):
+        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        user_mgt.update_user('testuser',
+                             providers_to_delete=arg,
+                             phone_number=auth.DELETE_ATTRIBUTE)
+        request = json.loads(recorder[0].body.decode())
+        assert 'phone' in request['deleteProvider']
+        assert len(set(request['deleteProvider'])) == len(request['deleteProvider'])
+        assert set(arg) - set(request['deleteProvider']) == set()
 
 class TestSetCustomUserClaims:
 
@@ -1195,7 +1212,7 @@ class TestUserImportHash:
             memory_cost=14, parallelization=2, block_size=10, derived_key_length=128)
         expected = {
             'hashAlgorithm': 'STANDARD_SCRYPT',
-            'memoryCost': 14,
+            'cpuMemCost': 14,
             'parallelization': 2,
             'blockSize': 10,
             'dkLen': 128,
@@ -1443,6 +1460,17 @@ class TestGenerateEmailActionLink:
         with pytest.raises(exceptions.InternalError) as excinfo:
             func('test@test.com', MOCK_ACTION_CODE_SETTINGS, app=user_mgt_app)
         assert str(excinfo.value) == 'Error while calling Auth service (UNEXPECTED_CODE).'
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is not None
+
+    def test_password_reset_non_existing(self, user_mgt_app):
+        _instrument_user_manager(user_mgt_app, 400, '{"error":{"message": "EMAIL_NOT_FOUND"}}')
+        with pytest.raises(auth.EmailNotFoundError) as excinfo:
+            auth.generate_password_reset_link(
+                'nonexistent@user', MOCK_ACTION_CODE_SETTINGS, app=user_mgt_app)
+        error_msg = 'No user record found for the given email (EMAIL_NOT_FOUND).'
+        assert excinfo.value.code == exceptions.NOT_FOUND
+        assert str(excinfo.value) == error_msg
         assert excinfo.value.http_response is not None
         assert excinfo.value.cause is not None
 

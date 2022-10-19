@@ -31,6 +31,7 @@ import firebase_admin
 from firebase_admin import auth
 from firebase_admin import credentials
 from firebase_admin import exceptions
+from firebase_admin import _http_client
 from firebase_admin import _token_gen
 from tests import testutils
 
@@ -74,17 +75,24 @@ def _merge_jwt_claims(defaults, overrides):
             del defaults[key]
     return defaults
 
+
 def verify_custom_token(custom_token, expected_claims, tenant_id=None):
     assert isinstance(custom_token, bytes)
     expected_email = MOCK_SERVICE_ACCOUNT_EMAIL
+    header = jwt.decode_header(custom_token)
+    assert header.get('typ') == 'JWT'
     if _is_emulated():
+        assert header.get('alg') == 'none'
+        assert custom_token.split(b'.')[2] == b''
         expected_email = _token_gen.AUTH_EMULATOR_EMAIL
         token = jwt.decode(custom_token, verify=False)
     else:
+        assert header.get('alg') == 'RS256'
         token = google.oauth2.id_token.verify_token(
             custom_token,
             testutils.MockRequest(200, MOCK_PUBLIC_CERTS),
             _token_gen.FIREBASE_AUDIENCE)
+
     assert token['uid'] == MOCK_UID
     assert token['iss'] == expected_email
     assert token['sub'] == expected_email
@@ -93,9 +101,6 @@ def verify_custom_token(custom_token, expected_claims, tenant_id=None):
     else:
         assert token['tenant_id'] == tenant_id
 
-    header = jwt.decode_header(custom_token)
-    assert header.get('typ') == 'JWT'
-    assert header.get('alg') == 'RS256'
     if expected_claims:
         for key, value in expected_claims.items():
             assert value == token['claims'][key]
@@ -203,6 +208,19 @@ def revoked_tokens():
     mock_user['users'][0]['validSince'] = str(int(time.time())+100)
     return json.dumps(mock_user)
 
+@pytest.fixture(scope='module')
+def user_disabled():
+    mock_user = json.loads(testutils.resource('get_user.json'))
+    mock_user['users'][0]['disabled'] = True
+    return json.dumps(mock_user)
+
+@pytest.fixture(scope='module')
+def user_disabled_and_revoked():
+    mock_user = json.loads(testutils.resource('get_user.json'))
+    mock_user['users'][0]['disabled'] = True
+    mock_user['users'][0]['validSince'] = str(int(time.time())+100)
+    return json.dumps(mock_user)
+
 
 class TestCreateCustomToken:
 
@@ -258,7 +276,7 @@ class TestCreateCustomToken:
             testutils.MockCredential(), name='iam-signer-app', options=options)
         try:
             signature = base64.b64encode(b'test').decode()
-            iam_resp = '{{"signature": "{0}"}}'.format(signature)
+            iam_resp = '{{"signedBlob": "{0}"}}'.format(signature)
             _overwrite_iam_request(app, testutils.MockRequest(200, iam_resp))
             custom_token = auth.create_custom_token(MOCK_UID, app=app).decode()
             assert custom_token.endswith('.' + signature.rstrip('='))
@@ -296,7 +314,7 @@ class TestCreateCustomToken:
             # Now invoke the IAM signer.
             signature = base64.b64encode(b'test').decode()
             request.response = testutils.MockResponse(
-                200, '{{"signature": "{0}"}}'.format(signature))
+                200, '{{"signedBlob": "{0}"}}'.format(signature))
             custom_token = auth.create_custom_token(MOCK_UID, app=app).decode()
             assert custom_token.endswith('.' + signature.rstrip('='))
             self._verify_signer(custom_token, 'discovered-service-account')
@@ -466,6 +484,23 @@ class TestVerifyIdToken:
             auth.verify_id_token(id_token, app=user_mgt_app, check_revoked=True)
         assert str(excinfo.value) == 'The Firebase ID token has been revoked.'
 
+    @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
+    def test_disabled_user_check_revoked(self, user_mgt_app, user_disabled, id_token):
+        _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
+        _instrument_user_manager(user_mgt_app, 200, user_disabled)
+        with pytest.raises(auth.UserDisabledError) as excinfo:
+            auth.verify_id_token(id_token, app=user_mgt_app, check_revoked=True)
+        assert str(excinfo.value) == 'The user record is disabled.'
+
+    @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
+    def test_check_disabled_before_revoked(
+            self, user_mgt_app, user_disabled_and_revoked, id_token):
+        _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
+        _instrument_user_manager(user_mgt_app, 200, user_disabled_and_revoked)
+        with pytest.raises(auth.UserDisabledError) as excinfo:
+            auth.verify_id_token(id_token, app=user_mgt_app, check_revoked=True)
+        assert str(excinfo.value) == 'The user record is disabled.'
+
     @pytest.mark.parametrize('arg', INVALID_BOOLS)
     def test_invalid_check_revoked(self, user_mgt_app, arg):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
@@ -476,6 +511,14 @@ class TestVerifyIdToken:
     def test_revoked_token_do_not_check_revoked(self, user_mgt_app, revoked_tokens, id_token):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
         _instrument_user_manager(user_mgt_app, 200, revoked_tokens)
+        claims = auth.verify_id_token(id_token, app=user_mgt_app, check_revoked=False)
+        assert claims['admin'] is True
+        assert claims['uid'] == claims['sub']
+
+    @pytest.mark.parametrize('id_token', valid_tokens.values(), ids=list(valid_tokens))
+    def test_disabled_user_do_not_check_revoked(self, user_mgt_app, user_disabled, id_token):
+        _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
+        _instrument_user_manager(user_mgt_app, 200, user_disabled)
         claims = auth.verify_id_token(id_token, app=user_mgt_app, check_revoked=False)
         assert claims['admin'] is True
         assert claims['uid'] == claims['sub']
@@ -617,6 +660,29 @@ class TestVerifySessionCookie:
         _instrument_user_manager(user_mgt_app, 200, revoked_tokens)
         self._assert_valid_cookie(cookie, app=user_mgt_app, check_revoked=False)
 
+    @pytest.mark.parametrize('cookie', valid_cookies.values(), ids=list(valid_cookies))
+    def test_disabled_user_check_revoked(self, user_mgt_app, user_disabled, cookie):
+        _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
+        _instrument_user_manager(user_mgt_app, 200, user_disabled)
+        with pytest.raises(auth.UserDisabledError) as excinfo:
+            auth.verify_session_cookie(cookie, app=user_mgt_app, check_revoked=True)
+        assert str(excinfo.value) == 'The user record is disabled.'
+
+    @pytest.mark.parametrize('cookie', valid_cookies.values(), ids=list(valid_cookies))
+    def test_check_disabled_before_revoked(
+            self, user_mgt_app, user_disabled_and_revoked, cookie):
+        _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
+        _instrument_user_manager(user_mgt_app, 200, user_disabled_and_revoked)
+        with pytest.raises(auth.UserDisabledError) as excinfo:
+            auth.verify_session_cookie(cookie, app=user_mgt_app, check_revoked=True)
+        assert str(excinfo.value) == 'The user record is disabled.'
+
+    @pytest.mark.parametrize('cookie', valid_cookies.values(), ids=list(valid_cookies))
+    def test_disabled_user_does_not_check_revoked(self, user_mgt_app, user_disabled, cookie):
+        _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
+        _instrument_user_manager(user_mgt_app, 200, user_disabled)
+        self._assert_valid_cookie(cookie, app=user_mgt_app, check_revoked=False)
+
     @pytest.mark.parametrize('cookie', INVALID_JWT_ARGS.values(), ids=list(INVALID_JWT_ARGS))
     def test_invalid_args(self, user_mgt_app, cookie):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
@@ -702,3 +768,52 @@ class TestCertificateCaching:
         assert len(httpserver.requests) == request_count
         verifier.verify_id_token(TEST_ID_TOKEN)
         assert len(httpserver.requests) == request_count
+
+
+class TestCertificateFetchTimeout:
+
+    timeout_configs = [
+        ({'httpTimeout': 4}, 4),
+        ({'httpTimeout': None}, None),
+        ({}, _http_client.DEFAULT_TIMEOUT_SECONDS),
+    ]
+
+    @pytest.mark.parametrize('options, timeout', timeout_configs)
+    def test_init_request(self, options, timeout):
+        app = firebase_admin.initialize_app(MOCK_CREDENTIAL, options=options)
+
+        client = auth._get_client(app)
+        request = client._token_verifier.request
+
+        assert isinstance(request, _token_gen.CertificateFetchRequest)
+        assert request.timeout_seconds == timeout
+
+    @pytest.mark.parametrize('options, timeout', timeout_configs)
+    def test_verify_id_token_timeout(self, options, timeout):
+        app = firebase_admin.initialize_app(MOCK_CREDENTIAL, options=options)
+        recorder = self._instrument_session(app)
+
+        auth.verify_id_token(TEST_ID_TOKEN)
+
+        assert len(recorder) == 1
+        assert recorder[0]._extra_kwargs['timeout'] == timeout
+
+    @pytest.mark.parametrize('options, timeout', timeout_configs)
+    def test_verify_session_cookie_timeout(self, options, timeout):
+        app = firebase_admin.initialize_app(MOCK_CREDENTIAL, options=options)
+        recorder = self._instrument_session(app)
+
+        auth.verify_session_cookie(TEST_SESSION_COOKIE)
+
+        assert len(recorder) == 1
+        assert recorder[0]._extra_kwargs['timeout'] == timeout
+
+    def _instrument_session(self, app):
+        client = auth._get_client(app)
+        request = client._token_verifier.request
+        recorder = []
+        request.session.mount('https://', testutils.MockAdapter(MOCK_PUBLIC_CERTS, 200, recorder))
+        return recorder
+
+    def teardown(self):
+        testutils.cleanup_apps()

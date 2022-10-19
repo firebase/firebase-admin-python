@@ -61,12 +61,7 @@ def run_without_project_id(func):
 
 
 def new_monkeypatch():
-    try:
-        return pytest.MonkeyPatch()
-    except AttributeError:
-        # Fallback for Python 3.5
-        from _pytest.monkeypatch import MonkeyPatch
-        return MonkeyPatch()
+    return pytest.MonkeyPatch()
 
 
 class MockResponse(transport.Response):

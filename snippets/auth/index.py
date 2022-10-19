@@ -150,6 +150,9 @@ def verify_token_uid_check_revoke(id_token):
     except auth.RevokedIdTokenError:
         # Token revoked, inform the user to reauthenticate or signOut().
         pass
+    except auth.UserDisabledError:
+        # Token belongs to a disabled user record.
+        pass
     except auth.InvalidIdTokenError:
         # Token is invalid
         pass
@@ -596,8 +599,8 @@ def import_with_scrypt():
         auth.ImportUserRecord(
             uid='some-uid',
             email='user@example.com',
-            password_hash=b'password_hash',
-            password_salt=b'salt'
+            password_hash=base64.urlsafe_b64decode('password_hash'),
+            password_salt=base64.urlsafe_b64decode('salt')
         ),
     ]
 
@@ -1054,6 +1057,9 @@ def verify_id_token_and_check_revoked_tenant(tenant_client, id_token):
         pass
     except auth.RevokedIdTokenError:
         # Token revoked, inform the user to reauthenticate or signOut().
+        pass
+    except auth.UserDisabledError:
+        # Token belongs to a disabled user record.
         pass
     except auth.InvalidIdTokenError:
         # Token is invalid

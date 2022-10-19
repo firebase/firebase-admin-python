@@ -1,0 +1,98 @@
+# Copyright 2021 Google Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Nightly Builds
+
+on:
+  # Runs every day at 06:20 AM (PT) and 08:20 PM (PT) / 04:20 AM (UTC) and 02:20 PM (UTC)
+  # or on 'firebase_nightly_build' repository dispatch event.
+  schedule:
+    - cron: "20 4,14 * * *"
+  repository_dispatch:
+    types: [firebase_nightly_build]
+
+jobs:
+  nightly:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout source for staging
+      uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event.client_payload.ref || github.ref }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.7
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install setuptools wheel
+        pip install tensorflow
+        pip install keras
+
+    - name: Run unit tests
+      run: pytest
+
+    - name: Run integration tests
+      run: ./.github/scripts/run_integration_tests.sh
+      env:
+        FIREBASE_SERVICE_ACCT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCT_KEY }}
+        FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+
+    # Build the Python Wheel and the source distribution.
+    - name: Package release artifacts
+      run: python setup.py bdist_wheel sdist
+
+    # Attach the packaged artifacts to the workflow output. These can be manually
+    # downloaded for later inspection if necessary.
+    - name: Archive artifacts
+      uses: actions/upload-artifact@v1
+      with:
+        name: dist
+        path: dist
+
+    - name: Send email on failure
+      if: failure()
+      uses: firebase/firebase-admin-node/.github/actions/send-email@master
+      with:
+        api-key: ${{ secrets.OSS_BOT_MAILGUN_KEY }}
+        domain: ${{ secrets.OSS_BOT_MAILGUN_DOMAIN }}
+        from: 'GitHub <admin-github@${{ secrets.OSS_BOT_MAILGUN_DOMAIN }}>'
+        to: ${{ secrets.FIREBASE_ADMIN_GITHUB_EMAIL }}
+        subject: 'Nightly build ${{github.run_id}} of ${{github.repository}} failed!'
+        html: >
+          <b>Nightly workflow ${{github.run_id}} failed on: ${{github.repository}}</b>
+          <br /><br />Navigate to the 
+          <a href="https://github.com/firebase/firebase-admin-python/actions/runs/${{github.run_id}}">failed workflow</a>.
+      continue-on-error: true
+
+    - name: Send email on cancelled
+      if: cancelled()
+      uses: firebase/firebase-admin-node/.github/actions/send-email@master
+      with:
+        api-key: ${{ secrets.OSS_BOT_MAILGUN_KEY }}
+        domain: ${{ secrets.OSS_BOT_MAILGUN_DOMAIN }}
+        from: 'GitHub <admin-github@${{ secrets.OSS_BOT_MAILGUN_DOMAIN }}>'
+        to: ${{ secrets.FIREBASE_ADMIN_GITHUB_EMAIL }}
+        subject: 'Nightly build ${{github.run_id}} of ${{github.repository}} cancelled!'
+        html: >
+          <b>Nightly workflow ${{github.run_id}} cancelled on: ${{github.repository}}</b>
+          <br /><br />Navigate to the 
+          <a href="https://github.com/firebase/firebase-admin-python/actions/runs/${{github.run_id}}">cancelled workflow</a>.
+      continue-on-error: true

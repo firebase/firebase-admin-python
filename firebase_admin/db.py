@@ -907,7 +907,7 @@ class _Client(_http_client.JsonHttpClient):
         Args:
           method: HTTP method name as a string (e.g. get, post).
           url: URL path of the remote endpoint. This will be appended to the server's base URL.
-          kwargs: An additional set of keyword arguments to be passed into requests API
+          **kwargs: An additional set of keyword arguments to be passed into requests API
               (e.g. json, params).
 
         Returns:

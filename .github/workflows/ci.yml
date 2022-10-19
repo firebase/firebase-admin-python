@@ -8,12 +8,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: [3.5, 3.6, 3.7, 3.9, pypy3]
+        python: ['3.7', '3.8', '3.9', '3.10', 'pypy3.7']
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
     - name: Set up Python ${{ matrix.python }}
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python }}
     - name: Install dependencies
@@ -22,10 +22,10 @@ jobs:
         pip install -r requirements.txt
     - name: Test with pytest
       run: pytest
-    - name: Set up Node.js 10
+    - name: Set up Node.js 16
       uses: actions/setup-node@v1
       with:
-        node-version: 10.x
+        node-version: 16.x
     - name: Run integration tests against emulator
       run: |
         npm install -g firebase-tools
@@ -34,9 +34,9 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
     - name: Set up Python 3.7
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v4
       with:
         python-version: 3.7
     - name: Install dependencies

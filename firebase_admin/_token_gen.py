@@ -29,6 +29,7 @@ import google.oauth2.service_account
 
 from firebase_admin import exceptions
 from firebase_admin import _auth_utils
+from firebase_admin import _http_client
 
 
 # ID token constants
@@ -52,6 +53,8 @@ RESERVED_CLAIMS = set([
 ])
 METADATA_SERVICE_URL = ('http://metadata.google.internal/computeMetadata/v1/instance/'
                         'service-accounts/default/email')
+ALGORITHM_RS256 = 'RS256'
+ALGORITHM_NONE = 'none'
 
 # Emulator fake account
 AUTH_EMULATOR_EMAIL = 'firebase-auth-emulator@example.com'
@@ -70,9 +73,10 @@ class _EmulatedSigner(google.auth.crypt.Signer):
 class _SigningProvider:
     """Stores a reference to a google.auth.crypto.Signer."""
 
-    def __init__(self, signer, signer_email):
+    def __init__(self, signer, signer_email, alg=ALGORITHM_RS256):
         self._signer = signer
         self._signer_email = signer_email
+        self._alg = alg
 
     @property
     def signer(self):
@@ -81,6 +85,10 @@ class _SigningProvider:
     @property
     def signer_email(self):
         return self._signer_email
+
+    @property
+    def alg(self):
+        return self._alg
 
     @classmethod
     def from_credential(cls, google_cred):
@@ -93,7 +101,7 @@ class _SigningProvider:
 
     @classmethod
     def for_emulator(cls):
-        return _SigningProvider(_EmulatedSigner(), AUTH_EMULATOR_EMAIL)
+        return _SigningProvider(_EmulatedSigner(), AUTH_EMULATOR_EMAIL, ALGORITHM_NONE)
 
 
 class TokenGenerator:
@@ -189,8 +197,10 @@ class TokenGenerator:
 
         if developer_claims is not None:
             payload['claims'] = developer_claims
+
+        header = {'alg': signing_provider.alg}
         try:
-            return jwt.encode(signing_provider.signer, payload)
+            return jwt.encode(signing_provider.signer, payload, header=header)
         except google.auth.exceptions.TransportError as error:
             msg = 'Failed to sign custom token. {0}'.format(error)
             raise TokenSignError(msg, error)
@@ -231,12 +241,37 @@ class TokenGenerator:
             return body.get('sessionCookie')
 
 
+class CertificateFetchRequest(transport.Request):
+    """A google-auth transport that supports HTTP cache-control.
+
+    Also injects a timeout to each outgoing HTTP request.
+    """
+
+    def __init__(self, timeout_seconds=None):
+        self._session = cachecontrol.CacheControl(requests.Session())
+        self._delegate = transport.requests.Request(self.session)
+        self._timeout_seconds = timeout_seconds
+
+    @property
+    def session(self):
+        return self._session
+
+    @property
+    def timeout_seconds(self):
+        return self._timeout_seconds
+
+    def __call__(self, url, method='GET', body=None, headers=None, timeout=None, **kwargs):
+        timeout = timeout or self.timeout_seconds
+        return self._delegate(
+            url, method=method, body=body, headers=headers, timeout=timeout, **kwargs)
+
+
 class TokenVerifier:
     """Verifies ID tokens and session cookies."""
 
     def __init__(self, app):
-        session = cachecontrol.CacheControl(requests.Session())
-        self.request = transport.requests.Request(session=session)
+        timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
+        self.request = CertificateFetchRequest(timeout)
         self.id_token_verifier = _JWTVerifier(
             project_id=app.project_id, short_name='ID token',
             operation='verify_id_token()',

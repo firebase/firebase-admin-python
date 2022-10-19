@@ -39,6 +39,7 @@ __all__ = [
     'ConfigurationNotFoundError',
     'DELETE_ATTRIBUTE',
     'EmailAlreadyExistsError',
+    'EmailNotFoundError',
     'ErrorInfo',
     'ExpiredIdTokenError',
     'ExpiredSessionCookieError',
@@ -61,6 +62,7 @@ __all__ = [
     'TokenSignError',
     'UidAlreadyExistsError',
     'UnexpectedResponseError',
+    'UserDisabledError',
     'UserImportHash',
     'UserImportResult',
     'UserInfo',
@@ -112,6 +114,7 @@ ConfigurationNotFoundError = _auth_utils.ConfigurationNotFoundError
 DELETE_ATTRIBUTE = _user_mgt.DELETE_ATTRIBUTE
 DeleteUsersResult = _user_mgt.DeleteUsersResult
 EmailAlreadyExistsError = _auth_utils.EmailAlreadyExistsError
+EmailNotFoundError = _auth_utils.EmailNotFoundError
 ErrorInfo = _user_import.ErrorInfo
 ExpiredIdTokenError = _token_gen.ExpiredIdTokenError
 ExpiredSessionCookieError = _token_gen.ExpiredSessionCookieError
@@ -133,6 +136,7 @@ SAMLProviderConfig = _auth_providers.SAMLProviderConfig
 TokenSignError = _token_gen.TokenSignError
 UidAlreadyExistsError = _auth_utils.UidAlreadyExistsError
 UnexpectedResponseError = _auth_utils.UnexpectedResponseError
+UserDisabledError = _auth_utils.UserDisabledError
 UserImportHash = _user_import.UserImportHash
 UserImportResult = _user_import.UserImportResult
 UserInfo = _user_mgt.UserInfo
@@ -196,7 +200,8 @@ def verify_id_token(id_token, app=None, check_revoked=False):
     Args:
         id_token: A string of the encoded JWT.
         app: An App instance (optional).
-        check_revoked: Boolean, If true, checks whether the token has been revoked (optional).
+        check_revoked: Boolean, If true, checks whether the token has been revoked or
+            the user disabled (optional).
 
     Returns:
         dict: A dictionary of key-value pairs parsed from the decoded JWT.
@@ -208,6 +213,8 @@ def verify_id_token(id_token, app=None, check_revoked=False):
         RevokedIdTokenError: If ``check_revoked`` is ``True`` and the ID token has been revoked.
         CertificateFetchError: If an error occurs while fetching the public key certificates
             required to verify the ID token.
+        UserDisabledError: If ``check_revoked`` is ``True`` and the corresponding user
+            record is disabled.
     """
     client = _get_client(app)
     return client.verify_id_token(id_token, check_revoked=check_revoked)
@@ -244,7 +251,8 @@ def verify_session_cookie(session_cookie, check_revoked=False, app=None):
 
     Args:
         session_cookie: A session cookie string to verify.
-        check_revoked: Boolean, if true, checks whether the cookie has been revoked (optional).
+        check_revoked: Boolean, if true, checks whether the cookie has been revoked or the
+            user disabled (optional).
         app: An App instance (optional).
 
     Returns:
@@ -257,12 +265,15 @@ def verify_session_cookie(session_cookie, check_revoked=False, app=None):
         RevokedSessionCookieError: If ``check_revoked`` is ``True`` and the cookie has been revoked.
         CertificateFetchError: If an error occurs while fetching the public key certificates
             required to verify the session cookie.
+        UserDisabledError: If ``check_revoked`` is ``True`` and the corresponding user
+            record is disabled.
     """
     client = _get_client(app)
     # pylint: disable=protected-access
     verified_claims = client._token_verifier.verify_session_cookie(session_cookie)
     if check_revoked:
-        client._check_jwt_revoked(verified_claims, RevokedSessionCookieError, 'session cookie')
+        client._check_jwt_revoked_or_disabled(
+            verified_claims, RevokedSessionCookieError, 'session cookie')
     return verified_claims
 
 
@@ -405,7 +416,7 @@ def create_user(**kwargs): # pylint: disable=differing-param-doc
     """Creates a new user account with the specified properties.
 
     Args:
-        kwargs: A series of keyword arguments (optional).
+        **kwargs: A series of keyword arguments (optional).
 
     Keyword Args:
         uid: User ID to assign to the newly created user (optional).
@@ -436,7 +447,7 @@ def update_user(uid, **kwargs): # pylint: disable=differing-param-doc
 
     Args:
         uid: A user ID string.
-        kwargs: A series of keyword arguments (optional).
+        **kwargs: A series of keyword arguments (optional).
 
     Keyword Args:
         display_name: The user's display name (optional). Can be removed by explicitly passing
@@ -645,7 +656,8 @@ def get_oidc_provider_config(provider_id, app=None):
     return client.get_oidc_provider_config(provider_id)
 
 def create_oidc_provider_config(
-        provider_id, client_id, issuer, display_name=None, enabled=None, app=None):
+        provider_id, client_id, issuer, display_name=None, enabled=None, client_secret=None,
+        id_token_response_type=None, code_response_type=None, app=None):
     """Creates a new OIDC provider config from the given parameters.
 
     OIDC provider support requires Google Cloud's Identity Platform (GCIP). To learn more about
@@ -660,6 +672,15 @@ def create_oidc_provider_config(
         enabled: A boolean indicating whether the provider configuration is enabled or disabled
             (optional). A user cannot sign in using a disabled provider.
         app: An App instance (optional).
+        client_secret: A string which sets the client secret for the new provider.
+            This is required for the code flow.
+        code_response_type: A boolean which sets whether to enable the code response flow for the
+            new provider. By default, this is not enabled if no response type is specified.
+            A client secret must be set for this response type.
+            Having both the code and ID token response flows is currently not supported.
+        id_token_response_type: A boolean which sets whether to enable the ID token response flow
+            for the new provider. By default, this is enabled if no response type is specified.
+            Having both the code and ID token response flows is currently not supported.
 
     Returns:
         OIDCProviderConfig: The newly created OIDC provider config instance.
@@ -671,11 +692,13 @@ def create_oidc_provider_config(
     client = _get_client(app)
     return client.create_oidc_provider_config(
         provider_id, client_id=client_id, issuer=issuer, display_name=display_name,
-        enabled=enabled)
+        enabled=enabled, client_secret=client_secret, id_token_response_type=id_token_response_type,
+        code_response_type=code_response_type)
 
 
 def update_oidc_provider_config(
-        provider_id, client_id=None, issuer=None, display_name=None, enabled=None, app=None):
+        provider_id, client_id=None, issuer=None, display_name=None, enabled=None,
+        client_secret=None, id_token_response_type=None, code_response_type=None, app=None):
     """Updates an existing OIDC provider config with the given parameters.
 
     Args:
@@ -687,6 +710,15 @@ def update_oidc_provider_config(
         enabled: A boolean indicating whether the provider configuration is enabled or disabled
             (optional).
         app: An App instance (optional).
+        client_secret: A string which sets the client secret for the new provider.
+            This is required for the code flow.
+        code_response_type: A boolean which sets whether to enable the code response flow for the
+            new provider. By default, this is not enabled if no response type is specified.
+            A client secret must be set for this response type.
+            Having both the code and ID token response flows is currently not supported.
+        id_token_response_type: A boolean which sets whether to enable the ID token response flow
+            for the new provider. By default, this is enabled if no response type is specified.
+            Having both the code and ID token response flows is currently not supported.
 
     Returns:
         OIDCProviderConfig: The updated OIDC provider config instance.
@@ -698,7 +730,8 @@ def update_oidc_provider_config(
     client = _get_client(app)
     return client.update_oidc_provider_config(
         provider_id, client_id=client_id, issuer=issuer, display_name=display_name,
-        enabled=enabled)
+        enabled=enabled, client_secret=client_secret, id_token_response_type=id_token_response_type,
+        code_response_type=code_response_type)
 
 
 def delete_oidc_provider_config(provider_id, app=None):

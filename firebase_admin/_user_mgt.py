@@ -17,6 +17,7 @@
 import base64
 from collections import defaultdict
 import json
+from typing import Any, List, Optional
 from urllib import parse
 
 import requests
@@ -26,6 +27,8 @@ from firebase_admin import _rfc3339
 from firebase_admin import _user_identifier
 from firebase_admin import _user_import
 from firebase_admin._user_import import ErrorInfo
+
+from pydantic import BaseModel, EmailStr
 
 
 MAX_LIST_USERS_RESULTS = 1000
@@ -39,7 +42,8 @@ class Sentinel:
         self.description = description
 
 
-DELETE_ATTRIBUTE = Sentinel('Value used to delete an attribute from a user profile')
+DELETE_ATTRIBUTE = Sentinel(
+    'Value used to delete an attribute from a user profile')
 
 
 class UserMetadata:
@@ -124,13 +128,37 @@ class UserInfo:
         raise NotImplementedError
 
 
+class UserInfoMetaProvider(BaseModel):
+    providerId: str
+    displayName: Optional[str] = None
+    photoUrl: Optional[str] = None
+    federateId: Optional[str] = None
+    email: Optional[str] = None
+    rawId: Optional[str] = None
+    phoneNumber: Optional[str] = None
+
+
+class UserRecordInfo(BaseModel):
+    localID: Any
+    email: EmailStr
+    phoneNumber: str
+    emailVerified: bool
+    displayName: str
+    providerUserInfo: List[UserInfoMetaProvider]
+    photoUrl: str
+
+    class Config:
+        orm_mode = True
+
+
 class UserRecord(UserInfo):
     """Contains metadata associated with a Firebase user account."""
 
     def __init__(self, data):
         super(UserRecord, self).__init__()
         if not isinstance(data, dict):
-            raise ValueError('Invalid data argument: {0}. Must be a dictionary.'.format(data))
+            raise ValueError(
+                'Invalid data argument: {0}. Must be a dictionary.'.format(data))
         if not data.get('localId'):
             raise ValueError('User ID must not be None or empty.')
         self._data = data
@@ -236,7 +264,8 @@ class UserRecord(UserInfo):
         last_refresh_at_millis = None
         last_refresh_at_rfc3339 = self._data.get('lastRefreshAt', None)
         if last_refresh_at_rfc3339:
-            last_refresh_at_millis = int(_rfc3339.parse_to_epoch(last_refresh_at_rfc3339) * 1000)
+            last_refresh_at_millis = int(
+                _rfc3339.parse_to_epoch(last_refresh_at_rfc3339) * 1000)
         return UserMetadata(
             _int_or_none('createdAt'), _int_or_none('lastLoginAt'), last_refresh_at_millis)
 
@@ -274,6 +303,22 @@ class UserRecord(UserInfo):
           string: A tenant ID string or None.
         """
         return self._data.get('tenantId')
+
+    def to_dict(self):
+        """Returns a pydantic UserRecordInfo data of user
+
+        Returns:
+            UserRecordInfo: A pydantic UserRecordInfo data
+        """
+        return UserRecordInfo(json.dumps(self._data))
+
+    def __repr__(self) -> str:
+        """Returns a view of current user
+
+        Returns:
+            string: A dictionary string representation of a firebase user
+        """
+        return json.dumps(self._data)
 
 
 class ExportedUserRecord(UserRecord):
@@ -454,7 +499,8 @@ class ProviderUserInfo(UserInfo):
     def __init__(self, data):
         super(ProviderUserInfo, self).__init__()
         if not isinstance(data, dict):
-            raise ValueError('Invalid data argument: {0}. Must be a dictionary.'.format(data))
+            raise ValueError(
+                'Invalid data argument: {0}. Must be a dictionary.'.format(data))
         if not data.get('rawId'):
             raise ValueError('User ID must not be None or empty.')
         self._data = data
@@ -516,10 +562,12 @@ def encode_action_code_settings(settings):
     try:
         parsed = parse.urlparse(settings.url)
         if not parsed.netloc:
-            raise ValueError('Malformed dynamic action links url: "{0}".'.format(settings.url))
+            raise ValueError(
+                'Malformed dynamic action links url: "{0}".'.format(settings.url))
         parameters['continueUrl'] = settings.url
     except Exception:
-        raise ValueError('Malformed dynamic action links url: "{0}".'.format(settings.url))
+        raise ValueError(
+            'Malformed dynamic action links url: "{0}".'.format(settings.url))
 
     # handle_code_in_app
     if settings.handle_code_in_app is not None:
@@ -544,8 +592,9 @@ def encode_action_code_settings(settings):
 
     # android_* attributes
     if (settings.android_minimum_version or settings.android_install_app) \
-        and not settings.android_package_name:
-        raise ValueError("Android package name is required when specifying other Android settings")
+            and not settings.android_package_name:
+        raise ValueError(
+            "Android package name is required when specifying other Android settings")
 
     if settings.android_package_name is not None:
         if not isinstance(settings.android_package_name, str):
@@ -584,20 +633,26 @@ class UserManager:
         """Gets the user data corresponding to the provided key."""
         if 'uid' in kwargs:
             key, key_type = kwargs.pop('uid'), 'user ID'
-            payload = {'localId' : [_auth_utils.validate_uid(key, required=True)]}
+            payload = {'localId': [
+                _auth_utils.validate_uid(key, required=True)]}
         elif 'email' in kwargs:
             key, key_type = kwargs.pop('email'), 'email'
-            payload = {'email' : [_auth_utils.validate_email(key, required=True)]}
+            payload = {
+                'email': [_auth_utils.validate_email(key, required=True)]}
         elif 'phone_number' in kwargs:
             key, key_type = kwargs.pop('phone_number'), 'phone number'
-            payload = {'phoneNumber' : [_auth_utils.validate_phone(key, required=True)]}
+            payload = {'phoneNumber': [
+                _auth_utils.validate_phone(key, required=True)]}
         else:
-            raise TypeError('Unsupported keyword arguments: {0}.'.format(kwargs))
+            raise TypeError(
+                'Unsupported keyword arguments: {0}.'.format(kwargs))
 
-        body, http_resp = self._make_request('post', '/accounts:lookup', json=payload)
+        body, http_resp = self._make_request(
+            'post', '/accounts:lookup', json=payload)
         if not body or not body.get('users'):
             raise _auth_utils.UserNotFoundError(
-                'No user record found for the provided {0}: {1}.'.format(key_type, key),
+                'No user record found for the provided {0}: {1}.'.format(
+                    key_type, key),
                 http_response=http_resp)
         return body['users'][0]
 
@@ -621,7 +676,8 @@ class UserManager:
         if not identifiers:
             return []
         if len(identifiers) > 100:
-            raise ValueError('`identifiers` parameter must have <= 100 entries.')
+            raise ValueError(
+                '`identifiers` parameter must have <= 100 entries.')
 
         payload = defaultdict(list)
         for identifier in identifiers:
@@ -663,7 +719,8 @@ class UserManager:
         payload = {'maxResults': max_results}
         if page_token:
             payload['nextPageToken'] = page_token
-        body, _ = self._make_request('get', '/accounts:batchGet', params=payload)
+        body, _ = self._make_request(
+            'get', '/accounts:batchGet', params=payload)
         return body
 
     def create_user(self, uid=None, display_name=None, email=None, phone_number=None,
@@ -700,12 +757,14 @@ class UserManager:
         }
 
         remove = []
-        remove_provider = _auth_utils.validate_provider_ids(providers_to_delete)
+        remove_provider = _auth_utils.validate_provider_ids(
+            providers_to_delete)
         if display_name is not None:
             if display_name is DELETE_ATTRIBUTE:
                 remove.append('DISPLAY_NAME')
             else:
-                payload['displayName'] = _auth_utils.validate_display_name(display_name)
+                payload['displayName'] = _auth_utils.validate_display_name(
+                    display_name)
         if photo_url is not None:
             if photo_url is DELETE_ATTRIBUTE:
                 remove.append('PHOTO_URL')
@@ -718,20 +777,23 @@ class UserManager:
             if phone_number is DELETE_ATTRIBUTE:
                 remove_provider.append('phone')
             else:
-                payload['phoneNumber'] = _auth_utils.validate_phone(phone_number)
+                payload['phoneNumber'] = _auth_utils.validate_phone(
+                    phone_number)
 
         if custom_claims is not None:
             if custom_claims is DELETE_ATTRIBUTE:
                 custom_claims = {}
             json_claims = json.dumps(custom_claims) if isinstance(
                 custom_claims, dict) else custom_claims
-            payload['customAttributes'] = _auth_utils.validate_custom_claims(json_claims)
+            payload['customAttributes'] = _auth_utils.validate_custom_claims(
+                json_claims)
 
         if remove_provider:
             payload['deleteProvider'] = list(set(remove_provider))
 
         payload = {k: v for k, v in payload.items() if v is not None}
-        body, http_resp = self._make_request('post', '/accounts:update', json=payload)
+        body, http_resp = self._make_request(
+            'post', '/accounts:update', json=payload)
         if not body or not body.get('localId'):
             raise _auth_utils.UnexpectedResponseError(
                 'Failed to update user: {0}.'.format(uid), http_response=http_resp)
@@ -740,7 +802,8 @@ class UserManager:
     def delete_user(self, uid):
         """Deletes the user identified by the specified user ID."""
         _auth_utils.validate_uid(uid, required=True)
-        body, http_resp = self._make_request('post', '/accounts:delete', json={'localId' : uid})
+        body, http_resp = self._make_request(
+            'post', '/accounts:delete', json={'localId': uid})
         if not body or not body.get('kind'):
             raise _auth_utils.UnexpectedResponseError(
                 'Failed to delete user: {0}.'.format(uid), http_response=http_resp)
@@ -796,9 +859,11 @@ class UserManager:
         payload = {'users': [u.to_dict() for u in users]}
         if any(['passwordHash' in u for u in payload['users']]):
             if not isinstance(hash_alg, _user_import.UserImportHash):
-                raise ValueError('A UserImportHash is required to import users with passwords.')
+                raise ValueError(
+                    'A UserImportHash is required to import users with passwords.')
             payload.update(hash_alg.to_dict())
-        body, http_resp = self._make_request('post', '/accounts:batchCreate', json=payload)
+        body, http_resp = self._make_request(
+            'post', '/accounts:batchCreate', json=payload)
         if not isinstance(body, dict):
             raise _auth_utils.UnexpectedResponseError(
                 'Failed to import users.', http_response=http_resp)
@@ -830,7 +895,8 @@ class UserManager:
         if action_code_settings:
             payload.update(encode_action_code_settings(action_code_settings))
 
-        body, http_resp = self._make_request('post', '/accounts:sendOobCode', json=payload)
+        body, http_resp = self._make_request(
+            'post', '/accounts:sendOobCode', json=payload)
         if not body or not body.get('oobLink'):
             raise _auth_utils.UnexpectedResponseError(
                 'Failed to generate email action link.', http_response=http_resp)

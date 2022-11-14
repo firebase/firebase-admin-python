@@ -22,7 +22,6 @@ import tempfile
 
 import pytest
 
-import firebase_admin
 from firebase_admin import exceptions
 from firebase_admin import ml
 from tests import testutils

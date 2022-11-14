@@ -122,18 +122,6 @@ TFLITE_FORMAT_JSON_2 = {
 }
 TFLITE_FORMAT_2 = ml.TFLiteFormat.from_dict(TFLITE_FORMAT_JSON_2)
 
-AUTOML_MODEL_NAME = 'projects/111111111111/locations/us-central1/models/ICN7683346839371803263'
-AUTOML_MODEL_SOURCE = ml.TFLiteAutoMlSource(AUTOML_MODEL_NAME)
-TFLITE_FORMAT_JSON_3 = {
-    'automlModel': AUTOML_MODEL_NAME,
-    'sizeBytes': '3456789'
-}
-TFLITE_FORMAT_3 = ml.TFLiteFormat.from_dict(TFLITE_FORMAT_JSON_3)
-
-AUTOML_MODEL_NAME_2 = 'projects/2222222222/locations/us-central1/models/ICN2222222222222222222'
-AUTOML_MODEL_NAME_JSON_2 = {'automlModel': AUTOML_MODEL_NAME_2}
-AUTOML_MODEL_SOURCE_2 = ml.TFLiteAutoMlSource(AUTOML_MODEL_NAME_2)
-
 CREATED_UPDATED_MODEL_JSON_1 = {
     'name': MODEL_NAME_1,
     'displayName': DISPLAY_NAME_1,
@@ -417,14 +405,6 @@ class TestModel:
             'tfliteModel': TFLITE_FORMAT_JSON_2
         }
 
-        model.model_format = TFLITE_FORMAT_3
-        assert model.as_dict() == {
-            'displayName': DISPLAY_NAME_2,
-            'tags': TAGS_2,
-            'tfliteModel': TFLITE_FORMAT_JSON_3
-        }
-
-
     def test_gcs_tflite_model_format_source_creation(self):
         model_source = ml.TFLiteGCSModelSource(gcs_tflite_uri=GCS_TFLITE_URI)
         model_format = ml.TFLiteFormat(model_source=model_source)
@@ -433,17 +413,6 @@ class TestModel:
             'displayName': DISPLAY_NAME_1,
             'tfliteModel': {
                 'gcsTfliteUri': GCS_TFLITE_URI
-            }
-        }
-
-    def test_auto_ml_tflite_model_format_source_creation(self):
-        model_source = ml.TFLiteAutoMlSource(auto_ml_model=AUTOML_MODEL_NAME)
-        model_format = ml.TFLiteFormat(model_source=model_source)
-        model = ml.Model(display_name=DISPLAY_NAME_1, model_format=model_format)
-        assert model.as_dict() == {
-            'displayName': DISPLAY_NAME_1,
-            'tfliteModel': {
-                'automlModel': AUTOML_MODEL_NAME
             }
         }
 
@@ -460,13 +429,6 @@ class TestModel:
         assert model_source.gcs_tflite_uri == GCS_TFLITE_URI_2
         assert model_source.as_dict() == GCS_TFLITE_URI_JSON_2
 
-    def test_auto_ml_tflite_model_source_setters(self):
-        model_source = ml.TFLiteAutoMlSource(AUTOML_MODEL_NAME)
-        model_source.auto_ml_model = AUTOML_MODEL_NAME_2
-        assert model_source.auto_ml_model == AUTOML_MODEL_NAME_2
-        assert model_source.as_dict() == AUTOML_MODEL_NAME_JSON_2
-
-
     def test_model_format_setters(self):
         model_format = ml.TFLiteFormat(model_source=GCS_TFLITE_MODEL_SOURCE)
         model_format.model_source = GCS_TFLITE_MODEL_SOURCE_2
@@ -474,14 +436,6 @@ class TestModel:
         assert model_format.as_dict() == {
             'tfliteModel': {
                 'gcsTfliteUri': GCS_TFLITE_URI_2
-            }
-        }
-
-        model_format.model_source = AUTOML_MODEL_SOURCE
-        assert model_format.model_source == AUTOML_MODEL_SOURCE
-        assert model_format.as_dict() == {
-            'tfliteModel': {
-                'automlModel': AUTOML_MODEL_NAME
             }
         }
 
@@ -568,23 +522,6 @@ class TestModel:
     def test_gcs_tflite_source_validation_errors(self, uri, exc_type):
         with pytest.raises(exc_type) as excinfo:
             ml.TFLiteGCSModelSource(gcs_tflite_uri=uri)
-        check_error(excinfo, exc_type)
-
-    @pytest.mark.parametrize('auto_ml_model, exc_type', [
-        (123, TypeError),
-        ('abc', ValueError),
-        ('/projects/123456/locations/us-central1/models/noLeadingSlash', ValueError),
-        ('projects/123546/models/ICN123456', ValueError),
-        ('projects//locations/us-central1/models/ICN123456', ValueError),
-        ('projects/123456/locations//models/ICN123456', ValueError),
-        ('projects/123456/locations/us-central1/models/', ValueError),
-        ('projects/ABC/locations/us-central1/models/ICN123456', ValueError),
-        ('projects/123456/locations/us-central1/models/@#$%^&', ValueError),
-        ('projects/123456/locations/us-cent/ral1/models/ICN123456', ValueError),
-    ])
-    def test_auto_ml_tflite_source_validation_errors(self, auto_ml_model, exc_type):
-        with pytest.raises(exc_type) as excinfo:
-            ml.TFLiteAutoMlSource(auto_ml_model=auto_ml_model)
         check_error(excinfo, exc_type)
 
     def test_wait_for_unlocked_not_locked(self):

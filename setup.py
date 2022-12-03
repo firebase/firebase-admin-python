@@ -22,8 +22,8 @@ from setuptools import setup
 
 
 (major, minor) = (sys.version_info.major, sys.version_info.minor)
-if major != 3 or minor < 6:
-    print('firebase_admin requires python >= 3.6', file=sys.stderr)
+if major != 3 or minor < 7:
+    print('firebase_admin requires python >= 3.7', file=sys.stderr)
     sys.exit(1)
 
 # Read in the package metadata per recommendations from:
@@ -42,6 +42,7 @@ install_requires = [
     'google-api-python-client >= 1.7.8',
     'google-cloud-firestore>=2.1.0; platform.python_implementation != "PyPy"',
     'google-cloud-storage>=1.37.1',
+    'pyjwt[crypto] >= 2.5.0',
 ]
 
 setup(
@@ -58,16 +59,16 @@ setup(
     keywords='firebase cloud development',
     install_requires=install_requires,
     packages=['firebase_admin'],
-    python_requires='>=3.6',
+    python_requires='>=3.7',
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'Topic :: Software Development :: Build Tools',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
         'License :: OSI Approved :: Apache Software License',
     ],
 )

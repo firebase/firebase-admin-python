@@ -1212,7 +1212,7 @@ class TestUserImportHash:
             memory_cost=14, parallelization=2, block_size=10, derived_key_length=128)
         expected = {
             'hashAlgorithm': 'STANDARD_SCRYPT',
-            'memoryCost': 14,
+            'cpuMemCost': 14,
             'parallelization': 2,
             'blockSize': 10,
             'dkLen': 128,

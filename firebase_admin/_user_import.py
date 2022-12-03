@@ -454,7 +454,7 @@ class UserImportHash:
         """Creates a new standard Scrypt algorithm instance.
 
         Args:
-            memory_cost: Memory cost as a non-negaive integer.
+            memory_cost: CPU Memory cost as a non-negative integer.
             parallelization: Parallelization as a non-negative integer.
             block_size: Block size as a non-negative integer.
             derived_key_length: Derived key length as a non-negative integer.
@@ -463,7 +463,7 @@ class UserImportHash:
             UserImportHash: A new ``UserImportHash``.
         """
         data = {
-            'memoryCost': _auth_utils.validate_int(memory_cost, 'memory_cost', low=0),
+            'cpuMemCost': _auth_utils.validate_int(memory_cost, 'memory_cost', low=0),
             'parallelization': _auth_utils.validate_int(parallelization, 'parallelization', low=0),
             'blockSize': _auth_utils.validate_int(block_size, 'block_size', low=0),
             'dkLen': _auth_utils.validate_int(derived_key_length, 'derived_key_length', low=0),

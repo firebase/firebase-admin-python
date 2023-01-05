@@ -17,6 +17,7 @@
 import json
 import os
 import re
+import string
 from urllib import parse
 
 from firebase_admin import exceptions
@@ -30,6 +31,8 @@ RESERVED_CLAIMS = set([
     'iss', 'jti', 'nbf', 'nonce', 'sub', 'firebase',
 ])
 VALID_EMAIL_ACTION_TYPES = set(['VERIFY_EMAIL', 'EMAIL_SIGNIN', 'PASSWORD_RESET'])
+VALID_AUTH_FACTOR_TYPES= set(['PHONE_SMS'])
+VALID_STATES = set(['ENABLED', 'DISABLED'])
 
 
 class PageIterator:
@@ -274,6 +277,67 @@ def validate_provider_ids(provider_ids, required=False):
     for provider_id in provider_ids:
         validate_provider_id(provider_id, True)
     return provider_ids
+
+def validate_mfa_config(mfa_config):
+    """Validates the specified multi factor configuration.
+    """
+    mfa_config_payload = {}
+    #validate mfaConfig
+    if not isinstance(mfa_config, dict) or type(mfa_config) is not dict:
+        raise ValueError('mfaConfig should be of valid type MultiFactorConfig')
+    
+    #validate state in MFA config
+    if 'state' not in mfa_config:
+        raise ValueError('mfaConfig.state should be defined')
+    state = mfa_config['state']
+    if not isinstance(state, str) or state not in VALID_STATES:
+        raise ValueError('mfaConfig.state must be either "ENABLED" or "DISABLED"')
+    mfa_config_payload['state'] = state
+
+    #validate factor_ids if MFA is enabled
+    if state == 'ENABLED':
+        if 'factorIds' not in mfa_config:
+            raise ValueError('mfaConfig.factorIds must be defined')
+        factorIds = mfa_config['factorIds']
+        if not isinstance(factorIds, list) or len(mfa_config['factorIds']) == 0:
+            raise ValueError('mfaConfig.factorIds must be a defined list of AuthFactor type strings')
+        for factorId in factorIds:
+            if not isinstance(factorId, str) or factorId not in VALID_AUTH_FACTOR_TYPES:
+                raise ValueError('factorId must be a valid AuthFactor type string')
+        mfa_config_payload['factorIds'] = factorIds
+
+    #validate providerConfigs if defined
+    if 'providerConfigs' in mfa_config:
+        provider_configs = mfa_config['providerConfigs']
+        provider_configs_payload = []
+        if not isinstance(provider_configs, list) or len(provider_configs) == 0:
+            raise ValueError('mfaConfig.providerConfigs must be a valid list of providerConfig types')
+        for provider_config in provider_configs:
+            provider_config_payload = {}
+            if not isinstance(provider_config, dict) or not provider_config:
+                raise ValueError('mfaConfigs.providerConfigs must be a valid array of type providerConfig')
+            if 'state' not in provider_config:
+                raise ValueError('providerConfig.state should be defined')
+            state = provider_config['state']
+            if not isinstance(state, str) or state not in VALID_STATES:
+                raise ValueError('providerConfig.state must be either "ENABLED" or "DISABLED"')
+            provider_config_payload['state'] = provider_config['state']
+            if 'totpProviderConfig' not in provider_config:
+                raise ValueError('providerConfig.totpProviderConfig must be instantiated')
+            else:
+                if not isinstance(provider_config['totpProviderConfig'], dict):
+                    raise ValueError('providerConfig.totpProviderConfig must be of valid type TotpProviderConfig')
+                totp_provider_config_payload = {}
+                if 'adjacentIntervals' in provider_config['totpProviderConfig']:
+                    adjacent_intervals = provider_config['totpProviderConfig']['adjacentIntervals']
+                    if not adjacent_intervals or type(adjacent_intervals) is not int or adjacent_intervals < 0:
+                        raise ValueError('totpProviderConfig.adjacentIntervals must be a valid positive integer')
+                    totp_provider_config_payload['adjacentIntervals'] = adjacent_intervals
+                provider_config_payload['totpProviderConfig'] = totp_provider_config_payload
+            provider_configs_payload.append(provider_config_payload)
+        mfa_config_payload['providerConfigs'] = provider_configs_payload
+
+    return mfa_config_payload
 
 def build_update_mask(params):
     """Creates an update mask list from the given dictionary."""

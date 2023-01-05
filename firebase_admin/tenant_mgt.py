@@ -20,6 +20,7 @@ Google Cloud Identity Platform (GCIP) instance.
 
 import re
 import threading
+from firebase_admin.multi_factor_config_mgt import MultiFactorConfig, TotpProviderConfig, ProviderConfig 
 
 import requests
 
@@ -91,7 +92,7 @@ def get_tenant(tenant_id, app=None):
 
 
 def create_tenant(
-        display_name, allow_password_sign_up=None, enable_email_link_sign_in=None, app=None):
+        display_name, allow_password_sign_up=None, enable_email_link_sign_in=None, mfa_config=None,app=None):
     """Creates a new tenant from the given options.
 
     Args:
@@ -101,6 +102,7 @@ def create_tenant(
             provider (optional).
         enable_email_link_sign_in: A boolean indicating whether to enable or disable email link
             sign-in (optional). Disabling this makes the password required for email sign-in.
+        mfa_config: A multi factor configuration for the tenant (optional).
         app: An App instance (optional).
 
     Returns:
@@ -113,7 +115,7 @@ def create_tenant(
     tenant_mgt_service = _get_tenant_mgt_service(app)
     return tenant_mgt_service.create_tenant(
         display_name=display_name, allow_password_sign_up=allow_password_sign_up,
-        enable_email_link_sign_in=enable_email_link_sign_in)
+        enable_email_link_sign_in=enable_email_link_sign_in, mfa_config = mfa_config)
 
 
 def update_tenant(
@@ -191,7 +193,6 @@ def list_tenants(page_token=None, max_results=_MAX_LIST_TENANTS_RESULTS, app=Non
 def _get_tenant_mgt_service(app):
     return _utils.get_app_service(app, _TENANT_MGT_ATTRIBUTE, _TenantManagementService)
 
-
 class Tenant:
     """Represents a tenant in a multi-tenant application.
 
@@ -204,6 +205,7 @@ class Tenant:
     """
 
     def __init__(self, data):
+        print(data)
         if not isinstance(data, dict):
             raise ValueError('Invalid data argument in Tenant constructor: {0}'.format(data))
         if not 'name' in data:
@@ -227,6 +229,14 @@ class Tenant:
     @property
     def enable_email_link_sign_in(self):
         return self._data.get('enableEmailLinkSignin', False)
+    
+    @property
+    def mfa_config(self):
+        data = self._data.get('mfaConfig')
+        if data:
+            return MultiFactorConfig(data)
+        else:
+            return None
 
 
 class _TenantManagementService:
@@ -272,7 +282,7 @@ class _TenantManagementService:
             return Tenant(body)
 
     def create_tenant(
-            self, display_name, allow_password_sign_up=None, enable_email_link_sign_in=None):
+            self, display_name, allow_password_sign_up=None, enable_email_link_sign_in=None, mfa_config=None):
         """Creates a new tenant from the given parameters."""
 
         payload = {'displayName': _validate_display_name(display_name)}
@@ -282,7 +292,8 @@ class _TenantManagementService:
         if enable_email_link_sign_in is not None:
             payload['enableEmailLinkSignin'] = _auth_utils.validate_boolean(
                 enable_email_link_sign_in, 'enableEmailLinkSignin')
-
+        if mfa_config is not None:
+            payload['mfaConfig'] = _auth_utils.validate_mfa_config(mfa_config)
         try:
             body = self.client.body('post', '/tenants', json=payload)
         except requests.exceptions.RequestException as error:

@@ -32,7 +32,7 @@ from tests import testutils
 from tests import test_token_gen
 
 
-GET_TENANT_RESPONSE = """{
+GET_PROJECT_RESPONSE = """{
     "name": "projects/mock-project-id/tenants/tenant-id",
     "displayName": "Test Tenant",
     "allowPasswordSignup": true,
@@ -51,74 +51,15 @@ GET_TENANT_RESPONSE = """{
     } 
 }"""
 
-TENANT_NOT_FOUND_RESPONSE = """{
+PROJECT_NOT_FOUND_RESPONSE = """{
     "error": {
         "message": "TENANT_NOT_FOUND"
     }
 }"""
 
-LIST_TENANTS_RESPONSE = """{
-    "tenants": [
-        {
-            "name": "projects/mock-project-id/tenants/tenant0",
-            "displayName": "Test Tenant",
-            "allowPasswordSignup": true,
-            "enableEmailLinkSignin": true
-        },
-        {
-            "name": "projects/mock-project-id/tenants/tenant1",
-            "displayName": "Test Tenant",
-            "allowPasswordSignup": true,
-            "enableEmailLinkSignin": true
-        }
-    ]
-}"""
-
-LIST_TENANTS_RESPONSE_WITH_TOKEN = """{
-    "tenants": [
-        {
-            "name": "projects/mock-project-id/tenants/tenant0"
-        },
-        {
-            "name": "projects/mock-project-id/tenants/tenant1"
-        },
-        {
-            "name": "projects/mock-project-id/tenants/tenant2"
-        }
-    ],
-    "nextPageToken": "token"
-}"""
-
 MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
-MOCK_LIST_USERS_RESPONSE = testutils.resource('list_users.json')
 
-OIDC_PROVIDER_CONFIG_RESPONSE = testutils.resource('oidc_provider_config.json')
-OIDC_PROVIDER_CONFIG_REQUEST = {
-    'displayName': 'oidcProviderName',
-    'enabled': True,
-    'clientId': 'CLIENT_ID',
-    'issuer': 'https://oidc.com/issuer',
-}
-
-SAML_PROVIDER_CONFIG_RESPONSE = testutils.resource('saml_provider_config.json')
-SAML_PROVIDER_CONFIG_REQUEST = body = {
-    'displayName': 'samlProviderName',
-    'enabled': True,
-    'idpConfig': {
-        'idpEntityId': 'IDP_ENTITY_ID',
-        'ssoUrl': 'https://example.com/login',
-        'idpCertificates': [{'x509Certificate': 'CERT1'}, {'x509Certificate': 'CERT2'}]
-    },
-    'spConfig': {
-        'spEntityId': 'RP_ENTITY_ID',
-        'callbackUri': 'https://projectId.firebaseapp.com/__/auth/handler',
-    }
-}
-
-LIST_OIDC_PROVIDER_CONFIGS_RESPONSE = testutils.resource('list_oidc_provider_configs.json')
-LIST_SAML_PROVIDER_CONFIGS_RESPONSE = testutils.resource('list_saml_provider_configs.json')
-
-INVALID_TENANT_IDS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
+INVALID_PROJECT_IDS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
 INVALID_BOOLEANS = ['', 1, 0, list(), tuple(), dict()]
 
 USER_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v1/projects/mock-project-id'

@@ -119,7 +119,7 @@ def create_tenant(
 
 
 def update_tenant(
-        tenant_id, display_name=None, allow_password_sign_up=None, enable_email_link_sign_in=None,
+        tenant_id, display_name=None, allow_password_sign_up=None, enable_email_link_sign_in=None, mfa_config=None,
         app=None):
     """Updates an existing tenant with the given options.
 
@@ -143,7 +143,7 @@ def update_tenant(
     tenant_mgt_service = _get_tenant_mgt_service(app)
     return tenant_mgt_service.update_tenant(
         tenant_id, display_name=display_name, allow_password_sign_up=allow_password_sign_up,
-        enable_email_link_sign_in=enable_email_link_sign_in)
+        enable_email_link_sign_in=enable_email_link_sign_in, mfa_config=mfa_config)
 
 
 def delete_tenant(tenant_id, app=None):
@@ -232,7 +232,7 @@ class Tenant:
     
     @property
     def mfa_config(self):
-        data = self._data.get('mfaConfig')
+        data = self._data.get('multiFactorConfig')
         if data:
             return MultiFactorConfig(data)
         else:
@@ -293,7 +293,7 @@ class _TenantManagementService:
             payload['enableEmailLinkSignin'] = _auth_utils.validate_boolean(
                 enable_email_link_sign_in, 'enableEmailLinkSignin')
         if mfa_config is not None:
-            payload['mfaConfig'] = _auth_utils.validate_mfa_config(mfa_config)
+            payload['multiFactorConfig'] = _auth_utils.validate_mfa_config(mfa_config)
         try:
             body = self.client.body('post', '/tenants', json=payload)
         except requests.exceptions.RequestException as error:
@@ -303,7 +303,7 @@ class _TenantManagementService:
 
     def update_tenant(
             self, tenant_id, display_name=None, allow_password_sign_up=None,
-            enable_email_link_sign_in=None):
+            enable_email_link_sign_in=None, mfa_config=None):
         """Updates the specified tenant with the given parameters."""
         if not isinstance(tenant_id, str) or not tenant_id:
             raise ValueError('Tenant ID must be a non-empty string.')
@@ -317,6 +317,8 @@ class _TenantManagementService:
         if enable_email_link_sign_in is not None:
             payload['enableEmailLinkSignin'] = _auth_utils.validate_boolean(
                 enable_email_link_sign_in, 'enableEmailLinkSignin')
+        if mfa_config is not None:
+            payload['multiFactorConfig'] = _auth_utils.validate_mfa_config(mfa_config)
 
         if not payload:
             raise ValueError('At least one parameter must be specified for update.')

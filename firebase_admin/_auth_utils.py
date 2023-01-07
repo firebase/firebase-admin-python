@@ -282,25 +282,25 @@ def validate_mfa_config(mfa_config):
     """Validates the specified multi factor configuration.
     """
     mfa_config_payload = {}
-    #validate mfaConfig
+    #validate multiFactorConfig
     if not isinstance(mfa_config, dict) or type(mfa_config) is not dict:
-        raise ValueError('mfaConfig should be of valid type MultiFactorConfig')
+        raise ValueError('multiFactorConfig should be of valid type MultiFactorConfig')
     
     #validate state in MFA config
     if 'state' not in mfa_config:
-        raise ValueError('mfaConfig.state should be defined')
+        raise ValueError('multiFactorConfig.state should be defined')
     state = mfa_config['state']
     if not isinstance(state, str) or state not in VALID_STATES:
-        raise ValueError('mfaConfig.state must be either "ENABLED" or "DISABLED"')
+        raise ValueError('multiFactorConfig.state must be either "ENABLED" or "DISABLED"')
     mfa_config_payload['state'] = state
 
     #validate factor_ids if MFA is enabled
     if state == 'ENABLED':
         if 'factorIds' not in mfa_config:
-            raise ValueError('mfaConfig.factorIds must be defined')
+            raise ValueError('multiFactorConfig.factorIds must be defined')
         factorIds = mfa_config['factorIds']
         if not isinstance(factorIds, list) or len(mfa_config['factorIds']) == 0:
-            raise ValueError('mfaConfig.factorIds must be a defined list of AuthFactor type strings')
+            raise ValueError('multiFactorConfig.factorIds must be a defined list of AuthFactor type strings')
         for factorId in factorIds:
             if not isinstance(factorId, str) or factorId not in VALID_AUTH_FACTOR_TYPES:
                 raise ValueError('factorId must be a valid AuthFactor type string')
@@ -311,11 +311,11 @@ def validate_mfa_config(mfa_config):
         provider_configs = mfa_config['providerConfigs']
         provider_configs_payload = []
         if not isinstance(provider_configs, list) or len(provider_configs) == 0:
-            raise ValueError('mfaConfig.providerConfigs must be a valid list of providerConfig types')
+            raise ValueError('multiFactorConfig.providerConfigs must be a valid list of providerConfig types')
         for provider_config in provider_configs:
             provider_config_payload = {}
             if not isinstance(provider_config, dict) or not provider_config:
-                raise ValueError('mfaConfigs.providerConfigs must be a valid array of type providerConfig')
+                raise ValueError('multiFactorConfigs.providerConfigs must be a valid array of type providerConfig')
             if 'state' not in provider_config:
                 raise ValueError('providerConfig.state should be defined')
             state = provider_config['state']

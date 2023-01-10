@@ -48,7 +48,7 @@ GET_TENANT_RESPONSE = """{
                 }
             }
         ]
-    } 
+    }
 }"""
 
 TENANT_NOT_FOUND_RESPONSE = """{
@@ -70,6 +70,24 @@ LIST_TENANTS_RESPONSE = """{
             "displayName": "Test Tenant",
             "allowPasswordSignup": true,
             "enableEmailLinkSignin": true
+        },
+        {
+            "name": "projects/mock-project-id/tenants/tenant2",
+            "displayName": "Test Tenant",
+            "allowPasswordSignup": true,
+            "enableEmailLinkSignin": true,
+            "multiFactorConfig":{
+                "state":"ENABLED",
+                "factorIds":["PHONE_SMS"],
+                "providerConfigs":[
+                    {
+                        "state":"ENABLED",
+                        "totpProviderConfig": {
+                            "adjacentIntervals": 5
+                        }
+                    }
+                ]
+            } 
         }
     ]
 }"""
@@ -189,15 +207,7 @@ class TestTenant:
         }
         tenant = tenant_mgt.Tenant(data)
         print(tenant._data)
-        assert tenant.tenant_id == 'tenant-id'
-        assert tenant.display_name == 'Test Tenant'
-        assert tenant.allow_password_sign_up is True
-        assert tenant.enable_email_link_sign_in is True
-        assert tenant.mfa_config.state == 'ENABLED'
-        assert tenant.mfa_config.enabled_providers == ['PHONE_SMS']
-        assert len(tenant.mfa_config.provider_configs) == 1
-        assert tenant.mfa_config.provider_configs[0].state == 'ENABLED'
-        assert tenant.mfa_config.provider_configs[0].totp_provider_config.adjacent_intervals == 5   
+        _assert_tenant(tenant)
 
     def test_tenant_optional_params(self):
         data = {
@@ -222,7 +232,6 @@ class TestGetTenant:
     def test_get_tenant(self, tenant_mgt_app):
         _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
         tenant = tenant_mgt.get_tenant('tenant-id', app=tenant_mgt_app)
-
         _assert_tenant(tenant)
         assert len(recorder) == 1
         req = recorder[0]
@@ -648,7 +657,7 @@ class TestListTenants:
         assert page.has_next_page is False
         assert page.get_next_page() is None
         tenants = [tenant for tenant in page.iterate_all()]
-        assert len(tenants) == 2
+        assert len(tenants) == 3
         self._assert_request(recorder)
 
     def test_list_multiple_pages(self, tenant_mgt_app):
@@ -703,6 +712,10 @@ class TestListTenants:
         tenant = next(iterator)
         assert tenant.tenant_id == 'tenant1'
 
+        # Iterator should resume from where left off.
+        tenant = next(iterator)
+        assert tenant.tenant_id == 'tenant2'
+
         with pytest.raises(StopIteration):
             next(iterator)
         self._assert_request(recorder)
@@ -712,7 +725,7 @@ class TestListTenants:
         page = tenant_mgt.list_tenants(app=tenant_mgt_app)
         iterator = page.iterate_all()
         tenants = [tenant for tenant in iterator]
-        assert len(tenants) == 2
+        assert len(tenants) == 3
 
         with pytest.raises(StopIteration):
             next(iterator)
@@ -746,7 +759,7 @@ class TestListTenants:
 
     def _assert_tenants_page(self, page):
         assert isinstance(page, tenant_mgt.ListTenantsPage)
-        assert len(page.tenants) == 2
+        assert len(page.tenants) == 3
         for idx, tenant in enumerate(page.tenants):
             _assert_tenant(tenant, 'tenant{0}'.format(idx))
 
@@ -1214,3 +1227,9 @@ def _assert_tenant(tenant, tenant_id='tenant-id'):
     assert tenant.display_name == 'Test Tenant'
     assert tenant.allow_password_sign_up is True
     assert tenant.enable_email_link_sign_in is True
+    if tenant.mfa_config is not None:
+        assert tenant.mfa_config.state == 'ENABLED'
+        assert tenant.mfa_config.enabled_providers == ['PHONE_SMS']
+        assert len(tenant.mfa_config.provider_configs) == 1
+        assert tenant.mfa_config.provider_configs[0].state == 'ENABLED'
+        assert tenant.mfa_config.provider_configs[0].totp_provider_config.adjacent_intervals == 5 

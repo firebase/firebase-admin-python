@@ -124,37 +124,6 @@ class UserInfo:
         raise NotImplementedError
 
 
-class MultiFactorInfo:
-    """A collection of standard multifactor information of a user.
-
-    Used to enhance account security by providing two step authentication method.
-    """
-
-    @property
-    def uid(self):
-        """Returns the user ID of this user."""
-        raise NotImplementedError
-
-    @property
-    def display_name(self):
-        """Returns the display name of this user."""
-        raise NotImplementedError
-
-    @property
-    def enrollment_timestamp(self):
-        """Returns the display name of this user."""
-        raise NotImplementedError
-
-    @property
-    def email(self):
-        """Returns the email address associated with this user."""
-        raise NotImplementedError
-
-    @property
-    def phone_number(self):
-        """Returns the phone number associated with this user."""
-        raise NotImplementedError
-    
 class UserRecord(UserInfo):
     """Contains metadata associated with a Firebase user account."""
 
@@ -305,22 +274,6 @@ class UserRecord(UserInfo):
           string: A tenant ID string or None.
         """
         return self._data.get('tenantId')
-
-    @property
-    def multi_factor(self):
-        """Returns the multi factor config of this user.
-
-        Returns:
-          MultiFactorSettings: A MultiFactorSettings instance or None.
-        """
-        def _int_or_none(key):
-            if key in self._data:
-                return self._data[key]
-            return None
-
-        return UserMetadata(
-            _int_or_none('createdAt'), _int_or_none('lastLoginAt'), last_refresh_at_millis)
-
 
 
 class ExportedUserRecord(UserRecord):

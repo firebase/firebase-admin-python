@@ -450,6 +450,18 @@ class TenantIdMismatchError(exceptions.InvalidArgumentError):
     def __init__(self, message):
         exceptions.InvalidArgumentError.__init__(self, message)
 
+class ProjectNotFoundError(exceptions.NotFoundError):
+    """No project found for the specified identifier."""
+    default_message = 'No project found for the given identifier'
+
+    def __init__(self, message, cause=None, http_response=None):
+        exceptions.NotFoundError.__init__(self, message, cause, http_response)
+
+class ProjectIdMismatchError(exceptions.InvalidArgumentError):
+    """Missing or invalid project ID field in the given JWT."""
+    def __init__(self, message):
+        exceptions.InvalidArgumentError.__init__(self, message)
+
 
 class ConfigurationNotFoundError(exceptions.NotFoundError):
     """No auth provider found for the specified identifier."""
@@ -480,6 +492,7 @@ _CODE_TO_EXC_TYPE = {
     'INVALID_ID_TOKEN': InvalidIdTokenError,
     'PHONE_NUMBER_EXISTS': PhoneNumberAlreadyExistsError,
     'TENANT_NOT_FOUND': TenantNotFoundError,
+    'PROJECT_NOT_FOUND':ProjectNotFoundError,
     'USER_NOT_FOUND': UserNotFoundError,
 }
 

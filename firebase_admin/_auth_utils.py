@@ -355,7 +355,7 @@ def convertTenantListAuthPayloadToUser(payload):
             tenant = convertTenantAuthPayloadToUser(tenant)
 
 def convertProjectAuthPayloadToUser(payload):
-    if 'mf' in payload:
+    if 'mfa' in payload:
         if 'enabledProviders' in payload['mfa']:
             payload['mfa']['factorIds']= payload['mfa']['enabledProviders']
             payload['mfa'].pop('enabledProviders')

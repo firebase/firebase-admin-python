@@ -1,6 +1,6 @@
 import re
 import threading
-from firebase_admin.multi_factor_config_mgt import MultiFactorConfig, TotpProviderConfig, ProviderConfig 
+from firebase_admin.multi_factor_config_mgt import MultiFactorConfig
 
 import requests
 
@@ -30,7 +30,7 @@ def auth_for_project(project_id, app=None):
     project_mgt_service = _get_project_mgt_service(app)
     return project_mgt_service.auth_for_project(project_id)
 
-def get_project(project_id, app=None):
+def get_project(app=None):
     """Gets the project corresponding to the given project_id.
 
     Args:
@@ -46,9 +46,9 @@ def get_project(project_id, app=None):
         FirebaseError: If an error occurs while retrieving the project.
     """
     project_mgt_service = _get_project_mgt_service(app)
-    return project_mgt_service.get_project(project_id)
+    return project_mgt_service.get_project()
 
-def update_project(project_id, mfa=None, app=None):
+def update_project(mfa=None, app=None):
     """
     Update the Project with the given options.
 
@@ -66,7 +66,7 @@ def update_project(project_id, mfa=None, app=None):
         FirebaseError: If an error occurs while updating the project.
     """
     project_mgt_service = _get_project_mgt_service(app)
-    return project_mgt_service.update_project(project_id, mfa=mfa)
+    return project_mgt_service.update_project(mfa=mfa)
 
 def _get_project_mgt_service(app):
     return _utils.get_app_service(app, _PROJECT_MGT_ATTRIBUTE, _ProjectManagementService)
@@ -103,7 +103,7 @@ class _ProjectManagementService:
     def __init__(self, app):
         credential = app.credential.get_credential()
         version_header = 'Python/Admin/{0}'.format(firebase_admin.__version__)
-        base_url = self.PROJECT_CONFIG_MGT_URL
+        base_url = '{0}/{1}/config'.format(self.PROJECT_CONFIG_MGT_URL, app.project_id)
         self.app = app
         self.client = _http_client.JsonHttpClient(
             credential=credential, base_url=base_url, headers={'X-Client-Version': version_header})
@@ -124,24 +124,19 @@ class _ProjectManagementService:
             self.project_clients[project_id] = client
             return  client
     
-    def get_project(self, project_id):
+    def get_project(self):
         """Gets the project corresponding to the given `project_id`."""
-        if not isinstance(project_id, str) or not project_id:
-            raise ValueError(
-                'Invalid project ID: {0}. Project ID must be a non-empty string.'.format(project_id))
         try:
-            body = self.client.body('get', url='/{0}/config'.format(project_id))
+            body = self.client.body('get', url='')
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)
         else:
             body = _auth_utils.convertProjectAuthPayloadToUser(body)
+            print(body)
             return Project(body)
     
-    def update_project(
-            self, project_id, mfa=None):
+    def update_project(self, mfa=None):
         """Updates the specified project with the given parameters."""
-        if not isinstance(project_id, str) or not project_id:
-            raise ValueError('Project ID must be a non-empty string.')
 
         payload = {}
         if mfa is not None:
@@ -150,11 +145,10 @@ class _ProjectManagementService:
         if not payload:
             raise ValueError('At least one parameter must be specified for update.')
 
-        url = '/{0}/config'.format(project_id)
         update_mask = ','.join(_auth_utils.build_update_mask(payload))
         params = 'updateMask={0}'.format(update_mask)
         try:
-            body = self.client.body('patch', url, json=payload, params=params)
+            body = self.client.body('patch', url='', json=payload, params=params)
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)
         else:

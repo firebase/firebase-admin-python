@@ -145,7 +145,7 @@ class _ProjectManagementService:
 
         payload = {}
         if mfa is not None:
-            payload['multiFactorConfig'] = _auth_utils.validate_mfa_config(mfa)
+            payload['mfa'] = _auth_utils.validate_mfa_config(mfa)
 
         if not payload:
             raise ValueError('At least one parameter must be specified for update.')
@@ -158,6 +158,7 @@ class _ProjectManagementService:
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)
         else:
+            body = _auth_utils.convertProjectAuthPayloadToUser(body)
             return Project(body)
 
 

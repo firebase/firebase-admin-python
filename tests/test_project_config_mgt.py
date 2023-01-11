@@ -27,6 +27,7 @@ from firebase_admin import exceptions
 from firebase_admin import project_config_mgt
 from firebase_admin import _auth_providers
 from firebase_admin import _user_mgt
+from firebase_admin import _auth_utils
 from firebase_admin.multi_factor_config_mgt import MultiFactorConfig, ProviderConfig, TotpProviderConfig
 from tests import testutils
 from tests import test_token_gen
@@ -295,13 +296,13 @@ class TestUpdateProject:
         project = project_config_mgt.update_project(
             'project-id', mfa=mfa_config_data,app=project_config_mgt_app)
 
-        mask = ['multiFactorConfig.factorIds','multiFactorConfig.providerConfigs','multiFactorConfig.state']
+        mask = ['mfa.enabledProviders','mfa.providerConfigs','mfa.state']
 
         _assert_project(project)
         self._assert_request(recorder, {
-            'multiFactorConfig':{
+            'mfa':{
                 'state':'ENABLED',
-                'factorIds':['PHONE_SMS'],
+                'enabledProviders':['PHONE_SMS'],
                 'providerConfigs': [
                     {
                         'state':'ENABLED',
@@ -337,9 +338,9 @@ class TestUpdateProject:
 
         mfa_config_state_disabled.pop('factorIds')
         _assert_project(project)
-        mask = ['multiFactorConfig.providerConfigs','multiFactorConfig.state']
+        mask = ['mfa.providerConfigs','mfa.state']
         self._assert_request(recorder, {
-            'multiFactorConfig': mfa_config_state_disabled
+            'mfa': mfa_config_state_disabled
         }, mask)
 
         #multiFactorConfig.state enabled and providerConfig.state disabled
@@ -351,9 +352,11 @@ class TestUpdateProject:
             app=project_config_mgt_app)
 
         _assert_project(project)
-        mask = ['multiFactorConfig.factorIds','multiFactorConfig.providerConfigs','multiFactorConfig.state']
+        mfa_config_state_enabled_totp_disabled['enabledProviders'] = mfa_config_state_enabled_totp_disabled['factorIds']
+        mfa_config_state_enabled_totp_disabled.pop('factorIds')
+        mask = ['mfa.enabledProviders','mfa.providerConfigs','mfa.state']
         self._assert_request(recorder, {
-            'multiFactorConfig': mfa_config_state_enabled_totp_disabled
+            'mfa': mfa_config_state_enabled_totp_disabled
         },mask)
 
     def _assert_request(self, recorder, body, mask):

@@ -273,7 +273,6 @@ class _TenantManagementService:
         if not isinstance(tenant_id, str) or not tenant_id:
             raise ValueError(
                 'Invalid tenant ID: {0}. Tenant ID must be a non-empty string.'.format(tenant_id))
-
         try:
             body = self.client.body('get', '/tenants/{0}'.format(tenant_id))
         except requests.exceptions.RequestException as error:
@@ -293,12 +292,13 @@ class _TenantManagementService:
             payload['enableEmailLinkSignin'] = _auth_utils.validate_boolean(
                 enable_email_link_sign_in, 'enableEmailLinkSignin')
         if mfa_config is not None:
-            payload['multiFactorConfig'] = _auth_utils.validate_mfa_config(mfa_config)
+            payload['mfaConfig'] = _auth_utils.validate_mfa_config(mfa_config)
         try:
             body = self.client.body('post', '/tenants', json=payload)
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)
         else:
+            body = _auth_utils.convertTenantAuthPayloadToUser(body)
             return Tenant(body)
 
     def update_tenant(
@@ -318,8 +318,8 @@ class _TenantManagementService:
             payload['enableEmailLinkSignin'] = _auth_utils.validate_boolean(
                 enable_email_link_sign_in, 'enableEmailLinkSignin')
         if mfa_config is not None:
-            payload['multiFactorConfig'] = _auth_utils.validate_mfa_config(mfa_config)
-
+            payload['mfaConfig'] = _auth_utils.validate_mfa_config(mfa_config)
+        
         if not payload:
             raise ValueError('At least one parameter must be specified for update.')
 
@@ -331,6 +331,7 @@ class _TenantManagementService:
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)
         else:
+            body = _auth_utils.convertTenantAuthPayloadToUser(body)
             return Tenant(body)
 
     def delete_tenant(self, tenant_id):

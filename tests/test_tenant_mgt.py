@@ -359,12 +359,12 @@ class TestCreateTenant:
             tenant_mgt.create_tenant(display_name='test', mfa_config=mfa_config, app=tenant_mgt_app)
         assert str(excinfo.value).startswith('providerConfig.totpProviderConfig must be of valid type TotpProviderConfig')
     
-    @pytest.mark.parametrize('adjacent_intervals', ['', -1, True, False, [], (), {}, "foo", None])
+    @pytest.mark.parametrize('adjacent_intervals', ['', -1, True, False, [], (), {}, "foo", None, 11, 1.1])
     def test_invalid_adjacent_intervals_type(self, tenant_mgt_app, adjacent_intervals):
         mfa_config = {'state': 'DISABLED', 'providerConfigs': [{'state':'ENABLED', 'totpProviderConfig':{'adjacentIntervals':adjacent_intervals}}]}
         with pytest.raises(ValueError) as excinfo:
             tenant_mgt.create_tenant(display_name='test', mfa_config=mfa_config, app=tenant_mgt_app)
-        assert str(excinfo.value).startswith('totpProviderConfig.adjacentIntervals must be a valid positive integer')
+        assert str(excinfo.value).startswith('totpProviderConfig.adjacentIntervals must be a valid positive integer between 0 and 10 (both inclusive).')
 
     def test_create_tenant(self, tenant_mgt_app):
         _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
@@ -388,9 +388,9 @@ class TestCreateTenant:
             'displayName': 'My-Tenant',
             'allowPasswordSignup': True,
             'enableEmailLinkSignin': True,
-            'multiFactorConfig':{
+            'mfaConfig':{
                 'state':'ENABLED',
-                'factorIds':['PHONE_SMS'],
+                'enabledProviders':['PHONE_SMS'],
                 'providerConfigs': [
                     {
                         'state':'ENABLED',
@@ -441,7 +441,7 @@ class TestCreateTenant:
         _assert_tenant(tenant)
         self._assert_request(recorder, {
             'displayName': 'test',
-            'multiFactorConfig': mfa_config_state_disabled
+            'mfaConfig': mfa_config_state_disabled
         })
 
         #multiFactorConfig.state enabled and providerConfig.state disabled
@@ -453,9 +453,11 @@ class TestCreateTenant:
             app=tenant_mgt_app)
 
         _assert_tenant(tenant)
+        mfa_config_state_enabled_totp_disabled['enabledProviders'] = mfa_config_state_enabled_totp_disabled['factorIds']
+        mfa_config_state_enabled_totp_disabled.pop('factorIds')
         self._assert_request(recorder, {
             'displayName': 'test',
-            'multiFactorConfig': mfa_config_state_enabled_totp_disabled
+            'mfaConfig': mfa_config_state_enabled_totp_disabled
         })
 
 
@@ -547,9 +549,9 @@ class TestUpdateTenant:
             'displayName': 'My-Tenant',
             'allowPasswordSignup': True,
             'enableEmailLinkSignin': True,
-            'multiFactorConfig':{
+            'mfaConfig':{
                 'state':'ENABLED',
-                'factorIds':['PHONE_SMS'],
+                'enabledProviders':['PHONE_SMS'],
                 'providerConfigs': [
                     {
                         'state':'ENABLED',
@@ -560,7 +562,7 @@ class TestUpdateTenant:
                 ]
             }
         }
-        mask = ['allowPasswordSignup', 'displayName', 'enableEmailLinkSignin', 'multiFactorConfig.factorIds', 'multiFactorConfig.providerConfigs', 'multiFactorConfig.state']
+        mask = ['allowPasswordSignup', 'displayName', 'enableEmailLinkSignin', 'mfaConfig.enabledProviders', 'mfaConfig.providerConfigs', 'mfaConfig.state']
         self._assert_request(recorder, body, mask)
 
     def test_update_tenant_false_values(self, tenant_mgt_app):

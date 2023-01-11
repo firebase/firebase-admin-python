@@ -36,7 +36,6 @@ class MultiFactorConfig:
     """
 
     def __init__(self, data):
-        print("MFA CONFIG\n", data)
         if not isinstance(data, dict):
             raise ValueError('Invalid data argument in MultiFactorConfig constructor: {0}'.format(data))
 
@@ -53,7 +52,6 @@ class MultiFactorConfig:
     @property
     def provider_configs(self):
         data = self._data.get('providerConfigs')
-        print("HERE/n", data)
         if data:
             return [ProviderConfig(d) for d in data]
         return None

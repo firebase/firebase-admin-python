@@ -281,6 +281,7 @@ def validate_provider_ids(provider_ids, required=False):
 def validate_mfa_config(mfa_config):
     """Validates the specified multi factor configuration.
     """
+    
     mfa_config_payload = {}
     #validate multiFactorConfig
     if not isinstance(mfa_config, dict) or type(mfa_config) is not dict:
@@ -304,7 +305,7 @@ def validate_mfa_config(mfa_config):
         for factorId in factorIds:
             if not isinstance(factorId, str) or factorId not in VALID_AUTH_FACTOR_TYPES:
                 raise ValueError('factorId must be a valid AuthFactor type string')
-        mfa_config_payload['factorIds'] = factorIds
+        mfa_config_payload['enabledProviders'] = factorIds
 
     #validate providerConfigs if defined
     if 'providerConfigs' in mfa_config:
@@ -330,14 +331,32 @@ def validate_mfa_config(mfa_config):
                 totp_provider_config_payload = {}
                 if 'adjacentIntervals' in provider_config['totpProviderConfig']:
                     adjacent_intervals = provider_config['totpProviderConfig']['adjacentIntervals']
-                    if not adjacent_intervals or type(adjacent_intervals) is not int or adjacent_intervals < 0:
-                        raise ValueError('totpProviderConfig.adjacentIntervals must be a valid positive integer')
+                    if type(adjacent_intervals) is not int or adjacent_intervals < 0 or adjacent_intervals > 10:
+                        raise ValueError('totpProviderConfig.adjacentIntervals must be a valid positive integer between 0 and 10 (both inclusive).')
                     totp_provider_config_payload['adjacentIntervals'] = adjacent_intervals
                 provider_config_payload['totpProviderConfig'] = totp_provider_config_payload
             provider_configs_payload.append(provider_config_payload)
         mfa_config_payload['providerConfigs'] = provider_configs_payload
 
     return mfa_config_payload
+
+def convertTenantAuthPayloadToUser(payload):
+    if 'mfaConfig' in payload:
+        if 'enabledProviders' in payload['mfaConfig']:
+            payload['mfaConfig']['factorIds']= payload['mfaConfig']['enabledProviders']
+            payload['mfaConfig'].pop('enabledProviders')
+        payload['multiFactorConfig'] = payload['mfaConfig']
+        payload.pop('mfaConfig')
+    return payload
+
+def convertProjectAuthPayloadToUser(payload):
+    if 'mf' in payload:
+        if 'enabledProviders' in payload['mfa']:
+            payload['mfa']['factorIds']= payload['mfa']['enabledProviders']
+            payload['mfa'].pop('enabledProviders')
+        payload['multiFactorConfig'] = payload['mfa']
+        payload.pop('mfa')
+    return payload
 
 def build_update_mask(params):
     """Creates an update mask list from the given dictionary."""

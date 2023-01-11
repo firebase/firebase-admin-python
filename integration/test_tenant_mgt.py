@@ -33,13 +33,32 @@ ACTION_LINK_CONTINUE_URL = 'http://localhost?a=1&b=5#f=1'
 ACTION_CODE_SETTINGS = auth.ActionCodeSettings(ACTION_LINK_CONTINUE_URL)
 VERIFY_TOKEN_URL = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyCustomToken'
 
+GET_TENANT_RESPONSE = """{
+    "name": "projects/mock-project-id/tenants/tenant-id",
+    "displayName": "Test Tenant",
+    "allowPasswordSignup": true,
+    "enableEmailLinkSignin": true,
+    "multiFactorConfig":{
+        "state":"ENABLED",
+        "factorIds":["PHONE_SMS"],
+        "providerConfigs":[
+            {
+                "state":"ENABLED",
+                "totpProviderConfig": {
+                    "adjacentIntervals": 5
+                }
+            }
+        ]
+    }
+}"""
+
 
 @pytest.fixture(scope='module')
 def sample_tenant():
     # Define the data for the mfa_config argument
     mfa_config_data = {
       "state": "ENABLED",
-      "enabledProviders": ["PHONE_SMS"],
+      "factorIds": ["PHONE_SMS"],
       "providerConfigs": [
         {
           "state": "ENABLED",
@@ -49,13 +68,12 @@ def sample_tenant():
         }
       ]
     }
-     # Create an instance of the MultiFactorConfig class using the mfa_config_data
-    mfa_config = MultiFactorConfig(mfa_config_data)
+    print(mfa_config_data)
     tenant = tenant_mgt.create_tenant(
         display_name='admin-python-tenant',
         allow_password_sign_up=True,
         enable_email_link_sign_in=True,
-        mfa_config=mfa_config,
+        mfa_config=mfa_config_data,
     )
     yield tenant
     tenant_mgt.delete_tenant(tenant.tenant_id)
@@ -77,7 +95,10 @@ def test_get_tenant(sample_tenant):
     assert tenant.display_name == 'admin-python-tenant'
     assert tenant.allow_password_sign_up is True
     assert tenant.enable_email_link_sign_in is True
-    assert tenant.mfa_config is True
+    assert tenant.mfa_config.state == 'ENABLED'
+    assert tenant.mfa_config.enabled_providers == ['PHONE_SMS']
+    assert tenant.mfa_config.provider_configs[0].state == 'ENABLED'
+    assert tenant.mfa_config.provider_configs[0].totp_provider_config.adjacent_intervals == 5
 
 
 def test_list_tenants(sample_tenant):

@@ -27,6 +27,7 @@ import pytest
 from firebase_admin import auth
 from firebase_admin import tenant_mgt
 from integration import test_auth
+from firebase_admin import _auth_utils
 
 
 ACTION_LINK_CONTINUE_URL = 'http://localhost?a=1&b=5#f=1'
@@ -68,7 +69,6 @@ def sample_tenant():
         }
       ]
     }
-    print(mfa_config_data)
     tenant = tenant_mgt.create_tenant(
         display_name='admin-python-tenant',
         allow_password_sign_up=True,
@@ -113,20 +113,40 @@ def test_list_tenants(sample_tenant):
     assert result.display_name == 'admin-python-tenant'
     assert result.allow_password_sign_up is True
     assert result.enable_email_link_sign_in is True
+    assert result.mfa_config.state == 'ENABLED'
+    assert result.mfa_config.enabled_providers == ['PHONE_SMS']
+    assert result.mfa_config.provider_configs[0].state == 'ENABLED'
+    assert result.mfa_config.provider_configs[0].totp_provider_config.adjacent_intervals == 5
 
 
 def test_update_tenant():
     tenant = tenant_mgt.create_tenant(
         display_name='py-update-test', allow_password_sign_up=True, enable_email_link_sign_in=True)
     try:
+        mfa_config = {
+            'state':'ENABLED',
+            'factorIds':['PHONE_SMS'],
+            'providerConfigs': [
+                {
+                    'state':'ENABLED',
+                    'totpProviderConfig': {
+                        'adjacentIntervals': 5
+                    }
+                }
+            ]
+        }
         tenant = tenant_mgt.update_tenant(
             tenant.tenant_id, display_name='updated-py-tenant', allow_password_sign_up=False,
-            enable_email_link_sign_in=False)
+            enable_email_link_sign_in=False, mfa_config=mfa_config)
         assert isinstance(tenant, tenant_mgt.Tenant)
         assert tenant.tenant_id == tenant.tenant_id
         assert tenant.display_name == 'updated-py-tenant'
         assert tenant.allow_password_sign_up is False
         assert tenant.enable_email_link_sign_in is False
+        assert tenant.mfa_config.state == 'ENABLED'
+        assert tenant.mfa_config.enabled_providers == ['PHONE_SMS']
+        assert tenant.mfa_config.provider_configs[0].state == 'ENABLED'
+        assert tenant.mfa_config.provider_configs[0].totp_provider_config.adjacent_intervals == 5
     finally:
         tenant_mgt.delete_tenant(tenant.tenant_id)
 

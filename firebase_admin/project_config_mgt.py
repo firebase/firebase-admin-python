@@ -76,7 +76,6 @@ class Project:
     """
 
     def __init__(self, data):
-        print(data)
         if not isinstance(data, dict):
             raise ValueError('Invalid data argument in Project constructor: {0}'.format(data))
         if not 'name' in data:

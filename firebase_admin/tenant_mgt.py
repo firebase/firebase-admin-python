@@ -205,7 +205,6 @@ class Tenant:
     """
 
     def __init__(self, data):
-        print(data)
         if not isinstance(data, dict):
             raise ValueError('Invalid data argument in Tenant constructor: {0}'.format(data))
         if not 'name' in data:
@@ -242,7 +241,7 @@ class Tenant:
 class _TenantManagementService:
     """Firebase tenant management service."""
 
-    TENANT_MGT_URL = 'https://identitytoolkit.googleapis.com/v2beta1'
+    TENANT_MGT_URL = 'https://identitytoolkit.googleapis.com/v2'
 
     def __init__(self, app):
         credential = app.credential.get_credential()
@@ -278,6 +277,7 @@ class _TenantManagementService:
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)
         else:
+            body = _auth_utils.convertTenantAuthPayloadToUser(body)
             return Tenant(body)
 
     def create_tenant(
@@ -361,7 +361,9 @@ class _TenantManagementService:
         if page_token:
             payload['pageToken'] = page_token
         try:
-            return self.client.body('get', '/tenants', params=payload)
+            body = self.client.body('get', '/tenants', params=payload)
+            _auth_utils.convertTenantListAuthPayloadToUser(body)
+            return body
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)
 

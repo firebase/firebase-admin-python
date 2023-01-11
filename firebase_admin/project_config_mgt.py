@@ -134,6 +134,7 @@ class _ProjectManagementService:
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)
         else:
+            body = _auth_utils.convertProjectAuthPayloadToUser(body)
             return Project(body)
     
     def update_project(

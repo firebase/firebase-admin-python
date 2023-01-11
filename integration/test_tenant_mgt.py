@@ -19,7 +19,6 @@ import string
 import time
 from urllib import parse
 import uuid
-from firebase_admin.multi_factor_config_mgt import MultiFactorConfig
 
 import requests
 import pytest
@@ -27,7 +26,6 @@ import pytest
 from firebase_admin import auth
 from firebase_admin import tenant_mgt
 from integration import test_auth
-from firebase_admin import _auth_utils
 
 
 ACTION_LINK_CONTINUE_URL = 'http://localhost?a=1&b=5#f=1'

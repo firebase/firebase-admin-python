@@ -318,7 +318,7 @@ def validate_mfa_config(mfa_config):
     mfa_config_keys = set(mfa_config.keys())
     for key in mfa_config_keys:
         if key not in valid_mfa_config_keys:
-            raise ValueError('{0} is not a valid MultiFactorConfig paramter', key)
+            raise ValueError('{0} is not a valid MultiFactorConfig paramter'.format(key))
 
     # validate state in MFA config
     if 'state' not in mfa_config:
@@ -362,7 +362,7 @@ def validate_mfa_config(mfa_config):
             provider_config_keys = set(provider_config.keys())
             for key in provider_config_keys:
                 if key not in valid_provider_config_keys:
-                    raise ValueError('{0} is not a valid ProviderConfig paramter', key)
+                    raise ValueError('{0} is not a valid ProviderConfig paramter'.format(key))
             
             if 'state' not in provider_config:
                 raise ValueError('providerConfig.state should be defined')
@@ -385,7 +385,7 @@ def validate_mfa_config(mfa_config):
             totp_provider_config_keys = set(totp_provider_config.keys())
             for key in totp_provider_config_keys:
                 if key not in valid_totp_provider_config_keys:
-                    raise ValueError('{0} is not a valid TotpProviderConfig paramter', key)
+                    raise ValueError('{0} is not a valid TotpProviderConfig paramter'.format(key))
         
             totp_provider_config_payload = {}
             if 'adjacentIntervals' in totp_provider_config:

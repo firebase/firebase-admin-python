@@ -156,7 +156,7 @@ class _ProjectManagementService:
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)
         else:
-            body = _auth_utils.convertProjectAuthPayloadToUser(body)
+            body = _auth_utils.convert_project_auth_payload_to_user(body)
             print(body)
             return Project(body)
 
@@ -179,5 +179,5 @@ class _ProjectManagementService:
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)
         else:
-            body = _auth_utils.convertProjectAuthPayloadToUser(body)
+            body = _auth_utils.convert_project_auth_payload_to_user(body)
             return Project(body)

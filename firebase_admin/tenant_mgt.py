@@ -283,7 +283,7 @@ class _TenantManagementService:
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)
         else:
-            body = _auth_utils.convertTenantAuthPayloadToUser(body)
+            body = _auth_utils.convert_tenant_auth_payload_to_user(body)
             return Tenant(body)
 
     def create_tenant(
@@ -305,7 +305,7 @@ class _TenantManagementService:
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)
         else:
-            body = _auth_utils.convertTenantAuthPayloadToUser(body)
+            body = _auth_utils.convert_tenant_auth_payload_to_user(body)
             return Tenant(body)
 
     def update_tenant(
@@ -339,7 +339,7 @@ class _TenantManagementService:
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)
         else:
-            body = _auth_utils.convertTenantAuthPayloadToUser(body)
+            body = _auth_utils.convert_tenant_auth_payload_to_user(body)
             return Tenant(body)
 
     def delete_tenant(self, tenant_id):
@@ -370,7 +370,7 @@ class _TenantManagementService:
             payload['pageToken'] = page_token
         try:
             body = self.client.body('get', '/tenants', params=payload)
-            _auth_utils.convertTenantListAuthPayloadToUser(body)
+            _auth_utils.convert_tenant_list_auth_payload_to_user(body)
             return body
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)

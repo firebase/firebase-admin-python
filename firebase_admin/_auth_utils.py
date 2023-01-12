@@ -30,8 +30,9 @@ RESERVED_CLAIMS = set([
     'acr', 'amr', 'at_hash', 'aud', 'auth_time', 'azp', 'cnf', 'c_hash', 'exp', 'iat',
     'iss', 'jti', 'nbf', 'nonce', 'sub', 'firebase',
 ])
-VALID_EMAIL_ACTION_TYPES = set(['VERIFY_EMAIL', 'EMAIL_SIGNIN', 'PASSWORD_RESET'])
-VALID_AUTH_FACTOR_TYPES= set(['PHONE_SMS'])
+VALID_EMAIL_ACTION_TYPES = set(
+    ['VERIFY_EMAIL', 'EMAIL_SIGNIN', 'PASSWORD_RESET'])
+VALID_AUTH_FACTOR_TYPES = set(['PHONE_SMS'])
 VALID_STATES = set(['ENABLED', 'DISABLED'])
 
 
@@ -95,6 +96,7 @@ def validate_uid(uid, required=False):
             'characters.'.format(uid))
     return uid
 
+
 def validate_email(email, required=False):
     if email is None and not required:
         return None
@@ -103,8 +105,10 @@ def validate_email(email, required=False):
             'Invalid email: "{0}". Email must be a non-empty string.'.format(email))
     parts = email.split('@')
     if len(parts) != 2 or not parts[0] or not parts[1]:
-        raise ValueError('Malformed email address string: "{0}".'.format(email))
+        raise ValueError(
+            'Malformed email address string: "{0}".'.format(email))
     return email
+
 
 def validate_phone(phone, required=False):
     """Validates the specified phone number.
@@ -123,6 +127,7 @@ def validate_phone(phone, required=False):
                          'compliant identifier.'.format(phone))
     return phone
 
+
 def validate_password(password, required=False):
     if password is None and not required:
         return None
@@ -131,12 +136,15 @@ def validate_password(password, required=False):
             'Invalid password string. Password must be a string at least 6 characters long.')
     return password
 
+
 def validate_bytes(value, label, required=False):
     if value is None and not required:
         return None
     if not isinstance(value, bytes) or not value:
-        raise ValueError('{0} must be a non-empty byte sequence.'.format(label))
+        raise ValueError(
+            '{0} must be a non-empty byte sequence.'.format(label))
     return value
+
 
 def validate_display_name(display_name, required=False):
     if display_name is None and not required:
@@ -147,6 +155,7 @@ def validate_display_name(display_name, required=False):
             'string.'.format(display_name))
     return display_name
 
+
 def validate_provider_id(provider_id, required=True):
     if provider_id is None and not required:
         return None
@@ -156,6 +165,7 @@ def validate_provider_id(provider_id, required=True):
             'string.'.format(provider_id))
     return provider_id
 
+
 def validate_provider_uid(provider_uid, required=True):
     if provider_uid is None and not required:
         return None
@@ -164,6 +174,7 @@ def validate_provider_uid(provider_uid, required=True):
             'Invalid provider UID: "{0}". Provider UID must be a non-empty '
             'string.'.format(provider_uid))
     return provider_uid
+
 
 def validate_photo_url(photo_url, required=False):
     """Parses and validates the given URL string."""
@@ -181,6 +192,7 @@ def validate_photo_url(photo_url, required=False):
     except Exception:
         raise ValueError('Malformed photo URL: "{0}".'.format(photo_url))
 
+
 def validate_timestamp(timestamp, label, required=False):
     """Validates the given timestamp value. Timestamps must be positive integers."""
     if timestamp is None and not required:
@@ -190,13 +202,17 @@ def validate_timestamp(timestamp, label, required=False):
     try:
         timestamp_int = int(timestamp)
     except TypeError:
-        raise ValueError('Invalid type for timestamp value: {0}.'.format(timestamp))
+        raise ValueError(
+            'Invalid type for timestamp value: {0}.'.format(timestamp))
     else:
         if timestamp_int != timestamp:
-            raise ValueError('{0} must be a numeric value and a whole number.'.format(label))
+            raise ValueError(
+                '{0} must be a numeric value and a whole number.'.format(label))
         if timestamp_int <= 0:
-            raise ValueError('{0} timestamp must be a positive interger.'.format(label))
+            raise ValueError(
+                '{0} timestamp must be a positive interger.'.format(label))
         return timestamp_int
+
 
 def validate_int(value, label, low=None, high=None):
     """Validates that the given value represents an integer.
@@ -215,12 +231,16 @@ def validate_int(value, label, low=None, high=None):
     else:
         if val_int != value:
             # This will be True for non-numeric values like '2' and non-whole numbers like 2.5.
-            raise ValueError('{0} must be a numeric value and a whole number.'.format(label))
+            raise ValueError(
+                '{0} must be a numeric value and a whole number.'.format(label))
         if low is not None and val_int < low:
-            raise ValueError('{0} must not be smaller than {1}.'.format(label, low))
+            raise ValueError(
+                '{0} must not be smaller than {1}.'.format(label, low))
         if high is not None and val_int > high:
-            raise ValueError('{0} must not be larger than {1}.'.format(label, high))
+            raise ValueError(
+                '{0} must not be larger than {1}.'.format(label, high))
         return val_int
+
 
 def validate_string(value, label):
     """Validates that the given value is a string."""
@@ -228,11 +248,13 @@ def validate_string(value, label):
         raise ValueError('Invalid type for {0}: {1}.'.format(label, value))
     return value
 
+
 def validate_boolean(value, label):
     """Validates that the given value is a boolean."""
     if not isinstance(value, bool):
         raise ValueError('Invalid type for {0}: {1}.'.format(label, value))
     return value
+
 
 def validate_custom_claims(custom_claims, required=False):
     """Validates the specified custom claims.
@@ -257,11 +279,13 @@ def validate_custom_claims(custom_claims, required=False):
     invalid_claims = RESERVED_CLAIMS.intersection(set(parsed.keys()))
     if len(invalid_claims) > 1:
         joined = ', '.join(sorted(invalid_claims))
-        raise ValueError('Claims "{0}" are reserved, and must not be set.'.format(joined))
+        raise ValueError(
+            'Claims "{0}" are reserved, and must not be set.'.format(joined))
     if len(invalid_claims) == 1:
         raise ValueError(
             'Claim "{0}" is reserved, and must not be set.'.format(invalid_claims.pop()))
     return claims_str
+
 
 def validate_action_type(action_type):
     if action_type not in VALID_EMAIL_ACTION_TYPES:
@@ -269,70 +293,84 @@ def validate_action_type(action_type):
             Valid values are {1}'.format(action_type, ', '.join(VALID_EMAIL_ACTION_TYPES)))
     return action_type
 
+
 def validate_provider_ids(provider_ids, required=False):
     if not provider_ids:
         if required:
-            raise ValueError('Invalid provider IDs. Provider ids should be provided')
+            raise ValueError(
+                'Invalid provider IDs. Provider ids should be provided')
         return []
     for provider_id in provider_ids:
         validate_provider_id(provider_id, True)
     return provider_ids
 
+
 def validate_mfa_config(mfa_config):
-    """Validates the specified multi factor configuration.
-    """
-    
+    """Validates the specified multi factor configuration."""
+
     mfa_config_payload = {}
-    #validate multiFactorConfig
-    if not isinstance(mfa_config, dict) or type(mfa_config) is not dict:
-        raise ValueError('multiFactorConfig should be of valid type MultiFactorConfig')
-    
-    #validate state in MFA config
+    # validate multiFactorConfig
+    if not isinstance(mfa_config, dict):
+        raise ValueError(
+            'multiFactorConfig should be of valid type MultiFactorConfig')
+
+    # validate state in MFA config
     if 'state' not in mfa_config:
         raise ValueError('multiFactorConfig.state should be defined')
     state = mfa_config['state']
     if not isinstance(state, str) or state not in VALID_STATES:
-        raise ValueError('multiFactorConfig.state must be either "ENABLED" or "DISABLED"')
+        raise ValueError(
+            'multiFactorConfig.state must be either "ENABLED" or "DISABLED"')
     mfa_config_payload['state'] = state
 
-    #validate factor_ids if MFA is enabled
+    # validate factor_ids if MFA is enabled
     if state == 'ENABLED':
         if 'factorIds' not in mfa_config:
             raise ValueError('multiFactorConfig.factorIds must be defined')
-        factorIds = mfa_config['factorIds']
-        if not isinstance(factorIds, list) or len(mfa_config['factorIds']) == 0:
-            raise ValueError('multiFactorConfig.factorIds must be a defined list of AuthFactor type strings')
-        for factorId in factorIds:
-            if not isinstance(factorId, str) or factorId not in VALID_AUTH_FACTOR_TYPES:
-                raise ValueError('factorId must be a valid AuthFactor type string')
-        mfa_config_payload['enabledProviders'] = factorIds
+        factor_ids = mfa_config['factorIds']
+        if not isinstance(factor_ids, list) or not factor_ids:
+            raise ValueError(
+                'multiFactorConfig.factorIds must be a defined list of AuthFactor type strings')
+        for factor_id in factor_ids:
+            if not isinstance(factor_id, str) or factor_id not in VALID_AUTH_FACTOR_TYPES:
+                raise ValueError(
+                    'factorId must be a valid AuthFactor type string')
+        mfa_config_payload['enabledProviders'] = factor_ids
 
-    #validate providerConfigs if defined
+    # validate providerConfigs if defined
     if 'providerConfigs' in mfa_config:
         provider_configs = mfa_config['providerConfigs']
         provider_configs_payload = []
-        if not isinstance(provider_configs, list) or len(provider_configs) == 0:
-            raise ValueError('multiFactorConfig.providerConfigs must be a valid list of providerConfig types')
+        if not isinstance(provider_configs, list) or not provider_configs:
+            raise ValueError(
+                'multiFactorConfig.providerConfigs must be a valid list of providerConfig types')
         for provider_config in provider_configs:
             provider_config_payload = {}
             if not isinstance(provider_config, dict) or not provider_config:
-                raise ValueError('multiFactorConfigs.providerConfigs must be a valid array of type providerConfig')
+                raise ValueError(
+                    'multiFactorConfigs.providerConfigs must be a valid array of type providerConfig')
             if 'state' not in provider_config:
                 raise ValueError('providerConfig.state should be defined')
             state = provider_config['state']
             if not isinstance(state, str) or state not in VALID_STATES:
-                raise ValueError('providerConfig.state must be either "ENABLED" or "DISABLED"')
+                raise ValueError(
+                    'providerConfig.state must be either "ENABLED" or "DISABLED"')
             provider_config_payload['state'] = provider_config['state']
             if 'totpProviderConfig' not in provider_config:
-                raise ValueError('providerConfig.totpProviderConfig must be instantiated')
+                raise ValueError(
+                    'providerConfig.totpProviderConfig must be instantiated')
             else:
                 if not isinstance(provider_config['totpProviderConfig'], dict):
-                    raise ValueError('providerConfig.totpProviderConfig must be of valid type TotpProviderConfig')
+                    raise ValueError(
+                        'providerConfig.totpProviderConfig must be of valid type TotpProviderConfig'
+                    )
                 totp_provider_config_payload = {}
                 if 'adjacentIntervals' in provider_config['totpProviderConfig']:
                     adjacent_intervals = provider_config['totpProviderConfig']['adjacentIntervals']
-                    if type(adjacent_intervals) is not int or adjacent_intervals < 0 or adjacent_intervals > 10:
-                        raise ValueError('totpProviderConfig.adjacentIntervals must be a valid positive integer between 0 and 10 (both inclusive).')
+                    if not isinstance(adjacent_intervals, int) or adjacent_intervals < 0 or adjacent_intervals > 10:
+                        raise ValueError(
+                            ('totpProviderConfig.adjacentIntervals must'
+                             'be a valid positive integer between 0 and 10 (both inclusive).'))
                     totp_provider_config_payload['adjacentIntervals'] = adjacent_intervals
                 provider_config_payload['totpProviderConfig'] = totp_provider_config_payload
             provider_configs_payload.append(provider_config_payload)
@@ -340,28 +378,32 @@ def validate_mfa_config(mfa_config):
 
     return mfa_config_payload
 
-def convertTenantAuthPayloadToUser(payload):
+
+def convert_tenant_auth_payload_to_user(payload):
     if 'mfaConfig' in payload:
         if 'enabledProviders' in payload['mfaConfig']:
-            payload['mfaConfig']['factorIds']= payload['mfaConfig']['enabledProviders']
+            payload['mfaConfig']['factorIds'] = payload['mfaConfig']['enabledProviders']
             payload['mfaConfig'].pop('enabledProviders')
         payload['multiFactorConfig'] = payload['mfaConfig']
         payload.pop('mfaConfig')
     return payload
 
-def convertTenantListAuthPayloadToUser(payload):
+
+def convert_tenant_list_auth_payload_to_user(payload):
     if 'tenants' in payload:
         for tenant in payload['tenants']:
-            tenant = convertTenantAuthPayloadToUser(tenant)
+            tenant = convert_tenant_auth_payload_to_user(tenant)
 
-def convertProjectAuthPayloadToUser(payload):
+
+def convert_project_auth_payload_to_user(payload):
     if 'mfa' in payload:
         if 'enabledProviders' in payload['mfa']:
-            payload['mfa']['factorIds']= payload['mfa']['enabledProviders']
+            payload['mfa']['factorIds'] = payload['mfa']['enabledProviders']
             payload['mfa'].pop('enabledProviders')
         payload['multiFactorConfig'] = payload['mfa']
         payload.pop('mfa')
     return payload
+
 
 def build_update_mask(params):
     """Creates an update mask list from the given dictionary."""
@@ -383,7 +425,8 @@ class UidAlreadyExistsError(exceptions.AlreadyExistsError):
     default_message = 'The user with the provided uid already exists'
 
     def __init__(self, message, cause, http_response):
-        exceptions.AlreadyExistsError.__init__(self, message, cause, http_response)
+        exceptions.AlreadyExistsError.__init__(
+            self, message, cause, http_response)
 
 
 class EmailAlreadyExistsError(exceptions.AlreadyExistsError):
@@ -392,7 +435,8 @@ class EmailAlreadyExistsError(exceptions.AlreadyExistsError):
     default_message = 'The user with the provided email already exists'
 
     def __init__(self, message, cause, http_response):
-        exceptions.AlreadyExistsError.__init__(self, message, cause, http_response)
+        exceptions.AlreadyExistsError.__init__(
+            self, message, cause, http_response)
 
 
 class InsufficientPermissionError(exceptions.PermissionDeniedError):
@@ -404,7 +448,8 @@ class InsufficientPermissionError(exceptions.PermissionDeniedError):
                        'on how to initialize the Admin SDK with appropriate permissions')
 
     def __init__(self, message, cause, http_response):
-        exceptions.PermissionDeniedError.__init__(self, message, cause, http_response)
+        exceptions.PermissionDeniedError.__init__(
+            self, message, cause, http_response)
 
 
 class InvalidDynamicLinkDomainError(exceptions.InvalidArgumentError):
@@ -413,7 +458,8 @@ class InvalidDynamicLinkDomainError(exceptions.InvalidArgumentError):
     default_message = 'Dynamic link domain specified in ActionCodeSettings is not authorized'
 
     def __init__(self, message, cause, http_response):
-        exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
+        exceptions.InvalidArgumentError.__init__(
+            self, message, cause, http_response)
 
 
 class InvalidIdTokenError(exceptions.InvalidArgumentError):
@@ -422,7 +468,8 @@ class InvalidIdTokenError(exceptions.InvalidArgumentError):
     default_message = 'The provided ID token is invalid'
 
     def __init__(self, message, cause=None, http_response=None):
-        exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
+        exceptions.InvalidArgumentError.__init__(
+            self, message, cause, http_response)
 
 
 class PhoneNumberAlreadyExistsError(exceptions.AlreadyExistsError):
@@ -431,7 +478,8 @@ class PhoneNumberAlreadyExistsError(exceptions.AlreadyExistsError):
     default_message = 'The user with the provided phone number already exists'
 
     def __init__(self, message, cause, http_response):
-        exceptions.AlreadyExistsError.__init__(self, message, cause, http_response)
+        exceptions.AlreadyExistsError.__init__(
+            self, message, cause, http_response)
 
 
 class UnexpectedResponseError(exceptions.UnknownError):
@@ -474,6 +522,7 @@ class TenantIdMismatchError(exceptions.InvalidArgumentError):
     def __init__(self, message):
         exceptions.InvalidArgumentError.__init__(self, message)
 
+
 class ProjectNotFoundError(exceptions.NotFoundError):
     """No project found for the specified identifier."""
     default_message = 'No project found for the given identifier'
@@ -481,8 +530,10 @@ class ProjectNotFoundError(exceptions.NotFoundError):
     def __init__(self, message, cause=None, http_response=None):
         exceptions.NotFoundError.__init__(self, message, cause, http_response)
 
+
 class ProjectIdMismatchError(exceptions.InvalidArgumentError):
     """Missing or invalid project ID field in the given JWT."""
+
     def __init__(self, message):
         exceptions.InvalidArgumentError.__init__(self, message)
 
@@ -502,7 +553,8 @@ class UserDisabledError(exceptions.InvalidArgumentError):
     default_message = 'The user record is disabled'
 
     def __init__(self, message, cause=None, http_response=None):
-        exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
+        exceptions.InvalidArgumentError.__init__(
+            self, message, cause, http_response)
 
 
 _CODE_TO_EXC_TYPE = {
@@ -516,7 +568,7 @@ _CODE_TO_EXC_TYPE = {
     'INVALID_ID_TOKEN': InvalidIdTokenError,
     'PHONE_NUMBER_EXISTS': PhoneNumberAlreadyExistsError,
     'TENANT_NOT_FOUND': TenantNotFoundError,
-    'PROJECT_NOT_FOUND':ProjectNotFoundError,
+    'PROJECT_NOT_FOUND': ProjectNotFoundError,
     'USER_NOT_FOUND': UserNotFoundError,
 }
 
@@ -528,7 +580,8 @@ def handle_auth_backend_error(error):
 
     code, custom_message = _parse_error_body(error.response)
     if not code:
-        msg = 'Unexpected error response: {0}'.format(error.response.content.decode())
+        msg = 'Unexpected error response: {0}'.format(
+            error.response.content.decode())
         return _utils.handle_requests_error(error, message=msg)
 
     exc_type = _CODE_TO_EXC_TYPE.get(code)

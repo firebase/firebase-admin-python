@@ -313,6 +313,13 @@ def validate_mfa_config(mfa_config):
         raise ValueError(
             'multiFactorConfig should be of valid type MultiFactorConfig')
 
+    #validate MFA Config keys
+    valid_mfa_config_keys = set(['state', 'factorIds', 'providerConfigs'])
+    mfa_config_keys = set(mfa_config.keys())
+    for key in mfa_config_keys:
+        if key not in valid_mfa_config_keys:
+            raise ValueError('{0} is not a valid MultiFactorConfig paramter', key)
+
     # validate state in MFA config
     if 'state' not in mfa_config:
         raise ValueError('multiFactorConfig.state should be defined')
@@ -349,6 +356,14 @@ def validate_mfa_config(mfa_config):
                 raise ValueError(
                     'multiFactorConfigs.providerConfigs must be a valid array of '
                     'type providerConfig')
+
+            #validate Provider Config keys
+            valid_provider_config_keys = set(['state', 'totpProviderConfig'])
+            provider_config_keys = set(provider_config.keys())
+            for key in provider_config_keys:
+                if key not in valid_provider_config_keys:
+                    raise ValueError('{0} is not a valid ProviderConfig paramter', key)
+            
             if 'state' not in provider_config:
                 raise ValueError('providerConfig.state should be defined')
             state = provider_config['state']
@@ -363,13 +378,22 @@ def validate_mfa_config(mfa_config):
                 raise ValueError(
                     'providerConfig.totpProviderConfig must be of valid type TotpProviderConfig'
                 )
+            totp_provider_config = provider_config['totpProviderConfig']
+
+            #validate Totp Provider Config keys
+            valid_totp_provider_config_keys = set(['adjacentIntervals'])
+            totp_provider_config_keys = set(totp_provider_config.keys())
+            for key in totp_provider_config_keys:
+                if key not in valid_totp_provider_config_keys:
+                    raise ValueError('{0} is not a valid TotpProviderConfig paramter', key)
+        
             totp_provider_config_payload = {}
-            if 'adjacentIntervals' in provider_config['totpProviderConfig']:
-                adjacent_intervals = provider_config['totpProviderConfig']['adjacentIntervals']
+            if 'adjacentIntervals' in totp_provider_config:
+                adjacent_intervals = totp_provider_config['adjacentIntervals']
                 if ((type(adjacent_intervals) is not int) or
-                    not 0 <= adjacent_intervals <= 10):
+                        not 0 <= adjacent_intervals <= 10):
                     raise ValueError('totpProviderConfig.adjacentIntervals must '
-                    'be a valid positive integer between 0 and 10 (both inclusive).')
+                                     'be a valid positive integer between 0 and 10 (both inclusive).')
                 totp_provider_config_payload['adjacentIntervals'] = adjacent_intervals
             provider_config_payload['totpProviderConfig'] = totp_provider_config_payload
             provider_configs_payload.append(provider_config_payload)

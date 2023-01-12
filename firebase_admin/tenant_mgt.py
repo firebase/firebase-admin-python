@@ -239,8 +239,7 @@ class Tenant:
         data = self._data.get('multiFactorConfig')
         if data:
             return MultiFactorConfig(data)
-        else:
-            return None
+        return None
 
 
 class _TenantManagementService:

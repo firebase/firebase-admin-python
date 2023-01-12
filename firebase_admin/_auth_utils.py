@@ -366,6 +366,8 @@ def validate_mfa_config(mfa_config):
             totp_provider_config_payload = {}
             if 'adjacentIntervals' in provider_config['totpProviderConfig']:
                 adjacent_intervals = provider_config['totpProviderConfig']['adjacentIntervals']
+                # Because bool types get converted to int here
+                # pylint: disable=C0123
                 if ((type(adjacent_intervals) is not int) or
                     not 0 <= adjacent_intervals <= 10):
                     raise ValueError('totpProviderConfig.adjacentIntervals must be '

@@ -13,7 +13,7 @@
 # limitations under the License.
 """Firebase multifactor configuration management module.
 
-This module contains functions for managing various multifactor configurations at 
+This module contains functions for managing various multifactor configurations at
 the project and tenant level.
 """
 

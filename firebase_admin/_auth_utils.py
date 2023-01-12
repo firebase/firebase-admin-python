@@ -17,7 +17,6 @@
 import json
 import os
 import re
-import string
 from urllib import parse
 
 from firebase_admin import exceptions
@@ -348,7 +347,8 @@ def validate_mfa_config(mfa_config):
             provider_config_payload = {}
             if not isinstance(provider_config, dict) or not provider_config:
                 raise ValueError(
-                    'multiFactorConfigs.providerConfigs must be a valid array of type providerConfig')
+                    'multiFactorConfigs.providerConfigs must be a valid array of'
+                    'type providerConfig')
             if 'state' not in provider_config:
                 raise ValueError('providerConfig.state should be defined')
             state = provider_config['state']
@@ -359,20 +359,21 @@ def validate_mfa_config(mfa_config):
             if 'totpProviderConfig' not in provider_config:
                 raise ValueError(
                     'providerConfig.totpProviderConfig must be instantiated')
-            else:
-                if not isinstance(provider_config['totpProviderConfig'], dict):
+            if not isinstance(provider_config['totpProviderConfig'], dict):
+                raise ValueError(
+                    'providerConfig.totpProviderConfig must be of valid type TotpProviderConfig'
+                )
+            totp_provider_config_payload = {}
+            if 'adjacentIntervals' in provider_config['totpProviderConfig']:
+                adjacent_intervals = provider_config['totpProviderConfig']['adjacentIntervals']
+                if (not isinstance(adjacent_intervals, int) or
+                    adjacent_intervals < 0 or
+                    adjacent_intervals > 10):
                     raise ValueError(
-                        'providerConfig.totpProviderConfig must be of valid type TotpProviderConfig'
-                    )
-                totp_provider_config_payload = {}
-                if 'adjacentIntervals' in provider_config['totpProviderConfig']:
-                    adjacent_intervals = provider_config['totpProviderConfig']['adjacentIntervals']
-                    if not isinstance(adjacent_intervals, int) or adjacent_intervals < 0 or adjacent_intervals > 10:
-                        raise ValueError(
-                            ('totpProviderConfig.adjacentIntervals must'
-                             'be a valid positive integer between 0 and 10 (both inclusive).'))
-                    totp_provider_config_payload['adjacentIntervals'] = adjacent_intervals
-                provider_config_payload['totpProviderConfig'] = totp_provider_config_payload
+                        ('totpProviderConfig.adjacentIntervals must'
+                            'be a valid positive integer between 0 and 10 (both inclusive).'))
+                totp_provider_config_payload['adjacentIntervals'] = adjacent_intervals
+            provider_config_payload['totpProviderConfig'] = totp_provider_config_payload
             provider_configs_payload.append(provider_config_payload)
         mfa_config_payload['providerConfigs'] = provider_configs_payload
 

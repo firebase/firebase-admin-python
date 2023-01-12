@@ -287,7 +287,7 @@ class _TenantManagementService:
             return Tenant(body)
 
     def create_tenant(
-            self, display_name, allow_password_sign_up=None, enable_email_link_sign_in=None, 
+            self, display_name, allow_password_sign_up=None, enable_email_link_sign_in=None,
             mfa_config=None):
         """Creates a new tenant from the given parameters."""
 

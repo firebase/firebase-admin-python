@@ -114,8 +114,7 @@ class Project:
         data = self._data.get('multiFactorConfig')
         if data:
             return MultiFactorConfig(data)
-        else:
-            return None
+        return None
 
 
 class _ProjectManagementService:
@@ -145,7 +144,7 @@ class _ProjectManagementService:
             if project_id in self.project_clients:
                 return self.project_clients[project_id]
 
-            client = auth.Client(self.app, project_id=project_id)
+            client = auth.Client(self.app)
             self.project_clients[project_id] = client
             return client
 

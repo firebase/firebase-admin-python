@@ -20,7 +20,6 @@ Google Cloud Identity Platform (GCIP) instance.
 
 import re
 import threading
-from firebase_admin.multi_factor_config_mgt import MultiFactorConfig, TotpProviderConfig, ProviderConfig 
 
 import requests
 
@@ -29,6 +28,7 @@ from firebase_admin import auth
 from firebase_admin import _auth_utils
 from firebase_admin import _http_client
 from firebase_admin import _utils
+from firebase_admin.multi_factor_config_mgt import MultiFactorConfig
 
 
 _TENANT_MGT_ATTRIBUTE = '_tenant_mgt'
@@ -130,6 +130,7 @@ def update_tenant(
             provider.
         enable_email_link_sign_in: A boolean indicating whether to enable or disable email link
             sign-in. Disabling this makes the password required for email sign-in.
+        mfa_config: An object containing multi factor configuration for tenant
         app: An App instance (optional).
 
     Returns:

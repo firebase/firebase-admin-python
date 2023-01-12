@@ -347,7 +347,7 @@ def validate_mfa_config(mfa_config):
             provider_config_payload = {}
             if not isinstance(provider_config, dict) or not provider_config:
                 raise ValueError(
-                    'multiFactorConfigs.providerConfigs must be a valid array of'
+                    'multiFactorConfigs.providerConfigs must be a valid array of '
                     'type providerConfig')
             if 'state' not in provider_config:
                 raise ValueError('providerConfig.state should be defined')
@@ -366,12 +366,10 @@ def validate_mfa_config(mfa_config):
             totp_provider_config_payload = {}
             if 'adjacentIntervals' in provider_config['totpProviderConfig']:
                 adjacent_intervals = provider_config['totpProviderConfig']['adjacentIntervals']
-                if (not isinstance(adjacent_intervals, int) or
-                    adjacent_intervals < 0 or
-                    adjacent_intervals > 10):
-                    raise ValueError(
-                        ('totpProviderConfig.adjacentIntervals must'
-                            'be a valid positive integer between 0 and 10 (both inclusive).'))
+                if ((type(adjacent_intervals) is not int) or
+                    not 0 <= adjacent_intervals <= 10):
+                    raise ValueError('totpProviderConfig.adjacentIntervals must '
+                    'be a valid positive integer between 0 and 10 (both inclusive).')
                 totp_provider_config_payload['adjacentIntervals'] = adjacent_intervals
             provider_config_payload['totpProviderConfig'] = totp_provider_config_payload
             provider_configs_payload.append(provider_config_payload)

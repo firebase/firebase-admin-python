@@ -363,7 +363,7 @@ def validate_mfa_config(mfa_config):
             for key in provider_config_keys:
                 if key not in valid_provider_config_keys:
                     raise ValueError('{0} is not a valid ProviderConfig paramter'.format(key))
-            
+
             if 'state' not in provider_config:
                 raise ValueError('providerConfig.state should be defined')
             state = provider_config['state']
@@ -386,14 +386,16 @@ def validate_mfa_config(mfa_config):
             for key in totp_provider_config_keys:
                 if key not in valid_totp_provider_config_keys:
                     raise ValueError('{0} is not a valid TotpProviderConfig paramter'.format(key))
-        
+
             totp_provider_config_payload = {}
             if 'adjacentIntervals' in totp_provider_config:
                 adjacent_intervals = totp_provider_config['adjacentIntervals']
+                # Because bool types get converted to int here
+                # pylint: disable=C0123
                 if ((type(adjacent_intervals) is not int) or
                         not 0 <= adjacent_intervals <= 10):
-                    raise ValueError('totpProviderConfig.adjacentIntervals must '
-                                     'be a valid positive integer between 0 and 10 (both inclusive).')
+                    raise ValueError('totpProviderConfig.adjacentIntervals must be a'
+                                     ' valid positive integer between 0 and 10 (both inclusive).')
                 totp_provider_config_payload['adjacentIntervals'] = adjacent_intervals
             provider_config_payload['totpProviderConfig'] = totp_provider_config_payload
             provider_configs_payload.append(provider_config_payload)

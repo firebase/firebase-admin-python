@@ -138,7 +138,8 @@ class _ProjectManagementService:
         """Gets an Auth Client instance scoped to the given project ID."""
         if not isinstance(project_id, str) or not project_id:
             raise ValueError(
-                'Invalid project ID: {0}. Project ID must be a non-empty string.'.format(project_id))
+                'Invalid project ID: {0}. Project ID must be a non-empty string.'.format(project_id)
+            )
 
         with self.lock:
             if project_id in self.project_clients:

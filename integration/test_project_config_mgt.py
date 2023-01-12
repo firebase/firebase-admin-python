@@ -14,25 +14,28 @@
 
 """Integration tests for firebase_admin.project_config_mgt module."""
 
-from firebase_admin import project_config_mgt
 import pytest
+
+from firebase_admin import project_config_mgt
+
 
 @pytest.fixture(scope='module')
 def sample_mfa_config():
     mfa_config = {
-        'state':'ENABLED',
-        'factorIds':['PHONE_SMS'],
+        'state': 'ENABLED',
+        'factorIds': ['PHONE_SMS'],
         'providerConfigs': [
             {
-                'state':'ENABLED',
+                'state': 'ENABLED',
                 'totpProviderConfig': {
-                    'adjacentIntervals':5
+                    'adjacentIntervals': 5
                 }
             }
         ]
     }
     return mfa_config
-    
+
+
 def test_update_project(sample_mfa_config, mfa=None):
     if mfa is None:
         mfa = sample_mfa_config
@@ -42,6 +45,7 @@ def test_update_project(sample_mfa_config, mfa=None):
     assert project.mfa.enabled_providers == ['PHONE_SMS']
     assert project.mfa.provider_configs[0].state == 'ENABLED'
     assert project.mfa.provider_configs[0].totp_provider_config.adjacent_intervals == 5
+
 
 def test_get_project():
     project = project_config_mgt.get_project()

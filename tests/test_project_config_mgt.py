@@ -43,7 +43,7 @@ GET_PROJECT_RESPONSE = """{
 MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
 INVALID_BOOLEANS = ['', 1, 0, list(), tuple(), dict()]
 
-PROJECT_CONFIG_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/admin/v2/projects'
+PROJECT_CONFIG_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v2/projects'
 
 
 @pytest.fixture(scope='module')

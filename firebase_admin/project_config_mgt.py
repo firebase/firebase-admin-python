@@ -104,7 +104,7 @@ class Project:
 class _ProjectManagementService:
     """Firebase project management service."""
 
-    PROJECT_CONFIG_MGT_URL = 'https://identitytoolkit.googleapis.com/admin/v2/projects'
+    PROJECT_CONFIG_MGT_URL = 'https://identitytoolkit.googleapis.com/v2/projects'
 
     def __init__(self, app):
         credential = app.credential.get_credential()

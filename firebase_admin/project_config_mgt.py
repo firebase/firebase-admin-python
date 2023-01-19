@@ -27,6 +27,12 @@ from firebase_admin.multi_factor_config_mgt import MultiFactorConfig
 
 _PROJECT_MGT_ATTRIBUTE = '_project_mgt'
 
+__all__ = [
+    'Project',
+
+    'get_project',
+    'update_project',
+]
 
 def get_project(app=None):
     """Gets the project corresponding to the given project_id.

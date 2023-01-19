@@ -17,37 +17,15 @@ This module contains functions for managing various project-level configurations
 Firebase project, such as multi-factor authentication (MFA) settings.
 """
 
-import threading
-
 import requests
 
 import firebase_admin
-from firebase_admin import auth
 from firebase_admin import _auth_utils
 from firebase_admin import _http_client
 from firebase_admin import _utils
 from firebase_admin.multi_factor_config_mgt import MultiFactorConfig
 
 _PROJECT_MGT_ATTRIBUTE = '_project_mgt'
-ProjectIdMismatchError = _auth_utils.ProjectIdMismatchError
-ProjectNotFoundError = _auth_utils.ProjectNotFoundError
-
-
-def auth_for_project(project_id, app=None):
-    """Gets an Auth Client instance scoped to the given project ID.
-
-    Args:
-        project_id: A project ID string.
-        app: An App instance (optional).
-
-    Returns:
-        auth.Client: An ``auth.Client`` object.
-
-    Raises:
-        ValueError: If the project ID is None, empty or not a string.
-    """
-    project_mgt_service = _get_project_mgt_service(app)
-    return project_mgt_service.auth_for_project(project_id)
 
 
 def get_project(app=None):
@@ -130,23 +108,6 @@ class _ProjectManagementService:
         self.app = app
         self.client = _http_client.JsonHttpClient(
             credential=credential, base_url=base_url, headers={'X-Client-Version': version_header})
-        self.project_clients = {}
-        self.lock = threading.RLock()
-
-    def auth_for_project(self, project_id):
-        """Gets an Auth Client instance scoped to the given project ID."""
-        if not isinstance(project_id, str) or not project_id:
-            raise ValueError(
-                'Invalid project ID: {0}. Project ID must be a non-empty string.'.format(project_id)
-            )
-
-        with self.lock:
-            if project_id in self.project_clients:
-                return self.project_clients[project_id]
-
-            client = auth.Client(self.app)
-            self.project_clients[project_id] = client
-            return client
 
     def get_project(self):
         """Gets the project corresponding to the given `project_id`."""

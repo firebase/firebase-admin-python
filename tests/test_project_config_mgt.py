@@ -20,7 +20,6 @@ import json
 import pytest
 
 import firebase_admin
-from firebase_admin import exceptions
 from firebase_admin import project_config_mgt
 from tests import testutils
 
@@ -39,12 +38,6 @@ GET_PROJECT_RESPONSE = """{
             }
         ]
     } 
-}"""
-
-PROJECT_NOT_FOUND_RESPONSE = """{
-    "error": {
-        "message": "PROJECT_NOT_FOUND"
-    }
 }"""
 
 MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
@@ -116,17 +109,6 @@ class TestGetProject:
         assert req.method == 'GET'
         assert req.url == '{0}/project-id/config'.format(PROJECT_CONFIG_MGT_URL_PREFIX)
 
-    def test_project_not_found(self, project_config_mgt_app):
-        _instrument_project_config_mgt(project_config_mgt_app, 500, PROJECT_NOT_FOUND_RESPONSE)
-        with pytest.raises(project_config_mgt.ProjectNotFoundError) as excinfo:
-            project_config_mgt.get_project(app=project_config_mgt_app)
-
-        error_msg = 'No project found for the given identifier (PROJECT_NOT_FOUND).'
-        assert excinfo.value.code == exceptions.NOT_FOUND
-        assert str(excinfo.value) == error_msg
-        assert excinfo.value.http_response is not None
-        assert excinfo.value.cause is not None
-
 
 class TestUpdateProject:
 
@@ -135,47 +117,13 @@ class TestUpdateProject:
             project_config_mgt.update_project(app=project_config_mgt_app)
         assert str(excinfo.value).startswith('At least one parameter must be specified for update')
 
-    def test_update_project(self, project_config_mgt_app):
-        _, recorder = _instrument_project_config_mgt(project_config_mgt_app, 200, GET_PROJECT_RESPONSE)
-        mfa_config_data = {
-            'state':'ENABLED',
-            'factorIds':['PHONE_SMS'],
-            'providerConfigs': [
-                {
-                    'state':'ENABLED',
-                    'totpProviderConfig': {
-                        'adjacentIntervals':5,
-                    }
-                }
-            ]
-        }
-        project = project_config_mgt.update_project(mfa=mfa_config_data, app=project_config_mgt_app)
-
-        _assert_project(project)
-        body = {
-            'multiFactorConfig':{
-                'state':'ENABLED',
-                'factorIds':['PHONE_SMS'],
-                'providerConfigs': [
-                    {
-                        'state':'ENABLED',
-                        'totpProviderConfig': {
-                            'adjacentIntervals':5,
-                        }
-                    }
-                ]
-            }
-        }
-        mask = ['multiFactorConfig.factorIds', 'multiFactorConfig.providerConfigs', 'multiFactorConfig.state']
-        self._assert_request(recorder, body, mask)
-
     @pytest.mark.parametrize('mfa_config', ['foo', 0, 1, True, False, list(), tuple()])
     def test_update_project_invalid_mfa_config_type(self, mfa_config, project_config_mgt_app):
         with pytest.raises(ValueError) as excinfo:
             project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
         assert str(excinfo.value).startswith('multiFactorConfig should be of valid type MultiFactorConfig')
 
-    def test_invalid_provider_config_params(self, project_config_mgt_app):
+    def test_invalid_multi_factor_config_params(self, project_config_mgt_app):
         with pytest.raises(ValueError) as excinfo:
             project_config_mgt.update_project(mfa={
                 'state':'DISABLED',

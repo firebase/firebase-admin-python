@@ -144,12 +144,6 @@ class TestUpdateProject:
             project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
         assert str(excinfo.value).startswith('multiFactorConfig.state must be either "ENABLED" or "DISABLED"')
 
-    def test_update_project_undefined_mfa_config_factor_ids_enabled_state(self, project_config_mgt_app):
-        mfa_config = {'state':'ENABLED'}
-        with pytest.raises(ValueError) as excinfo:
-            project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
-        assert str(excinfo.value).startswith('multiFactorConfig.factorIds must be defined')
-
     @pytest.mark.parametrize('factor_ids', [True, False, 1, 0, 'foo', {}, dict(), tuple(), list()])
     def test_invalid_mfa_config_factor_ids_type(self, factor_ids, project_config_mgt_app):
         mfa_config = {'state': 'ENABLED', 'factorIds': factor_ids}
@@ -298,9 +292,10 @@ class TestUpdateProject:
              mfa=mfa_config_state_disabled,
             app=project_config_mgt_app)
 
-        mfa_config_state_disabled.pop('factorIds')
         _assert_project(project)
-        mask = ['mfa.providerConfigs','mfa.state']
+        mfa_config_state_disabled['enabledProviders'] = mfa_config_state_disabled['factorIds']
+        mfa_config_state_disabled.pop('factorIds')
+        mask = ['mfa.enabledProviders','mfa.providerConfigs','mfa.state']
         self._assert_request(recorder, {
             'mfa': mfa_config_state_disabled
         }, mask)

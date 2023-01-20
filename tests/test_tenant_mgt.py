@@ -304,12 +304,6 @@ class TestCreateTenant:
             tenant_mgt.create_tenant(display_name='test', mfa_config=mfa_config, app=tenant_mgt_app)
         assert str(excinfo.value).startswith('multiFactorConfig.state must be either "ENABLED" or "DISABLED"')
 
-    def test_undefined_mfa_config_factor_ids_enabled_state(self, tenant_mgt_app):
-        mfa_config = {'state':'ENABLED'}
-        with pytest.raises(ValueError) as excinfo:
-            tenant_mgt.create_tenant(display_name='test', mfa_config=mfa_config, app=tenant_mgt_app)
-        assert str(excinfo.value).startswith('multiFactorConfig.factorIds must be defined')
-
     @pytest.mark.parametrize('factor_ids', [True, False, 1, 0, 'foo', {}, dict(), tuple(), list()])
     def test_invalid_mfa_config_factor_ids_type(self, tenant_mgt_app, factor_ids):
         mfa_config = {'state': 'ENABLED', 'factorIds': factor_ids}
@@ -473,8 +467,9 @@ class TestCreateTenant:
             display_name='test', mfa_config=mfa_config_state_disabled,
             app=tenant_mgt_app)
 
-        mfa_config_state_disabled.pop('factorIds')
         _assert_tenant(tenant)
+        mfa_config_state_disabled['enabledProviders'] = mfa_config_state_disabled['factorIds']
+        mfa_config_state_disabled.pop('factorIds')
         self._assert_request(recorder, {
             'displayName': 'test',
             'mfaConfig': mfa_config_state_disabled

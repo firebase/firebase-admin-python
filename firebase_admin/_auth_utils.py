@@ -330,9 +330,7 @@ def validate_mfa_config(mfa_config):
     mfa_config_payload['state'] = state
 
     # validate factor_ids if MFA is enabled
-    if state == 'ENABLED':
-        if 'factorIds' not in mfa_config:
-            raise ValueError('multiFactorConfig.factorIds must be defined')
+    if 'factorIds' in mfa_config:
         factor_ids = mfa_config['factorIds']
         if not isinstance(factor_ids, list) or not factor_ids:
             raise ValueError(

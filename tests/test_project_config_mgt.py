@@ -138,6 +138,7 @@ class TestUpdateProject:
         with pytest.raises(ValueError) as excinfo:
             project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
         assert str(excinfo.value).startswith('multiFactorConfig.state should be defined')
+    
     @pytest.mark.parametrize('state', ['', 1, True, False, [], (), {}, "foo"])
     def test_update_project_invalid_mfa_config_state(self, project_config_mgt_app, state):
         mfa_config = {'state': state}
@@ -160,6 +161,7 @@ class TestUpdateProject:
         with pytest.raises(ValueError) as excinfo:
             project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
             assert str(excinfo.value).startswith('factorId must be a valid AuthFactor type string')
+    
     @pytest.mark.parametrize('provider_configs', [True, False, 1, 0, list(), tuple(), dict()])
     def test_invalid_mfa_config_provider_configs_type(
         self, project_config_mgt_app, provider_configs):
@@ -168,6 +170,7 @@ class TestUpdateProject:
             project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
         assert str(excinfo.value).startswith(
             'multiFactorConfig.providerConfigs must be a valid list of providerConfig types')
+    
     @pytest.mark.parametrize('provider_configs', [[True], [{}], [1, 2], 
     [{'state': 'DISABLED', 'totpProviderConfig': {}}, "foo"]])
     def test_invalid_mfa_config_provider_config(self, project_config_mgt_app, provider_configs):
@@ -195,6 +198,7 @@ class TestUpdateProject:
         with pytest.raises(ValueError) as excinfo:
             project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
         assert str(excinfo.value).startswith('providerConfig.state should be defined')
+    
     @pytest.mark.parametrize('state', ['', 1, True, False, [], (), {}, "foo"])
     def test_invalid_provider_config_state(self, project_config_mgt_app, state):
         mfa_config = {'state': 'DISABLED', 
@@ -220,6 +224,7 @@ class TestUpdateProject:
             project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
         assert str(excinfo.value).startswith(
             'providerConfig.totpProviderConfig must be of valid type TotpProviderConfig')
+    
     def test_invalid_totp_provider_config_params(self, project_config_mgt_app):
         with pytest.raises(ValueError) as excinfo:
             project_config_mgt.update_project(mfa={
@@ -235,6 +240,7 @@ class TestUpdateProject:
                 ],
             }, app=project_config_mgt_app)
         assert str(excinfo.value).startswith('invalid is not a valid TotpProviderConfig paramter')
+    
     @pytest.mark.parametrize('adjacent_intervals', ['', -1, True, False, [], (), {}, "foo", None])
     def test_invalid_adjacent_intervals_type(self, project_config_mgt_app, adjacent_intervals):
         mfa_config = {'state': 'DISABLED', 'providerConfigs': 

@@ -324,6 +324,7 @@ class TestCreateTenant:
             tenant_mgt.create_tenant(
                 display_name='test', mfa_config=mfa_config, app=tenant_mgt_app)
             assert str(excinfo.value).startswith('factorId must be a valid AuthFactor type string')
+    
     @pytest.mark.parametrize('provider_configs', [True, False, 1, 0, list(), tuple(), dict()])
     def test_invalid_mfa_config_provider_configs_type(self, tenant_mgt_app, provider_configs):
         mfa_config = {'state': 'DISABLED', 'providerConfigs': provider_configs}
@@ -332,6 +333,7 @@ class TestCreateTenant:
                 display_name='test', mfa_config=mfa_config, app=tenant_mgt_app)
         assert str(excinfo.value).startswith(
             'multiFactorConfig.providerConfigs must be a valid list of providerConfig types')
+    
     @pytest.mark.parametrize(
         'provider_configs', [[True], [{}], [1, 2], 
         [{'state': 'DISABLED', 'totpProviderConfig': {}}, "foo"]])
@@ -405,6 +407,7 @@ class TestCreateTenant:
                 ],
             }, app=tenant_mgt_app)
         assert str(excinfo.value).startswith('invalid is not a valid TotpProviderConfig paramter')
+    
     @pytest.mark.parametrize(
         'adjacent_intervals', ['', -1, True, False, [], (), {}, "foo", None, 11, 1.1])
     def test_invalid_adjacent_intervals_type(self, tenant_mgt_app, adjacent_intervals):

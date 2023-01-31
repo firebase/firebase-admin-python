@@ -102,8 +102,7 @@ def validate_email(email, required=False):
             'Invalid email: "{0}". Email must be a non-empty string.'.format(email))
     parts = email.split('@')
     if len(parts) != 2 or not parts[0] or not parts[1]:
-        raise ValueError(
-            'Malformed email address string: "{0}".'.format(email))
+        raise ValueError('Malformed email address string: "{0}".'.format(email))
     return email
 
 def validate_phone(phone, required=False):
@@ -304,7 +303,7 @@ def validate_mfa_config(mfa_config):
             'multiFactorConfig.state must be either "ENABLED" or "DISABLED"')
     mfa_config_payload['state'] = state
 
-    # validate factor_ids if defined
+    # validate factorIds if defined
     if 'factorIds' in mfa_config:
         factor_ids = mfa_config['factorIds']
         if not isinstance(factor_ids, list) or not factor_ids:

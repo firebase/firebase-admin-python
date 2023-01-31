@@ -37,7 +37,7 @@ GET_PROJECT_RESPONSE = """{
                 }
             }
         ]
-    } 
+    }
 }"""
 
 MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
@@ -49,7 +49,7 @@ PROJECT_CONFIG_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v2/proje
 @pytest.fixture(scope='module')
 def project_config_mgt_app():
     app = firebase_admin.initialize_app(
-        testutils.MockCredential(), name='projectMgt',options={'projectId': 'project-id'})
+        testutils.MockCredential(), name='projectMgt', options={'projectId': 'project-id'})
     yield app
     firebase_admin.delete_app(app)
 
@@ -87,7 +87,7 @@ class TestProject:
             }
         }
         project = project_config_mgt.Project(data)
-        _assert_project(project)  
+        _assert_project(project)
 
     def test_project_optional_params(self):
         data = {
@@ -100,7 +100,8 @@ class TestProject:
 class TestGetProject:
 
     def test_get_project(self, project_config_mgt_app):
-        _, recorder = _instrument_project_config_mgt(project_config_mgt_app, 200, GET_PROJECT_RESPONSE)
+        _, recorder = _instrument_project_config_mgt(
+            project_config_mgt_app, 200, GET_PROJECT_RESPONSE)
         project = project_config_mgt.get_project(app=project_config_mgt_app)
 
         _assert_project(project)
@@ -121,7 +122,8 @@ class TestUpdateProject:
     def test_update_project_invalid_mfa_config_type(self, mfa_config, project_config_mgt_app):
         with pytest.raises(ValueError) as excinfo:
             project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
-        assert str(excinfo.value).startswith('multiFactorConfig should be of valid type MultiFactorConfig')
+        assert str(excinfo.value).startswith(
+            'multiFactorConfig should be of valid type MultiFactorConfig')
 
     def test_invalid_multi_factor_config_params(self, project_config_mgt_app):
         with pytest.raises(ValueError) as excinfo:
@@ -136,41 +138,44 @@ class TestUpdateProject:
         with pytest.raises(ValueError) as excinfo:
             project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
         assert str(excinfo.value).startswith('multiFactorConfig.state should be defined')
-    
     @pytest.mark.parametrize('state', ['', 1, True, False, [], (), {}, "foo"])
     def test_update_project_invalid_mfa_config_state(self, project_config_mgt_app, state):
         mfa_config = {'state': state}
         with pytest.raises(ValueError) as excinfo:
             project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
-        assert str(excinfo.value).startswith('multiFactorConfig.state must be either "ENABLED" or "DISABLED"')
+        assert str(excinfo.value).startswith(
+        'multiFactorConfig.state must be either "ENABLED" or "DISABLED"')
 
     @pytest.mark.parametrize('factor_ids', [True, False, 1, 0, 'foo', {}, dict(), tuple(), list()])
     def test_invalid_mfa_config_factor_ids_type(self, factor_ids, project_config_mgt_app):
         mfa_config = {'state': 'ENABLED', 'factorIds': factor_ids}
         with pytest.raises(ValueError) as excinfo:
-            project_config_mgt.update_project( mfa=mfa_config, app=project_config_mgt_app)
-        assert str(excinfo.value).startswith('multiFactorConfig.factorIds must be a defined list of AuthFactor type strings')
+            project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
+        assert str(excinfo.value).startswith(
+            'multiFactorConfig.factorIds must be a defined list of AuthFactor type strings')
 
     @pytest.mark.parametrize('factor_ids', [[1, 2, 3], [True, False], ['foo', 'bar', {}]])
     def test_invalid_mfa_config_factor_ids(self, project_config_mgt_app, factor_ids):
         mfa_config = {'state': 'ENABLED', 'factorIds': factor_ids}
         with pytest.raises(ValueError) as excinfo:
-            project_config_mgt.update_project( mfa=mfa_config, app=project_config_mgt_app)
+            project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
             assert str(excinfo.value).startswith('factorId must be a valid AuthFactor type string')
-    
     @pytest.mark.parametrize('provider_configs', [True, False, 1, 0, list(), tuple(), dict()])
-    def test_invalid_mfa_config_provider_configs_type(self, project_config_mgt_app, provider_configs):
+    def test_invalid_mfa_config_provider_configs_type(
+        self, project_config_mgt_app, provider_configs):
         mfa_config = {'state': 'DISABLED', 'providerConfigs': provider_configs}
         with pytest.raises(ValueError) as excinfo:
-            project_config_mgt.update_project( mfa=mfa_config, app=project_config_mgt_app)
-        assert str(excinfo.value).startswith('multiFactorConfig.providerConfigs must be a valid list of providerConfig types')
-    
-    @pytest.mark.parametrize('provider_configs', [[True], [{}], [1,2], [{'state': 'DISABLED', 'totpProviderConfig': {}}, "foo"]])
+            project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
+        assert str(excinfo.value).startswith(
+            'multiFactorConfig.providerConfigs must be a valid list of providerConfig types')
+    @pytest.mark.parametrize('provider_configs', [[True], [{}], [1, 2], 
+    [{'state': 'DISABLED', 'totpProviderConfig': {}}, "foo"]])
     def test_invalid_mfa_config_provider_config(self, project_config_mgt_app, provider_configs):
         mfa_config = {'state': 'DISABLED', 'providerConfigs': provider_configs}
         with pytest.raises(ValueError) as excinfo:
-            project_config_mgt.update_project( mfa=mfa_config, app=project_config_mgt_app)
-        assert str(excinfo.value).startswith('multiFactorConfigs.providerConfigs must be a valid array of type providerConfig')
+            project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
+        assert str(excinfo.value).startswith(
+            'multiFactorConfigs.providerConfigs must be a valid array of type providerConfig')
 
     def test_invalid_provider_config_params(self, project_config_mgt_app):
         with pytest.raises(ValueError) as excinfo:
@@ -188,30 +193,33 @@ class TestUpdateProject:
     def test_undefined_provider_config_state(self, project_config_mgt_app):
         mfa_config = {'state': 'DISABLED', 'providerConfigs': [{'totpProviderConfig':{}}]}
         with pytest.raises(ValueError) as excinfo:
-            project_config_mgt.update_project( mfa=mfa_config, app=project_config_mgt_app)
+            project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
         assert str(excinfo.value).startswith('providerConfig.state should be defined')
-    
     @pytest.mark.parametrize('state', ['', 1, True, False, [], (), {}, "foo"])
     def test_invalid_provider_config_state(self, project_config_mgt_app, state):
-        mfa_config = {'state': 'DISABLED', 'providerConfigs': [{'state':state, 'totpProviderConfig':{}}]}
+        mfa_config = {'state': 'DISABLED', 
+        'providerConfigs': [{'state':state, 'totpProviderConfig':{}}]}
         with pytest.raises(ValueError) as excinfo:
-            project_config_mgt.update_project( mfa=mfa_config, app=project_config_mgt_app)
-        assert str(excinfo.value).startswith('providerConfig.state must be either "ENABLED" or "DISABLED"')
+            project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
+        assert str(excinfo.value).startswith(
+            'providerConfig.state must be either "ENABLED" or "DISABLED"')
 
-    @pytest.mark.parametrize('state', ['ENABLED','DISABLED'])
+    @pytest.mark.parametrize('state', ['ENABLED', 'DISABLED'])
     def test_undefined_totp_provider_config(self, project_config_mgt_app, state):
         mfa_config = {'state': 'DISABLED', 'providerConfigs': [{'state':state}]}
         with pytest.raises(ValueError) as excinfo:
-            project_config_mgt.update_project( mfa=mfa_config, app=project_config_mgt_app)
-        assert str(excinfo.value).startswith('providerConfig.totpProviderConfig must be instantiated')
+            project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
+        assert str(excinfo.value).startswith(
+            'providerConfig.totpProviderConfig must be instantiated')
 
     @pytest.mark.parametrize('totp_provider_config', [True, False, 1, 0, list(), tuple()])
     def test_invalid_totp_provider_config_type(self, project_config_mgt_app, totp_provider_config):
-        mfa_config = {'state': 'DISABLED', 'providerConfigs': [{'state':'ENABLED', 'totpProviderConfig':totp_provider_config}]}
+        mfa_config = {'state': 'DISABLED', 
+        'providerConfigs': [{'state':'ENABLED', 'totpProviderConfig':totp_provider_config}]}
         with pytest.raises(ValueError) as excinfo:
-            project_config_mgt.update_project( mfa=mfa_config, app=project_config_mgt_app)
-        assert str(excinfo.value).startswith('providerConfig.totpProviderConfig must be of valid type TotpProviderConfig')
-    
+            project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
+        assert str(excinfo.value).startswith(
+            'providerConfig.totpProviderConfig must be of valid type TotpProviderConfig')
     def test_invalid_totp_provider_config_params(self, project_config_mgt_app):
         with pytest.raises(ValueError) as excinfo:
             project_config_mgt.update_project(mfa={
@@ -227,16 +235,18 @@ class TestUpdateProject:
                 ],
             }, app=project_config_mgt_app)
         assert str(excinfo.value).startswith('invalid is not a valid TotpProviderConfig paramter')
-    
     @pytest.mark.parametrize('adjacent_intervals', ['', -1, True, False, [], (), {}, "foo", None])
     def test_invalid_adjacent_intervals_type(self, project_config_mgt_app, adjacent_intervals):
-        mfa_config = {'state': 'DISABLED', 'providerConfigs': [{'state':'ENABLED', 'totpProviderConfig':{'adjacentIntervals':adjacent_intervals}}]}
+        mfa_config = {'state': 'DISABLED', 'providerConfigs': 
+        [{'state':'ENABLED', 'totpProviderConfig':{'adjacentIntervals':adjacent_intervals}}]}
         with pytest.raises(ValueError) as excinfo:
-            project_config_mgt.update_project( mfa=mfa_config, app=project_config_mgt_app)
-        assert str(excinfo.value).startswith('totpProviderConfig.adjacentIntervals must be a valid positive integer')
+            project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
+        assert str(excinfo.value).startswith(
+            'totpProviderConfig.adjacentIntervals must be a valid positive integer')
 
     def test_update_project(self, project_config_mgt_app):
-        _, recorder = _instrument_project_config_mgt(project_config_mgt_app, 200, GET_PROJECT_RESPONSE)
+        _, recorder = _instrument_project_config_mgt(
+            project_config_mgt_app, 200, GET_PROJECT_RESPONSE)
         mfa_config_data = {
                 'state' : 'ENABLED',
                 'factorIds':["PHONE_SMS"],
@@ -250,9 +260,9 @@ class TestUpdateProject:
                 ]
         }
         project = project_config_mgt.update_project(
-             mfa=mfa_config_data,app=project_config_mgt_app)
+             mfa=mfa_config_data, app=project_config_mgt_app)
 
-        mask = ['mfa.enabledProviders','mfa.providerConfigs','mfa.state']
+        mask = ['mfa.enabledProviders', 'mfa.providerConfigs', 'mfa.state']
 
         _assert_project(project)
         self._assert_request(recorder, {
@@ -285,7 +295,8 @@ class TestUpdateProject:
         }
 
         #multiFactorConfig.state is disabled
-        _, recorder = _instrument_project_config_mgt(project_config_mgt_app, 200, GET_PROJECT_RESPONSE)
+        _, recorder = _instrument_project_config_mgt(
+            project_config_mgt_app, 200, GET_PROJECT_RESPONSE)
         mfa_config_state_disabled = copy(mfa_config_data)
         mfa_config_state_disabled['state'] = 'DISABLED'
         project = project_config_mgt.update_project(
@@ -295,13 +306,14 @@ class TestUpdateProject:
         _assert_project(project)
         mfa_config_state_disabled['enabledProviders'] = mfa_config_state_disabled['factorIds']
         mfa_config_state_disabled.pop('factorIds')
-        mask = ['mfa.enabledProviders','mfa.providerConfigs','mfa.state']
+        mask = ['mfa.enabledProviders', 'mfa.providerConfigs', 'mfa.state']
         self._assert_request(recorder, {
             'mfa': mfa_config_state_disabled
         }, mask)
 
         #multiFactorConfig.state enabled and providerConfig.state disabled
-        _, recorder = _instrument_project_config_mgt(project_config_mgt_app, 200, GET_PROJECT_RESPONSE)
+        _, recorder = _instrument_project_config_mgt(
+            project_config_mgt_app, 200, GET_PROJECT_RESPONSE)
         mfa_config_state_enabled_totp_disabled = copy(mfa_config_data)
         mfa_config_state_enabled_totp_disabled['providerConfigs'][0]['state'] = 'DISABLED'
         project = project_config_mgt.update_project(
@@ -311,10 +323,10 @@ class TestUpdateProject:
         _assert_project(project)
         mfa_config_state_enabled_totp_disabled['enabledProviders'] = mfa_config_state_enabled_totp_disabled['factorIds']
         mfa_config_state_enabled_totp_disabled.pop('factorIds')
-        mask = ['mfa.enabledProviders','mfa.providerConfigs','mfa.state']
+        mask = ['mfa.enabledProviders', 'mfa.providerConfigs', 'mfa.state']
         self._assert_request(recorder, {
             'mfa': mfa_config_state_enabled_totp_disabled
-        },mask)
+        }, mask)
 
     def _assert_request(self, recorder, body, mask):
         assert len(recorder) == 1
@@ -331,4 +343,4 @@ def _assert_project(project):
     assert project.mfa.enabled_providers == ['PHONE_SMS']
     assert len(project.mfa.provider_configs) == 1
     assert project.mfa.provider_configs[0].state == 'ENABLED'
-    assert project.mfa.provider_configs[0].totp_provider_config.adjacent_intervals == 5 
+    assert project.mfa.provider_configs[0].totp_provider_config.adjacent_intervals == 5

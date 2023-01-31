@@ -274,6 +274,7 @@ class _TenantManagementService:
         if not isinstance(tenant_id, str) or not tenant_id:
             raise ValueError(
                 'Invalid tenant ID: {0}. Tenant ID must be a non-empty string.'.format(tenant_id))
+
         try:
             body = self.client.body('get', '/tenants/{0}'.format(tenant_id))
         except requests.exceptions.RequestException as error:

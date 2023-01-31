@@ -27,7 +27,6 @@ from firebase_admin import exceptions
 from firebase_admin import tenant_mgt
 from firebase_admin import _auth_providers
 from firebase_admin import _user_mgt
-from firebase_admin.multi_factor_config_mgt import MultiFactorConfig, ProviderConfig, TotpProviderConfig
 from tests import testutils
 from tests import test_token_gen
 

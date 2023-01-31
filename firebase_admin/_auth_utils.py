@@ -29,8 +29,7 @@ RESERVED_CLAIMS = set([
     'acr', 'amr', 'at_hash', 'aud', 'auth_time', 'azp', 'cnf', 'c_hash', 'exp', 'iat',
     'iss', 'jti', 'nbf', 'nonce', 'sub', 'firebase',
 ])
-VALID_EMAIL_ACTION_TYPES = set(
-    ['VERIFY_EMAIL', 'EMAIL_SIGNIN', 'PASSWORD_RESET'])
+VALID_EMAIL_ACTION_TYPES = set(['VERIFY_EMAIL', 'EMAIL_SIGNIN', 'PASSWORD_RESET'])
 VALID_AUTH_FACTOR_TYPES = set(['PHONE_SMS'])
 VALID_STATES = set(['ENABLED', 'DISABLED'])
 
@@ -95,7 +94,6 @@ def validate_uid(uid, required=False):
             'characters.'.format(uid))
     return uid
 
-
 def validate_email(email, required=False):
     if email is None and not required:
         return None
@@ -107,7 +105,6 @@ def validate_email(email, required=False):
         raise ValueError(
             'Malformed email address string: "{0}".'.format(email))
     return email
-
 
 def validate_phone(phone, required=False):
     """Validates the specified phone number.
@@ -126,7 +123,6 @@ def validate_phone(phone, required=False):
                          'compliant identifier.'.format(phone))
     return phone
 
-
 def validate_password(password, required=False):
     if password is None and not required:
         return None
@@ -135,15 +131,12 @@ def validate_password(password, required=False):
             'Invalid password string. Password must be a string at least 6 characters long.')
     return password
 
-
 def validate_bytes(value, label, required=False):
     if value is None and not required:
         return None
     if not isinstance(value, bytes) or not value:
-        raise ValueError(
-            '{0} must be a non-empty byte sequence.'.format(label))
+        raise ValueError('{0} must be a non-empty byte sequence.'.format(label))
     return value
-
 
 def validate_display_name(display_name, required=False):
     if display_name is None and not required:
@@ -154,7 +147,6 @@ def validate_display_name(display_name, required=False):
             'string.'.format(display_name))
     return display_name
 
-
 def validate_provider_id(provider_id, required=True):
     if provider_id is None and not required:
         return None
@@ -164,7 +156,6 @@ def validate_provider_id(provider_id, required=True):
             'string.'.format(provider_id))
     return provider_id
 
-
 def validate_provider_uid(provider_uid, required=True):
     if provider_uid is None and not required:
         return None
@@ -173,7 +164,6 @@ def validate_provider_uid(provider_uid, required=True):
             'Invalid provider UID: "{0}". Provider UID must be a non-empty '
             'string.'.format(provider_uid))
     return provider_uid
-
 
 def validate_photo_url(photo_url, required=False):
     """Parses and validates the given URL string."""
@@ -191,7 +181,6 @@ def validate_photo_url(photo_url, required=False):
     except Exception:
         raise ValueError('Malformed photo URL: "{0}".'.format(photo_url))
 
-
 def validate_timestamp(timestamp, label, required=False):
     """Validates the given timestamp value. Timestamps must be positive integers."""
     if timestamp is None and not required:
@@ -201,17 +190,13 @@ def validate_timestamp(timestamp, label, required=False):
     try:
         timestamp_int = int(timestamp)
     except TypeError:
-        raise ValueError(
-            'Invalid type for timestamp value: {0}.'.format(timestamp))
+        raise ValueError('Invalid type for timestamp value: {0}.'.format(timestamp))
     else:
         if timestamp_int != timestamp:
-            raise ValueError(
-                '{0} must be a numeric value and a whole number.'.format(label))
+            raise ValueError('{0} must be a numeric value and a whole number.'.format(label))
         if timestamp_int <= 0:
-            raise ValueError(
-                '{0} timestamp must be a positive interger.'.format(label))
+            raise ValueError('{0} timestamp must be a positive interger.'.format(label))
         return timestamp_int
-
 
 def validate_int(value, label, low=None, high=None):
     """Validates that the given value represents an integer.
@@ -230,16 +215,12 @@ def validate_int(value, label, low=None, high=None):
     else:
         if val_int != value:
             # This will be True for non-numeric values like '2' and non-whole numbers like 2.5.
-            raise ValueError(
-                '{0} must be a numeric value and a whole number.'.format(label))
+            raise ValueError('{0} must be a numeric value and a whole number.'.format(label))
         if low is not None and val_int < low:
-            raise ValueError(
-                '{0} must not be smaller than {1}.'.format(label, low))
+            raise ValueError('{0} must not be smaller than {1}.'.format(label, low))
         if high is not None and val_int > high:
-            raise ValueError(
-                '{0} must not be larger than {1}.'.format(label, high))
+            raise ValueError('{0} must not be larger than {1}.'.format(label, high))
         return val_int
-
 
 def validate_string(value, label):
     """Validates that the given value is a string."""
@@ -247,13 +228,11 @@ def validate_string(value, label):
         raise ValueError('Invalid type for {0}: {1}.'.format(label, value))
     return value
 
-
 def validate_boolean(value, label):
     """Validates that the given value is a boolean."""
     if not isinstance(value, bool):
         raise ValueError('Invalid type for {0}: {1}.'.format(label, value))
     return value
-
 
 def validate_custom_claims(custom_claims, required=False):
     """Validates the specified custom claims.
@@ -278,13 +257,11 @@ def validate_custom_claims(custom_claims, required=False):
     invalid_claims = RESERVED_CLAIMS.intersection(set(parsed.keys()))
     if len(invalid_claims) > 1:
         joined = ', '.join(sorted(invalid_claims))
-        raise ValueError(
-            'Claims "{0}" are reserved, and must not be set.'.format(joined))
+        raise ValueError('Claims "{0}" are reserved, and must not be set.'.format(joined))
     if len(invalid_claims) == 1:
         raise ValueError(
             'Claim "{0}" is reserved, and must not be set.'.format(invalid_claims.pop()))
     return claims_str
-
 
 def validate_action_type(action_type):
     if action_type not in VALID_EMAIL_ACTION_TYPES:
@@ -292,12 +269,10 @@ def validate_action_type(action_type):
             Valid values are {1}'.format(action_type, ', '.join(VALID_EMAIL_ACTION_TYPES)))
     return action_type
 
-
 def validate_provider_ids(provider_ids, required=False):
     if not provider_ids:
         if required:
-            raise ValueError(
-                'Invalid provider IDs. Provider ids should be provided')
+            raise ValueError('Invalid provider IDs. Provider ids should be provided')
         return []
     for provider_id in provider_ids:
         validate_provider_id(provider_id, True)
@@ -448,8 +423,7 @@ class UidAlreadyExistsError(exceptions.AlreadyExistsError):
     default_message = 'The user with the provided uid already exists'
 
     def __init__(self, message, cause, http_response):
-        exceptions.AlreadyExistsError.__init__(
-            self, message, cause, http_response)
+        exceptions.AlreadyExistsError.__init__(self, message, cause, http_response)
 
 
 class EmailAlreadyExistsError(exceptions.AlreadyExistsError):
@@ -458,8 +432,7 @@ class EmailAlreadyExistsError(exceptions.AlreadyExistsError):
     default_message = 'The user with the provided email already exists'
 
     def __init__(self, message, cause, http_response):
-        exceptions.AlreadyExistsError.__init__(
-            self, message, cause, http_response)
+        exceptions.AlreadyExistsError.__init__(self, message, cause, http_response)
 
 
 class InsufficientPermissionError(exceptions.PermissionDeniedError):
@@ -471,8 +444,7 @@ class InsufficientPermissionError(exceptions.PermissionDeniedError):
                        'on how to initialize the Admin SDK with appropriate permissions')
 
     def __init__(self, message, cause, http_response):
-        exceptions.PermissionDeniedError.__init__(
-            self, message, cause, http_response)
+        exceptions.PermissionDeniedError.__init__(self, message, cause, http_response)
 
 
 class InvalidDynamicLinkDomainError(exceptions.InvalidArgumentError):
@@ -481,8 +453,7 @@ class InvalidDynamicLinkDomainError(exceptions.InvalidArgumentError):
     default_message = 'Dynamic link domain specified in ActionCodeSettings is not authorized'
 
     def __init__(self, message, cause, http_response):
-        exceptions.InvalidArgumentError.__init__(
-            self, message, cause, http_response)
+        exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
 
 
 class InvalidIdTokenError(exceptions.InvalidArgumentError):
@@ -491,8 +462,7 @@ class InvalidIdTokenError(exceptions.InvalidArgumentError):
     default_message = 'The provided ID token is invalid'
 
     def __init__(self, message, cause=None, http_response=None):
-        exceptions.InvalidArgumentError.__init__(
-            self, message, cause, http_response)
+        exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
 
 
 class PhoneNumberAlreadyExistsError(exceptions.AlreadyExistsError):
@@ -501,8 +471,7 @@ class PhoneNumberAlreadyExistsError(exceptions.AlreadyExistsError):
     default_message = 'The user with the provided phone number already exists'
 
     def __init__(self, message, cause, http_response):
-        exceptions.AlreadyExistsError.__init__(
-            self, message, cause, http_response)
+        exceptions.AlreadyExistsError.__init__(self, message, cause, http_response)
 
 
 class UnexpectedResponseError(exceptions.UnknownError):
@@ -546,21 +515,6 @@ class TenantIdMismatchError(exceptions.InvalidArgumentError):
         exceptions.InvalidArgumentError.__init__(self, message)
 
 
-class ProjectNotFoundError(exceptions.NotFoundError):
-    """No project found for the specified identifier."""
-    default_message = 'No project found for the given identifier'
-
-    def __init__(self, message, cause=None, http_response=None):
-        exceptions.NotFoundError.__init__(self, message, cause, http_response)
-
-
-class ProjectIdMismatchError(exceptions.InvalidArgumentError):
-    """Missing or invalid project ID field in the given JWT."""
-
-    def __init__(self, message):
-        exceptions.InvalidArgumentError.__init__(self, message)
-
-
 class ConfigurationNotFoundError(exceptions.NotFoundError):
     """No auth provider found for the specified identifier."""
 
@@ -576,8 +530,7 @@ class UserDisabledError(exceptions.InvalidArgumentError):
     default_message = 'The user record is disabled'
 
     def __init__(self, message, cause=None, http_response=None):
-        exceptions.InvalidArgumentError.__init__(
-            self, message, cause, http_response)
+        exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
 
 
 _CODE_TO_EXC_TYPE = {
@@ -591,7 +544,6 @@ _CODE_TO_EXC_TYPE = {
     'INVALID_ID_TOKEN': InvalidIdTokenError,
     'PHONE_NUMBER_EXISTS': PhoneNumberAlreadyExistsError,
     'TENANT_NOT_FOUND': TenantNotFoundError,
-    'PROJECT_NOT_FOUND': ProjectNotFoundError,
     'USER_NOT_FOUND': UserNotFoundError,
 }
 
@@ -603,8 +555,7 @@ def handle_auth_backend_error(error):
 
     code, custom_message = _parse_error_body(error.response)
     if not code:
-        msg = 'Unexpected error response: {0}'.format(
-            error.response.content.decode())
+        msg = 'Unexpected error response: {0}'.format(error.response.content.decode())
         return _utils.handle_requests_error(error, message=msg)
 
     exc_type = _CODE_TO_EXC_TYPE.get(code)

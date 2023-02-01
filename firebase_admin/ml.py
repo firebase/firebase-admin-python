@@ -384,6 +384,7 @@ class TFLiteFormat(ModelFormat):
 
     @staticmethod
     def _init_model_source(data):
+        """Initialize the ML model source."""
         gcs_tflite_uri = data.pop('gcsTfliteUri', None)
         if gcs_tflite_uri:
             return TFLiteGCSModelSource(gcs_tflite_uri=gcs_tflite_uri)

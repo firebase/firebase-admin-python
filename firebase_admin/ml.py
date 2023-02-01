@@ -386,9 +386,6 @@ class TFLiteFormat(ModelFormat):
         gcs_tflite_uri = data.pop('gcsTfliteUri', None)
         if gcs_tflite_uri:
             return TFLiteGCSModelSource(gcs_tflite_uri=gcs_tflite_uri)
-        auto_ml_model = data.pop('automlModel', None)
-        if auto_ml_model:
-            return TFLiteAutoMlSource(auto_ml_model=auto_ml_model)
         return None
 
     @property
@@ -601,36 +598,6 @@ class TFLiteGCSModelSource(TFLiteModelSource):
             return {'gcsTfliteUri': self._get_signed_gcs_tflite_uri()}
 
         return {'gcsTfliteUri': self._gcs_tflite_uri}
-
-
-class TFLiteAutoMlSource(TFLiteModelSource):
-    """TFLite model source representing a tflite model created with AutoML."""
-
-    def __init__(self, auto_ml_model, app=None):
-        self._app = app
-        self.auto_ml_model = auto_ml_model
-
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return self.auto_ml_model == other.auto_ml_model
-        return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    @property
-    def auto_ml_model(self):
-        """Resource name of the model, created by the AutoML API or Cloud console."""
-        return self._auto_ml_model
-
-    @auto_ml_model.setter
-    def auto_ml_model(self, auto_ml_model):
-        self._auto_ml_model = _validate_auto_ml_model(auto_ml_model)
-
-    def as_dict(self, for_upload=False):
-        """Returns a serializable representation of the object."""
-        # Upload is irrelevant for auto_ml models
-        return {'automlModel': self._auto_ml_model}
 
 
 class ListModelsPage:

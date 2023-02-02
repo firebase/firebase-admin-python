@@ -24,6 +24,7 @@ import re
 import time
 import os
 from urllib import parse
+import warnings
 
 import requests
 
@@ -383,11 +384,14 @@ class TFLiteFormat(ModelFormat):
 
     @staticmethod
     def _init_model_source(data):
+        """Initialize the ML model source."""
         gcs_tflite_uri = data.pop('gcsTfliteUri', None)
         if gcs_tflite_uri:
             return TFLiteGCSModelSource(gcs_tflite_uri=gcs_tflite_uri)
         auto_ml_model = data.pop('automlModel', None)
         if auto_ml_model:
+            warnings.warn('AutoML model support is deprecated and will be removed in the next '
+                          'major version.', DeprecationWarning)
             return TFLiteAutoMlSource(auto_ml_model=auto_ml_model)
         return None
 
@@ -604,9 +608,14 @@ class TFLiteGCSModelSource(TFLiteModelSource):
 
 
 class TFLiteAutoMlSource(TFLiteModelSource):
-    """TFLite model source representing a tflite model created with AutoML."""
+    """TFLite model source representing a tflite model created with AutoML.
+
+    AutoML model support is deprecated and will be removed in the next major version.
+    """
 
     def __init__(self, auto_ml_model, app=None):
+        warnings.warn('AutoML model support is deprecated and will be removed in the next '
+                      'major version.', DeprecationWarning)
         self._app = app
         self.auto_ml_model = auto_ml_model
 

@@ -84,14 +84,7 @@ class ProjectConfig:
         if not isinstance(data, dict):
             raise ValueError(
                 'Invalid data argument in Project constructor: {0}'.format(data))
-        if not 'name' in data:
-            raise ValueError('Project response missing required keys.')
-
         self._data = data
-
-    @property
-    def project_id(self):
-        return self._data.get('name')
 
     @property
     def mfa(self):

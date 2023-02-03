@@ -63,16 +63,15 @@ def _instrument_project_config_mgt(app, status, payload):
     return service, recorder
 
 
-class TestProject:
+class TestProjectConfig:
 
-    @pytest.mark.parametrize('data', [None, 'foo', 0, 1, True, False, list(), tuple(), dict()])
+    @pytest.mark.parametrize('data', [None, 'foo', 0, 1, True, False, list(), tuple()])
     def test_invalid_data(self, data):
         with pytest.raises(ValueError):
             project_config_mgt.ProjectConfig(data)
 
-    def test_project(self):
+    def test_project_config(self):
         data = {
-            'name': 'project-id',
             'multiFactorConfig':{
                 'state':'ENABLED',
                 'factorIds':['PHONE_SMS'],

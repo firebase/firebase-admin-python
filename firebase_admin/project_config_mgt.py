@@ -28,7 +28,7 @@ from firebase_admin.multi_factor_config_mgt import MultiFactorConfig
 _PROJECT_MGT_ATTRIBUTE = '_project_mgt'
 
 __all__ = [
-    'Project',
+    'ProjectConfig',
 
     'get_project',
     'update_project',
@@ -73,11 +73,11 @@ def update_project(mfa=None, app=None):
 
 
 def _get_project_mgt_service(app):
-    return _utils.get_app_service(app, _PROJECT_MGT_ATTRIBUTE, _ProjectManagementService)
+    return _utils.get_app_service(app, _PROJECT_MGT_ATTRIBUTE, _ProjectConfigManagementService)
 
 
-class Project:
-    """Represents a project in an application.
+class ProjectConfig:
+    """Represents a project config in an application.
     """
 
     def __init__(self, data):
@@ -101,7 +101,7 @@ class Project:
         return None
 
 
-class _ProjectManagementService:
+class _ProjectConfigManagementService:
     """Firebase project management service."""
 
     PROJECT_CONFIG_MGT_URL = 'https://identitytoolkit.googleapis.com/v2/projects'
@@ -124,7 +124,7 @@ class _ProjectManagementService:
         else:
             body = _auth_utils.convert_project_auth_payload_to_user(body)
             print(body)
-            return Project(body)
+            return ProjectConfig(body)
 
     def update_project(self, mfa=None):
         """Updates the specified project with the given parameters."""
@@ -146,4 +146,4 @@ class _ProjectManagementService:
             raise _auth_utils.handle_auth_backend_error(error)
         else:
             body = _auth_utils.convert_project_auth_payload_to_user(body)
-            return Project(body)
+            return ProjectConfig(body)

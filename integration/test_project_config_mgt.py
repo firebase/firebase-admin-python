@@ -40,7 +40,7 @@ def test_update_project(sample_mfa_config, mfa=None):
     if mfa is None:
         mfa = sample_mfa_config
     project = project_config_mgt.update_project(mfa=mfa)
-    assert isinstance(project, project_config_mgt.Project)
+    assert isinstance(project, project_config_mgt.ProjectConfig)
     assert project.mfa.state == 'ENABLED'
     assert project.mfa.enabled_providers == ['PHONE_SMS']
     assert project.mfa.provider_configs[0].state == 'ENABLED'
@@ -49,7 +49,7 @@ def test_update_project(sample_mfa_config, mfa=None):
 
 def test_get_project():
     project = project_config_mgt.get_project()
-    assert isinstance(project, project_config_mgt.Project)
+    assert isinstance(project, project_config_mgt.ProjectConfig)
     assert project.mfa.state == 'ENABLED'
     assert project.mfa.enabled_providers == ['PHONE_SMS']
     assert project.mfa.provider_configs[0].state == 'ENABLED'

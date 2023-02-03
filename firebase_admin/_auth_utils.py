@@ -292,7 +292,7 @@ def validate_mfa_config(mfa_config):
     mfa_config_keys = set(mfa_config.keys())
     for key in mfa_config_keys:
         if key not in valid_mfa_config_keys:
-            raise ValueError('{0} is not a valid MultiFactorConfig paramter'.format(key))
+            raise ValueError('{0} is not a valid MultiFactorConfig parameter'.format(key))
 
     # validate state in MFA config
     if 'state' not in mfa_config:
@@ -312,7 +312,7 @@ def validate_mfa_config(mfa_config):
         for factor_id in factor_ids:
             if not isinstance(factor_id, str) or factor_id not in VALID_AUTH_FACTOR_TYPES:
                 raise ValueError(
-                    'factorId must be a valid AuthFactor type string')
+                    'factorId must be in ' + str(VALID_AUTH_FACTOR_TYPES))
         mfa_config_payload['enabledProviders'] = factor_ids
 
     # validate providerConfigs if defined
@@ -326,15 +326,15 @@ def validate_mfa_config(mfa_config):
             provider_config_payload = {}
             if not isinstance(provider_config, dict) or not provider_config:
                 raise ValueError(
-                    'multiFactorConfigs.providerConfigs must be a valid array of '
-                    'type providerConfig')
+                    'multiFactorConfig.providerConfigs must be a valid list of '
+                    'providerConfig types')
 
             #validate Provider Config keys
             valid_provider_config_keys = set(['state', 'totpProviderConfig'])
             provider_config_keys = set(provider_config.keys())
             for key in provider_config_keys:
                 if key not in valid_provider_config_keys:
-                    raise ValueError('{0} is not a valid ProviderConfig paramter'.format(key))
+                    raise ValueError('{0} is not a valid ProviderConfig parameter'.format(key))
 
             if 'state' not in provider_config:
                 raise ValueError('providerConfig.state should be defined')
@@ -345,7 +345,7 @@ def validate_mfa_config(mfa_config):
             provider_config_payload['state'] = provider_config['state']
             if 'totpProviderConfig' not in provider_config:
                 raise ValueError(
-                    'providerConfig.totpProviderConfig must be instantiated')
+                    'providerConfig.totpProviderConfig must be present')
             if not isinstance(provider_config['totpProviderConfig'], dict):
                 raise ValueError(
                     'providerConfig.totpProviderConfig must be of valid type TotpProviderConfig'
@@ -357,7 +357,7 @@ def validate_mfa_config(mfa_config):
             totp_provider_config_keys = set(totp_provider_config.keys())
             for key in totp_provider_config_keys:
                 if key not in valid_totp_provider_config_keys:
-                    raise ValueError('{0} is not a valid TotpProviderConfig paramter'.format(key))
+                    raise ValueError('{0} is not a valid TotpProviderConfig parameter'.format(key))
 
             totp_provider_config_payload = {}
             if 'adjacentIntervals' in totp_provider_config:
@@ -376,6 +376,11 @@ def validate_mfa_config(mfa_config):
     return mfa_config_payload
 
 
+# Backend API returns "mfa" in case of project config and "mfaConfig" in case of tenant config.
+# The SDK exposes it as multiFactorConfig always. See
+# https://cloud.google.com/identity-platform/docs/reference/rest/v2/projects.tenants#resource:-tenant
+# and https://cloud.google.com/identity-platform/docs/reference/rest/v2/Config
+
 def convert_tenant_auth_payload_to_user(payload):
     if 'mfaConfig' in payload:
         if 'enabledProviders' in payload['mfaConfig']:
@@ -384,7 +389,6 @@ def convert_tenant_auth_payload_to_user(payload):
         payload['multiFactorConfig'] = payload['mfaConfig']
         payload.pop('mfaConfig')
     return payload
-
 
 def convert_tenant_list_auth_payload_to_user(payload):
     if 'tenants' in payload:

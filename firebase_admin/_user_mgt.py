@@ -769,7 +769,7 @@ class UserManager:
             return BatchDeleteAccountsResponse()
 
         if len(uids) > 1000:
-            raise ValueError("`uids` paramter must have <= 1000 entries.")
+            raise ValueError("`uids` parameter must have <= 1000 entries.")
         for uid in uids:
             _auth_utils.validate_uid(uid, required=True)
 

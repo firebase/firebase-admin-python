@@ -25,7 +25,6 @@ from tests import testutils
 
 
 GET_PROJECT_RESPONSE = """{
-    "name": "project-id",
     "multiFactorConfig":{
         "state":"ENABLED",
         "factorIds":["PHONE_SMS"],

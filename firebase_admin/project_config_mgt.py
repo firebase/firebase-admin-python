@@ -1,4 +1,4 @@
-# Copyright 2020 Google Inc.
+# Copyright 2023 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -116,7 +116,6 @@ class _ProjectConfigManagementService:
             raise _auth_utils.handle_auth_backend_error(error)
         else:
             body = _auth_utils.convert_project_auth_payload_to_user(body)
-            print(body)
             return ProjectConfig(body)
 
     def update_project(self, mfa=None):

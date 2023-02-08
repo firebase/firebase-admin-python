@@ -23,7 +23,7 @@ import firebase_admin
 from firebase_admin import _auth_utils
 from firebase_admin import _http_client
 from firebase_admin import _utils
-from firebase_admin.multi_factor_config_mgt import MultiFactorConfig
+from firebase_admin import multi_factor_config_mgt
 
 _PROJECT_MGT_ATTRIBUTE = '_project_mgt'
 
@@ -90,7 +90,7 @@ class ProjectConfig:
     def mfa(self):
         data = self._data.get('multiFactorConfig')
         if data:
-            return MultiFactorConfig(data)
+            return multi_factor_config_mgt.MultiFactorConfig(data)
         return None
 
 
@@ -123,7 +123,7 @@ class _ProjectConfigManagementService:
 
         payload = {}
         if mfa is not None:
-            payload['mfa'] = _auth_utils.validate_mfa_config(mfa)
+            payload['mfa'] = multi_factor_config_mgt.validate_mfa_config(multi_factor_config_mgt.MultiFactorConfig(mfa))
 
         if not payload:
             raise ValueError(

@@ -28,7 +28,7 @@ from firebase_admin import auth
 from firebase_admin import _auth_utils
 from firebase_admin import _http_client
 from firebase_admin import _utils
-from firebase_admin.multi_factor_config_mgt import MultiFactorConfig
+from firebase_admin import multi_factor_config_mgt
 
 
 _TENANT_MGT_ATTRIBUTE = '_tenant_mgt'
@@ -236,7 +236,7 @@ class Tenant:
     def mfa_config(self):
         data = self._data.get('multiFactorConfig')
         if data:
-            return MultiFactorConfig(data)
+            return multi_factor_config_mgt.MultiFactorConfig(data)
         return None
 
 
@@ -296,7 +296,7 @@ class _TenantManagementService:
             payload['enableEmailLinkSignin'] = _auth_utils.validate_boolean(
                 enable_email_link_sign_in, 'enableEmailLinkSignin')
         if mfa_config is not None:
-            payload['mfaConfig'] = _auth_utils.validate_mfa_config(mfa_config)
+            payload['mfaConfig'] = multi_factor_config_mgt.validate_mfa_config(multi_factor_config_mgt.MultiFactorConfig(mfa_config))
         try:
             body = self.client.body('post', '/tenants', json=payload)
         except requests.exceptions.RequestException as error:
@@ -322,7 +322,8 @@ class _TenantManagementService:
             payload['enableEmailLinkSignin'] = _auth_utils.validate_boolean(
                 enable_email_link_sign_in, 'enableEmailLinkSignin')
         if mfa_config is not None:
-            payload['mfaConfig'] = _auth_utils.validate_mfa_config(mfa_config)
+            payload['mfaConfig'] = multi_factor_config_mgt.validate_mfa_config(
+                mfa_config=multi_factor_config_mgt.MultiFactorConfig(mfa_config))
 
         if not payload:
             raise ValueError('At least one parameter must be specified for update.')

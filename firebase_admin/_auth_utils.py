@@ -30,8 +30,6 @@ RESERVED_CLAIMS = set([
     'iss', 'jti', 'nbf', 'nonce', 'sub', 'firebase',
 ])
 VALID_EMAIL_ACTION_TYPES = set(['VERIFY_EMAIL', 'EMAIL_SIGNIN', 'PASSWORD_RESET'])
-VALID_AUTH_FACTOR_TYPES = set(['PHONE_SMS'])
-VALID_STATES = set(['ENABLED', 'DISABLED'])
 
 
 class PageIterator:
@@ -277,104 +275,10 @@ def validate_provider_ids(provider_ids, required=False):
         validate_provider_id(provider_id, True)
     return provider_ids
 
-
-def validate_mfa_config(mfa_config):
-    """Validates the specified multi factor configuration."""
-
-    mfa_config_payload = {}
-    # validate multiFactorConfig
-    if not isinstance(mfa_config, dict):
-        raise ValueError(
-            'multiFactorConfig should be of valid type MultiFactorConfig')
-
-    #validate MFA Config keys
-    valid_mfa_config_keys = set(['state', 'factorIds', 'providerConfigs'])
-    mfa_config_keys = set(mfa_config.keys())
-    for key in mfa_config_keys:
-        if key not in valid_mfa_config_keys:
-            raise ValueError('{0} is not a valid MultiFactorConfig parameter'.format(key))
-
-    # validate state in MFA config
-    if 'state' not in mfa_config:
-        raise ValueError('multiFactorConfig.state should be defined')
-    state = mfa_config['state']
-    if not isinstance(state, str) or state not in VALID_STATES:
-        raise ValueError(
-            'multiFactorConfig.state must be either "ENABLED" or "DISABLED"')
-    mfa_config_payload['state'] = state
-
-    # validate factorIds if defined
-    if 'factorIds' in mfa_config:
-        factor_ids = mfa_config['factorIds']
-        if not isinstance(factor_ids, list) or not factor_ids:
-            raise ValueError(
-                'multiFactorConfig.factorIds must be a defined list of AuthFactor type strings')
-        for factor_id in factor_ids:
-            if not isinstance(factor_id, str) or factor_id not in VALID_AUTH_FACTOR_TYPES:
-                raise ValueError(
-                    'factorId must be in ' + str(VALID_AUTH_FACTOR_TYPES))
-        mfa_config_payload['enabledProviders'] = factor_ids
-
-    # validate providerConfigs if defined
-    if 'providerConfigs' in mfa_config:
-        provider_configs = mfa_config['providerConfigs']
-        provider_configs_payload = []
-        if not isinstance(provider_configs, list) or not provider_configs:
-            raise ValueError(
-                'multiFactorConfig.providerConfigs must be a valid list of providerConfig types')
-        for provider_config in provider_configs:
-            provider_config_payload = {}
-            if not isinstance(provider_config, dict) or not provider_config:
-                raise ValueError(
-                    'multiFactorConfig.providerConfigs must be a valid list of '
-                    'providerConfig types')
-
-            #validate Provider Config keys
-            valid_provider_config_keys = set(['state', 'totpProviderConfig'])
-            provider_config_keys = set(provider_config.keys())
-            for key in provider_config_keys:
-                if key not in valid_provider_config_keys:
-                    raise ValueError('{0} is not a valid ProviderConfig parameter'.format(key))
-
-            if 'state' not in provider_config:
-                raise ValueError('providerConfig.state should be defined')
-            state = provider_config['state']
-            if not isinstance(state, str) or state not in VALID_STATES:
-                raise ValueError(
-                    'providerConfig.state must be either "ENABLED" or "DISABLED"')
-            provider_config_payload['state'] = provider_config['state']
-            if 'totpProviderConfig' not in provider_config:
-                raise ValueError(
-                    'providerConfig.totpProviderConfig must be present')
-            if not isinstance(provider_config['totpProviderConfig'], dict):
-                raise ValueError(
-                    'providerConfig.totpProviderConfig must be of valid type TotpProviderConfig'
-                )
-            totp_provider_config = provider_config['totpProviderConfig']
-
-            #validate Totp Provider Config keys
-            valid_totp_provider_config_keys = set(['adjacentIntervals'])
-            totp_provider_config_keys = set(totp_provider_config.keys())
-            for key in totp_provider_config_keys:
-                if key not in valid_totp_provider_config_keys:
-                    raise ValueError('{0} is not a valid TotpProviderConfig parameter'.format(key))
-
-            totp_provider_config_payload = {}
-            if 'adjacentIntervals' in totp_provider_config:
-                adjacent_intervals = totp_provider_config['adjacentIntervals']
-                # Because bool types get converted to int here
-                # pylint: disable=C0123
-                if ((type(adjacent_intervals) is not int) or
-                        not 0 <= adjacent_intervals <= 10):
-                    raise ValueError('totpProviderConfig.adjacentIntervals must be a'
-                                     ' valid positive integer between 0 and 10 (both inclusive).')
-                totp_provider_config_payload['adjacentIntervals'] = adjacent_intervals
-            provider_config_payload['totpProviderConfig'] = totp_provider_config_payload
-            provider_configs_payload.append(provider_config_payload)
-        mfa_config_payload['providerConfigs'] = provider_configs_payload
-
-    return mfa_config_payload
-
+def validate_config_keys(input_keys, valid_keys, config_name):
+    for key in input_keys:
+        if key not in valid_keys:
+            raise ValueError('{0} is not a valid {1} parameter'.format(key, config_name))
 
 # Backend API returns "mfa" in case of project config and "mfaConfig" in case of tenant config.
 # The SDK exposes it as multiFactorConfig always. See

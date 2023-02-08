@@ -95,9 +95,9 @@ class TestProjectConfig:
         assert project.mfa is None
 
 
-class TestGetProject:
+class TestGetProjectConfig:
 
-    def test_get_project(self, project_config_mgt_app):
+    def test_get_project_config(self, project_config_mgt_app):
         _, recorder = _instrument_project_config_mgt(
             project_config_mgt_app, 200, GET_PROJECT_RESPONSE)
         project = project_config_mgt.get_project(app=project_config_mgt_app)
@@ -109,7 +109,7 @@ class TestGetProject:
         assert req.url == '{0}/project-id/config'.format(PROJECT_CONFIG_MGT_URL_PREFIX)
 
 
-class TestUpdateProject:
+class TestUpdateProjectConfig:
 
     def test_update_project_no_args(self, project_config_mgt_app):
         with pytest.raises(ValueError) as excinfo:
@@ -117,7 +117,7 @@ class TestUpdateProject:
         assert str(excinfo.value).startswith('At least one parameter must be specified for update')
 
     @pytest.mark.parametrize('mfa_config', ['foo', 0, 1, True, False, list(), tuple()])
-    def test_update_project_invalid_mfa_config_type(self, mfa_config, project_config_mgt_app):
+    def test_invalid_mfa_config_type(self, mfa_config, project_config_mgt_app):
         with pytest.raises(ValueError) as excinfo:
             project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
         assert str(excinfo.value).startswith(
@@ -131,27 +131,26 @@ class TestUpdateProject:
             }, app=project_config_mgt_app)
         assert str(excinfo.value).startswith('invalid is not a valid MultiFactorConfig parameter')
 
-    def test_update_project_undefined_mfa_config_state(self, project_config_mgt_app):
+    def test_undefined_mfa_config_state(self, project_config_mgt_app):
         mfa_config = {'factorIds':["PHONE_SMS"]}
         with pytest.raises(ValueError) as excinfo:
             project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
-        assert str(excinfo.value).startswith('multiFactorConfig.state should be defined')
+        assert str(excinfo.value).startswith('multiFactorConfig.state should be in')
     
     @pytest.mark.parametrize('state', ['', 1, True, False, [], (), {}, "foo"])
-    def test_update_project_invalid_mfa_config_state(self, project_config_mgt_app, state):
+    def test_invalid_mfa_config_state(self, project_config_mgt_app, state):
         mfa_config = {'state': state}
         with pytest.raises(ValueError) as excinfo:
             project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
-        assert str(excinfo.value).startswith(
-        'multiFactorConfig.state must be either "ENABLED" or "DISABLED"')
+        assert str(excinfo.value).startswith('multiFactorConfig.state should be in')
 
-    @pytest.mark.parametrize('factor_ids', [True, False, 1, 0, 'foo', {}, dict(), tuple(), list()])
+    @pytest.mark.parametrize('factor_ids', [True, False, 1, 0, 'foo', {}, dict(), tuple()])
     def test_invalid_mfa_config_factor_ids_type(self, factor_ids, project_config_mgt_app):
         mfa_config = {'state': 'ENABLED', 'factorIds': factor_ids}
         with pytest.raises(ValueError) as excinfo:
             project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
         assert str(excinfo.value).startswith(
-            'multiFactorConfig.factorIds must be a defined list of AuthFactor type strings')
+            'multiFactorConfig.factorIds should be a valid list of strings in')
 
     @pytest.mark.parametrize('factor_ids', [[1, 2, 3], [True, False], ['foo', 'bar', {}]])
     def test_invalid_mfa_config_factor_ids(self, project_config_mgt_app, factor_ids):
@@ -167,16 +166,15 @@ class TestUpdateProject:
         with pytest.raises(ValueError) as excinfo:
             project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
         assert str(excinfo.value).startswith(
-            'multiFactorConfig.providerConfigs must be a valid list of providerConfig types')
+            'multiFactorConfig.providerConfigs must be a valid list of ProviderConfigs')
     
-    @pytest.mark.parametrize('provider_configs', [[True], [{}], [1, 2], 
-    [{'state': 'DISABLED', 'totpProviderConfig': {}}, "foo"]])
+    @pytest.mark.parametrize('provider_configs', [[True], [1, 2],[{'state': 'DISABLED', 'totpProviderConfig': {}}, "foo"]])
     def test_invalid_mfa_config_provider_config(self, project_config_mgt_app, provider_configs):
         mfa_config = {'state': 'DISABLED', 'providerConfigs': provider_configs}
         with pytest.raises(ValueError) as excinfo:
             project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
         assert str(excinfo.value).startswith(
-            'multiFactorConfig.providerConfigs must be a valid list of providerConfig types')
+            'multiFactorConfig.providerConfigs must be a valid list of ProviderConfigs')
 
     def test_invalid_provider_config_params(self, project_config_mgt_app):
         with pytest.raises(ValueError) as excinfo:
@@ -195,7 +193,7 @@ class TestUpdateProject:
         mfa_config = {'state': 'DISABLED', 'providerConfigs': [{'totpProviderConfig':{}}]}
         with pytest.raises(ValueError) as excinfo:
             project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
-        assert str(excinfo.value).startswith('providerConfig.state should be defined')
+        assert str(excinfo.value).startswith('ProviderConfig.state should be in')
     
     @pytest.mark.parametrize('state', ['', 1, True, False, [], (), {}, "foo"])
     def test_invalid_provider_config_state(self, project_config_mgt_app, state):
@@ -203,8 +201,7 @@ class TestUpdateProject:
         'providerConfigs': [{'state':state, 'totpProviderConfig':{}}]}
         with pytest.raises(ValueError) as excinfo:
             project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
-        assert str(excinfo.value).startswith(
-            'providerConfig.state must be either "ENABLED" or "DISABLED"')
+        assert str(excinfo.value).startswith('ProviderConfig.state should be in')
 
     @pytest.mark.parametrize('state', ['ENABLED', 'DISABLED'])
     def test_undefined_totp_provider_config(self, project_config_mgt_app, state):
@@ -212,7 +209,7 @@ class TestUpdateProject:
         with pytest.raises(ValueError) as excinfo:
             project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
         assert str(excinfo.value).startswith(
-            'providerConfig.totpProviderConfig must be present')
+            'ProviderConfig.TotpProviderConfig must be present')
 
     @pytest.mark.parametrize('totp_provider_config', [True, False, 1, 0, list(), tuple()])
     def test_invalid_totp_provider_config_type(self, project_config_mgt_app, totp_provider_config):
@@ -239,7 +236,7 @@ class TestUpdateProject:
             }, app=project_config_mgt_app)
         assert str(excinfo.value).startswith('invalid is not a valid TotpProviderConfig parameter')
     
-    @pytest.mark.parametrize('adjacent_intervals', ['', -1, True, False, [], (), {}, "foo", None])
+    @pytest.mark.parametrize('adjacent_intervals', ['', -1, True, False, [], (), {}, "foo"])
     def test_invalid_adjacent_intervals_type(self, project_config_mgt_app, adjacent_intervals):
         mfa_config = {'state': 'DISABLED', 'providerConfigs': 
         [{'state':'ENABLED', 'totpProviderConfig':{'adjacentIntervals':adjacent_intervals}}]}

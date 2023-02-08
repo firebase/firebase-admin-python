@@ -297,24 +297,24 @@ class TestCreateTenant:
         with pytest.raises(ValueError) as excinfo:
             tenant_mgt.create_tenant(
                 display_name='test', mfa_config=mfa_config, app=tenant_mgt_app)
-        assert str(excinfo.value).startswith('multiFactorConfig.state should be defined')
+        assert str(excinfo.value).startswith('multiFactorConfig.state should be in ')
+    
     @pytest.mark.parametrize('state', ['', 1, True, False, [], (), {}, "foo"])
     def test_invalid_mfa_config_state(self, tenant_mgt_app, state):
         mfa_config = {'state': state}
         with pytest.raises(ValueError) as excinfo:
             tenant_mgt.create_tenant(
                 display_name='test', mfa_config=mfa_config, app=tenant_mgt_app)
-        assert str(excinfo.value).startswith(
-            'multiFactorConfig.state must be either "ENABLED" or "DISABLED"')
+        assert str(excinfo.value).startswith('multiFactorConfig.state should be in ')
 
-    @pytest.mark.parametrize('factor_ids', [True, False, 1, 0, 'foo', {}, dict(), tuple(), list()])
+    @pytest.mark.parametrize('factor_ids', [True, False, 1, 0, 'foo', {}, dict(), tuple()])
     def test_invalid_mfa_config_factor_ids_type(self, tenant_mgt_app, factor_ids):
         mfa_config = {'state': 'ENABLED', 'factorIds': factor_ids}
         with pytest.raises(ValueError) as excinfo:
             tenant_mgt.create_tenant(
                 display_name='test', mfa_config=mfa_config, app=tenant_mgt_app)
         assert str(excinfo.value).startswith(
-            'multiFactorConfig.factorIds must be a defined list of AuthFactor type strings')
+            'multiFactorConfig.factorIds should be a valid list of strings in {\'PHONE_SMS\'}')
 
 
     @pytest.mark.parametrize('factor_ids', [[1, 2, 3], [True, False], ['foo', 'bar', {}]])
@@ -323,27 +323,26 @@ class TestCreateTenant:
         with pytest.raises(ValueError) as excinfo:
             tenant_mgt.create_tenant(
                 display_name='test', mfa_config=mfa_config, app=tenant_mgt_app)
-            assert str(excinfo.value).startswith('factorId must be in "{\'PHONE_SMS\'}"')
+            assert str(excinfo.value).startswith('multiFactorConfig.factorIds should be a valid list of strings in {\'PHONE_SMS\'}')
     
     @pytest.mark.parametrize('provider_configs', [True, False, 1, 0, list(), tuple(), dict()])
     def test_invalid_mfa_config_provider_configs_type(self, tenant_mgt_app, provider_configs):
-        mfa_config = {'state': 'DISABLED', 'providerConfigs': provider_configs}
+        mfa_config = {'state': 'ENABLED', 'providerConfigs': provider_configs}
         with pytest.raises(ValueError) as excinfo:
             tenant_mgt.create_tenant(
                 display_name='test', mfa_config=mfa_config, app=tenant_mgt_app)
         assert str(excinfo.value).startswith(
-            'multiFactorConfig.providerConfigs must be a valid list of providerConfig types')
+            'multiFactorConfig.providerConfigs must be a valid list of ProviderConfigs')
     
     @pytest.mark.parametrize(
-        'provider_configs', [[True], [{}], [1, 2], 
-        [{'state': 'DISABLED', 'totpProviderConfig': {}}, "foo"]])
+        'provider_configs', [[True], [1, 2],[{'state': 'DISABLED', 'totpProviderConfig': {}}, "foo"]])
     def test_invalid_mfa_config_provider_config(self, tenant_mgt_app, provider_configs):
         mfa_config = {'state': 'DISABLED', 'providerConfigs': provider_configs}
         with pytest.raises(ValueError) as excinfo:
             tenant_mgt.create_tenant(
                 display_name='test', mfa_config=mfa_config, app=tenant_mgt_app)
         assert str(excinfo.value).startswith(
-            'multiFactorConfig.providerConfigs must be a valid list of providerConfig types')
+            'multiFactorConfig.providerConfigs must be a valid list of ProviderConfigs')
 
     def test_invalid_provider_config_params(self, tenant_mgt_app):
         with pytest.raises(ValueError) as excinfo:
@@ -363,7 +362,8 @@ class TestCreateTenant:
         with pytest.raises(ValueError) as excinfo:
             tenant_mgt.create_tenant(
                 display_name='test', mfa_config=mfa_config, app=tenant_mgt_app)
-        assert str(excinfo.value).startswith('providerConfig.state should be defined')
+        assert str(excinfo.value).startswith('ProviderConfig.state should be in ')
+    
     @pytest.mark.parametrize('state', ['', 1, True, False, [], (), {}, "foo"])
     def test_invalid_provider_config_state(self, tenant_mgt_app, state):
         mfa_config = {'state': 'DISABLED', 
@@ -372,7 +372,7 @@ class TestCreateTenant:
             tenant_mgt.create_tenant(
                 display_name='test', mfa_config=mfa_config, app=tenant_mgt_app)
         assert str(excinfo.value).startswith(
-            'providerConfig.state must be either "ENABLED" or "DISABLED"')
+            'ProviderConfig.state should be in ')
 
     @pytest.mark.parametrize('state', ['ENABLED', 'DISABLED'])
     def test_undefined_totp_provider_config(self, tenant_mgt_app, state):
@@ -381,7 +381,7 @@ class TestCreateTenant:
             tenant_mgt.create_tenant(
                 display_name='test', mfa_config=mfa_config, app=tenant_mgt_app)
         assert str(excinfo.value).startswith(
-            'providerConfig.totpProviderConfig must be present')
+            'ProviderConfig.TotpProviderConfig must be present')
 
     @pytest.mark.parametrize('totp_provider_config', [True, False, 1, 0, list(), tuple()])
     def test_invalid_totp_provider_config_type(self, tenant_mgt_app, totp_provider_config):
@@ -392,6 +392,7 @@ class TestCreateTenant:
                 display_name='test', mfa_config=mfa_config, app=tenant_mgt_app)
         assert str(excinfo.value).startswith(
             'providerConfig.totpProviderConfig must be of valid type TotpProviderConfig')
+
     def test_invalid_totp_provider_config_params(self, tenant_mgt_app):
         with pytest.raises(ValueError) as excinfo:
             tenant_mgt.create_tenant(display_name='test', mfa_config={
@@ -409,7 +410,7 @@ class TestCreateTenant:
         assert str(excinfo.value).startswith('invalid is not a valid TotpProviderConfig parameter')
     
     @pytest.mark.parametrize(
-        'adjacent_intervals', ['', -1, True, False, [], (), {}, "foo", None, 11, 1.1])
+        'adjacent_intervals', ['', -1, True, False, [], (), {}, "foo", 11, 1.1, ])
     def test_invalid_adjacent_intervals_type(self, tenant_mgt_app, adjacent_intervals):
         mfa_config = {'state': 'DISABLED', 'providerConfigs': [{'state':'ENABLED', 
         'totpProviderConfig':{'adjacentIntervals':adjacent_intervals}}]}

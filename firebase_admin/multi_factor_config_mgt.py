@@ -20,6 +20,7 @@ from firebase_admin import _auth_utils
 
 
 class MfaConstants:
+    """Various MFA constants used for validation and auth conversions"""
     STATE = 'state'
     FACTOR_IDS = 'factorIds'
     PROVIDER_CONFIGS = 'providerConfigs'
@@ -73,7 +74,7 @@ class MultiFactorConfig:
                 raise ValueError(
                     'multiFactorConfig.providerConfigs must be a valid list of ProviderConfigs')
             self._data = data
-        
+
         def to_dict(self):
             return self._data
 
@@ -106,6 +107,17 @@ class MultiFactorConfig:
 
 
 def validate_mfa_config(mfa_config: MultiFactorConfig):
+    """Validates MFA Configuration sent to the server
+
+    Args:
+        mfa_config (MultiFactorConfig): Object received from the user
+
+    Raises:
+        ValueError: Depending on validation failures
+
+    Returns:
+        payload: JSON payload sent to the server
+    """
 
     # defining a state validation function
     def validate_state(state, config):
@@ -203,8 +215,8 @@ def validate_mfa_config(mfa_config: MultiFactorConfig):
     _auth_utils.validate_config_keys(
         input_keys=set(mfa_config.to_dict().keys()),
         valid_keys=set([MfaConstants.STATE, MfaConstants.FACTOR_IDS,
-                       MfaConstants.PROVIDER_CONFIGS]),
-        config_name= MfaConstants.MULTI_FACTOR_CONFIG_OBJ
+                        MfaConstants.PROVIDER_CONFIGS]),
+        config_name=MfaConstants.MULTI_FACTOR_CONFIG_OBJ
     )
 
     # validate multiFactorConfig.state

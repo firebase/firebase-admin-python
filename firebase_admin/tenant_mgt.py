@@ -296,7 +296,8 @@ class _TenantManagementService:
             payload['enableEmailLinkSignin'] = _auth_utils.validate_boolean(
                 enable_email_link_sign_in, 'enableEmailLinkSignin')
         if mfa_config is not None:
-            payload['mfaConfig'] = multi_factor_config_mgt.validate_mfa_config(multi_factor_config_mgt.MultiFactorConfig(mfa_config))
+            payload['mfaConfig'] = multi_factor_config_mgt.validate_mfa_config(
+                multi_factor_config_mgt.MultiFactorConfig(mfa_config))
         try:
             body = self.client.body('post', '/tenants', json=payload)
         except requests.exceptions.RequestException as error:

@@ -34,6 +34,7 @@ __all__ = [
     'update_project',
 ]
 
+
 def get_project(app=None):
     """Gets the project corresponding to the given project_id.
 
@@ -123,7 +124,8 @@ class _ProjectConfigManagementService:
 
         payload = {}
         if mfa is not None:
-            payload['mfa'] = multi_factor_config_mgt.validate_mfa_config(multi_factor_config_mgt.MultiFactorConfig(mfa))
+            payload['mfa'] = multi_factor_config_mgt.validate_mfa_config(
+                multi_factor_config_mgt.MultiFactorConfig(mfa))
 
         if not payload:
             raise ValueError(

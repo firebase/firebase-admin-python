@@ -18,6 +18,7 @@ the project and tenant level.
 """
 from firebase_admin import _auth_utils
 
+
 class MfaConstants:
     STATE = 'state'
     FACTOR_IDS = 'factorIds'
@@ -43,6 +44,9 @@ class MultiFactorConfig:
                 'multiFactorConfig should be of valid type MultiFactorConfig')
         self._data = data
 
+    def to_dict(self):
+        return self._data
+
     @property
     def state(self):
         return self._data.get('state')
@@ -54,7 +58,7 @@ class MultiFactorConfig:
     @property
     def provider_configs(self):
         data = self._data.get('providerConfigs')
-        if not isinstance(data, list) or len(data) == 0:
+        if not isinstance(data, list) or not data:
             raise ValueError(
                 'multiFactorConfig.providerConfigs must be a valid list of ProviderConfigs')
         if data:
@@ -69,6 +73,9 @@ class MultiFactorConfig:
                 raise ValueError(
                     'multiFactorConfig.providerConfigs must be a valid list of ProviderConfigs')
             self._data = data
+        
+        def to_dict(self):
+            return self._data
 
         @property
         def state(self):
@@ -90,6 +97,9 @@ class MultiFactorConfig:
                         'providerConfig.totpProviderConfig must be of valid type TotpProviderConfig')
                 self._data = data
 
+            def to_dict(self):
+                return self._data
+
             @property
             def adjacent_intervals(self):
                 return self._data.get('adjacentIntervals')
@@ -97,95 +107,118 @@ class MultiFactorConfig:
 
 def validate_mfa_config(mfa_config: MultiFactorConfig):
 
-    #defining a state validation function
+    # defining a state validation function
     def validate_state(state, config):
         if not isinstance(state, str) or state not in MfaConstants.VALID_STATES:
-            raise ValueError('{0}.{1} should be in '.format(config, MfaConstants.STATE) + str(MfaConstants.VALID_STATES))
+            raise ValueError('{0}.{1} should be in '.format(
+                config, MfaConstants.STATE) + str(MfaConstants.VALID_STATES))
         return state
 
-    #validation of factorIds
+    # validation of factorIds
     def validate_factor_ids(factor_ids):
         if not isinstance(factor_ids, list):
-            raise ValueError('{0}.{1} should be a valid list of strings in '.format(MfaConstants.MULTI_FACTOR_CONFIG, MfaConstants.FACTOR_IDS) + str(MfaConstants.VALID_AUTH_FACTOR_TYPES))
-        
-        #validate each element in multiFactorConfig.factorIds
+            raise ValueError('{0}.{1} should be a valid list of strings in '.format(
+                MfaConstants.MULTI_FACTOR_CONFIG, MfaConstants.FACTOR_IDS) + str(MfaConstants.VALID_AUTH_FACTOR_TYPES))
+
+        # validate each element in multiFactorConfig.factorIds
         for factor_id in factor_ids:
-            if not isinstance(factor_id, str) or factor_id not in MfaConstants.VALID_AUTH_FACTOR_TYPES:
-                raise ValueError('{0}.{1} should be a valid list of strings in '.format(MfaConstants.MULTI_FACTOR_CONFIG, MfaConstants.FACTOR_IDS) + str(MfaConstants.VALID_AUTH_FACTOR_TYPES))
+            if not isinstance(
+                    factor_id, str) or factor_id not in MfaConstants.VALID_AUTH_FACTOR_TYPES:
+                raise ValueError('{0}.{1} should be a valid list of strings in '.format(
+                    MfaConstants.MULTI_FACTOR_CONFIG, MfaConstants.FACTOR_IDS) + str(MfaConstants.VALID_AUTH_FACTOR_TYPES))
         return factor_ids
 
     def validate_provider_configs(provider_configs):
 
-        #validation of totpProviderConfig
+        # validation of totpProviderConfig
         def validate_totp_provider_config(totp_provider_config):
-            if not isinstance(totp_provider_config, MultiFactorConfig.ProviderConfig.TotpProviderConfig):
-                raise ValueError('{0} must be a valid config of type {1}'.format(MfaConstants.TOTP_PROVIDER_CONFIG, MfaConstants.TOTP_PROVIDER_CONFIG_OBJ))
-            #validate TotpProviderConfig keys
+            if not isinstance(totp_provider_config,
+                              MultiFactorConfig.ProviderConfig.TotpProviderConfig):
+                raise ValueError(
+                    '{0} must be a valid config of type {1}'.format(
+                        MfaConstants.TOTP_PROVIDER_CONFIG,
+                        MfaConstants.TOTP_PROVIDER_CONFIG_OBJ))
+            # validate TotpProviderConfig keys
             _auth_utils.validate_config_keys(
-                input_keys= set(totp_provider_config._data.keys()),
-                valid_keys= set([MfaConstants.ADJACENT_INTERVALS]),
-                config_name= MfaConstants.TOTP_PROVIDER_CONFIG_OBJ
+                input_keys=set(totp_provider_config.to_dict().keys()),
+                valid_keys=set([MfaConstants.ADJACENT_INTERVALS]),
+                config_name=MfaConstants.TOTP_PROVIDER_CONFIG_OBJ
             )
             totp_provider_config_payload = {}
-            #validate totpProviderConfig.adjacentIntervals
+            # validate totpProviderConfig.adjacentIntervals
             if totp_provider_config.adjacent_intervals is not None:
                 # Because bool types get converted to int here
                 # pylint: disable=C0123
                 if ((type(totp_provider_config.adjacent_intervals) is not int) or
                         not 0 <= totp_provider_config.adjacent_intervals <= 10):
-                    raise ValueError('totpProviderConfig.adjacentIntervals must be a'
-                                       ' valid positive integer between 0 and 10 (both inclusive).')
+                    raise ValueError(
+                        '{0}.{1} must be a valid positive integer between 0 and 10 (both inclusive).'.format(
+                            MfaConstants.TOTP_PROVIDER_CONFIG,
+                            MfaConstants.ADJACENT_INTERVALS))
                 totp_provider_config_payload[MfaConstants.ADJACENT_INTERVALS] = totp_provider_config.adjacent_intervals
             return totp_provider_config_payload
 
         if not isinstance(provider_configs, list):
-           raise ValueError('{0}.{1} must be a valid list of {2}s'.format(MfaConstants.MULTI_FACTOR_CONFIG,MfaConstants.PROVIDER_CONFIGS, MfaConstants.PROVIDER_CONFIG_OBJ))
+            raise ValueError(
+                '{0}.{1} must be a valid list of {2}s'.format(
+                    MfaConstants.MULTI_FACTOR_CONFIG,
+                    MfaConstants.PROVIDER_CONFIGS,
+                    MfaConstants.PROVIDER_CONFIG_OBJ))
 
         provider_configs_payload = []
-        #validate each element in multiFactorConfig.providerConfigs:
+        # validate each element in multiFactorConfig.providerConfigs:
         for provider_config in provider_configs:
             provider_config_payload = {}
             if not isinstance(provider_config, MultiFactorConfig.ProviderConfig):
-                raise ValueError('{0}.{1} must be a valid list of {2}s'.format(MfaConstants.MULTI_FACTOR_CONFIG,MfaConstants.PROVIDER_CONFIGS, MfaConstants.PROVIDER_CONFIG_OBJ))
-            
-            #validate each ProviderConfig keys
+                raise ValueError(
+                    '{0}.{1} must be a valid list of {2}s'.format(
+                        MfaConstants.MULTI_FACTOR_CONFIG,
+                        MfaConstants.PROVIDER_CONFIGS,
+                        MfaConstants.PROVIDER_CONFIG_OBJ))
+
+            # validate each ProviderConfig keys
             _auth_utils.validate_config_keys(
-                input_keys= set(provider_config._data.keys()),
-                valid_keys= set([MfaConstants.STATE, MfaConstants.TOTP_PROVIDER_CONFIG]),
-                config_name= MfaConstants.PROVIDER_CONFIG_OBJ
+                input_keys=set(provider_config.to_dict().keys()),
+                valid_keys=set([MfaConstants.STATE, MfaConstants.TOTP_PROVIDER_CONFIG]),
+                config_name=MfaConstants.PROVIDER_CONFIG_OBJ
             )
 
-            #validate ProviderConfig.State
-            provider_config_payload[MfaConstants.STATE]= validate_state(provider_config.state, MfaConstants.PROVIDER_CONFIG_OBJ)
+            # validate ProviderConfig.State
+            provider_config_payload[MfaConstants.STATE] = validate_state(
+                provider_config.state, MfaConstants.PROVIDER_CONFIG_OBJ)
 
-            #validate ProviderConfig.TotpProviderConfig
-            provider_config_payload[MfaConstants.TOTP_PROVIDER_CONFIG]=validate_totp_provider_config(provider_config.totp_provider_config)
+            # validate ProviderConfig.TotpProviderConfig
+            provider_config_payload[MfaConstants.TOTP_PROVIDER_CONFIG] = validate_totp_provider_config(
+                provider_config.totp_provider_config)
             provider_configs_payload.append(provider_config_payload)
 
         return provider_configs_payload
 
-    
-    #validate multiFactorConfig type
+    # validate multiFactorConfig type
     if not isinstance(mfa_config, MultiFactorConfig):
         raise ValueError("multiFactorConfig should be of valid type MultiFactorConfig")
 
     mfa_config_payload = {}
-    #validate multiFactorConfig keys
+    # validate multiFactorConfig keys
     _auth_utils.validate_config_keys(
-        input_keys= set(mfa_config._data.keys()),
-        valid_keys= set([MfaConstants.STATE, MfaConstants.FACTOR_IDS, MfaConstants.PROVIDER_CONFIGS]),
+        input_keys=set(mfa_config.to_dict().keys()),
+        valid_keys=set([MfaConstants.STATE, MfaConstants.FACTOR_IDS,
+                       MfaConstants.PROVIDER_CONFIGS]),
         config_name= MfaConstants.MULTI_FACTOR_CONFIG_OBJ
     )
 
-    #validate multiFactorConfig.state
-    mfa_config_payload[MfaConstants.STATE] = validate_state(mfa_config.state, MfaConstants.MULTI_FACTOR_CONFIG)
+    # validate multiFactorConfig.state
+    mfa_config_payload[MfaConstants.STATE] = validate_state(
+        mfa_config.state, MfaConstants.MULTI_FACTOR_CONFIG)
 
-    #validate multiFactorConfig.factorIds
+    # validate multiFactorConfig.factorIds
     if mfa_config.enabled_providers is not None:
-        mfa_config_payload[MfaConstants.ENABLED_PROVIDERS] = validate_factor_ids(mfa_config.enabled_providers)
+        mfa_config_payload[MfaConstants.ENABLED_PROVIDERS] = validate_factor_ids(
+            mfa_config.enabled_providers)
 
-    #validate multiFactorConfig.providerConfigs
+    # validate multiFactorConfig.providerConfigs
     if mfa_config.provider_configs is not None:
-        mfa_config_payload[MfaConstants.PROVIDER_CONFIGS] = validate_provider_configs(mfa_config.provider_configs)
-    
+        mfa_config_payload[MfaConstants.PROVIDER_CONFIGS] = validate_provider_configs(
+            mfa_config.provider_configs)
+
     return mfa_config_payload

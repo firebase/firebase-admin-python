@@ -130,14 +130,16 @@ def validate_mfa_config(mfa_config: MultiFactorConfig):
     def validate_factor_ids(factor_ids):
         if not isinstance(factor_ids, list):
             raise ValueError('{0}.{1} should be a valid list of strings in '.format(
-                MfaConstants.MULTI_FACTOR_CONFIG, MfaConstants.FACTOR_IDS) + str(MfaConstants.VALID_AUTH_FACTOR_TYPES))
+                MfaConstants.MULTI_FACTOR_CONFIG, MfaConstants.FACTOR_IDS) +\
+                     str(MfaConstants.VALID_AUTH_FACTOR_TYPES))
 
         # validate each element in multiFactorConfig.factorIds
         for factor_id in factor_ids:
             if not isinstance(
                     factor_id, str) or factor_id not in MfaConstants.VALID_AUTH_FACTOR_TYPES:
                 raise ValueError('{0}.{1} should be a valid list of strings in '.format(
-                    MfaConstants.MULTI_FACTOR_CONFIG, MfaConstants.FACTOR_IDS) + str(MfaConstants.VALID_AUTH_FACTOR_TYPES))
+                    MfaConstants.MULTI_FACTOR_CONFIG, MfaConstants.FACTOR_IDS) +\
+                         str(MfaConstants.VALID_AUTH_FACTOR_TYPES))
         return factor_ids
 
     def validate_provider_configs(provider_configs):
@@ -164,10 +166,12 @@ def validate_mfa_config(mfa_config: MultiFactorConfig):
                 if ((type(totp_provider_config.adjacent_intervals) is not int) or
                         not 0 <= totp_provider_config.adjacent_intervals <= 10):
                     raise ValueError(
-                        '{0}.{1} must be a valid positive integer between 0 and 10 (both inclusive).'.format(
+                        '{0}.{1} must be a valid positive integer \
+                            between 0 and 10 (both inclusive).'.format(
                             MfaConstants.TOTP_PROVIDER_CONFIG,
                             MfaConstants.ADJACENT_INTERVALS))
-                totp_provider_config_payload[MfaConstants.ADJACENT_INTERVALS] = totp_provider_config.adjacent_intervals
+                totp_provider_config_payload[MfaConstants.ADJACENT_INTERVALS] = \
+                    totp_provider_config.adjacent_intervals
             return totp_provider_config_payload
 
         if not isinstance(provider_configs, list):
@@ -200,8 +204,8 @@ def validate_mfa_config(mfa_config: MultiFactorConfig):
                 provider_config.state, MfaConstants.PROVIDER_CONFIG_OBJ)
 
             # validate ProviderConfig.TotpProviderConfig
-            provider_config_payload[MfaConstants.TOTP_PROVIDER_CONFIG] = validate_totp_provider_config(
-                provider_config.totp_provider_config)
+            provider_config_payload[MfaConstants.TOTP_PROVIDER_CONFIG] = \
+                validate_totp_provider_config(provider_config.totp_provider_config)
             provider_configs_payload.append(provider_config_payload)
 
         return provider_configs_payload

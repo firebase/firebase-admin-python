@@ -335,7 +335,8 @@ class TestCreateTenant:
             'multiFactorConfig.providerConfigs must be a valid list of ProviderConfigs')
 
     @pytest.mark.parametrize(
-        'provider_configs', [[True], [1, 2], [{'state': 'DISABLED', 'totpProviderConfig': {}}, "foo"]])
+        'provider_configs', [[True], [1, 2], [{'state': 'DISABLED', \
+            'totpProviderConfig': {}}, "foo"]])
     def test_invalid_mfa_config_provider_config(self, tenant_mgt_app, provider_configs):
         mfa_config = {'state': 'DISABLED', 'providerConfigs': provider_configs}
         with pytest.raises(ValueError) as excinfo:
@@ -385,8 +386,8 @@ class TestCreateTenant:
 
     @pytest.mark.parametrize('totp_provider_config', [True, False, 1, 0, list(), tuple()])
     def test_invalid_totp_provider_config_type(self, tenant_mgt_app, totp_provider_config):
-        mfa_config = {'state': 'DISABLED',
-                      'providerConfigs': [{'state': 'ENABLED', 'totpProviderConfig': totp_provider_config}]}
+        mfa_config = {'state': 'DISABLED','providerConfigs': \
+            [{'state': 'ENABLED', 'totpProviderConfig': totp_provider_config}]}
         with pytest.raises(ValueError) as excinfo:
             tenant_mgt.create_tenant(
                 display_name='test', mfa_config=mfa_config, app=tenant_mgt_app)
@@ -412,8 +413,8 @@ class TestCreateTenant:
     @pytest.mark.parametrize(
         'adjacent_intervals', ['', -1, True, False, [], (), {}, "foo", 11, 1.1, ])
     def test_invalid_adjacent_intervals_type(self, tenant_mgt_app, adjacent_intervals):
-        mfa_config = {'state': 'DISABLED', 'providerConfigs': [{'state': 'ENABLED',
-                                                                'totpProviderConfig': {'adjacentIntervals': adjacent_intervals}}]}
+        mfa_config = {'state': 'DISABLED', 'providerConfigs': [{'state': 'ENABLED',\
+            'totpProviderConfig': {'adjacentIntervals': adjacent_intervals}}]}
         with pytest.raises(ValueError) as excinfo:
             tenant_mgt.create_tenant(
                 display_name='test', mfa_config=mfa_config, app=tenant_mgt_app)
@@ -511,7 +512,8 @@ class TestCreateTenant:
             app=tenant_mgt_app)
 
         _assert_tenant(tenant)
-        mfa_config_state_enabled_totp_disabled['enabledProviders'] = mfa_config_state_enabled_totp_disabled['factorIds']
+        mfa_config_state_enabled_totp_disabled['enabledProviders'] =\
+            mfa_config_state_enabled_totp_disabled['factorIds']
         mfa_config_state_enabled_totp_disabled.pop('factorIds')
         self._assert_request(recorder, {
             'displayName': 'test',

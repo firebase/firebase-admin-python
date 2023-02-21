@@ -95,7 +95,7 @@ class MultiFactorConfig:
             def __init__(self, data):
                 if not isinstance(data, dict):
                     raise ValueError(
-                        'providerConfig.totpProviderConfig must' + 
+                        'providerConfig.totpProviderConfig must' +
                         ' be of valid type TotpProviderConfig')
                 self._data = data
 

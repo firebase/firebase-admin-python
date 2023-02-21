@@ -168,7 +168,7 @@ def validate_mfa_config(mfa_config: MultiFactorConfig):
                         not 0 <= totp_provider_config.adjacent_intervals <= 10):
                     raise ValueError(
                         ('{0}.{1} must be a valid positive integer' +
-                        ' between 0 and 10 (both inclusive).').format(
+                         ' between 0 and 10 (both inclusive).').format(
                             MfaConstants.TOTP_PROVIDER_CONFIG,
                             MfaConstants.ADJACENT_INTERVALS))
                 totp_provider_config_payload[MfaConstants.ADJACENT_INTERVALS] = \

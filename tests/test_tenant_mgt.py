@@ -505,19 +505,19 @@ class TestCreateTenant:
 
         # multiFactorConfig.state enabled and providerConfig.state disabled
         _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
-        mfa_config_state_enabled_totp_disabled = copy(mfa_config_data)
-        mfa_config_state_enabled_totp_disabled['providerConfigs'][0]['state'] = 'DISABLED'
+        state_enabled_totp_disabled = copy(mfa_config_data)
+        state_enabled_totp_disabled['providerConfigs'][0]['state'] = 'DISABLED'
         tenant = tenant_mgt.create_tenant(
-            display_name='test', mfa_config=mfa_config_state_enabled_totp_disabled,
+            display_name='test', mfa_config=state_enabled_totp_disabled,
             app=tenant_mgt_app)
 
         _assert_tenant(tenant)
-        mfa_config_state_enabled_totp_disabled['enabledProviders'] =\
-            mfa_config_state_enabled_totp_disabled['factorIds']
-        mfa_config_state_enabled_totp_disabled.pop('factorIds')
+        state_enabled_totp_disabled['enabledProviders'] =\
+            state_enabled_totp_disabled['factorIds']
+        state_enabled_totp_disabled.pop('factorIds')
         self._assert_request(recorder, {
             'displayName': 'test',
-            'mfaConfig': mfa_config_state_enabled_totp_disabled
+            'mfaConfig': state_enabled_totp_disabled
         })
 
     def test_create_tenant_minimal(self, tenant_mgt_app):

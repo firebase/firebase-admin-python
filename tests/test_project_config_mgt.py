@@ -214,7 +214,7 @@ class TestUpdateProjectConfig:
 
     @pytest.mark.parametrize('totp_provider_config', [True, False, 1, 0, list(), tuple()])
     def test_invalid_totp_provider_config_type(self, project_config_mgt_app, totp_provider_config):
-        mfa_config = {'state': 'DISABLED','providerConfigs': \
+        mfa_config = {'state': 'DISABLED', 'providerConfigs': \
             [{'state': 'ENABLED', 'totpProviderConfig': totp_provider_config}]}
         with pytest.raises(ValueError) as excinfo:
             project_config_mgt.update_project(mfa=mfa_config, app=project_config_mgt_app)
@@ -316,19 +316,19 @@ class TestUpdateProjectConfig:
         # multiFactorConfig.state enabled and providerConfig.state disabled
         _, recorder = _instrument_project_config_mgt(
             project_config_mgt_app, 200, GET_PROJECT_RESPONSE)
-        mfa_config_state_enabled_totp_disabled = copy(mfa_config_data)
-        mfa_config_state_enabled_totp_disabled['providerConfigs'][0]['state'] = 'DISABLED'
+        state_enabled_totp_disabled = copy(mfa_config_data)
+        state_enabled_totp_disabled['providerConfigs'][0]['state'] = 'DISABLED'
         project = project_config_mgt.update_project(
-            mfa=mfa_config_state_enabled_totp_disabled,
+            mfa=state_enabled_totp_disabled,
             app=project_config_mgt_app)
 
         _assert_project(project)
-        mfa_config_state_enabled_totp_disabled['enabledProviders'] =\
-            mfa_config_state_enabled_totp_disabled['factorIds']
-        mfa_config_state_enabled_totp_disabled.pop('factorIds')
+        state_enabled_totp_disabled['enabledProviders'] =\
+            state_enabled_totp_disabled['factorIds']
+        state_enabled_totp_disabled.pop('factorIds')
         mask = ['mfa.enabledProviders', 'mfa.providerConfigs', 'mfa.state']
         self._assert_request(recorder, {
-            'mfa': mfa_config_state_enabled_totp_disabled
+            'mfa': state_enabled_totp_disabled
         }, mask)
 
     def _assert_request(self, recorder, body, mask):

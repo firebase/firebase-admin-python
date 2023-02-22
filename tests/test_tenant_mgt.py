@@ -386,7 +386,7 @@ class TestCreateTenant:
 
     @pytest.mark.parametrize('totp_provider_config', [True, False, 1, 0, list(), tuple()])
     def test_invalid_totp_provider_config_type(self, tenant_mgt_app, totp_provider_config):
-        mfa_config = {'state': 'DISABLED','providerConfigs': \
+        mfa_config = {'state': 'DISABLED', 'providerConfigs': \
             [{'state': 'ENABLED', 'totpProviderConfig': totp_provider_config}]}
         with pytest.raises(ValueError) as excinfo:
             tenant_mgt.create_tenant(

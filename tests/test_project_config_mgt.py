@@ -168,7 +168,7 @@ class TestUpdateProjectConfig:
         assert str(excinfo.value).startswith(
             'multiFactorConfig.providerConfigs must be a valid list of ProviderConfigs')
 
-    @pytest.mark.parametrize('provider_configs',[[True], [1, 2],\
+    @pytest.mark.parametrize('provider_configs', [[True], [1, 2],\
         [{'state': 'DISABLED', 'totpProviderConfig': {}}, "foo"]])
     def test_invalid_mfa_config_provider_config(self, project_config_mgt_app, provider_configs):
         mfa_config = {'state': 'DISABLED', 'providerConfigs': provider_configs}

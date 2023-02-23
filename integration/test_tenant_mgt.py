@@ -56,16 +56,16 @@ GET_TENANT_RESPONSE = """{
 def sample_tenant():
     # Define the data for the mfa_config argument
     mfa_config_data = {
-      "state": "ENABLED",
-      "factorIds": ["PHONE_SMS"],
-      "providerConfigs": [
-        {
-          "state": "ENABLED",
-          "totpProviderConfig": {
-            "adjacentIntervals": 5
-          }
-        }
-      ]
+        "state": "ENABLED",
+        "factorIds": ["PHONE_SMS"],
+        "providerConfigs": [
+            {
+                "state": "ENABLED",
+                "totpProviderConfig": {
+                    "adjacentIntervals": 5
+                }
+            }
+        ]
     }
     tenant = tenant_mgt.create_tenant(
         display_name='admin-python-tenant',

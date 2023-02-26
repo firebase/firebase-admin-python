@@ -24,7 +24,6 @@ from firebase_admin.__about__ import __version__
 
 _apps = {}
 _apps_lock = threading.RLock()
-_clock = datetime.datetime.utcnow
 
 _DEFAULT_APP_NAME = '[DEFAULT]'
 _FIREBASE_CONFIG_ENV_VAR = 'FIREBASE_CONFIG'

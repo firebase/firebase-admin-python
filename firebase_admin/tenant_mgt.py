@@ -25,10 +25,10 @@ import requests
 
 import firebase_admin
 from firebase_admin import auth
+from firebase_admin import multi_factor_config_mgt
 from firebase_admin import _auth_utils
 from firebase_admin import _http_client
 from firebase_admin import _utils
-from firebase_admin.multi_factor_config_mgt import MultiFactorConfig, MultiFactorServerConfig
 
 
 _TENANT_MGT_ATTRIBUTE = '_tenant_mgt'
@@ -93,7 +93,7 @@ def get_tenant(tenant_id, app=None):
 
 def create_tenant(
         display_name, allow_password_sign_up=None, enable_email_link_sign_in=None,
-        multi_factor_config: MultiFactorConfig = None, app=None):
+        multi_factor_config: multi_factor_config_mgt.MultiFactorConfig = None, app=None):
     """Creates a new tenant from the given options.
 
     Args:
@@ -122,7 +122,7 @@ def create_tenant(
 
 def update_tenant(
         tenant_id, display_name=None, allow_password_sign_up=None, enable_email_link_sign_in=None,
-        multi_factor_config: MultiFactorConfig = None, app=None):
+        multi_factor_config: multi_factor_config_mgt.MultiFactorConfig = None, app=None):
     """Updates an existing tenant with the given options.
 
     Args:
@@ -238,7 +238,7 @@ class Tenant:
     def multi_factor_config(self):
         data = self._data.get('mfaConfig', None)
         if data is not None:
-            return MultiFactorServerConfig(data)
+            return multi_factor_config_mgt.MultiFactorServerConfig(data)
         return None
 
 
@@ -286,7 +286,7 @@ class _TenantManagementService:
 
     def create_tenant(
             self, display_name, allow_password_sign_up=None, enable_email_link_sign_in=None,
-            multi_factor_config: MultiFactorConfig = None):
+            multi_factor_config: multi_factor_config_mgt.MultiFactorConfig = None):
         """Creates a new tenant from the given parameters."""
 
         payload = {'displayName': _validate_display_name(display_name)}
@@ -297,7 +297,7 @@ class _TenantManagementService:
             payload['enableEmailLinkSignin'] = _auth_utils.validate_boolean(
                 enable_email_link_sign_in, 'enableEmailLinkSignin')
         if multi_factor_config is not None:
-            if not isinstance(multi_factor_config, MultiFactorConfig):
+            if not isinstance(multi_factor_config, multi_factor_config_mgt.MultiFactorConfig):
                 raise ValueError(
                     'multi_factor_config must be of type MultiFactorConfig.')
             payload['mfaConfig'] = multi_factor_config.build_server_request()
@@ -311,7 +311,7 @@ class _TenantManagementService:
     def update_tenant(
             self, tenant_id, display_name=None, allow_password_sign_up=None,
             enable_email_link_sign_in=None,
-            multi_factor_config: MultiFactorConfig = None):
+            multi_factor_config: multi_factor_config_mgt.MultiFactorConfig = None):
         """Updates the specified tenant with the given parameters."""
         if not isinstance(tenant_id, str) or not tenant_id:
             raise ValueError('Tenant ID must be a non-empty string.')
@@ -326,9 +326,8 @@ class _TenantManagementService:
             payload['enableEmailLinkSignin'] = _auth_utils.validate_boolean(
                 enable_email_link_sign_in, 'enableEmailLinkSignin')
         if multi_factor_config is not None:
-            if not isinstance(multi_factor_config, MultiFactorConfig):
-                raise ValueError(
-                    'multi_factor_config must be of type MultiFactorConfig.')
+            if not isinstance(multi_factor_config, multi_factor_config_mgt.MultiFactorConfig):
+                raise ValueError('multi_factor_config must be of type MultiFactorConfig.')
             payload['mfaConfig'] = multi_factor_config.build_server_request()
 
         if not payload:

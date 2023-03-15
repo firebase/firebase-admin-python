@@ -17,6 +17,7 @@ This module contains functions for managing various multifactor configurations a
 the project and tenant level.
 """
 from enum import Enum
+from typing import List
 
 __all__ = [
     'validate_keys',
@@ -186,8 +187,8 @@ class MultiFactorConfig:
     """
 
     def __init__(self,
-                 provider_configs: list[ProviderConfig] = None):
-        self.provider_configs: list[ProviderConfig] = provider_configs
+                 provider_configs: List[ProviderConfig] = None):
+        self.provider_configs: List[ProviderConfig] = provider_configs
 
     def to_dict(self) -> dict:
         data = {}

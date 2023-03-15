@@ -23,10 +23,10 @@ from firebase_admin import auth
 from firebase_admin import exceptions
 from tests import testutils
 
-ID_TOOLKIT_URL = 'https://identitytoolkit.googleapis.com/v2b'
+ID_TOOLKIT_URL = 'https://identitytoolkit.googleapis.com/v2'
 EMULATOR_HOST_ENV_VAR = 'FIREBASE_AUTH_EMULATOR_HOST'
 AUTH_EMULATOR_HOST = 'localhost:9099'
-EMULATED_ID_TOOLKIT_URL = 'http://{}/identitytoolkit.googleapis.com/v2b'.format(
+EMULATED_ID_TOOLKIT_URL = 'http://{}/identitytoolkit.googleapis.com/v2'.format(
     AUTH_EMULATOR_HOST)
 URL_PROJECT_SUFFIX = '/projects/mock-project-id'
 USER_MGT_URLS = {

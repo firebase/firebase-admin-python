@@ -50,7 +50,7 @@ class Client:
         if emulator_host:
             base_url = 'http://{0}/identitytoolkit.googleapis.com'.format(emulator_host)
             endpoint_urls['v1'] = base_url + '/v1'
-            endpoint_urls['v2beta1'] = base_url + '/v2'
+            endpoint_urls['v2'] = base_url + '/v2'
             credential = _utils.EmulatorAdminCredentials()
             self.emulated = True
         else:

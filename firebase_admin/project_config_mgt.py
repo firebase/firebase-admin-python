@@ -24,6 +24,7 @@ from firebase_admin import _http_client
 from firebase_admin import _utils
 from firebase_admin.multi_factor_config_mgt import MultiFactorConfig
 from firebase_admin.multi_factor_config_mgt import MultiFactorServerConfig
+from firebase_admin import email_privacy_config_mgt 
 
 _PROJECT_CONFIG_MGT_ATTRIBUTE = '_project_config_mgt'
 
@@ -52,7 +53,9 @@ def get_project_config(app=None):
     project_config_mgt_service = _get_project_config_mgt_service(app)
     return project_config_mgt_service.get_project_config()
 
-def update_project_config(multi_factor_config: MultiFactorConfig = None, app=None):
+def update_project_config(multi_factor_config: MultiFactorConfig = None,
+                          email_privacy_config: email_privacy_config_mgt.EmailPrivacyConfig = None,
+                          app=None):
     """Update the Project Config with the given options.
     Args:
         multi_factor_config: Updated Multi Factor Authentication configuration
@@ -65,7 +68,8 @@ def update_project_config(multi_factor_config: MultiFactorConfig = None, app=Non
         FirebaseError: If an error occurs while updating the project.
     """
     project_config_mgt_service = _get_project_config_mgt_service(app)
-    return project_config_mgt_service.update_project_config(multi_factor_config=multi_factor_config)
+    return project_config_mgt_service.update_project_config(multi_factor_config=multi_factor_config, 
+                                                            email_privacy_config=email_privacy_config)
 
 
 def _get_project_config_mgt_service(app):
@@ -87,6 +91,13 @@ class ProjectConfig:
         data = self._data.get('mfa')
         if data:
             return MultiFactorServerConfig(data)
+        return None
+
+    @property
+    def email_privacy_config(self):
+        data = self._data.get('emailPrivacyConfig')
+        if data:
+            return email_privacy_config_mgt.EmailPrivacyServerConfig(data)
         return None
 
 class _ProjectConfigManagementService:
@@ -112,7 +123,9 @@ class _ProjectConfigManagementService:
         else:
             return ProjectConfig(body)
 
-    def update_project_config(self, multi_factor_config: MultiFactorConfig = None) -> ProjectConfig:
+    def update_project_config(self, multi_factor_config: MultiFactorConfig = None,
+                              email_privacy_config: 
+                              email_privacy_config_mgt.EmailPrivacyConfig = None) -> ProjectConfig:
         """Updates the specified project with the given parameters."""
 
         payload = {}
@@ -120,6 +133,12 @@ class _ProjectConfigManagementService:
             if not isinstance(multi_factor_config, MultiFactorConfig):
                 raise ValueError('multi_factor_config must be of type MultiFactorConfig.')
             payload['mfa'] = multi_factor_config.build_server_request()
+
+        if email_privacy_config is not None:
+            if not isinstance(email_privacy_config, email_privacy_config_mgt.EmailPrivacyConfig):
+                raise ValueError('email_privacy_config must be of type EmailPrivacyConfig.')
+            payload['emailPrivacyConfig'] = email_privacy_config.build_server_request()
+
         if not payload:
             raise ValueError(
                 'At least one parameter must be specified for update.')

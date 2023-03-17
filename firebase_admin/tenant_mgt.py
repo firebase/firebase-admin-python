@@ -246,7 +246,7 @@ class Tenant:
         if data is not None:
             return multi_factor_config_mgt.MultiFactorServerConfig(data)
         return None
-    
+
     @property
     def email_privacy_config(self):
         data = self._data.get('emailPrivacyConfig')

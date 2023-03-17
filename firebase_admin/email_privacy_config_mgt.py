@@ -46,7 +46,7 @@ class EmailPrivacyServerConfig:
     @property
     def enable_improved_email_privacy(self):
         return self._data.get('enableImprovedEmailPrivacy', False)
-    
+
 class EmailPrivacyConfig:
     """Represents a email privacy configuration for tenant or project
     """

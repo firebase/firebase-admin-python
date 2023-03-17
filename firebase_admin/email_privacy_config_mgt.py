@@ -16,8 +16,6 @@
 This module contains functions for managing various multifactor configurations at
 the project and tenant level.
 """
-from enum import Enum
-from typing import List
 
 __all__ = [
     'validate_keys',
@@ -49,7 +47,6 @@ class EmailPrivacyServerConfig:
     def enable_improved_email_privacy(self):
         return self._data.get('enableImprovedEmailPrivacy', False)
     
-
 class EmailPrivacyConfig:
     """Represents a email privacy configuration for tenant or project
     """

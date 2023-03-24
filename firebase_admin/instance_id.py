@@ -86,7 +86,7 @@ class _InstanceIdService:
             self._client.request('delete', path)
         except requests.exceptions.RequestException as error:
             msg = self._extract_message(instance_id, error)
-            raise _utils.handle_requests_error(error, msg)
+            raise _utils.handle_requests_error(error, msg) from error
 
     def _extract_message(self, instance_id, error):
         if error.response is None:

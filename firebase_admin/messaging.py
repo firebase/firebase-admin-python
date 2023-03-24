@@ -352,7 +352,7 @@ class _MessagingService:
                 json=data
             )
         except requests.exceptions.RequestException as error:
-            raise self._handle_fcm_error(error)
+            raise self._handle_fcm_error(error) from error
         else:
             return resp['name']
 
@@ -390,7 +390,7 @@ class _MessagingService:
         try:
             batch.execute()
         except Exception as error:
-            raise self._handle_batch_error(error)
+            raise self._handle_batch_error(error) from error
         else:
             return BatchResponse(responses)
 
@@ -421,7 +421,7 @@ class _MessagingService:
                 headers=_MessagingService.IID_HEADERS
             )
         except requests.exceptions.RequestException as error:
-            raise self._handle_iid_error(error)
+            raise self._handle_iid_error(error) from error
         else:
             return TopicManagementResponse(resp)
 

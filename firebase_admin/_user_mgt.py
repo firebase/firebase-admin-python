@@ -841,7 +841,7 @@ class UserManager:
         try:
             return self.http_client.body_and_response(method, url, **kwargs)
         except requests.exceptions.RequestException as error:
-            raise _auth_utils.handle_auth_backend_error(error)
+            raise _auth_utils.handle_auth_backend_error(error) from error
 
 
 class _UserIterator(_auth_utils.PageIterator):

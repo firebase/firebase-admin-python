@@ -101,8 +101,10 @@ SAML_PROVIDER_CONFIG_REQUEST = body = {
     }
 }
 
-LIST_OIDC_PROVIDER_CONFIGS_RESPONSE = testutils.resource('list_oidc_provider_configs.json')
-LIST_SAML_PROVIDER_CONFIGS_RESPONSE = testutils.resource('list_saml_provider_configs.json')
+LIST_OIDC_PROVIDER_CONFIGS_RESPONSE = testutils.resource(
+    'list_oidc_provider_configs.json')
+LIST_SAML_PROVIDER_CONFIGS_RESPONSE = testutils.resource(
+    'list_saml_provider_configs.json')
 
 INVALID_TENANT_IDS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
 INVALID_BOOLEANS = ['', 1, 0, list(), tuple(), dict()]
@@ -187,7 +189,8 @@ class TestGetTenant:
         assert str(excinfo.value).startswith('Invalid tenant ID')
 
     def test_get_tenant(self, tenant_mgt_app):
-        _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
+        _, recorder = _instrument_tenant_mgt(
+            tenant_mgt_app, 200, GET_TENANT_RESPONSE)
         tenant = tenant_mgt.get_tenant('tenant-id', app=tenant_mgt_app)
 
         _assert_tenant(tenant)
@@ -213,13 +216,15 @@ class TestCreateTenant:
     @pytest.mark.parametrize('display_name', [True, False, 1, 0, list(), tuple(), dict()])
     def test_invalid_display_name_type(self, display_name, tenant_mgt_app):
         with pytest.raises(ValueError) as excinfo:
-            tenant_mgt.create_tenant(display_name=display_name, app=tenant_mgt_app)
+            tenant_mgt.create_tenant(
+                display_name=display_name, app=tenant_mgt_app)
         assert str(excinfo.value).startswith('Invalid type for displayName')
 
     @pytest.mark.parametrize('display_name', ['', 'foo', '1test', 'foo bar', 'a'*21])
     def test_invalid_display_name_value(self, display_name, tenant_mgt_app):
         with pytest.raises(ValueError) as excinfo:
-            tenant_mgt.create_tenant(display_name=display_name, app=tenant_mgt_app)
+            tenant_mgt.create_tenant(
+                display_name=display_name, app=tenant_mgt_app)
         assert str(excinfo.value).startswith('displayName must start')
 
     @pytest.mark.parametrize('allow', INVALID_BOOLEANS)
@@ -227,17 +232,20 @@ class TestCreateTenant:
         with pytest.raises(ValueError) as excinfo:
             tenant_mgt.create_tenant(
                 display_name='test', allow_password_sign_up=allow, app=tenant_mgt_app)
-        assert str(excinfo.value).startswith('Invalid type for allowPasswordSignup')
+        assert str(excinfo.value).startswith(
+            'Invalid type for allowPasswordSignup')
 
     @pytest.mark.parametrize('enable', INVALID_BOOLEANS)
     def test_invalid_enable_email_link_sign_in(self, enable, tenant_mgt_app):
         with pytest.raises(ValueError) as excinfo:
             tenant_mgt.create_tenant(
                 display_name='test', enable_email_link_sign_in=enable, app=tenant_mgt_app)
-        assert str(excinfo.value).startswith('Invalid type for enableEmailLinkSignin')
+        assert str(excinfo.value).startswith(
+            'Invalid type for enableEmailLinkSignin')
 
     def test_create_tenant(self, tenant_mgt_app):
-        _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
+        _, recorder = _instrument_tenant_mgt(
+            tenant_mgt_app, 200, GET_TENANT_RESPONSE)
         tenant = tenant_mgt.create_tenant(
             display_name='My-Tenant', allow_password_sign_up=True, enable_email_link_sign_in=True,
             app=tenant_mgt_app)
@@ -250,7 +258,8 @@ class TestCreateTenant:
         })
 
     def test_create_tenant_false_values(self, tenant_mgt_app):
-        _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
+        _, recorder = _instrument_tenant_mgt(
+            tenant_mgt_app, 200, GET_TENANT_RESPONSE)
         tenant = tenant_mgt.create_tenant(
             display_name='test', allow_password_sign_up=False, enable_email_link_sign_in=False,
             app=tenant_mgt_app)
@@ -263,8 +272,10 @@ class TestCreateTenant:
         })
 
     def test_create_tenant_minimal(self, tenant_mgt_app):
-        _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
-        tenant = tenant_mgt.create_tenant(display_name='test', app=tenant_mgt_app)
+        _, recorder = _instrument_tenant_mgt(
+            tenant_mgt_app, 200, GET_TENANT_RESPONSE)
+        tenant = tenant_mgt.create_tenant(
+            display_name='test', app=tenant_mgt_app)
 
         _assert_tenant(tenant)
         self._assert_request(recorder, {'displayName': 'test'})
@@ -294,41 +305,50 @@ class TestUpdateTenant:
     @pytest.mark.parametrize('tenant_id', INVALID_TENANT_IDS)
     def test_invalid_tenant_id(self, tenant_id, tenant_mgt_app):
         with pytest.raises(ValueError) as excinfo:
-            tenant_mgt.update_tenant(tenant_id, display_name='My Tenant', app=tenant_mgt_app)
-        assert str(excinfo.value).startswith('Tenant ID must be a non-empty string')
+            tenant_mgt.update_tenant(
+                tenant_id, display_name='My Tenant', app=tenant_mgt_app)
+        assert str(excinfo.value).startswith(
+            'Tenant ID must be a non-empty string')
 
     @pytest.mark.parametrize('display_name', [True, False, 1, 0, list(), tuple(), dict()])
     def test_invalid_display_name_type(self, display_name, tenant_mgt_app):
         with pytest.raises(ValueError) as excinfo:
-            tenant_mgt.update_tenant('tenant-id', display_name=display_name, app=tenant_mgt_app)
+            tenant_mgt.update_tenant(
+                'tenant-id', display_name=display_name, app=tenant_mgt_app)
         assert str(excinfo.value).startswith('Invalid type for displayName')
 
     @pytest.mark.parametrize('display_name', ['', 'foo', '1test', 'foo bar', 'a'*21])
     def test_invalid_display_name_value(self, display_name, tenant_mgt_app):
         with pytest.raises(ValueError) as excinfo:
-            tenant_mgt.update_tenant('tenant-id', display_name=display_name, app=tenant_mgt_app)
+            tenant_mgt.update_tenant(
+                'tenant-id', display_name=display_name, app=tenant_mgt_app)
         assert str(excinfo.value).startswith('displayName must start')
 
     @pytest.mark.parametrize('allow', INVALID_BOOLEANS)
     def test_invalid_allow_password_sign_up(self, allow, tenant_mgt_app):
         with pytest.raises(ValueError) as excinfo:
-            tenant_mgt.update_tenant('tenant-id', allow_password_sign_up=allow, app=tenant_mgt_app)
-        assert str(excinfo.value).startswith('Invalid type for allowPasswordSignup')
+            tenant_mgt.update_tenant(
+                'tenant-id', allow_password_sign_up=allow, app=tenant_mgt_app)
+        assert str(excinfo.value).startswith(
+            'Invalid type for allowPasswordSignup')
 
     @pytest.mark.parametrize('enable', INVALID_BOOLEANS)
     def test_invalid_enable_email_link_sign_in(self, enable, tenant_mgt_app):
         with pytest.raises(ValueError) as excinfo:
             tenant_mgt.update_tenant(
                 'tenant-id', enable_email_link_sign_in=enable, app=tenant_mgt_app)
-        assert str(excinfo.value).startswith('Invalid type for enableEmailLinkSignin')
+        assert str(excinfo.value).startswith(
+            'Invalid type for enableEmailLinkSignin')
 
     def test_update_tenant_no_args(self, tenant_mgt_app):
         with pytest.raises(ValueError) as excinfo:
             tenant_mgt.update_tenant('tenant-id', app=tenant_mgt_app)
-        assert str(excinfo.value).startswith('At least one parameter must be specified for update')
+        assert str(excinfo.value).startswith(
+            'At least one parameter must be specified for update')
 
     def test_update_tenant(self, tenant_mgt_app):
-        _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
+        _, recorder = _instrument_tenant_mgt(
+            tenant_mgt_app, 200, GET_TENANT_RESPONSE)
         tenant = tenant_mgt.update_tenant(
             'tenant-id', display_name='My-Tenant', allow_password_sign_up=True,
             enable_email_link_sign_in=True, app=tenant_mgt_app)
@@ -343,7 +363,8 @@ class TestUpdateTenant:
         self._assert_request(recorder, body, mask)
 
     def test_update_tenant_false_values(self, tenant_mgt_app):
-        _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
+        _, recorder = _instrument_tenant_mgt(
+            tenant_mgt_app, 200, GET_TENANT_RESPONSE)
         tenant = tenant_mgt.update_tenant(
             'tenant-id', allow_password_sign_up=False,
             enable_email_link_sign_in=False, app=tenant_mgt_app)
@@ -357,7 +378,8 @@ class TestUpdateTenant:
         self._assert_request(recorder, body, mask)
 
     def test_update_tenant_minimal(self, tenant_mgt_app):
-        _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
+        _, recorder = _instrument_tenant_mgt(
+            tenant_mgt_app, 200, GET_TENANT_RESPONSE)
         tenant = tenant_mgt.update_tenant(
             'tenant-id', display_name='My-Tenant', app=tenant_mgt_app)
 
@@ -369,7 +391,8 @@ class TestUpdateTenant:
     def test_tenant_not_found_error(self, tenant_mgt_app):
         _instrument_tenant_mgt(tenant_mgt_app, 500, TENANT_NOT_FOUND_RESPONSE)
         with pytest.raises(tenant_mgt.TenantNotFoundError) as excinfo:
-            tenant_mgt.update_tenant('tenant', display_name='My-Tenant', app=tenant_mgt_app)
+            tenant_mgt.update_tenant(
+                'tenant', display_name='My-Tenant', app=tenant_mgt_app)
 
         error_msg = 'No tenant found for the given identifier (TENANT_NOT_FOUND).'
         assert excinfo.value.code == exceptions.NOT_FOUND
@@ -429,7 +452,8 @@ class TestListTenants:
             tenant_mgt.list_tenants(page_token=arg, app=tenant_mgt_app)
 
     def test_list_single_page(self, tenant_mgt_app):
-        _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, LIST_TENANTS_RESPONSE)
+        _, recorder = _instrument_tenant_mgt(
+            tenant_mgt_app, 200, LIST_TENANTS_RESPONSE)
         page = tenant_mgt.list_tenants(app=tenant_mgt_app)
         self._assert_tenants_page(page)
         assert page.next_page_token == ''
@@ -441,7 +465,8 @@ class TestListTenants:
 
     def test_list_multiple_pages(self, tenant_mgt_app):
         # Page 1
-        _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, LIST_TENANTS_RESPONSE_WITH_TOKEN)
+        _, recorder = _instrument_tenant_mgt(
+            tenant_mgt_app, 200, LIST_TENANTS_RESPONSE_WITH_TOKEN)
         page = tenant_mgt.list_tenants(app=tenant_mgt_app)
         assert len(page.tenants) == 3
         assert page.next_page_token == 'token'
@@ -449,18 +474,22 @@ class TestListTenants:
         self._assert_request(recorder)
 
         # Page 2 (also the last page)
-        response = {'tenants': [{'name': 'projects/mock-project-id/tenants/tenant3'}]}
-        _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, json.dumps(response))
+        response = {'tenants': [
+            {'name': 'projects/mock-project-id/tenants/tenant3'}]}
+        _, recorder = _instrument_tenant_mgt(
+            tenant_mgt_app, 200, json.dumps(response))
         page = page.get_next_page()
         assert len(page.tenants) == 1
         assert page.next_page_token == ''
         assert page.has_next_page is False
         assert page.get_next_page() is None
-        self._assert_request(recorder, {'pageSize': '100', 'pageToken': 'token'})
+        self._assert_request(
+            recorder, {'pageSize': '100', 'pageToken': 'token'})
 
     def test_list_tenants_paged_iteration(self, tenant_mgt_app):
         # Page 1
-        _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, LIST_TENANTS_RESPONSE_WITH_TOKEN)
+        _, recorder = _instrument_tenant_mgt(
+            tenant_mgt_app, 200, LIST_TENANTS_RESPONSE_WITH_TOKEN)
         page = tenant_mgt.list_tenants(app=tenant_mgt_app)
         iterator = page.iterate_all()
         for index in range(3):
@@ -469,17 +498,21 @@ class TestListTenants:
         self._assert_request(recorder)
 
         # Page 2 (also the last page)
-        response = {'tenants': [{'name': 'projects/mock-project-id/tenants/tenant3'}]}
-        _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, json.dumps(response))
+        response = {'tenants': [
+            {'name': 'projects/mock-project-id/tenants/tenant3'}]}
+        _, recorder = _instrument_tenant_mgt(
+            tenant_mgt_app, 200, json.dumps(response))
         tenant = next(iterator)
         assert tenant.tenant_id == 'tenant3'
 
         with pytest.raises(StopIteration):
             next(iterator)
-        self._assert_request(recorder, {'pageSize': '100', 'pageToken': 'token'})
+        self._assert_request(
+            recorder, {'pageSize': '100', 'pageToken': 'token'})
 
     def test_list_tenants_iterator_state(self, tenant_mgt_app):
-        _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, LIST_TENANTS_RESPONSE)
+        _, recorder = _instrument_tenant_mgt(
+            tenant_mgt_app, 200, LIST_TENANTS_RESPONSE)
         page = tenant_mgt.list_tenants(app=tenant_mgt_app)
 
         # Advance iterator.
@@ -496,7 +529,8 @@ class TestListTenants:
         self._assert_request(recorder)
 
     def test_list_tenants_stop_iteration(self, tenant_mgt_app):
-        _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, LIST_TENANTS_RESPONSE)
+        _, recorder = _instrument_tenant_mgt(
+            tenant_mgt_app, 200, LIST_TENANTS_RESPONSE)
         page = tenant_mgt.list_tenants(app=tenant_mgt_app)
         iterator = page.iterate_all()
         tenants = [tenant for tenant in iterator]
@@ -515,22 +549,26 @@ class TestListTenants:
         assert len(tenants) == 0
 
     def test_list_tenants_with_max_results(self, tenant_mgt_app):
-        _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, LIST_TENANTS_RESPONSE)
+        _, recorder = _instrument_tenant_mgt(
+            tenant_mgt_app, 200, LIST_TENANTS_RESPONSE)
         page = tenant_mgt.list_tenants(max_results=50, app=tenant_mgt_app)
         self._assert_tenants_page(page)
-        self._assert_request(recorder, {'pageSize' : '50'})
+        self._assert_request(recorder, {'pageSize': '50'})
 
     def test_list_tenants_with_all_args(self, tenant_mgt_app):
-        _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, LIST_TENANTS_RESPONSE)
-        page = tenant_mgt.list_tenants(page_token='foo', max_results=50, app=tenant_mgt_app)
+        _, recorder = _instrument_tenant_mgt(
+            tenant_mgt_app, 200, LIST_TENANTS_RESPONSE)
+        page = tenant_mgt.list_tenants(
+            page_token='foo', max_results=50, app=tenant_mgt_app)
         self._assert_tenants_page(page)
-        self._assert_request(recorder, {'pageToken' : 'foo', 'pageSize' : '50'})
+        self._assert_request(recorder, {'pageToken': 'foo', 'pageSize': '50'})
 
     def test_list_tenants_error(self, tenant_mgt_app):
         _instrument_tenant_mgt(tenant_mgt_app, 500, '{"error":"test"}')
         with pytest.raises(exceptions.InternalError) as excinfo:
             tenant_mgt.list_tenants(app=tenant_mgt_app)
-        assert str(excinfo.value) == 'Unexpected error response: {"error":"test"}'
+        assert str(
+            excinfo.value) == 'Unexpected error response: {"error":"test"}'
 
     def _assert_tenants_page(self, page):
         assert isinstance(page, tenant_mgt.ListTenantsPage)
@@ -540,7 +578,7 @@ class TestListTenants:
 
     def _assert_request(self, recorder, expected=None):
         if expected is None:
-            expected = {'pageSize' : '100'}
+            expected = {'pageSize': '100'}
 
         assert len(recorder) == 1
         req = recorder[0]
@@ -579,7 +617,8 @@ class TestTenantAwareUserManagement:
         assert isinstance(user, auth.UserRecord)
         assert user.uid == 'testuser'
         assert user.email == 'testuser@example.com'
-        self._assert_request(recorder, '/accounts:lookup', {'localId': ['testuser']})
+        self._assert_request(recorder, '/accounts:lookup',
+                             {'localId': ['testuser']})
 
     def test_get_user_by_email(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
@@ -590,7 +629,8 @@ class TestTenantAwareUserManagement:
         assert isinstance(user, auth.UserRecord)
         assert user.uid == 'testuser'
         assert user.email == 'testuser@example.com'
-        self._assert_request(recorder, '/accounts:lookup', {'email': ['testuser@example.com']})
+        self._assert_request(recorder, '/accounts:lookup',
+                             {'email': ['testuser@example.com']})
 
     def test_get_user_by_phone_number(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
@@ -601,7 +641,8 @@ class TestTenantAwareUserManagement:
         assert isinstance(user, auth.UserRecord)
         assert user.uid == 'testuser'
         assert user.email == 'testuser@example.com'
-        self._assert_request(recorder, '/accounts:lookup', {'phoneNumber': ['+1234567890']})
+        self._assert_request(recorder, '/accounts:lookup',
+                             {'phoneNumber': ['+1234567890']})
 
     def test_create_user(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
@@ -616,7 +657,8 @@ class TestTenantAwareUserManagement:
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
         recorder = _instrument_user_mgt(client, 200, '{"localId":"testuser"}')
 
-        uid = client._user_manager.update_user('testuser', email='testuser@example.com')
+        uid = client._user_manager.update_user(
+            'testuser', email='testuser@example.com')
 
         assert uid == 'testuser'
         self._assert_request(recorder, '/accounts:update', {
@@ -626,11 +668,13 @@ class TestTenantAwareUserManagement:
 
     def test_delete_user(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
-        recorder = _instrument_user_mgt(client, 200, '{"kind":"deleteresponse"}')
+        recorder = _instrument_user_mgt(
+            client, 200, '{"kind":"deleteresponse"}')
 
         client.delete_user('testuser')
 
-        self._assert_request(recorder, '/accounts:delete', {'localId': 'testuser'})
+        self._assert_request(recorder, '/accounts:delete',
+                             {'localId': 'testuser'})
 
     def test_set_custom_user_claims(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
@@ -698,7 +742,8 @@ class TestTenantAwareUserManagement:
 
     def test_generate_password_reset_link(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
-        recorder = _instrument_user_mgt(client, 200, '{"oobLink":"https://testlink"}')
+        recorder = _instrument_user_mgt(
+            client, 200, '{"oobLink":"https://testlink"}')
 
         link = client.generate_password_reset_link('test@test.com')
 
@@ -711,7 +756,8 @@ class TestTenantAwareUserManagement:
 
     def test_generate_email_verification_link(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
-        recorder = _instrument_user_mgt(client, 200, '{"oobLink":"https://testlink"}')
+        recorder = _instrument_user_mgt(
+            client, 200, '{"oobLink":"https://testlink"}')
 
         link = client.generate_email_verification_link('test@test.com')
 
@@ -724,10 +770,12 @@ class TestTenantAwareUserManagement:
 
     def test_generate_sign_in_with_email_link(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
-        recorder = _instrument_user_mgt(client, 200, '{"oobLink":"https://testlink"}')
+        recorder = _instrument_user_mgt(
+            client, 200, '{"oobLink":"https://testlink"}')
         settings = auth.ActionCodeSettings(url='http://localhost')
 
-        link = client.generate_sign_in_with_email_link('test@test.com', settings)
+        link = client.generate_sign_in_with_email_link(
+            'test@test.com', settings)
 
         assert link == 'https://testlink'
         self._assert_request(recorder, '/accounts:sendOobCode', {
@@ -739,7 +787,8 @@ class TestTenantAwareUserManagement:
 
     def test_get_oidc_provider_config(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
-        recorder = _instrument_provider_mgt(client, 200, OIDC_PROVIDER_CONFIG_RESPONSE)
+        recorder = _instrument_provider_mgt(
+            client, 200, OIDC_PROVIDER_CONFIG_RESPONSE)
 
         provider_config = client.get_oidc_provider_config('oidc.provider')
 
@@ -752,7 +801,8 @@ class TestTenantAwareUserManagement:
 
     def test_create_oidc_provider_config(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
-        recorder = _instrument_provider_mgt(client, 200, OIDC_PROVIDER_CONFIG_RESPONSE)
+        recorder = _instrument_provider_mgt(
+            client, 200, OIDC_PROVIDER_CONFIG_RESPONSE)
 
         provider_config = client.create_oidc_provider_config(
             'oidc.provider', client_id='CLIENT_ID', issuer='https://oidc.com/issuer',
@@ -765,7 +815,8 @@ class TestTenantAwareUserManagement:
 
     def test_update_oidc_provider_config(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
-        recorder = _instrument_provider_mgt(client, 200, OIDC_PROVIDER_CONFIG_RESPONSE)
+        recorder = _instrument_provider_mgt(
+            client, 200, OIDC_PROVIDER_CONFIG_RESPONSE)
 
         provider_config = client.update_oidc_provider_config(
             'oidc.provider', client_id='CLIENT_ID', issuer='https://oidc.com/issuer',
@@ -773,7 +824,8 @@ class TestTenantAwareUserManagement:
 
         self._assert_oidc_provider_config(provider_config)
         mask = ['clientId', 'displayName', 'enabled', 'issuer']
-        url = '/oauthIdpConfigs/oidc.provider?updateMask={0}'.format(','.join(mask))
+        url = '/oauthIdpConfigs/oidc.provider?updateMask={0}'.format(
+            ','.join(mask))
         self._assert_request(
             recorder, url, OIDC_PROVIDER_CONFIG_REQUEST, method='PATCH',
             prefix=PROVIDER_MGT_URL_PREFIX)
@@ -792,7 +844,8 @@ class TestTenantAwareUserManagement:
 
     def test_list_oidc_provider_configs(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
-        recorder = _instrument_provider_mgt(client, 200, LIST_OIDC_PROVIDER_CONFIGS_RESPONSE)
+        recorder = _instrument_provider_mgt(
+            client, 200, LIST_OIDC_PROVIDER_CONFIGS_RESPONSE)
 
         page = client.list_oidc_provider_configs()
 
@@ -818,7 +871,8 @@ class TestTenantAwareUserManagement:
 
     def test_get_saml_provider_config(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
-        recorder = _instrument_provider_mgt(client, 200, SAML_PROVIDER_CONFIG_RESPONSE)
+        recorder = _instrument_provider_mgt(
+            client, 200, SAML_PROVIDER_CONFIG_RESPONSE)
 
         provider_config = client.get_saml_provider_config('saml.provider')
 
@@ -831,7 +885,8 @@ class TestTenantAwareUserManagement:
 
     def test_create_saml_provider_config(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
-        recorder = _instrument_provider_mgt(client, 200, SAML_PROVIDER_CONFIG_RESPONSE)
+        recorder = _instrument_provider_mgt(
+            client, 200, SAML_PROVIDER_CONFIG_RESPONSE)
 
         provider_config = client.create_saml_provider_config(
             'saml.provider', idp_entity_id='IDP_ENTITY_ID', sso_url='https://example.com/login',
@@ -846,7 +901,8 @@ class TestTenantAwareUserManagement:
 
     def test_update_saml_provider_config(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
-        recorder = _instrument_provider_mgt(client, 200, SAML_PROVIDER_CONFIG_RESPONSE)
+        recorder = _instrument_provider_mgt(
+            client, 200, SAML_PROVIDER_CONFIG_RESPONSE)
 
         provider_config = client.update_saml_provider_config(
             'saml.provider', idp_entity_id='IDP_ENTITY_ID', sso_url='https://example.com/login',
@@ -859,7 +915,8 @@ class TestTenantAwareUserManagement:
             'displayName', 'enabled', 'idpConfig.idpCertificates', 'idpConfig.idpEntityId',
             'idpConfig.ssoUrl', 'spConfig.callbackUri', 'spConfig.spEntityId',
         ]
-        url = '/inboundSamlConfigs/saml.provider?updateMask={0}'.format(','.join(mask))
+        url = '/inboundSamlConfigs/saml.provider?updateMask={0}'.format(
+            ','.join(mask))
         self._assert_request(
             recorder, url, SAML_PROVIDER_CONFIG_REQUEST, method='PATCH',
             prefix=PROVIDER_MGT_URL_PREFIX)
@@ -878,7 +935,8 @@ class TestTenantAwareUserManagement:
 
     def test_list_saml_provider_configs(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
-        recorder = _instrument_provider_mgt(client, 200, LIST_SAML_PROVIDER_CONFIGS_RESPONSE)
+        recorder = _instrument_provider_mgt(
+            client, 200, LIST_SAML_PROVIDER_CONFIGS_RESPONSE)
 
         page = client.list_saml_provider_configs()
 
@@ -949,7 +1007,8 @@ class TestVerifyIdToken:
         client = tenant_mgt.auth_for_tenant('test-tenant', app=tenant_mgt_app)
         client._token_verifier.request = test_token_gen.MOCK_REQUEST
 
-        claims = client.verify_id_token(test_token_gen.TEST_ID_TOKEN_WITH_TENANT)
+        claims = client.verify_id_token(
+            test_token_gen.TEST_ID_TOKEN_WITH_TENANT)
 
         assert claims['admin'] is True
         assert claims['uid'] == claims['sub']
@@ -970,7 +1029,8 @@ class TestVerifyIdToken:
 
 @pytest.fixture(scope='module')
 def tenant_aware_custom_token_app():
-    cred = credentials.Certificate(testutils.resource_filename('service_account.json'))
+    cred = credentials.Certificate(
+        testutils.resource_filename('service_account.json'))
     app = firebase_admin.initialize_app(cred, name='tenantAwareCustomToken')
     yield app
     firebase_admin.delete_app(app)
@@ -979,7 +1039,8 @@ def tenant_aware_custom_token_app():
 class TestCreateCustomToken:
 
     def test_custom_token(self, tenant_aware_custom_token_app):
-        client = tenant_mgt.auth_for_tenant('test-tenant', app=tenant_aware_custom_token_app)
+        client = tenant_mgt.auth_for_tenant(
+            'test-tenant', app=tenant_aware_custom_token_app)
 
         custom_token = client.create_custom_token('user1')
 
@@ -987,7 +1048,8 @@ class TestCreateCustomToken:
             custom_token, expected_claims=None, tenant_id='test-tenant')
 
     def test_custom_token_with_claims(self, tenant_aware_custom_token_app):
-        client = tenant_mgt.auth_for_tenant('test-tenant', app=tenant_aware_custom_token_app)
+        client = tenant_mgt.auth_for_tenant(
+            'test-tenant', app=tenant_aware_custom_token_app)
         claims = {'admin': True}
 
         custom_token = client.create_custom_token('user1', claims)

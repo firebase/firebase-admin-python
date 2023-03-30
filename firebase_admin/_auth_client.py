@@ -39,7 +39,8 @@ class Client:
 
         credential = None
         version_header = 'Python/Admin/{0}'.format(firebase_admin.__version__)
-        timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
+        timeout = app.options.get(
+            'httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
         # Non-default endpoint URLs for emulator support are set in this dict later.
         endpoint_urls = {}
         self.emulated = False
@@ -48,7 +49,8 @@ class Client:
         # endpoint URLs to use the emulator. Additionally, use a fake credential.
         emulator_host = _auth_utils.get_emulator_host()
         if emulator_host:
-            base_url = 'http://{0}/identitytoolkit.googleapis.com'.format(emulator_host)
+            base_url = 'http://{0}/identitytoolkit.googleapis.com'.format(
+                emulator_host)
             endpoint_urls['v1'] = base_url + '/v1'
             endpoint_urls['v2'] = base_url + '/v2'
             credential = _utils.EmulatorAdminCredentials()
@@ -284,7 +286,7 @@ class Client:
             return self._user_manager.list_users(page_token, max_results)
         return _user_mgt.ListUsersPage(download, page_token, max_results)
 
-    def create_user(self, **kwargs): # pylint: disable=differing-param-doc
+    def create_user(self, **kwargs):  # pylint: disable=differing-param-doc
         """Creates a new user account with the specified properties.
 
         Args:
@@ -311,7 +313,7 @@ class Client:
         uid = self._user_manager.create_user(**kwargs)
         return self.get_user(uid=uid)
 
-    def update_user(self, uid, **kwargs): # pylint: disable=differing-param-doc
+    def update_user(self, uid, **kwargs):  # pylint: disable=differing-param-doc
         """Updates an existing user account with the specified properties.
 
         Args:

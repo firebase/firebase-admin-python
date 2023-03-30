@@ -232,7 +232,7 @@ class Tenant:
 class _TenantManagementService:
     """Firebase tenant management service."""
 
-    TENANT_MGT_URL = 'https://identitytoolkit.googleapis.com/v2beta1'
+    TENANT_MGT_URL = 'https://identitytoolkit.googleapis.com/v2'
 
     def __init__(self, app):
         credential = app.credential.get_credential()

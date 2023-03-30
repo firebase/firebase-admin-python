@@ -176,7 +176,7 @@ class _ProviderConfigIterator(_auth_utils.PageIterator):
 class ProviderConfigClient:
     """Client for managing Auth provider configurations."""
 
-    PROVIDER_CONFIG_URL = 'https://identitytoolkit.googleapis.com/v2beta1'
+    PROVIDER_CONFIG_URL = 'https://identitytoolkit.googleapis.com/v2'
 
     def __init__(self, http_client, project_id, tenant_id=None, url_override=None):
         self.http_client = http_client

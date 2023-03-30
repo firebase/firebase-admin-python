@@ -187,8 +187,7 @@ class ProviderConfigClient:
 
     def get_oidc_provider_config(self, provider_id):
         _validate_oidc_provider_id(provider_id)
-        body = self._make_request(
-            'get', '/oauthIdpConfigs/{0}'.format(provider_id))
+        body = self._make_request('get', '/oauthIdpConfigs/{0}'.format(provider_id))
         return OIDCProviderConfig(body)
 
     def create_oidc_provider_config(
@@ -201,8 +200,7 @@ class ProviderConfigClient:
             'issuer': _validate_url(issuer, 'issuer'),
         }
         if display_name is not None:
-            req['displayName'] = _auth_utils.validate_string(
-                display_name, 'display_name')
+            req['displayName'] = _auth_utils.validate_string(display_name, 'display_name')
         if enabled is not None:
             req['enabled'] = _auth_utils.validate_boolean(enabled, 'enabled')
 
@@ -216,14 +214,12 @@ class ProviderConfigClient:
             response_type['code'] = _auth_utils.validate_boolean(
                 code_response_type, 'code_response_type')
             if code_response_type:
-                req['clientSecret'] = _validate_non_empty_string(
-                    client_secret, 'client_secret')
+                req['clientSecret'] = _validate_non_empty_string(client_secret, 'client_secret')
         if response_type:
             req['responseType'] = response_type
 
         params = 'oauthIdpConfigId={0}'.format(provider_id)
-        body = self._make_request(
-            'post', '/oauthIdpConfigs', json=req, params=params)
+        body = self._make_request('post', '/oauthIdpConfigs', json=req, params=params)
         return OIDCProviderConfig(body)
 
     def update_oidc_provider_config(
@@ -237,13 +233,11 @@ class ProviderConfigClient:
             if display_name == _user_mgt.DELETE_ATTRIBUTE:
                 req['displayName'] = None
             else:
-                req['displayName'] = _auth_utils.validate_string(
-                    display_name, 'display_name')
+                req['displayName'] = _auth_utils.validate_string(display_name, 'display_name')
         if enabled is not None:
             req['enabled'] = _auth_utils.validate_boolean(enabled, 'enabled')
         if client_id:
-            req['clientId'] = _validate_non_empty_string(
-                client_id, 'client_id')
+            req['clientId'] = _validate_non_empty_string(client_id, 'client_id')
         if issuer:
             req['issuer'] = _validate_url(issuer, 'issuer')
 
@@ -257,14 +251,12 @@ class ProviderConfigClient:
             response_type['code'] = _auth_utils.validate_boolean(
                 code_response_type, 'code_response_type')
             if code_response_type:
-                req['clientSecret'] = _validate_non_empty_string(
-                    client_secret, 'client_secret')
+                req['clientSecret'] = _validate_non_empty_string(client_secret, 'client_secret')
         if response_type:
             req['responseType'] = response_type
 
         if not req:
-            raise ValueError(
-                'At least one parameter must be specified for update.')
+            raise ValueError('At least one parameter must be specified for update.')
 
         update_mask = _auth_utils.build_update_mask(req)
         params = 'updateMask={0}'.format(','.join(update_mask))
@@ -274,8 +266,7 @@ class ProviderConfigClient:
 
     def delete_oidc_provider_config(self, provider_id):
         _validate_oidc_provider_id(provider_id)
-        self._make_request(
-            'delete', '/oauthIdpConfigs/{0}'.format(provider_id))
+        self._make_request('delete', '/oauthIdpConfigs/{0}'.format(provider_id))
 
     def list_oidc_provider_configs(self, page_token=None, max_results=MAX_LIST_CONFIGS_RESULTS):
         return _ListOIDCProviderConfigsPage(
@@ -286,8 +277,7 @@ class ProviderConfigClient:
 
     def get_saml_provider_config(self, provider_id):
         _validate_saml_provider_id(provider_id)
-        body = self._make_request(
-            'get', '/inboundSamlConfigs/{0}'.format(provider_id))
+        body = self._make_request('get', '/inboundSamlConfigs/{0}'.format(provider_id))
         return SAMLProviderConfig(body)
 
     def create_saml_provider_config(
@@ -307,14 +297,12 @@ class ProviderConfigClient:
             },
         }
         if display_name is not None:
-            req['displayName'] = _auth_utils.validate_string(
-                display_name, 'display_name')
+            req['displayName'] = _auth_utils.validate_string(display_name, 'display_name')
         if enabled is not None:
             req['enabled'] = _auth_utils.validate_boolean(enabled, 'enabled')
 
         params = 'inboundSamlConfigId={0}'.format(provider_id)
-        body = self._make_request(
-            'post', '/inboundSamlConfigs', json=req, params=params)
+        body = self._make_request('post', '/inboundSamlConfigs', json=req, params=params)
         return SAMLProviderConfig(body)
 
     def update_saml_provider_config(
@@ -324,29 +312,24 @@ class ProviderConfigClient:
         _validate_saml_provider_id(provider_id)
         idp_config = {}
         if idp_entity_id is not None:
-            idp_config['idpEntityId'] = _validate_non_empty_string(
-                idp_entity_id, 'idp_entity_id')
+            idp_config['idpEntityId'] = _validate_non_empty_string(idp_entity_id, 'idp_entity_id')
         if sso_url is not None:
             idp_config['ssoUrl'] = _validate_url(sso_url, 'sso_url')
         if x509_certificates is not None:
-            idp_config['idpCertificates'] = _validate_x509_certificates(
-                x509_certificates)
+            idp_config['idpCertificates'] = _validate_x509_certificates(x509_certificates)
 
         sp_config = {}
         if rp_entity_id is not None:
-            sp_config['spEntityId'] = _validate_non_empty_string(
-                rp_entity_id, 'rp_entity_id')
+            sp_config['spEntityId'] = _validate_non_empty_string(rp_entity_id, 'rp_entity_id')
         if callback_url is not None:
-            sp_config['callbackUri'] = _validate_url(
-                callback_url, 'callback_url')
+            sp_config['callbackUri'] = _validate_url(callback_url, 'callback_url')
 
         req = {}
         if display_name is not None:
             if display_name == _user_mgt.DELETE_ATTRIBUTE:
                 req['displayName'] = None
             else:
-                req['displayName'] = _auth_utils.validate_string(
-                    display_name, 'display_name')
+                req['displayName'] = _auth_utils.validate_string(display_name, 'display_name')
         if enabled is not None:
             req['enabled'] = _auth_utils.validate_boolean(enabled, 'enabled')
         if idp_config:
@@ -355,8 +338,7 @@ class ProviderConfigClient:
             req['spConfig'] = sp_config
 
         if not req:
-            raise ValueError(
-                'At least one parameter must be specified for update.')
+            raise ValueError('At least one parameter must be specified for update.')
 
         update_mask = _auth_utils.build_update_mask(req)
         params = 'updateMask={0}'.format(','.join(update_mask))
@@ -366,8 +348,7 @@ class ProviderConfigClient:
 
     def delete_saml_provider_config(self, provider_id):
         _validate_saml_provider_id(provider_id)
-        self._make_request(
-            'delete', '/inboundSamlConfigs/{0}'.format(provider_id))
+        self._make_request('delete', '/inboundSamlConfigs/{0}'.format(provider_id))
 
     def list_saml_provider_configs(self, page_token=None, max_results=MAX_LIST_CONFIGS_RESULTS):
         return _ListSAMLProviderConfigsPage(
@@ -449,6 +430,5 @@ def _validate_x509_certificates(x509_certificates):
     if not isinstance(x509_certificates, list) or not x509_certificates:
         raise ValueError('x509_certificates must be a non-empty list.')
     if not all([isinstance(cert, str) and cert for cert in x509_certificates]):
-        raise ValueError(
-            'x509_certificates must only contain non-empty strings.')
+        raise ValueError('x509_certificates must only contain non-empty strings.')
     return [{'x509Certificate': cert} for cert in x509_certificates]

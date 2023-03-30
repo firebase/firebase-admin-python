@@ -39,7 +39,8 @@ class Client:
 
         credential = None
         version_header = 'Python/Admin/{0}'.format(firebase_admin.__version__)
-        timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
+        timeout = app.options.get(
+            'httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
         # Non-default endpoint URLs for emulator support are set in this dict later.
         endpoint_urls = {}
         self.emulated = False
@@ -48,9 +49,10 @@ class Client:
         # endpoint URLs to use the emulator. Additionally, use a fake credential.
         emulator_host = _auth_utils.get_emulator_host()
         if emulator_host:
-            base_url = 'http://{0}/identitytoolkit.googleapis.com'.format(emulator_host)
+            base_url = 'http://{0}/identitytoolkit.googleapis.com'.format(
+                emulator_host)
             endpoint_urls['v1'] = base_url + '/v1'
-            endpoint_urls['v2beta1'] = base_url + '/v2beta1'
+            endpoint_urls['v2'] = base_url + '/v2'
             credential = _utils.EmulatorAdminCredentials()
             self.emulated = True
         else:
@@ -67,7 +69,7 @@ class Client:
         self._user_manager = _user_mgt.UserManager(
             http_client, app.project_id, tenant_id, url_override=endpoint_urls.get('v1'))
         self._provider_manager = _auth_providers.ProviderConfigClient(
-            http_client, app.project_id, tenant_id, url_override=endpoint_urls.get('v2beta1'))
+            http_client, app.project_id, tenant_id, url_override=endpoint_urls.get('v2'))
 
     @property
     def tenant_id(self):
@@ -284,7 +286,7 @@ class Client:
             return self._user_manager.list_users(page_token, max_results)
         return _user_mgt.ListUsersPage(download, page_token, max_results)
 
-    def create_user(self, **kwargs): # pylint: disable=differing-param-doc
+    def create_user(self, **kwargs):  # pylint: disable=differing-param-doc
         """Creates a new user account with the specified properties.
 
         Args:
@@ -311,7 +313,7 @@ class Client:
         uid = self._user_manager.create_user(**kwargs)
         return self.get_user(uid=uid)
 
-    def update_user(self, uid, **kwargs): # pylint: disable=differing-param-doc
+    def update_user(self, uid, **kwargs):  # pylint: disable=differing-param-doc
         """Updates an existing user account with the specified properties.
 
         Args:

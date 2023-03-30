@@ -17,6 +17,7 @@ import datetime
 import json
 import os
 import threading
+from typing import Any, Callable, Dict, Optional
 
 from firebase_admin import credentials
 from firebase_admin.__about__ import __version__
@@ -31,7 +32,9 @@ _FIREBASE_CONFIG_ENV_VAR = 'FIREBASE_CONFIG'
 _CONFIG_VALID_KEYS = ['databaseAuthVariableOverride', 'databaseURL', 'httpTimeout', 'projectId',
                       'storageBucket']
 
-def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
+def initialize_app(credential: Optional[credentials.Base] = None,
+                   options: Optional[Dict[str, Any]] = None,
+                   name: str = _DEFAULT_APP_NAME) -> "App":
     """Initializes and returns a new App instance.
 
     Creates a new App instance using the specified options
@@ -83,7 +86,7 @@ def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
         'you call initialize_app().').format(name))
 
 
-def delete_app(app):
+def delete_app(app: "App") -> None:
     """Gracefully deletes an App instance.
 
     Args:
@@ -111,7 +114,7 @@ def delete_app(app):
          'second argument.').format(app.name))
 
 
-def get_app(name=_DEFAULT_APP_NAME):
+def get_app(name: str = _DEFAULT_APP_NAME) -> "App":
     """Retrieves an App instance by name.
 
     Args:
@@ -145,7 +148,7 @@ def get_app(name=_DEFAULT_APP_NAME):
 class _AppOptions:
     """A collection of configuration options for an App."""
 
-    def __init__(self, options):
+    def __init__(self, options: Dict[Any, Any]) -> None:
         if options is None:
             options = self._load_from_environment()
 
@@ -154,11 +157,11 @@ class _AppOptions:
                              'must be a dictionary.'.format(type(options)))
         self._options = options
 
-    def get(self, key, default=None):
+    def get(self, key: str, default: Optional[str] = None) -> str:
         """Returns the option identified by the provided key."""
         return self._options.get(key, default)
 
-    def _load_from_environment(self):
+    def _load_from_environment(self)-> Dict[Any, Any]:
         """Invoked when no options are passed to __init__, loads options from FIREBASE_CONFIG.
 
         If the value of the FIREBASE_CONFIG environment variable starts with "{" an attempt is made
@@ -190,7 +193,7 @@ class App:
     common to all Firebase APIs.
     """
 
-    def __init__(self, name, credential, options):
+    def __init__(self, name: str, credential: credentials.Base, options: Dict[str, Any]) -> None:
         """Constructs a new App using the provided name and options.
 
         Args:
@@ -218,31 +221,31 @@ class App:
         self._project_id_initialized = False
 
     @classmethod
-    def _validate_project_id(cls, project_id):
+    def _validate_project_id(cls, project_id: Optional[str]) -> None:
         if project_id is not None and not isinstance(project_id, str):
             raise ValueError(
                 'Invalid project ID: "{0}". project ID must be a string.'.format(project_id))
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self._name
 
     @property
-    def credential(self):
+    def credential(self) -> credentials.Base:
         return self._credential
 
     @property
-    def options(self):
+    def options(self)-> _AppOptions:
         return self._options
 
     @property
-    def project_id(self):
+    def project_id(self)-> str:
         if not self._project_id_initialized:
             self._project_id = self._lookup_project_id()
             self._project_id_initialized = True
         return self._project_id
 
-    def _lookup_project_id(self):
+    def _lookup_project_id(self)-> str:
         """Looks up the Firebase project ID associated with an App.
 
         If a ``projectId`` is specified in app options, it is returned. Then tries to
@@ -256,16 +259,16 @@ class App:
         project_id = self._options.get('projectId')
         if not project_id:
             try:
-                project_id = self._credential.project_id
+                project_id = self._credential.project_id # type: ignore
             except AttributeError:
                 pass
         if not project_id:
             project_id = os.environ.get('GOOGLE_CLOUD_PROJECT',
                                         os.environ.get('GCLOUD_PROJECT'))
         App._validate_project_id(self._options.get('projectId'))
-        return project_id
+        return project_id # type: ignore
 
-    def _get_service(self, name, initializer):
+    def _get_service(self, name: str, initializer: Callable)-> Any:
         """Returns the service instance identified by the given name.
 
         Services are functional entities exposed by the Admin SDK (e.g. auth, database). Each
@@ -295,7 +298,7 @@ class App:
                 self._services[name] = initializer(self)
             return self._services[name]
 
-    def _cleanup(self):
+    def _cleanup(self) -> None:
         """Cleans up any services associated with this App.
 
         Checks whether each service contains a close() method, and calls it if available.

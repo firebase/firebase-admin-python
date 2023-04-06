@@ -108,8 +108,8 @@ INVALID_TENANT_IDS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
 INVALID_BOOLEANS = ['', 1, 0, list(), tuple(), dict()]
 
 USER_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v1/projects/mock-project-id'
-PROVIDER_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v2beta1/projects/mock-project-id'
-TENANT_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v2beta1/projects/mock-project-id'
+PROVIDER_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v2/projects/mock-project-id'
+TENANT_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v2/projects/mock-project-id'
 
 
 @pytest.fixture(scope='module')

@@ -16,11 +16,13 @@
 import collections
 import json
 import pathlib
+from typing import Any, Dict, Union
 
 import google.auth
 from google.auth.transport import requests
 from google.oauth2 import credentials
 from google.oauth2 import service_account
+import google.auth.credentials
 
 
 _request = requests.Request()
@@ -44,7 +46,7 @@ Contains the access token string and the expiry time. The expirty time is expose
 class Base:
     """Provides OAuth2 access tokens for accessing Firebase services."""
 
-    def get_access_token(self):
+    def get_access_token(self) -> AccessTokenInfo:
         """Fetches a Google OAuth2 access token using this credential instance.
 
         Returns:
@@ -54,7 +56,7 @@ class Base:
         google_cred.refresh(_request)
         return AccessTokenInfo(google_cred.token, google_cred.expiry)
 
-    def get_credential(self):
+    def get_credential(self) -> google.auth.credentials.Credentials:
         """Returns the Google credential instance used for authentication."""
         raise NotImplementedError
 
@@ -64,7 +66,7 @@ class Certificate(Base):
 
     _CREDENTIAL_TYPE = 'service_account'
 
-    def __init__(self, cert):
+    def __init__(self, cert: Union[str, Dict[str, Any]]):
         """Initializes a credential from a Google service account certificate.
 
         Service account certificates can be downloaded as JSON files from the Firebase console.
@@ -157,6 +159,7 @@ class ApplicationDefault(Base):
     def _load_credential(self):
         if not self._g_credential:
             self._g_credential, self._project_id = google.auth.default(scopes=_scopes)
+
 
 class RefreshToken(Base):
     """A credential initialized from an existing refresh token."""

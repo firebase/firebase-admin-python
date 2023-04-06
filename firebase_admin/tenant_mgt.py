@@ -183,6 +183,7 @@ def list_tenants(page_token=None, max_results=_MAX_LIST_TENANTS_RESULTS, app=Non
         FirebaseError: If an error occurs while retrieving the user accounts.
     """
     tenant_mgt_service = _get_tenant_mgt_service(app)
+
     def download(page_token, max_results):
         return tenant_mgt_service.list_tenants(page_token, max_results)
     return ListTenantsPage(download, page_token, max_results)
@@ -206,7 +207,7 @@ class Tenant:
     def __init__(self, data):
         if not isinstance(data, dict):
             raise ValueError('Invalid data argument in Tenant constructor: {0}'.format(data))
-        if not 'name' in data:
+        if 'name' not in data:
             raise ValueError('Tenant response missing required keys.')
 
         self._data = data
@@ -256,7 +257,7 @@ class _TenantManagementService:
 
             client = auth.Client(self.app, tenant_id=tenant_id)
             self.tenant_clients[tenant_id] = client
-            return  client
+            return client
 
     def get_tenant(self, tenant_id):
         """Gets the tenant corresponding to the given ``tenant_id``."""

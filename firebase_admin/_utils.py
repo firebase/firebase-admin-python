@@ -15,6 +15,7 @@
 """Internal utilities common to all modules."""
 
 import json
+from typing import Callable, Optional
 
 import google.auth
 import requests
@@ -76,7 +77,7 @@ _RPC_CODE_TO_ERROR_CODE = {
 }
 
 
-def _get_initialized_app(app):
+def _get_initialized_app(app: Optional[firebase_admin.App]):
     """Returns a reference to an initialized App instance."""
     if app is None:
         return firebase_admin.get_app()
@@ -92,10 +93,9 @@ def _get_initialized_app(app):
                      ' firebase_admin.App, but given "{0}".'.format(type(app)))
 
 
-
-def get_app_service(app, name, initializer):
+def get_app_service(app: Optional[firebase_admin.App], name: str, initializer: Callable):
     app = _get_initialized_app(app)
-    return app._get_service(name, initializer) # pylint: disable=protected-access
+    return app._get_service(name, initializer)  # pylint: disable=protected-access
 
 
 def handle_platform_error_from_requests(error, handle_func=None):

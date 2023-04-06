@@ -19,7 +19,7 @@ Firebase apps. This requires the ``google-cloud-firestore`` Python module.
 """
 
 try:
-    from google.cloud import firestore # pylint: disable=import-error,no-name-in-module
+    from google.cloud import firestore  # pylint: disable=import-error,no-name-in-module
     existing = globals().keys()
     for key, value in firestore.__dict__.items():
         if not key.startswith('_') and key not in existing:
@@ -28,13 +28,15 @@ except ImportError:
     raise ImportError('Failed to import the Cloud Firestore library for Python. Make sure '
                       'to install the "google-cloud-firestore" module.')
 
-from firebase_admin import _utils
+from firebase_admin import _utils, App
+import google.auth.credentials
+from typing import Optional
 
 
 _FIRESTORE_ATTRIBUTE = '_firestore'
 
 
-def client(app=None):
+def client(app: Optional[App] = None) -> firestore.Client:
     """Returns a client that can be used to interact with Google Cloud Firestore.
 
     Args:
@@ -57,14 +59,14 @@ def client(app=None):
 class _FirestoreClient:
     """Holds a Google Cloud Firestore client instance."""
 
-    def __init__(self, credentials, project):
+    def __init__(self, credentials: google.auth.credentials.Credentials, project: str):
         self._client = firestore.Client(credentials=credentials, project=project)
 
-    def get(self):
+    def get(self) -> firestore.Client:
         return self._client
 
     @classmethod
-    def from_app(cls, app):
+    def from_app(cls, app: App):
         """Creates a new _FirestoreClient for the specified app."""
         credentials = app.credential.get_credential()
         project = app.project_id

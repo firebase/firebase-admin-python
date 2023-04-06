@@ -52,6 +52,7 @@ setup(
     long_description=long_description,
     url=about['__url__'],
     project_urls={
+        'Release Notes': 'https://firebase.google.com/support/release-notes/admin/python',
         'Source': 'https://github.com/firebase/firebase-admin-python',
     },
     author=about['__author__'],

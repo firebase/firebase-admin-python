@@ -405,6 +405,20 @@ class UserDisabledError(exceptions.InvalidArgumentError):
         exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
 
 
+class TooManyAttemptsTryLaterError(exceptions.ResourceExhaustedError):
+    """Rate limited because of too many attempts."""
+
+    def __init__(self, message, cause=None, http_response=None):
+        exceptions.ResourceExhaustedError.__init__(self, message, cause, http_response)
+
+
+class ResetPasswordExceedLimitError(exceptions.ResourceExhaustedError):
+    """Reset password emails exceeded their limits."""
+
+    def __init__(self, message, cause=None, http_response=None):
+        exceptions.ResourceExhaustedError.__init__(self, message, cause, http_response)
+
+
 _CODE_TO_EXC_TYPE = {
     'CONFIGURATION_NOT_FOUND': ConfigurationNotFoundError,
     'DUPLICATE_EMAIL': EmailAlreadyExistsError,
@@ -417,6 +431,8 @@ _CODE_TO_EXC_TYPE = {
     'PHONE_NUMBER_EXISTS': PhoneNumberAlreadyExistsError,
     'TENANT_NOT_FOUND': TenantNotFoundError,
     'USER_NOT_FOUND': UserNotFoundError,
+    'TOO_MANY_ATTEMPTS_TRY_LATER': TooManyAttemptsTryLaterError,
+    'RESET_PASSWORD_EXCEED_LIMIT': ResetPasswordExceedLimitError,
 }
 
 

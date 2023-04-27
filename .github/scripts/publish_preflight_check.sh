@@ -172,7 +172,7 @@ echo "$CHANGELOG"
 https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#example-of-a-multiline-string
 FILTERED_CHANGELOG=`echo "$CHANGELOG" | grep -v "\\[INFO\\]"`
 EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
-echo "changelog=<<$EOF" >> "$GITHUB_OUTPUT"
+echo "changelog<<$EOF" >> "$GITHUB_OUTPUT"
 echo $CHANGELOG >> "$GITHUB_OUTPUT"
 echo $EOF >> "$GITHUB_OUTPUT"
 

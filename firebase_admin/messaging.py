@@ -14,11 +14,13 @@
 
 """Firebase Cloud Messaging module."""
 
+import concurrent.futures
 import json
+import warnings
+import requests
 
 from googleapiclient import http
 from googleapiclient import _auth
-import requests
 
 import firebase_admin
 from firebase_admin import _http_client
@@ -26,6 +28,7 @@ from firebase_admin import _messaging_encoder
 from firebase_admin import _messaging_utils
 from firebase_admin import _gapic_utils
 from firebase_admin import _utils
+from firebase_admin import exceptions
 
 
 _MESSAGING_ATTRIBUTE = '_messaging'
@@ -115,6 +118,57 @@ def send(message, dry_run=False, app=None):
     """
     return _get_messaging_service(app).send(message, dry_run)
 
+def send_each(messages, dry_run=False, app=None):
+    """Sends each message in the given list via Firebase Cloud Messaging.
+
+    If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
+    recipients. Instead FCM performs all the usual validations, and emulates the send operation.
+
+    Args:
+        messages: A list of ``messaging.Message`` instances.
+        dry_run: A boolean indicating whether to run the operation in dry run mode (optional).
+        app: An App instance (optional).
+
+    Returns:
+        BatchResponse: A ``messaging.BatchResponse`` instance.
+
+    Raises:
+        FirebaseError: If an error occurs while sending the message to the FCM service.
+        ValueError: If the input arguments are invalid.
+    """
+    return _get_messaging_service(app).send_each(messages, dry_run)
+
+def send_each_for_multicast(multicast_message, dry_run=False, app=None):
+    """Sends the given mutlicast message to each token via Firebase Cloud Messaging (FCM).
+
+    If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
+    recipients. Instead FCM performs all the usual validations, and emulates the send operation.
+
+    Args:
+        multicast_message: An instance of ``messaging.MulticastMessage``.
+        dry_run: A boolean indicating whether to run the operation in dry run mode (optional).
+        app: An App instance (optional).
+
+    Returns:
+        BatchResponse: A ``messaging.BatchResponse`` instance.
+
+    Raises:
+        FirebaseError: If an error occurs while sending the message to the FCM service.
+        ValueError: If the input arguments are invalid.
+    """
+    if not isinstance(multicast_message, MulticastMessage):
+        raise ValueError('Message must be an instance of messaging.MulticastMessage class.')
+    messages = [Message(
+        data=multicast_message.data,
+        notification=multicast_message.notification,
+        android=multicast_message.android,
+        webpush=multicast_message.webpush,
+        apns=multicast_message.apns,
+        fcm_options=multicast_message.fcm_options,
+        token=token
+    ) for token in multicast_message.tokens]
+    return _get_messaging_service(app).send_each(messages, dry_run)
+
 def send_all(messages, dry_run=False, app=None):
     """Sends the given list of messages via Firebase Cloud Messaging as a single batch.
 
@@ -132,7 +186,10 @@ def send_all(messages, dry_run=False, app=None):
     Raises:
         FirebaseError: If an error occurs while sending the message to the FCM service.
         ValueError: If the input arguments are invalid.
+
+    send_all() is deprecated. Use send_each() instead.
     """
+    warnings.warn('send_all() is deprecated. Use send_each() instead.', DeprecationWarning)
     return _get_messaging_service(app).send_all(messages, dry_run)
 
 def send_multicast(multicast_message, dry_run=False, app=None):
@@ -152,7 +209,11 @@ def send_multicast(multicast_message, dry_run=False, app=None):
     Raises:
         FirebaseError: If an error occurs while sending the message to the FCM service.
         ValueError: If the input arguments are invalid.
+
+    send_multicast() is deprecated. Use send_each_for_multicast() instead.
     """
+    warnings.warn('send_multicast() is deprecated. Use send_each_for_multicast() instead.',
+                  DeprecationWarning)
     if not isinstance(multicast_message, MulticastMessage):
         raise ValueError('Message must be an instance of messaging.MulticastMessage class.')
     messages = [Message(
@@ -355,6 +416,35 @@ class _MessagingService:
             raise self._handle_fcm_error(error)
         else:
             return resp['name']
+
+    def send_each(self, messages, dry_run=False):
+        """Sends the given messages to FCM via the FCM v1 API."""
+        if not isinstance(messages, list):
+            raise ValueError('messages must be a list of messaging.Message instances.')
+        if len(messages) > 500:
+            raise ValueError('messages must not contain more than 500 elements.')
+
+        def send_data(data):
+            try:
+                resp = self._client.body(
+                    'post',
+                    url=self._fcm_url,
+                    headers=self._fcm_headers,
+                    json=data)
+            except requests.exceptions.RequestException as exception:
+                return SendResponse(resp=None, exception=self._handle_fcm_error(exception))
+            else:
+                return SendResponse(resp, exception=None)
+
+        message_data = [self._message_data(message, dry_run) for message in messages]
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=len(message_data)) as executor:
+                responses = [resp for resp in executor.map(send_data, message_data)]
+                return BatchResponse(responses)
+        except Exception as error:
+            raise exceptions.UnknownError(
+                message='Unknown error while making remote service calls: {0}'.format(error),
+                cause=error)
 
     def send_all(self, messages, dry_run=False):
         """Sends the given messages to FCM via the batch API."""

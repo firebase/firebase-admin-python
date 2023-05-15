@@ -24,6 +24,8 @@ from firebase_admin import _http_client
 from firebase_admin import _utils
 from firebase_admin.multi_factor_config_mgt import MultiFactorConfig
 from firebase_admin.multi_factor_config_mgt import MultiFactorServerConfig
+from firebase_admin.password_policy_config_mgt import PasswordPolicyConfig
+from firebase_admin.password_policy_config_mgt import PasswordPolicyServerConfig
 
 _PROJECT_CONFIG_MGT_ATTRIBUTE = '_project_config_mgt'
 
@@ -52,11 +54,15 @@ def get_project_config(app=None):
     project_config_mgt_service = _get_project_config_mgt_service(app)
     return project_config_mgt_service.get_project_config()
 
-def update_project_config(multi_factor_config: MultiFactorConfig = None, app=None):
+def update_project_config(
+        multi_factor_config: MultiFactorConfig = None,
+        password_policy_config: PasswordPolicyConfig = None,
+        app=None):
     """Update the Project Config with the given options.
     Args:
         multi_factor_config: Updated Multi Factor Authentication configuration
-                    (optional)
+                    (optional).
+        password_policy_config: Updated Password Policy configuration (optional).
         app: An App instance (optional).
     Returns:
         Project: An updated ProjectConfig object.
@@ -65,7 +71,9 @@ def update_project_config(multi_factor_config: MultiFactorConfig = None, app=Non
         FirebaseError: If an error occurs while updating the project.
     """
     project_config_mgt_service = _get_project_config_mgt_service(app)
-    return project_config_mgt_service.update_project_config(multi_factor_config=multi_factor_config)
+    return project_config_mgt_service.update_project_config(
+        multi_factor_config=multi_factor_config,
+        password_policy_config=password_policy_config)
 
 
 def _get_project_config_mgt_service(app):
@@ -87,6 +95,13 @@ class ProjectConfig:
         data = self._data.get('mfa')
         if data:
             return MultiFactorServerConfig(data)
+        return None
+
+    @property
+    def password_policy_config(self):
+        data = self._data.get('passwordPolicyConfig')
+        if data:
+            return PasswordPolicyServerConfig(data)
         return None
 
 class _ProjectConfigManagementService:
@@ -112,7 +127,10 @@ class _ProjectConfigManagementService:
         else:
             return ProjectConfig(body)
 
-    def update_project_config(self, multi_factor_config: MultiFactorConfig = None) -> ProjectConfig:
+    def update_project_config(
+            self,
+            multi_factor_config: MultiFactorConfig = None,
+            password_policy_config: PasswordPolicyConfig = None) -> ProjectConfig:
         """Updates the specified project with the given parameters."""
 
         payload = {}
@@ -120,6 +138,10 @@ class _ProjectConfigManagementService:
             if not isinstance(multi_factor_config, MultiFactorConfig):
                 raise ValueError('multi_factor_config must be of type MultiFactorConfig.')
             payload['mfa'] = multi_factor_config.build_server_request()
+        if password_policy_config is not None:
+            if not isinstance(password_policy_config, PasswordPolicyConfig):
+                raise ValueError('password_policy_config must be of type PasswordPolicyConfig.')
+            payload['passwordPolicyConfig'] = password_policy_config.build_server_request()
         if not payload:
             raise ValueError(
                 'At least one parameter must be specified for update.')

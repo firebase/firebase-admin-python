@@ -25,6 +25,13 @@ __all__ = [
     'CustomStrengthOptionsConfig',
 ]
 
+def validate_keys(keys, valid_keys, config_name):
+    for key in keys:
+        if key not in valid_keys:
+            raise ValueError(
+                '"{0}" is not a valid "{1}" parameter.'.format(
+                    key, config_name))
+
 
 class PasswordPolicyServerConfig:
     """Represents password policy configuration response received from the server and
@@ -87,14 +94,6 @@ class PasswordPolicyServerConfig:
         @property
         def max_length(self):
             return self._data.get('maxPasswordLength', None)
-
-
-def validate_keys(keys, valid_keys, config_name):
-    for key in keys:
-        if key not in valid_keys:
-            raise ValueError(
-                '"{0}" is not a valid "{1}" parameter.'.format(
-                    key, config_name))
 
 
 class CustomStrengthOptionsConfig:

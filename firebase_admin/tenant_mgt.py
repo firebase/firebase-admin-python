@@ -25,11 +25,11 @@ import requests
 
 import firebase_admin
 from firebase_admin import auth
-from firebase_admin import multi_factor_config_mgt
 from firebase_admin import _auth_utils
 from firebase_admin import _http_client
 from firebase_admin import _utils
-
+from firebase_admin.multi_factor_config_mgt import MultiFactorConfig
+from firebase_admin.multi_factor_config_mgt import MultiFactorServerConfig
 
 _TENANT_MGT_ATTRIBUTE = '_tenant_mgt'
 _MAX_LIST_TENANTS_RESULTS = 100
@@ -93,7 +93,7 @@ def get_tenant(tenant_id, app=None):
 
 def create_tenant(
         display_name, allow_password_sign_up=None, enable_email_link_sign_in=None,
-        multi_factor_config: multi_factor_config_mgt.MultiFactorConfig = None, app=None):
+        multi_factor_config: MultiFactorConfig = None, app=None):
     """Creates a new tenant from the given options.
 
     Args:
@@ -122,7 +122,7 @@ def create_tenant(
 
 def update_tenant(
         tenant_id, display_name=None, allow_password_sign_up=None, enable_email_link_sign_in=None,
-        multi_factor_config: multi_factor_config_mgt.MultiFactorConfig = None, app=None):
+        multi_factor_config: MultiFactorConfig = None, app=None):
     """Updates an existing tenant with the given options.
 
     Args:
@@ -189,6 +189,7 @@ def list_tenants(page_token=None, max_results=_MAX_LIST_TENANTS_RESULTS, app=Non
         FirebaseError: If an error occurs while retrieving the user accounts.
     """
     tenant_mgt_service = _get_tenant_mgt_service(app)
+
     def download(page_token, max_results):
         return tenant_mgt_service.list_tenants(page_token, max_results)
     return ListTenantsPage(download, page_token, max_results)
@@ -211,7 +212,8 @@ class Tenant:
 
     def __init__(self, data):
         if not isinstance(data, dict):
-            raise ValueError('Invalid data argument in Tenant constructor: {0}'.format(data))
+            raise ValueError(
+                'Invalid data argument in Tenant constructor: {0}'.format(data))
         if not 'name' in data:
             raise ValueError('Tenant response missing required keys.')
 
@@ -238,7 +240,7 @@ class Tenant:
     def multi_factor_config(self):
         data = self._data.get('mfaConfig', None)
         if data is not None:
-            return multi_factor_config_mgt.MultiFactorServerConfig(data)
+            return MultiFactorServerConfig(data)
         return None
 
 
@@ -250,7 +252,8 @@ class _TenantManagementService:
     def __init__(self, app):
         credential = app.credential.get_credential()
         version_header = 'Python/Admin/{0}'.format(firebase_admin.__version__)
-        base_url = '{0}/projects/{1}'.format(self.TENANT_MGT_URL, app.project_id)
+        base_url = '{0}/projects/{1}'.format(
+            self.TENANT_MGT_URL, app.project_id)
         self.app = app
         self.client = _http_client.JsonHttpClient(
             credential=credential, base_url=base_url, headers={'X-Client-Version': version_header})
@@ -269,7 +272,7 @@ class _TenantManagementService:
 
             client = auth.Client(self.app, tenant_id=tenant_id)
             self.tenant_clients[tenant_id] = client
-            return  client
+            return client
 
     def get_tenant(self, tenant_id):
         """Gets the tenant corresponding to the given ``tenant_id``."""
@@ -286,7 +289,7 @@ class _TenantManagementService:
 
     def create_tenant(
             self, display_name, allow_password_sign_up=None, enable_email_link_sign_in=None,
-            multi_factor_config: multi_factor_config_mgt.MultiFactorConfig = None):
+            multi_factor_config: MultiFactorConfig = None):
         """Creates a new tenant from the given parameters."""
 
         payload = {'displayName': _validate_display_name(display_name)}
@@ -297,7 +300,7 @@ class _TenantManagementService:
             payload['enableEmailLinkSignin'] = _auth_utils.validate_boolean(
                 enable_email_link_sign_in, 'enableEmailLinkSignin')
         if multi_factor_config is not None:
-            if not isinstance(multi_factor_config, multi_factor_config_mgt.MultiFactorConfig):
+            if not isinstance(multi_factor_config, MultiFactorConfig):
                 raise ValueError(
                     'multi_factor_config must be of type MultiFactorConfig.')
             payload['mfaConfig'] = multi_factor_config.build_server_request()
@@ -311,7 +314,7 @@ class _TenantManagementService:
     def update_tenant(
             self, tenant_id, display_name=None, allow_password_sign_up=None,
             enable_email_link_sign_in=None,
-            multi_factor_config: multi_factor_config_mgt.MultiFactorConfig = None):
+            multi_factor_config: MultiFactorConfig = None):
         """Updates the specified tenant with the given parameters."""
         if not isinstance(tenant_id, str) or not tenant_id:
             raise ValueError('Tenant ID must be a non-empty string.')
@@ -326,12 +329,14 @@ class _TenantManagementService:
             payload['enableEmailLinkSignin'] = _auth_utils.validate_boolean(
                 enable_email_link_sign_in, 'enableEmailLinkSignin')
         if multi_factor_config is not None:
-            if not isinstance(multi_factor_config, multi_factor_config_mgt.MultiFactorConfig):
-                raise ValueError('multi_factor_config must be of type MultiFactorConfig.')
+            if not isinstance(multi_factor_config, MultiFactorConfig):
+                raise ValueError(
+                    'multi_factor_config must be of type MultiFactorConfig.')
             payload['mfaConfig'] = multi_factor_config.build_server_request()
 
         if not payload:
-            raise ValueError('At least one parameter must be specified for update.')
+            raise ValueError(
+                'At least one parameter must be specified for update.')
 
         url = '/tenants/{0}'.format(tenant_id)
         update_mask = ','.join(_auth_utils.build_update_mask(payload))

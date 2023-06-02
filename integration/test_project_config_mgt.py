@@ -51,15 +51,18 @@ def test_update_project_config():
         enforcement_state=password_policy_config_mgt.PasswordPolicyConfig.EnforcementState.ENFORCE,
         force_upgrade_on_signin=False,
         constraints=password_policy_config_mgt.CustomStrengthOptionsConfig(
-        require_lowercase=True,
-        require_non_alphanumeric=True,
-        require_numeric=True,
-        require_uppercase=True,
-        max_length=30,
-        min_length=8
+            require_lowercase=True,
+            require_non_alphanumeric=True,
+            require_numeric=True,
+            require_uppercase=True,
+            max_length=30,
+            min_length=8
         )
     )
-    project_config = project_config_mgt.update_project_config(multi_factor_config=mfa_object, password_policy_config=password_policy_object)
+    project_config = project_config_mgt.update_project_config(
+        multi_factor_config=mfa_object,
+        password_policy_config=password_policy_object
+    )
     _assert_multi_factor_config(project_config.multi_factor_config)
     _assert_password_policy_config(project_config.password_policy_config)
 
@@ -85,11 +88,13 @@ def _assert_multi_factor_config(multi_factor_config):
 
 def _assert_password_policy_config(password_policy_config):
     assert isinstance(password_policy_config, password_policy_config_mgt.PasswordPolicyConfig)
-    assert isinstance(password_policy_config.enforcement_state, password_policy_config_mgt.PasswordPolicyConfig.EnforcementState)
+    assert isinstance(password_policy_config.enforcement_state,
+                      password_policy_config_mgt.PasswordPolicyConfig.EnforcementState)
     assert password_policy_config.enforcement_state == 'ENFORCE'
     assert isinstance(password_policy_config.force_upgrade_on_signin, bool)
     assert password_policy_config.force_upgrade_on_signin is False
-    assert isinstance(password_policy_config.constraints, password_policy_config_mgt.CustomStrengthOptionsConfig)
+    assert isinstance(password_policy_config.constraints,
+                      password_policy_config_mgt.CustomStrengthOptionsConfig)
     assert isinstance(password_policy_config.constraints.require_lowercase, bool)
     assert password_policy_config.constraints.require_lowercase is True
     assert isinstance(password_policy_config.constraints.require_uppercase, bool)
@@ -102,4 +107,3 @@ def _assert_password_policy_config(password_policy_config):
     assert password_policy_config.constraints.min_length == 8
     assert isinstance(password_policy_config.constraints.max_length, int)
     assert password_policy_config.constraints.max_length == 30
-

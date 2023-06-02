@@ -13,8 +13,8 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v3
 
-      - name: AI Code Reviewer
-        uses: pragatimodi/ai-code-reviewer@main
+      - - name: AI Code Review Action
+          uses: freeedcom/ai-codereviewer@v2.4.1
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

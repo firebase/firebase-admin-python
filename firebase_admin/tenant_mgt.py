@@ -33,7 +33,6 @@ from firebase_admin.multi_factor_config_mgt import MultiFactorServerConfig
 from firebase_admin.password_policy_config_mgt import PasswordPolicyConfig
 from firebase_admin.password_policy_config_mgt import PasswordPolicyServerConfig
 
-
 _TENANT_MGT_ATTRIBUTE = '_tenant_mgt'
 _MAX_LIST_TENANTS_RESULTS = 100
 _DISPLAY_NAME_PATTERN = re.compile('^[a-zA-Z][a-zA-Z0-9-]{3,19}$')
@@ -212,6 +211,7 @@ def list_tenants(page_token=None, max_results=_MAX_LIST_TENANTS_RESULTS, app=Non
         FirebaseError: If an error occurs while retrieving the user accounts.
     """
     tenant_mgt_service = _get_tenant_mgt_service(app)
+
     def download(page_token, max_results):
         return tenant_mgt_service.list_tenants(page_token, max_results)
     return ListTenantsPage(download, page_token, max_results)
@@ -234,7 +234,8 @@ class Tenant:
 
     def __init__(self, data):
         if not isinstance(data, dict):
-            raise ValueError('Invalid data argument in Tenant constructor: {0}'.format(data))
+            raise ValueError(
+                'Invalid data argument in Tenant constructor: {0}'.format(data))
         if not 'name' in data:
             raise ValueError('Tenant response missing required keys.')
 
@@ -279,7 +280,8 @@ class _TenantManagementService:
     def __init__(self, app):
         credential = app.credential.get_credential()
         version_header = 'Python/Admin/{0}'.format(firebase_admin.__version__)
-        base_url = '{0}/projects/{1}'.format(self.TENANT_MGT_URL, app.project_id)
+        base_url = '{0}/projects/{1}'.format(
+            self.TENANT_MGT_URL, app.project_id)
         self.app = app
         self.client = _http_client.JsonHttpClient(
             credential=credential, base_url=base_url, headers={'X-Client-Version': version_header})
@@ -298,7 +300,7 @@ class _TenantManagementService:
 
             client = auth.Client(self.app, tenant_id=tenant_id)
             self.tenant_clients[tenant_id] = client
-            return  client
+            return client
 
     def get_tenant(self, tenant_id):
         """Gets the tenant corresponding to the given ``tenant_id``."""
@@ -382,7 +384,8 @@ class _TenantManagementService:
             payload['passwordPolicyConfig'] = password_policy_config.build_server_request()
 
         if not payload:
-            raise ValueError('At least one parameter must be specified for update.')
+            raise ValueError(
+                'At least one parameter must be specified for update.')
 
         url = '/tenants/{0}'.format(tenant_id)
         update_mask = ','.join(_auth_utils.build_update_mask(payload))

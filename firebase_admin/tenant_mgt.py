@@ -25,11 +25,13 @@ import requests
 
 import firebase_admin
 from firebase_admin import auth
-from firebase_admin import multi_factor_config_mgt
-from firebase_admin import password_policy_config_mgt
 from firebase_admin import _auth_utils
 from firebase_admin import _http_client
 from firebase_admin import _utils
+from firebase_admin.multi_factor_config_mgt import MultiFactorConfig
+from firebase_admin.multi_factor_config_mgt import MultiFactorServerConfig
+from firebase_admin.password_policy_config_mgt import PasswordPolicyConfig
+from firebase_admin.password_policy_config_mgt import PasswordPolicyServerConfig
 
 
 _TENANT_MGT_ATTRIBUTE = '_tenant_mgt'
@@ -96,8 +98,8 @@ def create_tenant(
         display_name,
         allow_password_sign_up=None,
         enable_email_link_sign_in=None,
-        multi_factor_config: multi_factor_config_mgt.MultiFactorConfig = None,
-        password_policy_config: password_policy_config_mgt.PasswordPolicyConfig = None,
+        multi_factor_config: MultiFactorConfig = None,
+        password_policy_config: PasswordPolicyConfig = None,
         app=None,
 ):
     """Creates a new tenant from the given options.
@@ -135,8 +137,8 @@ def update_tenant(
         display_name=None,
         allow_password_sign_up=None,
         enable_email_link_sign_in=None,
-        multi_factor_config: multi_factor_config_mgt.MultiFactorConfig = None,
-        password_policy_config: password_policy_config_mgt.PasswordPolicyConfig = None,
+        multi_factor_config: MultiFactorConfig = None,
+        password_policy_config: PasswordPolicyConfig = None,
         app=None,
 ):
     """Updates an existing tenant with the given options.
@@ -259,14 +261,14 @@ class Tenant:
     def multi_factor_config(self):
         data = self._data.get('mfaConfig', None)
         if data is not None:
-            return multi_factor_config_mgt.MultiFactorServerConfig(data)
+            return MultiFactorServerConfig(data)
         return None
 
     @property
     def password_policy_config(self):
         data = self._data.get('passwordPolicyConfig', None)
         if data is not None:
-            return password_policy_config_mgt.PasswordPolicyConfig(data)
+            return PasswordPolicyServerConfig(data)
         return None
 
 class _TenantManagementService:
@@ -316,8 +318,8 @@ class _TenantManagementService:
             display_name,
             allow_password_sign_up=None,
             enable_email_link_sign_in=None,
-            multi_factor_config: multi_factor_config_mgt.MultiFactorConfig = None,
-            password_policy_config: password_policy_config_mgt.PasswordPolicyConfig = None,
+            multi_factor_config: MultiFactorConfig = None,
+            password_policy_config: PasswordPolicyConfig = None,
     ):
         """Creates a new tenant from the given parameters."""
 
@@ -329,13 +331,13 @@ class _TenantManagementService:
             payload['enableEmailLinkSignin'] = _auth_utils.validate_boolean(
                 enable_email_link_sign_in, 'enableEmailLinkSignin')
         if multi_factor_config is not None:
-            if not isinstance(multi_factor_config, multi_factor_config_mgt.MultiFactorConfig):
+            if not isinstance(multi_factor_config, MultiFactorConfig):
                 raise ValueError(
                     'multi_factor_config must be of type MultiFactorConfig.')
             payload['mfaConfig'] = multi_factor_config.build_server_request()
         if password_policy_config is not None:
             if not isinstance(password_policy_config,
-                              password_policy_config_mgt.PasswordPolicyConfig):
+                              PasswordPolicyConfig):
                 raise ValueError(
                     'password_policy_config must be of type PasswordPolicyConfig.')
             payload['passwordPolicyConfig'] = password_policy_config.build_server_request()
@@ -352,8 +354,8 @@ class _TenantManagementService:
             display_name=None,
             allow_password_sign_up=None,
             enable_email_link_sign_in=None,
-            multi_factor_config: multi_factor_config_mgt.MultiFactorConfig = None,
-            password_policy_config: password_policy_config_mgt.PasswordPolicyConfig = None,
+            multi_factor_config: MultiFactorConfig = None,
+            password_policy_config: PasswordPolicyConfig = None,
     ):
         """Updates the specified tenant with the given parameters."""
         if not isinstance(tenant_id, str) or not tenant_id:
@@ -369,12 +371,12 @@ class _TenantManagementService:
             payload['enableEmailLinkSignin'] = _auth_utils.validate_boolean(
                 enable_email_link_sign_in, 'enableEmailLinkSignin')
         if multi_factor_config is not None:
-            if not isinstance(multi_factor_config, multi_factor_config_mgt.MultiFactorConfig):
+            if not isinstance(multi_factor_config, MultiFactorConfig):
                 raise ValueError('multi_factor_config must be of type MultiFactorConfig.')
             payload['mfaConfig'] = multi_factor_config.build_server_request()
         if password_policy_config is not None:
             if not isinstance(password_policy_config,
-                              password_policy_config_mgt.PasswordPolicyConfig):
+                              PasswordPolicyConfig):
                 raise ValueError(
                     'password_policy_config must be of type PasswordPolicyConfig.')
             payload['passwordPolicyConfig'] = password_policy_config.build_server_request()

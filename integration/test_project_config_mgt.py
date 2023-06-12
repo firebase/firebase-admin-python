@@ -19,6 +19,7 @@ import pytest
 from firebase_admin import project_config_mgt
 from firebase_admin import multi_factor_config_mgt
 
+ADJACENT_INTERVALS = 5
 
 @pytest.fixture(scope='module')
 def sample_mfa_config():
@@ -27,7 +28,7 @@ def sample_mfa_config():
             {
                 'state': 'ENABLED',
                 'totpProviderConfig': {
-                    'adjacentIntervals': 5
+                    'adjacentIntervals': ADJACENT_INTERVALS
                 }
             }
         ]
@@ -61,9 +62,9 @@ def _assert_multi_factor_config(multi_factor_config):
     assert isinstance(multi_factor_config.provider_configs, list)
     for provider_config in multi_factor_config.provider_configs:
         assert isinstance(provider_config, multi_factor_config_mgt.MultiFactorServerConfig
-                          .ProviderConfigServerConfig)
+                          .ProviderServerConfig)
         assert provider_config.state == 'ENABLED'
         assert isinstance(provider_config.totp_provider_config,
-                          multi_factor_config_mgt.MultiFactorServerConfig.ProviderConfigServerConfig
+                          multi_factor_config_mgt.MultiFactorServerConfig.ProviderServerConfig
                           .TOTPProviderServerConfig)
-        assert provider_config.totp_provider_config.adjacent_intervals == 5
+        assert provider_config.totp_provider_config.adjacent_intervals == ADJACENT_INTERVALS

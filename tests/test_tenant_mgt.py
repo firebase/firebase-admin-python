@@ -31,6 +31,8 @@ from tests import testutils
 from tests import test_token_gen
 
 
+ADJACENT_INTERVALS = 5
+
 GET_TENANT_RESPONSE = """{
     "name": "projects/mock-project-id/tenants/tenant-id",
     "displayName": "Test Tenant",
@@ -260,7 +262,7 @@ class TestCreateTenant:
                 multi_factor_config_mgt.ProviderConfig(
                     state=multi_factor_config_mgt.ProviderConfig.State.ENABLED,
                     totp_provider_config=multi_factor_config_mgt.TOTPProviderConfig(
-                        adjacent_intervals=5
+                        adjacent_intervals=ADJACENT_INTERVALS
                     )
                 )
             ]
@@ -279,7 +281,7 @@ class TestCreateTenant:
                     {
                         'state': 'ENABLED',
                         'totpProviderConfig': {
-                            'adjacentIntervals': 5
+                            'adjacentIntervals': ADJACENT_INTERVALS
                         }
                     }
                 ]
@@ -379,7 +381,7 @@ class TestUpdateTenant:
                 multi_factor_config_mgt.ProviderConfig(
                     state=multi_factor_config_mgt.ProviderConfig.State.ENABLED,
                     totp_provider_config=multi_factor_config_mgt.TOTPProviderConfig(
-                        adjacent_intervals=5
+                        adjacent_intervals=ADJACENT_INTERVALS
                     )
                 )
             ]
@@ -399,7 +401,7 @@ class TestUpdateTenant:
                     {
                         'state': 'ENABLED',
                         'totpProviderConfig': {
-                            'adjacentIntervals': 5
+                            'adjacentIntervals': ADJACENT_INTERVALS
                         }
                     }
                 ]
@@ -1068,12 +1070,12 @@ def _assert_multi_factor_config(mfa_config):
     assert isinstance(mfa_config.provider_configs, list)
     for provider_config in mfa_config.provider_configs:
         assert isinstance(provider_config, multi_factor_config_mgt.MultiFactorServerConfig.\
-                          ProviderConfigServerConfig)
+                          ProviderServerConfig)
         assert provider_config.state == 'ENABLED'
         assert isinstance(provider_config.totp_provider_config,
-                          multi_factor_config_mgt.MultiFactorServerConfig.ProviderConfigServerConfig
+                          multi_factor_config_mgt.MultiFactorServerConfig.ProviderServerConfig
                           .TOTPProviderServerConfig)
-        assert provider_config.totp_provider_config.adjacent_intervals == 5
+        assert provider_config.totp_provider_config.adjacent_intervals == ADJACENT_INTERVALS
 
 def _assert_tenant(tenant, tenant_id='tenant-id'):
     assert isinstance(tenant, tenant_mgt.Tenant)

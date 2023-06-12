@@ -44,17 +44,17 @@ class MultiFactorServerConfig:
     def __init__(self, data):
         if not isinstance(data, dict):
             raise ValueError(
-                'Invalid data argument in MultiFactorConfig constructor: {0}'.format(data))
+                'Invalid data argument in MultiFactorServerConfig constructor: {0}'.format(data))
         self._data = data
 
     @property
     def provider_configs(self):
         data = self._data.get('providerConfigs', None)
         if data is not None:
-            return [self.ProviderConfigServerConfig(d) for d in data]
+            return [self.ProviderServerConfig(d) for d in data]
         return None
 
-    class ProviderConfigServerConfig:
+    class ProviderServerConfig:
         """Represents provider configuration response received from the server and converts
         it to user format.
         """
@@ -62,7 +62,7 @@ class MultiFactorServerConfig:
         def __init__(self, data):
             if not isinstance(data, dict):
                 raise ValueError(
-                    'Invalid data argument in ProviderConfig constructor: {0}'.format(data))
+                    'Invalid data argument in ProviderServerConfig constructor: {0}'.format(data))
             self._data = data
 
         @property
@@ -84,7 +84,8 @@ class MultiFactorServerConfig:
             def __init__(self, data):
                 if not isinstance(data, dict):
                     raise ValueError(
-                        'Invalid data argument in TOTPProviderConfig constructor: {0}'.format(data))
+                        'Invalid data argument in TOTPProviderServerConfig'
+                        ' constructor: {0}'.format(data))
                 self._data = data
 
             @property

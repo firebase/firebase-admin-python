@@ -29,7 +29,6 @@ _PROJECT_CONFIG_MGT_ATTRIBUTE = '_project_config_mgt'
 
 __all__ = [
     'ProjectConfig',
-
     'get_project_config',
     'update_project_config',
 ]

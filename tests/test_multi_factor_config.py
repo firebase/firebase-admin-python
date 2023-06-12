@@ -135,22 +135,22 @@ class TestMultiFactorServerConfig:
         test_config = 'invalid'
         with pytest.raises(ValueError) as excinfo:
             multi_factor_config_mgt.MultiFactorServerConfig(test_config)
-        assert str(excinfo.value).startswith('Invalid data argument in MultiFactorConfig'
+        assert str(excinfo.value).startswith('Invalid data argument in MultiFactorServerConfig'
                                              ' constructor: {0}'.format(test_config))
 
     def test_invalid_provider_config_response(self):
         test_config = 'invalid'
         with pytest.raises(ValueError) as excinfo:
-            multi_factor_config_mgt.MultiFactorServerConfig.ProviderConfigServerConfig(test_config)
-        assert str(excinfo.value).startswith('Invalid data argument in ProviderConfig'
+            multi_factor_config_mgt.MultiFactorServerConfig.ProviderServerConfig(test_config)
+        assert str(excinfo.value).startswith('Invalid data argument in ProviderServerConfig'
                                              ' constructor: {0}'.format(test_config))
 
     def test_invalid_totp_provider_config_response(self):
         test_config = 'invalid'
         with pytest.raises(ValueError) as excinfo:
-            multi_factor_config_mgt.MultiFactorServerConfig.ProviderConfigServerConfig.\
+            multi_factor_config_mgt.MultiFactorServerConfig.ProviderServerConfig.\
                 TOTPProviderServerConfig(test_config)
-        assert str(excinfo.value).startswith('Invalid data argument in TOTPProviderConfig'
+        assert str(excinfo.value).startswith('Invalid data argument in TOTPProviderServerConfig'
                                              ' constructor: {0}'.format(test_config))
 
     def test_valid_server_response(self):
@@ -173,9 +173,9 @@ def _assert_multi_factor_config(mfa_config):
     for provider_config in mfa_config.provider_configs:
         assert isinstance(
             provider_config,
-            multi_factor_config_mgt.MultiFactorServerConfig.ProviderConfigServerConfig)
+            multi_factor_config_mgt.MultiFactorServerConfig.ProviderServerConfig)
         assert provider_config.state == 'ENABLED'
         assert isinstance(provider_config.totp_provider_config,
-                          multi_factor_config_mgt.MultiFactorServerConfig.ProviderConfigServerConfig
+                          multi_factor_config_mgt.MultiFactorServerConfig.ProviderServerConfig
                           .TOTPProviderServerConfig)
         assert provider_config.totp_provider_config.adjacent_intervals == 5

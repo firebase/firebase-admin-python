@@ -25,6 +25,8 @@ from firebase_admin import project_config_mgt
 from firebase_admin import multi_factor_config_mgt
 
 
+ADJACENT_INTERVALS = 5
+
 GET_PROJECT_RESPONSE = """{
     "mfaConfig":{
         "providerConfigs":[
@@ -75,7 +77,7 @@ class TestProjectConfig:
                     {
                         'state': 'ENABLED',
                         'totpProviderConfig': {
-                            'adjacentIntervals': 5,
+                            'adjacentIntervals': ADJACENT_INTERVALS,
                         }
                     }
                 ]
@@ -129,7 +131,7 @@ class TestUpdateProjectConfig:
                 multi_factor_config_mgt.ProviderConfig(
                     state=multi_factor_config_mgt.ProviderConfig.State.ENABLED,
                     totp_provider_config=multi_factor_config_mgt.TOTPProviderConfig(
-                        adjacent_intervals=5
+                        adjacent_intervals=ADJACENT_INTERVALS
                     )
                 )
             ]
@@ -146,7 +148,7 @@ class TestUpdateProjectConfig:
                     {
                         'state': 'ENABLED',
                         'totpProviderConfig': {
-                            'adjacentIntervals': 5,
+                            'adjacentIntervals': ADJACENT_INTERVALS,
                         }
                     }
                 ]
@@ -168,12 +170,12 @@ def _assert_multi_factor_config(multi_factor_config):
     assert isinstance(multi_factor_config.provider_configs, list)
     for provider_config in multi_factor_config.provider_configs:
         assert isinstance(provider_config, multi_factor_config_mgt.MultiFactorServerConfig
-                          .ProviderConfigServerConfig)
+                          .ProviderServerConfig)
         assert provider_config.state == 'ENABLED'
         assert isinstance(provider_config.totp_provider_config,
-                          multi_factor_config_mgt.MultiFactorServerConfig.ProviderConfigServerConfig
+                          multi_factor_config_mgt.MultiFactorServerConfig.ProviderServerConfig
                           .TOTPProviderServerConfig)
-        assert provider_config.totp_provider_config.adjacent_intervals == 5
+        assert provider_config.totp_provider_config.adjacent_intervals == ADJACENT_INTERVALS
 
 def _assert_project_config(project_config):
     if project_config.multi_factor_config is not None:

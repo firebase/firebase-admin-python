@@ -13,7 +13,7 @@
 # limitations under the License.
 """Firebase multifactor configuration management module.
 
-This module contains functions for managing various multifactor configurations at
+This module contains functions for managing multifactor auth configuration at
 the project and tenant level.
 """
 from enum import Enum
@@ -94,7 +94,7 @@ class MultiFactorServerConfig:
 
 
 class TOTPProviderConfig:
-    """Represents a TOTP Provider Configuration to be specified for a tenant or project."""
+    """A tenant or project's TOTP provider configuration."""
 
     def __init__(self, adjacent_intervals: int = None):
         self.adjacent_intervals: int = adjacent_intervals
@@ -106,7 +106,7 @@ class TOTPProviderConfig:
         return data
 
     def validate(self):
-        """Validates a given totp_provider_config object.
+        """Validates the configuration.
 
         Raises:
             ValueError: In case of an unsuccessful validation.
@@ -133,8 +133,8 @@ class TOTPProviderConfig:
 
 
 class ProviderConfig:
-    """Represents a provider configuration for tenant or project.
-    Currently only TOTP can be configured"""
+    """A tenant or project's multifactor provider configuration.
+    Currently, only TOTP can be configured."""
 
     class State(Enum):
         ENABLED = 'ENABLED'
@@ -155,7 +155,7 @@ class ProviderConfig:
         return data
 
     def validate(self):
-        """Validates a provider_config object.
+        """Validates the provider configuration.
 
         Raises:
             ValueError: In case of an unsuccessful validation.
@@ -184,8 +184,7 @@ class ProviderConfig:
 
 
 class MultiFactorConfig:
-    """Represents a multi factor configuration for tenant or project
-    """
+    """A tenant or project's multi factor configuration."""
 
     def __init__(self,
                  provider_configs: List[ProviderConfig] = None):
@@ -199,7 +198,7 @@ class MultiFactorConfig:
         return data
 
     def validate(self):
-        """Validates a given multi_factor_config object.
+        """Validates the configuration.
 
         Raises:
             ValueError: In case of an unsuccessful validation.

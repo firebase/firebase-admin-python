@@ -44,7 +44,7 @@ class MultiFactorServerConfig:
     def __init__(self, data):
         if not isinstance(data, dict):
             raise ValueError(
-                'Invalid data argument in MultiFactorServerConfig constructor: {0}'.format(data))
+                'Invalid data argument in MultiFactorServerConfig constructor: {0}, must be a valid dict'.format(data))
         self._data = data
 
     @property
@@ -120,7 +120,7 @@ class TOTPProviderConfig:
             # pylint: disable=C0123
             if type(self.adjacent_intervals) is not int:
                 raise ValueError(
-                    'totp_provider_config.adjacent_intervals must be an integer between'
+                    'TOTPProviderConfig.adjacent_intervals must be an integer between'
                     ' 1 and 10 (inclusive).')
             if not 1 <= self.adjacent_intervals <= 10:
                 raise ValueError(
@@ -167,16 +167,16 @@ class ProviderConfig:
                 'totp_provider_config'},
             config_name='ProviderConfig')
         if self.state is None:
-            raise ValueError('provider_config.state must be defined.')
+            raise ValueError('ProviderConfig.state must be defined.')
         if not isinstance(self.state, ProviderConfig.State):
             raise ValueError(
-                'provider_config.state must be of type ProviderConfig.State.')
+                'ProviderConfig.state must be of type ProviderConfig.State.')
         if self.totp_provider_config is None:
             raise ValueError(
-                'provider_config.totp_provider_config must be defined.')
+                'ProviderConfig.totp_provider_config must be defined.')
         if not isinstance(self.totp_provider_config, TOTPProviderConfig):
             raise ValueError(
-                'provider_configs.totp_provider_config must be of type TOTPProviderConfig.')
+                'ProviderConfig.totp_provider_config must be of type TOTPProviderConfig.')
 
     def build_server_request(self):
         self.validate()

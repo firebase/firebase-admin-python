@@ -35,7 +35,7 @@ __all__ = [
 
 
 def get_project_config(app=None):
-    """Gets the project config corresponding to the given project_id.
+    """Gets the project config corresponding to the current project_id.
 
     Args:
         app: An App instance (optional).

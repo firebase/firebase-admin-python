@@ -171,3 +171,33 @@ class MockAdapter(MockMultiRequestAdapter):
     @property
     def data(self):
         return self._responses[0]
+
+class MockRequestBasedMultiRequestAdapter(adapters.HTTPAdapter):
+    """A mock HTTP adapter that supports multiple responses for the Python requests module.
+       The response for each incoming request should be specified in response_dict during
+       initialization. Each incoming request should contain an identifier in the its body."""
+    def __init__(self, response_dict, recorder):
+        """Constructs a MockRequestBasedMultiRequestAdapter.
+
+        Each incoming request consumes the response and status mapped to it. If no response
+        is specified for the request, the response will be 404 with an empty body.
+        """
+        adapters.HTTPAdapter.__init__(self)
+        self._current_response = 0
+        self._response_dict = dict(response_dict)
+        self._recorder = recorder
+
+    def send(self, request, **kwargs): # pylint: disable=arguments-differ
+        request._extra_kwargs = kwargs
+        self._recorder.append(request)
+        resp = models.Response()
+        resp.url = request.url
+        resp.status_code = 404 # Not found.
+        resp.raw = None
+        for req_id, pair in self._response_dict.items():
+            if req_id in str(request.body):
+                status, response = pair
+                resp.status_code = status
+                resp.raw = io.BytesIO(response.encode())
+                break
+        return resp

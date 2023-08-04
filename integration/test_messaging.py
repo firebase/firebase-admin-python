@@ -86,6 +86,68 @@ def test_send_malformed_token():
     with pytest.raises(exceptions.InvalidArgumentError):
         messaging.send(msg, dry_run=True)
 
+def test_send_each():
+    messages = [
+        messaging.Message(
+            topic='foo-bar', notification=messaging.Notification('Title', 'Body')),
+        messaging.Message(
+            topic='foo-bar', notification=messaging.Notification('Title', 'Body')),
+        messaging.Message(
+            token='not-a-token', notification=messaging.Notification('Title', 'Body')),
+    ]
+
+    batch_response = messaging.send_each(messages, dry_run=True)
+
+    assert batch_response.success_count == 2
+    assert batch_response.failure_count == 1
+    assert len(batch_response.responses) == 3
+
+    response = batch_response.responses[0]
+    assert response.success is True
+    assert response.exception is None
+    assert re.match('^projects/.*/messages/.*$', response.message_id)
+
+    response = batch_response.responses[1]
+    assert response.success is True
+    assert response.exception is None
+    assert re.match('^projects/.*/messages/.*$', response.message_id)
+
+    response = batch_response.responses[2]
+    assert response.success is False
+    assert isinstance(response.exception, exceptions.InvalidArgumentError)
+    assert response.message_id is None
+
+def test_send_each_500():
+    messages = []
+    for msg_number in range(500):
+        topic = 'foo-bar-{0}'.format(msg_number % 10)
+        messages.append(messaging.Message(topic=topic))
+
+    batch_response = messaging.send_each(messages, dry_run=True)
+
+    assert batch_response.success_count == 500
+    assert batch_response.failure_count == 0
+    assert len(batch_response.responses) == 500
+    for response in batch_response.responses:
+        assert response.success is True
+        assert response.exception is None
+        assert re.match('^projects/.*/messages/.*$', response.message_id)
+
+def test_send_each_for_multicast():
+    multicast = messaging.MulticastMessage(
+        notification=messaging.Notification('Title', 'Body'),
+        tokens=['not-a-token', 'also-not-a-token'])
+
+    batch_response = messaging.send_each_for_multicast(multicast)
+
+    assert batch_response.success_count == 0
+    assert batch_response.failure_count == 2
+    assert len(batch_response.responses) == 2
+    for response in batch_response.responses:
+        assert response.success is False
+        assert response.exception is not None
+        assert response.message_id is None
+
 def test_send_all():
     messages = [
         messaging.Message(

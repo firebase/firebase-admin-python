@@ -21,12 +21,14 @@ Firebase apps. This requires the ``google-cloud-storage`` Python module.
 # pylint: disable=import-error,no-name-in-module
 try:
     from google.cloud import storage
+    from google.cloud.storage._helpers import STORAGE_EMULATOR_ENV_VAR
 except ImportError:
     raise ImportError('Failed to import the Cloud Storage library for Python. Make sure '
                       'to install the "google-cloud-storage" module.')
 
-from firebase_admin import _utils
+import os
 
+from firebase_admin import _utils
 
 _STORAGE_ATTRIBUTE = '_storage'
 
@@ -61,7 +63,10 @@ class _StorageClient:
 
     @classmethod
     def from_app(cls, app):
-        credentials = app.credential.get_credential()
+        if os.getenv(STORAGE_EMULATOR_ENV_VAR) is not None:
+            credentials = _utils.EmulatorAdminCredentials()
+        else:
+            credentials = app.credential.get_credential()
         default_bucket = app.options.get('storageBucket')
         # Specifying project ID is not required, but providing it when available
         # significantly speeds up the initialization of the storage client.

@@ -60,6 +60,7 @@ setup(
     keywords='firebase cloud development',
     install_requires=install_requires,
     packages=['firebase_admin'],
+    package_data={"firebase_admin": ["py.typed"]},
     python_requires='>=3.7',
     classifiers=[
         'Development Status :: 5 - Production/Stable',

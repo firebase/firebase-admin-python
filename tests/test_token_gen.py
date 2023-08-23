@@ -554,6 +554,20 @@ class TestVerifyIdToken:
         assert 'Token expired' in str(excinfo.value)
         assert excinfo.value.cause is not None
         assert excinfo.value.http_response is None
+    
+    def test_expired_token_with_tolerance(self, user_mgt_app):
+        _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
+        id_token = self.invalid_tokens['ExpiredToken']
+        if _is_emulated():
+            self._assert_valid_token(id_token, user_mgt_app)
+            return
+        claims = auth.verify_id_token(id_token, app=user_mgt_app, 
+                                      clock_skew_in_seconds=3700)
+        assert claims['admin'] is True
+        assert claims['uid'] == claims['sub']
+        with pytest.raises(auth.ExpiredIdTokenError) as excinfo:
+            auth.verify_id_token(id_token, app=user_mgt_app, 
+                                 clock_skew_in_seconds=3500)
 
     def test_project_id_option(self):
         app = firebase_admin.initialize_app(
@@ -714,6 +728,20 @@ class TestVerifySessionCookie:
         assert 'Token expired' in str(excinfo.value)
         assert excinfo.value.cause is not None
         assert excinfo.value.http_response is None
+
+    def test_expired_cookie_with_tolerance(self, user_mgt_app):
+        _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
+        cookie = self.invalid_cookies['ExpiredCookie']
+        if _is_emulated():
+            self._assert_valid_cookie(cookie, user_mgt_app)
+            return
+        claims = auth.verify_session_cookie(cookie, app=user_mgt_app, check_revoked=False,
+                                            clock_skew_in_seconds=7200)
+        assert claims['admin'] is True
+        assert claims['uid'] == claims['sub']
+        with pytest.raises(auth.ExpiredSessionCookieError) as excinfo:
+            auth.verify_session_cookie(cookie, app=user_mgt_app, check_revoked=False,
+                                       clock_skew_in_seconds=3500)
 
     def test_project_id_option(self):
         app = firebase_admin.initialize_app(

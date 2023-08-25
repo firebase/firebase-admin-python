@@ -218,6 +218,7 @@ First, install the Firebase CLI, then run:
 
 ```
 firebase emulators:exec --only database --project fake-project-id 'pytest integration/test_db.py'
+firebase emulators:exec --only storage --project fake-project-id 'pytest integration/test_storage.py --cert tests/data/service_account.json'
 ```
 
 ### Test Coverage

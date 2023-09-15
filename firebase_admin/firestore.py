@@ -34,11 +34,12 @@ from firebase_admin import _utils
 _FIRESTORE_ATTRIBUTE = '_firestore'
 
 
-def client(app=None):
+def client(app=None, database_id=None):
     """Returns a client that can be used to interact with Google Cloud Firestore.
 
     Args:
       app: An App instance (optional).
+      database_id: The ID of the Google Cloud Firestore database to use. If none provided, default database will be used (optional).
 
     Returns:
       google.cloud.firestore.Firestore: A `Firestore Client`_.
@@ -50,15 +51,22 @@ def client(app=None):
     .. _Firestore Client: https://googlecloudplatform.github.io/google-cloud-python/latest\
           /firestore/client.html
     """
-    fs_client = _utils.get_app_service(app, _FIRESTORE_ATTRIBUTE, _FirestoreClient.from_app)
+
+    options = {"database_id": database_id} if database_id else None
+
+    fs_client = _utils.get_app_service(app, options, _FIRESTORE_ATTRIBUTE, _FirestoreClient.from_app)
     return fs_client.get()
 
 
 class _FirestoreClient:
     """Holds a Google Cloud Firestore client instance."""
 
-    def __init__(self, credentials, project):
-        self._client = firestore.Client(credentials=credentials, project=project)
+    def __init__(self, credentials, project, database_id=None):
+        if database_id:
+            self._client = firestore.Client(credentials=credentials, project=project, database=database_id)
+        else:
+            self._client = firestore.Client(credentials=credentials, project=project)
+
 
     def get(self):
         return self._client
@@ -68,9 +76,10 @@ class _FirestoreClient:
         """Creates a new _FirestoreClient for the specified app."""
         credentials = app.credential.get_credential()
         project = app.project_id
+        database_id = app.options.get('database_id')
         if not project:
             raise ValueError(
                 'Project ID is required to access Firestore. Either set the projectId option, '
                 'or use service account credentials. Alternatively, set the GOOGLE_CLOUD_PROJECT '
                 'environment variable.')
-        return _FirestoreClient(credentials, project)
+        return _FirestoreClient(credentials, project, database_id)

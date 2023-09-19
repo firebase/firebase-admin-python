@@ -320,8 +320,6 @@ class TestFirebaseApp:
         def evaluate():
             app = firebase_admin.initialize_app(app_credential, name='myApp')
             app._credential._g_credential = None
-
-
             old_env_var = os.environ.get(env_var_name)
             if old_env_var:
                 del os.environ[env_var_name]

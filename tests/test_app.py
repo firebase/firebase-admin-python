@@ -315,6 +315,22 @@ class TestFirebaseApp:
             assert app.project_id is None
         testutils.run_without_project_id(evaluate)
 
+    def test_no_project_id_from_environment(self, app_credential):
+        env_var_name = 'GOOGLE_APPLICATION_CREDENTIALS'
+        def evaluate():
+            app = firebase_admin.initialize_app(app_credential, name='myApp')
+            app._credential._g_credential = None
+
+
+            old_env_var = os.environ.get(env_var_name)
+            if old_env_var:
+                del os.environ[env_var_name]
+            project_id = app.project_id
+            if old_env_var:
+                os.environ[env_var_name] = old_env_var
+            assert project_id is None
+        testutils.run_without_project_id(evaluate)
+
     def test_non_string_project_id(self):
         options = {'projectId': {'key': 'not a string'}}
         with pytest.raises(ValueError):

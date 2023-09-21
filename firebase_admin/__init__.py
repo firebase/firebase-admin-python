@@ -18,6 +18,7 @@ import json
 import os
 import threading
 
+from google.auth.exceptions import DefaultCredentialsError
 from firebase_admin import credentials
 from firebase_admin.__about__ import __version__
 
@@ -257,7 +258,7 @@ class App:
         if not project_id:
             try:
                 project_id = self._credential.project_id
-            except AttributeError:
+            except (AttributeError, DefaultCredentialsError):
                 pass
         if not project_id:
             project_id = os.environ.get('GOOGLE_CLOUD_PROJECT',

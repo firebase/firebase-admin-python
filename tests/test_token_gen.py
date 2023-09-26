@@ -559,19 +559,19 @@ class TestVerifyIdToken:
         assert 'Token expired' in str(excinfo.value)
         assert excinfo.value.cause is not None
         assert excinfo.value.http_response is None
-    
+
     def test_expired_token_with_tolerance(self, user_mgt_app):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
         id_token = self.invalid_tokens['ExpiredTokenShort']
         if _is_emulated():
             self._assert_valid_token(id_token, user_mgt_app)
             return
-        claims = auth.verify_id_token(id_token, app=user_mgt_app, 
+        claims = auth.verify_id_token(id_token, app=user_mgt_app,
                                       clock_skew_seconds=60)
         assert claims['admin'] is True
         assert claims['uid'] == claims['sub']
-        with pytest.raises(auth.ExpiredIdTokenError) as excinfo:
-            auth.verify_id_token(id_token, app=user_mgt_app, 
+        with pytest.raises(auth.ExpiredIdTokenError):
+            auth.verify_id_token(id_token, app=user_mgt_app,
                                  clock_skew_seconds=20)
 
     def test_project_id_option(self):
@@ -749,7 +749,7 @@ class TestVerifySessionCookie:
                                             clock_skew_seconds=59)
         assert claims['admin'] is True
         assert claims['uid'] == claims['sub']
-        with pytest.raises(auth.ExpiredSessionCookieError) as excinfo:
+        with pytest.raises(auth.ExpiredSessionCookieError):
             auth.verify_session_cookie(cookie, app=user_mgt_app, check_revoked=False,
                                        clock_skew_seconds=29)
 

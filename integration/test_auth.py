@@ -655,14 +655,15 @@ def test_verify_session_cookie_revoked(new_user, api_key):
 
 def test_verify_session_cookie_tolerance(new_user, api_key):
     expired_session_cookie = auth.create_session_cookie(
-        _sign_in(auth.create_custom_token(new_user.uid), api_key), 
+        _sign_in(auth.create_custom_token(new_user.uid), api_key),
         expires_in=datetime.timedelta(seconds=3)
     )
     time.sleep(3)
     # Verify the session cookie with a tolerance of 0 seconds. This should
     # raise an exception because the cookie is expired.
     with pytest.raises(auth.InvalidSessionCookieError) as excinfo:
-        auth.verify_session_cookie(expired_session_cookie, check_revoked=False, clock_skew_seconds=0)
+        auth.verify_session_cookie(expired_session_cookie, check_revoked=False,
+                                   clock_skew_seconds=0)
     assert str(excinfo.value) == 'The Firebase session cookie is expired.'
 
     # Verify the session cookie with a tolerance of 2 seconds. This should
@@ -671,22 +672,24 @@ def test_verify_session_cookie_tolerance(new_user, api_key):
 
 def test_verify_session_cookie_clock_skew_seconds_range(new_user, api_key):
     expired_session_cookie = auth.create_session_cookie(
-        _sign_in(auth.create_custom_token(new_user.uid), api_key), 
+        _sign_in(auth.create_custom_token(new_user.uid), api_key),
         expires_in=datetime.timedelta(seconds=3)
     )
     # Verify the session cookie with a tolerance of 0 seconds. This should
     # raise an exception because the cookie is expired.
     with pytest.raises(ValueError) as excinfo:
-        auth.verify_session_cookie(expired_session_cookie, check_revoked=False, clock_skew_seconds=-1)
+        auth.verify_session_cookie(
+            expired_session_cookie, check_revoked=False, clock_skew_seconds=-1)
     assert str(excinfo.value) == 'clock_skew_seconds must be between 0 and 60.'
     with pytest.raises(ValueError) as excinfo:
-        auth.verify_session_cookie(expired_session_cookie, check_revoked=False, clock_skew_seconds=61)
+        auth.verify_session_cookie(
+            expired_session_cookie, check_revoked=False, clock_skew_seconds=61)
     assert str(excinfo.value) == 'clock_skew_seconds must be between 0 and 60.'
 
     # Verify the session cookie with a tolerance of 2 seconds. This should
     # not raise an exception because the cookie is within the tolerance.
     auth.verify_session_cookie(expired_session_cookie, check_revoked=False, clock_skew_seconds=2)
-    
+
 
 def test_verify_session_cookie_disabled(new_user, api_key):
     custom_token = auth.create_custom_token(new_user.uid)

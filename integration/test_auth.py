@@ -601,11 +601,11 @@ def test_verify_id_token_revoked(new_user, api_key):
     assert claims['iat'] * 1000 >= user.tokens_valid_after_timestamp
 
 def test_verify_id_token_tolerance(new_user, api_key):
-    expired_id_token = _sign_in_with_password(new_user.email, 'password', api_key)
+    expired_id_token = _sign_in_with_password(new_user_with_params())
     time.sleep(1)
     # Verify the ID token with a tolerance of 0 seconds. This should
     # raise an exception because the token is expired.
-    with pytest.raises(auth.InvalidIdTokenError) as excinfo:
+    with pytest.raises(auth.ExpiredIdTokenError) as excinfo:
         auth.verify_id_token(expired_id_token, check_revoked=False, clock_skew_seconds=0)
     assert str(excinfo.value) == 'The Firebase ID token is expired.'
 
@@ -661,7 +661,7 @@ def test_verify_session_cookie_tolerance(new_user, api_key):
     time.sleep(3)
     # Verify the session cookie with a tolerance of 0 seconds. This should
     # raise an exception because the cookie is expired.
-    with pytest.raises(auth.InvalidSessionCookieError) as excinfo:
+    with pytest.raises(auth.ExpiredSessionCookieError) as excinfo:
         auth.verify_session_cookie(expired_session_cookie, check_revoked=False,
                                    clock_skew_seconds=0)
     assert str(excinfo.value) == 'The Firebase session cookie is expired.'

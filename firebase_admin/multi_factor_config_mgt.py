@@ -37,8 +37,7 @@ def validate_keys(keys, valid_keys, config_name):
 
 
 class MultiFactorServerConfig:
-    """Represents multi factor configuration response received from the server and
-    converts it to user format.
+    """Represents the multi-factor configuration response received from the server.
     """
 
     def __init__(self, data):

@@ -55,8 +55,7 @@ class MultiFactorServerConfig:
         return None
 
     class ProviderServerConfig:
-        """Represents provider configuration response received from the server and converts
-        it to user format.
+        """Represents the provider configuration response received from the server.
         """
 
         def __init__(self, data):
@@ -77,8 +76,7 @@ class MultiFactorServerConfig:
             return None
 
         class TOTPProviderServerConfig:
-            """Represents TOTP provider configuration response received from the server and converts
-            it to user format.
+            """Represents the TOTP provider configuration response received from the server.
             """
 
             def __init__(self, data):

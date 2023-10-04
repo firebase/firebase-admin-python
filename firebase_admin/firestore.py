@@ -74,9 +74,10 @@ class _FirestoreClient:
         """Creates a new _FirestoreClient for the specified app."""
         credentials = app.credential.get_credential()
         project = app.project_id
+        database_id = app.options.get('database_id')
         if not project:
             raise ValueError(
                 'Project ID is required to access Firestore. Either set the projectId option, '
                 'or use service account credentials. Alternatively, set the GOOGLE_CLOUD_PROJECT '
                 'environment variable.')
-        return _FirestoreClient(credentials, project)
+        return _FirestoreClient(credentials, project, database_id)

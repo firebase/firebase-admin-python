@@ -60,7 +60,7 @@ def client(app=None, database_id=None):
 class _FirestoreClient:
     """Holds a Google Cloud Firestore client instance."""
 
-    def __init__(self, credentials, project):
+    def __init__(self, credentials, project, database_id=None):
         if database_id:
             self._client = firestore.Client(credentials=credentials, project=project, database=database_id)
         else:

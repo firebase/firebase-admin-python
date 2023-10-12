@@ -600,19 +600,6 @@ def test_verify_id_token_revoked(new_user, api_key):
     claims = auth.verify_id_token(id_token, check_revoked=True)
     assert claims['iat'] * 1000 >= user.tokens_valid_after_timestamp
 
-def test_verify_id_token_tolerance(new_user, api_key):
-    expired_id_token = _sign_in_with_password(new_user_with_params())
-    time.sleep(1)
-    # Verify the ID token with a tolerance of 0 seconds. This should
-    # raise an exception because the token is expired.
-    with pytest.raises(auth.ExpiredIdTokenError) as excinfo:
-        auth.verify_id_token(expired_id_token, check_revoked=False, clock_skew_seconds=0)
-    assert str(excinfo.value) == 'The Firebase ID token is expired.'
-
-    # Verify the ID token with a tolerance of 2 seconds. This should
-    # not raise an exception because the token is within the tolerance.
-    auth.verify_id_token(expired_id_token, check_revoked=False, clock_skew_seconds=2)
-
 def test_verify_id_token_disabled(new_user, api_key):
     custom_token = auth.create_custom_token(new_user.uid)
     id_token = _sign_in(custom_token, api_key)

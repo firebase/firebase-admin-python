@@ -18,12 +18,12 @@ import time
 from firebase_admin import storage
 
 
-def test_default_bucket(project_id):
+def test_default_bucket(storageBucket):
     bucket = storage.bucket()
-    _verify_bucket(bucket, '{0}.appspot.com'.format(project_id))
+    _verify_bucket(bucket, storageBucket)
 
-def test_custom_bucket(project_id):
-    bucket_name = '{0}.appspot.com'.format(project_id)
+def test_custom_bucket(storageBucket):
+    bucket_name = storageBucket
     bucket = storage.bucket(bucket_name)
     _verify_bucket(bucket, bucket_name)
 

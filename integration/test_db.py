@@ -35,10 +35,10 @@ def integration_conf(request):
 
 
 @pytest.fixture(scope='module')
-def app(request):
-    cred, project_id = integration_conf(request)
+def app(request, databaseURL):
+    cred, _ = integration_conf(request)
     ops = {
-        'databaseURL' : 'https://{0}.firebaseio.com'.format(project_id),
+        'databaseURL' : databaseURL,
     }
     return firebase_admin.initialize_app(cred, ops, name='integration-db')
 
@@ -327,11 +327,11 @@ class TestAdvancedQueries:
 
 
 @pytest.fixture(scope='module')
-def override_app(request, update_rules):
+def override_app(request, update_rules, databaseURL):
     del update_rules
     cred, project_id = integration_conf(request)
     ops = {
-        'databaseURL' : 'https://{0}.firebaseio.com'.format(project_id),
+        'databaseURL' : databaseURL,
         'databaseAuthVariableOverride' : {'uid' : 'user1'}
     }
     app = firebase_admin.initialize_app(cred, ops, 'db-override')
@@ -339,11 +339,11 @@ def override_app(request, update_rules):
     firebase_admin.delete_app(app)
 
 @pytest.fixture(scope='module')
-def none_override_app(request, update_rules):
+def none_override_app(request, update_rules, databaseURL):
     del update_rules
     cred, project_id = integration_conf(request)
     ops = {
-        'databaseURL' : 'https://{0}.firebaseio.com'.format(project_id),
+        'databaseURL' : databaseURL,
         'databaseAuthVariableOverride' : None
     }
     app = firebase_admin.initialize_app(cred, ops, 'db-none-override')

@@ -27,6 +27,8 @@ def pytest_addoption(parser):
         '--cert', action='store', help='Service account certificate file for integration tests.')
     parser.addoption(
         '--apikey', action='store', help='API key file for integration tests.')
+    parser.addoption(
+        '--config', action='store', help='Config file for integration tests.')
 
 def _get_cert_path(request):
     cert = request.config.getoption('--cert')
@@ -48,18 +50,51 @@ def project_id(request):
     _, project_id = integration_conf(request)
     return project_id
 
+@pytest.fixture(scope='session')
+def cred(request):
+    cred, _ = integration_conf(request)
+    return cred
+
+@pytest.fixture(scope='session')
+def test_config(request):
+    test_config_path = request.config.getoption('--config')
+    if test_config_path:
+        with open(test_config_path,'r') as test_config_file:
+            test_config = json.load(test_config_file)
+            if not test_config:
+                raise ValueError('Failed to load config from path. Verify the path to the '
+                                'test_config file is valid')
+        return test_config
+    return None
+
+@pytest.fixture(scope='session')
+def databaseURL(project_id, test_config):
+    if test_config:
+        databaseURL = test_config.get('databaseURL')
+        if databaseURL:
+            return databaseURL
+    return 'https://{0}.firebaseio.com'.format(project_id)
+
+@pytest.fixture(scope='session')
+def storageBucket(project_id, test_config):
+    if test_config:
+        storageBucket = test_config.get('storageBucket')
+        if storageBucket:
+            return storageBucket
+    return '{0}.appspot.com'.format(project_id)
+    
+
 @pytest.fixture(autouse=True, scope='session')
-def default_app(request):
+def default_app(cred, databaseURL, storageBucket):
     """Initializes the default Firebase App instance used for all integration tests.
 
     This fixture is attached to the session scope, which ensures that it runs only once during
     a test session. It is also marked as autouse, and therefore runs automatically without
     test cases having to call it explicitly.
     """
-    cred, project_id = integration_conf(request)
     ops = {
-        'databaseURL' : 'https://{0}.firebaseio.com'.format(project_id),
-        'storageBucket' : '{0}.appspot.com'.format(project_id)
+        'databaseURL' : databaseURL,
+        'storageBucket' : storageBucket
     }
     return firebase_admin.initialize_app(cred, ops)
 

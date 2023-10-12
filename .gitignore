@@ -9,6 +9,7 @@ dist/
 *~
 cert.json
 apikey.txt
+test_config.json
 htmlcov/
 .pytest_cache/
 .vscode/

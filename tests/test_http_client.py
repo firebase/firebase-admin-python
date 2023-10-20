@@ -14,82 +14,87 @@
 
 """Tests for firebase_admin._http_client."""
 import pytest
-from pytest_localserver import http
 import requests
+from pytest_localserver import http
 
 from firebase_admin import _http_client
 from tests import testutils
 
-
-_TEST_URL = 'http://firebase.test.url/'
+_TEST_URL = "http://firebase.test.url/"
 
 
 def test_http_client_default_session():
     client = _http_client.HttpClient()
     assert client.session is not None
-    assert client.base_url == ''
-    recorder = _instrument(client, 'body')
-    resp = client.request('get', _TEST_URL)
+    assert client.base_url == ""
+    recorder = _instrument(client, "body")
+    resp = client.request("get", _TEST_URL)
     assert resp.status_code == 200
-    assert resp.text == 'body'
+    assert resp.text == "body"
     assert len(recorder) == 1
-    assert recorder[0].method == 'GET'
+    assert recorder[0].method == "GET"
     assert recorder[0].url == _TEST_URL
+
 
 def test_http_client_custom_session():
     session = requests.Session()
     client = _http_client.HttpClient(session=session)
     assert client.session is session
-    assert client.base_url == ''
-    recorder = _instrument(client, 'body')
-    resp = client.request('get', _TEST_URL)
+    assert client.base_url == ""
+    recorder = _instrument(client, "body")
+    resp = client.request("get", _TEST_URL)
     assert resp.status_code == 200
-    assert resp.text == 'body'
+    assert resp.text == "body"
     assert len(recorder) == 1
-    assert recorder[0].method == 'GET'
+    assert recorder[0].method == "GET"
     assert recorder[0].url == _TEST_URL
+
 
 def test_base_url():
     client = _http_client.HttpClient(base_url=_TEST_URL)
     assert client.session is not None
     assert client.base_url == _TEST_URL
-    recorder = _instrument(client, 'body')
-    resp = client.request('get', 'foo')
+    recorder = _instrument(client, "body")
+    resp = client.request("get", "foo")
     assert resp.status_code == 200
-    assert resp.text == 'body'
+    assert resp.text == "body"
     assert len(recorder) == 1
-    assert recorder[0].method == 'GET'
-    assert recorder[0].url == _TEST_URL + 'foo'
+    assert recorder[0].method == "GET"
+    assert recorder[0].url == _TEST_URL + "foo"
+
 
 def test_credential():
-    client = _http_client.HttpClient(
-        credential=testutils.MockGoogleCredential())
+    client = _http_client.HttpClient(credential=testutils.MockGoogleCredential())
     assert client.session is not None
-    recorder = _instrument(client, 'body')
-    resp = client.request('get', _TEST_URL)
+    recorder = _instrument(client, "body")
+    resp = client.request("get", _TEST_URL)
     assert resp.status_code == 200
-    assert resp.text == 'body'
+    assert resp.text == "body"
     assert len(recorder) == 1
-    assert recorder[0].method == 'GET'
+    assert recorder[0].method == "GET"
     assert recorder[0].url == _TEST_URL
-    assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+    assert recorder[0].headers["Authorization"] == "Bearer mock-token"
 
-@pytest.mark.parametrize('options, timeout', [
-    ({}, _http_client.DEFAULT_TIMEOUT_SECONDS),
-    ({'timeout': 7}, 7),
-    ({'timeout': 0}, 0),
-    ({'timeout': None}, None),
-])
+
+@pytest.mark.parametrize(
+    "options, timeout",
+    [
+        ({}, _http_client.DEFAULT_TIMEOUT_SECONDS),
+        ({"timeout": 7}, 7),
+        ({"timeout": 0}, 0),
+        ({"timeout": None}, None),
+    ],
+)
 def test_timeout(options, timeout):
     client = _http_client.HttpClient(**options)
     assert client.timeout == timeout
-    recorder = _instrument(client, 'body')
-    client.request('get', _TEST_URL)
+    recorder = _instrument(client, "body")
+    client.request("get", _TEST_URL)
     assert len(recorder) == 1
     if timeout is None:
-        assert recorder[0]._extra_kwargs['timeout'] is None
+        assert recorder[0]._extra_kwargs["timeout"] is None
     else:
-        assert recorder[0]._extra_kwargs['timeout'] == pytest.approx(timeout, 0.001)
+        assert recorder[0]._extra_kwargs["timeout"] == pytest.approx(timeout, 0.001)
 
 
 def _instrument(client, payload, status=200):
@@ -102,8 +107,8 @@ def _instrument(client, payload, status=200):
 class TestHttpRetry:
     """Unit tests for the default HTTP retry configuration."""
 
-    ENTITY_ENCLOSING_METHODS = ['post', 'put', 'patch']
-    ALL_METHODS = ENTITY_ENCLOSING_METHODS + ['get', 'delete', 'head', 'options']
+    ENTITY_ENCLOSING_METHODS = ["post", "put", "patch"]
+    ALL_METHODS = ENTITY_ENCLOSING_METHODS + ["get", "delete", "head", "options"]
 
     @classmethod
     def setup_class(cls):
@@ -123,37 +128,40 @@ class TestHttpRetry:
         # Clean up any state in the server before starting a new test case.
         self.httpserver.requests = []
 
-    @pytest.mark.parametrize('method', ALL_METHODS)
+    @pytest.mark.parametrize("method", ALL_METHODS)
     def test_retry_on_503(self, method):
         self.httpserver.serve_content({}, 503)
         client = _http_client.JsonHttpClient(
-            credential=testutils.MockGoogleCredential(), base_url=self.httpserver.url)
+            credential=testutils.MockGoogleCredential(), base_url=self.httpserver.url
+        )
         body = None
         if method in self.ENTITY_ENCLOSING_METHODS:
-            body = {'key': 'value'}
+            body = {"key": "value"}
         with pytest.raises(requests.exceptions.HTTPError) as excinfo:
-            client.request(method, '/', json=body)
+            client.request(method, "/", json=body)
         assert excinfo.value.response.status_code == 503
         assert len(self.httpserver.requests) == 5
 
-    @pytest.mark.parametrize('method', ALL_METHODS)
+    @pytest.mark.parametrize("method", ALL_METHODS)
     def test_retry_on_500(self, method):
         self.httpserver.serve_content({}, 500)
         client = _http_client.JsonHttpClient(
-            credential=testutils.MockGoogleCredential(), base_url=self.httpserver.url)
+            credential=testutils.MockGoogleCredential(), base_url=self.httpserver.url
+        )
         body = None
         if method in self.ENTITY_ENCLOSING_METHODS:
-            body = {'key': 'value'}
+            body = {"key": "value"}
         with pytest.raises(requests.exceptions.HTTPError) as excinfo:
-            client.request(method, '/', json=body)
+            client.request(method, "/", json=body)
         assert excinfo.value.response.status_code == 500
         assert len(self.httpserver.requests) == 5
 
     def test_no_retry_on_404(self):
         self.httpserver.serve_content({}, 404)
         client = _http_client.JsonHttpClient(
-            credential=testutils.MockGoogleCredential(), base_url=self.httpserver.url)
+            credential=testutils.MockGoogleCredential(), base_url=self.httpserver.url
+        )
         with pytest.raises(requests.exceptions.HTTPError) as excinfo:
-            client.request('get', '/')
+            client.request("get", "/")
         assert excinfo.value.response.status_code == 404
         assert len(self.httpserver.requests) == 1

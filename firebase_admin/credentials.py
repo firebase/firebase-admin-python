@@ -19,21 +19,19 @@ import pathlib
 
 import google.auth
 from google.auth.transport import requests
-from google.oauth2 import credentials
-from google.oauth2 import service_account
-
+from google.oauth2 import credentials, service_account
 
 _request = requests.Request()
 _scopes = [
-    'https://www.googleapis.com/auth/cloud-platform',
-    'https://www.googleapis.com/auth/datastore',
-    'https://www.googleapis.com/auth/devstorage.read_write',
-    'https://www.googleapis.com/auth/firebase',
-    'https://www.googleapis.com/auth/identitytoolkit',
-    'https://www.googleapis.com/auth/userinfo.email'
+    "https://www.googleapis.com/auth/cloud-platform",
+    "https://www.googleapis.com/auth/datastore",
+    "https://www.googleapis.com/auth/devstorage.read_write",
+    "https://www.googleapis.com/auth/firebase",
+    "https://www.googleapis.com/auth/identitytoolkit",
+    "https://www.googleapis.com/auth/userinfo.email",
 ]
 
-AccessTokenInfo = collections.namedtuple('AccessTokenInfo', ['access_token', 'expiry'])
+AccessTokenInfo = collections.namedtuple("AccessTokenInfo", ["access_token", "expiry"])
 """Data included in an OAuth2 access token.
 
 Contains the access token string and the expiry time. The expirty time is exposed as a
@@ -62,7 +60,7 @@ class Base:
 class Certificate(Base):
     """A credential initialized from a JSON certificate keyfile."""
 
-    _CREDENTIAL_TYPE = 'service_account'
+    _CREDENTIAL_TYPE = "service_account"
 
     def __init__(self, cert):
         """Initializes a credential from a Google service account certificate.
@@ -87,17 +85,23 @@ class Certificate(Base):
         else:
             raise ValueError(
                 'Invalid certificate argument: "{0}". Certificate argument must be a file path, '
-                'or a dict containing the parsed file contents.'.format(cert))
+                "or a dict containing the parsed file contents.".format(cert)
+            )
 
-        if json_data.get('type') != self._CREDENTIAL_TYPE:
-            raise ValueError('Invalid service account certificate. Certificate must contain a '
-                             '"type" field set to "{0}".'.format(self._CREDENTIAL_TYPE))
+        if json_data.get("type") != self._CREDENTIAL_TYPE:
+            raise ValueError(
+                "Invalid service account certificate. Certificate must contain a "
+                '"type" field set to "{0}".'.format(self._CREDENTIAL_TYPE)
+            )
         try:
             self._g_credential = service_account.Credentials.from_service_account_info(
-                json_data, scopes=_scopes)
+                json_data, scopes=_scopes
+            )
         except ValueError as error:
-            raise ValueError('Failed to initialize a certificate credential. '
-                             'Caused by: "{0}"'.format(error))
+            raise ValueError(
+                "Failed to initialize a certificate credential. "
+                'Caused by: "{0}"'.format(error)
+            )
 
     @property
     def project_id(self):
@@ -158,10 +162,11 @@ class ApplicationDefault(Base):
         if not self._g_credential:
             self._g_credential, self._project_id = google.auth.default(scopes=_scopes)
 
+
 class RefreshToken(Base):
     """A credential initialized from an existing refresh token."""
 
-    _CREDENTIAL_TYPE = 'authorized_user'
+    _CREDENTIAL_TYPE = "authorized_user"
 
     def __init__(self, refresh_token):
         """Initializes a credential from a refresh token JSON file.
@@ -188,12 +193,19 @@ class RefreshToken(Base):
         else:
             raise ValueError(
                 'Invalid refresh token argument: "{0}". Refresh token argument must be a file '
-                'path, or a dict containing the parsed file contents.'.format(refresh_token))
+                "path, or a dict containing the parsed file contents.".format(
+                    refresh_token
+                )
+            )
 
-        if json_data.get('type') != self._CREDENTIAL_TYPE:
-            raise ValueError('Invalid refresh token configuration. JSON must contain a '
-                             '"type" field set to "{0}".'.format(self._CREDENTIAL_TYPE))
-        self._g_credential = credentials.Credentials.from_authorized_user_info(json_data, _scopes)
+        if json_data.get("type") != self._CREDENTIAL_TYPE:
+            raise ValueError(
+                "Invalid refresh token configuration. JSON must contain a "
+                '"type" field set to "{0}".'.format(self._CREDENTIAL_TYPE)
+            )
+        self._g_credential = credentials.Credentials.from_authorized_user_info(
+            json_data, _scopes
+        )
 
     @property
     def client_id(self):

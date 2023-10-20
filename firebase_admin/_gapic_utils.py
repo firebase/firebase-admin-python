@@ -21,8 +21,7 @@ import googleapiclient
 import httplib2
 import requests
 
-from firebase_admin import exceptions
-from firebase_admin import _utils
+from firebase_admin import _utils, exceptions
 
 
 def handle_platform_error_from_googleapiclient(error, handle_func=None):
@@ -44,13 +43,19 @@ def handle_platform_error_from_googleapiclient(error, handle_func=None):
 
     content = error.content.decode()
     status_code = error.resp.status
-    error_dict, message = _utils._parse_platform_error(content, status_code) # pylint: disable=protected-access
+    error_dict, message = _utils._parse_platform_error(
+        content, status_code
+    )  # pylint: disable=protected-access
     http_response = _http_response_from_googleapiclient_error(error)
     exc = None
     if handle_func:
         exc = handle_func(error, message, error_dict, http_response)
 
-    return exc if exc else _handle_func_googleapiclient(error, message, error_dict, http_response)
+    return (
+        exc
+        if exc
+        else _handle_func_googleapiclient(error, message, error_dict, http_response)
+    )
 
 
 def _handle_func_googleapiclient(error, message, error_dict, http_response):
@@ -65,7 +70,7 @@ def _handle_func_googleapiclient(error, message, error_dict, http_response):
     Returns:
         FirebaseError: A ``FirebaseError`` that can be raised to the user code or None.
     """
-    code = error_dict.get('status')
+    code = error_dict.get("status")
     return handle_googleapiclient_error(error, message, code, http_response)
 
 
@@ -90,27 +95,35 @@ def handle_googleapiclient_error(error, message=None, code=None, http_response=N
         FirebaseError: A ``FirebaseError`` that can be raised to the user code.
     """
     if isinstance(error, socket.timeout) or (
-            isinstance(error, socket.error) and 'timed out' in str(error)):
+        isinstance(error, socket.error) and "timed out" in str(error)
+    ):
         return exceptions.DeadlineExceededError(
-            message='Timed out while making an API call: {0}'.format(error),
-            cause=error)
+            message="Timed out while making an API call: {0}".format(error), cause=error
+        )
     if isinstance(error, httplib2.ServerNotFoundError):
         return exceptions.UnavailableError(
-            message='Failed to establish a connection: {0}'.format(error),
-            cause=error)
+            message="Failed to establish a connection: {0}".format(error), cause=error
+        )
     if not isinstance(error, googleapiclient.errors.HttpError):
         return exceptions.UnknownError(
-            message='Unknown error while making a remote service call: {0}'.format(error),
-            cause=error)
+            message="Unknown error while making a remote service call: {0}".format(
+                error
+            ),
+            cause=error,
+        )
 
     if not code:
-        code = _utils._http_status_to_error_code(error.resp.status) # pylint: disable=protected-access
+        code = _utils._http_status_to_error_code(
+            error.resp.status
+        )  # pylint: disable=protected-access
     if not message:
         message = str(error)
     if not http_response:
         http_response = _http_response_from_googleapiclient_error(error)
 
-    err_type = _utils._error_code_to_exception_type(code) # pylint: disable=protected-access
+    err_type = _utils._error_code_to_exception_type(
+        code
+    )  # pylint: disable=protected-access
     return err_type(message=message, cause=error, http_response=http_response)
 
 

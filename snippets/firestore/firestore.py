@@ -14,6 +14,7 @@
 
 from firebase_admin import firestore
 
+
 # pylint: disable=invalid-name
 def init_firestore_client():
     # [START init_firestore_client]
@@ -25,11 +26,11 @@ def init_firestore_client():
     db = firestore.client()
     # [END init_firestore_client]
 
+
 def init_firestore_client_application_default():
     # [START init_firestore_client_application_default]
     import firebase_admin
-    from firebase_admin import credentials
-    from firebase_admin import firestore
+    from firebase_admin import credentials, firestore
 
     # Use the application default credentials.
     cred = credentials.ApplicationDefault()
@@ -38,19 +39,20 @@ def init_firestore_client_application_default():
     db = firestore.client()
     # [END init_firestore_client_application_default]
 
+
 def init_firestore_client_service_account():
     # [START init_firestore_client_service_account]
     import firebase_admin
-    from firebase_admin import credentials
-    from firebase_admin import firestore
+    from firebase_admin import credentials, firestore
 
     # Use a service account.
-    cred = credentials.Certificate('path/to/serviceAccount.json')
+    cred = credentials.Certificate("path/to/serviceAccount.json")
 
     app = firebase_admin.initialize_app(cred)
 
     db = firestore.client()
     # [END init_firestore_client_service_account]
+
 
 def read_data():
     import firebase_admin
@@ -60,12 +62,13 @@ def read_data():
     db = firestore.client()
 
     # [START read_data]
-    doc_ref = db.collection('users').document('alovelace')
+    doc_ref = db.collection("users").document("alovelace")
     doc = doc_ref.get()
     if doc.exists:
-        return f'data: {doc.to_dict()}'
+        return f"data: {doc.to_dict()}"
     return "Document does not exist."
     # [END read_data]
+
 
 def add_data():
     import firebase_admin
@@ -76,9 +79,5 @@ def add_data():
 
     # [START add_data]
     doc_ref = db.collection("users").document("alovelace")
-    doc_ref.set({
-        "first": "Ada",
-        "last": "Lovelace",
-        "born": 1815
-    })
+    doc_ref.set({"first": "Ada", "last": "Lovelace", "born": 1815})
     # [END add_data]

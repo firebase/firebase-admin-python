@@ -23,7 +23,6 @@ from tests import testutils
 
 
 class MockSSEClientAdapter(testutils.MockAdapter):
-
     def __init__(self, payload, recorder):
         super(MockSSEClientAdapter, self).__init__(payload, 200, recorder)
 
@@ -40,7 +39,6 @@ class TestSSEClient:
     """Test cases for the SSEClient"""
 
     test_url = "https://test.firebaseio.com"
-
 
     def init_sse(self, payload, recorder=None):
         if recorder is None:
@@ -74,7 +72,7 @@ class TestSSEClient:
         assert len(recorder) == 2
 
     def test_large_event(self):
-        data = 'a' * int(0.1 * 1024 * 1024)
+        data = "a" * int(0.1 * 1024 * 1024)
         payload = 'event: put\ndata: {"path":"/","data":"' + data + '"}\n\n'
         recorder = []
         sseclient = self.init_sse(payload, recorder)
@@ -135,10 +133,10 @@ class TestEvent:
         assert event.event_type == "put"
         assert event.data == '{"path":"/","data":"testdata"}'
         assert event.retry == 5000
-        assert event.event_id == 'abcd'
+        assert event.event_id == "abcd"
 
     def test_invalid(self):
-        data = 'event: invalid_event'
+        data = "event: invalid_event"
         event = _sseclient.Event.parse(data)
         assert event.event_type == "invalid_event"
-        assert event.data == ''
+        assert event.data == ""

@@ -18,6 +18,7 @@ import pytest
 
 from firebase_admin import _rfc3339
 
+
 def test_epoch():
     expected = pytest.approx(0)
     assert _rfc3339.parse_to_epoch("1970-01-01T00:00:00Z") == expected
@@ -27,6 +28,7 @@ def test_epoch():
     assert _rfc3339.parse_to_epoch("1970-01-01T01:00:00+01:00") == expected
     assert _rfc3339.parse_to_epoch("1969-12-31T23:00:00-01:00") == expected
 
+
 def test_pre_epoch():
     expected = -5617641600
     assert _rfc3339.parse_to_epoch("1791-12-26T00:00:00Z") == expected
@@ -35,6 +37,7 @@ def test_pre_epoch():
     assert _rfc3339.parse_to_epoch("1791-12-26T01:00:00+01:00") == expected
     assert _rfc3339.parse_to_epoch("1791-12-25T23:00:00-01:00") == expected
 
+
 def test_post_epoch():
     expected = 904892400
     assert _rfc3339.parse_to_epoch("1998-09-04T07:00:00Z") == expected
@@ -42,26 +45,38 @@ def test_post_epoch():
     assert _rfc3339.parse_to_epoch("1998-09-04T08:00:00+01:00") == expected
     assert _rfc3339.parse_to_epoch("1998-09-04T06:00:00-01:00") == expected
 
+
 def test_micros_millis():
     assert _rfc3339.parse_to_epoch("1970-01-01T00:00:00Z") == pytest.approx(0)
     assert _rfc3339.parse_to_epoch("1970-01-01T00:00:00.1Z") == pytest.approx(0.1)
     assert _rfc3339.parse_to_epoch("1970-01-01T00:00:00.001Z") == pytest.approx(0.001)
-    assert _rfc3339.parse_to_epoch("1970-01-01T00:00:00.000001Z") == pytest.approx(0.000001)
+    assert _rfc3339.parse_to_epoch("1970-01-01T00:00:00.000001Z") == pytest.approx(
+        0.000001
+    )
 
     assert _rfc3339.parse_to_epoch("1970-01-01T00:00:00+00:00") == pytest.approx(0)
     assert _rfc3339.parse_to_epoch("1970-01-01T00:00:00.1+00:00") == pytest.approx(0.1)
-    assert _rfc3339.parse_to_epoch("1970-01-01T00:00:00.001+00:00") == pytest.approx(0.001)
-    assert _rfc3339.parse_to_epoch("1970-01-01T00:00:00.000001+00:00") == pytest.approx(0.000001)
+    assert _rfc3339.parse_to_epoch("1970-01-01T00:00:00.001+00:00") == pytest.approx(
+        0.001
+    )
+    assert _rfc3339.parse_to_epoch("1970-01-01T00:00:00.000001+00:00") == pytest.approx(
+        0.000001
+    )
+
 
 def test_nanos():
     assert _rfc3339.parse_to_epoch("1970-01-01T00:00:00.0000001Z") == pytest.approx(0)
 
-@pytest.mark.parametrize('datestr', [
-    'not a date string',
-    '1970-01-01 00:00:00Z',
-    '1970-01-01 00:00:00+00:00',
-    '1970-01-01T00:00:00',
-    ])
+
+@pytest.mark.parametrize(
+    "datestr",
+    [
+        "not a date string",
+        "1970-01-01 00:00:00Z",
+        "1970-01-01 00:00:00+00:00",
+        "1970-01-01T00:00:00",
+    ],
+)
 def test_bad_datestrs(datestr):
     with pytest.raises(ValueError):
         _rfc3339.parse_to_epoch(datestr)

@@ -17,23 +17,20 @@ import io
 import os
 
 import pytest
-
-from google.auth import credentials
-from google.auth import transport
-from requests import adapters
-from requests import models
+from google.auth import credentials, transport
+from requests import adapters, models
 
 import firebase_admin
 
 
 def resource_filename(filename):
     """Returns the absolute path to a test resource."""
-    return os.path.join(os.path.dirname(__file__), 'data', filename)
+    return os.path.join(os.path.dirname(__file__), "data", filename)
 
 
 def resource(filename):
     """Returns the contents of a test resource."""
-    with open(resource_filename(filename), 'r') as file_obj:
+    with open(resource_filename(filename), "r") as file_obj:
         return file_obj.read()
 
 
@@ -43,8 +40,9 @@ def cleanup_apps():
         for app in apps:
             firebase_admin.delete_app(app)
 
+
 def run_without_project_id(func):
-    env_vars = ['GCLOUD_PROJECT', 'GOOGLE_CLOUD_PROJECT']
+    env_vars = ["GCLOUD_PROJECT", "GOOGLE_CLOUD_PROJECT"]
     env_values = []
     for env_var in env_vars:
         gcloud_project = os.environ.get(env_var)
@@ -81,6 +79,7 @@ class MockResponse(transport.Response):
     def data(self):
         return self._response.encode()
 
+
 class MockRequest(transport.Request):
     """A mock HTTP requests implementation.
 
@@ -94,7 +93,7 @@ class MockRequest(transport.Request):
         self.response = MockResponse(status, response)
         self.log = []
 
-    def __call__(self, *args, **kwargs): # pylint: disable=arguments-differ
+    def __call__(self, *args, **kwargs):  # pylint: disable=arguments-differ
         self.log.append((args, kwargs))
         return self.response
 
@@ -106,7 +105,7 @@ class MockFailedRequest(transport.Request):
         self.error = error
         self.log = []
 
-    def __call__(self, *args, **kwargs): # pylint: disable=arguments-differ
+    def __call__(self, *args, **kwargs):  # pylint: disable=arguments-differ
         self.log.append((args, kwargs))
         raise self.error
 
@@ -116,8 +115,9 @@ class MockFailedRequest(transport.Request):
 # pylint: disable=abstract-method
 class MockGoogleCredential(credentials.Credentials):
     """A mock Google authentication credential."""
+
     def refresh(self, request):
-        self.token = 'mock-token'
+        self.token = "mock-token"
 
 
 class MockCredential(firebase_admin.credentials.Base):
@@ -132,6 +132,7 @@ class MockCredential(firebase_admin.credentials.Base):
 
 class MockMultiRequestAdapter(adapters.HTTPAdapter):
     """A mock HTTP adapter that supports multiple responses for the Python requests module."""
+
     def __init__(self, responses, statuses, recorder):
         """Constructs a MockMultiRequestAdapter.
 
@@ -142,25 +143,28 @@ class MockMultiRequestAdapter(adapters.HTTPAdapter):
         """
         adapters.HTTPAdapter.__init__(self)
         if len(responses) != len(statuses):
-            raise ValueError('The lengths of responses and statuses do not match.')
+            raise ValueError("The lengths of responses and statuses do not match.")
         self._current_response = 0
         self._responses = list(responses)  # Make a copy.
         self._statuses = list(statuses)
         self._recorder = recorder
 
-    def send(self, request, **kwargs): # pylint: disable=arguments-differ
+    def send(self, request, **kwargs):  # pylint: disable=arguments-differ
         request._extra_kwargs = kwargs
         self._recorder.append(request)
         resp = models.Response()
         resp.url = request.url
         resp.status_code = self._statuses[self._current_response]
         resp.raw = io.BytesIO(self._responses[self._current_response].encode())
-        self._current_response = min(self._current_response + 1, len(self._responses) - 1)
+        self._current_response = min(
+            self._current_response + 1, len(self._responses) - 1
+        )
         return resp
 
 
 class MockAdapter(MockMultiRequestAdapter):
     """A mock HTTP adapter for the Python requests module."""
+
     def __init__(self, data, status, recorder):
         super(MockAdapter, self).__init__([data], [status], recorder)
 
@@ -172,10 +176,13 @@ class MockAdapter(MockMultiRequestAdapter):
     def data(self):
         return self._responses[0]
 
+
 class MockRequestBasedMultiRequestAdapter(adapters.HTTPAdapter):
     """A mock HTTP adapter that supports multiple responses for the Python requests module.
-       The response for each incoming request should be specified in response_dict during
-       initialization. Each incoming request should contain an identifier in the its body."""
+    The response for each incoming request should be specified in response_dict during
+    initialization. Each incoming request should contain an identifier in the its body.
+    """
+
     def __init__(self, response_dict, recorder):
         """Constructs a MockRequestBasedMultiRequestAdapter.
 
@@ -187,12 +194,12 @@ class MockRequestBasedMultiRequestAdapter(adapters.HTTPAdapter):
         self._response_dict = dict(response_dict)
         self._recorder = recorder
 
-    def send(self, request, **kwargs): # pylint: disable=arguments-differ
+    def send(self, request, **kwargs):  # pylint: disable=arguments-differ
         request._extra_kwargs = kwargs
         self._recorder.append(request)
         resp = models.Response()
         resp.url = request.url
-        resp.status_code = 404 # Not found.
+        resp.status_code = 404  # Not found.
         resp.raw = None
         for req_id, pair in self._response_dict.items():
             if req_id in str(request.body):

@@ -19,19 +19,21 @@ Firebase apps. This requires the ``google-cloud-firestore`` Python module.
 """
 
 try:
-    from google.cloud import firestore # pylint: disable=import-error,no-name-in-module
+    from google.cloud import firestore  # pylint: disable=import-error,no-name-in-module
+
     existing = globals().keys()
     for key, value in firestore.__dict__.items():
-        if not key.startswith('_') and key not in existing:
+        if not key.startswith("_") and key not in existing:
             globals()[key] = value
 except ImportError:
-    raise ImportError('Failed to import the Cloud Firestore library for Python. Make sure '
-                      'to install the "google-cloud-firestore" module.')
+    raise ImportError(
+        "Failed to import the Cloud Firestore library for Python. Make sure "
+        'to install the "google-cloud-firestore" module.'
+    )
 
 from firebase_admin import _utils
 
-
-_FIRESTORE_ATTRIBUTE = '_firestore'
+_FIRESTORE_ATTRIBUTE = "_firestore"
 
 
 def client(app=None):
@@ -50,7 +52,9 @@ def client(app=None):
     .. _Firestore Client: https://googlecloudplatform.github.io/google-cloud-python/latest\
           /firestore/client.html
     """
-    fs_client = _utils.get_app_service(app, _FIRESTORE_ATTRIBUTE, _FirestoreClient.from_app)
+    fs_client = _utils.get_app_service(
+        app, _FIRESTORE_ATTRIBUTE, _FirestoreClient.from_app
+    )
     return fs_client.get()
 
 
@@ -70,7 +74,8 @@ class _FirestoreClient:
         project = app.project_id
         if not project:
             raise ValueError(
-                'Project ID is required to access Firestore. Either set the projectId option, '
-                'or use service account credentials. Alternatively, set the GOOGLE_CLOUD_PROJECT '
-                'environment variable.')
+                "Project ID is required to access Firestore. Either set the projectId option, "
+                "or use service account credentials. Alternatively, set the GOOGLE_CLOUD_PROJECT "
+                "environment variable."
+            )
         return _FirestoreClient(credentials, project)

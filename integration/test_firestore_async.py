@@ -14,20 +14,22 @@
 
 """Integration tests for firebase_admin.firestore_async module."""
 import datetime
+
 import pytest
 
 from firebase_admin import firestore_async
+
 
 @pytest.mark.asyncio
 async def test_firestore_async():
     client = firestore_async.client()
     expected = {
-        'name': u'Mountain View',
-        'country': u'USA',
-        'population': 77846,
-        'capital': False
+        "name": "Mountain View",
+        "country": "USA",
+        "population": 77846,
+        "capital": False,
     }
-    doc = client.collection('cities').document()
+    doc = client.collection("cities").document()
     await doc.set(expected)
 
     data = await doc.get()
@@ -37,17 +39,18 @@ async def test_firestore_async():
     data = await doc.get()
     assert data.exists is False
 
+
 @pytest.mark.asyncio
 async def test_server_timestamp():
     client = firestore_async.client()
     expected = {
-        'name': u'Mountain View',
-        'timestamp': firestore_async.SERVER_TIMESTAMP # pylint: disable=no-member
+        "name": "Mountain View",
+        "timestamp": firestore_async.SERVER_TIMESTAMP,  # pylint: disable=no-member
     }
-    doc = client.collection('cities').document()
+    doc = client.collection("cities").document()
     await doc.set(expected)
 
     data = await doc.get()
     data = data.to_dict()
-    assert isinstance(data['timestamp'], datetime.datetime)
+    assert isinstance(data["timestamp"], datetime.datetime)
     await doc.delete()

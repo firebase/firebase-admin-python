@@ -88,11 +88,11 @@ class UserProvider:
 
     def to_dict(self):
         payload = {
-            'rawId': self.uid,
-            'providerId': self.provider_id,
-            'displayName': self.display_name,
-            'email': self.email,
-            'photoUrl': self.photo_url,
+            "rawId": self.uid,
+            "providerId": self.provider_id,
+            "displayName": self.display_name,
+            "email": self.email,
+            "photoUrl": self.photo_url,
         }
         return {k: v for k, v in payload.items() if v is not None}
 
@@ -123,9 +123,21 @@ class ImportUserRecord:
         ValueError: If provided arguments are invalid.
     """
 
-    def __init__(self, uid, email=None, email_verified=None, display_name=None, phone_number=None,
-                 photo_url=None, disabled=None, user_metadata=None, provider_data=None,
-                 custom_claims=None, password_hash=None, password_salt=None):
+    def __init__(
+        self,
+        uid,
+        email=None,
+        email_verified=None,
+        display_name=None,
+        phone_number=None,
+        photo_url=None,
+        disabled=None,
+        user_metadata=None,
+        provider_data=None,
+        custom_claims=None,
+        password_hash=None,
+        password_salt=None,
+    ):
         self.uid = uid
         self.email = email
         self.display_name = display_name
@@ -185,7 +197,7 @@ class ImportUserRecord:
 
     @password_hash.setter
     def password_hash(self, password_hash):
-        self._password_hash = _auth_utils.validate_bytes(password_hash, 'password_hash')
+        self._password_hash = _auth_utils.validate_bytes(password_hash, "password_hash")
 
     @property
     def password_salt(self):
@@ -193,7 +205,7 @@ class ImportUserRecord:
 
     @password_salt.setter
     def password_salt(self, password_salt):
-        self._password_salt = _auth_utils.validate_bytes(password_salt, 'password_salt')
+        self._password_salt = _auth_utils.validate_bytes(password_salt, "password_salt")
 
     @property
     def user_metadata(self):
@@ -201,11 +213,18 @@ class ImportUserRecord:
 
     @user_metadata.setter
     def user_metadata(self, user_metadata):
-        created_at = user_metadata.creation_timestamp if user_metadata is not None else None
-        last_login_at = user_metadata.last_sign_in_timestamp if user_metadata is not None else None
-        self._created_at = _auth_utils.validate_timestamp(created_at, 'creation_timestamp')
+        created_at = (
+            user_metadata.creation_timestamp if user_metadata is not None else None
+        )
+        last_login_at = (
+            user_metadata.last_sign_in_timestamp if user_metadata is not None else None
+        )
+        self._created_at = _auth_utils.validate_timestamp(
+            created_at, "creation_timestamp"
+        )
         self._last_login_at = _auth_utils.validate_timestamp(
-            last_login_at, 'last_sign_in_timestamp')
+            last_login_at, "last_sign_in_timestamp"
+        )
         self._user_metadata = user_metadata
 
     @property
@@ -217,9 +236,9 @@ class ImportUserRecord:
         if provider_data is not None:
             try:
                 if any([not isinstance(p, UserProvider) for p in provider_data]):
-                    raise ValueError('One or more provider data instances are invalid.')
+                    raise ValueError("One or more provider data instances are invalid.")
             except TypeError:
-                raise ValueError('provider_data must be iterable.')
+                raise ValueError("provider_data must be iterable.")
         self._provider_data = provider_data
 
     @property
@@ -228,30 +247,36 @@ class ImportUserRecord:
 
     @custom_claims.setter
     def custom_claims(self, custom_claims):
-        json_claims = json.dumps(custom_claims) if isinstance(
-            custom_claims, dict) else custom_claims
+        json_claims = (
+            json.dumps(custom_claims)
+            if isinstance(custom_claims, dict)
+            else custom_claims
+        )
         self._custom_claims_str = _auth_utils.validate_custom_claims(json_claims)
         self._custom_claims = custom_claims
 
     def to_dict(self):
         """Returns a dict representation of the user. For internal use only."""
         payload = {
-            'localId': self.uid,
-            'email': self.email,
-            'displayName': self.display_name,
-            'phoneNumber': self.phone_number,
-            'photoUrl': self.photo_url,
-            'emailVerified': (bool(self.email_verified)
-                              if self.email_verified is not None else None),
-            'disabled': bool(self.disabled) if self.disabled is not None else None,
-            'customAttributes': self._custom_claims_str,
-            'createdAt': self._created_at,
-            'lastLoginAt': self._last_login_at,
-            'passwordHash': b64_encode(self.password_hash) if self.password_hash else None,
-            'salt': b64_encode(self.password_salt) if self.password_salt else None,
+            "localId": self.uid,
+            "email": self.email,
+            "displayName": self.display_name,
+            "phoneNumber": self.phone_number,
+            "photoUrl": self.photo_url,
+            "emailVerified": (
+                bool(self.email_verified) if self.email_verified is not None else None
+            ),
+            "disabled": bool(self.disabled) if self.disabled is not None else None,
+            "customAttributes": self._custom_claims_str,
+            "createdAt": self._created_at,
+            "lastLoginAt": self._last_login_at,
+            "passwordHash": b64_encode(self.password_hash)
+            if self.password_hash
+            else None,
+            "salt": b64_encode(self.password_salt) if self.password_salt else None,
         }
         if self.provider_data:
-            payload['providerUserInfo'] = [p.to_dict() for p in self.provider_data]
+            payload["providerUserInfo"] = [p.to_dict() for p in self.provider_data]
         return {k: v for k, v in payload.items() if v is not None}
 
 
@@ -270,7 +295,7 @@ class UserImportHash:
         self._data = data
 
     def to_dict(self):
-        payload = {'hashAlgorithm': self._name}
+        payload = {"hashAlgorithm": self._name}
         if self._data:
             payload.update(self._data)
         return payload
@@ -278,7 +303,9 @@ class UserImportHash:
     @classmethod
     def _hmac(cls, name, key):
         data = {
-            'signerKey': b64_encode(_auth_utils.validate_bytes(key, 'key', required=True))
+            "signerKey": b64_encode(
+                _auth_utils.validate_bytes(key, "key", required=True)
+            )
         }
         return UserImportHash(name, data)
 
@@ -292,7 +319,7 @@ class UserImportHash:
         Returns:
             UserImportHash: A new ``UserImportHash``.
         """
-        return cls._hmac('HMAC_SHA512', key)
+        return cls._hmac("HMAC_SHA512", key)
 
     @classmethod
     def hmac_sha256(cls, key):
@@ -304,7 +331,7 @@ class UserImportHash:
         Returns:
             UserImportHash: A new ``UserImportHash``.
         """
-        return cls._hmac('HMAC_SHA256', key)
+        return cls._hmac("HMAC_SHA256", key)
 
     @classmethod
     def hmac_sha1(cls, key):
@@ -316,7 +343,7 @@ class UserImportHash:
         Returns:
             UserImportHash: A new ``UserImportHash``.
         """
-        return cls._hmac('HMAC_SHA1', key)
+        return cls._hmac("HMAC_SHA1", key)
 
     @classmethod
     def hmac_md5(cls, key):
@@ -328,7 +355,7 @@ class UserImportHash:
         Returns:
             UserImportHash: A new ``UserImportHash``.
         """
-        return cls._hmac('HMAC_MD5', key)
+        return cls._hmac("HMAC_MD5", key)
 
     @classmethod
     def md5(cls, rounds):
@@ -341,8 +368,8 @@ class UserImportHash:
             UserImportHash: A new ``UserImportHash``.
         """
         return UserImportHash(
-            'MD5',
-            {'rounds': _auth_utils.validate_int(rounds, 'rounds', 0, 8192)})
+            "MD5", {"rounds": _auth_utils.validate_int(rounds, "rounds", 0, 8192)}
+        )
 
     @classmethod
     def sha1(cls, rounds):
@@ -355,8 +382,8 @@ class UserImportHash:
             UserImportHash: A new ``UserImportHash``.
         """
         return UserImportHash(
-            'SHA1',
-            {'rounds': _auth_utils.validate_int(rounds, 'rounds', 1, 8192)})
+            "SHA1", {"rounds": _auth_utils.validate_int(rounds, "rounds", 1, 8192)}
+        )
 
     @classmethod
     def sha256(cls, rounds):
@@ -369,8 +396,8 @@ class UserImportHash:
             UserImportHash: A new ``UserImportHash``.
         """
         return UserImportHash(
-            'SHA256',
-            {'rounds': _auth_utils.validate_int(rounds, 'rounds', 1, 8192)})
+            "SHA256", {"rounds": _auth_utils.validate_int(rounds, "rounds", 1, 8192)}
+        )
 
     @classmethod
     def sha512(cls, rounds):
@@ -383,8 +410,8 @@ class UserImportHash:
             UserImportHash: A new ``UserImportHash``.
         """
         return UserImportHash(
-            'SHA512',
-            {'rounds': _auth_utils.validate_int(rounds, 'rounds', 1, 8192)})
+            "SHA512", {"rounds": _auth_utils.validate_int(rounds, "rounds", 1, 8192)}
+        )
 
     @classmethod
     def pbkdf_sha1(cls, rounds):
@@ -397,8 +424,9 @@ class UserImportHash:
             UserImportHash: A new ``UserImportHash``.
         """
         return UserImportHash(
-            'PBKDF_SHA1',
-            {'rounds': _auth_utils.validate_int(rounds, 'rounds', 0, 120000)})
+            "PBKDF_SHA1",
+            {"rounds": _auth_utils.validate_int(rounds, "rounds", 0, 120000)},
+        )
 
     @classmethod
     def pbkdf2_sha256(cls, rounds):
@@ -411,8 +439,9 @@ class UserImportHash:
             UserImportHash: A new ``UserImportHash``.
         """
         return UserImportHash(
-            'PBKDF2_SHA256',
-            {'rounds': _auth_utils.validate_int(rounds, 'rounds', 0, 120000)})
+            "PBKDF2_SHA256",
+            {"rounds": _auth_utils.validate_int(rounds, "rounds", 0, 120000)},
+        )
 
     @classmethod
     def scrypt(cls, key, rounds, memory_cost, salt_separator=None):
@@ -431,14 +460,17 @@ class UserImportHash:
             UserImportHash: A new ``UserImportHash``.
         """
         data = {
-            'signerKey': b64_encode(_auth_utils.validate_bytes(key, 'key', required=True)),
-            'rounds': _auth_utils.validate_int(rounds, 'rounds', 1, 8),
-            'memoryCost': _auth_utils.validate_int(memory_cost, 'memory_cost', 1, 14),
+            "signerKey": b64_encode(
+                _auth_utils.validate_bytes(key, "key", required=True)
+            ),
+            "rounds": _auth_utils.validate_int(rounds, "rounds", 1, 8),
+            "memoryCost": _auth_utils.validate_int(memory_cost, "memory_cost", 1, 14),
         }
         if salt_separator:
-            data['saltSeparator'] = b64_encode(_auth_utils.validate_bytes(
-                salt_separator, 'salt_separator'))
-        return UserImportHash('SCRYPT', data)
+            data["saltSeparator"] = b64_encode(
+                _auth_utils.validate_bytes(salt_separator, "salt_separator")
+            )
+        return UserImportHash("SCRYPT", data)
 
     @classmethod
     def bcrypt(cls):
@@ -447,10 +479,12 @@ class UserImportHash:
         Returns:
             UserImportHash: A new ``UserImportHash``.
         """
-        return UserImportHash('BCRYPT')
+        return UserImportHash("BCRYPT")
 
     @classmethod
-    def standard_scrypt(cls, memory_cost, parallelization, block_size, derived_key_length):
+    def standard_scrypt(
+        cls, memory_cost, parallelization, block_size, derived_key_length
+    ):
         """Creates a new standard Scrypt algorithm instance.
 
         Args:
@@ -463,25 +497,30 @@ class UserImportHash:
             UserImportHash: A new ``UserImportHash``.
         """
         data = {
-            'cpuMemCost': _auth_utils.validate_int(memory_cost, 'memory_cost', low=0),
-            'parallelization': _auth_utils.validate_int(parallelization, 'parallelization', low=0),
-            'blockSize': _auth_utils.validate_int(block_size, 'block_size', low=0),
-            'dkLen': _auth_utils.validate_int(derived_key_length, 'derived_key_length', low=0),
+            "cpuMemCost": _auth_utils.validate_int(memory_cost, "memory_cost", low=0),
+            "parallelization": _auth_utils.validate_int(
+                parallelization, "parallelization", low=0
+            ),
+            "blockSize": _auth_utils.validate_int(block_size, "block_size", low=0),
+            "dkLen": _auth_utils.validate_int(
+                derived_key_length, "derived_key_length", low=0
+            ),
         }
-        return UserImportHash('STANDARD_SCRYPT', data)
+        return UserImportHash("STANDARD_SCRYPT", data)
 
 
 class ErrorInfo:
     """Represents an error encountered while performing a batch operation such
     as importing users or deleting multiple user accounts.
     """
+
     # TODO(rsgowman): This class used to be specific to importing users (hence
     # it's home in _user_import.py). It's now also used by bulk deletion of
     # users. Move this to a more common location.
 
     def __init__(self, error):
-        self._index = error['index']
-        self._reason = error['message']
+        self._index = error["index"]
+        self._reason = error["message"]
 
     @property
     def index(self):
@@ -499,7 +538,7 @@ class UserImportResult:
     """
 
     def __init__(self, result, total):
-        errors = result.get('error', [])
+        errors = result.get("error", [])
         self._success_count = total - len(errors)
         self._failure_count = len(errors)
         self._errors = [ErrorInfo(err) for err in errors]

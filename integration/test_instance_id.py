@@ -16,11 +16,14 @@
 
 import pytest
 
-from firebase_admin import exceptions
-from firebase_admin import instance_id
+from firebase_admin import exceptions, instance_id
+
 
 def test_delete_non_existing():
     with pytest.raises(exceptions.NotFoundError) as excinfo:
         # legal instance IDs are /[cdef][A-Za-z0-9_-]{9}[AEIMQUYcgkosw048]/
-        instance_id.delete_instance_id('fictive-ID0')
-    assert str(excinfo.value) == 'Instance ID "fictive-ID0": Failed to find the instance ID.'
+        instance_id.delete_instance_id("fictive-ID0")
+    assert (
+        str(excinfo.value)
+        == 'Instance ID "fictive-ID0": Failed to find the instance ID.'
+    )

@@ -21,12 +21,12 @@ from firebase_admin import firestore
 def test_firestore():
     client = firestore.client()
     expected = {
-        'name': u'Mountain View',
-        'country': u'USA',
-        'population': 77846,
-        'capital': False
+        "name": "Mountain View",
+        "country": "USA",
+        "population": 77846,
+        "capital": False,
     }
-    doc = client.collection('cities').document()
+    doc = client.collection("cities").document()
     doc.set(expected)
 
     data = doc.get().to_dict()
@@ -35,15 +35,16 @@ def test_firestore():
     doc.delete()
     assert doc.get().exists is False
 
+
 def test_server_timestamp():
     client = firestore.client()
     expected = {
-        'name': u'Mountain View',
-        'timestamp': firestore.SERVER_TIMESTAMP # pylint: disable=no-member
+        "name": "Mountain View",
+        "timestamp": firestore.SERVER_TIMESTAMP,  # pylint: disable=no-member
     }
-    doc = client.collection('cities').document()
+    doc = client.collection("cities").document()
     doc.set(expected)
 
     data = doc.get().to_dict()
-    assert isinstance(data['timestamp'], datetime.datetime)
+    assert isinstance(data["timestamp"], datetime.datetime)
     doc.delete()

@@ -250,7 +250,8 @@ class TestFcmOptionEncoder:
                 topic='topic',
                 fcm_options=messaging.FCMOptions('message-label'),
                 android=messaging.AndroidConfig(
-                    fcm_options=messaging.AndroidFCMOptions('android-label', False)),
+                    fcm_options=messaging.AndroidFCMOptions('android-label'),
+                    direct_boot_ok=False),
                 apns=messaging.APNSConfig(fcm_options=
                                           messaging.APNSFCMOptions(
                                               analytics_label='apns-label',
@@ -260,8 +261,8 @@ class TestFcmOptionEncoder:
             {
                 'topic': 'topic',
                 'fcm_options': {'analytics_label': 'message-label'},
-                'android': {'fcm_options': {'analytics_label': 'android-label',
-                                            'direct_boot_ok': False,}},
+                'android': {'fcm_options': {'analytics_label': 'android-label'},
+                            'direct_boot_ok': False},
                 'apns': {'fcm_options': {'analytics_label': 'apns-label',
                                          'image': 'https://images.unsplash.com/photo-14944386399'
                                                   '46-1ebd1d20bf85?fit=crop&w=900&q=60'}},
@@ -330,8 +331,7 @@ class TestAndroidConfigEncoder:
     def test_invalid_direct_boot_ok(self, data):
         with pytest.raises(ValueError):
             check_encoding(messaging.Message(
-                topic='topic', android=messaging.AndroidConfig(
-                    fcm_options=messaging.AndroidFCMOptions(direct_boot_ok=data))))
+                topic='topic', android=messaging.AndroidConfig(direct_boot_ok=data)))
 
 
     def test_android_config(self):
@@ -343,7 +343,8 @@ class TestAndroidConfigEncoder:
                 priority='high',
                 ttl=123,
                 data={'k1': 'v1', 'k2': 'v2'},
-                fcm_options=messaging.AndroidFCMOptions('analytics_label_v1', True)
+                fcm_options=messaging.AndroidFCMOptions('analytics_label_v1'),
+                direct_boot_ok=True,
             )
         )
         expected = {
@@ -359,8 +360,8 @@ class TestAndroidConfigEncoder:
                 },
                 'fcm_options': {
                     'analytics_label': 'analytics_label_v1',
-                    'direct_boot_ok': True,
                 },
+                'direct_boot_ok': True,
             },
         }
         check_encoding(msg, expected)

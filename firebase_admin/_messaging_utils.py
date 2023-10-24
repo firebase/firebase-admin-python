@@ -203,10 +203,13 @@ class AndroidFCMOptions:
     Args:
         analytics_label: contains additional options for features provided by the FCM Android SDK
             (optional).
+        direct_boot_ok: A boolean indicating whether messages will be allowed to be delivered to
+            the app while the device is in direct boot mode.
     """
 
-    def __init__(self, analytics_label=None):
+    def __init__(self, analytics_label=None, direct_boot_ok=None):
         self.analytics_label = analytics_label
+        self.direct_boot_ok = direct_boot_ok
 
 
 class WebpushConfig:

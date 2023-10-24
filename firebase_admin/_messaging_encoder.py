@@ -205,6 +205,8 @@ class MessageEncoder(json.JSONEncoder):
                 'AndroidConfig.restricted_package_name', android.restricted_package_name),
             'ttl': cls.encode_ttl(android.ttl),
             'fcm_options': cls.encode_android_fcm_options(android.fcm_options),
+            'direct_boot_ok': _Validators.check_boolean(
+                'AndroidFCMOptions.direct_boot_ok', android.direct_boot_ok),
         }
         result = cls.remove_null_values(result)
         priority = result.get('priority')
@@ -223,8 +225,6 @@ class MessageEncoder(json.JSONEncoder):
         result = {
             'analytics_label': _Validators.check_analytics_label(
                 'AndroidFCMOptions.analytics_label', fcm_options.analytics_label),
-            'direct_boot_ok': _Validators.check_boolean(
-                'AndroidFCMOptions.direct_boot_ok', fcm_options.direct_boot_ok)
         }
         result = cls.remove_null_values(result)
         return result

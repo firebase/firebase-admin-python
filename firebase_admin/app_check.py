@@ -38,7 +38,7 @@ def verify_token(token: str, app=None) -> Dict[str, Any]:
     Raises:
         ValueError: If the app's ``project_id`` is invalid or unspecified,
         or if the token's headers or payload are invalid.
-        PyJWKClientError: If PyJWKClient fails to fetch a valid the signing key.
+        PyJWKClientError: If PyJWKClient fails to fetch a valid signing key.
     """
     return _get_app_check_service(app).verify_token(token)
 

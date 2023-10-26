@@ -256,7 +256,7 @@ def verify_session_cookie(session_cookie, check_revoked=False, app=None, clock_s
         check_revoked: Boolean, if true, checks whether the cookie has been revoked or the
             user disabled (optional).
         app: An App instance (optional).
-        clock_skew_seconds: The number of seconds to tolerate when checking the cookie
+        clock_skew_seconds: The number of seconds to tolerate when checking the cookie.
 
     Returns:
         dict: A dictionary of key-value pairs parsed from the decoded JWT.

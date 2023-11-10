@@ -184,63 +184,65 @@ Set up your Firebase project as follows:
 
 
 1. Enable Authentication:
-  1. Go to the Firebase Console, and select **'Authentication'** from the **'Build'** menu.
-  2. Click on **'Get Started'**.
-  3. Select **'Sign-in method > Add new provider > Email/Password'** then enable both the
-  **'Email/Password'** and **'Email link (passwordless sign-in)'** options.
+   1. Go to the Firebase Console, and select **'Authentication'** from the **'Build'** menu.
+   2. Click on **'Get Started'**.
+   3. Select **'Sign-in method > Add new provider > Email/Password'** then enable both the
+   **'Email/Password'** and **'Email link (passwordless sign-in)'** options.
 
 
 2. Enable Firestore:
-  1. Go to the Firebase Console, and select **'Firestore Database'** from the **'Build'** menu.
-  2. Click on the **'Create database'** button. You can choose to set up Firestore either in
-  the production mode or in the test mode.
+   1. Go to the Firebase Console, and select **'Firestore Database'** from the **'Build'** menu.
+   2. Click on the **'Create database'** button. You can choose to set up Firestore either in
+   the production mode or in the test mode.
 
 
 3. Enable Realtime Database:
-  1. Go to the Firebase Console, and select **'Realtime Database'** from the **'Build'** menu.
-  2. Click on the **'Create database'** button. You can choose to set up the Realtime database
-  either in the locked mode or in the test mode.
-  3. In the **'Data'** tab click on the kebab menu (3 dots) and select **'Create Database'**.
-  4. Enter your Project ID (Found in the **'General'** tab in **'Account Settings'**) as the
-  **'Realtime Database reference'**. Again, you can choose to set up the Realtime database
-  either in the locked mode or in the test mode.
+   1. Go to the Firebase Console, and select **'Realtime Database'** from the **'Build'** menu.
+   2. Click on the **'Create database'** button. You can choose to set up the Realtime database
+   either in the locked mode or in the test mode.
+   3. In the **'Data'** tab click on the kebab menu (3 dots) and select **'Create Database'**.
+   4. Enter your Project ID (Found in the **'General'** tab in **'Account Settings'**) as the
+   **'Realtime Database reference'**. Again, you can choose to set up the Realtime database
+   either in the locked mode or in the test mode.
 
 
 4. Enable Storage:
-  1. Go to the Firebase Console, and select **'Storage'** from the **'Build'** menu.
-  2. Click on the **'Get started'** button. You can choose to set up the Realtime database
-  either in the production mode or in the test mode.
+   1. Go to the Firebase Console, and select **'Storage'** from the **'Build'** menu.
+   2. Click on the **'Get started'** button. You can choose to set up the Realtime database
+   either in the production mode or in the test mode.
 
 
 5. Enable the Firebase ML API:
-  1. Go to the [Google Developers Console | Firebase ML API](
-  https://console.developers.google.com/apis/api/firebaseml.googleapis.com/overview) and make
-  sure your project is selected.
-  2. If the API is not already enabled, click **'Enable'**.
+   1. Go to the
+   [Google Developers Console | Firebase ML API](https://console.developers.google.com/apis/api/firebaseml.googleapis.com/overview)
+   and make sure your project is selected.
+   2. If the API is not already enabled, click **'Enable'**.
 
 
 6. Enable the IAM API:
-  1. Go to the [Google Cloud Platform Console](https://console.cloud.google.com) and make sure
-  your Firebase project is selected.
-  2. Select **'APIs & Services'** from the main menu, and click the
-  **'ENABLE APIS AND SERVICES'** button.
-  3. Search for and enable **'Identity and Access Management (IAM) API'** by Google Enterprise API.
+   1. Go to the[Google Cloud Platform Console](https://console.cloud.google.com)
+   and make sureyour Firebase project is selected.
+   2. Select **'APIs & Services'** from the main menu, and click the
+   **'ENABLE APIS AND SERVICES'** button.
+   3. Search for and enable **'Identity and Access Management (IAM) API'** by Google Enterprise API.
 
 
 7. Enable Tenant Management:
-  1. Go to
-  [Google Developers Console | Identity Platform](https://console.cloud.google.com/customer-identity/)
-  and if it is not already enabled, click **'Enable'**.
-  2. Then follow [this guide](https://cloud.google.com/identity-platform/docs/multi-tenancy-quickstart#enabling_multi-tenancy) to enable multi-tenancy.
+   1. Go to
+   [Google Developers Console | Identity Platform](https://console.cloud.google.com/customer-identity/)
+   and if it is not already enabled, click **'Enable'**.
+   2. Then follow
+   [this guide](https://cloud.google.com/identity-platform/docs/multi-tenancy-quickstart#enabling_multi-tenancy)
+   to enable multi-tenancy.
 
 
 8. Ensure your service account has the **'Firebase Authentication Admin'** role. This is required
 to ensure that exported user records contain the password hashes of the user accounts:
-  1. Go to [Google Cloud Platform Console / IAM & admin](https://console.cloud.google.com/iam-admin).
-  2. Find your service account in the list. If not added click the **'pencil'** icon to edit its
-  permissions.
-  3. Click **'ADD ANOTHER ROLE'** and choose **'Firebase Authentication Admin'**.
-  4. Click **'SAVE'**.
+   1. Go to [Google Cloud Platform Console / IAM & admin](https://console.cloud.google.com/iam-admin).
+   2. Find your service account in the list. If not added click the **'pencil'** icon to edit its
+   permissions.
+   3. Click **'ADD ANOTHER ROLE'** and choose **'Firebase Authentication Admin'**.
+   4. Click **'SAVE'**.
 
 
 Now you can invoke the integration test suite as follows:

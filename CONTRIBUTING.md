@@ -171,8 +171,8 @@ Otherwise you can obtain the following credentials from your current project:
 
 
 1. Service account certificate: This can be downloaded as a JSON file from the
-**'Settings > Service Accounts'** tab of the Firebase console. Copy the file into the repo
-so it's available at `cert.json`.
+**'Settings > Service Accounts'** tab of the Firebase console when you click the
+**'Generate new private key'** button. Copy the file into the repo so it's available at `cert.json`.
 
 
 2. Web API key: This is displayed in the **'Settings > General'** tab of the Firebase console

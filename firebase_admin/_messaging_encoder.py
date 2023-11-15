@@ -206,7 +206,7 @@ class MessageEncoder(json.JSONEncoder):
             'ttl': cls.encode_ttl(android.ttl),
             'fcm_options': cls.encode_android_fcm_options(android.fcm_options),
             'direct_boot_ok': _Validators.check_boolean(
-                'AndroidFCMOptions.direct_boot_ok', android.direct_boot_ok),
+                'AndroidConfig.direct_boot_ok', android.direct_boot_ok),
         }
         result = cls.remove_null_values(result)
         priority = result.get('priority')

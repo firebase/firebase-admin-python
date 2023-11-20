@@ -180,6 +180,8 @@ class TestReference:
         500: exceptions.InternalError,
     }
 
+    duplicate_timestamp = time.time()
+
     @classmethod
     def setup_class(cls):
         firebase_admin.initialize_app(testutils.MockCredential(), {'databaseURL' : cls.test_url})
@@ -413,14 +415,18 @@ class TestReference:
         assert len(recorder) == 0
 
     @pytest.mark.parametrize('data', valid_values)
-    @mock.patch('time.time', mock.MagicMock(return_value=1700497750.2549))
+    @mock.patch('time.time', mock.MagicMock(return_value=duplicate_timestamp))
     def test_push_duplicate_timestamp(self, data):
         ref = db.reference('/test')
         recorder = self.instrument(ref, json.dumps({}))
         child = []
         child.append(ref.push(data))
         child.append(ref.push(data))
-        assert child[1].key > child[0].key
+        key1 = child[0].key
+        key2 = child[1].key
+        # First 8 digits are the encoded timestamp
+        assert key1[:8] == key2[:8]
+        assert key2 > key1
         assert len(recorder) == 2
         for index, record in enumerate(recorder):
             assert record.method == 'PUT'

@@ -43,7 +43,8 @@ requests, code review feedback, and also pull requests.
 
 ## Supported Python Versions
 
-We currently support Python 3.7+. Firebase
+We currently support Python 3.7+. However, Python 3.7 support is deprecated,
+and developers are strongly advised to use Python 3.8 or higher. Firebase
 Admin Python SDK is also tested on PyPy and
 [Google App Engine](https://cloud.google.com/appengine/) environments.
 

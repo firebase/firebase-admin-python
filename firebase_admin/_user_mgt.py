@@ -692,7 +692,7 @@ class UserManager:
         """Updates an existing user account with the specified properties"""
         payload = {
             'localId': _auth_utils.validate_uid(uid, required=True),
-            'email': _auth_utils.validate_email(email),
+            'email': _auth_utils.validate_email(email) if email is not DELETE_ATTRIBUTE else None,
             'password': _auth_utils.validate_password(password),
             'validSince': _auth_utils.validate_timestamp(valid_since, 'valid_since'),
             'emailVerified': bool(email_verified) if email_verified is not None else None,
@@ -719,6 +719,12 @@ class UserManager:
                 remove_provider.append('phone')
             else:
                 payload['phoneNumber'] = _auth_utils.validate_phone(phone_number)
+
+        if email is not None:
+            if email is DELETE_ATTRIBUTE:
+                remove_provider.append('email')
+            else:
+               payload['email'] = _auth_utils.validate_email(email)
 
         if custom_claims is not None:
             if custom_claims is DELETE_ATTRIBUTE:

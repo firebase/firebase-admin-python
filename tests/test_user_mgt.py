@@ -637,7 +637,7 @@ class TestUpdateUser:
         assert request == {
             'localId' : 'testuser',
             'deleteAttribute' : ['DISPLAY_NAME', 'PHOTO_URL'],
-            'deleteProvider' : ['phone', 'email'],
+            'deleteProvider' : ['email', 'phone'],
         }
 
     def test_update_user_error(self, user_mgt_app):

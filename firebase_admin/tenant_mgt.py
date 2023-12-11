@@ -91,7 +91,7 @@ def get_tenant(tenant_id, app=None):
 
 
 def create_tenant(
-        display_name, allow_password_sign_up=None, enable_email_link_sign_in=None, app=None):
+        display_name, allow_password_sign_up=None, enable_email_link_sign_in=None, allow_default_provider=None, app=None):
     """Creates a new tenant from the given options.
 
     Args:
@@ -101,6 +101,8 @@ def create_tenant(
             provider (optional).
         enable_email_link_sign_in: A boolean indicating whether to enable or disable email link
             sign-in (optional). Disabling this makes the password required for email sign-in.
+        allow_default_provider: A boolean indicating whether to enable or disable default provider 
+            sign-in (optional).
         app: An App instance (optional).
 
     Returns:
@@ -113,12 +115,12 @@ def create_tenant(
     tenant_mgt_service = _get_tenant_mgt_service(app)
     return tenant_mgt_service.create_tenant(
         display_name=display_name, allow_password_sign_up=allow_password_sign_up,
-        enable_email_link_sign_in=enable_email_link_sign_in)
+        enable_email_link_sign_in=enable_email_link_sign_in, allow_default_provider=allow_default_provider)
 
 
 def update_tenant(
         tenant_id, display_name=None, allow_password_sign_up=None, enable_email_link_sign_in=None,
-        app=None):
+        allow_default_provider=None, app=None):
     """Updates an existing tenant with the given options.
 
     Args:
@@ -128,6 +130,8 @@ def update_tenant(
             provider.
         enable_email_link_sign_in: A boolean indicating whether to enable or disable email link
             sign-in. Disabling this makes the password required for email sign-in.
+        allow_default_provider: A boolean indicating whether to enable or disable default provider 
+            sign-in (optional).
         app: An App instance (optional).
 
     Returns:
@@ -141,7 +145,7 @@ def update_tenant(
     tenant_mgt_service = _get_tenant_mgt_service(app)
     return tenant_mgt_service.update_tenant(
         tenant_id, display_name=display_name, allow_password_sign_up=allow_password_sign_up,
-        enable_email_link_sign_in=enable_email_link_sign_in)
+        enable_email_link_sign_in=enable_email_link_sign_in, allow_default_provider=allow_default_provider)
 
 
 def delete_tenant(tenant_id, app=None):
@@ -227,6 +231,10 @@ class Tenant:
     @property
     def enable_email_link_sign_in(self):
         return self._data.get('enableEmailLinkSignin', False)
+    
+    @property
+    def allow_default_provider(self):
+        return self._data.get('allowDefaultProvider', False)
 
 
 class _TenantManagementService:
@@ -272,7 +280,7 @@ class _TenantManagementService:
             return Tenant(body)
 
     def create_tenant(
-            self, display_name, allow_password_sign_up=None, enable_email_link_sign_in=None):
+            self, display_name, allow_password_sign_up=None, enable_email_link_sign_in=None, allow_default_provider=None):
         """Creates a new tenant from the given parameters."""
 
         payload = {'displayName': _validate_display_name(display_name)}
@@ -282,6 +290,9 @@ class _TenantManagementService:
         if enable_email_link_sign_in is not None:
             payload['enableEmailLinkSignin'] = _auth_utils.validate_boolean(
                 enable_email_link_sign_in, 'enableEmailLinkSignin')
+        if allow_default_provider is not None:
+            payload['allowDefaultProvider'] = _auth_utils.validate_boolean(
+                allow_default_provider, 'allowDefaultProvider')
 
         try:
             body = self.client.body('post', '/tenants', json=payload)
@@ -292,7 +303,7 @@ class _TenantManagementService:
 
     def update_tenant(
             self, tenant_id, display_name=None, allow_password_sign_up=None,
-            enable_email_link_sign_in=None):
+            enable_email_link_sign_in=None, allow_default_provider=None):
         """Updates the specified tenant with the given parameters."""
         if not isinstance(tenant_id, str) or not tenant_id:
             raise ValueError('Tenant ID must be a non-empty string.')
@@ -306,6 +317,9 @@ class _TenantManagementService:
         if enable_email_link_sign_in is not None:
             payload['enableEmailLinkSignin'] = _auth_utils.validate_boolean(
                 enable_email_link_sign_in, 'enableEmailLinkSignin')
+        if allow_default_provider is not None:
+            payload['allowDefaultProvider'] = _auth_utils.validate_boolean(
+                allow_default_provider, 'allowDefaultProvider')
 
         if not payload:
             raise ValueError('At least one parameter must be specified for update.')

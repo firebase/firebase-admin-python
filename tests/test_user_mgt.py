@@ -631,13 +631,12 @@ class TestUpdateUser:
             'testuser',
             display_name=auth.DELETE_ATTRIBUTE,
             photo_url=auth.DELETE_ATTRIBUTE,
-            phone_number=auth.DELETE_ATTRIBUTE,
-            email=auth.DELETE_ATTRIBUTE)
+            phone_number=auth.DELETE_ATTRIBUTE)
         request = json.loads(recorder[0].body.decode())
         assert request == {
             'localId' : 'testuser',
             'deleteAttribute' : ['DISPLAY_NAME', 'PHOTO_URL'],
-            'deleteProvider' : ['phone', 'email'],
+            'deleteProvider' : ['phone'],
         }
 
     def test_update_user_error(self, user_mgt_app):

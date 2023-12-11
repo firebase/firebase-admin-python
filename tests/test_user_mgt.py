@@ -681,6 +681,17 @@ class TestUpdateUser:
         assert 'phone' in request['deleteProvider']
         assert len(set(request['deleteProvider'])) == len(request['deleteProvider'])
         assert set(arg) - set(request['deleteProvider']) == set()
+        
+    @pytest.mark.parametrize('arg', [['email', 'phone', 'google.com']])
+    def test_update_user_delete_provider_and_email(self, user_mgt_app, arg):
+        user_mgt, recorder = _instrument_user_manager(user_mgt_app, 200, '{"localId":"testuser"}')
+        user_mgt.update_user('testuser', email='yuvi@gmail.com',
+                             providers_to_delete=arg,
+                             )
+        request = json.loads(recorder[0].body.decode())
+        assert 'email' in request['deleteProvider']
+        assert len(set(request['deleteProvider'])) == len(request['deleteProvider'])
+        assert set(arg) - set(request['deleteProvider']) == set()
 
 class TestSetCustomUserClaims:
 

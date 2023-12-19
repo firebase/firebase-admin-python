@@ -11,7 +11,7 @@ jobs:
         python: ['3.7', '3.8', '3.9', '3.10', 'pypy3.8']
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python }}
       uses: actions/setup-python@v4
       with:
@@ -22,19 +22,19 @@ jobs:
         pip install -r requirements.txt
     - name: Test with pytest
       run: pytest
-    - name: Set up Node.js 16
-      uses: actions/setup-node@v1
+    - name: Set up Node.js 20
+      uses: actions/setup-node@v4
       with:
-        node-version: 16.x
+        node-version: 20
     - name: Run integration tests against emulator
       run: |
-        npm install -g firebase-tools
+        npm install -g firebase-tools@13.x
         firebase emulators:exec --only database --project fake-project-id 'pytest integration/test_db.py'
 
   lint:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Python 3.7
       uses: actions/setup-python@v4
       with:

@@ -289,11 +289,11 @@ class TokenVerifier:
             invalid_token_error=InvalidSessionCookieError,
             expired_token_error=ExpiredSessionCookieError)
 
-    def verify_id_token(self, id_token):
-        return self.id_token_verifier.verify(id_token, self.request)
+    def verify_id_token(self, id_token, clock_skew_seconds=0):
+        return self.id_token_verifier.verify(id_token, self.request, clock_skew_seconds)
 
-    def verify_session_cookie(self, cookie):
-        return self.cookie_verifier.verify(cookie, self.request)
+    def verify_session_cookie(self, cookie, clock_skew_seconds=0):
+        return self.cookie_verifier.verify(cookie, self.request, clock_skew_seconds)
 
 
 class _JWTVerifier:
@@ -313,7 +313,7 @@ class _JWTVerifier:
         self._invalid_token_error = kwargs.pop('invalid_token_error')
         self._expired_token_error = kwargs.pop('expired_token_error')
 
-    def verify(self, token, request):
+    def verify(self, token, request, clock_skew_seconds=0):
         """Verifies the signature and data for the provided JWT."""
         token = token.encode('utf-8') if isinstance(token, str) else token
         if not isinstance(token, bytes) or not token:
@@ -327,6 +327,11 @@ class _JWTVerifier:
                 'ID is required to call {0}. Initialize the app with a credentials.Certificate '
                 'or set your Firebase project ID as an app option. Alternatively set the '
                 'GOOGLE_CLOUD_PROJECT environment variable.'.format(self.operation))
+
+        if clock_skew_seconds < 0 or clock_skew_seconds > 60:
+            raise ValueError(
+                'Illegal clock_skew_seconds value: {0}. Must be between 0 and 60, inclusive.'
+                .format(clock_skew_seconds))
 
         header, payload = self._decode_unverified(token)
         issuer = payload.get('iss')
@@ -393,7 +398,8 @@ class _JWTVerifier:
                     token,
                     request=request,
                     audience=self.project_id,
-                    certs_url=self.cert_url)
+                    certs_url=self.cert_url,
+                    clock_skew_in_seconds=clock_skew_seconds)
             verified_claims['uid'] = verified_claims['sub']
             return verified_claims
         except google.auth.exceptions.TransportError as error:

@@ -44,7 +44,7 @@ class TestMultiFactorConfig:
         with pytest.raises(ValueError) as excinfo:
             test_config.build_server_request()
         assert str(excinfo.value).startswith('provider_configs must be an array of type'
-                                             ' ProviderConfigs.')
+                                             ' ProviderConfig.')
 
     @pytest.mark.parametrize('provider_configs',
                              [[True], [1, 2],
@@ -55,7 +55,7 @@ class TestMultiFactorConfig:
         with pytest.raises(ValueError) as excinfo:
             test_config.build_server_request()
         assert str(excinfo.value).startswith('provider_configs must be an array of type'
-                                             ' ProviderConfigs.')
+                                             ' ProviderConfig.')
 
 
 class TestProviderConfig:
@@ -73,7 +73,7 @@ class TestProviderConfig:
         with pytest.raises(ValueError) as excinfo:
             test_config.build_server_request()
         assert str(excinfo.value).startswith(
-            'provider_config.state must be defined.')
+            'ProviderConfig.state must be defined.')
 
     @pytest.mark.parametrize('state',
                              ['', 1, True, False, [], (), {}, "foo", 'ENABLED'])
@@ -83,7 +83,7 @@ class TestProviderConfig:
         )
         with pytest.raises(ValueError) as excinfo:
             test_config.build_server_request()
-        assert str(excinfo.value).startswith('provider_config.state must be of type'
+        assert str(excinfo.value).startswith('ProviderConfig.state must be of type'
                                              ' ProviderConfig.State.')
 
     @pytest.mark.parametrize('state',
@@ -93,7 +93,7 @@ class TestProviderConfig:
         test_config = multi_factor_config_mgt.ProviderConfig(state=state)
         with pytest.raises(ValueError) as excinfo:
             test_config.build_server_request()
-        assert str(excinfo.value).startswith('provider_config.totp_provider_config must be'
+        assert str(excinfo.value).startswith('ProviderConfig.totp_provider_config must be'
                                              ' defined.')
 
     @pytest.mark.parametrize('totp_provider_config',
@@ -103,7 +103,7 @@ class TestProviderConfig:
         test_config.totp_provider_config = totp_provider_config
         with pytest.raises(ValueError) as excinfo:
             test_config.build_server_request()
-        assert str(excinfo.value).startswith('provider_configs.totp_provider_config must be of type'
+        assert str(excinfo.value).startswith('ProviderConfig.totp_provider_config must be of type'
                                              ' TOTPProviderConfig.')
 
 

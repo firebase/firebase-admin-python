@@ -117,7 +117,7 @@ class TOTPProviderConfig:
             # pylint: disable=C0123
             if type(self.adjacent_intervals) is not int:
                 raise ValueError(
-                    'TOTPProviderConfig.adjacent_intervals must be an integer between'
+                    'totp_provider_config.adjacent_intervals must be an integer between'
                     ' 1 and 10 (inclusive).')
             if not 1 <= self.adjacent_intervals <= 10:
                 raise ValueError(
@@ -209,11 +209,11 @@ class MultiFactorConfig:
                 'multi_factor_config.provider_configs must be specified')
         if not isinstance(self.provider_configs, list) or not self.provider_configs:
             raise ValueError(
-                'provider_configs must be an array of type ProviderConfigs.')
+                'provider_configs must be an array of type ProviderConfig.')
         for provider_config in self.provider_configs:
             if not isinstance(provider_config, ProviderConfig):
                 raise ValueError(
-                    'provider_configs must be an array of type ProviderConfigs.')
+                    'provider_configs must be an array of type ProviderConfig.')
             provider_config.validate()
 
     def build_server_request(self):

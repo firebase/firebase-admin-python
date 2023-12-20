@@ -43,7 +43,8 @@ class MultiFactorServerConfig:
     def __init__(self, data):
         if not isinstance(data, dict):
             raise ValueError(
-                'Invalid data argument in MultiFactorServerConfig constructor: {0}, must be a valid dict'.format(data))
+                'Invalid data argument in MultiFactorServerConfig constructor: {0}, must be a valid'
+                 ' dict'.format(data))
         self._data = data
 
     @property

@@ -34,7 +34,7 @@ from firebase_admin import _utils
 _FIRESTORE_ATTRIBUTE = '_firestore'
 
 
-def client(app=None):
+def client(app=None) -> firestore.Client:
     """Returns a client that can be used to interact with Google Cloud Firestore.
 
     Args:

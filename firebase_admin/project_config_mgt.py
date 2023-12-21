@@ -24,7 +24,8 @@ from firebase_admin import _http_client
 from firebase_admin import _utils
 from firebase_admin.multi_factor_config_mgt import MultiFactorConfig
 from firebase_admin.multi_factor_config_mgt import MultiFactorServerConfig
-from firebase_admin import email_privacy_config_mgt
+from firebase_admin.email_privacy_config_mgt import EmailPrivacyConfig
+from firebase_admin.email_privacy_config_mgt import EmailPrivacyServerConfig
 
 _PROJECT_CONFIG_MGT_ATTRIBUTE = '_project_config_mgt'
 
@@ -54,7 +55,7 @@ def get_project_config(app=None):
     return project_config_mgt_service.get_project_config()
 
 def update_project_config(multi_factor_config: MultiFactorConfig = None,
-                          email_privacy_config: email_privacy_config_mgt.EmailPrivacyConfig = None,
+                          email_privacy_config: EmailPrivacyConfig = None,
                           app=None):
     """Update the Project Config with the given options.
     Args:
@@ -99,7 +100,7 @@ class ProjectConfig:
     def email_privacy_config(self):
         data = self._data.get('emailPrivacyConfig')
         if data:
-            return email_privacy_config_mgt.EmailPrivacyServerConfig(data)
+            return EmailPrivacyServerConfig(data)
         return None
 
 class _ProjectConfigManagementService:
@@ -126,8 +127,7 @@ class _ProjectConfigManagementService:
             return ProjectConfig(body)
 
     def update_project_config(self, multi_factor_config: MultiFactorConfig = None,
-                              email_privacy_config:
-                              email_privacy_config_mgt.EmailPrivacyConfig = None) -> ProjectConfig:
+                              email_privacy_config: EmailPrivacyConfig = None) -> ProjectConfig:
         """Updates the specified project with the given parameters."""
 
         payload = {}
@@ -137,7 +137,7 @@ class _ProjectConfigManagementService:
             payload['mfa'] = multi_factor_config.build_server_request()
 
         if email_privacy_config is not None:
-            if not isinstance(email_privacy_config, email_privacy_config_mgt.EmailPrivacyConfig):
+            if not isinstance(email_privacy_config, EmailPrivacyConfig):
                 raise ValueError('email_privacy_config must be of type EmailPrivacyConfig.')
             payload['emailPrivacyConfig'] = email_privacy_config.build_server_request()
 

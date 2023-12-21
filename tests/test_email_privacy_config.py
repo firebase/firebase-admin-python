@@ -39,27 +39,25 @@ class TestEmailPrivacyConfig:
         test_config.enable_improved_email_privacy = enable_improved_email_privacy
         with pytest.raises(ValueError) as excinfo:
             test_config.build_server_request()
-        assert str(excinfo.value).startswith('provider_configs must be an array of type'
-                                             ' ProviderConfigs.')
+        assert str(excinfo.value).startswith('enable_improved_email_privacy must be a valid bool.')
 
 
 class TestEmailPrivacyServerConfig:
     def test_invalid_email_privacy_config_response(self):
         test_config = 'invalid'
         with pytest.raises(ValueError) as excinfo:
-            EmailPrivacyConfig(test_config)
+            EmailPrivacyServerConfig(test_config)
         assert str(excinfo.value).startswith('Invalid data argument in EmailPrivacyConfig'
                                              ' constructor: {0}'.format(test_config))
 
     def test_valid_server_response(self):
         response = {
-            'enableImprovedEmailPrivacy': 'true',
+            'enableImprovedEmailPrivacy': True,
         }
-        email_privacy_config = EmailPrivacyConfig(response)
+        email_privacy_config = EmailPrivacyServerConfig(response)
         _assert_email_privacy_config(email_privacy_config)
 
 
 def _assert_email_privacy_config(email_privacy_config):
     assert isinstance(email_privacy_config, EmailPrivacyServerConfig)
-    assert email_privacy_config.enable_improved_email_privacy is bool
     assert email_privacy_config.enable_improved_email_privacy is True

@@ -16,7 +16,7 @@
 
 from typing import Any, Dict
 import jwt
-from jwt import PyJWKClient, ExpiredSignatureError, InvalidTokenError
+from jwt import PyJWKClient, ExpiredSignatureError, InvalidTokenError, DecodeError
 from jwt import InvalidAudienceError, InvalidIssuerError, InvalidSignatureError
 from firebase_admin import _utils
 
@@ -38,6 +38,7 @@ def verify_token(token: str, app=None) -> Dict[str, Any]:
     Raises:
         ValueError: If the app's ``project_id`` is invalid or unspecified,
         or if the token's headers or payload are invalid.
+        PyJWKClientError: If PyJWKClient fails to fetch a valid signing key.
     """
     return _get_app_check_service(app).verify_token(token)
 
@@ -71,9 +72,14 @@ class _AppCheckService:
         # Obtain the Firebase App Check Public Keys
         # Note: It is not recommended to hard code these keys as they rotate,
         # but you should cache them for up to 6 hours.
-        signing_key = self._jwks_client.get_signing_key_from_jwt(token)
-        self._has_valid_token_headers(jwt.get_unverified_header(token))
-        verified_claims = self._decode_and_verify(token, signing_key.key)
+        try:
+            signing_key = self._jwks_client.get_signing_key_from_jwt(token)
+            self._has_valid_token_headers(jwt.get_unverified_header(token))
+            verified_claims = self._decode_and_verify(token, signing_key.key)
+        except (InvalidTokenError, DecodeError) as exception:
+            raise ValueError(
+                f'Verifying App Check token failed. Error: {exception}'
+                )
 
         verified_claims['app_id'] = verified_claims.get('sub')
         return verified_claims

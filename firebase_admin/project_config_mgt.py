@@ -13,7 +13,7 @@
 # limitations under the License.
 """Firebase project configuration management module.
 
-This module contains functions for managing various project operations like update and create
+This module contains functions for managing projects.
 """
 
 import requests
@@ -31,14 +31,13 @@ _PROJECT_CONFIG_MGT_ATTRIBUTE = '_project_config_mgt'
 
 __all__ = [
     'ProjectConfig',
-
     'get_project_config',
     'update_project_config',
 ]
 
 
 def get_project_config(app=None):
-    """Gets the project config corresponding to the given project_id.
+    """Gets the project config corresponding to the current project_id.
 
     Args:
         app: An App instance (optional).
@@ -59,7 +58,7 @@ def update_project_config(multi_factor_config: MultiFactorConfig = None,
                           app=None):
     """Update the Project Config with the given options.
     Args:
-        multi_factor_config: Updated Multi Factor Authentication configuration
+        multi_factor_config: Updated multi-factor authentication configuration
                     (optional)
         email_privacy_config: Updated Email Privacy configuration (optional).
         app: An App instance (optional).

@@ -1369,7 +1369,7 @@ class TestActionCodeSetting:
         assert parameters['continueUrl'] == data['url']
         assert parameters['canHandleCodeInApp'] == data['handle_code_in_app']
         assert parameters['dynamicLinkDomain'] == data['dynamic_link_domain']
-        assert parameters['iosBundleId'] == data['ios_bundle_id']
+        assert parameters['iOSBundleId'] == data['ios_bundle_id']
         assert parameters['androidPackageName'] == data['android_package_name']
         assert parameters['androidMinimumVersion'] == data['android_minimum_version']
         assert parameters['androidInstallApp'] == data['android_install_app']
@@ -1529,7 +1529,7 @@ class TestGenerateEmailActionLink:
             assert request['continueUrl'] == settings.url
             assert request['canHandleCodeInApp'] == settings.handle_code_in_app
             assert request['dynamicLinkDomain'] == settings.dynamic_link_domain
-            assert request['iosBundleId'] == settings.ios_bundle_id
+            assert request['iOSBundleId'] == settings.ios_bundle_id
             assert request['androidPackageName'] == settings.android_package_name
             assert request['androidMinimumVersion'] == settings.android_minimum_version
             assert request['androidInstallApp'] == settings.android_install_app

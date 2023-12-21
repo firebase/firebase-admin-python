@@ -13,7 +13,7 @@
 # limitations under the License.
 """Firebase multifactor configuration management module.
 
-This module contains functions for managing various multifactor configurations at
+This module contains functions for managing multifactor auth configuration at
 the project and tenant level.
 """
 from enum import Enum
@@ -37,32 +37,31 @@ def validate_keys(keys, valid_keys, config_name):
 
 
 class MultiFactorServerConfig:
-    """Represents multi factor configuration response received from the server and
-    converts it to user format.
+    """Represents the multi-factor configuration response received from the server.
     """
 
     def __init__(self, data):
         if not isinstance(data, dict):
             raise ValueError(
-                'Invalid data argument in MultiFactorConfig constructor: {0}'.format(data))
+                'Invalid data argument in MultiFactorServerConfig constructor: {0}, must be a valid'
+                ' dict'.format(data))
         self._data = data
 
     @property
     def provider_configs(self):
         data = self._data.get('providerConfigs', None)
         if data is not None:
-            return [self.ProviderConfigServerConfig(d) for d in data]
+            return [self.ProviderServerConfig(d) for d in data]
         return None
 
-    class ProviderConfigServerConfig:
-        """Represents provider configuration response received from the server and converts
-        it to user format.
+    class ProviderServerConfig:
+        """Represents the provider configuration response received from the server.
         """
 
         def __init__(self, data):
             if not isinstance(data, dict):
                 raise ValueError(
-                    'Invalid data argument in ProviderConfig constructor: {0}'.format(data))
+                    'Invalid data argument in ProviderServerConfig constructor: {0}'.format(data))
             self._data = data
 
         @property
@@ -77,14 +76,14 @@ class MultiFactorServerConfig:
             return None
 
         class TOTPProviderServerConfig:
-            """Represents TOTP provider configuration response received from the server and converts
-            it to user format.
+            """Represents the TOTP provider configuration response received from the server.
             """
 
             def __init__(self, data):
                 if not isinstance(data, dict):
                     raise ValueError(
-                        'Invalid data argument in TOTPProviderConfig constructor: {0}'.format(data))
+                        'Invalid data argument in TOTPProviderServerConfig'
+                        ' constructor: {0}'.format(data))
                 self._data = data
 
             @property
@@ -93,7 +92,7 @@ class MultiFactorServerConfig:
 
 
 class TOTPProviderConfig:
-    """Represents a TOTP Provider Configuration to be specified for a tenant or project."""
+    """A tenant or project's TOTP provider configuration."""
 
     def __init__(self, adjacent_intervals: int = None):
         self.adjacent_intervals: int = adjacent_intervals
@@ -105,7 +104,7 @@ class TOTPProviderConfig:
         return data
 
     def validate(self):
-        """Validates a given totp_provider_config object.
+        """Validates the configuration.
 
         Raises:
             ValueError: In case of an unsuccessful validation.
@@ -132,8 +131,8 @@ class TOTPProviderConfig:
 
 
 class ProviderConfig:
-    """Represents a provider configuration for tenant or project.
-    Currently only TOTP can be configured"""
+    """A tenant or project's multifactor provider configuration.
+    Currently, only TOTP can be configured."""
 
     class State(Enum):
         ENABLED = 'ENABLED'
@@ -154,7 +153,7 @@ class ProviderConfig:
         return data
 
     def validate(self):
-        """Validates a provider_config object.
+        """Validates the provider configuration.
 
         Raises:
             ValueError: In case of an unsuccessful validation.
@@ -166,16 +165,16 @@ class ProviderConfig:
                 'totp_provider_config'},
             config_name='ProviderConfig')
         if self.state is None:
-            raise ValueError('provider_config.state must be defined.')
+            raise ValueError('ProviderConfig.state must be defined.')
         if not isinstance(self.state, ProviderConfig.State):
             raise ValueError(
-                'provider_config.state must be of type ProviderConfig.State.')
+                'ProviderConfig.state must be of type ProviderConfig.State.')
         if self.totp_provider_config is None:
             raise ValueError(
-                'provider_config.totp_provider_config must be defined.')
+                'ProviderConfig.totp_provider_config must be defined.')
         if not isinstance(self.totp_provider_config, TOTPProviderConfig):
             raise ValueError(
-                'provider_configs.totp_provider_config must be of type TOTPProviderConfig.')
+                'ProviderConfig.totp_provider_config must be of type TOTPProviderConfig.')
 
     def build_server_request(self):
         self.validate()
@@ -183,8 +182,7 @@ class ProviderConfig:
 
 
 class MultiFactorConfig:
-    """Represents a multi factor configuration for tenant or project
-    """
+    """A tenant or project's multi factor configuration."""
 
     def __init__(self,
                  provider_configs: List[ProviderConfig] = None):
@@ -198,7 +196,7 @@ class MultiFactorConfig:
         return data
 
     def validate(self):
-        """Validates a given multi_factor_config object.
+        """Validates the configuration.
 
         Raises:
             ValueError: In case of an unsuccessful validation.
@@ -212,11 +210,11 @@ class MultiFactorConfig:
                 'multi_factor_config.provider_configs must be specified')
         if not isinstance(self.provider_configs, list) or not self.provider_configs:
             raise ValueError(
-                'provider_configs must be an array of type ProviderConfigs.')
+                'provider_configs must be an array of type ProviderConfig.')
         for provider_config in self.provider_configs:
             if not isinstance(provider_config, ProviderConfig):
                 raise ValueError(
-                    'provider_configs must be an array of type ProviderConfigs.')
+                    'provider_configs must be an array of type ProviderConfig.')
             provider_config.validate()
 
     def build_server_request(self):

@@ -14,8 +14,6 @@
 
 """Integration tests for firebase_admin.project_config_mgt module."""
 
-import pytest
-
 from firebase_admin.project_config_mgt import ProjectConfig
 from firebase_admin.project_config_mgt import get_project_config
 from firebase_admin.project_config_mgt import update_project_config

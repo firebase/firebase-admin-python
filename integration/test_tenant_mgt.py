@@ -25,7 +25,12 @@ import pytest
 
 from firebase_admin import auth
 from firebase_admin import tenant_mgt
-from firebase_admin import multi_factor_config_mgt
+from firebase_admin.multi_factor_config_mgt import MultiFactorConfig
+from firebase_admin.multi_factor_config_mgt import MultiFactorServerConfig
+from firebase_admin.multi_factor_config_mgt import ProviderConfig
+from firebase_admin.multi_factor_config_mgt import TOTPProviderConfig
+from firebase_admin.email_privacy_config_mgt import EmailPrivacyConfig
+from firebase_admin.email_privacy_config_mgt import EmailPrivacyServerConfig
 from integration import test_auth
 
 
@@ -36,34 +41,43 @@ VERIFY_TOKEN_URL = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/v
 
 @pytest.fixture(scope='module')
 def sample_tenant():
-    mfa_object = multi_factor_config_mgt.MultiFactorConfig(
-        provider_configs=[multi_factor_config_mgt.ProviderConfig(
-            state=multi_factor_config_mgt.ProviderConfig.State.ENABLED,
-            totp_provider_config=multi_factor_config_mgt.TOTPProviderConfig(
+    mfa_object = MultiFactorConfig(
+        provider_configs=[ProviderConfig(
+            state=ProviderConfig.State.ENABLED,
+            totp_provider_config=TOTPProviderConfig(
                 adjacent_intervals=5
             )
         )]
+    )
+    email_privacy_object = EmailPrivacyConfig(
+        enable_improved_email_privacy=True
     )
     tenant = tenant_mgt.create_tenant(
         display_name='admin-python-tenant',
         allow_password_sign_up=True,
         enable_email_link_sign_in=True,
-        multi_factor_config=mfa_object)
+        multi_factor_config=mfa_object,
+        email_privacy_config=email_privacy_object)
     yield tenant
     tenant_mgt.delete_tenant(tenant.tenant_id)
 
 def _assert_multi_factor_config(mfa_config):
-    assert isinstance(mfa_config, multi_factor_config_mgt.MultiFactorServerConfig)
+    assert isinstance(mfa_config, MultiFactorServerConfig)
     assert len(mfa_config.provider_configs) == 1
     assert isinstance(mfa_config.provider_configs, list)
     for provider_config in mfa_config.provider_configs:
-        assert isinstance(provider_config, multi_factor_config_mgt.MultiFactorServerConfig.\
+        assert isinstance(provider_config, MultiFactorServerConfig.\
                           ProviderServerConfig)
         assert provider_config.state == 'ENABLED'
         assert isinstance(provider_config.totp_provider_config,
-                          multi_factor_config_mgt.MultiFactorServerConfig.ProviderServerConfig
+                          MultiFactorServerConfig.ProviderServerConfig
                           .TOTPProviderServerConfig)
         assert provider_config.totp_provider_config.adjacent_intervals == 5
+
+
+def _assert_email_privacy_config(email_privacy_config):
+    assert isinstance(email_privacy_config, EmailPrivacyServerConfig)
+    assert email_privacy_config.enable_improved_email_privacy is True
 
 @pytest.fixture(scope='module')
 def tenant_user(sample_tenant):
@@ -82,6 +96,7 @@ def test_get_tenant(sample_tenant):
     assert tenant.allow_password_sign_up is True
     assert tenant.enable_email_link_sign_in is True
     _assert_multi_factor_config(tenant.multi_factor_config)
+    _assert_email_privacy_config(tenant.email_privacy_config)
 
 
 def test_list_tenants(sample_tenant):
@@ -99,17 +114,20 @@ def test_list_tenants(sample_tenant):
 
 
 def test_update_tenant():
-    mfa_object = multi_factor_config_mgt.MultiFactorConfig(
-        provider_configs=[multi_factor_config_mgt.ProviderConfig(
-            state=multi_factor_config_mgt.ProviderConfig.State.ENABLED,
-            totp_provider_config=multi_factor_config_mgt.TOTPProviderConfig(
+    mfa_object = MultiFactorConfig(
+        provider_configs=[ProviderConfig(
+            state=ProviderConfig.State.ENABLED,
+            totp_provider_config=TOTPProviderConfig(
                 adjacent_intervals=5
             )
         )]
     )
+    email_privacy_object = EmailPrivacyConfig(
+        enable_improved_email_privacy=True
+    )
     tenant = tenant_mgt.create_tenant(
         display_name='py-update-test', allow_password_sign_up=True, enable_email_link_sign_in=True,
-        multi_factor_config=mfa_object)
+        multi_factor_config=mfa_object, email_privacy_config=email_privacy_object)
     try:
         tenant = tenant_mgt.update_tenant(
             tenant.tenant_id, display_name='updated-py-tenant', allow_password_sign_up=False,
@@ -120,6 +138,7 @@ def test_update_tenant():
         assert tenant.allow_password_sign_up is False
         assert tenant.enable_email_link_sign_in is False
         _assert_multi_factor_config(tenant.multi_factor_config)
+        _assert_email_privacy_config(tenant.email_privacy_config)
     finally:
         tenant_mgt.delete_tenant(tenant.tenant_id)
 

@@ -23,23 +23,8 @@ from firebase_admin.multi_factor_config_mgt import MultiFactorConfig
 from firebase_admin.multi_factor_config_mgt import MultiFactorServerConfig
 from firebase_admin.multi_factor_config_mgt import ProviderConfig
 from firebase_admin.multi_factor_config_mgt import TOTPProviderConfig
-
-ADJACENT_INTERVALS = 5
-
-@pytest.fixture(scope='module')
-def sample_mfa_config():
-    mfa_config = {
-        'providerConfigs': [
-            {
-                'state': 'ENABLED',
-                'totpProviderConfig': {
-                    'adjacentIntervals': ADJACENT_INTERVALS
-                }
-            }
-        ]
-    }
-    return mfa_config
-
+from firebase_admin.email_privacy_config_mgt import EmailPrivacyConfig
+from firebase_admin.email_privacy_config_mgt import EmailPrivacyServerConfig
 
 def test_update_project_config():
     mfa_object = MultiFactorConfig(
@@ -52,14 +37,20 @@ def test_update_project_config():
             )
         ]
     )
-    project_config = update_project_config(multi_factor_config=mfa_object)
+    email_privacy_object = EmailPrivacyConfig(
+        enable_improved_email_privacy=True
+    )
+    project_config = update_project_config(
+        multi_factor_config=mfa_object, email_privacy_config=email_privacy_object)
     _assert_multi_factor_config(project_config.multi_factor_config)
+    _assert_email_privacy_config(project_config.email_privacy_config)
 
 
 def test_get_project():
     project_config = get_project_config()
     assert isinstance(project_config, ProjectConfig)
     _assert_multi_factor_config(project_config.multi_factor_config)
+    _assert_email_privacy_config(project_config.email_privacy_config)
 
 def _assert_multi_factor_config(multi_factor_config):
     assert isinstance(multi_factor_config, MultiFactorServerConfig)
@@ -72,4 +63,8 @@ def _assert_multi_factor_config(multi_factor_config):
         assert isinstance(provider_config.totp_provider_config,
                           MultiFactorServerConfig.ProviderServerConfig
                           .TOTPProviderServerConfig)
-        assert provider_config.totp_provider_config.adjacent_intervals == ADJACENT_INTERVALS
+        assert provider_config.totp_provider_config.adjacent_intervals == 5
+
+def _assert_email_privacy_config(email_privacy_config):
+    assert isinstance(email_privacy_config, EmailPrivacyServerConfig)
+    assert email_privacy_config.enable_improved_email_privacy is True

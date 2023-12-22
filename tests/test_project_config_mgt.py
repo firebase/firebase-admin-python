@@ -210,3 +210,5 @@ def _assert_email_privacy_config(email_privacy_config):
 def _assert_project_config(project_config):
     if project_config.multi_factor_config is not None:
         _assert_multi_factor_config(project_config.multi_factor_config)
+    if project_config.email_privacy_config is not None:
+        _assert_email_privacy_config(project_config.email_privacy_config)

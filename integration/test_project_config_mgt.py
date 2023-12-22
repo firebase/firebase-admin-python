@@ -16,8 +16,13 @@
 
 import pytest
 
-from firebase_admin import project_config_mgt
-from firebase_admin import multi_factor_config_mgt
+from firebase_admin.project_config_mgt import ProjectConfig
+from firebase_admin.project_config_mgt import get_project_config
+from firebase_admin.project_config_mgt import update_project_config
+from firebase_admin.multi_factor_config_mgt import MultiFactorConfig
+from firebase_admin.multi_factor_config_mgt import MultiFactorServerConfig
+from firebase_admin.multi_factor_config_mgt import ProviderConfig
+from firebase_admin.multi_factor_config_mgt import TOTPProviderConfig
 
 ADJACENT_INTERVALS = 5
 
@@ -37,34 +42,34 @@ def sample_mfa_config():
 
 
 def test_update_project_config():
-    mfa_object = multi_factor_config_mgt.MultiFactorConfig(
+    mfa_object = MultiFactorConfig(
         provider_configs=[
-            multi_factor_config_mgt.ProviderConfig(
-                state=multi_factor_config_mgt.ProviderConfig.State.ENABLED,
-                totp_provider_config=multi_factor_config_mgt.TOTPProviderConfig(
+            ProviderConfig(
+                state=ProviderConfig.State.ENABLED,
+                totp_provider_config=TOTPProviderConfig(
                     adjacent_intervals=5
                 )
             )
         ]
     )
-    project_config = project_config_mgt.update_project_config(multi_factor_config=mfa_object)
+    project_config = update_project_config(multi_factor_config=mfa_object)
     _assert_multi_factor_config(project_config.multi_factor_config)
 
 
 def test_get_project():
-    project_config = project_config_mgt.get_project_config()
-    assert isinstance(project_config, project_config_mgt.ProjectConfig)
+    project_config = get_project_config()
+    assert isinstance(project_config, ProjectConfig)
     _assert_multi_factor_config(project_config.multi_factor_config)
 
 def _assert_multi_factor_config(multi_factor_config):
-    assert isinstance(multi_factor_config, multi_factor_config_mgt.MultiFactorServerConfig)
+    assert isinstance(multi_factor_config, MultiFactorServerConfig)
     assert len(multi_factor_config.provider_configs) == 1
     assert isinstance(multi_factor_config.provider_configs, list)
     for provider_config in multi_factor_config.provider_configs:
-        assert isinstance(provider_config, multi_factor_config_mgt.MultiFactorServerConfig
+        assert isinstance(provider_config, MultiFactorServerConfig
                           .ProviderServerConfig)
         assert provider_config.state == 'ENABLED'
         assert isinstance(provider_config.totp_provider_config,
-                          multi_factor_config_mgt.MultiFactorServerConfig.ProviderServerConfig
+                          MultiFactorServerConfig.ProviderServerConfig
                           .TOTPProviderServerConfig)
         assert provider_config.totp_provider_config.adjacent_intervals == ADJACENT_INTERVALS

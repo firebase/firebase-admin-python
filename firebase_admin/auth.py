@@ -29,82 +29,80 @@ from firebase_admin import _user_mgt
 from firebase_admin import _utils
 
 
-_AUTH_ATTRIBUTE = '_auth'
+_AUTH_ATTRIBUTE = "_auth"
 
 
 __all__ = [
-    'ActionCodeSettings',
-    'CertificateFetchError',
-    'Client',
-    'ConfigurationNotFoundError',
-    'DELETE_ATTRIBUTE',
-    'EmailAlreadyExistsError',
-    'EmailNotFoundError',
-    'ErrorInfo',
-    'ExpiredIdTokenError',
-    'ExpiredSessionCookieError',
-    'ExportedUserRecord',
-    'DeleteUsersResult',
-    'GetUsersResult',
-    'ImportUserRecord',
-    'InsufficientPermissionError',
-    'InvalidDynamicLinkDomainError',
-    'InvalidIdTokenError',
-    'InvalidSessionCookieError',
-    'ListProviderConfigsPage',
-    'ListUsersPage',
-    'OIDCProviderConfig',
-    'PhoneNumberAlreadyExistsError',
-    'ProviderConfig',
-    'RevokedIdTokenError',
-    'RevokedSessionCookieError',
-    'SAMLProviderConfig',
-    'TokenSignError',
-    'UidAlreadyExistsError',
-    'UnexpectedResponseError',
-    'UserDisabledError',
-    'UserImportHash',
-    'UserImportResult',
-    'UserInfo',
-    'UserMetadata',
-    'UserNotFoundError',
-    'UserProvider',
-    'UserRecord',
-
-    'UserIdentifier',
-    'UidIdentifier',
-    'EmailIdentifier',
-    'PhoneIdentifier',
-    'ProviderIdentifier',
-
-    'create_custom_token',
-    'create_oidc_provider_config',
-    'create_saml_provider_config',
-    'create_session_cookie',
-    'create_user',
-    'delete_oidc_provider_config',
-    'delete_saml_provider_config',
-    'delete_user',
-    'delete_users',
-    'generate_email_verification_link',
-    'generate_password_reset_link',
-    'generate_sign_in_with_email_link',
-    'get_oidc_provider_config',
-    'get_saml_provider_config',
-    'get_user',
-    'get_user_by_email',
-    'get_user_by_phone_number',
-    'get_users',
-    'import_users',
-    'list_saml_provider_configs',
-    'list_users',
-    'revoke_refresh_tokens',
-    'set_custom_user_claims',
-    'update_oidc_provider_config',
-    'update_saml_provider_config',
-    'update_user',
-    'verify_id_token',
-    'verify_session_cookie',
+    "ActionCodeSettings",
+    "CertificateFetchError",
+    "Client",
+    "ConfigurationNotFoundError",
+    "DELETE_ATTRIBUTE",
+    "EmailAlreadyExistsError",
+    "EmailNotFoundError",
+    "ErrorInfo",
+    "ExpiredIdTokenError",
+    "ExpiredSessionCookieError",
+    "ExportedUserRecord",
+    "DeleteUsersResult",
+    "GetUsersResult",
+    "ImportUserRecord",
+    "InsufficientPermissionError",
+    "InvalidDynamicLinkDomainError",
+    "InvalidIdTokenError",
+    "InvalidSessionCookieError",
+    "ListProviderConfigsPage",
+    "ListUsersPage",
+    "OIDCProviderConfig",
+    "PhoneNumberAlreadyExistsError",
+    "ProviderConfig",
+    "RevokedIdTokenError",
+    "RevokedSessionCookieError",
+    "SAMLProviderConfig",
+    "TokenSignError",
+    "UidAlreadyExistsError",
+    "UnexpectedResponseError",
+    "UserDisabledError",
+    "UserImportHash",
+    "UserImportResult",
+    "UserInfo",
+    "UserMetadata",
+    "UserNotFoundError",
+    "UserProvider",
+    "UserRecord",
+    "UserIdentifier",
+    "UidIdentifier",
+    "EmailIdentifier",
+    "PhoneIdentifier",
+    "ProviderIdentifier",
+    "create_custom_token",
+    "create_oidc_provider_config",
+    "create_saml_provider_config",
+    "create_session_cookie",
+    "create_user",
+    "delete_oidc_provider_config",
+    "delete_saml_provider_config",
+    "delete_user",
+    "delete_users",
+    "generate_email_verification_link",
+    "generate_password_reset_link",
+    "generate_sign_in_with_email_link",
+    "get_oidc_provider_config",
+    "get_saml_provider_config",
+    "get_user",
+    "get_user_by_email",
+    "get_user_by_phone_number",
+    "get_users",
+    "import_users",
+    "list_saml_provider_configs",
+    "list_users",
+    "revoke_refresh_tokens",
+    "set_custom_user_claims",
+    "update_oidc_provider_config",
+    "update_saml_provider_config",
+    "update_user",
+    "verify_id_token",
+    "verify_session_cookie",
 ]
 
 ActionCodeSettings = _user_mgt.ActionCodeSettings
@@ -219,7 +217,8 @@ def verify_id_token(id_token, app=None, check_revoked=False, clock_skew_seconds=
     """
     client = _get_client(app)
     return client.verify_id_token(
-        id_token, check_revoked=check_revoked, clock_skew_seconds=clock_skew_seconds)
+        id_token, check_revoked=check_revoked, clock_skew_seconds=clock_skew_seconds
+    )
 
 
 def create_session_cookie(id_token, expires_in, app=None):
@@ -245,7 +244,9 @@ def create_session_cookie(id_token, expires_in, app=None):
     return client._token_generator.create_session_cookie(id_token, expires_in)
 
 
-def verify_session_cookie(session_cookie, check_revoked=False, app=None, clock_skew_seconds=0):
+def verify_session_cookie(
+    session_cookie, check_revoked=False, app=None, clock_skew_seconds=0
+):
     """Verifies a Firebase session cookie.
 
     Accepts a session cookie string, verifies that it is current, and issued
@@ -274,10 +275,12 @@ def verify_session_cookie(session_cookie, check_revoked=False, app=None, clock_s
     client = _get_client(app)
     # pylint: disable=protected-access
     verified_claims = client._token_verifier.verify_session_cookie(
-        session_cookie, clock_skew_seconds)
+        session_cookie, clock_skew_seconds
+    )
     if check_revoked:
         client._check_jwt_revoked_or_disabled(
-            verified_claims, RevokedSessionCookieError, 'session cookie')
+            verified_claims, RevokedSessionCookieError, "session cookie"
+        )
     return verified_claims
 
 
@@ -416,7 +419,7 @@ def list_users(page_token=None, max_results=_user_mgt.MAX_LIST_USERS_RESULTS, ap
     return client.list_users(page_token=page_token, max_results=max_results)
 
 
-def create_user(**kwargs): # pylint: disable=differing-param-doc
+def create_user(**kwargs):  # pylint: disable=differing-param-doc
     """Creates a new user account with the specified properties.
 
     Args:
@@ -441,12 +444,12 @@ def create_user(**kwargs): # pylint: disable=differing-param-doc
         ValueError: If the specified user properties are invalid.
         FirebaseError: If an error occurs while creating the user account.
     """
-    app = kwargs.pop('app', None)
+    app = kwargs.pop("app", None)
     client = _get_client(app)
     return client.create_user(**kwargs)
 
 
-def update_user(uid, **kwargs): # pylint: disable=differing-param-doc
+def update_user(uid, **kwargs):  # pylint: disable=differing-param-doc
     """Updates an existing user account with the specified properties.
 
     Args:
@@ -478,7 +481,7 @@ def update_user(uid, **kwargs): # pylint: disable=differing-param-doc
         ValueError: If the specified user ID or properties are invalid.
         FirebaseError: If an error occurs while updating the user account.
     """
-    app = kwargs.pop('app', None)
+    app = kwargs.pop("app", None)
     client = _get_client(app)
     return client.update_user(uid, **kwargs)
 
@@ -593,7 +596,9 @@ def generate_password_reset_link(email, action_code_settings=None, app=None):
         FirebaseError: If an error occurs while generating the link
     """
     client = _get_client(app)
-    return client.generate_password_reset_link(email, action_code_settings=action_code_settings)
+    return client.generate_password_reset_link(
+        email, action_code_settings=action_code_settings
+    )
 
 
 def generate_email_verification_link(email, action_code_settings=None, app=None):
@@ -615,7 +620,8 @@ def generate_email_verification_link(email, action_code_settings=None, app=None)
     """
     client = _get_client(app)
     return client.generate_email_verification_link(
-        email, action_code_settings=action_code_settings)
+        email, action_code_settings=action_code_settings
+    )
 
 
 def generate_sign_in_with_email_link(email, action_code_settings, app=None):
@@ -638,7 +644,8 @@ def generate_sign_in_with_email_link(email, action_code_settings, app=None):
     """
     client = _get_client(app)
     return client.generate_sign_in_with_email_link(
-        email, action_code_settings=action_code_settings)
+        email, action_code_settings=action_code_settings
+    )
 
 
 def get_oidc_provider_config(provider_id, app=None):
@@ -659,9 +666,18 @@ def get_oidc_provider_config(provider_id, app=None):
     client = _get_client(app)
     return client.get_oidc_provider_config(provider_id)
 
+
 def create_oidc_provider_config(
-        provider_id, client_id, issuer, display_name=None, enabled=None, client_secret=None,
-        id_token_response_type=None, code_response_type=None, app=None):
+    provider_id,
+    client_id,
+    issuer,
+    display_name=None,
+    enabled=None,
+    client_secret=None,
+    id_token_response_type=None,
+    code_response_type=None,
+    app=None,
+):
     """Creates a new OIDC provider config from the given parameters.
 
     OIDC provider support requires Google Cloud's Identity Platform (GCIP). To learn more about
@@ -695,14 +711,28 @@ def create_oidc_provider_config(
     """
     client = _get_client(app)
     return client.create_oidc_provider_config(
-        provider_id, client_id=client_id, issuer=issuer, display_name=display_name,
-        enabled=enabled, client_secret=client_secret, id_token_response_type=id_token_response_type,
-        code_response_type=code_response_type)
+        provider_id,
+        client_id=client_id,
+        issuer=issuer,
+        display_name=display_name,
+        enabled=enabled,
+        client_secret=client_secret,
+        id_token_response_type=id_token_response_type,
+        code_response_type=code_response_type,
+    )
 
 
 def update_oidc_provider_config(
-        provider_id, client_id=None, issuer=None, display_name=None, enabled=None,
-        client_secret=None, id_token_response_type=None, code_response_type=None, app=None):
+    provider_id,
+    client_id=None,
+    issuer=None,
+    display_name=None,
+    enabled=None,
+    client_secret=None,
+    id_token_response_type=None,
+    code_response_type=None,
+    app=None,
+):
     """Updates an existing OIDC provider config with the given parameters.
 
     Args:
@@ -733,9 +763,15 @@ def update_oidc_provider_config(
     """
     client = _get_client(app)
     return client.update_oidc_provider_config(
-        provider_id, client_id=client_id, issuer=issuer, display_name=display_name,
-        enabled=enabled, client_secret=client_secret, id_token_response_type=id_token_response_type,
-        code_response_type=code_response_type)
+        provider_id,
+        client_id=client_id,
+        issuer=issuer,
+        display_name=display_name,
+        enabled=enabled,
+        client_secret=client_secret,
+        id_token_response_type=id_token_response_type,
+        code_response_type=code_response_type,
+    )
 
 
 def delete_oidc_provider_config(provider_id, app=None):
@@ -755,7 +791,8 @@ def delete_oidc_provider_config(provider_id, app=None):
 
 
 def list_oidc_provider_configs(
-        page_token=None, max_results=_auth_providers.MAX_LIST_CONFIGS_RESULTS, app=None):
+    page_token=None, max_results=_auth_providers.MAX_LIST_CONFIGS_RESULTS, app=None
+):
     """Retrieves a page of OIDC provider configs from a Firebase project.
 
     The ``page_token`` argument governs the starting point of the page. The ``max_results``
@@ -802,8 +839,16 @@ def get_saml_provider_config(provider_id, app=None):
 
 
 def create_saml_provider_config(
-        provider_id, idp_entity_id, sso_url, x509_certificates, rp_entity_id, callback_url,
-        display_name=None, enabled=None, app=None):
+    provider_id,
+    idp_entity_id,
+    sso_url,
+    x509_certificates,
+    rp_entity_id,
+    callback_url,
+    display_name=None,
+    enabled=None,
+    app=None,
+):
     """Creates a new SAML provider config from the given parameters.
 
     SAML provider support requires Google Cloud's Identity Platform (GCIP). To learn more about
@@ -838,14 +883,28 @@ def create_saml_provider_config(
     """
     client = _get_client(app)
     return client.create_saml_provider_config(
-        provider_id, idp_entity_id=idp_entity_id, sso_url=sso_url,
-        x509_certificates=x509_certificates, rp_entity_id=rp_entity_id, callback_url=callback_url,
-        display_name=display_name, enabled=enabled)
+        provider_id,
+        idp_entity_id=idp_entity_id,
+        sso_url=sso_url,
+        x509_certificates=x509_certificates,
+        rp_entity_id=rp_entity_id,
+        callback_url=callback_url,
+        display_name=display_name,
+        enabled=enabled,
+    )
 
 
 def update_saml_provider_config(
-        provider_id, idp_entity_id=None, sso_url=None, x509_certificates=None,
-        rp_entity_id=None, callback_url=None, display_name=None, enabled=None, app=None):
+    provider_id,
+    idp_entity_id=None,
+    sso_url=None,
+    x509_certificates=None,
+    rp_entity_id=None,
+    callback_url=None,
+    display_name=None,
+    enabled=None,
+    app=None,
+):
     """Updates an existing SAML provider config with the given parameters.
 
     Args:
@@ -871,9 +930,15 @@ def update_saml_provider_config(
     """
     client = _get_client(app)
     return client.update_saml_provider_config(
-        provider_id, idp_entity_id=idp_entity_id, sso_url=sso_url,
-        x509_certificates=x509_certificates, rp_entity_id=rp_entity_id,
-        callback_url=callback_url, display_name=display_name, enabled=enabled)
+        provider_id,
+        idp_entity_id=idp_entity_id,
+        sso_url=sso_url,
+        x509_certificates=x509_certificates,
+        rp_entity_id=rp_entity_id,
+        callback_url=callback_url,
+        display_name=display_name,
+        enabled=enabled,
+    )
 
 
 def delete_saml_provider_config(provider_id, app=None):
@@ -893,7 +958,8 @@ def delete_saml_provider_config(provider_id, app=None):
 
 
 def list_saml_provider_configs(
-        page_token=None, max_results=_auth_providers.MAX_LIST_CONFIGS_RESULTS, app=None):
+    page_token=None, max_results=_auth_providers.MAX_LIST_CONFIGS_RESULTS, app=None
+):
     """Retrieves a page of SAML provider configs from a Firebase project.
 
     The ``page_token`` argument governs the starting point of the page. The ``max_results``

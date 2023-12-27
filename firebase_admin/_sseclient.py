@@ -27,7 +27,7 @@ import requests
 
 # Technically, we should support streams that mix line endings.  This regex,
 # however, assumes that a system will provide consistent line endings.
-end_of_field = re.compile(r'\r\n\r\n|\r\r|\n\n')
+end_of_field = re.compile(r"\r\n\r\n|\r\r|\n\n")
 
 
 class KeepAuthSession(transport.requests.AuthorizedSession):
@@ -45,7 +45,7 @@ class _EventBuffer:
 
     def __init__(self):
         self._buffer = []
-        self._tail = ''
+        self._tail = ""
 
     def append(self, char):
         self._buffer.append(char)
@@ -53,7 +53,7 @@ class _EventBuffer:
         self._tail = self._tail[-4:]
 
     def truncate(self):
-        head, sep, _ = self.buffer_string.rpartition('\n')
+        head, sep, _ = self.buffer_string.rpartition("\n")
         rem = head + sep
         self._buffer = list(rem)
         self._tail = rem[-4:]
@@ -61,11 +61,15 @@ class _EventBuffer:
     @property
     def is_end_of_field(self):
         last_two_chars = self._tail[-2:]
-        return last_two_chars == '\n\n' or last_two_chars == '\r\r' or self._tail == '\r\n\r\n'
+        return (
+            last_two_chars == "\n\n"
+            or last_two_chars == "\r\r"
+            or self._tail == "\r\n\r\n"
+        )
 
     @property
     def buffer_string(self):
-        return ''.join(self._buffer)
+        return "".join(self._buffer)
 
 
 class SSEClient:
@@ -86,14 +90,14 @@ class SSEClient:
         self.requests_kwargs = kwargs
         self.should_connect = True
         self.last_id = None
-        self.buf = u'' # Keep data here as it streams in
+        self.buf = ""  # Keep data here as it streams in
 
-        headers = self.requests_kwargs.get('headers', {})
+        headers = self.requests_kwargs.get("headers", {})
         # The SSE spec requires making requests with Cache-Control: no-cache
-        headers['Cache-Control'] = 'no-cache'
+        headers["Cache-Control"] = "no-cache"
         # The 'Accept' header is not required, but explicit > implicit
-        headers['Accept'] = 'text/event-stream'
-        self.requests_kwargs['headers'] = headers
+        headers["Accept"] = "text/event-stream"
+        self.requests_kwargs["headers"] = headers
         self._connect()
 
     def close(self):
@@ -106,7 +110,7 @@ class SSEClient:
         """Connects to the server using requests."""
         if self.should_connect:
             if self.last_id:
-                self.requests_kwargs['headers']['Last-Event-ID'] = self.last_id
+                self.requests_kwargs["headers"]["Last-Event-ID"] = self.last_id
             self.resp = self.session.get(self.url, stream=True, **self.requests_kwargs)
             self.resp_iterator = self.resp.iter_content(decode_unicode=True)
             self.resp.raise_for_status()
@@ -134,13 +138,13 @@ class SSEClient:
 
         split = re.split(end_of_field, self.buf)
         head = split[0]
-        self.buf = '\n\n'.join(split[1:])
+        self.buf = "\n\n".join(split[1:])
         event = Event.parse(head)
 
-        if event.data == 'credential is no longer valid':
+        if event.data == "credential is no longer valid":
             self._connect()
             return None
-        if event.data == 'null':
+        if event.data == "null":
             return None
 
         # If the server requests a specific retry delay, we need to honor it.
@@ -160,9 +164,9 @@ class SSEClient:
 class Event:
     """Event represents the events fired by SSE."""
 
-    sse_line_pattern = re.compile('(?P<name>[^:]*):?( ?(?P<value>.*))?')
+    sse_line_pattern = re.compile("(?P<name>[^:]*):?( ?(?P<value>.*))?")
 
-    def __init__(self, data='', event_type='message', event_id=None, retry=None):
+    def __init__(self, data="", event_type="message", event_id=None, retry=None):
         self.data = data
         self.event_type = event_type
         self.event_id = event_id
@@ -180,29 +184,29 @@ class Event:
           Event: A new ``Event`` with the parameters initialized.
         """
         event = cls()
-        for line in raw.split('\n'):
+        for line in raw.split("\n"):
             match = cls.sse_line_pattern.match(line)
             if match is None:
                 # Malformed line.  Discard but warn.
                 warnings.warn('Invalid SSE line: "%s"' % line, SyntaxWarning)
                 continue
 
-            name = match.groupdict()['name']
-            value = match.groupdict()['value']
-            if name == '':
+            name = match.groupdict()["name"]
+            value = match.groupdict()["value"]
+            if name == "":
                 # line began with a ":", so is a comment.  Ignore
                 continue
-            if name == 'data':
+            if name == "data":
                 # If we already have some data, then join to it with a newline.
                 # Else this is it.
                 if event.data:
-                    event.data = '%s\n%s' % (event.data, value)
+                    event.data = "%s\n%s" % (event.data, value)
                 else:
                     event.data = value
-            elif name == 'event':
+            elif name == "event":
                 event.event_type = value
-            elif name == 'id':
+            elif name == "id":
                 event.event_id = value
-            elif name == 'retry':
+            elif name == "retry":
                 event.retry = int(value)
         return event

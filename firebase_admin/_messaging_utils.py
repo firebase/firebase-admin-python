@@ -51,8 +51,16 @@ class AndroidConfig:
         fcm_options: A ``messaging.AndroidFCMOptions`` to be included in the message (optional).
     """
 
-    def __init__(self, collapse_key=None, priority=None, ttl=None, restricted_package_name=None,
-                 data=None, notification=None, fcm_options=None):
+    def __init__(
+        self,
+        collapse_key=None,
+        priority=None,
+        ttl=None,
+        restricted_package_name=None,
+        data=None,
+        notification=None,
+        fcm_options=None,
+    ):
         self.collapse_key = collapse_key
         self.priority = priority
         self.ttl = ttl
@@ -146,12 +154,34 @@ class AndroidNotification:
 
     """
 
-    def __init__(self, title=None, body=None, icon=None, color=None, sound=None, tag=None,
-                 click_action=None, body_loc_key=None, body_loc_args=None, title_loc_key=None,
-                 title_loc_args=None, channel_id=None, image=None, ticker=None, sticky=None,
-                 event_timestamp=None, local_only=None, priority=None, vibrate_timings_millis=None,
-                 default_vibrate_timings=None, default_sound=None, light_settings=None,
-                 default_light_settings=None, visibility=None, notification_count=None):
+    def __init__(
+        self,
+        title=None,
+        body=None,
+        icon=None,
+        color=None,
+        sound=None,
+        tag=None,
+        click_action=None,
+        body_loc_key=None,
+        body_loc_args=None,
+        title_loc_key=None,
+        title_loc_args=None,
+        channel_id=None,
+        image=None,
+        ticker=None,
+        sticky=None,
+        event_timestamp=None,
+        local_only=None,
+        priority=None,
+        vibrate_timings_millis=None,
+        default_vibrate_timings=None,
+        default_sound=None,
+        light_settings=None,
+        default_light_settings=None,
+        visibility=None,
+        notification_count=None,
+    ):
         self.title = title
         self.body = body
         self.icon = icon
@@ -190,8 +220,8 @@ class LightSettings:
         light_off_duration_millis: Along with ``light_on_duration``, defines the blink rate of LED
             flashes.
     """
-    def __init__(self, color, light_on_duration_millis,
-                 light_off_duration_millis):
+
+    def __init__(self, color, light_on_duration_millis, light_off_duration_millis):
         self.color = color
         self.light_on_duration_millis = light_on_duration_millis
         self.light_off_duration_millis = light_off_duration_millis
@@ -281,10 +311,25 @@ class WebpushNotification:
         /notification/Notification
     """
 
-    def __init__(self, title=None, body=None, icon=None, actions=None, badge=None, data=None,
-                 direction=None, image=None, language=None, renotify=None,
-                 require_interaction=None, silent=None, tag=None, timestamp_millis=None,
-                 vibrate=None, custom_data=None):
+    def __init__(
+        self,
+        title=None,
+        body=None,
+        icon=None,
+        actions=None,
+        badge=None,
+        data=None,
+        direction=None,
+        image=None,
+        language=None,
+        renotify=None,
+        require_interaction=None,
+        silent=None,
+        tag=None,
+        timestamp_millis=None,
+        vibrate=None,
+        custom_data=None,
+    ):
         self.title = title
         self.body = body
         self.icon = icon
@@ -368,8 +413,17 @@ class Aps:
             (optional).
     """
 
-    def __init__(self, alert=None, badge=None, sound=None, content_available=None, category=None,
-                 thread_id=None, mutable_content=None, custom_data=None):
+    def __init__(
+        self,
+        alert=None,
+        badge=None,
+        sound=None,
+        content_available=None,
+        category=None,
+        thread_id=None,
+        mutable_content=None,
+        custom_data=None,
+    ):
         self.alert = alert
         self.badge = badge
         self.sound = sound
@@ -423,9 +477,19 @@ class ApsAlert:
             (optional)
     """
 
-    def __init__(self, title=None, subtitle=None, body=None, loc_key=None, loc_args=None,
-                 title_loc_key=None, title_loc_args=None, action_loc_key=None, launch_image=None,
-                 custom_data=None):
+    def __init__(
+        self,
+        title=None,
+        subtitle=None,
+        body=None,
+        loc_key=None,
+        loc_args=None,
+        title_loc_key=None,
+        title_loc_args=None,
+        action_loc_key=None,
+        launch_image=None,
+        custom_data=None,
+    ):
         self.title = title
         self.subtitle = subtitle
         self.body = body

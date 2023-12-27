@@ -14,8 +14,8 @@
 
 """About information (version, etc) for Firebase Admin SDK."""
 
-__version__ = '6.3.0'
-__title__ = 'firebase_admin'
-__author__ = 'Firebase'
-__license__ = 'Apache License 2.0'
-__url__ = 'https://firebase.google.com/docs/admin/setup/'
+__version__ = "6.3.0"
+__title__ = "firebase_admin"
+__author__ = "Firebase"
+__license__ = "Apache License 2.0"
+__url__ = "https://firebase.google.com/docs/admin/setup/"

@@ -19,19 +19,25 @@
 
 from google.auth import transport
 import requests
-from requests.packages.urllib3.util import retry # pylint: disable=import-error
+from requests.packages.urllib3.util import retry  # pylint: disable=import-error
 
 
-if hasattr(retry.Retry.DEFAULT, 'allowed_methods'):
-    _ANY_METHOD = {'allowed_methods': None}
+if hasattr(retry.Retry.DEFAULT, "allowed_methods"):
+    _ANY_METHOD = {"allowed_methods": None}
 else:
-    _ANY_METHOD = {'method_whitelist': None}
+    _ANY_METHOD = {"method_whitelist": None}
 # Default retry configuration: Retries once on low-level connection and socket read errors.
 # Retries up to 4 times on HTTP 500 and 503 errors, with exponential backoff. Returns the
 # last response upon exhausting all retries.
 DEFAULT_RETRY_CONFIG = retry.Retry(
-    connect=1, read=1, status=4, status_forcelist=[500, 503],
-    raise_on_status=False, backoff_factor=0.5, **_ANY_METHOD)
+    connect=1,
+    read=1,
+    status=4,
+    status_forcelist=[500, 503],
+    raise_on_status=False,
+    backoff_factor=0.5,
+    **_ANY_METHOD,
+)
 
 
 DEFAULT_TIMEOUT_SECONDS = 120
@@ -45,8 +51,14 @@ class HttpClient:
     """
 
     def __init__(
-            self, credential=None, session=None, base_url='', headers=None,
-            retries=DEFAULT_RETRY_CONFIG, timeout=DEFAULT_TIMEOUT_SECONDS):
+        self,
+        credential=None,
+        session=None,
+        base_url="",
+        headers=None,
+        retries=DEFAULT_RETRY_CONFIG,
+        timeout=DEFAULT_TIMEOUT_SECONDS,
+    ):
         """Creates a new HttpClient instance from the provided arguments.
 
         If a credential is provided, initializes a new HTTP session authorized with it. If neither
@@ -68,13 +80,17 @@ class HttpClient:
         elif session:
             self._session = session
         else:
-            self._session = requests.Session() # pylint: disable=redefined-variable-type
+            self._session = requests.Session()  # pylint: disable=redefined-variable-type
 
         if headers:
             self._session.headers.update(headers)
         if retries:
-            self._session.mount('http://', requests.adapters.HTTPAdapter(max_retries=retries))
-            self._session.mount('https://', requests.adapters.HTTPAdapter(max_retries=retries))
+            self._session.mount(
+                "http://", requests.adapters.HTTPAdapter(max_retries=retries)
+            )
+            self._session.mount(
+                "https://", requests.adapters.HTTPAdapter(max_retries=retries)
+            )
         self._base_url = base_url
         self._timeout = timeout
 
@@ -113,8 +129,8 @@ class HttpClient:
         Raises:
           RequestException: Any requests exceptions encountered while making the HTTP call.
         """
-        if 'timeout' not in kwargs:
-            kwargs['timeout'] = self.timeout
+        if "timeout" not in kwargs:
+            kwargs["timeout"] = self.timeout
         resp = self._session.request(method, self.base_url + url, **kwargs)
         resp.raise_for_status()
         return resp

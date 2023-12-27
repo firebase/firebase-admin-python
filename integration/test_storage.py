@@ -20,25 +20,28 @@ from firebase_admin import storage
 
 def test_default_bucket(project_id):
     bucket = storage.bucket()
-    _verify_bucket(bucket, '{0}.appspot.com'.format(project_id))
+    _verify_bucket(bucket, "{0}.appspot.com".format(project_id))
+
 
 def test_custom_bucket(project_id):
-    bucket_name = '{0}.appspot.com'.format(project_id)
+    bucket_name = "{0}.appspot.com".format(project_id)
     bucket = storage.bucket(bucket_name)
     _verify_bucket(bucket, bucket_name)
 
+
 def test_non_existing_bucket():
-    bucket = storage.bucket('non.existing')
+    bucket = storage.bucket("non.existing")
     assert bucket.exists() is False
+
 
 def _verify_bucket(bucket, expected_name):
     assert bucket.name == expected_name
-    file_name = 'data_{0}.txt'.format(int(time.time()))
+    file_name = "data_{0}.txt".format(int(time.time()))
     blob = bucket.blob(file_name)
-    blob.upload_from_string('Hello World')
+    blob.upload_from_string("Hello World")
 
     blob = bucket.get_blob(file_name)
-    assert blob.download_as_string().decode() == 'Hello World'
+    assert blob.download_as_string().decode() == "Hello World"
 
     bucket.delete_blob(file_name)
     assert not bucket.get_blob(file_name)

@@ -23,30 +23,35 @@ from tests import testutils
 
 
 def setup_module():
-    cred = credentials.Certificate(testutils.resource_filename('service_account.json'))
+    cred = credentials.Certificate(testutils.resource_filename("service_account.json"))
     firebase_admin.initialize_app(cred)
+
 
 def teardown_module():
     testutils.cleanup_apps()
+
 
 def test_invalid_config():
     with pytest.raises(ValueError):
         storage.bucket()
 
-@pytest.mark.parametrize('name', [None, '', 0, 1, True, False, list(), tuple(), dict()])
+
+@pytest.mark.parametrize("name", [None, "", 0, 1, True, False, list(), tuple(), dict()])
 def test_invalid_name(name):
     with pytest.raises(ValueError):
         storage.bucket(name)
 
+
 def test_valid_name():
     # Should not make RPC calls.
-    bucket = storage.bucket('foo')
+    bucket = storage.bucket("foo")
     assert bucket is not None
-    assert bucket.name == 'foo'
+    assert bucket.name == "foo"
+
 
 def test_valid_name_with_explicit_app():
     # Should not make RPC calls.
     app = firebase_admin.get_app()
-    bucket = storage.bucket('foo', app=app)
+    bucket = storage.bucket("foo", app=app)
     assert bucket is not None
-    assert bucket.name == 'foo'
+    assert bucket.name == "foo"

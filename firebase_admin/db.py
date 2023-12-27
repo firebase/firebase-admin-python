@@ -36,16 +36,17 @@ from firebase_admin import _sseclient
 from firebase_admin import _utils
 
 
-_DB_ATTRIBUTE = '_database'
-_INVALID_PATH_CHARACTERS = '[].?#$'
-_RESERVED_FILTERS = ('$key', '$value', '$priority')
-_USER_AGENT = 'Firebase/HTTP/{0}/{1}.{2}/AdminPython'.format(
-    firebase_admin.__version__, sys.version_info.major, sys.version_info.minor)
+_DB_ATTRIBUTE = "_database"
+_INVALID_PATH_CHARACTERS = "[].?#$"
+_RESERVED_FILTERS = ("$key", "$value", "$priority")
+_USER_AGENT = "Firebase/HTTP/{0}/{1}.{2}/AdminPython".format(
+    firebase_admin.__version__, sys.version_info.major, sys.version_info.minor
+)
 _TRANSACTION_MAX_RETRIES = 25
-_EMULATOR_HOST_ENV_VAR = 'FIREBASE_DATABASE_EMULATOR_HOST'
+_EMULATOR_HOST_ENV_VAR = "FIREBASE_DATABASE_EMULATOR_HOST"
 
 
-def reference(path='/', app=None, url=None):
+def reference(path="/", app=None, url=None):
     """Returns a database ``Reference`` representing the node at the specified path.
 
     If no path is specified, this function returns a ``Reference`` that represents the database
@@ -69,14 +70,16 @@ def reference(path='/', app=None, url=None):
     client = service.get_client(url)
     return Reference(client=client, path=path)
 
+
 def _parse_path(path):
     """Parses a path string into a set of segments."""
     if not isinstance(path, str):
         raise ValueError('Invalid path: "{0}". Path must be a string.'.format(path))
     if any(ch in path for ch in _INVALID_PATH_CHARACTERS):
         raise ValueError(
-            'Invalid path: "{0}". Path contains illegal characters.'.format(path))
-    return [seg for seg in path.split('/') if seg]
+            'Invalid path: "{0}". Path contains illegal characters.'.format(path)
+        )
+    return [seg for seg in path.split("/") if seg]
 
 
 class Event:
@@ -89,12 +92,12 @@ class Event:
     @property
     def data(self):
         """Parsed JSON data of this event."""
-        return self._data['data']
+        return self._data["data"]
 
     @property
     def path(self):
         """Path of the database reference that triggered this event."""
-        return self._data['path']
+        return self._data["path"]
 
     @property
     def event_type(self):
@@ -145,12 +148,12 @@ class Reference:
         This method is for internal use only. Use db.reference() to obtain an instance of
         Reference.
         """
-        self._client = kwargs.get('client')
-        if 'segments' in kwargs:
-            self._segments = kwargs.get('segments')
+        self._client = kwargs.get("client")
+        if "segments" in kwargs:
+            self._segments = kwargs.get("segments")
         else:
-            self._segments = _parse_path(kwargs.get('path'))
-        self._pathurl = '/' + '/'.join(self._segments)
+            self._segments = _parse_path(kwargs.get("path"))
+        self._pathurl = "/" + "/".join(self._segments)
 
     @property
     def key(self):
@@ -185,11 +188,17 @@ class Reference:
         """
         if not path or not isinstance(path, str):
             raise ValueError(
-                'Invalid path argument: "{0}". Path must be a non-empty string.'.format(path))
-        if path.startswith('/'):
+                'Invalid path argument: "{0}". Path must be a non-empty string.'.format(
+                    path
+                )
+            )
+        if path.startswith("/"):
             raise ValueError(
-                'Invalid path argument: "{0}". Child path must not start with "/"'.format(path))
-        full_path = self._pathurl + '/' + path
+                'Invalid path argument: "{0}". Child path must not start with "/"'.format(
+                    path
+                )
+            )
+        full_path = self._pathurl + "/" + path
         return Reference(client=self._client, path=full_path)
 
     def get(self, etag=False, shallow=False):
@@ -212,13 +221,14 @@ class Reference:
         """
         if etag:
             if shallow:
-                raise ValueError('etag and shallow cannot both be set to True.')
+                raise ValueError("etag and shallow cannot both be set to True.")
             headers, data = self._client.headers_and_body(
-                'get', self._add_suffix(), headers={'X-Firebase-ETag' : 'true'})
-            return data, headers.get('ETag')
+                "get", self._add_suffix(), headers={"X-Firebase-ETag": "true"}
+            )
+            return data, headers.get("ETag")
 
-        params = 'shallow=true' if shallow else None
-        return self._client.body('get', self._add_suffix(), params=params)
+        params = "shallow=true" if shallow else None
+        return self._client.body("get", self._add_suffix(), params=params)
 
     def get_if_changed(self, etag):
         """Gets data in this location only if the specified ETag does not match.
@@ -238,13 +248,15 @@ class Reference:
           FirebaseError: If an error occurs while communicating with the remote database server.
         """
         if not isinstance(etag, str):
-            raise ValueError('ETag must be a string.')
+            raise ValueError("ETag must be a string.")
 
-        resp = self._client.request('get', self._add_suffix(), headers={'if-none-match': etag})
+        resp = self._client.request(
+            "get", self._add_suffix(), headers={"if-none-match": etag}
+        )
         if resp.status_code == 304:
             return False, None, None
 
-        return True, resp.json(), resp.headers.get('ETag')
+        return True, resp.json(), resp.headers.get("ETag")
 
     def set(self, value):
         """Sets the data at this location to the given value.
@@ -260,8 +272,10 @@ class Reference:
           FirebaseError: If an error occurs while communicating with the remote database server.
         """
         if value is None:
-            raise ValueError('Value must not be None.')
-        self._client.request('put', self._add_suffix(), json=value, params='print=silent')
+            raise ValueError("Value must not be None.")
+        self._client.request(
+            "put", self._add_suffix(), json=value, params="print=silent"
+        )
 
     def set_if_unchanged(self, expected_etag, value):
         """Conditonally sets the data at this location to the given value.
@@ -284,24 +298,28 @@ class Reference:
         """
         # pylint: disable=missing-raises-doc
         if not isinstance(expected_etag, str):
-            raise ValueError('Expected ETag must be a string.')
+            raise ValueError("Expected ETag must be a string.")
         if value is None:
-            raise ValueError('Value must not be none.')
+            raise ValueError("Value must not be none.")
 
         try:
             headers = self._client.headers(
-                'put', self._add_suffix(), json=value, headers={'if-match': expected_etag})
-            return True, value, headers.get('ETag')
+                "put",
+                self._add_suffix(),
+                json=value,
+                headers={"if-match": expected_etag},
+            )
+            return True, value, headers.get("ETag")
         except exceptions.FailedPreconditionError as error:
             http_response = error.http_response
-            if http_response is not None and 'ETag' in http_response.headers:
-                etag = http_response.headers['ETag']
+            if http_response is not None and "ETag" in http_response.headers:
+                etag = http_response.headers["ETag"]
                 snapshot = http_response.json()
                 return False, snapshot, etag
 
             raise error
 
-    def push(self, value=''):
+    def push(self, value=""):
         """Creates a new child node.
 
         The optional value argument can be used to provide an initial value for the child node. If
@@ -319,9 +337,9 @@ class Reference:
           FirebaseError: If an error occurs while communicating with the remote database server.
         """
         if value is None:
-            raise ValueError('Value must not be None.')
-        output = self._client.body('post', self._add_suffix(), json=value)
-        push_id = output.get('name')
+            raise ValueError("Value must not be None.")
+        output = self._client.body("post", self._add_suffix(), json=value)
+        push_id = output.get("name")
         return self.child(push_id)
 
     def update(self, value):
@@ -335,10 +353,12 @@ class Reference:
           FirebaseError: If an error occurs while communicating with the remote database server.
         """
         if not value or not isinstance(value, dict):
-            raise ValueError('Value argument must be a non-empty dictionary.')
+            raise ValueError("Value argument must be a non-empty dictionary.")
         if None in value.keys():
-            raise ValueError('Dictionary must not contain None keys.')
-        self._client.request('patch', self._add_suffix(), json=value, params='print=silent')
+            raise ValueError("Dictionary must not contain None keys.")
+        self._client.request(
+            "patch", self._add_suffix(), json=value, params="print=silent"
+        )
 
     def delete(self):
         """Deletes this node from the database.
@@ -346,7 +366,7 @@ class Reference:
         Raises:
           FirebaseError: If an error occurs while communicating with the remote database server.
         """
-        self._client.request('delete', self._add_suffix())
+        self._client.request("delete", self._add_suffix())
 
     def listen(self, callback):
         """Registers the ``callback`` function to receive realtime updates.
@@ -404,7 +424,7 @@ class Reference:
           ValueError: If transaction_update is not a function.
         """
         if not callable(transaction_update):
-            raise ValueError('transaction_update must be a function.')
+            raise ValueError("transaction_update must be a function.")
 
         tries = 0
         data, etag = self.get(etag=True)
@@ -415,7 +435,7 @@ class Reference:
                 return new_data
             tries += 1
 
-        raise TransactionAbortedError('Transaction aborted after failed retries.')
+        raise TransactionAbortedError("Transaction aborted after failed retries.")
 
     def order_by_child(self, path):
         """Returns a Query that orders data by child values.
@@ -433,7 +453,7 @@ class Reference:
           ValueError: If the child path is not a string, not well-formed or None.
         """
         if path in _RESERVED_FILTERS:
-            raise ValueError('Illegal child path: {0}'.format(path))
+            raise ValueError("Illegal child path: {0}".format(path))
         return Query(order_by=path, client=self._client, pathurl=self._add_suffix())
 
     def order_by_key(self):
@@ -445,7 +465,7 @@ class Reference:
         Returns:
           Query: A database Query instance.
         """
-        return Query(order_by='$key', client=self._client, pathurl=self._add_suffix())
+        return Query(order_by="$key", client=self._client, pathurl=self._add_suffix())
 
     def order_by_value(self):
         """Creates a Query that orderes data by value.
@@ -456,9 +476,9 @@ class Reference:
         Returns:
           Query: A database Query instance.
         """
-        return Query(order_by='$value', client=self._client, pathurl=self._add_suffix())
+        return Query(order_by="$value", client=self._client, pathurl=self._add_suffix())
 
-    def _add_suffix(self, suffix='.json'):
+    def _add_suffix(self, suffix=".json"):
         return self._pathurl + suffix
 
     def _listen_with_session(self, callback, session=None):
@@ -487,21 +507,23 @@ class Query:
     """
 
     def __init__(self, **kwargs):
-        order_by = kwargs.pop('order_by')
+        order_by = kwargs.pop("order_by")
         if not order_by or not isinstance(order_by, str):
-            raise ValueError('order_by field must be a non-empty string')
+            raise ValueError("order_by field must be a non-empty string")
         if order_by not in _RESERVED_FILTERS:
-            if order_by.startswith('/'):
-                raise ValueError('Invalid path argument: "{0}". Child path must not start '
-                                 'with "/"'.format(order_by))
+            if order_by.startswith("/"):
+                raise ValueError(
+                    'Invalid path argument: "{0}". Child path must not start '
+                    'with "/"'.format(order_by)
+                )
             segments = _parse_path(order_by)
-            order_by = '/'.join(segments)
-        self._client = kwargs.pop('client')
-        self._pathurl = kwargs.pop('pathurl')
+            order_by = "/".join(segments)
+        self._client = kwargs.pop("client")
+        self._pathurl = kwargs.pop("pathurl")
         self._order_by = order_by
-        self._params = {'orderBy' : json.dumps(order_by)}
+        self._params = {"orderBy": json.dumps(order_by)}
         if kwargs:
-            raise ValueError('Unexpected keyword arguments: {0}'.format(kwargs))
+            raise ValueError("Unexpected keyword arguments: {0}".format(kwargs))
 
     def limit_to_first(self, limit):
         """Creates a query with limit, and anchors it to the start of the window.
@@ -516,10 +538,10 @@ class Query:
           ValueError: If the value is not an integer, or set_limit_last() was called previously.
         """
         if not isinstance(limit, int) or limit < 0:
-            raise ValueError('Limit must be a non-negative integer.')
-        if 'limitToLast' in self._params:
-            raise ValueError('Cannot set both first and last limits.')
-        self._params['limitToFirst'] = limit
+            raise ValueError("Limit must be a non-negative integer.")
+        if "limitToLast" in self._params:
+            raise ValueError("Cannot set both first and last limits.")
+        self._params["limitToFirst"] = limit
         return self
 
     def limit_to_last(self, limit):
@@ -535,10 +557,10 @@ class Query:
           ValueError: If the value is not an integer, or set_limit_first() was called previously.
         """
         if not isinstance(limit, int) or limit < 0:
-            raise ValueError('Limit must be a non-negative integer.')
-        if 'limitToFirst' in self._params:
-            raise ValueError('Cannot set both first and last limits.')
-        self._params['limitToLast'] = limit
+            raise ValueError("Limit must be a non-negative integer.")
+        if "limitToFirst" in self._params:
+            raise ValueError("Cannot set both first and last limits.")
+        self._params["limitToLast"] = limit
         return self
 
     def start_at(self, start):
@@ -557,8 +579,8 @@ class Query:
           ValueError: If the value is ``None``.
         """
         if start is None:
-            raise ValueError('Start value must not be None.')
-        self._params['startAt'] = json.dumps(start)
+            raise ValueError("Start value must not be None.")
+        self._params["startAt"] = json.dumps(start)
         return self
 
     def end_at(self, end):
@@ -577,8 +599,8 @@ class Query:
           ValueError: If the value is ``None``.
         """
         if end is None:
-            raise ValueError('End value must not be None.')
-        self._params['endAt'] = json.dumps(end)
+            raise ValueError("End value must not be None.")
+        self._params["endAt"] = json.dumps(end)
         return self
 
     def equal_to(self, value):
@@ -596,16 +618,16 @@ class Query:
           ValueError: If the value is ``None``.
         """
         if value is None:
-            raise ValueError('Equal to value must not be None.')
-        self._params['equalTo'] = json.dumps(value)
+            raise ValueError("Equal to value must not be None.")
+        self._params["equalTo"] = json.dumps(value)
         return self
 
     @property
     def _querystr(self):
         params = []
         for key in sorted(self._params):
-            params.append('{0}={1}'.format(key, self._params[key]))
-        return '&'.join(params)
+            params.append("{0}={1}".format(key, self._params[key]))
+        return "&".join(params)
 
     def get(self):
         """Executes this Query and returns the results.
@@ -618,8 +640,8 @@ class Query:
         Raises:
           FirebaseError: If an error occurs while communicating with the remote database server.
         """
-        result = self._client.body('get', self._pathurl, params=self._querystr)
-        if isinstance(result, (dict, list)) and self._order_by != '$priority':
+        result = self._client.body("get", self._pathurl, params=self._querystr)
+        if isinstance(result, (dict, list)) and self._order_by != "$priority":
             return _Sorter(result, self._order_by).get()
         return result
 
@@ -642,12 +664,16 @@ class _Sorter:
             self.dict_input = False
             entries = [_SortEntry(k, v, order_by) for k, v in enumerate(results)]
         else:
-            raise ValueError('Sorting not supported for "{0}" object.'.format(type(results)))
+            raise ValueError(
+                'Sorting not supported for "{0}" object.'.format(type(results))
+            )
         self.sort_entries = sorted(entries)
 
     def get(self):
         if self.dict_input:
-            return collections.OrderedDict([(e.key, e.value) for e in self.sort_entries])
+            return collections.OrderedDict(
+                [(e.key, e.value) for e in self.sort_entries]
+            )
 
         return [e.value for e in self.sort_entries]
 
@@ -665,9 +691,9 @@ class _SortEntry:
     def __init__(self, key, value, order_by):
         self._key = key
         self._value = value
-        if order_by in ('$key', '$priority'):
+        if order_by in ("$key", "$priority"):
             self._index = key
-        elif order_by == '$value':
+        elif order_by == "$value":
             self._index = value
         else:
             self._index = _SortEntry._extract_child(value, order_by)
@@ -711,7 +737,7 @@ class _SortEntry:
 
     @classmethod
     def _extract_child(cls, value, path):
-        segments = path.split('/')
+        segments = path.split("/")
         current = value
         for segment in segments:
             if isinstance(current, dict):
@@ -730,7 +756,10 @@ class _SortEntry:
         """
         self_key, other_key = self.index_type, other.index_type
         if self_key == other_key:
-            if self_key in (self._type_numeric, self._type_string) and self.index != other.index:
+            if (
+                self_key in (self._type_numeric, self._type_string)
+                and self.index != other.index
+            ):
                 self_key, other_key = self.index, other.index
             else:
                 self_key, other_key = self.key, other.key
@@ -761,11 +790,11 @@ class _SortEntry:
 class _DatabaseService:
     """Service that maintains a collection of database clients."""
 
-    _DEFAULT_AUTH_OVERRIDE = '_admin_'
+    _DEFAULT_AUTH_OVERRIDE = "_admin_"
 
     def __init__(self, app):
         self._credential = app.credential
-        db_url = app.options.get('databaseURL')
+        db_url = app.options.get("databaseURL")
         if db_url:
             self._db_url = db_url
         else:
@@ -773,18 +802,22 @@ class _DatabaseService:
 
         auth_override = _DatabaseService._get_auth_override(app)
         if auth_override not in (self._DEFAULT_AUTH_OVERRIDE, {}):
-            self._auth_override = json.dumps(auth_override, separators=(',', ':'))
+            self._auth_override = json.dumps(auth_override, separators=(",", ":"))
         else:
             self._auth_override = None
-        self._timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
+        self._timeout = app.options.get(
+            "httpTimeout", _http_client.DEFAULT_TIMEOUT_SECONDS
+        )
         self._clients = {}
 
         emulator_host = os.environ.get(_EMULATOR_HOST_ENV_VAR)
         if emulator_host:
-            if '//' in emulator_host:
+            if "//" in emulator_host:
                 raise ValueError(
                     'Invalid {0}: "{1}". It must follow format "host:port".'.format(
-                        _EMULATOR_HOST_ENV_VAR, emulator_host))
+                        _EMULATOR_HOST_ENV_VAR, emulator_host
+                    )
+                )
             self._emulator_host = emulator_host
         else:
             self._emulator_host = None
@@ -797,28 +830,29 @@ class _DatabaseService:
         if not db_url or not isinstance(db_url, str):
             raise ValueError(
                 'Invalid database URL: "{0}". Database URL must be a non-empty '
-                'URL string.'.format(db_url))
+                "URL string.".format(db_url)
+            )
 
         parsed_url = parse.urlparse(db_url)
         if not parsed_url.netloc:
             raise ValueError(
                 'Invalid database URL: "{0}". Database URL must be a wellformed '
-                'URL string.'.format(db_url))
+                "URL string.".format(db_url)
+            )
 
         emulator_config = self._get_emulator_config(parsed_url)
         if emulator_config:
             credential = _utils.EmulatorAdminCredentials()
             base_url = emulator_config.base_url
-            params = {'ns': emulator_config.namespace}
+            params = {"ns": emulator_config.namespace}
         else:
             # Defer credential lookup until we are certain it's going to be prod connection.
             credential = self._credential.get_credential()
-            base_url = 'https://{0}'.format(parsed_url.netloc)
+            base_url = "https://{0}".format(parsed_url.netloc)
             params = {}
 
-
         if self._auth_override:
-            params['auth_variable_override'] = self._auth_override
+            params["auth_variable_override"] = self._auth_override
 
         client_cache_key = (base_url, json.dumps(params, sort_keys=True))
         if client_cache_key not in self._clients:
@@ -828,15 +862,17 @@ class _DatabaseService:
 
     def _get_emulator_config(self, parsed_url):
         """Checks whether the SDK should connect to the RTDB emulator."""
-        EmulatorConfig = collections.namedtuple('EmulatorConfig', ['base_url', 'namespace'])
-        if parsed_url.scheme != 'https':
+        EmulatorConfig = collections.namedtuple(
+            "EmulatorConfig", ["base_url", "namespace"]
+        )
+        if parsed_url.scheme != "https":
             # Emulator mode enabled by passing http URL via AppOptions
             base_url, namespace = _DatabaseService._parse_emulator_url(parsed_url)
             return EmulatorConfig(base_url, namespace)
         if self._emulator_host:
             # Emulator mode enabled via environment variable
-            base_url = 'http://{0}'.format(self._emulator_host)
-            namespace = parsed_url.netloc.split('.')[0]
+            base_url = "http://{0}".format(self._emulator_host)
+            namespace = parsed_url.netloc.split(".")[0]
             return EmulatorConfig(base_url, namespace)
 
         return None
@@ -844,24 +880,31 @@ class _DatabaseService:
     @classmethod
     def _parse_emulator_url(cls, parsed_url):
         """Parses emulator URL like http://localhost:8080/?ns=foo-bar"""
-        query_ns = parse.parse_qs(parsed_url.query).get('ns')
-        if parsed_url.scheme != 'http' or (not query_ns or len(query_ns) != 1 or not query_ns[0]):
+        query_ns = parse.parse_qs(parsed_url.query).get("ns")
+        if parsed_url.scheme != "http" or (
+            not query_ns or len(query_ns) != 1 or not query_ns[0]
+        ):
             raise ValueError(
                 'Invalid database URL: "{0}". Database URL must be a valid URL to a '
-                'Firebase Realtime Database instance.'.format(parsed_url.geturl()))
+                "Firebase Realtime Database instance.".format(parsed_url.geturl())
+            )
 
         namespace = query_ns[0]
-        base_url = '{0}://{1}'.format(parsed_url.scheme, parsed_url.netloc)
+        base_url = "{0}://{1}".format(parsed_url.scheme, parsed_url.netloc)
         return base_url, namespace
 
     @classmethod
     def _get_auth_override(cls, app):
-        auth_override = app.options.get('databaseAuthVariableOverride', cls._DEFAULT_AUTH_OVERRIDE)
+        auth_override = app.options.get(
+            "databaseAuthVariableOverride", cls._DEFAULT_AUTH_OVERRIDE
+        )
         if auth_override == cls._DEFAULT_AUTH_OVERRIDE or auth_override is None:
             return auth_override
         if not isinstance(auth_override, dict):
-            raise ValueError('Invalid databaseAuthVariableOverride option: "{0}". Override '
-                             'value must be a dict or None.'.format(auth_override))
+            raise ValueError(
+                'Invalid databaseAuthVariableOverride option: "{0}". Override '
+                "value must be a dict or None.".format(auth_override)
+            )
 
         return auth_override
 
@@ -893,8 +936,11 @@ class _Client(_http_client.JsonHttpClient):
           params: Dict of query parameters to add to all outgoing requests.
         """
         super().__init__(
-            credential=credential, base_url=base_url,
-            timeout=timeout, headers={'User-Agent': _USER_AGENT})
+            credential=credential,
+            base_url=base_url,
+            timeout=timeout,
+            headers={"User-Agent": _USER_AGENT},
+        )
         self.credential = credential
         self.params = params if params else {}
 
@@ -916,14 +962,14 @@ class _Client(_http_client.JsonHttpClient):
         Raises:
           FirebaseError: If an error occurs while making the HTTP call.
         """
-        query = '&'.join('{0}={1}'.format(key, self.params[key]) for key in self.params)
-        extra_params = kwargs.get('params')
+        query = "&".join("{0}={1}".format(key, self.params[key]) for key in self.params)
+        extra_params = kwargs.get("params")
         if extra_params:
             if query:
-                query = extra_params + '&' + query
+                query = extra_params + "&" + query
             else:
                 query = extra_params
-        kwargs['params'] = query
+        kwargs["params"] = query
 
         try:
             return super(_Client, self).request(method, url, **kwargs)
@@ -956,11 +1002,13 @@ class _Client(_http_client.JsonHttpClient):
             # RTDB error format: {"error": "text message"}
             data = response.json()
             if isinstance(data, dict):
-                message = data.get('error')
+                message = data.get("error")
         except ValueError:
             pass
 
         if not message:
-            message = 'Unexpected response from database: {0}'.format(response.content.decode())
+            message = "Unexpected response from database: {0}".format(
+                response.content.decode()
+            )
 
         return message

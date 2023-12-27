@@ -17,6 +17,7 @@
 from datetime import datetime, timezone
 import re
 
+
 def parse_to_epoch(datestr):
     """Parse an RFC3339 date string and return the number of seconds since the
     epoch (as a float).
@@ -50,21 +51,21 @@ def _parse_to_datetime(datestr):
     # If more than 6 digits appear in the fractional seconds position, truncate
     # to just the most significant 6. (i.e. we only have microsecond precision;
     # nanos are truncated.)
-    datestr_modified = re.sub(r'(\.\d{6})\d*', r'\1', datestr)
+    datestr_modified = re.sub(r"(\.\d{6})\d*", r"\1", datestr)
 
     # This format is the one we actually expect to occur from our backend. The
     # others are only present because the spec says we *should* accept them.
     try:
-        return datetime.strptime(
-            datestr_modified, '%Y-%m-%dT%H:%M:%S.%fZ'
-        ).replace(tzinfo=timezone.utc)
+        return datetime.strptime(datestr_modified, "%Y-%m-%dT%H:%M:%S.%fZ").replace(
+            tzinfo=timezone.utc
+        )
     except ValueError:
         pass
 
     try:
-        return datetime.strptime(
-            datestr_modified, '%Y-%m-%dT%H:%M:%SZ'
-        ).replace(tzinfo=timezone.utc)
+        return datetime.strptime(datestr_modified, "%Y-%m-%dT%H:%M:%SZ").replace(
+            tzinfo=timezone.utc
+        )
     except ValueError:
         pass
 
@@ -72,16 +73,16 @@ def _parse_to_datetime(datestr):
     # include a separating ':'. As of python 3.7, this was relaxed.
     # TODO(rsgowman): Once python3.7 becomes our floor, we can drop the regex
     # replacement.
-    datestr_modified = re.sub(r'(\d\d):(\d\d)$', r'\1\2', datestr_modified)
+    datestr_modified = re.sub(r"(\d\d):(\d\d)$", r"\1\2", datestr_modified)
 
     try:
-        return datetime.strptime(datestr_modified, '%Y-%m-%dT%H:%M:%S.%f%z')
+        return datetime.strptime(datestr_modified, "%Y-%m-%dT%H:%M:%S.%f%z")
     except ValueError:
         pass
 
     try:
-        return datetime.strptime(datestr_modified, '%Y-%m-%dT%H:%M:%S%z')
+        return datetime.strptime(datestr_modified, "%Y-%m-%dT%H:%M:%S%z")
     except ValueError:
         pass
 
-    raise ValueError('time data {0} does not match RFC3339 format'.format(datestr))
+    raise ValueError("time data {0} does not match RFC3339 format".format(datestr))

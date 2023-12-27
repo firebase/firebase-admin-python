@@ -23,77 +23,87 @@ from firebase_admin import exceptions
 from firebase_admin import messaging
 
 
-_REGISTRATION_TOKEN = ('fGw0qy4TGgk:APA91bGtWGjuhp4WRhHXgbabIYp1jxEKI08ofj_v1bKhWAGJQ4e3arRCWzeTf'
-                       'HaLz83mBnDh0aPWB1AykXAVUUGl2h1wT4XI6XazWpvY7RBUSYfoxtqSWGIm2nvWh2BOP1YG50'
-                       '1SsRoE')
+_REGISTRATION_TOKEN = (
+    "fGw0qy4TGgk:APA91bGtWGjuhp4WRhHXgbabIYp1jxEKI08ofj_v1bKhWAGJQ4e3arRCWzeTf"
+    "HaLz83mBnDh0aPWB1AykXAVUUGl2h1wT4XI6XazWpvY7RBUSYfoxtqSWGIm2nvWh2BOP1YG50"
+    "1SsRoE"
+)
 
 
 def test_send():
     msg = messaging.Message(
-        topic='foo-bar',
-        notification=messaging.Notification('test-title', 'test-body',
-                                            'https://images.unsplash.com/photo-1494438639946'
-                                            '-1ebd1d20bf85?fit=crop&w=900&q=60'),
+        topic="foo-bar",
+        notification=messaging.Notification(
+            "test-title",
+            "test-body",
+            "https://images.unsplash.com/photo-1494438639946"
+            "-1ebd1d20bf85?fit=crop&w=900&q=60",
+        ),
         android=messaging.AndroidConfig(
-            restricted_package_name='com.google.firebase.demos',
+            restricted_package_name="com.google.firebase.demos",
             notification=messaging.AndroidNotification(
-                title='android-title',
-                body='android-body',
-                image='https://images.unsplash.com/'
-                      'photo-1494438639946-1ebd1d20bf85?fit=crop&w=900&q=60',
+                title="android-title",
+                body="android-body",
+                image="https://images.unsplash.com/"
+                "photo-1494438639946-1ebd1d20bf85?fit=crop&w=900&q=60",
                 event_timestamp=datetime.now(),
-                priority='high',
+                priority="high",
                 vibrate_timings_millis=[100, 200, 300, 400],
-                visibility='public',
+                visibility="public",
                 sticky=True,
                 local_only=False,
                 default_vibrate_timings=False,
                 default_sound=True,
                 default_light_settings=False,
                 light_settings=messaging.LightSettings(
-                    color='#aabbcc',
+                    color="#aabbcc",
                     light_off_duration_millis=200,
-                    light_on_duration_millis=300
+                    light_on_duration_millis=300,
                 ),
-                notification_count=1
-            )
+                notification_count=1,
+            ),
         ),
-        apns=messaging.APNSConfig(payload=messaging.APNSPayload(
-            aps=messaging.Aps(
-                alert=messaging.ApsAlert(
-                    title='apns-title',
-                    body='apns-body'
+        apns=messaging.APNSConfig(
+            payload=messaging.APNSPayload(
+                aps=messaging.Aps(
+                    alert=messaging.ApsAlert(title="apns-title", body="apns-body")
                 )
             )
-        ))
+        ),
     )
     msg_id = messaging.send(msg, dry_run=True)
-    assert re.match('^projects/.*/messages/.*$', msg_id)
+    assert re.match("^projects/.*/messages/.*$", msg_id)
+
 
 def test_send_invalid_token():
     msg = messaging.Message(
         token=_REGISTRATION_TOKEN,
-        notification=messaging.Notification('test-title', 'test-body')
+        notification=messaging.Notification("test-title", "test-body"),
     )
     with pytest.raises(messaging.UnregisteredError):
         messaging.send(msg, dry_run=True)
 
+
 def test_send_malformed_token():
     msg = messaging.Message(
-        token='not-a-token',
-        notification=messaging.Notification('test-title', 'test-body')
+        token="not-a-token",
+        notification=messaging.Notification("test-title", "test-body"),
     )
     with pytest.raises(exceptions.InvalidArgumentError):
         messaging.send(msg, dry_run=True)
 
+
 def test_send_each():
     messages = [
         messaging.Message(
-            topic='foo-bar', notification=messaging.Notification('Title', 'Body')),
+            topic="foo-bar", notification=messaging.Notification("Title", "Body")
+        ),
         messaging.Message(
-            topic='foo-bar', notification=messaging.Notification('Title', 'Body')),
+            topic="foo-bar", notification=messaging.Notification("Title", "Body")
+        ),
         messaging.Message(
-            token='not-a-token', notification=messaging.Notification('Title', 'Body')),
+            token="not-a-token", notification=messaging.Notification("Title", "Body")
+        ),
     ]
 
     batch_response = messaging.send_each(messages, dry_run=True)
@@ -105,22 +115,23 @@ def test_send_each():
     response = batch_response.responses[0]
     assert response.success is True
     assert response.exception is None
-    assert re.match('^projects/.*/messages/.*$', response.message_id)
+    assert re.match("^projects/.*/messages/.*$", response.message_id)
 
     response = batch_response.responses[1]
     assert response.success is True
     assert response.exception is None
-    assert re.match('^projects/.*/messages/.*$', response.message_id)
+    assert re.match("^projects/.*/messages/.*$", response.message_id)
 
     response = batch_response.responses[2]
     assert response.success is False
     assert isinstance(response.exception, exceptions.InvalidArgumentError)
     assert response.message_id is None
 
+
 def test_send_each_500():
     messages = []
     for msg_number in range(500):
-        topic = 'foo-bar-{0}'.format(msg_number % 10)
+        topic = "foo-bar-{0}".format(msg_number % 10)
         messages.append(messaging.Message(topic=topic))
 
     batch_response = messaging.send_each(messages, dry_run=True)
@@ -131,12 +142,14 @@ def test_send_each_500():
     for response in batch_response.responses:
         assert response.success is True
         assert response.exception is None
-        assert re.match('^projects/.*/messages/.*$', response.message_id)
+        assert re.match("^projects/.*/messages/.*$", response.message_id)
+
 
 def test_send_each_for_multicast():
     multicast = messaging.MulticastMessage(
-        notification=messaging.Notification('Title', 'Body'),
-        tokens=['not-a-token', 'also-not-a-token'])
+        notification=messaging.Notification("Title", "Body"),
+        tokens=["not-a-token", "also-not-a-token"],
+    )
 
     batch_response = messaging.send_each_for_multicast(multicast)
 
@@ -148,14 +161,18 @@ def test_send_each_for_multicast():
         assert response.exception is not None
         assert response.message_id is None
 
+
 def test_send_all():
     messages = [
         messaging.Message(
-            topic='foo-bar', notification=messaging.Notification('Title', 'Body')),
+            topic="foo-bar", notification=messaging.Notification("Title", "Body")
+        ),
         messaging.Message(
-            topic='foo-bar', notification=messaging.Notification('Title', 'Body')),
+            topic="foo-bar", notification=messaging.Notification("Title", "Body")
+        ),
         messaging.Message(
-            token='not-a-token', notification=messaging.Notification('Title', 'Body')),
+            token="not-a-token", notification=messaging.Notification("Title", "Body")
+        ),
     ]
 
     batch_response = messaging.send_all(messages, dry_run=True)
@@ -167,22 +184,23 @@ def test_send_all():
     response = batch_response.responses[0]
     assert response.success is True
     assert response.exception is None
-    assert re.match('^projects/.*/messages/.*$', response.message_id)
+    assert re.match("^projects/.*/messages/.*$", response.message_id)
 
     response = batch_response.responses[1]
     assert response.success is True
     assert response.exception is None
-    assert re.match('^projects/.*/messages/.*$', response.message_id)
+    assert re.match("^projects/.*/messages/.*$", response.message_id)
 
     response = batch_response.responses[2]
     assert response.success is False
     assert isinstance(response.exception, exceptions.InvalidArgumentError)
     assert response.message_id is None
 
+
 def test_send_all_500():
     messages = []
     for msg_number in range(500):
-        topic = 'foo-bar-{0}'.format(msg_number % 10)
+        topic = "foo-bar-{0}".format(msg_number % 10)
         messages.append(messaging.Message(topic=topic))
 
     batch_response = messaging.send_all(messages, dry_run=True)
@@ -193,12 +211,14 @@ def test_send_all_500():
     for response in batch_response.responses:
         assert response.success is True
         assert response.exception is None
-        assert re.match('^projects/.*/messages/.*$', response.message_id)
+        assert re.match("^projects/.*/messages/.*$", response.message_id)
+
 
 def test_send_multicast():
     multicast = messaging.MulticastMessage(
-        notification=messaging.Notification('Title', 'Body'),
-        tokens=['not-a-token', 'also-not-a-token'])
+        notification=messaging.Notification("Title", "Body"),
+        tokens=["not-a-token", "also-not-a-token"],
+    )
 
     batch_response = messaging.send_multicast(multicast)
 
@@ -210,10 +230,12 @@ def test_send_multicast():
         assert response.exception is not None
         assert response.message_id is None
 
+
 def test_subscribe():
-    resp = messaging.subscribe_to_topic(_REGISTRATION_TOKEN, 'mock-topic')
+    resp = messaging.subscribe_to_topic(_REGISTRATION_TOKEN, "mock-topic")
     assert resp.success_count + resp.failure_count == 1
 
+
 def test_unsubscribe():
-    resp = messaging.unsubscribe_from_topic(_REGISTRATION_TOKEN, 'mock-topic')
+    resp = messaging.unsubscribe_from_topic(_REGISTRATION_TOKEN, "mock-topic")
     assert resp.success_count + resp.failure_count == 1

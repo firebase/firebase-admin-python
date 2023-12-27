@@ -12,9 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
-
-from firebase_admin import firestore_async
 
 # pylint: disable=invalid-name
 def init_firestore_async_client():
@@ -26,6 +23,7 @@ def init_firestore_async_client():
     app = firebase_admin.initialize_app()
     db = firestore_async.client()
     # [END init_firestore_async_client]
+
 
 def init_firestore_async_client_application_default():
     # [START init_firestore_async_client_application_default]
@@ -40,6 +38,7 @@ def init_firestore_async_client_application_default():
     db = firestore_async.client()
     # [END init_firestore_async_client_application_default]
 
+
 def init_firestore_async_client_service_account():
     # [START init_firestore_async_client_service_account]
     import firebase_admin
@@ -47,12 +46,13 @@ def init_firestore_async_client_service_account():
     from firebase_admin import firestore_async
 
     # Use a service account.
-    cred = credentials.Certificate('path/to/serviceAccount.json')
+    cred = credentials.Certificate("path/to/serviceAccount.json")
 
     app = firebase_admin.initialize_app(cred)
 
     db = firestore_async.client()
     # [END init_firestore_async_client_service_account]
+
 
 def close_async_sessions():
     import firebase_admin
@@ -68,6 +68,7 @@ def close_async_sessions():
     firebase_admin.delete_app(app)
     # [END close_async_sessions]
 
+
 async def read_data():
     import firebase_admin
     from firebase_admin import firestore_async
@@ -76,11 +77,12 @@ async def read_data():
     db = firestore_async.client()
 
     # [START read_data]
-    doc_ref = db.collection('users').document('alovelace')
+    doc_ref = db.collection("users").document("alovelace")
     doc = await doc_ref.get()
     if doc.exists:
-        return f'data: {doc.to_dict()}'
+        return f"data: {doc.to_dict()}"
     # [END read_data]
+
 
 async def add_data():
     import firebase_admin
@@ -91,12 +93,9 @@ async def add_data():
 
     # [START add_data]
     doc_ref = db.collection("users").document("alovelace")
-    await doc_ref.set({
-        "first": "Ada",
-        "last": "Lovelace",
-        "born": 1815
-    })
+    await doc_ref.set({"first": "Ada", "last": "Lovelace", "born": 1815})
     # [END add_data]
+
 
 def firestore_async_client_with_asyncio_eventloop():
     # [START firestore_async_client_with_asyncio_eventloop]
@@ -111,11 +110,7 @@ def firestore_async_client_with_asyncio_eventloop():
     async def add_data():
         doc_ref = db.collection("users").document("alovelace")
         print("Start adding user...")
-        await doc_ref.set({
-            "first": "Ada",
-            "last": "Lovelace",
-            "born": 1815
-        })
+        await doc_ref.set({"first": "Ada", "last": "Lovelace", "born": 1815})
         print("Done adding user!")
 
     # Another corutine with secondary tasks we want to complete.

@@ -16,6 +16,7 @@
 
 from firebase_admin import _auth_utils
 
+
 class UserIdentifier:
     """Identifies a user to be looked up."""
 
@@ -86,13 +87,14 @@ class ProviderIdentifier(UserIdentifier):
     def __init__(self, provider_id, provider_uid):
         """Constructs a new `ProviderIdentifier` object.
 
-        Args:
-            provider_id: A provider ID string.
-            provider_uid: A provider UID string.
+        Args:
+             provider_id: A provider ID string.
+             provider_uid: A provider UID string.
         """
         self._provider_id = _auth_utils.validate_provider_id(provider_id, required=True)
         self._provider_uid = _auth_utils.validate_provider_uid(
-            provider_uid, required=True)
+            provider_uid, required=True
+        )
 
     @property
     def provider_id(self):

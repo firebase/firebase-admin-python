@@ -20,6 +20,7 @@ import pytest
 
 import firebase_admin
 from firebase_admin import credentials
+
 try:
     from firebase_admin import firestore
 except ImportError:
@@ -28,8 +29,9 @@ from tests import testutils
 
 
 @pytest.mark.skipif(
-    platform.python_implementation() == 'PyPy',
-    reason='Firestore is not supported on PyPy')
+    platform.python_implementation() == "PyPy",
+    reason="Firestore is not supported on PyPy",
+)
 class TestFirestore:
     """Test class Firestore APIs."""
 
@@ -42,40 +44,49 @@ class TestFirestore:
             firebase_admin.initialize_app(testutils.MockCredential())
             with pytest.raises(ValueError):
                 firestore.client()
+
         testutils.run_without_project_id(evaluate)
 
     def test_project_id(self):
-        cred = credentials.Certificate(testutils.resource_filename('service_account.json'))
-        firebase_admin.initialize_app(cred, {'projectId': 'explicit-project-id'})
+        cred = credentials.Certificate(
+            testutils.resource_filename("service_account.json")
+        )
+        firebase_admin.initialize_app(cred, {"projectId": "explicit-project-id"})
         client = firestore.client()
         assert client is not None
-        assert client.project == 'explicit-project-id'
+        assert client.project == "explicit-project-id"
 
     def test_project_id_with_explicit_app(self):
-        cred = credentials.Certificate(testutils.resource_filename('service_account.json'))
-        app = firebase_admin.initialize_app(cred, {'projectId': 'explicit-project-id'})
+        cred = credentials.Certificate(
+            testutils.resource_filename("service_account.json")
+        )
+        app = firebase_admin.initialize_app(cred, {"projectId": "explicit-project-id"})
         client = firestore.client(app=app)
         assert client is not None
-        assert client.project == 'explicit-project-id'
+        assert client.project == "explicit-project-id"
 
     def test_service_account(self):
-        cred = credentials.Certificate(testutils.resource_filename('service_account.json'))
+        cred = credentials.Certificate(
+            testutils.resource_filename("service_account.json")
+        )
         firebase_admin.initialize_app(cred)
         client = firestore.client()
         assert client is not None
-        assert client.project == 'mock-project-id'
+        assert client.project == "mock-project-id"
 
     def test_service_account_with_explicit_app(self):
-        cred = credentials.Certificate(testutils.resource_filename('service_account.json'))
+        cred = credentials.Certificate(
+            testutils.resource_filename("service_account.json")
+        )
         app = firebase_admin.initialize_app(cred)
         client = firestore.client(app=app)
         assert client is not None
-        assert client.project == 'mock-project-id'
+        assert client.project == "mock-project-id"
 
     def test_geo_point(self):
-        geo_point = firestore.GeoPoint(10, 20) # pylint: disable=no-member
+        geo_point = firestore.GeoPoint(10, 20)  # pylint: disable=no-member
         assert geo_point.latitude == 10
         assert geo_point.longitude == 20
 
     def test_server_timestamp(self):
-        assert firestore.SERVER_TIMESTAMP is not None # pylint: disable=no-member
+        assert firestore.SERVER_TIMESTAMP is not None  # pylint: disable=no-member

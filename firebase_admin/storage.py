@@ -22,13 +22,16 @@ Firebase apps. This requires the ``google-cloud-storage`` Python module.
 try:
     from google.cloud import storage
 except ImportError:
-    raise ImportError('Failed to import the Cloud Storage library for Python. Make sure '
-                      'to install the "google-cloud-storage" module.')
+    raise ImportError(
+        "Failed to import the Cloud Storage library for Python. Make sure "
+        'to install the "google-cloud-storage" module.'
+    )
 
 from firebase_admin import _utils
 
 
-_STORAGE_ATTRIBUTE = '_storage'
+_STORAGE_ATTRIBUTE = "_storage"
+
 
 def bucket(name=None, app=None) -> storage.Bucket:
     """Returns a handle to a Google Cloud Storage bucket.
@@ -62,7 +65,7 @@ class _StorageClient:
     @classmethod
     def from_app(cls, app):
         credentials = app.credential.get_credential()
-        default_bucket = app.options.get('storageBucket')
+        default_bucket = app.options.get("storageBucket")
         # Specifying project ID is not required, but providing it when available
         # significantly speeds up the initialization of the storage client.
         return _StorageClient(credentials, app.project_id, default_bucket)
@@ -72,11 +75,13 @@ class _StorageClient:
         bucket_name = name if name is not None else self._default_bucket
         if bucket_name is None:
             raise ValueError(
-                'Storage bucket name not specified. Specify the bucket name via the '
+                "Storage bucket name not specified. Specify the bucket name via the "
                 '"storageBucket" option when initializing the App, or specify the bucket '
-                'name explicitly when calling the storage.bucket() function.')
+                "name explicitly when calling the storage.bucket() function."
+            )
         if not bucket_name or not isinstance(bucket_name, str):
             raise ValueError(
                 'Invalid storage bucket name: "{0}". Bucket name must be a non-empty '
-                'string.'.format(bucket_name))
+                "string.".format(bucket_name)
+            )
         return self._client.bucket(bucket_name)

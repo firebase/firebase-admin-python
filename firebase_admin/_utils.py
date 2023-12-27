@@ -84,18 +84,21 @@ def _get_initialized_app(app):
     if isinstance(app, firebase_admin.App):
         initialized_app = firebase_admin.get_app(app.name)
         if app is not initialized_app:
-            raise ValueError('Illegal app argument. App instance not '
-                             'initialized via the firebase module.')
+            raise ValueError(
+                "Illegal app argument. App instance not "
+                "initialized via the firebase module."
+            )
         return app
 
-    raise ValueError('Illegal app argument. Argument must be of type '
-                     ' firebase_admin.App, but given "{0}".'.format(type(app)))
-
+    raise ValueError(
+        "Illegal app argument. Argument must be of type "
+        ' firebase_admin.App, but given "{0}".'.format(type(app))
+    )
 
 
 def get_app_service(app, name, initializer):
     app = _get_initialized_app(app)
-    return app._get_service(name, initializer) # pylint: disable=protected-access
+    return app._get_service(name, initializer)  # pylint: disable=protected-access
 
 
 def handle_platform_error_from_requests(error, handle_func=None):
@@ -137,11 +140,14 @@ def handle_operation_error(error):
     """
     if not isinstance(error, dict):
         return exceptions.UnknownError(
-            message='Unknown error while making a remote service call: {0}'.format(error),
-            cause=error)
+            message="Unknown error while making a remote service call: {0}".format(
+                error
+            ),
+            cause=error,
+        )
 
-    rpc_code = error.get('code')
-    message = error.get('message')
+    rpc_code = error.get("code")
+    message = error.get("message")
     error_code = _rpc_code_to_error_code(rpc_code)
     err_type = _error_code_to_exception_type(error_code)
     return err_type(message=message)
@@ -158,7 +164,7 @@ def _handle_func_requests(error, message, error_dict):
     Returns:
         FirebaseError: A ``FirebaseError`` that can be raised to the user code or None.
     """
-    code = error_dict.get('status')
+    code = error_dict.get("status")
     return handle_requests_error(error, message, code)
 
 
@@ -182,16 +188,19 @@ def handle_requests_error(error, message=None, code=None):
     """
     if isinstance(error, requests.exceptions.Timeout):
         return exceptions.DeadlineExceededError(
-            message='Timed out while making an API call: {0}'.format(error),
-            cause=error)
+            message="Timed out while making an API call: {0}".format(error), cause=error
+        )
     if isinstance(error, requests.exceptions.ConnectionError):
         return exceptions.UnavailableError(
-            message='Failed to establish a connection: {0}'.format(error),
-            cause=error)
+            message="Failed to establish a connection: {0}".format(error), cause=error
+        )
     if error.response is None:
         return exceptions.UnknownError(
-            message='Unknown error while making a remote service call: {0}'.format(error),
-            cause=error)
+            message="Unknown error while making a remote service call: {0}".format(
+                error
+            ),
+            cause=error,
+        )
 
     if not code:
         code = _http_status_to_error_code(error.response.status_code)
@@ -206,9 +215,11 @@ def _http_status_to_error_code(status):
     """Maps an HTTP status to a platform error code."""
     return _HTTP_STATUS_TO_ERROR_CODE.get(status, exceptions.UNKNOWN)
 
+
 def _rpc_code_to_error_code(rpc_code):
     """Maps an RPC code to a platform error code."""
     return _RPC_CODE_TO_ERROR_CODE.get(rpc_code, exceptions.UNKNOWN)
+
 
 def _error_code_to_exception_type(code):
     """Maps a platform error code to an exception type."""
@@ -234,10 +245,12 @@ def _parse_platform_error(content, status_code):
     except ValueError:
         pass
 
-    error_dict = data.get('error', {})
-    msg = error_dict.get('message')
+    error_dict = data.get("error", {})
+    msg = error_dict.get("message")
     if not msg:
-        msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(status_code, content)
+        msg = "Unexpected HTTP response with status: {0}; body: {1}".format(
+            status_code, content
+        )
     return error_dict, msg
 
 
@@ -245,14 +258,15 @@ def _parse_platform_error(content, status_code):
 # https://github.com/googleapis/google-auth-library-python/pull/561
 # pylint: disable=abstract-method
 class EmulatorAdminCredentials(google.auth.credentials.Credentials):
-    """ Credentials for use with the firebase local emulator.
+    """Credentials for use with the firebase local emulator.
 
     This is used instead of user-supplied credentials or ADC.  It will silently do nothing when
     asked to refresh credentials.
     """
+
     def __init__(self):
         google.auth.credentials.Credentials.__init__(self)
-        self.token = 'owner'
+        self.token = "owner"
 
     def refresh(self, request):
         pass

@@ -20,7 +20,7 @@ from urllib import parse
 import re
 import json
 from base64 import b64encode
-from typing import Any, Optional
+from typing import Any, Optional, Dict
 from dataclasses import dataclass
 from google.auth.compute_engine import Credentials as ComputeEngineCredentials
 
@@ -29,7 +29,7 @@ import firebase_admin
 from firebase_admin import App
 from firebase_admin import _http_client
 from firebase_admin import _utils
-from firebase_admin import _functions_utils
+from firebase_admin.exceptions import FirebaseError
 
 _FUNCTIONS_ATTRIBUTE = '_functions'
 
@@ -99,12 +99,20 @@ class _FunctionsService:
 
     def task_queue(self, function_name: str, extension_id: Optional[str] = None) -> TaskQueue:
         """Creates a TaskQueue instance."""
-        return TaskQueue(function_name, extension_id, self._project_id, self._credential, self._http_client)
+        return TaskQueue(
+            function_name, extension_id, self._project_id, self._credential, self._http_client)
 
 
 class TaskQueue:
     """TaskQueue class that implements Firebase Cloud Tasks Queues functionality."""
-    def __init__(self, function_name: str, extension_id: Optional[str], project_id, credential, http_client) -> None:
+    def __init__(
+            self,
+            function_name: str,
+            extension_id: Optional[str],
+            project_id, credential,
+            http_client
+        ) -> None:
+
         # Validate function_name
         _Validators.check_non_empty_string("function_name", function_name)
 
@@ -154,11 +162,12 @@ class TaskQueue:
                 json={'task': task_payload.__dict__}
             )
             task_name = resp.get('name', None)
-            task_resource = self._parse_resource_name(task_name, f'queues/{self._resource.resource_id}/tasks')
+            task_resource = \
+                self._parse_resource_name(task_name, f'queues/{self._resource.resource_id}/tasks')
             return task_resource.resource_id
         except requests.exceptions.RequestException as error:
             # TODO: Error handle
-            raise error
+            raise FirebaseError(400, 'Error', http_response=error.response)
 
     def delete(self, task_id: str) -> None:
         """Deletes an enqueued task if it has not yet completed.
@@ -176,14 +185,14 @@ class TaskQueue:
         _Validators.check_non_empty_string("task_id", task_id)
         service_url = self._get_url(self._resource, _CLOUD_TASKS_API_URL_FORMAT + f'/{task_id}')
         try:
-            resp = self._http_client.body(
+            self._http_client.body(
                 'delete',
                 url=service_url,
                 headers=_FUNCTIONS_HEADERS,
             )
         except requests.exceptions.RequestException as error:
             # TODO: Error handle
-            return error
+            raise FirebaseError(400, 'Error', http_response=error.response)
 
 
     def _parse_resource_name(self, resource_name: str, resource_id_key: str) -> Resource:
@@ -312,7 +321,7 @@ class _Validators:
             if not parsed.netloc:
                 return False
             return True
-        except Exception:
+        except Exception:   # pylint: disable=broad-except
             return False
 
 
@@ -365,7 +374,7 @@ class TaskOptions:
     schedule_time: Optional[datetime] = None
     dispatch_deadline_seconds: Optional[int] = None
     task_id: Optional[str] = None
-    headers: Optional[dict[str, str]] = None
+    headers: Optional[Dict[str, str]] = None
 
 @dataclass
 class Task:
@@ -380,7 +389,7 @@ class Task:
         schedule_time:
         dispatch_deadline:
     """
-    http_request: dict[str, Optional[str | dict]]
+    http_request: Dict[str, Optional[str | dict]]
     name: Optional[str] = None
     schedule_time: Optional[str] = None
     dispatch_deadline: Optional[str] = None

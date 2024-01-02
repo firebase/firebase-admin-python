@@ -40,7 +40,7 @@ jobs:
     # via the 'ref' client parameter.
     steps:
     - name: Checkout source for staging
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         ref: ${{ github.event.client_payload.ref || github.ref }}
 
@@ -95,7 +95,7 @@ jobs:
 
     steps:
     - name: Checkout source for publish
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     # Download the artifacts created by the stage_release job.
     - name: Download release candidates

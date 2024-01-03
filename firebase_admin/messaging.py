@@ -65,6 +65,8 @@ __all__ = [
     'send',
     'send_all',
     'send_multicast',
+    'send_each',
+    'send_each_for_multicast',
     'subscribe_to_topic',
     'unsubscribe_from_topic',
 ]

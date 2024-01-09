@@ -29,7 +29,7 @@ jobs:
 
     steps:
     - name: Checkout source for staging
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         ref: ${{ github.event.client_payload.ref || github.ref }}
 

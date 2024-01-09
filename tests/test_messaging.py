@@ -33,6 +33,7 @@ NON_DICT_ARGS = ['', list(), tuple(), True, False, 1, 0, {1: 'foo'}, {'foo': 1}]
 NON_OBJECT_ARGS = [list(), tuple(), dict(), 'foo', 0, 1, True, False]
 NON_LIST_ARGS = ['', tuple(), dict(), True, False, 1, 0, [1], ['foo', 1]]
 NON_UINT_ARGS = ['1.23s', list(), tuple(), dict(), -1.23]
+NON_BOOL_ARGS = ['', list(), tuple(), dict(), 1, 0, [1], ['foo', 1], {1: 'foo'}, {'foo': 1}]
 HTTP_ERROR_CODES = {
     400: exceptions.InvalidArgumentError,
     403: exceptions.PermissionDeniedError,
@@ -249,7 +250,8 @@ class TestFcmOptionEncoder:
                 topic='topic',
                 fcm_options=messaging.FCMOptions('message-label'),
                 android=messaging.AndroidConfig(
-                    fcm_options=messaging.AndroidFCMOptions('android-label')),
+                    fcm_options=messaging.AndroidFCMOptions('android-label'),
+                    direct_boot_ok=False),
                 apns=messaging.APNSConfig(fcm_options=
                                           messaging.APNSFCMOptions(
                                               analytics_label='apns-label',
@@ -259,7 +261,8 @@ class TestFcmOptionEncoder:
             {
                 'topic': 'topic',
                 'fcm_options': {'analytics_label': 'message-label'},
-                'android': {'fcm_options': {'analytics_label': 'android-label'}},
+                'android': {'fcm_options': {'analytics_label': 'android-label'},
+                            'direct_boot_ok': False},
                 'apns': {'fcm_options': {'analytics_label': 'apns-label',
                                          'image': 'https://images.unsplash.com/photo-14944386399'
                                                   '46-1ebd1d20bf85?fit=crop&w=900&q=60'}},
@@ -317,6 +320,20 @@ class TestAndroidConfigEncoder:
             check_encoding(messaging.Message(
                 topic='topic', android=messaging.AndroidConfig(data=data)))
 
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_analytics_label(self, data):
+        with pytest.raises(ValueError):
+            check_encoding(messaging.Message(
+                topic='topic', android=messaging.AndroidConfig(
+                    fcm_options=messaging.AndroidFCMOptions(analytics_label=data))))
+
+    @pytest.mark.parametrize('data', NON_BOOL_ARGS)
+    def test_invalid_direct_boot_ok(self, data):
+        with pytest.raises(ValueError):
+            check_encoding(messaging.Message(
+                topic='topic', android=messaging.AndroidConfig(direct_boot_ok=data)))
+
+
     def test_android_config(self):
         msg = messaging.Message(
             topic='topic',
@@ -326,7 +343,8 @@ class TestAndroidConfigEncoder:
                 priority='high',
                 ttl=123,
                 data={'k1': 'v1', 'k2': 'v2'},
-                fcm_options=messaging.AndroidFCMOptions('analytics_label_v1')
+                fcm_options=messaging.AndroidFCMOptions('analytics_label_v1'),
+                direct_boot_ok=True,
             )
         )
         expected = {
@@ -343,6 +361,7 @@ class TestAndroidConfigEncoder:
                 'fcm_options': {
                     'analytics_label': 'analytics_label_v1',
                 },
+                'direct_boot_ok': True,
             },
         }
         check_encoding(msg, expected)

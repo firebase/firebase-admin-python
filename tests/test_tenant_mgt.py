@@ -30,6 +30,8 @@ from firebase_admin.multi_factor_config_mgt import MultiFactorConfig
 from firebase_admin.multi_factor_config_mgt import MultiFactorServerConfig
 from firebase_admin.multi_factor_config_mgt import ProviderConfig
 from firebase_admin.multi_factor_config_mgt import TOTPProviderConfig
+from firebase_admin.email_privacy_config_mgt import EmailPrivacyConfig
+from firebase_admin.email_privacy_config_mgt import EmailPrivacyServerConfig
 from tests import testutils
 from tests import test_token_gen
 
@@ -48,6 +50,9 @@ GET_TENANT_RESPONSE = """{
                 "adjacentIntervals": 5
             }
         }]
+    },
+    "emailPrivacyConfig": {
+        "enableImprovedEmailPrivacy": true
     }
 }"""
 
@@ -190,6 +195,8 @@ class TestTenant:
         assert tenant.display_name is None
         assert tenant.allow_password_sign_up is False
         assert tenant.enable_email_link_sign_in is False
+        assert tenant.multi_factor_config is None
+        assert tenant.email_privacy_config is None
 
 
 class TestGetTenant:
@@ -254,9 +261,21 @@ class TestCreateTenant:
     def test_invalid_multi_factor_configs(self, multi_factor_config, tenant_mgt_app):
         with pytest.raises(ValueError) as excinfo:
             tenant_mgt.create_tenant(
-                display_name='test', multi_factor_config=multi_factor_config, app=tenant_mgt_app)
+                display_name='test',
+                multi_factor_config=multi_factor_config,
+                app=tenant_mgt_app)
         assert str(excinfo.value).startswith('multi_factor_config must be of type'
                                              ' MultiFactorConfig.')
+
+    @pytest.mark.parametrize('email_privacy_config', ['a', 1, True, {}, dict(), list(), tuple()])
+    def test_invalid_email_privacy_configs(self, email_privacy_config, tenant_mgt_app):
+        with pytest.raises(ValueError) as excinfo:
+            tenant_mgt.create_tenant(
+                display_name='test',
+                email_privacy_config=email_privacy_config,
+                app=tenant_mgt_app)
+        assert str(excinfo.value).startswith('email_privacy_config must be of type'
+                                             ' EmailPrivacyConfig.')
 
     def test_create_tenant(self, tenant_mgt_app):
         _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
@@ -270,9 +289,13 @@ class TestCreateTenant:
                 )
             ]
         )
+        email_privacy_object = EmailPrivacyConfig(
+            enable_improved_email_privacy=True
+        )
         tenant = tenant_mgt.create_tenant(
             display_name='My-Tenant', allow_password_sign_up=True, enable_email_link_sign_in=True,
-            multi_factor_config=mfa_object, app=tenant_mgt_app)
+            multi_factor_config=mfa_object, email_privacy_config=email_privacy_object,
+            app=tenant_mgt_app)
 
         _assert_tenant(tenant)
         self._assert_request(recorder, {
@@ -289,6 +312,9 @@ class TestCreateTenant:
                     }
                 ]
             },
+            'emailPrivacyConfig': {
+                'enableImprovedEmailPrivacy': True
+            }
         })
 
     def test_create_tenant_false_values(self, tenant_mgt_app):
@@ -372,6 +398,14 @@ class TestUpdateTenant:
         assert str(excinfo.value).startswith('multi_factor_config must be of type'
                                              ' MultiFactorConfig.')
 
+    @pytest.mark.parametrize('email_privacy_config', ['a', 1, True, {}, dict(), list(), tuple()])
+    def test_invalid_email_privacy_configs(self, email_privacy_config, tenant_mgt_app):
+        with pytest.raises(ValueError) as excinfo:
+            tenant_mgt.update_tenant(
+                'tenant-id', email_privacy_config=email_privacy_config, app=tenant_mgt_app)
+        assert str(excinfo.value).startswith('email_privacy_config must be of type'
+                                             ' EmailPrivacyConfig.')
+
     def test_update_tenant_no_args(self, tenant_mgt_app):
         with pytest.raises(ValueError) as excinfo:
             tenant_mgt.update_tenant('tenant-id', app=tenant_mgt_app)
@@ -389,10 +423,18 @@ class TestUpdateTenant:
                 )
             ]
         )
+        email_privacy_object = EmailPrivacyConfig(
+            enable_improved_email_privacy=True
+        )
         tenant = tenant_mgt.update_tenant(
-            'tenant-id', display_name='My-Tenant', allow_password_sign_up=True,
+            tenant_id='tenant-id',
+            display_name='My-Tenant',
+            allow_password_sign_up=True,
             enable_email_link_sign_in=True,
-            multi_factor_config=mfa_object, app=tenant_mgt_app)
+            multi_factor_config=mfa_object,
+            email_privacy_config=email_privacy_object,
+            app=tenant_mgt_app
+        )
 
         _assert_tenant(tenant)
         body = {
@@ -408,17 +450,25 @@ class TestUpdateTenant:
                         }
                     }
                 ]
+            },
+            'emailPrivacyConfig': {
+                'enableImprovedEmailPrivacy': True,
             }
         }
-        mask = ['allowPasswordSignup', 'displayName', 'enableEmailLinkSignin',
+        mask = ['allowPasswordSignup', 'displayName',
+                'emailPrivacyConfig.enableImprovedEmailPrivacy',
+                'enableEmailLinkSignin',
                 'mfaConfig.providerConfigs']
         self._assert_request(recorder, body, mask)
 
     def test_update_tenant_false_values(self, tenant_mgt_app):
         _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
         tenant = tenant_mgt.update_tenant(
-            'tenant-id', allow_password_sign_up=False,
-            enable_email_link_sign_in=False, app=tenant_mgt_app)
+            tenant_id='tenant-id',
+            allow_password_sign_up=False,
+            enable_email_link_sign_in=False,
+            app=tenant_mgt_app
+        )
 
         _assert_tenant(tenant)
         body = {
@@ -1080,6 +1130,10 @@ def _assert_multi_factor_config(mfa_config):
                           .TOTPProviderServerConfig)
         assert provider_config.totp_provider_config.adjacent_intervals == ADJACENT_INTERVALS
 
+def _assert_email_privacy_config(email_privacy_config):
+    assert isinstance(email_privacy_config, EmailPrivacyServerConfig)
+    assert email_privacy_config.enable_improved_email_privacy is True
+
 def _assert_tenant(tenant, tenant_id='tenant-id'):
     assert isinstance(tenant, tenant_mgt.Tenant)
     assert tenant.tenant_id == tenant_id
@@ -1088,3 +1142,5 @@ def _assert_tenant(tenant, tenant_id='tenant-id'):
     assert tenant.enable_email_link_sign_in is True
     if tenant.multi_factor_config is not None:
         _assert_multi_factor_config(mfa_config=tenant.multi_factor_config)
+    if tenant.email_privacy_config is not None:
+        _assert_email_privacy_config(email_privacy_config=tenant.email_privacy_config)

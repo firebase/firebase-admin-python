@@ -30,6 +30,8 @@ from firebase_admin import _http_client
 from firebase_admin import _utils
 from firebase_admin.multi_factor_config_mgt import MultiFactorConfig
 from firebase_admin.multi_factor_config_mgt import MultiFactorServerConfig
+from firebase_admin.email_privacy_config_mgt import EmailPrivacyConfig
+from firebase_admin.email_privacy_config_mgt import EmailPrivacyServerConfig
 
 
 _TENANT_MGT_ATTRIBUTE = '_tenant_mgt'
@@ -94,7 +96,8 @@ def get_tenant(tenant_id, app=None):
 
 def create_tenant(
         display_name, allow_password_sign_up=None, enable_email_link_sign_in=None,
-        multi_factor_config: MultiFactorConfig = None, app=None):
+        multi_factor_config: MultiFactorConfig = None,
+        email_privacy_config: EmailPrivacyConfig = None, app=None):
     """Creates a new tenant from the given options.
 
     Args:
@@ -105,6 +108,7 @@ def create_tenant(
         enable_email_link_sign_in: A boolean indicating whether to enable or disable email link
             sign-in (optional). Disabling this makes the password required for email sign-in.
         multi_factor_config : A multi factor configuration to add to the tenant (optional).
+        email_privacy_config: An email privacy configuration to add to the tenant (optional).
         app: An App instance (optional).
 
     Returns:
@@ -118,12 +122,14 @@ def create_tenant(
     return tenant_mgt_service.create_tenant(
         display_name=display_name, allow_password_sign_up=allow_password_sign_up,
         enable_email_link_sign_in=enable_email_link_sign_in,
-        multi_factor_config=multi_factor_config,)
+        multi_factor_config=multi_factor_config,
+        email_privacy_config=email_privacy_config)
 
 
 def update_tenant(
         tenant_id, display_name=None, allow_password_sign_up=None, enable_email_link_sign_in=None,
-        multi_factor_config: MultiFactorConfig = None, app=None):
+        multi_factor_config: MultiFactorConfig = None,
+        email_privacy_config: EmailPrivacyConfig = None, app=None):
     """Updates an existing tenant with the given options.
 
     Args:
@@ -134,6 +140,7 @@ def update_tenant(
         enable_email_link_sign_in: A boolean indicating whether to enable or disable email link
             sign-in. Disabling this makes the password required for email sign-in.
         multi_factor_config : A multi factor configuration to update for the tenant (optional).
+        email_privacy_config: An email privacy configuration to update for the tenant (optional).
         app: An App instance (optional).
 
     Returns:
@@ -148,7 +155,7 @@ def update_tenant(
     return tenant_mgt_service.update_tenant(
         tenant_id, display_name=display_name, allow_password_sign_up=allow_password_sign_up,
         enable_email_link_sign_in=enable_email_link_sign_in,
-        multi_factor_config=multi_factor_config)
+        multi_factor_config=multi_factor_config, email_privacy_config=email_privacy_config)
 
 
 def delete_tenant(tenant_id, app=None):
@@ -244,6 +251,13 @@ class Tenant:
             return MultiFactorServerConfig(data)
         return None
 
+    @property
+    def email_privacy_config(self):
+        data = self._data.get('emailPrivacyConfig')
+        if data:
+            return EmailPrivacyServerConfig(data)
+        return None
+
 
 class _TenantManagementService:
     """Firebase tenant management service."""
@@ -290,7 +304,8 @@ class _TenantManagementService:
 
     def create_tenant(
             self, display_name, allow_password_sign_up=None, enable_email_link_sign_in=None,
-            multi_factor_config: MultiFactorConfig = None):
+            multi_factor_config: MultiFactorConfig = None,
+            email_privacy_config: EmailPrivacyConfig = None):
         """Creates a new tenant from the given parameters."""
 
         payload = {'displayName': _validate_display_name(display_name)}
@@ -305,6 +320,10 @@ class _TenantManagementService:
                 raise ValueError(
                     'multi_factor_config must be of type MultiFactorConfig.')
             payload['mfaConfig'] = multi_factor_config.build_server_request()
+        if email_privacy_config is not None:
+            if not isinstance(email_privacy_config, EmailPrivacyConfig):
+                raise ValueError('email_privacy_config must be of type EmailPrivacyConfig.')
+            payload['emailPrivacyConfig'] = email_privacy_config.build_server_request()
         try:
             body = self.client.body('post', '/tenants', json=payload)
         except requests.exceptions.RequestException as error:
@@ -315,7 +334,8 @@ class _TenantManagementService:
     def update_tenant(
             self, tenant_id, display_name=None, allow_password_sign_up=None,
             enable_email_link_sign_in=None,
-            multi_factor_config: MultiFactorConfig = None):
+            multi_factor_config: MultiFactorConfig = None,
+            email_privacy_config: EmailPrivacyConfig = None):
         """Updates the specified tenant with the given parameters."""
         if not isinstance(tenant_id, str) or not tenant_id:
             raise ValueError('Tenant ID must be a non-empty string.')
@@ -331,9 +351,12 @@ class _TenantManagementService:
                 enable_email_link_sign_in, 'enableEmailLinkSignin')
         if multi_factor_config is not None:
             if not isinstance(multi_factor_config, MultiFactorConfig):
-                raise ValueError(
-                    'multi_factor_config must be of type MultiFactorConfig.')
+                raise ValueError('multi_factor_config must be of type MultiFactorConfig.')
             payload['mfaConfig'] = multi_factor_config.build_server_request()
+        if email_privacy_config is not None:
+            if not isinstance(email_privacy_config, EmailPrivacyConfig):
+                raise ValueError('email_privacy_config must be of type EmailPrivacyConfig.')
+            payload['emailPrivacyConfig'] = email_privacy_config.build_server_request()
 
         if not payload:
             raise ValueError(

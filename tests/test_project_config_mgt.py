@@ -22,7 +22,12 @@ from tests import testutils
 
 import firebase_admin
 from firebase_admin import project_config_mgt
-from firebase_admin import multi_factor_config_mgt
+from firebase_admin.multi_factor_config_mgt import MultiFactorConfig
+from firebase_admin.multi_factor_config_mgt import MultiFactorServerConfig
+from firebase_admin.multi_factor_config_mgt import ProviderConfig
+from firebase_admin.multi_factor_config_mgt import TOTPProviderConfig
+from firebase_admin.email_privacy_config_mgt import EmailPrivacyConfig
+from firebase_admin.email_privacy_config_mgt import EmailPrivacyServerConfig
 
 
 ADJACENT_INTERVALS = 5
@@ -81,6 +86,9 @@ class TestProjectConfig:
                         }
                     }
                 ]
+            },
+            'emailPrivacyConfig': {
+                'enableImprovedEmailPrivacy': True
             }
         }
         project_config = project_config_mgt.ProjectConfig(data)
@@ -92,6 +100,7 @@ class TestProjectConfig:
         }
         project = project_config_mgt.ProjectConfig(data)
         assert project.multi_factor_config is None
+        assert project.email_privacy_config is None
 
 
 class TestGetProjectConfig:
@@ -123,23 +132,37 @@ class TestUpdateProjectConfig:
         assert str(excinfo.value).startswith(
             'multi_factor_config must be of type MultiFactorConfig.')
 
+    @pytest.mark.parametrize('email_privacy_config', ['a', 1, True, {}, dict(), list(), tuple()])
+    def test_invalid_email_privacy_configs(self, email_privacy_config, project_config_mgt_app):
+        with pytest.raises(ValueError) as excinfo:
+            project_config_mgt.update_project_config(email_privacy_config=email_privacy_config,
+                                                     app=project_config_mgt_app)
+        assert str(excinfo.value).startswith('email_privacy_config must be of type'
+                                             ' EmailPrivacyConfig.')
+
+
     def test_update_project_config(self, project_config_mgt_app):
         _, recorder = _instrument_project_config_mgt(
             project_config_mgt_app, 200, GET_PROJECT_RESPONSE)
-        mfa_object = multi_factor_config_mgt.MultiFactorConfig(
+        mfa_object = MultiFactorConfig(
             provider_configs=[
-                multi_factor_config_mgt.ProviderConfig(
-                    state=multi_factor_config_mgt.ProviderConfig.State.ENABLED,
-                    totp_provider_config=multi_factor_config_mgt.TOTPProviderConfig(
+                ProviderConfig(
+                    state=ProviderConfig.State.ENABLED,
+                    totp_provider_config=TOTPProviderConfig(
                         adjacent_intervals=ADJACENT_INTERVALS
                     )
                 )
             ]
         )
+        email_privacy_object = EmailPrivacyConfig(
+            enable_improved_email_privacy=True
+        )
         project_config = project_config_mgt.update_project_config(
-            multi_factor_config=mfa_object, app=project_config_mgt_app)
+            multi_factor_config=mfa_object,
+            email_privacy_config=email_privacy_object,
+            app=project_config_mgt_app)
 
-        mask = ['mfa.providerConfigs']
+        mask = ['emailPrivacyConfig.enableImprovedEmailPrivacy', 'mfa.providerConfigs']
 
         _assert_project_config(project_config)
         self._assert_request(recorder, {
@@ -152,6 +175,9 @@ class TestUpdateProjectConfig:
                         }
                     }
                 ]
+            },
+            'emailPrivacyConfig': {
+                'enableImprovedEmailPrivacy': True
             }
         }, mask)
 
@@ -165,18 +191,24 @@ class TestUpdateProjectConfig:
         assert got == body
 
 def _assert_multi_factor_config(multi_factor_config):
-    assert isinstance(multi_factor_config, multi_factor_config_mgt.MultiFactorServerConfig)
+    assert isinstance(multi_factor_config, MultiFactorServerConfig)
     assert len(multi_factor_config.provider_configs) == 1
     assert isinstance(multi_factor_config.provider_configs, list)
     for provider_config in multi_factor_config.provider_configs:
-        assert isinstance(provider_config, multi_factor_config_mgt.MultiFactorServerConfig
+        assert isinstance(provider_config, MultiFactorServerConfig
                           .ProviderServerConfig)
         assert provider_config.state == 'ENABLED'
         assert isinstance(provider_config.totp_provider_config,
-                          multi_factor_config_mgt.MultiFactorServerConfig.ProviderServerConfig
+                          MultiFactorServerConfig.ProviderServerConfig
                           .TOTPProviderServerConfig)
         assert provider_config.totp_provider_config.adjacent_intervals == ADJACENT_INTERVALS
+
+def _assert_email_privacy_config(email_privacy_config):
+    assert isinstance(email_privacy_config, EmailPrivacyServerConfig)
+    assert email_privacy_config.enable_improved_email_privacy is True
 
 def _assert_project_config(project_config):
     if project_config.multi_factor_config is not None:
         _assert_multi_factor_config(project_config.multi_factor_config)
+    if project_config.email_privacy_config is not None:
+        _assert_email_privacy_config(project_config.email_privacy_config)

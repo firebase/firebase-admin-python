@@ -49,10 +49,12 @@ class AndroidConfig:
             strings. When specified, overrides any data fields set via ``Message.data``.
         notification: A ``messaging.AndroidNotification`` to be included in the message (optional).
         fcm_options: A ``messaging.AndroidFCMOptions`` to be included in the message (optional).
+        direct_boot_ok: A boolean indicating whether messages will be allowed to be delivered to
+            the app while the device is in direct boot mode (optional).
     """
 
     def __init__(self, collapse_key=None, priority=None, ttl=None, restricted_package_name=None,
-                 data=None, notification=None, fcm_options=None):
+                 data=None, notification=None, fcm_options=None, direct_boot_ok=None):
         self.collapse_key = collapse_key
         self.priority = priority
         self.ttl = ttl
@@ -60,6 +62,7 @@ class AndroidConfig:
         self.data = data
         self.notification = notification
         self.fcm_options = fcm_options
+        self.direct_boot_ok = direct_boot_ok
 
 
 class AndroidNotification:

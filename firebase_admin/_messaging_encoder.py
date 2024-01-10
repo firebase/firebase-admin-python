@@ -161,6 +161,15 @@ class _Validators:
         return value
 
     @classmethod
+    def check_boolean(cls, label, value):
+        """Checks if the given value is boolean."""
+        if value is None:
+            return None
+        if not isinstance(value, bool):
+            raise ValueError('{0} must be a boolean.'.format(label))
+        return value
+
+    @classmethod
     def check_datetime(cls, label, value):
         """Checks if the given value is a datetime."""
         if value is None:
@@ -196,6 +205,8 @@ class MessageEncoder(json.JSONEncoder):
                 'AndroidConfig.restricted_package_name', android.restricted_package_name),
             'ttl': cls.encode_ttl(android.ttl),
             'fcm_options': cls.encode_android_fcm_options(android.fcm_options),
+            'direct_boot_ok': _Validators.check_boolean(
+                'AndroidConfig.direct_boot_ok', android.direct_boot_ok),
         }
         result = cls.remove_null_values(result)
         priority = result.get('priority')

@@ -173,7 +173,7 @@ echo "$CHANGELOG"
 # and https://github.com/github/docs/issues/21529#issue-1418590935
 FILTERED_CHANGELOG=`echo "$CHANGELOG" | grep -v "\\[INFO\\]"`
 echo "changelog<<CHANGELOGEOF" >> $GITHUB_OUTPUT
-echo "$FILTERED_CHANGELOG" >> $GITHUB_OUTPUT
+echo -e "$FILTERED_CHANGELOG" >> $GITHUB_OUTPUT
 echo "CHANGELOGEOF" >> $GITHUB_OUTPUT
 
 

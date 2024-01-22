@@ -92,6 +92,11 @@ jobs:
       startsWith(github.event.pull_request.title, '[chore] Release ')
 
     runs-on: ubuntu-latest
+    permissions:
+      # Used to create a short-lived OIDC token which is given to PyPi to identify this workflow job
+      # See: https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect#adding-permissions-settings
+      # and https://docs.pypi.org/trusted-publishers/using-a-publisher/
+      id-token: write
 
     steps:
     - name: Checkout source for publish
@@ -116,10 +121,7 @@ jobs:
             --notes "${{ steps.preflight.outputs.changelog }}"
 
     - name: Publish to Pypi
-      uses: pypa/gh-action-pypi-publish@v1.0.0a0
-      with:
-        user: firebase
-        password: ${{ secrets.PYPI_PASSWORD }}
+      uses: pypa/gh-action-pypi-publish@release/v1
 
     # Post to Twitter if explicitly opted-in by adding the label 'release:tweet'.
     - name: Post to Twitter

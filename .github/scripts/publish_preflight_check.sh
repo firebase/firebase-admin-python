@@ -172,6 +172,7 @@ echo "$CHANGELOG"
 # See https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#example-of-a-multiline-string
 # and https://github.com/github/docs/issues/21529#issue-1418590935
 FILTERED_CHANGELOG=`echo "$CHANGELOG" | grep -v "\\[INFO\\]"`
+FILTERED_CHANGELOG="${FILTERED_CHANGELOG//$'\''/'"'}"
 echo "changelog<<CHANGELOGEOF" >> $GITHUB_OUTPUT
 echo -e "$FILTERED_CHANGELOG" >> $GITHUB_OUTPUT
 echo "CHANGELOGEOF" >> $GITHUB_OUTPUT

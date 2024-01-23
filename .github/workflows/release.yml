@@ -118,7 +118,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: gh release create ${{ steps.preflight.outputs.version }}
             --title "Firebase Admin Python SDK ${{ steps.preflight.outputs.version }}"
-            --notes "${{ steps.preflight.outputs.changelog }}"
+            --notes '${{ steps.preflight.outputs.changelog }}'
 
     - name: Publish to Pypi
       uses: pypa/gh-action-pypi-publish@release/v1

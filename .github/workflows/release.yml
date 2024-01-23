@@ -97,6 +97,7 @@ jobs:
       # See: https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect#adding-permissions-settings
       # and https://docs.pypi.org/trusted-publishers/using-a-publisher/
       id-token: write
+      contents: write
 
     steps:
     - name: Checkout source for publish

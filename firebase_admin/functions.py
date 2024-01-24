@@ -1,4 +1,4 @@
-# Copyright 2023 Google Inc.
+# Copyright 2024 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,7 +29,6 @@ import firebase_admin
 from firebase_admin import App
 from firebase_admin import _http_client
 from firebase_admin import _utils
-from firebase_admin.exceptions import FirebaseError
 
 _FUNCTIONS_ATTRIBUTE = '_functions'
 
@@ -94,6 +93,12 @@ class _FunctionsService:
     """Service class that implements Firebase Functions functionality."""
     def __init__(self, app: App):
         self._project_id = app.project_id
+        if not self._project_id:
+            raise ValueError(
+                'Project ID is required to access the Cloud Functions service. Either set the '
+                'projectId option, or use service account credentials. Alternatively, set the '
+                'GOOGLE_CLOUD_PROJECT environment variable.')
+
         self._credential = app.credential.get_credential()
         self._http_client = _http_client.JsonHttpClient(credential=self._credential)
 
@@ -102,6 +107,11 @@ class _FunctionsService:
         return TaskQueue(
             function_name, extension_id, self._project_id, self._credential, self._http_client)
 
+    @classmethod
+    def handle_functions_error(cls, error: Any):
+        """Handles errors received from the Cloud Functions API."""
+
+        return _utils.handle_platform_error_from_requests(error)
 
 class TaskQueue:
     """TaskQueue class that implements Firebase Cloud Tasks Queues functionality."""
@@ -109,12 +119,13 @@ class TaskQueue:
             self,
             function_name: str,
             extension_id: Optional[str],
-            project_id, credential,
+            project_id,
+            credential,
             http_client
         ) -> None:
 
         # Validate function_name
-        _Validators.check_non_empty_string("function_name", function_name)
+        _Validators.check_non_empty_string('function_name', function_name)
 
         self._project_id = project_id
         self._credential = credential
@@ -127,10 +138,10 @@ class TaskQueue:
         # Apply defaults and validate resource_id
         self._resource.project_id = self._resource.project_id or self._project_id
         self._resource.location_id = self._resource.location_id or _DEFAULT_LOCATION
-        _Validators.check_non_empty_string("resource.resource_id", self._resource.resource_id)
+        _Validators.check_non_empty_string('resource.resource_id', self._resource.resource_id)
         # Validate extension_id if provided and edit resources depending
         if self._extension_id is not None:
-            _Validators.check_non_empty_string("extension_id", self._extension_id)
+            _Validators.check_non_empty_string('extension_id', self._extension_id)
             self._resource.resource_id = f'ext-{self._extension_id}-{self._resource.resource_id}'
 
 
@@ -166,8 +177,7 @@ class TaskQueue:
                 self._parse_resource_name(task_name, f'queues/{self._resource.resource_id}/tasks')
             return task_resource.resource_id
         except requests.exceptions.RequestException as error:
-            # TODO: Error handle
-            raise FirebaseError(400, 'Error', http_response=error.response)
+            raise _FunctionsService.handle_functions_error(error)
 
     def delete(self, task_id: str) -> None:
         """Deletes an enqueued task if it has not yet completed.
@@ -182,7 +192,7 @@ class TaskQueue:
                 the Cloud Functions service.
             ValueError: If the input arguments are invalid.
         """
-        _Validators.check_non_empty_string("task_id", task_id)
+        _Validators.check_non_empty_string('task_id', task_id)
         service_url = self._get_url(self._resource, _CLOUD_TASKS_API_URL_FORMAT + f'/{task_id}')
         try:
             self._http_client.body(
@@ -191,13 +201,12 @@ class TaskQueue:
                 headers=_FUNCTIONS_HEADERS,
             )
         except requests.exceptions.RequestException as error:
-            # TODO: Error handle
-            raise FirebaseError(400, 'Error', http_response=error.response)
+            raise _FunctionsService.handle_functions_error(error)
 
 
     def _parse_resource_name(self, resource_name: str, resource_id_key: str) -> Resource:
         """Parses a full or partial resource path into a ``Resource``."""
-        if "/" not in resource_name:
+        if '/' not in resource_name:
             return Resource(resource_id=resource_name)
 
         reg = f'^(projects/([^/]+)/)?locations/([^/]+)/{resource_id_key}/([^/]+)$'
@@ -234,7 +243,7 @@ class TaskQueue:
 
         if opts is not None:
             if opts.headers is not None:
-                task.http_request["headers"] = {**task.http_request["headers"], **opts.headers}
+                task.http_request['headers'] = {**task.http_request['headers'], **opts.headers}
             if opts.schedule_time is not None and opts.schedule_delay_seconds is not None:
                 raise ValueError(
                     'Both sechdule_delay_seconds and schedule_time cannot be set at the same time.')
@@ -259,8 +268,8 @@ class TaskQueue:
             if opts.task_id is not None:
                 if not _Validators.is_task_id(opts.task_id):
                     raise ValueError(
-                        'id can contain only letters ([A-Za-z]), numbers ([0-9]), hyphens (-), or '
-                        'underscores (_). The maximum length is 500 characters.')
+                        'task_id can contain only letters ([A-Za-z]), numbers ([0-9]), hyphens (-)'
+                        ', or underscores (_). The maximum length is 500 characters.')
                 task.name = self._get_url(
                     resource, _CLOUD_TASKS_API_RESOURCE_PATH + f'/{opts.task_id}')
         return task
@@ -307,7 +316,7 @@ class _Validators:
     def is_task_id(cls, task_id: Any):
         """Checks if given value is a valid task id."""
         reg = '^[A-Za-z0-9_-]+$'
-        if re.match(reg, task_id) is not None:
+        if re.match(reg, task_id) is not None and len(task_id) <= 500:
             return True
         return False
 
@@ -343,11 +352,15 @@ class TaskOptions:
             seconds and 30 minutes (1800 seconds).
 
         task_id: The ID to use for the enqueued event. If not provided, one will be automatically
-            generated. If provided, an explicitly specified task ID enables task de-duplication. If
-            a task's ID is identical to that of an existing task or a task that was deleted or
-            executed recently then the call will throw an error with code
-            "functions/task-already-exists". Another task with the same ID can't be created for
-            ~1hour after the original task was deleted or executed.
+            generated.
+
+            If provided, an explicitly specified task ID enables task de-duplication.
+            Task IDs should be string that contain only letters ([A-Za-z]), numbers ([0-9]),
+            hyphens (-), or underscores (_) with a maximum length of 500 characters. If a task's
+            ID is identical to that of an existing task or a task that was deleted or executed
+            recently then the call will throw an error with code "functions/task-already-exists".
+            Another task with the same ID can't be created for ~1hour after the original task was
+            deleted or executed.
 
             Because there is an extra lookup cost to identify duplicate task IDs, setting ID
             significantly increases latency. Using hashed strings for the task ID or for the prefix

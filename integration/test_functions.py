@@ -27,12 +27,6 @@ def app(request):
     return firebase_admin.initialize_app(cred, name='integration-functions')
 
 
-# @pytest.fixture(scope='module', autouse=True)
-# def default_app():
-#     # Overwrites the default_app fixture in conftest.py.
-#     # This test suite should not use the default app. Use the app fixture instead.
-#     pass
-
 class TestFunctions:
 
     _TEST_FUNCTIONS_PARAMS = [

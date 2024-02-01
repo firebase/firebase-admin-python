@@ -119,6 +119,10 @@ class MockGoogleCredential(credentials.Credentials):
     def refresh(self, request):
         self.token = 'mock-token'
 
+    @property
+    def service_account_email(self):
+        return 'mock-email'
+
 
 class MockCredential(firebase_admin.credentials.Base):
     """A mock Firebase credential implementation."""

@@ -65,6 +65,13 @@ class TestFirestore:
         assert client is not None
         assert client.project == 'mock-project-id'
 
+    def test_service_account_with_explicit_database_id(self):
+        cred = credentials.Certificate(testutils.resource_filename('service_account.json'))
+        firebase_admin.initialize_app(cred)
+        client = firestore.client(database_id='explicit-database-id')
+        assert client is not None
+        assert client._database == 'explicit-database-id'
+
     def test_service_account_with_explicit_app(self):
         cred = credentials.Certificate(testutils.resource_filename('service_account.json'))
         app = firebase_admin.initialize_app(cred)

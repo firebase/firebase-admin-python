@@ -93,7 +93,7 @@ def _get_initialized_app(app):
 
 
 
-def get_app_service(app, options, name, initializer):
+def get_app_service(app, name, initializer, options=None):
     app = _get_initialized_app(app)
     if options:
         app.options._options.update(options)

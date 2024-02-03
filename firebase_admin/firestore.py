@@ -29,7 +29,7 @@ except ImportError:
                       'to install the "google-cloud-firestore" module.')
 
 from firebase_admin import _utils
-
+from packaging.version import Version
 
 _FIRESTORE_ATTRIBUTE = '_firestore'
 
@@ -54,7 +54,7 @@ def client(app=None, database_id=None):
 
     options = {"database_id": database_id} if database_id else None
 
-    fs_client = _utils.get_app_service(app, options, _FIRESTORE_ATTRIBUTE, _FirestoreClient.from_app)
+    fs_client = _utils.get_app_service(app, _FIRESTORE_ATTRIBUTE, _FirestoreClient.from_app, options=options)
     return fs_client.get()
 
 
@@ -63,6 +63,11 @@ class _FirestoreClient:
 
     def __init__(self, credentials, project, database_id=None):
         if database_id:
+            if Version(firestore.__version__) < Version("2.12.0"):
+                raise ValueError(
+                    'The database_id parameter is only supported for google-cloud-firestore version '
+                    '2.12.0 and above. Please upgrade your google-cloud-firestore package to use '
+                    'this feature.')
             self._client = firestore.Client(credentials=credentials, project=project, database=database_id)
         else:
             self._client = firestore.Client(credentials=credentials, project=project)

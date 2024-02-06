@@ -55,6 +55,13 @@ class TestTaskQueue:
             testutils.MockAdapter(payload, status, recorder))
         return functions_service, recorder
 
+    def test_task_queue_no_project_id(self):
+        def evaluate():
+            app = firebase_admin.initialize_app(testutils.MockCredential(), name='no_project_id')
+            with pytest.raises(ValueError):
+                functions.task_queue('test-function-name', app=app)
+        testutils.run_without_project_id(evaluate)
+
     @pytest.mark.parametrize('function_name', [
         'projects/test-project/locations/us-central1/functions/test-function-name',
         'locations/us-central1/functions/test-function-name',
@@ -132,6 +139,26 @@ class TestTaskQueue:
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
         assert task_id == 'test-task-id'
 
+    def test_task_enqueue_with_extension_on_compute_engine(self):
+        resource_name = (
+            'projects/test-project/locations/us-central1/queues/'
+            'ext-test-extension-id-test-function-name/tasks'
+        )
+        extension_response = json.dumps({'name': resource_name + '/test-task-id'})
+        cred = testutils.MockComputeEngineCredential()
+        opts = {'projectId': 'test-project'}
+        name = 'project-with-compute-engine-cred'
+        app = firebase_admin.initialize_app(cred, opts, name=name)
+        _, recorder = self._instrument_functions_service(app=app, payload=extension_response)
+        queue = functions.task_queue('test-function-name', 'test-extension-id', app=app)
+        task_id = queue.enqueue(_DEFAULT_DATA)
+        assert len(recorder) == 1
+        assert recorder[0].method == 'POST'
+        assert recorder[0].url == _CLOUD_TASKS_URL + resource_name
+        assert recorder[0].headers['Content-Type'] == 'application/json'
+        assert recorder[0].headers['Authorization'] == 'Bearer mock-compute-engine-token'
+        assert task_id == 'test-task-id'
+
     def test_task_delete(self):
         _, recorder = self._instrument_functions_service()
         queue = functions.task_queue('test-function-name')
@@ -179,14 +206,16 @@ class TestTaskQueueOptions:
             'schedule_time': None,
             'dispatch_deadline_seconds': 200,
             'task_id': 'test-task-id',
-            'headers': {'x-test-header': 'test-header-value'}
+            'headers': {'x-test-header': 'test-header-value'},
+            'uri': 'https://google.com'
         },
         {
             'schedule_delay_seconds': None,
             'schedule_time': _SCHEDULE_TIME,
             'dispatch_deadline_seconds': 200,
             'task_id': 'test-task-id',
-            'headers': {'x-test-header': 'test-header-value'}
+            'headers': {'x-test-header': 'test-header-value'},
+            'uri': 'http://google.com'
         },
     ])
     def test_task_options(self, task_opts_params):
@@ -223,6 +252,7 @@ class TestTaskQueueOptions:
         str(datetime.utcnow()),
         datetime.utcnow().isoformat(),
         datetime.utcnow().isoformat() + 'Z',
+        '', ' '
     ])
     def test_invalid_schedule_time_error(self, schedule_time):
         _, recorder = self._instrument_functions_service()
@@ -235,11 +265,7 @@ class TestTaskQueueOptions:
 
 
     @pytest.mark.parametrize('schedule_delay_seconds', [
-        -1,
-        '100',
-        '-1',
-        -1.23,
-        1.23
+        -1, '100', '-1', '', ' ', -1.23, 1.23
     ])
     def test_invalid_schedule_delay_seconds_error(self, schedule_delay_seconds):
         _, recorder = self._instrument_functions_service()
@@ -252,15 +278,7 @@ class TestTaskQueueOptions:
 
 
     @pytest.mark.parametrize('dispatch_deadline_seconds', [
-        14,
-        1801,
-        -15,
-        -1800,
-        0,
-        '100',
-        '-1',
-        -1.23,
-        1.23,
+        14, 1801, -15, -1800, 0, '100', '-1', '', ' ', -1.23, 1.23,
     ])
     def test_invalid_dispatch_deadline_seconds_error(self, dispatch_deadline_seconds):
         _, recorder = self._instrument_functions_service()
@@ -274,10 +292,7 @@ class TestTaskQueueOptions:
 
 
     @pytest.mark.parametrize('task_id', [
-        'task/1',
-        'task.1',
-        'a'*501,
-        *non_alphanumeric_chars
+        '', ' ', 'task/1', 'task.1', 'a'*501, *non_alphanumeric_chars
     ])
     def test_invalid_task_id_error(self, task_id):
         _, recorder = self._instrument_functions_service()
@@ -290,3 +305,17 @@ class TestTaskQueueOptions:
             'task_id can contain only letters ([A-Za-z]), numbers ([0-9]), '
             'hyphens (-), or underscores (_). The maximum length is 500 characters.'
         )
+
+    @pytest.mark.parametrize('uri', [
+        '', ' ', 'a', 'foo', 'image.jpg', [], {}, True, 'google.com', 'www.google.com',
+        'file://www.google.com'
+    ])
+    def test_invalid_uri_error(self, uri):
+        _, recorder = self._instrument_functions_service()
+        opts = functions.TaskOptions(uri=uri)
+        queue = functions.task_queue('test-function-name')
+        with pytest.raises(ValueError) as excinfo:
+            queue.enqueue(_DEFAULT_DATA, opts)
+        assert len(recorder) == 0
+        assert str(excinfo.value) == \
+            'uri must be a valid RFC3986 URI string using the https or http schema.'

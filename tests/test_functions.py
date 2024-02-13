@@ -206,16 +206,14 @@ class TestTaskQueueOptions:
             'schedule_time': None,
             'dispatch_deadline_seconds': 200,
             'task_id': 'test-task-id',
-            'headers': {'x-test-header': 'test-header-value'},
-            'uri': 'https://google.com'
+            'headers': {'x-test-header': 'test-header-value'}
         },
         {
             'schedule_delay_seconds': None,
             'schedule_time': _SCHEDULE_TIME,
             'dispatch_deadline_seconds': 200,
             'task_id': 'test-task-id',
-            'headers': {'x-test-header': 'test-header-value'},
-            'uri': 'http://google.com'
+            'headers': {'x-test-header': 'test-header-value'}
         },
     ])
     def test_task_options(self, task_opts_params):
@@ -306,16 +304,3 @@ class TestTaskQueueOptions:
             'hyphens (-), or underscores (_). The maximum length is 500 characters.'
         )
 
-    @pytest.mark.parametrize('uri', [
-        '', ' ', 'a', 'foo', 'image.jpg', [], {}, True, 'google.com', 'www.google.com',
-        'file://www.google.com'
-    ])
-    def test_invalid_uri_error(self, uri):
-        _, recorder = self._instrument_functions_service()
-        opts = functions.TaskOptions(uri=uri)
-        queue = functions.task_queue('test-function-name')
-        with pytest.raises(ValueError) as excinfo:
-            queue.enqueue(_DEFAULT_DATA, opts)
-        assert len(recorder) == 0
-        assert str(excinfo.value) == \
-            'uri must be a valid RFC3986 URI string using the https or http schema.'

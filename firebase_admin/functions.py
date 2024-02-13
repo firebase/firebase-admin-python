@@ -272,11 +272,6 @@ class TaskQueue:
                         ', or underscores (_). The maximum length is 500 characters.')
                 task.name = self._get_url(
                     resource, _CLOUD_TASKS_API_RESOURCE_PATH + f'/{opts.task_id}')
-            if opts.uri is not None:
-                if not _Validators.is_url(opts.uri):
-                    raise ValueError(
-                        'uri must be a valid RFC3986 URI string using the https or http schema.')
-                task.http_request['url'] = opts.uri
         return task
 
     def _update_task_payload(self, task: Task, resource: Resource, extension_id: str) -> Task:
@@ -387,17 +382,12 @@ class TaskOptions:
             By default, Content-Type is set to 'application/json'.
 
             The size of the headers must be less than 80KB.
-
-        uri: The full URL path that the request will be sent to. Must be a valid RFC3986 https or
-            http URL.
-
     """
     schedule_delay_seconds: Optional[int] = None
     schedule_time: Optional[datetime] = None
     dispatch_deadline_seconds: Optional[int] = None
     task_id: Optional[str] = None
     headers: Optional[Dict[str, str]] = None
-    uri: Optional[str] = None
 
 @dataclass
 class Task:
@@ -407,25 +397,25 @@ class Task:
     https://cloud.google.com/tasks/docs/reference/rest/v2/projects.locations.queues.tasks#resource:-task
 
     Args:
-        httpRequest:
-        name:
-        schedule_time:
-        dispatch_deadline:
+        httpRequest: The request to be made by the task worker.
+        name: The url path to identify the function.
+        schedule_time: The time when the task is scheduled to be attempted or retried.
+        dispatch_deadline: The deadline for requests sent to the worker.
     """
     http_request: Dict[str, Optional[str | dict]]
     name: Optional[str] = None
     schedule_time: Optional[str] = None
     dispatch_deadline: Optional[str] = None
 
-
+Task()
 @dataclass
 class Resource:
     """Contains the parsed address of a resource.
 
     Args:
-        resource_id:
-        project_id:
-        location_id:
+        resource_id: The ID of the resource.
+        project_id: The project ID of the resource.
+        location_id: The location ID of the resource.
     """
     resource_id: str
     project_id: Optional[str] = None

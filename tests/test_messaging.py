@@ -1586,7 +1586,7 @@ class TestApsAlertEncoder:
 
 class TestTimeout:
 
-    def teardown(self):
+    def teardown_method(self):
         testutils.cleanup_apps()
 
     def _instrument_service(self, url, response):

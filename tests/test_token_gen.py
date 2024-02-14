@@ -853,5 +853,5 @@ class TestCertificateFetchTimeout:
         request.session.mount('https://', testutils.MockAdapter(MOCK_PUBLIC_CERTS, 200, recorder))
         return recorder
 
-    def teardown(self):
+    def teardown_method(self):
         testutils.cleanup_apps()

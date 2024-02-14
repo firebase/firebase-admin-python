@@ -390,7 +390,6 @@ class TaskOptions:
 
         uri: The full URL path that the request will be sent to. Must be a valid RFC3986 https or
             http URL.
-
     """
     schedule_delay_seconds: Optional[int] = None
     schedule_time: Optional[datetime] = None
@@ -416,6 +415,7 @@ class Task:
     name: Optional[str] = None
     schedule_time: Optional[str] = None
     dispatch_deadline: Optional[str] = None
+
 
 @dataclass
 class Resource:

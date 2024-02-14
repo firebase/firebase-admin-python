@@ -213,6 +213,7 @@ class TestTaskQueueOptions:
 
         assert task['dispatch_deadline'] == '200s'
         assert task['http_request']['headers']['x-test-header'] == 'test-header-value'
+        assert task['http_request']['url'] in ['http://google.com', 'https://google.com']
         assert task['name'] == _DEFAULT_TASK_PATH
 
 

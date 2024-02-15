@@ -55,6 +55,13 @@ class TestTaskQueue:
             testutils.MockAdapter(payload, status, recorder))
         return functions_service, recorder
 
+    def test_task_queue_no_project_id(self):
+        def evaluate():
+            app = firebase_admin.initialize_app(testutils.MockCredential(), name='no-project-id')
+            with pytest.raises(ValueError):
+                functions.task_queue('test-function-name', app=app)
+        testutils.run_without_project_id(evaluate)
+
     @pytest.mark.parametrize('function_name', [
         'projects/test-project/locations/us-central1/functions/test-function-name',
         'locations/us-central1/functions/test-function-name',
@@ -179,14 +186,16 @@ class TestTaskQueueOptions:
             'schedule_time': None,
             'dispatch_deadline_seconds': 200,
             'task_id': 'test-task-id',
-            'headers': {'x-test-header': 'test-header-value'}
+            'headers': {'x-test-header': 'test-header-value'},
+            'uri': 'https://google.com'
         },
         {
             'schedule_delay_seconds': None,
             'schedule_time': _SCHEDULE_TIME,
             'dispatch_deadline_seconds': 200,
             'task_id': 'test-task-id',
-            'headers': {'x-test-header': 'test-header-value'}
+            'headers': {'x-test-header': 'test-header-value'},
+            'uri': 'http://google.com'
         },
     ])
     def test_task_options(self, task_opts_params):
@@ -204,6 +213,7 @@ class TestTaskQueueOptions:
 
         assert task['dispatch_deadline'] == '200s'
         assert task['http_request']['headers']['x-test-header'] == 'test-header-value'
+        assert task['http_request']['url'] in ['http://google.com', 'https://google.com']
         assert task['name'] == _DEFAULT_TASK_PATH
 
 
@@ -223,6 +233,7 @@ class TestTaskQueueOptions:
         str(datetime.utcnow()),
         datetime.utcnow().isoformat(),
         datetime.utcnow().isoformat() + 'Z',
+        '', ' '
     ])
     def test_invalid_schedule_time_error(self, schedule_time):
         _, recorder = self._instrument_functions_service()
@@ -235,11 +246,7 @@ class TestTaskQueueOptions:
 
 
     @pytest.mark.parametrize('schedule_delay_seconds', [
-        -1,
-        '100',
-        '-1',
-        -1.23,
-        1.23
+        -1, '100', '-1', '', ' ', -1.23, 1.23
     ])
     def test_invalid_schedule_delay_seconds_error(self, schedule_delay_seconds):
         _, recorder = self._instrument_functions_service()
@@ -252,15 +259,7 @@ class TestTaskQueueOptions:
 
 
     @pytest.mark.parametrize('dispatch_deadline_seconds', [
-        14,
-        1801,
-        -15,
-        -1800,
-        0,
-        '100',
-        '-1',
-        -1.23,
-        1.23,
+        14, 1801, -15, -1800, 0, '100', '-1', '', ' ', -1.23, 1.23,
     ])
     def test_invalid_dispatch_deadline_seconds_error(self, dispatch_deadline_seconds):
         _, recorder = self._instrument_functions_service()
@@ -274,10 +273,7 @@ class TestTaskQueueOptions:
 
 
     @pytest.mark.parametrize('task_id', [
-        'task/1',
-        'task.1',
-        'a'*501,
-        *non_alphanumeric_chars
+        '', ' ', 'task/1', 'task.1', 'a'*501, *non_alphanumeric_chars
     ])
     def test_invalid_task_id_error(self, task_id):
         _, recorder = self._instrument_functions_service()
@@ -290,3 +286,16 @@ class TestTaskQueueOptions:
             'task_id can contain only letters ([A-Za-z]), numbers ([0-9]), '
             'hyphens (-), or underscores (_). The maximum length is 500 characters.'
         )
+
+    @pytest.mark.parametrize('uri', [
+        '', ' ', 'a', 'foo', 'image.jpg', [], {}, True, 'google.com', 'www.google.com'
+    ])
+    def test_invalid_uri_error(self, uri):
+        _, recorder = self._instrument_functions_service()
+        opts = functions.TaskOptions(uri=uri)
+        queue = functions.task_queue('test-function-name')
+        with pytest.raises(ValueError) as excinfo:
+            queue.enqueue(_DEFAULT_DATA, opts)
+        assert len(recorder) == 0
+        assert str(excinfo.value) == \
+            'uri must be a valid RFC3986 URI string using the https or http schema.'

@@ -62,17 +62,17 @@ def task_queue(
         extension_id: Optional[str] = None,
         app: Optional[App] = None
     ) -> TaskQueue:
-    """Creates a referance to a TaskQueue for a given function name.
+    """Creates a reference to a TaskQueue for a given function name.
 
     The function name can be either:
-        1) A fully qualified function resource name:
+        1. A fully qualified function resource name:
             `projects/{project-id}/locations/{location-id}/functions/{function-name}`
 
-        2) A partial resource name with location and function name, in which case
+        2. A partial resource name with location and function name, in which case
             the runtime project ID is used:
             `locations/{location-id}/functions/{function-name}`
 
-        3) A partial function name, in which case the runtime project ID and the
+        3. A partial function name, in which case the runtime project ID and the
             default location, `us-central1`, is used:
             `{function-name}`
 
@@ -180,7 +180,7 @@ class TaskQueue:
             raise _FunctionsService.handle_functions_error(error)
 
     def delete(self, task_id: str) -> None:
-        """Deletes an enqueued task if it has not yet completed.
+        """Deletes an enqueued task if it has not yet started.
 
         This action requires `cloudtasks.tasks.delete` IAM permission on the service account.
 
@@ -343,12 +343,11 @@ class _Validators:
 class TaskOptions:
     """Task Options that can be applied to a Task.
     Args:
-        schedule_delay_seconds: The duration of delay of the time when the task is scheduled to be
-            attemptedor retried. This delay is added to the current time. Should only been set if
-            ``schedeule_time``is not set.
+        schedule_delay_seconds: The number of seconds after the current time at which to attempt or
+            retry the task. Should only be set if ``schedule_time`` is not set.
 
         schedule_time: The time when the task is scheduled to be attempted or retried. Should only
-            been set if ``schedule_delay_seconds`` is not set.
+            be set if ``schedule_delay_seconds`` is not set.
 
         dispatch_deadline_seconds: The deadline for requests sent to the worker. If the worker does
             not respond by this deadline then the request is cancelled and the attempt is marked as
@@ -356,39 +355,41 @@ class TaskOptions:
             ``RetryConfig``. The default is 10 minutes. The deadline must be in the range of 15
             seconds and 30 minutes (1800 seconds).
 
-        task_id: The ID to use for the enqueued event. If not provided, one will be automatically
+        task_id: The ID to use for the enqueued task. If not provided, one will be automatically
             generated.
 
             If provided, an explicitly specified task ID enables task de-duplication.
-            Task IDs should be string that contain only letters ([A-Za-z]), numbers ([0-9]),
-            hyphens (-), or underscores (_) with a maximum length of 500 characters. If a task's
+            Task IDs should be strings that contain only letters ([A-Za-z]), numbers ([0-9]),
+            hyphens (-), and underscores (_) with a maximum length of 500 characters. If a task's
             ID is identical to that of an existing task or a task that was deleted or executed
             recently then the call will throw an error with code "functions/task-already-exists".
             Another task with the same ID can't be created for ~1hour after the original task was
             deleted or executed.
 
             Because there is an extra lookup cost to identify duplicate task IDs, setting ID
-            significantly increases latency. Using hashed strings for the task ID or for the prefix
-            of the task ID is recommended. Choosing task IDs that are sequential or have sequential
-            prefixes, for example using a timestamp, causes an increase in latency and error rates
-            in all task commands. The infrastructure relies on an approximately uniform distribution
-            of task IDs to store and serve tasks efficiently.
+            significantly increases latency.
+
+            Also, note that the infrastructure relies on an approximately uniform distribution
+            of task IDs to store and serve tasks efficiently. For this reason, using hashed strings
+            for the task ID or for the prefix of the task ID is recommended. Choosing task IDs that
+            are sequential or have sequential prefixes, for example using a timestamp, causes an
+            increase in latency and error rates in all task commands.
 
             "Push IDs" from the Firebase Realtime Database make poor IDs because they are based on
             timestamps and will cause contention (slowdowns) in your task queue. Reversed push IDs
-            however form a perfect distribution and are an ideal key. To reverse a string in python
+            however form a perfect distribution and are an ideal key. To reverse a string in Python
             use ``reversedString = someString[::-1]``
 
         headers: HTTP request headers to include in the request to the task queue function. These
             headers represent a subset of the headers that will accompany the task's HTTP request.
-            Some HTTP request headers will be ignored or replaced, e.g. Authorization, Host,
-            Content-Length, User-Agent etc. cannot be overridden.
+            Some HTTP request headers will be ignored or replaced: `Authorization`, `Host`,
+            `Content-Length`, `User-Agent` and others cannot be overridden.
 
-            By default, Content-Type is set to 'application/json'.
+            `Content-Type` is always set to 'application/json'.
 
             The size of the headers must be less than 80KB.
 
-        uri: The full URL path that the request will be sent to. Must be a valid RFC3986 https or
+        uri: The full URL that the request will be sent to. Must be a valid RFC3986 https or
             http URL.
     """
     schedule_delay_seconds: Optional[int] = None
@@ -402,12 +403,13 @@ class TaskOptions:
 class Task:
     """Contains the relevant fields for enqueueing tasks that trigger Cloud Functions.
 
-    This is a limited subset of Cloud Functions Task:
+    This is a limited subset of the Cloud Functions `Task` resource. See the following
+    page for definitions of this class's properties:
     https://cloud.google.com/tasks/docs/reference/rest/v2/projects.locations.queues.tasks#resource:-task
 
     Args:
         httpRequest: The request to be made by the task worker.
-        name: The url path to identify the function.
+        name: The name of the function. See the Cloud docs for the format of this property.
         schedule_time: The time when the task is scheduled to be attempted or retried.
         dispatch_deadline: The deadline for requests sent to the worker.
     """

@@ -385,7 +385,11 @@ class TaskOptions:
             Some HTTP request headers will be ignored or replaced: `Authorization`, `Host`,
             `Content-Length`, `User-Agent` and others cannot be overridden.
 
-            `Content-Type` is always set to 'application/json'.
+            A complete list of these ignored or replaced headers can be found in the following
+            definition of the HttpRequest.headers property:
+            https://cloud.google.com/tasks/docs/reference/rest/v2/projects.locations.queues.tasks#httprequest
+
+            By default, Content-Type is set to 'application/json'.
 
             The size of the headers must be less than 80KB.
 

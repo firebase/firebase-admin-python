@@ -342,6 +342,7 @@ class _Validators:
 @dataclass
 class TaskOptions:
     """Task Options that can be applied to a Task.
+
     Args:
         schedule_delay_seconds: The number of seconds after the current time at which to attempt or
             retry the task. Should only be set if ``schedule_time`` is not set.

@@ -363,7 +363,7 @@ class TaskOptions:
             Task IDs should be strings that contain only letters ([A-Za-z]), numbers ([0-9]),
             hyphens (-), and underscores (_) with a maximum length of 500 characters. If a task's
             ID is identical to that of an existing task or a task that was deleted or executed
-            recently then the call will throw an error with code "functions/task-already-exists".
+            recently then the call will throw an error with code `functions/task-already-exists`.
             Another task with the same ID can't be created for ~1hour after the original task was
             deleted or executed.
 
@@ -376,7 +376,7 @@ class TaskOptions:
             are sequential or have sequential prefixes, for example using a timestamp, causes an
             increase in latency and error rates in all task commands.
 
-            "Push IDs" from the Firebase Realtime Database make poor IDs because they are based on
+            Push IDs from the Firebase Realtime Database make poor IDs because they are based on
             timestamps and will cause contention (slowdowns) in your task queue. Reversed push IDs
             however form a perfect distribution and are an ideal key. To reverse a string in Python
             use ``reversedString = someString[::-1]``

@@ -56,10 +56,12 @@ __all__ = [
     'OIDCProviderConfig',
     'PhoneNumberAlreadyExistsError',
     'ProviderConfig',
+    'ResetPasswordExceedLimitError',
     'RevokedIdTokenError',
     'RevokedSessionCookieError',
     'SAMLProviderConfig',
     'TokenSignError',
+    'TooManyAttemptsTryLaterError',
     'UidAlreadyExistsError',
     'UnexpectedResponseError',
     'UserDisabledError',
@@ -130,10 +132,12 @@ ListUsersPage = _user_mgt.ListUsersPage
 OIDCProviderConfig = _auth_providers.OIDCProviderConfig
 PhoneNumberAlreadyExistsError = _auth_utils.PhoneNumberAlreadyExistsError
 ProviderConfig = _auth_providers.ProviderConfig
+ResetPasswordExceedLimitError = _auth_utils.ResetPasswordExceedLimitError
 RevokedIdTokenError = _token_gen.RevokedIdTokenError
 RevokedSessionCookieError = _token_gen.RevokedSessionCookieError
 SAMLProviderConfig = _auth_providers.SAMLProviderConfig
 TokenSignError = _token_gen.TokenSignError
+TooManyAttemptsTryLaterError = _auth_utils.TooManyAttemptsTryLaterError
 UidAlreadyExistsError = _auth_utils.UidAlreadyExistsError
 UnexpectedResponseError = _auth_utils.UnexpectedResponseError
 UserDisabledError = _auth_utils.UserDisabledError

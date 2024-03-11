@@ -19,6 +19,7 @@ import os
 import sys
 import time
 
+from unittest import mock
 import pytest
 
 import firebase_admin
@@ -145,7 +146,7 @@ class _RefOperations:
 
     @classmethod
     def push(cls, ref):
-        ref.push()
+        ref.push({'foo': 'bar'})
 
     @classmethod
     def set(cls, ref):
@@ -178,6 +179,8 @@ class TestReference:
         404: exceptions.NotFoundError,
         500: exceptions.InternalError,
     }
+
+    duplicate_timestamp = time.time()
 
     @classmethod
     def setup_class(cls):
@@ -392,33 +395,46 @@ class TestReference:
     @pytest.mark.parametrize('data', valid_values)
     def test_push(self, data):
         ref = db.reference('/test')
-        recorder = self.instrument(ref, json.dumps({'name' : 'testkey'}))
+        recorder = self.instrument(ref, json.dumps({}))
         child = ref.push(data)
         assert isinstance(child, db.Reference)
-        assert child.key == 'testkey'
+        assert len(child.key) == 20
         assert len(recorder) == 1
-        assert recorder[0].method == 'POST'
-        assert recorder[0].url == 'https://test.firebaseio.com/test.json'
+        assert recorder[0].method == 'PUT'
+        assert recorder[0].url == f'https://test.firebaseio.com/test/{child.key}.json?print=silent'
         assert json.loads(recorder[0].body.decode()) == data
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
         assert recorder[0].headers['User-Agent'] == db._USER_AGENT
 
     def test_push_default(self):
         ref = db.reference('/test')
-        recorder = self.instrument(ref, json.dumps({'name' : 'testkey'}))
-        assert ref.push().key == 'testkey'
-        assert len(recorder) == 1
-        assert recorder[0].method == 'POST'
-        assert recorder[0].url == 'https://test.firebaseio.com/test.json'
-        assert json.loads(recorder[0].body.decode()) == ''
-        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
-        assert recorder[0].headers['User-Agent'] == db._USER_AGENT
+        recorder = self.instrument(ref, json.dumps({}))
+        child = ref.push()
+        assert isinstance(child, db.Reference)
+        assert len(child.key) == 20
+        assert len(recorder) == 0
 
-    def test_push_none_value(self):
+    @pytest.mark.parametrize('data', valid_values)
+    @mock.patch('time.time', mock.MagicMock(return_value=duplicate_timestamp))
+    def test_push_duplicate_timestamp(self, data):
         ref = db.reference('/test')
-        self.instrument(ref, '')
-        with pytest.raises(ValueError):
-            ref.push(None)
+        recorder = self.instrument(ref, json.dumps({}))
+        child = []
+        child.append(ref.push(data))
+        child.append(ref.push(data))
+        key1 = child[0].key
+        key2 = child[1].key
+        # First 8 digits are the encoded timestamp
+        assert key1[:8] == key2[:8]
+        assert key2 > key1
+        assert len(recorder) == 2
+        for index, record in enumerate(recorder):
+            assert record.method == 'PUT'
+            assert record.url == \
+                f'https://test.firebaseio.com/test/{child[index].key}.json?print=silent'
+            assert json.loads(record.body.decode()) == data
+            assert record.headers['Authorization'] == 'Bearer mock-token'
+            assert record.headers['User-Agent'] == db._USER_AGENT
 
     def test_delete(self):
         ref = db.reference('/test')

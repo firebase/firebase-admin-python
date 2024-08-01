@@ -91,7 +91,7 @@ class FirebaseError(Exception):
         cause: The exception that caused this error (optional).
         http_response: If this error was caused by an HTTP error response, this property is
             set to the ``requests.Response`` object that represents the HTTP response (optional).
-            See https://2.python-requests.org/en/master/api/#requests.Response for details of
+            See https://docs.python-requests.org/en/master/api/#requests.Response for details of
             this object.
     """
 

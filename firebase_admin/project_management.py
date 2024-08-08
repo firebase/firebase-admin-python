@@ -661,4 +661,4 @@ class _ProjectManagementService:
         try:
             return self._client.body_and_response(method=method, url=url, json=json)
         except requests.exceptions.RequestException as error:
-            raise _utils.handle_platform_error_from_requests(error)
+            raise _utils.handle_platform_error_from_requests(error) from error

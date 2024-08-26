@@ -148,6 +148,7 @@ def test_send_each_for_multicast():
         assert response.exception is not None
         assert response.message_id is None
 
+@pytest.mark.skip(reason="Replaced with test_send_each")
 def test_send_all():
     messages = [
         messaging.Message(
@@ -179,6 +180,7 @@ def test_send_all():
     assert isinstance(response.exception, exceptions.InvalidArgumentError)
     assert response.message_id is None
 
+@pytest.mark.skip(reason="Replaced with test_send_each_500")
 def test_send_all_500():
     messages = []
     for msg_number in range(500):

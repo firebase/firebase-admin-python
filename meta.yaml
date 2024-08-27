@@ -1,0 +1,47 @@
+{% set name = "firebase-admin" %}
+{% set version = "6.5.0" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  url: https://pypi.org/packages/source/{{ name[0] }}/{{ name }}/firebase_admin-{{ version }}.tar.gz
+  sha256: e716dde1447f0a1cd1523be76ff872df33c4e1a3c079564ace033b2ad60bcc4f
+
+build:
+  skip: true  # [py<37]
+  script: {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
+  number: 0
+
+requirements:
+  host:
+    - python
+    - pip
+  run:
+    - python
+    - cachecontrol >=0.12.6
+    - google-api-core >=1.22.1,<3.0.0dev
+    - google-api-python-client >=1.7.8
+    - google-cloud-firestore >=2.9.1
+    - google-cloud-storage >=1.37.1
+    - pyjwt >=2.5.0
+
+test:
+  imports:
+    - firebase_admin
+  commands:
+    - pip check
+  requires:
+    - pip
+
+about:
+  home: https://firebase.google.com/docs/admin/setup/
+  summary: Firebase Admin Python SDK
+  dev_url: https://github.com/firebase/firebase-admin-python
+  license: Apache-2.0
+  license_file: LICENSE
+
+extra:
+  recipe-maintainers:
+    - clement-chaneching

@@ -18,6 +18,7 @@ import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import db
 
+DB_URL = 'https://databaseName.firebaseio.com'
 def authenticate_with_admin_privileges():
     # [START authenticate_with_admin_privileges]
     import firebase_admin
@@ -29,7 +30,7 @@ def authenticate_with_admin_privileges():
 
     # Initialize the app with a service account, granting admin privileges
     firebase_admin.initialize_app(cred, {
-        'databaseURL': 'https://databaseName.firebaseio.com'
+        'databaseURL': DB_URL
     })
 
     # As an admin, the app has access to read and write all data, regradless of Security Rules
@@ -49,7 +50,7 @@ def authenticate_with_limited_privileges():
 
     # Initialize the app with a custom auth variable, limiting the server's access
     firebase_admin.initialize_app(cred, {
-        'databaseURL': 'https://databaseName.firebaseio.com',
+        'databaseURL': DB_URL,
         'databaseAuthVariableOverride': {
             'uid': 'my-service-worker'
         }
@@ -72,7 +73,7 @@ def authenticate_with_guest_privileges():
 
     # Initialize the app with a None auth variable, limiting the server's access
     firebase_admin.initialize_app(cred, {
-        'databaseURL': 'https://databaseName.firebaseio.com',
+        'databaseURL': DB_URL,
         'databaseAuthVariableOverride': None
     })
 
@@ -330,7 +331,7 @@ def complex_query():
 
 
 service_account = 'path/to/serviceAccount.json'
-database_url = 'https://databaseName.firebaseio.com'
+database_url = DB_URL
 
 cred = credentials.Certificate(service_account)
 firebase_admin.initialize_app(cred, {

@@ -267,7 +267,7 @@ class _TenantManagementService:
         try:
             body = self.client.body('get', '/tenants/{0}'.format(tenant_id))
         except requests.exceptions.RequestException as error:
-            raise _auth_utils.handle_auth_backend_error(error)
+            raise _auth_utils.handle_auth_backend_error(error) from error
         else:
             return Tenant(body)
 
@@ -286,7 +286,7 @@ class _TenantManagementService:
         try:
             body = self.client.body('post', '/tenants', json=payload)
         except requests.exceptions.RequestException as error:
-            raise _auth_utils.handle_auth_backend_error(error)
+            raise _auth_utils.handle_auth_backend_error(error) from error
         else:
             return Tenant(body)
 
@@ -316,7 +316,7 @@ class _TenantManagementService:
         try:
             body = self.client.body('patch', url, json=payload, params=params)
         except requests.exceptions.RequestException as error:
-            raise _auth_utils.handle_auth_backend_error(error)
+            raise _auth_utils.handle_auth_backend_error(error) from error
         else:
             return Tenant(body)
 
@@ -329,7 +329,7 @@ class _TenantManagementService:
         try:
             self.client.request('delete', '/tenants/{0}'.format(tenant_id))
         except requests.exceptions.RequestException as error:
-            raise _auth_utils.handle_auth_backend_error(error)
+            raise _auth_utils.handle_auth_backend_error(error) from error
 
     def list_tenants(self, page_token=None, max_results=_MAX_LIST_TENANTS_RESULTS):
         """Retrieves a batch of tenants."""
@@ -349,7 +349,7 @@ class _TenantManagementService:
         try:
             return self.client.body('get', '/tenants', params=payload)
         except requests.exceptions.RequestException as error:
-            raise _auth_utils.handle_auth_backend_error(error)
+            raise _auth_utils.handle_auth_backend_error(error) from error
 
 
 class ListTenantsPage:

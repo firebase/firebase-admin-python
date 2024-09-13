@@ -855,7 +855,7 @@ class _MLService:
         try:
             return self._operation_client.body('get', url=op_name)
         except requests.exceptions.RequestException as error:
-            raise _utils.handle_platform_error_from_requests(error)
+            raise _utils.handle_platform_error_from_requests(error) from error
 
     def _exponential_backoff(self, current_attempt, stop_time):
         """Sleeps for the appropriate amount of time. Or throws deadline exceeded."""
@@ -932,7 +932,7 @@ class _MLService:
             return self.handle_operation(
                 self._client.body('post', url='models', json=model.as_dict(for_upload=True)))
         except requests.exceptions.RequestException as error:
-            raise _utils.handle_platform_error_from_requests(error)
+            raise _utils.handle_platform_error_from_requests(error) from error
 
     def update_model(self, model, update_mask=None):
         _validate_model(model, update_mask)
@@ -943,7 +943,7 @@ class _MLService:
             return self.handle_operation(
                 self._client.body('patch', url=path, json=model.as_dict(for_upload=True)))
         except requests.exceptions.RequestException as error:
-            raise _utils.handle_platform_error_from_requests(error)
+            raise _utils.handle_platform_error_from_requests(error) from error
 
     def set_published(self, model_id, publish):
         _validate_model_id(model_id)
@@ -961,7 +961,7 @@ class _MLService:
         try:
             return self._client.body('get', url='models/{0}'.format(model_id))
         except requests.exceptions.RequestException as error:
-            raise _utils.handle_platform_error_from_requests(error)
+            raise _utils.handle_platform_error_from_requests(error) from error
 
     def list_models(self, list_filter, page_size, page_token):
         """ lists Firebase ML models."""
@@ -982,11 +982,11 @@ class _MLService:
         try:
             return self._client.body('get', url=path)
         except requests.exceptions.RequestException as error:
-            raise _utils.handle_platform_error_from_requests(error)
+            raise _utils.handle_platform_error_from_requests(error) from error
 
     def delete_model(self, model_id):
         _validate_model_id(model_id)
         try:
             self._client.body('delete', url='models/{0}'.format(model_id))
         except requests.exceptions.RequestException as error:
-            raise _utils.handle_platform_error_from_requests(error)
+            raise _utils.handle_platform_error_from_requests(error) from error

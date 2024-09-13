@@ -26,15 +26,29 @@ from firebase_admin import exceptions
 from firebase_admin import tenant_mgt
 from firebase_admin import _auth_providers
 from firebase_admin import _user_mgt
+from firebase_admin.multi_factor_config_mgt import MultiFactorConfig
+from firebase_admin.multi_factor_config_mgt import MultiFactorServerConfig
+from firebase_admin.multi_factor_config_mgt import ProviderConfig
+from firebase_admin.multi_factor_config_mgt import TOTPProviderConfig
 from tests import testutils
 from tests import test_token_gen
 
+
+ADJACENT_INTERVALS = 5
 
 GET_TENANT_RESPONSE = """{
     "name": "projects/mock-project-id/tenants/tenant-id",
     "displayName": "Test Tenant",
     "allowPasswordSignup": true,
-    "enableEmailLinkSignin": true
+    "enableEmailLinkSignin": true,
+    "mfaConfig": {
+        "providerConfigs": [{
+            "state":"ENABLED",
+            "totpProviderConfig": {
+                "adjacentIntervals": 5
+            }
+        }]
+    }
 }"""
 
 TENANT_NOT_FOUND_RESPONSE = """{
@@ -236,17 +250,45 @@ class TestCreateTenant:
                 display_name='test', enable_email_link_sign_in=enable, app=tenant_mgt_app)
         assert str(excinfo.value).startswith('Invalid type for enableEmailLinkSignin')
 
+    @pytest.mark.parametrize('multi_factor_config', ['a', 1, True, {}, dict(), list(), tuple()])
+    def test_invalid_multi_factor_configs(self, multi_factor_config, tenant_mgt_app):
+        with pytest.raises(ValueError) as excinfo:
+            tenant_mgt.create_tenant(
+                display_name='test', multi_factor_config=multi_factor_config, app=tenant_mgt_app)
+        assert str(excinfo.value).startswith('multi_factor_config must be of type'
+                                             ' MultiFactorConfig.')
+
     def test_create_tenant(self, tenant_mgt_app):
         _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
+        mfa_object = MultiFactorConfig(
+            provider_configs=[
+                ProviderConfig(
+                    state=ProviderConfig.State.ENABLED,
+                    totp_provider_config=TOTPProviderConfig(
+                        adjacent_intervals=ADJACENT_INTERVALS
+                    )
+                )
+            ]
+        )
         tenant = tenant_mgt.create_tenant(
             display_name='My-Tenant', allow_password_sign_up=True, enable_email_link_sign_in=True,
-            app=tenant_mgt_app)
+            multi_factor_config=mfa_object, app=tenant_mgt_app)
 
         _assert_tenant(tenant)
         self._assert_request(recorder, {
             'displayName': 'My-Tenant',
             'allowPasswordSignup': True,
             'enableEmailLinkSignin': True,
+            'mfaConfig': {
+                'providerConfigs': [
+                    {
+                        'state': 'ENABLED',
+                        'totpProviderConfig': {
+                            'adjacentIntervals': ADJACENT_INTERVALS
+                        }
+                    }
+                ]
+            },
         })
 
     def test_create_tenant_false_values(self, tenant_mgt_app):
@@ -322,6 +364,14 @@ class TestUpdateTenant:
                 'tenant-id', enable_email_link_sign_in=enable, app=tenant_mgt_app)
         assert str(excinfo.value).startswith('Invalid type for enableEmailLinkSignin')
 
+    @pytest.mark.parametrize('multi_factor_config', ['a', 1, True, {}, dict(), list(), tuple()])
+    def test_invalid_multi_factor_configs(self, multi_factor_config, tenant_mgt_app):
+        with pytest.raises(ValueError) as excinfo:
+            tenant_mgt.update_tenant(
+                'tenant-id', multi_factor_config=multi_factor_config, app=tenant_mgt_app)
+        assert str(excinfo.value).startswith('multi_factor_config must be of type'
+                                             ' MultiFactorConfig.')
+
     def test_update_tenant_no_args(self, tenant_mgt_app):
         with pytest.raises(ValueError) as excinfo:
             tenant_mgt.update_tenant('tenant-id', app=tenant_mgt_app)
@@ -329,17 +379,39 @@ class TestUpdateTenant:
 
     def test_update_tenant(self, tenant_mgt_app):
         _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
+        mfa_object = MultiFactorConfig(
+            provider_configs=[
+                ProviderConfig(
+                    state=ProviderConfig.State.ENABLED,
+                    totp_provider_config=TOTPProviderConfig(
+                        adjacent_intervals=ADJACENT_INTERVALS
+                    )
+                )
+            ]
+        )
         tenant = tenant_mgt.update_tenant(
             'tenant-id', display_name='My-Tenant', allow_password_sign_up=True,
-            enable_email_link_sign_in=True, app=tenant_mgt_app)
+            enable_email_link_sign_in=True,
+            multi_factor_config=mfa_object, app=tenant_mgt_app)
 
         _assert_tenant(tenant)
         body = {
             'displayName': 'My-Tenant',
             'allowPasswordSignup': True,
             'enableEmailLinkSignin': True,
+            'mfaConfig': {
+                'providerConfigs': [
+                    {
+                        'state': 'ENABLED',
+                        'totpProviderConfig': {
+                            'adjacentIntervals': ADJACENT_INTERVALS
+                        }
+                    }
+                ]
+            }
         }
-        mask = ['allowPasswordSignup', 'displayName', 'enableEmailLinkSignin']
+        mask = ['allowPasswordSignup', 'displayName', 'enableEmailLinkSignin',
+                'mfaConfig.providerConfigs']
         self._assert_request(recorder, body, mask)
 
     def test_update_tenant_false_values(self, tenant_mgt_app):
@@ -995,6 +1067,18 @@ class TestCreateCustomToken:
         test_token_gen.verify_custom_token(
             custom_token, expected_claims=claims, tenant_id='test-tenant')
 
+def _assert_multi_factor_config(mfa_config):
+    assert isinstance(mfa_config, MultiFactorServerConfig)
+    assert len(mfa_config.provider_configs) == 1
+    assert isinstance(mfa_config.provider_configs, list)
+    for provider_config in mfa_config.provider_configs:
+        assert isinstance(provider_config, MultiFactorServerConfig.\
+                          ProviderServerConfig)
+        assert provider_config.state == 'ENABLED'
+        assert isinstance(provider_config.totp_provider_config,
+                          MultiFactorServerConfig.ProviderServerConfig
+                          .TOTPProviderServerConfig)
+        assert provider_config.totp_provider_config.adjacent_intervals == ADJACENT_INTERVALS
 
 def _assert_tenant(tenant, tenant_id='tenant-id'):
     assert isinstance(tenant, tenant_mgt.Tenant)
@@ -1002,3 +1086,5 @@ def _assert_tenant(tenant, tenant_id='tenant-id'):
     assert tenant.display_name == 'Test Tenant'
     assert tenant.allow_password_sign_up is True
     assert tenant.enable_email_link_sign_in is True
+    if tenant.multi_factor_config is not None:
+        _assert_multi_factor_config(mfa_config=tenant.multi_factor_config)

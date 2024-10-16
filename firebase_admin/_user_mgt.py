@@ -688,7 +688,8 @@ class UserManager:
 
     def update_user(self, uid, display_name=None, email=None, phone_number=None,
                     photo_url=None, password=None, disabled=None, email_verified=None,
-                    valid_since=None, custom_claims=None, providers_to_delete=None):
+                    valid_since=None, custom_claims=None, providers_to_delete=None,
+                    provider_to_add=None):
         """Updates an existing user account with the specified properties"""
         payload = {
             'localId': _auth_utils.validate_uid(uid, required=True),
@@ -726,6 +727,12 @@ class UserManager:
             json_claims = json.dumps(custom_claims) if isinstance(
                 custom_claims, dict) else custom_claims
             payload['customAttributes'] = _auth_utils.validate_custom_claims(json_claims)
+
+        if provider_to_add:
+            payload['linkProviderUserInfo'] = {
+                'rawId': uid,
+                'providerId': _auth_utils.validate_provider_id(provider_to_add)
+            }
 
         if remove_provider:
             payload['deleteProvider'] = list(set(remove_provider))

@@ -16,6 +16,7 @@
 import base64
 import datetime
 import random
+import re
 import string
 import time
 from typing import List
@@ -30,6 +31,7 @@ import requests
 import firebase_admin
 from firebase_admin import auth
 from firebase_admin import credentials
+from firebase_admin import exceptions
 
 
 _verify_token_url = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyCustomToken'
@@ -495,6 +497,39 @@ def test_disable_user(new_user_with_params):
     assert user.email_verified is True
     assert user.disabled is True
     assert len(user.provider_data) == 1
+
+def test_add_valid_provider(new_user_with_provider):
+    new_provider_id = "microsoft.com"
+    existing_provider_ids = [provider.provider_id for provider in new_user_with_provider.provider_data]
+    assert new_provider_id not in existing_provider_ids
+    user = auth.update_user(new_user_with_provider.uid, provider_to_add=new_provider_id)
+    assert user.uid == new_user_with_provider.uid
+    new_provider_ids = [provider.provider_id for provider in user.provider_data]
+    assert sorted(new_provider_ids) == sorted(existing_provider_ids + [new_provider_id])
+
+def test_add_empty_provider(new_user_with_provider):
+    new_provider_id = ""
+    existing_provider_ids = [provider.provider_id for provider in new_user_with_provider.provider_data]
+    user = auth.update_user(new_user_with_provider.uid, provider_to_add=new_provider_id)
+    assert user.uid == new_user_with_provider.uid
+    new_provider_ids = [provider.provider_id for provider in user.provider_data]
+    assert sorted(new_provider_ids) == sorted(existing_provider_ids)
+
+def test_add_invalid_provider(new_user_with_provider):
+    new_provider_id = "xyz"
+    existing_provider_ids = [provider.provider_id for provider in new_user_with_provider.provider_data]
+    assert new_provider_id not in existing_provider_ids
+    with pytest.raises(exceptions.InvalidArgumentError, match=re.escape(
+        f"Error while calling Auth service (INVALID_PROVIDER_ID ). provider {new_provider_id} is not supported for linking."
+    )):
+        auth.update_user(new_user_with_provider.uid, provider_to_add=new_provider_id)
+
+def test_add_duplicate_provider(new_user_with_provider):
+    new_provider_id = "google.com"
+    with pytest.raises(exceptions.InvalidArgumentError, match=re.escape(
+        f"Error while calling Auth service (PROVIDER_ALREADY_LINKED)."
+    )):
+        auth.update_user(new_user_with_provider.uid, provider_to_add=new_provider_id)
 
 def test_remove_provider(new_user_with_provider):
     provider_ids = [provider.provider_id for provider in new_user_with_provider.provider_data]

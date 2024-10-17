@@ -17,6 +17,20 @@ import datetime
 
 from firebase_admin import firestore
 
+_CITY = {
+        'name': u'Mountain View',
+        'country': u'USA',
+        'population': 77846,
+        'capital': False
+    }
+
+_MOVIE = {
+        'Name': u'Interstellar',
+        'Year': 2014,
+        'Runtime': u'2h 49m',
+        'Academy Award Winner': True
+    }
+
 
 def test_firestore():
     client = firestore.client()
@@ -34,6 +48,47 @@ def test_firestore():
 
     doc.delete()
     assert doc.get().exists is False
+
+def test_firestore_explicit_database_id():
+    client = firestore.client(database_id='testing-database')
+    expected = _CITY
+    doc = client.collection('cities').document()
+    doc.set(expected)
+
+    data = doc.get()
+    assert data.to_dict() == expected
+
+    doc.delete()
+    data = doc.get()
+    assert data.exists is False
+
+def test_firestore_multi_db():
+    city_client = firestore.client()
+    movie_client = firestore.client(database_id='testing-database')
+
+    expected_city = _CITY
+    expected_movie = _MOVIE
+
+    city_doc = city_client.collection('cities').document()
+    movie_doc = movie_client.collection('movies').document()
+
+    city_doc.set(expected_city)
+    movie_doc.set(expected_movie)
+
+    city_data = city_doc.get()
+    movie_data = movie_doc.get()
+
+    assert city_data.to_dict() == expected_city
+    assert movie_data.to_dict() == expected_movie
+
+    city_doc.delete()
+    movie_doc.delete()
+
+    city_data = city_doc.get()
+    movie_data = movie_doc.get()
+
+    assert city_data.exists is False
+    assert movie_data.exists is False
 
 def test_server_timestamp():
     client = firestore.client()

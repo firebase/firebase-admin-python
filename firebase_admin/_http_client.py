@@ -148,3 +148,13 @@ class JsonHttpClient(HttpClient):
 
     def parse_body(self, resp):
         return resp.json()
+
+
+class RemoteConfigApiClient(HttpClient):
+    """An HTTP client that parses response messages as JSON."""
+
+    def __init__(self, **kwargs):
+        HttpClient.__init__(self, **kwargs)
+
+    def parse_body(self, resp):
+        return resp.json()

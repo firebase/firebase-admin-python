@@ -44,14 +44,15 @@ def client(app: Optional[App] = None, database_id: Optional[str] = None) -> fire
     Args:
         app: An App instance (optional).
         database_id: The database ID of the Google Cloud Firestore database to be used.
-            Defaults to the default firestore database if not specified or empty string (optional).
+            Defaults to the default Firestore database ID if not specified or an empty string
+            (optional).
 
     Returns:
         google.cloud.firestore.Firestore_Async: A `Firestore Async Client`_.
 
     Raises:
-        ValueError: If the database ID is not None or a string or a project ID is not specified
-            either via options, credentials or environment variables, or if the specified
+        ValueError: If the specified database ID is not a valid string, or if a project ID is not
+            specified either via options, credentials or environment variables, or if the specified
             project ID is not a valid string.
 
     .. _Firestore Async Client: https://cloud.google.com/python/docs/reference/firestore/latest/\

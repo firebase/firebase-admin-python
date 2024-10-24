@@ -18,10 +18,9 @@ import json
 import pathlib
 
 import google.auth
+import google.auth.impersonated_credentials
 from google.auth.transport import requests
-from google.oauth2 import credentials
-from google.oauth2 import service_account
-
+from google.oauth2 import credentials, service_account
 
 _request = requests.Request()
 _scopes = [
@@ -213,6 +212,64 @@ class RefreshToken(Base):
         Returns:
           google.auth.credentials.Credentials: A Google Auth credential instance."""
         return self._g_credential
+
+
+class ImpersonatedCredentials(Base):
+    """A credential initialized from a google.auth.impersonated_credentials.Credentials"""
+
+    def __init__(self, icreds: google.auth.impersonated_credentials.Credentials):
+        """Initializes a credential from a google.auth.impersonated_credentials.Credentials.
+
+        Args:
+            icreds: A google.auth.impersonated_credentials.Credentials instance.
+
+        Raises:
+          ValueError: If the impersonated credential is invalid.
+
+        Example:
+        ```python
+        import google.auth
+        import firebase_admin
+        from firebase_admin.credentials import ImpersonatedCredentials
+
+        creds, project_id = google.auth.default(quota_project_id=PROJECT_ID_DEFAULT, scopes=_scopes,)
+        logger.info(f"Obtained default credentials for the project {project_id}")
+        fullname_service_account = (
+            f"{service_account_name_filtered}@{project_id}.iam.gserviceaccount.com"
+        )
+        logger.info(
+            f"Obtained impersonated credentials for the service account {fullname_service_account}",
+        )
+
+        icreds = google.auth.impersonated_credentials.Credentials(
+            source_credentials=creds,
+            target_principal=fullname_service_account,
+            target_scopes=_scopes,
+        )
+
+        impersonated_creds = ImpersonatedCredentials(icreds)
+
+        app = firebase_admin.initialize_app(impersonated_creds, name=name_firebase)
+        ```
+        """
+        if not isinstance(icreds, google.auth.impersonated_credentials.Credentials):
+            raise ValueError(
+                "Invalid impersonated credentials. Credentials must be an instance of "
+                "google.auth.impersonated_credentials.Credentials"
+            )
+        super(ImpersonatedCredentials, self).__init__()
+        self._g_credential = icreds
+
+    def get_credential(self):
+        """Returns the underlying Google credential.
+
+        Returns:
+          google.auth.credentials.Credentials: A Google Auth credential instance."""
+        return self._g_credential
+
+    @property
+    def service_account_email(self):
+        return self._g_credential.service_account_email
 
 
 def _is_file_path(path):

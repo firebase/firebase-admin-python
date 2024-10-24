@@ -299,7 +299,7 @@ class Reference:
                 snapshot = http_response.json()
                 return False, snapshot, etag
 
-            raise error
+            raise
 
     def push(self, value=''):
         """Creates a new child node.
@@ -470,7 +470,7 @@ class Reference:
             sse = _sseclient.SSEClient(url, session)
             return ListenerRegistration(callback, sse)
         except requests.exceptions.RequestException as error:
-            raise _Client.handle_rtdb_error(error)
+            raise _Client.handle_rtdb_error(error) from error
 
 
 class Query:
@@ -928,7 +928,7 @@ class _Client(_http_client.JsonHttpClient):
         try:
             return super(_Client, self).request(method, url, **kwargs)
         except requests.exceptions.RequestException as error:
-            raise _Client.handle_rtdb_error(error)
+            raise _Client.handle_rtdb_error(error) from error
 
     def create_listener_session(self):
         return _sseclient.KeepAuthSession(self.credential)

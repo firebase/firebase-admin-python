@@ -18,6 +18,7 @@ import json
 import pathlib
 
 import google.auth
+from google.auth.credentials import Credentials as GoogleAuthCredentials
 from google.auth.transport import requests
 from google.oauth2 import credentials
 from google.oauth2 import service_account
@@ -58,6 +59,19 @@ class Base:
         """Returns the Google credential instance used for authentication."""
         raise NotImplementedError
 
+class _ExternalCredentials(Base):
+    """A wrapper for google.auth.credentials.Credentials typed credential instances"""
+
+    def __init__(self, credential: GoogleAuthCredentials):
+        super(_ExternalCredentials, self).__init__()
+        self._g_credential = credential
+
+    def get_credential(self):
+        """Returns the underlying Google Credential
+
+        Returns:
+          google.auth.credentials.Credentials: A Google Auth credential instance."""
+        return self._g_credential
 
 class Certificate(Base):
     """A credential initialized from a JSON certificate keyfile."""

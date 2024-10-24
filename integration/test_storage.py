@@ -14,7 +14,7 @@
 
 """Integration tests for firebase_admin.storage module."""
 import time
-
+import urllib
 from firebase_admin import storage
 
 
@@ -30,6 +30,26 @@ def test_custom_bucket(project_id):
 def test_non_existing_bucket():
     bucket = storage.bucket('non.existing')
     assert bucket.exists() is False
+
+def test_download_url(project_id):
+    bucket = storage.bucket()
+    ts = int(time.time())
+    file_name = 'data_{0}.txt'.format(ts)
+    enc_file_name = urllib.parse.quote(file_name, safe='')
+
+    blob = bucket.blob(file_name)
+    blob.upload_from_string('Hello World')
+
+    url = storage.get_download_url(blob)
+    parse_result = urllib.parse.urlparse(url)
+    assert parse_result.netloc == 'firebasestorage.googleapis.com'
+    assert project_id in parse_result.path
+    assert enc_file_name in parse_result.path
+
+    query_dict = dict(urllib.parse.parse_qs(parse_result.query))
+    assert 'token' in query_dict
+
+    bucket.delete_blob(file_name)
 
 def _verify_bucket(bucket, expected_name):
     assert bucket.name == expected_name

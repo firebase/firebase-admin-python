@@ -24,9 +24,10 @@ try:
 except ImportError:
     raise ImportError('Failed to import the Cloud Storage library for Python. Make sure '
                       'to install the "google-cloud-storage" module.')
-
-from firebase_admin import _utils
-
+import os
+import urllib
+from firebase_admin import _utils, _http_client
+from firebase_admin.__about__ import __version__
 
 _STORAGE_ATTRIBUTE = '_storage'
 
@@ -51,21 +52,36 @@ def bucket(name=None, app=None) -> storage.Bucket:
     client = _utils.get_app_service(app, _STORAGE_ATTRIBUTE, _StorageClient.from_app)
     return client.bucket(name)
 
+def get_download_url(blob, app=None) -> str:
+    """Gets the download URL for the given Google Cloud Storage Blob reference.
+
+    Args:
+      blob: reference to a Google Cloud Storage Blob.
+      app: An App instance (optional).
+
+    Returns:
+      str: the download URL of the Blob.
+
+    Raises:
+      ValueError: If there are no downloadTokens available for the given Blob
+    """
+    client = _utils.get_app_service(app, _STORAGE_ATTRIBUTE, _StorageClient.from_app)
+    return client.get_download_url(blob)
 
 class _StorageClient:
     """Holds a Google Cloud Storage client instance."""
 
-    def __init__(self, credentials, project, default_bucket):
-        self._client = storage.Client(credentials=credentials, project=project)
-        self._default_bucket = default_bucket
+    def __init__(self, app):
+        self._app = app
+        self._default_bucket = app.options.get('storageBucket')
+        self._client = storage.Client(
+            credentials=app.credential.get_credential(), project=app.project_id)
 
     @classmethod
     def from_app(cls, app):
-        credentials = app.credential.get_credential()
-        default_bucket = app.options.get('storageBucket')
         # Specifying project ID is not required, but providing it when available
         # significantly speeds up the initialization of the storage client.
-        return _StorageClient(credentials, app.project_id, default_bucket)
+        return _StorageClient(app)
 
     def bucket(self, name=None):
         """Returns a handle to the specified Cloud Storage Bucket."""
@@ -80,3 +96,37 @@ class _StorageClient:
                 'Invalid storage bucket name: "{0}". Bucket name must be a non-empty '
                 'string.'.format(bucket_name))
         return self._client.bucket(bucket_name)
+
+    def get_download_url(self, blob):
+        """Gets the download URL for the given Blob"""
+        endpoint = os.getenv("STORAGE_EMULATOR_HOST")
+        credential = _utils.EmulatorAdminCredentials()
+        if endpoint is None:
+            endpoint = 'https://firebasestorage.googleapis.com'
+            credential = self._app.credential.get_credential()
+
+        endpoint = endpoint + '/v0'
+
+        version_header = 'Python/Admin/{0}'.format(__version__)
+        timeout = self._app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
+        encoded_blob_name = urllib.parse.quote(blob.name, safe='')
+
+        http_client = _http_client.JsonHttpClient(
+            credential=credential, headers={'X-Client-Version': version_header}, timeout=timeout)
+
+        metadata_endpoint = '{0}/b/{1}/o/{2}'.format(endpoint, blob.bucket.name, encoded_blob_name)
+        body, resp = http_client.body_and_response('GET', metadata_endpoint)
+        if resp.status_code != 200:
+            raise ValueError('No download token available. '
+                             'Please create one in the Firebase Console.')
+
+        if 'downloadTokens' not in body:
+            raise ValueError('No download token available. '
+                             'Please create one in the Firebase Console.')
+
+        tokens = body['downloadTokens'].split(',')
+        if not tokens:
+            raise ValueError('No download token available. '
+                             'Please create one in the Firebase Console.')
+
+        return '{0}?alt=media&token={1}'.format(metadata_endpoint, tokens[0])

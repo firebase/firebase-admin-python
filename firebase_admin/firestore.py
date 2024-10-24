@@ -18,59 +18,75 @@ This module contains utilities for accessing the Google Cloud Firestore database
 Firebase apps. This requires the ``google-cloud-firestore`` Python module.
 """
 
+from __future__ import annotations
+from typing import Optional, Dict
+from firebase_admin import App
+from firebase_admin import _utils
+
 try:
-    from google.cloud import firestore # pylint: disable=import-error,no-name-in-module
+    from google.cloud import firestore
+    from google.cloud.firestore_v1.base_client import DEFAULT_DATABASE
     existing = globals().keys()
     for key, value in firestore.__dict__.items():
         if not key.startswith('_') and key not in existing:
             globals()[key] = value
-except ImportError:
+except ImportError as error:
     raise ImportError('Failed to import the Cloud Firestore library for Python. Make sure '
-                      'to install the "google-cloud-firestore" module.')
-
-from firebase_admin import _utils
+                      'to install the "google-cloud-firestore" module.') from error
 
 
 _FIRESTORE_ATTRIBUTE = '_firestore'
 
 
-def client(app=None) -> firestore.Client:
+def client(app: Optional[App] = None, database_id: Optional[str] = None) -> firestore.Client:
     """Returns a client that can be used to interact with Google Cloud Firestore.
 
     Args:
-      app: An App instance (optional).
+        app: An App instance (optional).
+        database_id: The database ID of the Google Cloud Firestore database to be used.
+            Defaults to the default Firestore database ID if not specified or an empty string
+            (optional).
 
     Returns:
-      google.cloud.firestore.Firestore: A `Firestore Client`_.
+        google.cloud.firestore.Firestore: A `Firestore Client`_.
 
     Raises:
-      ValueError: If a project ID is not specified either via options, credentials or
-          environment variables, or if the specified project ID is not a valid string.
+        ValueError: If the specified database ID is not a valid string, or if a project ID is not
+            specified either via options, credentials or environment variables, or if the specified
+            project ID is not a valid string.
 
-    .. _Firestore Client: https://googlecloudplatform.github.io/google-cloud-python/latest\
-          /firestore/client.html
+    .. _Firestore Client: https://cloud.google.com/python/docs/reference/firestore/latest/\
+        google.cloud.firestore_v1.client.Client
     """
-    fs_client = _utils.get_app_service(app, _FIRESTORE_ATTRIBUTE, _FirestoreClient.from_app)
-    return fs_client.get()
+    # Validate database_id
+    if database_id is not None and not isinstance(database_id, str):
+        raise ValueError(f'database_id "{database_id}" must be a string or None.')
+    fs_service = _utils.get_app_service(app, _FIRESTORE_ATTRIBUTE, _FirestoreService)
+    return fs_service.get_client(database_id)
 
 
-class _FirestoreClient:
-    """Holds a Google Cloud Firestore client instance."""
+class _FirestoreService:
+    """Service that maintains a collection of firestore clients."""
 
-    def __init__(self, credentials, project):
-        self._client = firestore.Client(credentials=credentials, project=project)
+    def __init__(self, app: App) -> None:
+        self._app: App = app
+        self._clients: Dict[str, firestore.Client] = {}
 
-    def get(self):
-        return self._client
+    def get_client(self, database_id: Optional[str]) -> firestore.Client:
+        """Creates a client based on the database_id. These clients are cached."""
+        database_id = database_id or DEFAULT_DATABASE
+        if database_id not in self._clients:
+            # Create a new client and cache it in _clients
+            credentials = self._app.credential.get_credential()
+            project = self._app.project_id
+            if not project:
+                raise ValueError(
+                    'Project ID is required to access Firestore. Either set the projectId option, '
+                    'or use service account credentials. Alternatively, set the '
+                    'GOOGLE_CLOUD_PROJECT environment variable.')
 
-    @classmethod
-    def from_app(cls, app):
-        """Creates a new _FirestoreClient for the specified app."""
-        credentials = app.credential.get_credential()
-        project = app.project_id
-        if not project:
-            raise ValueError(
-                'Project ID is required to access Firestore. Either set the projectId option, '
-                'or use service account credentials. Alternatively, set the GOOGLE_CLOUD_PROJECT '
-                'environment variable.')
-        return _FirestoreClient(credentials, project)
+            fs_client = firestore.Client(
+                credentials=credentials, project=project, database=database_id)
+            self._clients[database_id] = fs_client
+
+        return self._clients[database_id]

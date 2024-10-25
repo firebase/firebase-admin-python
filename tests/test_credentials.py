@@ -17,10 +17,11 @@ import datetime
 import json
 import os
 import pathlib
+from unittest import mock
 
 import google.auth
-from google.auth import crypt
-from google.auth import exceptions
+
+from google.auth import crypt, exceptions, impersonated_credentials
 from google.oauth2 import credentials as gcredentials
 from google.oauth2 import service_account
 import pytest
@@ -191,3 +192,19 @@ class TestRefreshToken:
         access_token = credential.get_access_token()
         assert access_token.access_token == 'mock_access_token'
         assert isinstance(access_token.expiry, datetime.datetime)
+
+
+class TestImpersonatedCredentials:
+    def test_init_from_valid_credentials(self) -> None:
+        mock_tcreds = mock.Mock(spec=impersonated_credentials.Credentials)
+        credential = credentials.ImpersonatedCredentials(mock_tcreds)
+        assert credential._g_credential == mock_tcreds
+
+    def test_init_from_invalid_credentials(self) -> None:
+        with pytest.raises(ValueError):
+            credentials.ImpersonatedCredentials(None)
+
+    def test_get_credential(self) -> None:
+        mock_tcreds = mock.Mock(spec=impersonated_credentials.Credentials)
+        credential = credentials.ImpersonatedCredentials(mock_tcreds)
+        assert credential.get_credential() == mock_tcreds

@@ -18,6 +18,7 @@ import json
 import os
 import threading
 
+from google.auth.credentials import Credentials as GoogleAuthCredentials
 from google.auth.exceptions import DefaultCredentialsError
 from firebase_admin import credentials
 from firebase_admin.__about__ import __version__
@@ -208,6 +209,8 @@ class App:
                              'non-empty string.'.format(name))
         self._name = name
 
+        if isinstance(credential, GoogleAuthCredentials):
+            credential = credentials._ExternalCredentials(credential)
         if not isinstance(credential, credentials.Base):
             raise ValueError('Illegal Firebase credential provided. App must be initialized '
                              'with a valid credential instance.')

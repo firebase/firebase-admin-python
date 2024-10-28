@@ -210,11 +210,12 @@ class App:
         self._name = name
 
         if isinstance(credential, GoogleAuthCredentials):
-            credential = credentials._ExternalCredentials(credential)
-        if not isinstance(credential, credentials.Base):
+            self._credential = credentials._ExternalCredentials(credential) # pylint: disable=protected-access
+        elif isinstance(credential, credentials.Base):
+            self._credential = credential
+        else:
             raise ValueError('Illegal Firebase credential provided. App must be initialized '
                              'with a valid credential instance.')
-        self._credential = credential
         self._options = _AppOptions(options)
         self._lock = threading.RLock()
         self._services = {}

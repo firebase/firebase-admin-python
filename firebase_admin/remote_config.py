@@ -26,13 +26,16 @@ class ServerTemplateData:
     """Represents a Server Template Data class.
     """
     def __init__(self, resp):
+
         self._parameters = resp.body.parameters
         self._conditions = resp.body.conditions
         self._version = resp.body.version
-        self._etag = resp.headers.get('ETag')
+        self._parameterGroups = resp.body.parameterGroups
+        self._etag = resp.headers.get('etag')
 
     @property
     def parameters(self):
+        # TODO: convert to Parameters
         return self._parameters
 
     @property
@@ -46,6 +49,10 @@ class ServerTemplateData:
     @property
     def conditions(self):
         return self._conditions
+    
+    @property
+    def conditions(self):
+        return self._parameterGroups
 
 class Parameter:
     """ Representation of a remote config parameter."""
@@ -84,14 +91,17 @@ class InAppDefaultValue(ParameterValue):
 class ServerTemplate:
     """Represents a Server Template with implementations for loading and evaluting the tempalte.
     """
-    def __init__(self, app: App, default_config: Optional[Dict[str, str]] = None):
+    def __init__(self, app: App = None, default_config: Optional[Dict[str, str]] = None):
         self._rc_service = _utils.get_app_service(app, _REMOTE_CONFIG_ATTRIBUTE, _RemoteConfigService)
 
         # Field to represent the cached template. This gets set when the template is
         # fetched from RC servers via the load API, or via the set API.
         self._cache = None
-        for key in default_config:
-            self._stringified_default_config[key] = default_config[key]
+        if default_config is not None:
+            for key in default_config:
+                self._stringified_default_config[key] = default_config[key]
+        else:
+            self._stringified_default_config[key] = None
 
     async def load(self):
         self._cache = await self._rc_service.getServerTemplate()
@@ -99,7 +109,8 @@ class ServerTemplate:
     def evaluate(self, context: Optional[Dict[str, str | int]]):
         # Logic to process the cached template into a ServerConfig here
         # TODO: add Condition evaluator 
-        return ServerConfig(config_values=context.values)
+        self._evaluator = ConditionEvaluator(self._cache.conditions, context)
+        return ServerConfig(config_values=self._evaluator.evaluate())
 
     def set(self, template):
         if isinstance(template, str):
@@ -115,13 +126,13 @@ class ServerConfig:
         self._config_values = config_values # dictionary of param key to values
 
     def get_boolean(self, key):
-        return self._config_values[key]
+        return bool(self.get_value(key))
 
     def get_string(self, key):
-        return self._config_values[key]
+        return str(self.get_value(key))
 
     def get_int(self, key):
-        return self._config_values[key]
+        return int(self.get_value(key))
 
     def get_value(self, key):
         return self._config_values[key]
@@ -160,13 +171,27 @@ class _RemoteConfigService:
         return "/v1/projects/{0}".format(self._project_id)
     
 
-async def get_server_template(app: App, default_config: Optional[Dict[str, str]] = None):
+class _ConditionEvaluator:
+    """ Internal class that facilitates sending requests to the Firebase Remote
+    Config backend API. """
+
+    def __init__(self, context, conditions):
+        self._context = context
+        self._conditions = conditions
+
+    def evaluate(self):
+        # TODO: Write evaluator
+        return {}
+
+
+async def get_server_template(app: App = None, default_config: Optional[Dict[str, str]] = None):
     template = init_server_template(app, default_config)
     await template.load()
     return template
 
-def init_server_template(app: App, default_config: Optional[Dict[str, str]] = None, 
+def init_server_template(app: App = None, default_config: Optional[Dict[str, str]] = None, 
                          template_data: Optional[ServerTemplateData] = None):
     template = ServerTemplate(app, default_config=default_config)
-    template.set(template_data)
+    if template_data is not None:
+        template.set(template_data)
     return template

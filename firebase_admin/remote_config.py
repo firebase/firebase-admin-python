@@ -17,36 +17,17 @@ This module has required APIs for the clients to use Firebase Remote Config with
 """
 
 from typing import Dict, Optional
-from firebase_admin import _http_client
+from firebase_admin import App, _http_client, _utils
 import firebase_admin
 
-class RemoteConfig:
-    """Represents a Server Side Remote Config Class.
-
-    The users can use this for initializing and loading a server template.
-    """
-
-    def __init__(self, app=None):
-        self._credential = app.credential.get_credential()
-        self._api_client = _RemoteConfigApiClient(app=app)
-
-    async def get_server_template(self, default_config: Optional[Dict[str, str]] = None):
-        template = self.init_server_template(default_config)
-        await template.load()
-        return template
-
-    def init_server_template(self, default_config: Optional[Dict[str, str]] = None):
-        template = ServerTemplate(client=self._api_client, default_config=default_config)
-        # Logic to handle setting template_data here
-        return template
-
+_REMOTE_CONFIG_ATTRIBUTE = '_remoteconfig'
 
 class ServerTemplateData:
     """Represents a Server Template Data class.
     """
     def __init__(self, resp):
-        self._parameters = ...
-        # Convert response['parameters'] to {string : Parameter}
+        self._parameters = resp.body.parameters
+        self._conditions = resp.body.conditions
         self._version = resp.body.version
         self._etag = resp.headers.get('ETag')
 
@@ -61,6 +42,10 @@ class ServerTemplateData:
     @property
     def version(self):
         return self._version
+
+    @property
+    def conditions(self):
+        return self._conditions
 
 class Parameter:
     """ Representation of a remote config parameter."""
@@ -99,20 +84,21 @@ class InAppDefaultValue(ParameterValue):
 class ServerTemplate:
     """Represents a Server Template with implementations for loading and evaluting the tempalte.
     """
-    def __init__(self, client, default_config: Optional[Dict[str, str]] = None):
-        # Private API client used to make network requests
-        self._client = client
+    def __init__(self, app: App, default_config: Optional[Dict[str, str]] = None):
+        self._rc_service = _utils.get_app_service(app, _REMOTE_CONFIG_ATTRIBUTE, _RemoteConfigService)
+
         # Field to represent the cached template. This gets set when the template is
         # fetched from RC servers via the load API, or via the set API.
         self._cache = None
-        self._stringified_default_config = default_config.values
-            # Logic to set default_config here
+        for key in default_config:
+            self._stringified_default_config[key] = default_config[key]
 
     async def load(self):
-        self._cache = await self._client.getServerTemplate()
+        self._cache = await self._rc_service.getServerTemplate()
 
     def evaluate(self, context: Optional[Dict[str, str | int]]):
         # Logic to process the cached template into a ServerConfig here
+        # TODO: add Condition evaluator 
         return ServerConfig(config_values=context.values)
 
     def set(self, template):
@@ -140,7 +126,7 @@ class ServerConfig:
     def get_value(self, key):
         return self._config_values[key]
 
-class _RemoteConfigApiClient:
+class _RemoteConfigService:
     """ Internal class that facilitates sending requests to the Firebase Remote
     Config backend API. """
 
@@ -172,3 +158,15 @@ class _RemoteConfigApiClient:
         # Returns project prefix for url, in the format of
         # /v1/projects/${projectId}
         return "/v1/projects/{0}".format(self._project_id)
+    
+
+async def get_server_template(app: App, default_config: Optional[Dict[str, str]] = None):
+    template = init_server_template(app, default_config)
+    await template.load()
+    return template
+
+def init_server_template(app: App, default_config: Optional[Dict[str, str]] = None, 
+                         template_data: Optional[ServerTemplateData] = None):
+    template = ServerTemplate(app, default_config=default_config)
+    template.set(template_data)
+    return template

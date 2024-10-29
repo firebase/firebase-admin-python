@@ -34,7 +34,7 @@ from firebase_admin import exceptions
 from firebase_admin import _http_client
 from firebase_admin import _sseclient
 from firebase_admin import _utils
-
+from firebase_admin import _db_utils
 
 _DB_ATTRIBUTE = '_database'
 _INVALID_PATH_CHARACTERS = '[].?#$'
@@ -301,12 +301,13 @@ class Reference:
 
             raise error
 
-    def push(self, value=''):
+    def push(self, value=None):
         """Creates a new child node.
 
-        The optional value argument can be used to provide an initial value for the child node. If
-        no value is provided, child node will have empty string as the default value.
-
+        The optional value argument can be used to provide an initial value for the child node.
+        If you provide a value, a child node is created and the value written to that location.
+        If you don't provide a value, the child node is created but nothing is written to the
+        database and the child remains empty (but you can use the Reference elsewhere).
         Args:
           value: JSON-serializable initial value for the child node (optional).
 
@@ -314,14 +315,15 @@ class Reference:
           Reference: A Reference representing the newly created child node.
 
         Raises:
-          ValueError: If the value is None.
           TypeError: If the value is not JSON-serializable.
           FirebaseError: If an error occurs while communicating with the remote database server.
         """
-        if value is None:
-            raise ValueError('Value must not be None.')
-        output = self._client.body('post', self._add_suffix(), json=value)
-        push_id = output.get('name')
+        now = _db_utils.time_now()
+        push_id = _db_utils.get_next_push_id(now)
+        push_ref = self.child(push_id)
+
+        if value is not None:
+            push_ref.set(value)
         return self.child(push_id)
 
     def update(self, value):

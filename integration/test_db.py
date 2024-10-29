@@ -149,7 +149,7 @@ class TestWriteOperations:
         python = testref.parent
         ref = python.child('users').push()
         assert ref.path == '/_adminsdk/python/users/' + ref.key
-        assert ref.get() == ''
+        assert ref.get() is None
 
     def test_push_with_value(self, testref):
         python = testref.parent
@@ -157,6 +157,25 @@ class TestWriteOperations:
         ref = python.child('users').push(value)
         assert ref.path == '/_adminsdk/python/users/' + ref.key
         assert ref.get() == value
+
+    def test_push_to_local_ref(self, testref):
+        python = testref.parent
+        ref1 = python.child('games').push()
+        assert ref1.get() is None
+        ref2 = ref1.push("card")
+        assert ref2.parent.key == ref1.key
+        assert ref1.get() == {ref2.key: 'card'}
+        assert ref2.get() == 'card'
+
+    def test_push_set_local_ref(self, testref):
+        python = testref.parent
+        ref1 = python.child('games').push().child('card')
+        ref2 = ref1.push()
+        assert ref2.get() is None
+        ref3 = ref1.push('heart')
+        ref2.set('spade')
+        assert ref2.get() == 'spade'
+        assert ref1.parent.get() == {'card': {ref2.key: 'spade', ref3.key: 'heart'}}
 
     def test_set_primitive_value(self, testref):
         python = testref.parent

@@ -25,12 +25,18 @@ _REMOTE_CONFIG_ATTRIBUTE = '_remoteconfig'
 
 class ServerTemplateData:
     """Represents a Server Template Data class."""
-    def __init__(self, headers, response_json):
-        self._parameters = response_json['parameters']
-        self._conditions = response_json['conditions']
-        self._version = response_json['version']
-        self._parameter_groups = response_json['parameterGroups']
-        self._etag = headers.get('ETag')
+    def __init__(self, etag, template_data):
+        """Initializes a new ServerTemplateData instance.
+
+        Args:
+            etag: The string to be used for initialize the ETag property.
+            template_data: The data to be parsed for getting the parameters and conditions.
+        """
+        self._parameters = template_data['parameters']
+        self._conditions = template_data['conditions']
+        self._version = template_data['version']
+        self._parameter_groups = template_data['parameterGroups']
+        self._etag = etag
 
     @property
     def parameters(self):
@@ -142,7 +148,7 @@ class _RemoteConfigService:
         headers, response_json = self._client.headers_and_body('get',
                                                                url=url_prefix+'/namespaces/ \
                                                                firebase-server/serverRemoteConfig')
-        return ServerTemplateData(headers, response_json)
+        return ServerTemplateData(headers.get('ETag'), response_json)
 
     def _get_url_prefix(self):
         # Returns project prefix for url, in the format of

@@ -16,6 +16,7 @@
 This module has required APIs for the clients to use Firebase Remote Config with python.
 """
 
+import json
 from typing import Dict, Optional
 from firebase_admin import App, _http_client, _utils
 import firebase_admin
@@ -23,19 +24,16 @@ import firebase_admin
 _REMOTE_CONFIG_ATTRIBUTE = '_remoteconfig'
 
 class ServerTemplateData:
-    """Represents a Server Template Data class.
-    """
-    def __init__(self, resp):
-
-        self._parameters = resp.body.parameters
-        self._conditions = resp.body.conditions
-        self._version = resp.body.version
-        self._parameterGroups = resp.body.parameterGroups
-        self._etag = resp.headers.get('etag')
+    """Represents a Server Template Data class."""
+    def __init__(self, headers, response_json):
+        self._parameters = response_json['parameters']
+        self._conditions = response_json['conditions']
+        self._version = response_json['version']
+        self._parameter_groups = response_json['parameterGroups']
+        self._etag = headers.get('ETag')
 
     @property
     def parameters(self):
-        # TODO: convert to Parameters
         return self._parameters
 
     @property
@@ -49,79 +47,55 @@ class ServerTemplateData:
     @property
     def conditions(self):
         return self._conditions
-    
-    @property
-    def conditions(self):
-        return self._parameterGroups
-
-class Parameter:
-    """ Representation of a remote config parameter."""
-
-    def __init__(self, default_value):
-        self._default_value = default_value # ParameterValue
 
     @property
-    def default_value(self):
-        return self._default_value
-
-
-class ParameterValue:
-    """ Base class to represent remote parameter values. A
-    ParameterValue could be either an ExplicitParameterValue or an
-    InAppDefaultValue. """
-
-
-class ExplicitParameterValue(ParameterValue):
-    def __init__(self, value):
-        self._value = value
-
-    @property
-    def value(self):
-        return self._value
-
-class InAppDefaultValue(ParameterValue):
-    def __init__(self, use_in_app_default):
-        self._use_in_app_default = use_in_app_default
-
-    @property
-    def use_in_app_default(self):
-        return self._use_in_app_default
+    def parameter_groups(self):
+        return self._parameter_groups
 
 
 class ServerTemplate:
-    """Represents a Server Template with implementations for loading and evaluting the tempalte.
-    """
+    """Represents a Server Template with implementations for loading and evaluting the tempalte."""
     def __init__(self, app: App = None, default_config: Optional[Dict[str, str]] = None):
-        self._rc_service = _utils.get_app_service(app, _REMOTE_CONFIG_ATTRIBUTE, _RemoteConfigService)
+        """Initializes a ServerTemplate instance.
 
-        # Field to represent the cached template. This gets set when the template is
+        Args:
+          app: App instance to be used. This is optional and the default app instance will
+                be used if not present.
+          default_config: The default config to be used in the evaluated config.
+        """
+        self._rc_service = _utils.get_app_service(app,
+                                                  _REMOTE_CONFIG_ATTRIBUTE, _RemoteConfigService)
+
+        # This gets set when the template is
         # fetched from RC servers via the load API, or via the set API.
         self._cache = None
         if default_config is not None:
-            for key in default_config:
-                self._stringified_default_config[key] = default_config[key]
+            self._stringified_default_config = json.dumps(default_config)
         else:
-            self._stringified_default_config[key] = None
+            self._stringified_default_config = None
 
     async def load(self):
+        """Fetches the server template and caches the data."""
         self._cache = await self._rc_service.getServerTemplate()
 
-    def evaluate(self, context: Optional[Dict[str, str | int]]):
-        # Logic to process the cached template into a ServerConfig here
-        # TODO: add Condition evaluator 
-        self._evaluator = ConditionEvaluator(self._cache.conditions, context)
+    def evaluate(self, context):
+        # Logic to process the cached template into a ServerConfig here.
+        # TODO: Add Condition evaluator.
+        self._evaluator = _ConditionEvaluator(self._cache.conditions, context)
         return ServerConfig(config_values=self._evaluator.evaluate())
 
     def set(self, template):
-        if isinstance(template, str):
-            self._cache = ServerTemplateData(template)
-        elif isinstance(template, ServerTemplateData):
+        """Updates the cache to store the given template is of type ServerTemplateData.
+
+        Args:
+          template: An object of type ServerTemplateData to be cached.
+        """
+        if isinstance(template, ServerTemplateData):
             self._cache = template
 
 
 class ServerConfig:
-    """Represents a Remote Config Server Side Config.
-    """
+    """Represents a Remote Config Server Side Config."""
     def __init__(self, config_values):
         self._config_values = config_values # dictionary of param key to values
 
@@ -137,13 +111,18 @@ class ServerConfig:
     def get_value(self, key):
         return self._config_values[key]
 
-class _RemoteConfigService:
-    """ Internal class that facilitates sending requests to the Firebase Remote
-    Config backend API. """
 
+class _RemoteConfigService:
+    """Internal class that facilitates sending requests to the Firebase Remote
+        Config backend API.
+    """
     def __init__(self, app):
-        # Initialize a JsonHttpClient with basic inputs. Referenced other
-        # products' code in the Python SDK for what basic inputs to use.
+        """Initialize a JsonHttpClient with necessary inputs.
+
+        Args:
+            app: App instance to be used for fetching app specific details required
+                for initializing the http client.
+        """
         remote_config_base_url = 'https://firebaseremoteconfig.googleapis.com'
         self._project_id = app.project_id
         app_credential = app.credential.get_credential()
@@ -157,24 +136,23 @@ class _RemoteConfigService:
 
 
     def get_server_template(self):
-        # Requests for server template and converts the response to
-        # ServerTemplateData
+        """Requests for a server template and converts the response to an instance of
+        ServerTemplateData for storing the template parameters and conditions."""
         url_prefix = self._get_url_prefix()
-        response_json = self._client.body('get',
-                                          url=url_prefix+'/namespaces/ \
-                                            firebase-server/serverRemoteConfig')
-        return ServerTemplateData(response_json)
+        headers, response_json = self._client.headers_and_body('get',
+                                                               url=url_prefix+'/namespaces/ \
+                                                               firebase-server/serverRemoteConfig')
+        return ServerTemplateData(headers, response_json)
 
     def _get_url_prefix(self):
         # Returns project prefix for url, in the format of
         # /v1/projects/${projectId}
         return "/v1/projects/{0}".format(self._project_id)
-    
+
 
 class _ConditionEvaluator:
-    """ Internal class that facilitates sending requests to the Firebase Remote
-    Config backend API. """
-
+    """Internal class that facilitates sending requests to the Firebase Remote
+    Config backend API."""
     def __init__(self, context, conditions):
         self._context = context
         self._conditions = conditions
@@ -185,13 +163,35 @@ class _ConditionEvaluator:
 
 
 async def get_server_template(app: App = None, default_config: Optional[Dict[str, str]] = None):
-    template = init_server_template(app, default_config)
+    """Initializes a new ServerTemplate instance and fetches the server template.
+
+    Args:
+        app: App instance to be used. This is optional and the default app instance will
+            be used if not present.
+        default_config: The default config to be used in the evaluated config.
+
+    Returns:
+        ServerTemplate: An object having the cached server template to be used for evaluation.
+    """
+    template = init_server_template(app=app, default_config=default_config)
     await template.load()
     return template
 
-def init_server_template(app: App = None, default_config: Optional[Dict[str, str]] = None, 
+def init_server_template(app: App = None, default_config: Optional[Dict[str, str]] = None,
                          template_data: Optional[ServerTemplateData] = None):
-    template = ServerTemplate(app, default_config=default_config)
+    """Initializes a new ServerTemplate instance.
+
+    Args:
+        app: App instance to be used. This is optional and the default app instance will
+            be used if not present.
+        default_config: The default config to be used in the evaluated config.
+        template_data: An optional template data to be set on initialization.
+
+    Returns:
+        ServerTemplate: A new ServerTemplate instance initialized with an optional
+        template and config.
+    """
+    template = ServerTemplate(app=app, default_config=default_config)
     if template_data is not None:
         template.set(template_data)
     return template

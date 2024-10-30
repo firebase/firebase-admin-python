@@ -11,40 +11,30 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""
-Firebase Remote Config Module.
-This module has required APIs
- for the clients to use Firebase Remote Config with python.
+
+"""Firebase Remote Config Module.
+This module has required APIs for the clients to use Firebase Remote Config with python.
 """
 
+import json
 import logging
+from typing import Dict, Optional, Literal, Callable, Union
 from enum import Enum
-from typing import Dict, Optional, Literal, List, Callable, Any, Union
 import re
 import farmhash
-from firebase_admin import _http_client
+from firebase_admin import App, _http_client, _utils
+import firebase_admin
 
 # Set up logging (you can customize the level and output)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+_REMOTE_CONFIG_ATTRIBUTE = '_remoteconfig'
+MAX_CONDITION_RECURSION_DEPTH = 10
 ValueSource = Literal['default', 'remote', 'static']  # Define the ValueSource type
 
-MAX_CONDITION_RECURSION_DEPTH = 10
-
-class PercentConditionOperator(Enum):
-    """
-    Enum representing the available operators for percent conditions.
-    """
-    LESS_OR_EQUAL = "LESS_OR_EQUAL"
-    GREATER_THAN = "GREATER_THAN"
-    BETWEEN = "BETWEEN"
-    UNKNOWN = "UNKNOWN"
-
-
 class CustomSignalOperator(Enum):
-    """
-    Enum representing the available operators for custom signal conditions.
+    """Enum representing the available operators for custom signal conditions.
     """
     STRING_CONTAINS = "STRING_CONTAINS"
     STRING_DOES_NOT_CONTAIN = "STRING_DOES_NOT_CONTAIN"
@@ -63,101 +53,207 @@ class CustomSignalOperator(Enum):
     SEMANTIC_VERSION_GREATER_THAN = "SEMANTIC_VERSION_GREATER_THAN"
     SEMANTIC_VERSION_GREATER_EQUAL = "SEMANTIC_VERSION_GREATER_EQUAL"
 
-class Condition:
-    """
-    Base class for conditions.
-    """
-    def __init__(self):
-        # This is just a base class, so it doesn't need any attributes
-        pass
+class ServerTemplateData:
+    """Represents a Server Template Data class."""
+    def __init__(self, etag, template_data):
+        """Initializes a new ServerTemplateData instance.
 
-
-class OrCondition(Condition):
-    """
-    Represents an OR condition.
-    """
-    def __init__(self, conditions: List[Condition]):
-        super().__init__()
-        self.conditions = conditions
-
-
-class AndCondition(Condition):
-    """
-    Represents an AND condition.
-    """
-    def __init__(self, conditions: List[Condition]):
-        super().__init__()
-        self.conditions = conditions
-
-
-class PercentCondition(Condition):
-    """
-    Represents a percent condition.
-    """
-    def __init__(self, seed: str, percent_operator: PercentConditionOperator, micro_percent: int, micro_percent_range: Optional[Dict[str, int]] = None):
-        super().__init__()
-        self.seed = seed
-        self.percent_operator = percent_operator
-        self.micro_percent = micro_percent
-        self.micro_percent_range = micro_percent_range
-
-
-class CustomSignalCondition(Condition):
-    """
-    Represents a custom signal condition.
-    """
-    def __init__(self, custom_signal_operator: CustomSignalOperator, custom_signal_key: str, target_custom_signal_values: List[Union[str, int, float]]):
-        super().__init__()
-        self.custom_signal_operator = custom_signal_operator
-        self.custom_signal_key = custom_signal_key
-        self.target_custom_signal_values = target_custom_signal_values
-
-
-class OneOfCondition(Condition):
-    """
-    Represents a condition that can be one of several types.
-    """
-    def __init__(self, or_condition: Optional[OrCondition] = None, and_condition: Optional[AndCondition] = None, true_condition: Optional[bool] = None, false_condition: Optional[bool] = None, percent_condition: Optional[PercentCondition] = None, custom_signal_condition: Optional[CustomSignalCondition] = None):
-        super().__init__()
-        self.or_condition = or_condition
-        self.and_condition = and_condition
-        self.true_condition = true_condition
-        self.false_condition = false_condition
-        self.percent_condition = percent_condition
-        self.custom_signal_condition = custom_signal_condition
-
-
-class NamedCondition:
-    """
-    Represents a named condition.
-    """
-    def __init__(self, name: str, condition: OneOfCondition):
-        self.name = name
-        self.condition = condition
-
-
-class EvaluationContext:
-    """
-    Represents the context for evaluating conditions.
-    """
-    def __init__(self, **kwargs):
-        # This allows you to pass any key-value pairs to the context
-        # For example: EvaluationContext(user_country="US", user_type="paid")
-        self.__dict__.update(kwargs)
-
-    def __getattr__(self, item):
-        # This handles the case where a key is not found in the context
-        return None
-
-class ConditionEvaluator:
-    """
-    Encapsulates condition evaluation logic to simplify organization and
-    facilitate testing.
-    """
-
-    def evaluate_conditions(self, named_conditions: List['NamedCondition'], context: 'EvaluationContext') -> Dict[str, bool]:
+        Args:
+            etag: The string to be used for initialize the ETag property.
+            template_data: The data to be parsed for getting the parameters and conditions.
         """
-        Evaluates a list of named conditions and returns a dictionary of results.
+        self._parameters = template_data['parameters']
+        self._conditions = template_data['conditions']
+        self._version = template_data['version']
+        self._parameter_groups = template_data['parameterGroups']
+        self._etag = etag
+
+    @property
+    def parameters(self):
+        return self._parameters
+
+    @property
+    def etag(self):
+        return self._etag
+
+    @property
+    def version(self):
+        return self._version
+
+    @property
+    def conditions(self):
+        return self._conditions
+
+    @property
+    def parameter_groups(self):
+        return self._parameter_groups
+
+
+class ServerTemplate:
+    """Represents a Server Template with implementations for loading and evaluting the tempalte."""
+    def __init__(self, app: App = None, default_config: Optional[Dict[str, str]] = None):
+        """Initializes a ServerTemplate instance.
+
+        Args:
+          app: App instance to be used. This is optional and the default app instance will
+                be used if not present.
+          default_config: The default config to be used in the evaluated config.
+        """
+        self._rc_service = _utils.get_app_service(app,
+                                                  _REMOTE_CONFIG_ATTRIBUTE, _RemoteConfigService)
+        # This gets set when the template is
+        # fetched from RC servers via the load API, or via the set API.
+        self._cache = None
+        if default_config is not None:
+            self._stringified_default_config = json.dumps(default_config)
+        else:
+            self._stringified_default_config = None
+
+    async def load(self):
+        """Fetches the server template and caches the data."""
+        self._cache = await self._rc_service.getServerTemplate()
+
+    def evaluate(self, context: Optional[Dict[str, Union[str, int]]] = None) -> 'ServerConfig':
+        """Evaluates the cached server template to produce a ServerConfig.
+
+        Args:
+          context: A dictionary of values to use for evaluating conditions.
+
+        Returns:
+          A ServerConfig object.
+        Raises:
+            ValueError: If the input arguments are invalid.
+        """
+        # Logic to process the cached template into a ServerConfig here.
+        # TODO: Add Condition evaluator.
+        if not self._cache:
+            raise ValueError("""No Remote Config Server template in cache.
+                            Call load() before calling evaluate().""")
+        context = context or {}
+        config_values = {}
+
+        # Initializes config Value objects with default values.
+        for key, value in self._stringified_default_config.items():
+            config_values[key] = _Value('default', value)
+
+        self._evaluator = _ConditionEvaluator(self._cache.conditions, context,
+                                              config_values, self._cache.parameters)
+        return ServerConfig(config_values=self._evaluator.evaluate())
+
+    def set(self, template):
+        """Updates the cache to store the given template is of type ServerTemplateData.
+
+        Args:
+          template: An object of type ServerTemplateData to be cached.
+        """
+        if isinstance(template, ServerTemplateData):
+            self._cache = template
+
+
+class ServerConfig:
+    """Represents a Remote Config Server Side Config."""
+    def __init__(self, config_values):
+        self._config_values = config_values # dictionary of param key to values
+
+    def get_boolean(self, key):
+        return bool(self.get_value(key))
+
+    def get_string(self, key):
+        return str(self.get_value(key))
+
+    def get_int(self, key):
+        return int(self.get_value(key))
+
+    def get_value(self, key):
+        return self._config_values[key]
+
+
+class _RemoteConfigService:
+    """Internal class that facilitates sending requests to the Firebase Remote
+        Config backend API.
+    """
+    def __init__(self, app):
+        """Initialize a JsonHttpClient with necessary inputs.
+
+        Args:
+            app: App instance to be used for fetching app specific details required
+                for initializing the http client.
+        """
+        remote_config_base_url = 'https://firebaseremoteconfig.googleapis.com'
+        self._project_id = app.project_id
+        app_credential = app.credential.get_credential()
+        rc_headers = {
+            'X-FIREBASE-CLIENT': 'fire-admin-python/{0}'.format(firebase_admin.__version__), }
+        timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
+
+        self._client = _http_client.JsonHttpClient(credential=app_credential,
+                                                   base_url=remote_config_base_url,
+                                                   headers=rc_headers, timeout=timeout)
+
+
+    def get_server_template(self):
+        """Requests for a server template and converts the response to an instance of
+        ServerTemplateData for storing the template parameters and conditions."""
+        url_prefix = self._get_url_prefix()
+        headers, response_json = self._client.headers_and_body('get',
+                                                               url=url_prefix+'/namespaces/ \
+                                                               firebase-server/serverRemoteConfig')
+        return ServerTemplateData(headers.get('ETag'), response_json)
+
+    def _get_url_prefix(self):
+        # Returns project prefix for url, in the format of
+        # /v1/projects/${projectId}
+        return "/v1/projects/{0}".format(self._project_id)
+
+
+class _ConditionEvaluator:
+    """Internal class that facilitates sending requests to the Firebase Remote
+    Config backend API."""
+    def __init__(self, context, conditions, config_values, parameters):
+        self._context = context
+        self._conditions = conditions
+        self._parameters = parameters
+        self._config_values = config_values
+
+    def evaluate(self):
+        """Internal function Evaluates the cached server template to produce
+        a ServerConfig"""
+        evaluated_conditions = self.evaluate_conditions(self._conditions, self._context)
+
+        # Overlays config Value objects derived by evaluating the template.
+        for key, parameter in self._parameters.items():
+            conditional_values = parameter.conditional_values or {}
+            default_value = parameter.default_value or {}
+            parameter_value_wrapper = None
+
+            # Iterates in order over condition list. If there is a value associated
+            # with a condition, this checks if the condition is true.
+            for condition_name, condition_evaluation in evaluated_conditions.items():
+                if condition_name in conditional_values and condition_evaluation:
+                    parameter_value_wrapper = conditional_values[condition_name]
+                    break
+            if parameter_value_wrapper and parameter_value_wrapper.get('useInAppDefault'):
+                logger.info("Using in-app default value for key '%s'", key)
+                continue
+
+            if parameter_value_wrapper:
+                parameter_value = parameter_value_wrapper.value
+                self._config_values[key] = _Value('remote', parameter_value)
+                continue
+
+            if not default_value:
+                logger.warning("No default value found for key '%s'", key)
+                continue
+
+            if default_value.get('useInAppDefault'):
+                logger.info("Using in-app default value for key '%s'", key)
+                continue
+
+            self._config_values[key] = _Value('remote', default_value.get('value'))
+        return self._config_values
+
+    def evaluate_conditions(self, named_conditions, context)-> Dict[str, bool]:
+        """Evaluates a list of named conditions and returns a dictionary of results.
 
         Args:
           named_conditions: A list of NamedCondition objects.
@@ -169,12 +265,13 @@ class ConditionEvaluator:
         evaluated_conditions = {}
         for named_condition in named_conditions:
             evaluated_conditions[named_condition.name] = self.evaluate_condition(
-                named_condition.condition, context)
+                named_condition.condition, context
+            )
         return evaluated_conditions
 
-    def evaluate_condition(self, condition: 'OneOfCondition', context: 'EvaluationContext', nesting_level: int = 0) -> bool:
-        """
-        Recursively evaluates a condition.
+    def evaluate_condition(self, condition, context,
+                           nesting_level: int = 0) -> bool:
+        """Recursively evaluates a condition.
 
         Args:
           condition: The condition to evaluate.
@@ -187,7 +284,6 @@ class ConditionEvaluator:
         if nesting_level >= MAX_CONDITION_RECURSION_DEPTH:
             logger.warning("Maximum condition recursion depth exceeded.")
             return False
-
         if condition.or_condition:
             return self.evaluate_or_condition(condition.or_condition, context, nesting_level + 1)
         if condition.and_condition:
@@ -200,13 +296,13 @@ class ConditionEvaluator:
             return self.evaluate_percent_condition(condition.percent_condition, context)
         if condition.custom_signal_condition:
             return self.evaluate_custom_signal_condition(condition.custom_signal_condition, context)
-        
         logger.warning("Unknown condition type encountered.")
         return False
 
-    def evaluate_or_condition(self, or_condition: 'OrCondition', context: 'EvaluationContext', nesting_level: int) -> bool:
-        """
-        Evaluates an OR condition.
+    def evaluate_or_condition(self, or_condition,
+                              context,
+                              nesting_level: int = 0) -> bool:
+        """Evaluates an OR condition.
 
         Args:
           or_condition: The OR condition to evaluate.
@@ -223,9 +319,10 @@ class ConditionEvaluator:
                 return True
         return False
 
-    def evaluate_and_condition(self, and_condition: 'AndCondition', context: 'EvaluationContext', nesting_level: int) -> bool:
-        """
-        Evaluates an AND condition.
+    def evaluate_and_condition(self, and_condition,
+                               context,
+                               nesting_level: int = 0) -> bool:
+        """Evaluates an AND condition.
 
         Args:
           and_condition: The AND condition to evaluate.
@@ -242,9 +339,9 @@ class ConditionEvaluator:
                 return False
         return True
 
-    def evaluate_percent_condition(self, percent_condition: 'PercentCondition', context: 'EvaluationContext') -> bool:
-        """
-        Evaluates a percent condition.
+    def evaluate_percent_condition(self, percent_condition,
+                                   context) -> bool:
+        """Evaluates a percent condition.
 
         Args:
           percent_condition: The percent condition to evaluate.
@@ -258,38 +355,36 @@ class ConditionEvaluator:
             return False
 
         seed = percent_condition.seed
-        percent_operator = percent_condition.percent_operator 
+        percent_operator = percent_condition.percent_operator
         micro_percent = percent_condition.micro_percent or 0
         micro_percent_range = percent_condition.micro_percent_range
 
         if not percent_operator:
             logger.warning("Missing percent operator for percent condition.")
             return False
-
-        normalized_micro_percent_upper_bound = micro_percent_range.micro_percent_upper_bound if micro_percent_range else 0
-        normalized_micro_percent_lower_bound = micro_percent_range.micro_percent_lower_bound if micro_percent_range else 0
-
+        if micro_percent_range:
+            norm_percent_upper_bound = micro_percent_range.micro_percent_upper_bound
+            norm_percent_lower_bound = micro_percent_range.micro_percent_lower_bound
+        else:
+            norm_percent_upper_bound = 0
+            norm_percent_lower_bound = 0
         seed_prefix = f"{seed}." if seed else ""
         string_to_hash = f"{seed_prefix}{context.randomization_id}"
 
-        hash64 = ConditionEvaluator.hash_seeded_randomization_id(string_to_hash)
+        hash64 = self.hash_seeded_randomization_id(string_to_hash)
 
         instance_micro_percentile = hash64 % (100 * 1_000_000)
 
         if percent_operator == "LESS_OR_EQUAL":
             return instance_micro_percentile <= micro_percent
-        elif percent_operator == "GREATER_THAN":
+        if percent_operator == "GREATER_THAN":
             return instance_micro_percentile > micro_percent
-        elif percent_operator == "BETWEEN":
-            return normalized_micro_percent_lower_bound < instance_micro_percentile <= normalized_micro_percent_upper_bound
-        else:
-            logger.warning("Unknown percent operator: %s", percent_operator)
-            return False
-
-    @staticmethod
-    def hash_seeded_randomization_id(seeded_randomization_id: str) -> int:
-        """
-        Hashes a seeded randomization ID.
+        if percent_operator == "BETWEEN":
+            return norm_percent_lower_bound < instance_micro_percentile <= norm_percent_upper_bound
+        logger.warning("Unknown percent operator: %s", percent_operator)
+        return False
+    def hash_seeded_randomization_id(self, seeded_randomization_id: str) -> int:
+        """Hashes a seeded randomization ID.
 
         Args:
           seeded_randomization_id: The seeded randomization ID to hash.
@@ -297,12 +392,11 @@ class ConditionEvaluator:
         Returns:
           The hashed value.
         """
-        hash64 = farmhash.fingerprint64(seeded_randomization_id)
+        hash64 = farmhash.hash64withseed(seeded_randomization_id)
         return abs(hash64)
-
-    def evaluate_custom_signal_condition(self, custom_signal_condition: 'CustomSignalCondition', context: 'EvaluationContext') -> bool:
-        """
-        Evaluates a custom signal condition.
+    def evaluate_custom_signal_condition(self, custom_signal_condition,
+                                         context) -> bool:
+        """Evaluates a custom signal condition.
 
         Args:
           custom_signal_condition: The custom signal condition to evaluate.
@@ -321,50 +415,59 @@ class ConditionEvaluator:
 
         if not target_custom_signal_values:
             return False
-
         actual_custom_signal_value = getattr(context, custom_signal_key, None)
-
         if actual_custom_signal_value is None:
             logger.warning("Custom signal value not found in context: %s", custom_signal_key)
             return False
         if custom_signal_operator == CustomSignalOperator.STRING_CONTAINS:
             return compare_strings(lambda target, actual: target in actual)
-        elif custom_signal_operator == CustomSignalOperator.STRING_DOES_NOT_CONTAIN:
+        if custom_signal_operator == CustomSignalOperator.STRING_DOES_NOT_CONTAIN:
             return not compare_strings(lambda target, actual: target in actual)
-        elif custom_signal_operator == CustomSignalOperator.STRING_EXACTLY_MATCHES:
+        if custom_signal_operator == CustomSignalOperator.STRING_EXACTLY_MATCHES:
             return compare_strings(lambda target, actual: target.strip() == actual.strip())
-        elif custom_signal_operator == CustomSignalOperator.STRING_CONTAINS_REGEX:
+        if custom_signal_operator == CustomSignalOperator.STRING_CONTAINS_REGEX:
             return compare_strings(lambda target, actual: re.search(target, actual) is not None)
-        elif custom_signal_operator == CustomSignalOperator.NUMERIC_LESS_THAN:
+        if custom_signal_operator == CustomSignalOperator.NUMERIC_LESS_THAN:
             return compare_numbers(lambda r: r < 0)
-        elif custom_signal_operator == CustomSignalOperator.NUMERIC_LESS_EQUAL:
+        if custom_signal_operator == CustomSignalOperator.NUMERIC_LESS_EQUAL:
             return compare_numbers(lambda r: r <= 0)
-        elif custom_signal_operator == CustomSignalOperator.NUMERIC_EQUAL:
+        if custom_signal_operator == CustomSignalOperator.NUMERIC_EQUAL:
             return compare_numbers(lambda r: r == 0)
-        elif custom_signal_operator == CustomSignalOperator.NUMERIC_NOT_EQUAL:
+        if custom_signal_operator == CustomSignalOperator.NUMERIC_NOT_EQUAL:
             return compare_numbers(lambda r: r != 0)
-        elif custom_signal_operator == CustomSignalOperator.NUMERIC_GREATER_THAN:
+        if custom_signal_operator == CustomSignalOperator.NUMERIC_GREATER_THAN:
             return compare_numbers(lambda r: r > 0)
-        elif custom_signal_operator == CustomSignalOperator.NUMERIC_GREATER_EQUAL:
+        if custom_signal_operator == CustomSignalOperator.NUMERIC_GREATER_EQUAL:
             return compare_numbers(lambda r: r >= 0)
-        elif custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_LESS_THAN:
+        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_LESS_THAN:
             return compare_semantic_versions(lambda r: r < 0)
-        elif custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_LESS_EQUAL:
+        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_LESS_EQUAL:
             return compare_semantic_versions(lambda r: r <= 0)
-        elif custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_EQUAL:
+        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_EQUAL:
             return compare_semantic_versions(lambda r: r == 0)
-        elif custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_NOT_EQUAL:
+        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_NOT_EQUAL:
             return compare_semantic_versions(lambda r: r != 0)
-        elif custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_GREATER_THAN:
+        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_GREATER_THAN:
             return compare_semantic_versions(lambda r: r > 0)
-        elif custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_GREATER_EQUAL:
+        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_GREATER_EQUAL:
             return compare_semantic_versions(lambda r: r >= 0)
 
-        logger.warning("Unknown custom signal operator: %s", custom_signal_operator)
-        return False
-
         def compare_strings(predicate_fn: Callable[[str, str], bool]) -> bool:
-            return any(predicate_fn(target, str(actual_custom_signal_value)) for target in target_custom_signal_values)
+            """Compares the actual string value of a signal against a list of target values.
+
+            Args:
+                predicate_fn: A function that takes two string arguments (target and actual)
+                                and returns a boolean indicating whether
+                                the target matches the actual value.
+
+            Returns:
+                bool: True if the predicate function returns True for any target value in the list,
+                    False otherwise.
+            """
+            for target in target_custom_signal_values:
+                if predicate_fn(target, str(actual_custom_signal_value)):
+                    return True
+            return False
 
         def compare_numbers(predicate_fn: Callable[[int], bool]) -> bool:
             try:
@@ -377,11 +480,22 @@ class ConditionEvaluator:
                 return False
 
         def compare_semantic_versions(predicate_fn: Callable[[int], bool]) -> bool:
-            return compare_versions(str(actual_custom_signal_value), str(target_custom_signal_values[0]), predicate_fn)
-            
-        def compare_versions(version1: str, version2: str, predicate_fn: Callable[[int], bool]) -> bool:
+            """Compares the actual semantic version value of a signal against a target value.
+            Calls the predicate function with -1, 0, 1 if actual is less than, equal to,
+            or greater than target.
+
+            Args:
+            predicate_fn: A function that takes an integer (-1, 0, or 1) and returns a boolean.
+
+            Returns:
+                bool: True if the predicate function returns True for the result of the comparison,
+            False otherwise.
             """
-            Compares two semantic version strings.
+            return compare_versions(str(actual_custom_signal_value),
+                                    str(target_custom_signal_values[0]), predicate_fn)
+        def compare_versions(version1: str, version2: str,
+                             predicate_fn: Callable[[int], bool]) -> bool:
+            """Compares two semantic version strings.
 
             Args:
             version1: The first semantic version string.
@@ -389,7 +503,7 @@ class ConditionEvaluator:
             predicate_fn: A function that takes an integer and returns a boolean.
 
             Returns:
-            The result of the predicate function.
+                bool: The result of the predicate function.
             """
             try:
                 v1_parts = [int(part) for part in version1.split('.')]
@@ -401,161 +515,52 @@ class ConditionEvaluator:
                 for part1, part2 in zip(v1_parts, v2_parts):
                     if part1 < part2:
                         return predicate_fn(-1)
-                    elif part1 > part2:
+                    if part1 > part2:
                         return predicate_fn(1)
-                return predicate_fn(0) 
-
+                return predicate_fn(0)
             except ValueError:
                 logger.warning("Invalid semantic version format for comparison.")
                 return False
 
+        logger.warning("Unknown custom signal operator: %s", custom_signal_operator)
+        return False
 
-class RemoteConfig:
+async def get_server_template(app: App = None, default_config: Optional[Dict[str, str]] = None):
+    """Initializes a new ServerTemplate instance and fetches the server template.
+
+    Args:
+        app: App instance to be used. This is optional and the default app instance will
+            be used if not present.
+        default_config: The default config to be used in the evaluated config.
+
+    Returns:
+        ServerTemplate: An object having the cached server template to be used for evaluation.
     """
-    Represents a Server 
-    Side Remote Config Class.
+    template = init_server_template(app=app, default_config=default_config)
+    await template.load()
+    return template
+
+def init_server_template(app: App = None, default_config: Optional[Dict[str, str]] = None,
+                         template_data: Optional[ServerTemplateData] = None):
+    """Initializes a new ServerTemplate instance.
+
+    Args:
+        app: App instance to be used. This is optional and the default app instance will
+            be used if not present.
+        default_config: The default config to be used in the evaluated config.
+        template_data: An optional template data to be set on initialization.
+
+    Returns:
+        ServerTemplate: A new ServerTemplate instance initialized with an optional
+        template and config.
     """
+    template = ServerTemplate(app=app, default_config=default_config)
+    if template_data is not None:
+        template.set(template_data)
+    return template
 
-    def __init__(self, app=None):
-        timeout = app.options.get('httpTimeout',
-                                  _http_client.DEFAULT_TIMEOUT_SECONDS)
-        self._credential = app.credential.get_credential()
-        self._api_client = _http_client.RemoteConfigApiClient(
-            credential=self._credential, timeout=timeout)
-
-    async def get_server_template(self, default_config: Optional[Dict[str, str]] = None):
-        template = self.init_server_template(default_config)
-        await template.load()
-        return template
-
-    def init_server_template(self, default_config: Optional[Dict[str, str]] = None):
-        template = ServerTemplate(self._api_client,
-                                  default_config=default_config)
-        return template
-
-class ServerTemplateData:
-    """Represents a Server Template Data class."""
-
-    def __init__(self, template: Dict[str, Any]):
-        self.conditions = template.get('conditions', [])
-        self.parameters = template.get('parameters', {})
-        # ... (Add any other necessary attributes from the template data) ...
-
-
-class ServerTemplate:
-    """Represents a Server Template with implementations for loading and evaluating the template."""
-
-    def __init__(self, client, default_config: Optional[Dict[str, str]] = None):
-        """
-        Initializes a ServerTemplate instance.
-
-        Args:
-          client: The API client used to fetch the server template.
-          default_config:  A dictionary of default configuration values.
-        """
-        self._client = client
-        self._condition_evaluator = ConditionEvaluator()
-        self._cache = None
-        self._stringified_default_config = {key: str(value) for key, value in default_config.items()} if default_config else {}
-
-    async def load(self):
-        """Fetches and caches the server template from the Remote Config API."""
-        self._cache = await self._client.get_server_template()
-
-    def set(self, template):
-        """
-        Sets the server template from a string or ServerTemplateData object.
-
-        Args:
-          template: The template to set, either as a JSON string or a ServerTemplateData object.
-        """
-        if isinstance(template, str):
-            try:
-                import json
-                parsed_template = json.loads(template)
-                self._cache = ServerTemplateData(parsed_template)
-            except json.JSONDecodeError as e:
-                raise ValueError(f"Failed to parse the JSON string: {template}. {e}")
-        elif isinstance(template, ServerTemplateData):
-            self._cache = template
-        else:
-            raise TypeError("template must be a string or ServerTemplateData object")
-
-    def evaluate(self, context: Optional[Dict[str, Union[str, int]]] = None) -> 'ServerConfig':
-        """
-        Evaluates the cached server template to produce a ServerConfig.
-
-        Args:
-          context: A dictionary of values to use for evaluating conditions.
-
-        Returns:
-          A ServerConfig object.
-        """
-        if not self._cache:
-            raise ValueError("No Remote Config Server template in cache. Call load() before calling evaluate().")
-
-        context = context or {}
-        evaluated_conditions = self._condition_evaluator.evaluate_conditions(
-            self._cache.conditions, EvaluationContext(**context)
-        )
-
-        config_values = {}
-
-        for key, value in self._stringified_default_config.items():
-            config_values[key] = Value('default', value)
-
-        for key, parameter in self._cache.parameters.items():
-            conditional_values = parameter.get('conditionalValues', {})
-            default_value = parameter.get('defaultValue')
-
-            parameter_value_wrapper = None
-            for condition_name, condition_evaluation in evaluated_conditions.items():
-                if condition_name in conditional_values and condition_evaluation:
-                    parameter_value_wrapper = conditional_values[condition_name]
-                    break
-
-            if parameter_value_wrapper and parameter_value_wrapper.get('useInAppDefault'):
-                logger.info("Using in-app default value for key '%s'", key)
-                continue
-
-            if parameter_value_wrapper:
-                config_values[key] = Value('remote', parameter_value_wrapper.get('value'))
-                continue
-
-            if not default_value:
-                logger.warning("No default value found for key '%s'", key)
-                continue
-
-            if default_value.get('useInAppDefault'):
-                logger.info("Using in-app default value for key '%s'", key)
-                continue
-
-            config_values[key] = Value('remote', default_value.get('value'))
-
-        return ServerConfig(config_values)
-
-
-class ServerConfig:
-    """Represents a Remote Config Server Side Config."""
-
-    def __init__(self, config_values):
-        self._config_values = config_values
-
-    def get_boolean(self, key):
-        return self._config_values[key].as_boolean()
-
-    def get_string(self, key):
-        return self._config_values[key].as_string()
-
-    def get_int(self, key):
-        return int(self._config_values[key].as_number())
-
-    def get_value(self, key):
-        return self._config_values[key]
-
-class Value:
-    """
-    Represents a value fetched from Remote Config.
+class _Value:
+    """Represents a value fetched from Remote Config.
     """
     DEFAULT_VALUE_FOR_BOOLEAN = False
     DEFAULT_VALUE_FOR_STRING = ''
@@ -563,8 +568,7 @@ class Value:
     BOOLEAN_TRUTHY_VALUES = ['1', 'true', 't', 'yes', 'y', 'on']
 
     def __init__(self, source: ValueSource, value: str = DEFAULT_VALUE_FOR_STRING):
-        """
-        Initializes a Value instance.
+        """Initializes a Value instance.
 
         Args:
           source: The source of the value (e.g., 'default', 'remote', 'static').
@@ -595,3 +599,4 @@ class Value:
     def get_source(self) -> ValueSource:
         """Returns the source of the value."""
         return self.source
+        

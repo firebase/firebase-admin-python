@@ -21,6 +21,7 @@ from google.auth import transport
 import requests
 from requests.packages.urllib3.util import retry # pylint: disable=import-error
 
+from firebase_admin import _utils
 
 if hasattr(retry.Retry.DEFAULT, 'allowed_methods'):
     _ANY_METHOD = {'allowed_methods': None}
@@ -36,6 +37,9 @@ DEFAULT_RETRY_CONFIG = retry.Retry(
 
 DEFAULT_TIMEOUT_SECONDS = 120
 
+METRICS_HEADERS = {
+    'X-GOOG-API-CLIENT': _utils.get_metrics_header(),
+}
 
 class HttpClient:
     """Base HTTP client used to make HTTP calls.
@@ -72,6 +76,7 @@ class HttpClient:
 
         if headers:
             self._session.headers.update(headers)
+        self._session.headers.update(METRICS_HEADERS)
         if retries:
             self._session.mount('http://', requests.adapters.HTTPAdapter(max_retries=retries))
             self._session.mount('https://', requests.adapters.HTTPAdapter(max_retries=retries))

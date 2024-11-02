@@ -21,7 +21,7 @@ import logging
 from typing import Dict, Optional, Literal, Callable, Union
 from enum import Enum
 import re
-import farmhash
+import hashlib
 from firebase_admin import App, _http_client, _utils
 import firebase_admin
 
@@ -392,7 +392,9 @@ class _ConditionEvaluator:
         Returns:
           The hashed value.
         """
-        hash64 = farmhash.fingerprint64(seeded_randomization_id)
+        hash_object = hashlib.sha256()
+        hash_object.update(seeded_randomization_id)
+        hash64 = hash_object.hexdigest()
         return abs(hash64)
     def evaluate_custom_signal_condition(self, custom_signal_condition,
                                          context) -> bool:

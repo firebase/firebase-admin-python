@@ -12,4 +12,3 @@ google-api-python-client >= 1.7.8
 google-cloud-firestore >= 2.9.1; platform.python_implementation != 'PyPy'
 google-cloud-storage >= 1.37.1
 pyjwt[crypto] >= 2.5.0
-pyfarmhash >= 0.4.0

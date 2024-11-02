@@ -392,7 +392,7 @@ class _ConditionEvaluator:
         Returns:
           The hashed value.
         """
-        hash64 = farmhash.hash64withseed(seeded_randomization_id)
+        hash64 = farmhash.fingerprint64(seeded_randomization_id)
         return abs(hash64)
     def evaluate_custom_signal_condition(self, custom_signal_condition,
                                          context) -> bool:
@@ -599,4 +599,3 @@ class _Value:
     def get_source(self) -> ValueSource:
         """Returns the source of the value."""
         return self.source
-        

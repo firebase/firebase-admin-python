@@ -17,7 +17,7 @@ import pytest
 from pytest_localserver import http
 import requests
 
-from firebase_admin import _http_client
+from firebase_admin import _http_client, _utils
 from tests import testutils
 
 
@@ -60,6 +60,18 @@ def test_base_url():
     assert len(recorder) == 1
     assert recorder[0].method == 'GET'
     assert recorder[0].url == _TEST_URL + 'foo'
+
+def test_metrics_headers():
+    client = _http_client.HttpClient()
+    assert client.session is not None
+    recorder = _instrument(client, 'body')
+    resp = client.request('get', _TEST_URL)
+    assert resp.status_code == 200
+    assert resp.text == 'body'
+    assert len(recorder) == 1
+    assert recorder[0].method == 'GET'
+    assert recorder[0].url == _TEST_URL
+    assert recorder[0].headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
 
 def test_credential():
     client = _http_client.HttpClient(

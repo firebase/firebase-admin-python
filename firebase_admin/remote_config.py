@@ -32,6 +32,13 @@ logger = logging.getLogger(__name__)
 _REMOTE_CONFIG_ATTRIBUTE = '_remoteconfig'
 MAX_CONDITION_RECURSION_DEPTH = 10
 ValueSource = Literal['default', 'remote', 'static']  # Define the ValueSource type
+class PercentConditionOperator(Enum):
+    """Enum representing the available operators for percent conditions.
+    """
+    LESS_OR_EQUAL = "LESS_OR_EQUAL"
+    GREATER_THAN = "GREATER_THAN"
+    BETWEEN = "BETWEEN"
+    UNKNOWN = "UNKNOWN"
 
 class CustomSignalOperator(Enum):
     """Enum representing the available operators for custom signal conditions.
@@ -52,6 +59,7 @@ class CustomSignalOperator(Enum):
     SEMANTIC_VERSION_NOT_EQUAL = "SEMANTIC_VERSION_NOT_EQUAL"
     SEMANTIC_VERSION_GREATER_THAN = "SEMANTIC_VERSION_GREATER_THAN"
     SEMANTIC_VERSION_GREATER_EQUAL = "SEMANTIC_VERSION_GREATER_EQUAL"
+    UNKNOWN = "UNKNOWN"
 
 class ServerTemplateData:
     """Represents a Server Template Data class."""
@@ -131,13 +139,13 @@ class ServerTemplate:
                             Call load() before calling evaluate().""")
         context = context or {}
         config_values = {}
-
         # Initializes config Value objects with default values.
-        for key, value in self._stringified_default_config.items():
-            config_values[key] = _Value('default', value)
-
-        self._evaluator = _ConditionEvaluator(self._cache.conditions, context,
-                                              config_values, self._cache.parameters)
+        if self._stringified_default_config is not None:
+            for key, value in json.loads(self._stringified_default_config).items():
+                config_values[key] = _Value('default', value)
+        self._evaluator = _ConditionEvaluator(self._cache.conditions,
+                                              self._cache.parameters, context,
+                                              config_values)
         return ServerConfig(config_values=self._evaluator.evaluate())
 
     def set(self, template):
@@ -156,13 +164,13 @@ class ServerConfig:
         self._config_values = config_values # dictionary of param key to values
 
     def get_boolean(self, key):
-        return bool(self.get_value(key))
+        return self.get_value(key).as_boolean()
 
     def get_string(self, key):
-        return str(self.get_value(key))
+        return self.get_value(key).as_string()
 
     def get_int(self, key):
-        return int(self.get_value(key))
+        return self.get_value(key).as_number()
 
     def get_value(self, key):
         return self._config_values[key]
@@ -209,7 +217,7 @@ class _RemoteConfigService:
 class _ConditionEvaluator:
     """Internal class that facilitates sending requests to the Firebase Remote
     Config backend API."""
-    def __init__(self, context, conditions, config_values, parameters):
+    def __init__(self, conditions, parameters, context, config_values):
         self._context = context
         self._conditions = conditions
         self._parameters = parameters
@@ -221,51 +229,53 @@ class _ConditionEvaluator:
         evaluated_conditions = self.evaluate_conditions(self._conditions, self._context)
 
         # Overlays config Value objects derived by evaluating the template.
-        for key, parameter in self._parameters.items():
-            conditional_values = parameter.conditional_values or {}
-            default_value = parameter.default_value or {}
-            parameter_value_wrapper = None
+       # evaluated_conditions = None
+        if self._parameters is not None:
+            for key, parameter in self._parameters.items():
+                conditional_values = parameter.get('conditionalValues', {})
+                default_value = parameter.get('defaultValue', {})
+                parameter_value_wrapper = None
+                # Iterates in order over condition list. If there is a value associated
+                # with a condition, this checks if the condition is true.
+                if evaluated_conditions is not None:
+                    for condition_name, condition_evaluation in evaluated_conditions.items():
+                        if condition_name in conditional_values and condition_evaluation:
+                            parameter_value_wrapper = conditional_values[condition_name]
+                            break
 
-            # Iterates in order over condition list. If there is a value associated
-            # with a condition, this checks if the condition is true.
-            for condition_name, condition_evaluation in evaluated_conditions.items():
-                if condition_name in conditional_values and condition_evaluation:
-                    parameter_value_wrapper = conditional_values[condition_name]
-                    break
-            if parameter_value_wrapper and parameter_value_wrapper.get('useInAppDefault'):
-                logger.info("Using in-app default value for key '%s'", key)
-                continue
+                if parameter_value_wrapper and parameter_value_wrapper.get('useInAppDefault'):
+                    logger.info("Using in-app default value for key '%s'", key)
+                    continue
 
-            if parameter_value_wrapper:
-                parameter_value = parameter_value_wrapper.value
-                self._config_values[key] = _Value('remote', parameter_value)
-                continue
+                if parameter_value_wrapper:
+                    parameter_value = parameter_value_wrapper.get('value')
+                    self._config_values[key] = _Value('remote', parameter_value)
+                    continue
 
-            if not default_value:
-                logger.warning("No default value found for key '%s'", key)
-                continue
+                if not default_value:
+                    logger.warning("No default value found for key '%s'", key)
+                    continue
 
-            if default_value.get('useInAppDefault'):
-                logger.info("Using in-app default value for key '%s'", key)
-                continue
-
-            self._config_values[key] = _Value('remote', default_value.get('value'))
+                if default_value.get('useInAppDefault'):
+                    logger.info("Using in-app default value for key '%s'", key)
+                    continue
+                self._config_values[key] = _Value('remote', default_value.get('value'))
         return self._config_values
 
-    def evaluate_conditions(self, named_conditions, context)-> Dict[str, bool]:
-        """Evaluates a list of named conditions and returns a dictionary of results.
+    def evaluate_conditions(self, conditions, context)-> Dict[str, bool]:
+        """Evaluates a list of conditions and returns a dictionary of results.
 
         Args:
-          named_conditions: A list of NamedCondition objects.
+          conditions: A list of NamedCondition objects.
           context: An EvaluationContext object.
 
         Returns:
           A dictionary mapping condition names to boolean evaluation results.
         """
         evaluated_conditions = {}
-        for named_condition in named_conditions:
-            evaluated_conditions[named_condition.name] = self.evaluate_condition(
-                named_condition.condition, context
+        for condition in conditions:
+            evaluated_conditions[condition.get('name')] = self.evaluate_condition(
+                condition.get('condition'), context
             )
         return evaluated_conditions
 
@@ -284,18 +294,20 @@ class _ConditionEvaluator:
         if nesting_level >= MAX_CONDITION_RECURSION_DEPTH:
             logger.warning("Maximum condition recursion depth exceeded.")
             return False
-        if condition.or_condition:
-            return self.evaluate_or_condition(condition.or_condition, context, nesting_level + 1)
-        if condition.and_condition:
-            return self.evaluate_and_condition(condition.and_condition, context, nesting_level + 1)
-        if condition.true_condition:
+        if condition.get('orCondition') is not None:
+            return self.evaluate_or_condition(condition.get('orCondition'),
+                                              context, nesting_level + 1)
+        if condition.get('andCondition') is not None:
+            return self.evaluate_and_condition(condition.get('andCondition'),
+                                               context, nesting_level + 1)
+        if condition.get('true') is not None:
             return True
-        if condition.false_condition:
+        if condition.get('false') is not None:
             return False
-        if condition.percent_condition:
-            return self.evaluate_percent_condition(condition.percent_condition, context)
-        if condition.custom_signal_condition:
-            return self.evaluate_custom_signal_condition(condition.custom_signal_condition, context)
+        if condition.get('percent') is not None:
+            return self.evaluate_percent_condition(condition.get('percent'), context)
+        if condition.get('customSignal') is not None:
+            return self.evaluate_custom_signal_condition(condition.get('customSignal'), context)
         logger.warning("Unknown condition type encountered.")
         return False
 
@@ -312,7 +324,7 @@ class _ConditionEvaluator:
         Returns:
           True if any of the subconditions are true, False otherwise.
         """
-        sub_conditions = or_condition.conditions or []
+        sub_conditions = or_condition.get('conditions') or []
         for sub_condition in sub_conditions:
             result = self.evaluate_condition(sub_condition, context, nesting_level + 1)
             if result:
@@ -332,7 +344,7 @@ class _ConditionEvaluator:
         Returns:
           True if all of the subconditions are true, False otherwise.
         """
-        sub_conditions = and_condition.conditions or []
+        sub_conditions = and_condition.get('conditions') or []
         for sub_condition in sub_conditions:
             result = self.evaluate_condition(sub_condition, context, nesting_level + 1)
             if not result:
@@ -350,36 +362,33 @@ class _ConditionEvaluator:
         Returns:
           True if the condition is met, False otherwise.
         """
-        if not context.randomization_id:
+        if not context.get('randomization_id'):
             logger.warning("Missing randomization ID for percent condition.")
             return False
 
-        seed = percent_condition.seed
-        percent_operator = percent_condition.percent_operator
-        micro_percent = percent_condition.micro_percent or 0
-        micro_percent_range = percent_condition.micro_percent_range
-
+        seed = percent_condition.get('seed')
+        percent_operator = percent_condition.get('percentOperator')
+        micro_percent = percent_condition.get('microPercent')
+        micro_percent_range = percent_condition.get('microPercentRange')
         if not percent_operator:
             logger.warning("Missing percent operator for percent condition.")
             return False
         if micro_percent_range:
-            norm_percent_upper_bound = micro_percent_range.micro_percent_upper_bound
-            norm_percent_lower_bound = micro_percent_range.micro_percent_lower_bound
+            norm_percent_upper_bound = micro_percent_range.get('microPercentUpperBound')
+            norm_percent_lower_bound = micro_percent_range.get('microPercentLowerBound')
         else:
             norm_percent_upper_bound = 0
             norm_percent_lower_bound = 0
         seed_prefix = f"{seed}." if seed else ""
-        string_to_hash = f"{seed_prefix}{context.randomization_id}"
+        string_to_hash = f"{seed_prefix}{context.get('randomization_id')}"
 
         hash64 = self.hash_seeded_randomization_id(string_to_hash)
-
-        instance_micro_percentile = hash64 % (100 * 1_000_000)
-
-        if percent_operator == "LESS_OR_EQUAL":
+        instance_micro_percentile = hash64 % (100 * 1000000)
+        if percent_operator == PercentConditionOperator.LESS_OR_EQUAL:
             return instance_micro_percentile <= micro_percent
-        if percent_operator == "GREATER_THAN":
+        if percent_operator == PercentConditionOperator.GREATER_THAN:
             return instance_micro_percentile > micro_percent
-        if percent_operator == "BETWEEN":
+        if percent_operator == PercentConditionOperator.BETWEEN:
             return norm_percent_lower_bound < instance_micro_percentile <= norm_percent_upper_bound
         logger.warning("Unknown percent operator: %s", percent_operator)
         return False
@@ -393,9 +402,9 @@ class _ConditionEvaluator:
           The hashed value.
         """
         hash_object = hashlib.sha256()
-        hash_object.update(seeded_randomization_id)
+        hash_object.update(seeded_randomization_id.encode('utf-8'))
         hash64 = hash_object.hexdigest()
-        return abs(hash64)
+        return abs(int(hash64, 16))
     def evaluate_custom_signal_condition(self, custom_signal_condition,
                                          context) -> bool:
         """Evaluates a custom signal condition.
@@ -407,15 +416,15 @@ class _ConditionEvaluator:
         Returns:
           True if the condition is met, False otherwise.
         """
-        custom_signal_operator = custom_signal_condition.custom_signal_operator
-        custom_signal_key = custom_signal_condition.custom_signal_key
-        target_custom_signal_values = custom_signal_condition.target_custom_signal_values
+        custom_signal_operator = custom_signal_condition.get('custom_signal_operator') or {}
+        custom_signal_key = custom_signal_condition.get('custom_signal_key') or {}
+        tgt_custom_signal_values = custom_signal_condition.get('target_custom_signal_values') or {}
 
-        if not all([custom_signal_operator, custom_signal_key, target_custom_signal_values]):
+        if not all([custom_signal_operator, custom_signal_key, tgt_custom_signal_values]):
             logger.warning("Missing operator, key, or target values for custom signal condition.")
             return False
 
-        if not target_custom_signal_values:
+        if not tgt_custom_signal_values:
             return False
         actual_custom_signal_value = getattr(context, custom_signal_key, None)
         if actual_custom_signal_value is None:
@@ -466,14 +475,14 @@ class _ConditionEvaluator:
                 bool: True if the predicate function returns True for any target value in the list,
                     False otherwise.
             """
-            for target in target_custom_signal_values:
+            for target in tgt_custom_signal_values:
                 if predicate_fn(target, str(actual_custom_signal_value)):
                     return True
             return False
 
         def compare_numbers(predicate_fn: Callable[[int], bool]) -> bool:
             try:
-                target = float(target_custom_signal_values[0])
+                target = float(tgt_custom_signal_values[0])
                 actual = float(actual_custom_signal_value)
                 result = -1 if actual < target else 1 if actual > target else 0
                 return predicate_fn(result)
@@ -494,7 +503,7 @@ class _ConditionEvaluator:
             False otherwise.
             """
             return compare_versions(str(actual_custom_signal_value),
-                                    str(target_custom_signal_values[0]), predicate_fn)
+                                    str(tgt_custom_signal_values[0]), predicate_fn)
         def compare_versions(version1: str, version2: str,
                              predicate_fn: Callable[[int], bool]) -> bool:
             """Compares two semantic version strings.
@@ -587,7 +596,7 @@ class _Value:
         """Returns the value as a boolean."""
         if self.source == 'static':
             return self.DEFAULT_VALUE_FOR_BOOLEAN
-        return self.value.lower() in self.BOOLEAN_TRUTHY_VALUES
+        return str(self.value).lower() in self.BOOLEAN_TRUTHY_VALUES
 
     def as_number(self) -> float:
         """Returns the value as a number."""

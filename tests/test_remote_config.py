@@ -714,7 +714,7 @@ class TestGetServerTemplate:
         assert truthy_assignments <= 50000 + tolerance
         self.tear_down()
 
-    def evaluate_random_assignments(self, condition, num_of_assignments, mock_app, default_config) -> int:
+    def evaluate_random_assignments(self, condition, num_of_assignments, mock_app, default_config):
         """Evaluates random assignments based on a condition.
 
         Args:

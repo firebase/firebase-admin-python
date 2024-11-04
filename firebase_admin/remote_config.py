@@ -133,7 +133,6 @@ class ServerTemplate:
             ValueError: If the input arguments are invalid.
         """
         # Logic to process the cached template into a ServerConfig here.
-        # TODO: Add Condition evaluator.
         if not self._cache:
             raise ValueError("""No Remote Config Server template in cache.
                             Call load() before calling evaluate().""")

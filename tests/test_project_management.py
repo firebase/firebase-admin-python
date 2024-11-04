@@ -23,6 +23,7 @@ import firebase_admin
 from firebase_admin import exceptions
 from firebase_admin import project_management
 from firebase_admin import _http_client
+from firebase_admin import _utils
 from tests import testutils
 
 OPERATION_IN_PROGRESS_RESPONSE = json.dumps({
@@ -521,8 +522,8 @@ class BaseProjectManagementTest:
             self, request, expected_method, expected_url, expected_body=None):
         assert request.method == expected_method
         assert request.url == expected_url
-        client_version = 'Python/Admin/{0}'.format(firebase_admin.__version__)
-        assert request.headers['X-Client-Version'] == client_version
+        assert request.headers['X-Client-Version'] == f'Python/Admin/{firebase_admin.__version__}'
+        assert request.headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
         if expected_body is None:
             assert request.body is None
         else:

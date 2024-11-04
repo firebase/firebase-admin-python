@@ -15,6 +15,7 @@
 """Internal utilities common to all modules."""
 
 import json
+from platform import python_version
 
 import google.auth
 import requests
@@ -75,6 +76,8 @@ _RPC_CODE_TO_ERROR_CODE = {
     16: exceptions.UNAUTHENTICATED,
 }
 
+def get_metrics_header():
+    return f'gl-python/{python_version()} fire-admin/{firebase_admin.__version__}'
 
 def _get_initialized_app(app):
     """Returns a reference to an initialized App instance."""

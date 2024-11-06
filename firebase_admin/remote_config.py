@@ -17,7 +17,8 @@ This module has required APIs for the clients to use Firebase Remote Config with
 """
 
 import json
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
+import requests
 from firebase_admin import App, _http_client, _utils
 import firebase_admin
 
@@ -31,12 +32,41 @@ class ServerTemplateData:
         Args:
             etag: The string to be used for initialize the ETag property.
             template_data: The data to be parsed for getting the parameters and conditions.
+
+        Raises:
+            ValueError: If the template data is not valid.
         """
-        self._parameters = template_data['parameters']
-        self._conditions = template_data['conditions']
-        self._version = template_data['version']
-        self._parameter_groups = template_data['parameterGroups']
-        self._etag = etag
+        if 'parameters' in template_data:
+            if template_data['parameters'] is not None:
+                self._parameters = template_data['parameters']
+            else:
+                raise ValueError('Remote Config parameters must be a non-null object')
+        else:
+            self._parameters = {}
+
+        if 'conditions' in template_data:
+            if template_data['conditions'] is not None:
+                self._conditions = template_data['conditions']
+            else:
+                raise ValueError('Remote Config conditions must be a non-null object')
+        else:
+            self._conditions = []
+
+        self._version = ''
+        if 'version' in template_data:
+            self._version = template_data['version']
+
+        if 'parameterGroups' in template_data:
+            if template_data['parameterGroups'] is not None:
+                self._parameter_groups = template_data['parameterGroups']
+            else:
+                raise ValueError('Remote Config parameterGroups must be a non-null object')
+        else:
+            self.parameter_groups = {}
+
+        self._etag = ''
+        if etag is not None and isinstance(etag, str):
+            self._etag = etag
 
     @property
     def parameters(self):
@@ -90,14 +120,13 @@ class ServerTemplate:
         self._evaluator = _ConditionEvaluator(self._cache.conditions, context)
         return ServerConfig(config_values=self._evaluator.evaluate())
 
-    def set(self, template):
+    def set(self, template: ServerTemplateData):
         """Updates the cache to store the given template is of type ServerTemplateData.
 
         Args:
           template: An object of type ServerTemplateData to be cached.
         """
-        if isinstance(template, ServerTemplateData):
-            self._cache = template
+        self._cache = template
 
 
 class ServerConfig:
@@ -140,20 +169,26 @@ class _RemoteConfigService:
                                                    base_url=remote_config_base_url,
                                                    headers=rc_headers, timeout=timeout)
 
-
     def get_server_template(self):
         """Requests for a server template and converts the response to an instance of
         ServerTemplateData for storing the template parameters and conditions."""
         url_prefix = self._get_url_prefix()
-        headers, response_json = self._client.headers_and_body('get',
-                                                               url=url_prefix+'/namespaces/ \
-                                                               firebase-server/serverRemoteConfig')
-        return ServerTemplateData(headers.get('ETag'), response_json)
+        try:
+            headers, response_json = self._client.headers_and_body(
+                'get', url=url_prefix+'/namespaces/firebase-server/serverRemoteConfig')
+        except requests.exceptions.RequestException as error:
+            raise self._handle_remote_config_error(error)
+        else:
+            return ServerTemplateData(headers.get('etag'), response_json)
 
     def _get_url_prefix(self):
-        # Returns project prefix for url, in the format of
-        # /v1/projects/${projectId}
+        """Returns project prefix for url, in the format of /v1/projects/${projectId}"""
         return "/v1/projects/{0}".format(self._project_id)
+
+    @classmethod
+    def _handle_remote_config_error(cls, error: Any):
+        """Handles errors received from the Cloud Functions API."""
+        return _utils.handle_platform_error_from_requests(error)
 
 
 class _ConditionEvaluator:

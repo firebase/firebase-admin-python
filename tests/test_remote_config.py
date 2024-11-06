@@ -31,7 +31,7 @@ class MockAdapter(testutils.MockAdapter):
 
     def send(self, request, **kwargs):
         resp = super(MockAdapter, self).send(request, **kwargs)
-        resp.headers = {'ETag': self._etag}
+        resp.headers = {'etag': self._etag}
         return resp
 
 
@@ -39,22 +39,41 @@ class TestGetServerTemplate:
     _DEFAULT_APP = firebase_admin.initialize_app(testutils.MockCredential(), name='no_project_id')
     _RC_INSTANCE = _utils.get_app_service(_DEFAULT_APP,
                                           _REMOTE_CONFIG_ATTRIBUTE, _RemoteConfigService)
-    _DEFAULT_RESPONSE = json.dumps({
-        'parameters': {
-            'test_key': 'test_value'
-        },
-        'conditions': {},
-        'parameterGroups': {},
-        'version': 'test'
-        })
 
     def test_rc_instance_get_server_template(self):
         recorder = []
+        response = json.dumps({
+            'parameters': {
+                'test_key': 'test_value'
+            },
+            'conditions': [],
+            'parameterGroups': {},
+            'version': 'test'
+            })
         self._RC_INSTANCE._client.session.mount(
             'https://firebaseremoteconfig.googleapis.com',
-            MockAdapter(self._DEFAULT_RESPONSE, 200, recorder))
+            MockAdapter(response, 200, recorder))
 
         template = self._RC_INSTANCE.get_server_template()
 
         assert template.parameters == dict(test_key="test_value")
         assert str(template.version) == 'test'
+        assert str(template.etag) == '0'
+
+    def test_rc_instance_get_server_template_empty_params(self):
+        recorder = []
+        response = json.dumps({
+            'conditions': [],
+            'parameterGroups': {},
+            'version': 'test'
+            })
+
+        self._RC_INSTANCE._client.session.mount(
+            'https://firebaseremoteconfig.googleapis.com',
+            MockAdapter(response, 200, recorder))
+
+        template = self._RC_INSTANCE.get_server_template()
+
+        assert template.parameters == {}
+        assert str(template.version) == 'test'
+        assert str(template.etag) == '0'

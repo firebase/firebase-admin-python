@@ -227,7 +227,7 @@ def build_mock_condition(name, condition):
     }
 
 def build_mock_parameter(name, description, value=None,
-                         conditional_values=None, default_value=None):
+                         conditional_values=None, default_value=None, parameter_groups=None):
     return {
         'name': name,
         'description': description,

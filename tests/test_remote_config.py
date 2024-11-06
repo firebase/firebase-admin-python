@@ -680,7 +680,7 @@ class TestGetServerTemplate:
         assert truthy_assignments <= 20000 + tolerance
         self.tear_down()
 
-    def test_rc_instance_evaluate_between_interquartile_range_approx(self):
+    def test_rc_instance_evaluate_between_interquartile_range_accuracy(self):
         self.set_up()
         condition = {
             'name': 'is_true',

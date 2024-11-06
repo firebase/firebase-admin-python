@@ -13,31 +13,25 @@
 # limitations under the License.
 
 """Tests for firebase_admin.remote_config."""
-import json
 import uuid
 from unittest import mock
 import firebase_admin
 from firebase_admin.remote_config import (
-    _REMOTE_CONFIG_ATTRIBUTE,
-    _RemoteConfigService,
     PercentConditionOperator,
     ServerTemplateData)
-from firebase_admin import remote_config, _utils
-from tests import testutils
-
-
-
+from firebase_admin import remote_config
 
 VERSION_INFO = {
     'versionNumber': '86',
-    'updateOrigin': 'ADMIN_SDK_NODE',
+    'updateOrigin': 'ADMIN_SDK_PYTHON',
     'updateType': 'INCREMENTAL_UPDATE',
     'updateUser': {
         'email': 'firebase-adminsdk@gserviceaccount.com'
     },
     'description': 'production version',
-    'updateTime': '2020-06-15T16:45:03.541527Z'
+    'updateTime': '2024-11-05T16:45:03.541527Z'
     }
+
 SERVER_REMOTE_CONFIG_RESPONSE = {
     'conditions': [
         {
@@ -68,34 +62,7 @@ SERVER_REMOTE_CONFIG_RESPONSE = {
     'version': VERSION_INFO,
     }
 
-class MockAdapter(testutils.MockAdapter):
-    """A Mock HTTP Adapter that Firebase Remote Config with ETag in header."""
-
-    ETAG = '0'
-
-    def __init__(self, data, status, recorder, etag=ETAG):
-        testutils.MockAdapter.__init__(self, data, status, recorder)
-        self._etag = etag
-
-    def send(self, request, **kwargs):
-        resp = super(MockAdapter, self).send(request, **kwargs)
-        resp.headers = {'ETag': self._etag}
-        return resp
-
-
-class TestGetServerTemplate:
-    _DEFAULT_APP = firebase_admin.initialize_app(testutils.MockCredential(), name='no_project_id')
-    _RC_INSTANCE = _utils.get_app_service(_DEFAULT_APP,
-                                          _REMOTE_CONFIG_ATTRIBUTE, _RemoteConfigService)
-    _DEFAULT_RESPONSE = json.dumps({
-        'parameters': {
-            'test_key': 'test_value'
-        },
-        'conditions': {},
-        'parameterGroups': {},
-        'version': 'test'
-        })
-
+class TestEvaluate:
     def set_up(self):
         # Create a more specific mock for firebase_admin.App
         self.mock_app = mock.create_autospec(firebase_admin.App)
@@ -113,7 +80,7 @@ class TestGetServerTemplate:
     def tear_down(self):
         mock.patch.stopall()
 
-    def test_rc_instance_return_conditional_values(self):
+    def test_evaluate_or_and_true_condition_true(self):
         self.set_up()
         default_config = {'param1': 'in_app_default_param1', 'param3': 'in_app_default_param3'}
         condition = {
@@ -158,7 +125,7 @@ class TestGetServerTemplate:
         assert server_config.get_boolean('is_enabled')
         self.tear_down()
 
-    def test_rc_instance_return_conditional_values_true(self):
+    def test_evaluate_or_and_false_condition_false(self):
         self.set_up()
         default_config = {'param1': 'in_app_default_param1', 'param3': 'in_app_default_param3'}
         condition = {
@@ -171,7 +138,7 @@ class TestGetServerTemplate:
                                 'conditions': [
                                     {
                                         'name': '',
-                                        'true': {
+                                        'false': {
                                         }
                                     }
                                 ]
@@ -198,12 +165,44 @@ class TestGetServerTemplate:
             default_config=default_config,
             template_data=ServerTemplateData('etag', template_data)  # Use ServerTemplateData here
         )
+
+        server_config = server_template.evaluate()
+        assert not server_config.get_boolean('is_enabled')
+        self.tear_down()
+
+    def test_evaluate_non_or_condition(self):
+        self.set_up()
+        default_config = {'param1': 'in_app_default_param1', 'param3': 'in_app_default_param3'}
+        condition = {
+            'name': 'is_true',
+            'condition': {
+                'true': {
+                }
+            }
+        }
+        template_data = {
+            'conditions': [condition],
+            'parameters': {
+                'is_enabled': {
+                    'defaultValue': {'value': 'false'},
+                    'conditionalValues': {'is_true': {'value': 'true'}}
+                },
+            },
+            'parameterGroups': '',
+            'version': '',
+            'etag': '123'
+        }
+        server_template = remote_config.init_server_template(
+            app=self.mock_app,
+            default_config=default_config,
+            template_data=ServerTemplateData('etag', template_data)  # Use ServerTemplateData here
+        )
+
         server_config = server_template.evaluate()
         assert server_config.get_boolean('is_enabled')
         self.tear_down()
 
-
-    def test_rc_instance_return_conditional_values_honor_order(self):
+    def test_evaluate_return_conditional_values_honor_order(self):
         self.set_up()
         default_config = {'param1': 'in_app_default_param1', 'param3': 'in_app_default_param3'}
         template_data = {
@@ -269,73 +268,7 @@ class TestGetServerTemplate:
         assert server_config.get_string('dog_type') == 'corgi'
         self.tear_down()
 
-    def test_rc_instance_return_conditional_values_honor_order_final(self):
-        self.set_up()
-        default_config = {'param1': 'in_app_default_param1', 'param3': 'in_app_default_param3'}
-        template_data = {
-            'conditions': [
-                {
-                    'name': 'is_true',
-                    'condition': {
-                        'orCondition': {
-                            'conditions': [
-                                {
-                                    'andCondition': {
-                                        'conditions': [
-                                            {
-                                                'true': {
-                                                }
-                                            }
-                                        ]
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                },
-                {
-                    'name': 'is_true_too',
-                    'condition': {
-                        'orCondition': {
-                            'conditions': [
-                                {
-                                    'andCondition': {
-                                        'conditions': [
-                                            {
-                                                'true': {
-                                                }
-                                            }
-                                        ]
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            ],
-            'parameters': {
-                'dog_type': {
-                    'defaultValue': {'value': 'chihuahua'},
-                    'conditionalValues': {
-                        'is_true_too': {'value': 'dachshund'},
-                        'is_true': {'value': 'corgi'}
-                    }
-                },
-            },
-            'parameterGroups':'',
-            'version':'',
-            'etag': '123'
-        }
-        server_template = remote_config.init_server_template(
-            app=self.mock_app,
-            default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)  # Use ServerTemplateData here
-        )
-        server_config = server_template.evaluate()
-        assert server_config.get_string('dog_type') == 'corgi'
-        self.tear_down()
-
-    def test_rc_instance_evaluate_default_when_no_param(self):
+    def test_evaluate_default_when_no_param(self):
         self.set_up()
         default_config = {'promo_enabled': False, 'promo_discount': 20,}
         template_data = SERVER_REMOTE_CONFIG_RESPONSE
@@ -350,7 +283,7 @@ class TestGetServerTemplate:
         assert server_config.get_int('promo_discount') == default_config.get('promo_discount')
         self.tear_down()
 
-    def test_rc_instance_evaluate_default_when_no_default_value(self):
+    def test_evaluate_default_when_no_default_value(self):
         self.set_up()
         default_config = {'default_value': 'local default'}
         template_data = SERVER_REMOTE_CONFIG_RESPONSE
@@ -366,7 +299,7 @@ class TestGetServerTemplate:
         assert server_config.get_string('default_value') == default_config.get('default_value')
         self.tear_down()
 
-    def test_rc_instance_evaluate_default_when_in_default(self):
+    def test_evaluate_default_when_in_default(self):
         self.set_up()
         template_data = SERVER_REMOTE_CONFIG_RESPONSE
         template_data['parameters'] = {
@@ -384,7 +317,7 @@ class TestGetServerTemplate:
         assert server_config.get_string('inapp_default') == default_config.get('inapp_default')
         self.tear_down()
 
-    def test_rc_instance_evaluate_default_when_defined(self):
+    def test_evaluate_default_when_defined(self):
         self.set_up()
         template_data = SERVER_REMOTE_CONFIG_RESPONSE
         template_data['parameters'] = {}
@@ -401,7 +334,7 @@ class TestGetServerTemplate:
         assert server_config.get_value('dog_type').get_source() == 'default'
         self.tear_down()
 
-    def test_rc_instance_evaluate_return_numeric_value(self):
+    def test_evaluate_return_numeric_value(self):
         self.set_up()
         template_data = SERVER_REMOTE_CONFIG_RESPONSE
         default_config = {
@@ -416,7 +349,7 @@ class TestGetServerTemplate:
         assert server_config.get_int('dog_age') == 12
         self.tear_down()
 
-    def test_rc_instance_evaluate_return__value(self):
+    def test_evaluate_return__value(self):
         self.set_up()
         template_data = SERVER_REMOTE_CONFIG_RESPONSE
         default_config = {
@@ -431,7 +364,7 @@ class TestGetServerTemplate:
         assert server_config.get_int('dog_is_cute')
         self.tear_down()
 
-    def test_rc_instance_evaluate_unknown_operator_false(self):
+    def test_evaluate_unknown_operator_to_false(self):
         self.set_up()
         condition = {
             'name': 'is_true',
@@ -474,7 +407,7 @@ class TestGetServerTemplate:
         assert not server_config.get_boolean('is_enabled')
         self.tear_down()
 
-    def test_rc_instance_evaluate_less_max_equal_true(self):
+    def test_evaluate_less_or_equal_to_max_to_true(self):
         self.set_up()
         condition = {
             'name': 'is_true',
@@ -519,7 +452,95 @@ class TestGetServerTemplate:
         assert server_config.get_boolean('is_enabled')
         self.tear_down()
 
-    def test_rc_instance_evaluate_min_max_equal_true(self):
+    def test_evaluate_undefined_micropercent_to_false(self):
+        self.set_up()
+        condition = {
+            'name': 'is_true',
+            'condition': {
+                'orCondition': {
+                    'conditions': [{
+                        'andCondition': {
+                            'conditions': [{
+                                'percent': {
+                                    'percentOperator': PercentConditionOperator.LESS_OR_EQUAL,
+                                    # Leaves microPercent undefined
+                                }
+                            }],
+                        }
+                    }]
+                }
+            }
+        }
+        default_config = {
+            'dog_is_cute': True
+        }
+        template_data = {
+            'conditions': [condition],
+            'parameters': {
+                'is_enabled': {
+                    'defaultValue': {'value': 'false'},
+                    'conditionalValues': {'is_true': {'value': 'true'}}
+                },
+            },
+            'parameterGroups':'',
+            'version':'',
+            'etag': '123'
+        }
+        context = {'randomization_id': '123'}
+        server_template = remote_config.init_server_template(
+            app=self.mock_app,
+            default_config=default_config,
+            template_data=ServerTemplateData('etag', template_data)  # Use ServerTemplateData here
+        )
+        server_config = server_template.evaluate(context)
+        assert not server_config.get_boolean('is_enabled')
+        self.tear_down()
+
+    def test_evaluate_undefined_micropercentrange_to_false(self):
+        self.set_up()
+        condition = {
+            'name': 'is_true',
+            'condition': {
+                'orCondition': {
+                    'conditions': [{
+                        'andCondition': {
+                            'conditions': [{
+                                'percent': {
+                                    'percentOperator': PercentConditionOperator.BETWEEN,
+                                    # Leaves microPercent undefined
+                                }
+                            }],
+                        }
+                    }]
+                }
+            }
+        }
+        default_config = {
+            'dog_is_cute': True
+        }
+        template_data = {
+            'conditions': [condition],
+            'parameters': {
+                'is_enabled': {
+                    'defaultValue': {'value': 'false'},
+                    'conditionalValues': {'is_true': {'value': 'true'}}
+                },
+            },
+            'parameterGroups':'',
+            'version':'',
+            'etag': '123'
+        }
+        context = {'randomization_id': '123'}
+        server_template = remote_config.init_server_template(
+            app=self.mock_app,
+            default_config=default_config,
+            template_data=ServerTemplateData('etag', template_data)  # Use ServerTemplateData here
+        )
+        server_config = server_template.evaluate(context)
+        assert not server_config.get_boolean('is_enabled')
+        self.tear_down()
+
+    def test_evaluate_between_min_max_to_true(self):
         self.set_up()
         condition = {
             'name': 'is_true',
@@ -567,7 +588,7 @@ class TestGetServerTemplate:
         assert server_config.get_boolean('is_enabled')
         self.tear_down()
 
-    def test_rc_instance_evaluate_min_max_equal_false(self):
+    def test_evaluate_between_equal_bounds_to_false(self):
         self.set_up()
         condition = {
             'name': 'is_true',
@@ -615,7 +636,7 @@ class TestGetServerTemplate:
         assert not server_config.get_boolean('is_enabled')
         self.tear_down()
 
-    def test_rc_instance_evaluate_less_or_equal_approx(self):
+    def test_evaluate_less_or_equal_to_approx(self):
         self.set_up()
         condition = {
             'name': 'is_true',
@@ -646,7 +667,7 @@ class TestGetServerTemplate:
         assert truthy_assignments <= 10000 + tolerance
         self.tear_down()
 
-    def test_rc_instance_evaluate_between_approx(self):
+    def test_evaluate_between_approx(self):
         self.set_up()
         condition = {
             'name': 'is_true',
@@ -680,7 +701,7 @@ class TestGetServerTemplate:
         assert truthy_assignments <= 20000 + tolerance
         self.tear_down()
 
-    def test_rc_instance_evaluate_between_interquartile_range_accuracy(self):
+    def test_evaluate_between_interquartile_range_accuracy(self):
         self.set_up()
         condition = {
             'name': 'is_true',

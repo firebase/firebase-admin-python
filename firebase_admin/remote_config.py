@@ -377,15 +377,19 @@ class _ConditionEvaluator:
         else:
             norm_percent_upper_bound = 0
             norm_percent_lower_bound = 0
+        if micro_percent:
+            norm_micro_percent = micro_percent
+        else:
+            norm_micro_percent = 0
         seed_prefix = f"{seed}." if seed else ""
         string_to_hash = f"{seed_prefix}{context.get('randomization_id')}"
 
         hash64 = self.hash_seeded_randomization_id(string_to_hash)
         instance_micro_percentile = hash64 % (100 * 1000000)
         if percent_operator == PercentConditionOperator.LESS_OR_EQUAL:
-            return instance_micro_percentile <= micro_percent
+            return instance_micro_percentile <= norm_micro_percent
         if percent_operator == PercentConditionOperator.GREATER_THAN:
-            return instance_micro_percentile > micro_percent
+            return instance_micro_percentile > norm_micro_percent
         if percent_operator == PercentConditionOperator.BETWEEN:
             return norm_percent_lower_bound < instance_micro_percentile <= norm_percent_upper_bound
         logger.warning("Unknown percent operator: %s", percent_operator)

@@ -234,6 +234,7 @@ def build_mock_parameter(name, description, value=None,
         'value': value,
         'conditionalValues': conditional_values,
         'defaultValue': default_value,
+        'parameterGroups': parameter_groups,
         # ... other relevant fields ...
     }
 

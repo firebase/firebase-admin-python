@@ -9,6 +9,6 @@ pytest-mock >= 3.6.1
 cachecontrol >= 0.12.14
 google-api-core[grpc] >= 1.22.1, < 3.0.0dev; platform.python_implementation != 'PyPy'
 google-api-python-client >= 1.7.8
-google-cloud-firestore >= 2.9.1; platform.python_implementation != 'PyPy'
+google-cloud-firestore >= 2.12.0; platform.python_implementation != 'PyPy'
 google-cloud-storage >= 1.37.1
 pyjwt[crypto] >= 2.5.0

@@ -112,12 +112,12 @@ class ServerTemplate:
 
     async def load(self):
         """Fetches the server template and caches the data."""
-        self._cache = await self._rc_service.getServerTemplate()
+        self._cache = self._rc_service.get_server_template()
 
-    def evaluate(self, context):
+    def evaluate(self):
         # Logic to process the cached template into a ServerConfig here.
-        # TODO: Add Condition evaluator.
-        self._evaluator = _ConditionEvaluator(self._cache.conditions, context)
+        # TODO: Add and validate Condition evaluator.
+        self._evaluator = _ConditionEvaluator(self._cache.parameters)
         return ServerConfig(config_values=self._evaluator.evaluate())
 
     def set(self, template: ServerTemplateData):
@@ -194,13 +194,12 @@ class _RemoteConfigService:
 class _ConditionEvaluator:
     """Internal class that facilitates sending requests to the Firebase Remote
     Config backend API."""
-    def __init__(self, context, conditions):
-        self._context = context
-        self._conditions = conditions
+    def __init__(self, parameters):
+        self._parameters = parameters
 
     def evaluate(self):
-        # TODO: Write evaluator
-        return {}
+        # TODO: Write logic for evaluator
+        return self._parameters
 
 
 async def get_server_template(app: App = None, default_config: Optional[Dict[str, str]] = None):

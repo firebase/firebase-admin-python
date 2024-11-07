@@ -14,8 +14,11 @@
 
 """Tests for firebase_admin.remote_config."""
 import json
+import pytest
 import firebase_admin
-from firebase_admin.remote_config import _REMOTE_CONFIG_ATTRIBUTE, _RemoteConfigService
+from firebase_admin import remote_config
+from firebase_admin.remote_config import _REMOTE_CONFIG_ATTRIBUTE
+from firebase_admin.remote_config import _RemoteConfigService, ServerTemplateData
 
 from firebase_admin import _utils
 from tests import testutils
@@ -23,7 +26,7 @@ from tests import testutils
 class MockAdapter(testutils.MockAdapter):
     """A Mock HTTP Adapter that Firebase Remote Config with ETag in header."""
 
-    ETAG = '0'
+    ETAG = 'etag'
 
     def __init__(self, data, status, recorder, etag=ETAG):
         testutils.MockAdapter.__init__(self, data, status, recorder)
@@ -35,10 +38,15 @@ class MockAdapter(testutils.MockAdapter):
         return resp
 
 
-class TestGetServerTemplate:
-    _DEFAULT_APP = firebase_admin.initialize_app(testutils.MockCredential(), name='no_project_id')
-    _RC_INSTANCE = _utils.get_app_service(_DEFAULT_APP,
-                                          _REMOTE_CONFIG_ATTRIBUTE, _RemoteConfigService)
+class TestRemoteConfigServiceClient:
+    @classmethod
+    def setup_class(cls):
+        cred = testutils.MockCredential()
+        firebase_admin.initialize_app(cred, {'projectId': 'project-id'})
+
+    @classmethod
+    def teardown_class(cls):
+        testutils.cleanup_apps()
 
     def test_rc_instance_get_server_template(self):
         recorder = []
@@ -50,15 +58,18 @@ class TestGetServerTemplate:
             'parameterGroups': {},
             'version': 'test'
             })
-        self._RC_INSTANCE._client.session.mount(
+
+        rc_instance = _utils.get_app_service(firebase_admin.get_app(),
+                                             _REMOTE_CONFIG_ATTRIBUTE, _RemoteConfigService)
+        rc_instance._client.session.mount(
             'https://firebaseremoteconfig.googleapis.com',
             MockAdapter(response, 200, recorder))
 
-        template = self._RC_INSTANCE.get_server_template()
+        template = rc_instance.get_server_template()
 
         assert template.parameters == dict(test_key="test_value")
         assert str(template.version) == 'test'
-        assert str(template.etag) == '0'
+        assert str(template.etag) == 'etag'
 
     def test_rc_instance_get_server_template_empty_params(self):
         recorder = []
@@ -68,12 +79,69 @@ class TestGetServerTemplate:
             'version': 'test'
             })
 
-        self._RC_INSTANCE._client.session.mount(
+        rc_instance = _utils.get_app_service(firebase_admin.get_app(),
+                                             _REMOTE_CONFIG_ATTRIBUTE, _RemoteConfigService)
+        rc_instance._client.session.mount(
             'https://firebaseremoteconfig.googleapis.com',
             MockAdapter(response, 200, recorder))
 
-        template = self._RC_INSTANCE.get_server_template()
+        template = rc_instance.get_server_template()
 
         assert template.parameters == {}
         assert str(template.version) == 'test'
-        assert str(template.etag) == '0'
+        assert str(template.etag) == 'etag'
+
+
+class TestRemoteConfigService:
+    @classmethod
+    def setup_class(cls):
+        cred = testutils.MockCredential()
+        firebase_admin.initialize_app(cred, {'projectId': 'project-id'})
+
+    @classmethod
+    def teardown_class(cls):
+        testutils.cleanup_apps()
+
+    def test_init_server_template(self):
+        app = firebase_admin.get_app()
+        template_data = {
+            'conditions': [],
+            'parameters': {
+                'test_key': 'test_value'
+            },
+            'parameterGroups': '',
+            'version': '',
+        }
+
+        template = remote_config.init_server_template(
+            app=app,
+            template_data=ServerTemplateData('etag', template_data)  # Use ServerTemplateData here
+        )
+
+        config = template.evaluate()
+        assert config.get_string('test_key') == 'test_value'
+
+    @pytest.mark.asyncio
+    async def test_get_server_template(self):
+        app = firebase_admin.get_app()
+        rc_instance = _utils.get_app_service(app,
+                                             _REMOTE_CONFIG_ATTRIBUTE, _RemoteConfigService)
+
+        recorder = []
+        response = json.dumps({
+            'parameters': {
+                'test_key': 'test_value'
+            },
+            'conditions': [],
+            'parameterGroups': {},
+            'version': 'test'
+            })
+
+        rc_instance._client.session.mount(
+            'https://firebaseremoteconfig.googleapis.com',
+            MockAdapter(response, 200, recorder))
+
+        template = await remote_config.get_server_template(app=app)
+
+        config = template.evaluate()
+        assert config.get_string('test_key') == 'test_value'

@@ -541,7 +541,7 @@ class Query:
         self._params['limitToLast'] = limit
         return self
 
-    def start_at(self, start):
+    def start_at(self, start, key=None):
         """Sets the lower bound for a range query.
 
         The Query will only return child nodes with a value greater than or equal to the specified
@@ -549,7 +549,7 @@ class Query:
 
         Args:
           start: JSON-serializable value to start at, inclusive.
-
+          key: JSON-serializable object key to start at.
         Returns:
           Query: The updated Query instance.
 
@@ -558,10 +558,14 @@ class Query:
         """
         if start is None:
             raise ValueError('Start value must not be None.')
-        self._params['startAt'] = json.dumps(start)
+
+        if key != None:
+            self._params['startAt'] = json.dumps(start) + ',"' + key + '"'
+        else:
+            self._params['startAt'] = json.dumps(start)
         return self
 
-    def end_at(self, end):
+    def end_at(self, end, key=None):
         """Sets the upper bound for a range query.
 
         The Query will only return child nodes with a value less than or equal to the specified
@@ -569,7 +573,7 @@ class Query:
 
         Args:
           end: JSON-serializable value to end at, inclusive.
-
+          key: JSON-serializable object key to end at.
         Returns:
           Query: The updated Query instance.
 
@@ -578,7 +582,10 @@ class Query:
         """
         if end is None:
             raise ValueError('End value must not be None.')
-        self._params['endAt'] = json.dumps(end)
+        if key != None:
+            self._params['endAt'] = json.dumps(start) + ',"' + key + '"'
+        else:
+            self._params['endAt'] = json.dumps(start)
         return self
 
     def equal_to(self, value):

@@ -55,7 +55,6 @@ class TestRemoteConfigServiceClient:
                 'test_key': 'test_value'
             },
             'conditions': [],
-            'parameterGroups': {},
             'version': 'test'
             })
 
@@ -75,7 +74,6 @@ class TestRemoteConfigServiceClient:
         recorder = []
         response = json.dumps({
             'conditions': [],
-            'parameterGroups': {},
             'version': 'test'
             })
 
@@ -109,13 +107,12 @@ class TestRemoteConfigService:
             'parameters': {
                 'test_key': 'test_value'
             },
-            'parameterGroups': '',
             'version': '',
         }
 
         template = remote_config.init_server_template(
             app=app,
-            template_data=ServerTemplateData('etag', template_data)  # Use ServerTemplateData here
+            template_data=ServerTemplateData('etag', template_data)
         )
 
         config = template.evaluate()
@@ -133,7 +130,6 @@ class TestRemoteConfigService:
                 'test_key': 'test_value'
             },
             'conditions': [],
-            'parameterGroups': {},
             'version': 'test'
             })
 

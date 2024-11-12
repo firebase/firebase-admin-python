@@ -56,14 +56,6 @@ class ServerTemplateData:
         if 'version' in template_data:
             self._version = template_data['version']
 
-        if 'parameterGroups' in template_data:
-            if template_data['parameterGroups'] is not None:
-                self._parameter_groups = template_data['parameterGroups']
-            else:
-                raise ValueError('Remote Config parameterGroups must be a non-null object')
-        else:
-            self.parameter_groups = {}
-
         self._etag = ''
         if etag is not None and isinstance(etag, str):
             self._etag = etag
@@ -83,10 +75,6 @@ class ServerTemplateData:
     @property
     def conditions(self):
         return self._conditions
-
-    @property
-    def parameter_groups(self):
-        return self._parameter_groups
 
 
 class ServerTemplate:

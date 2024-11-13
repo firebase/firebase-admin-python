@@ -51,6 +51,10 @@ class _AppCheckService:
     _scoped_project_id = None
     _jwks_client = None
 
+    _APP_CHECK_HEADERS = {
+        'X-GOOG-API-CLIENT': _utils.get_metrics_header(),
+    }
+
     def __init__(self, app):
         # Validate and store the project_id to validate the JWT claims
         self._project_id = app.project_id
@@ -62,7 +66,8 @@ class _AppCheckService:
                 'GOOGLE_CLOUD_PROJECT environment variable.')
         self._scoped_project_id = 'projects/' + app.project_id
         # Default lifespan is 300 seconds (5 minutes) so we change it to 21600 seconds (6 hours).
-        self._jwks_client = PyJWKClient(self._JWKS_URL, lifespan=21600)
+        self._jwks_client = PyJWKClient(
+            self._JWKS_URL, lifespan=21600, headers=self._APP_CHECK_HEADERS)
 
 
     def verify_token(self, token: str) -> Dict[str, Any]:

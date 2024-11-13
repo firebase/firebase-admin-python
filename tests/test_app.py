@@ -246,6 +246,16 @@ class TestFirebaseApp:
         with pytest.raises(ValueError):
             firebase_admin.initialize_app(app_credential, name='myApp')
 
+    def test_app_init_with_google_auth_cred(self):
+        cred = testutils.MockGoogleCredential()
+        assert isinstance(cred, credentials.GoogleAuthCredentials)
+        app = firebase_admin.initialize_app(cred)
+        assert cred is app.credential.get_credential()
+        assert isinstance(app.credential, credentials.Base)
+        assert isinstance(app.credential, credentials._ExternalCredentials)
+        with pytest.raises(ValueError):
+            firebase_admin.initialize_app(app_credential)
+
     @pytest.mark.parametrize('cred', invalid_credentials)
     def test_app_init_with_invalid_credential(self, cred):
         with pytest.raises(ValueError):

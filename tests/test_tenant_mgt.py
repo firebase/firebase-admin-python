@@ -26,6 +26,7 @@ from firebase_admin import exceptions
 from firebase_admin import tenant_mgt
 from firebase_admin import _auth_providers
 from firebase_admin import _user_mgt
+from firebase_admin import _utils
 from tests import testutils
 from tests import test_token_gen
 
@@ -195,6 +196,8 @@ class TestGetTenant:
         req = recorder[0]
         assert req.method == 'GET'
         assert req.url == '{0}/tenants/tenant-id'.format(TENANT_MGT_URL_PREFIX)
+        assert req.headers['X-Client-Version'] == f'Python/Admin/{firebase_admin.__version__}'
+        assert req.headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
 
     def test_tenant_not_found(self, tenant_mgt_app):
         _instrument_tenant_mgt(tenant_mgt_app, 500, TENANT_NOT_FOUND_RESPONSE)
@@ -285,6 +288,8 @@ class TestCreateTenant:
         req = recorder[0]
         assert req.method == 'POST'
         assert req.url == '{0}/tenants'.format(TENANT_MGT_URL_PREFIX)
+        assert req.headers['X-Client-Version'] == f'Python/Admin/{firebase_admin.__version__}'
+        assert req.headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
         got = json.loads(req.body.decode())
         assert got == body
 
@@ -383,6 +388,8 @@ class TestUpdateTenant:
         assert req.method == 'PATCH'
         assert req.url == '{0}/tenants/tenant-id?updateMask={1}'.format(
             TENANT_MGT_URL_PREFIX, ','.join(mask))
+        assert req.headers['X-Client-Version'] == f'Python/Admin/{firebase_admin.__version__}'
+        assert req.headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
         got = json.loads(req.body.decode())
         assert got == body
 
@@ -403,6 +410,8 @@ class TestDeleteTenant:
         req = recorder[0]
         assert req.method == 'DELETE'
         assert req.url == '{0}/tenants/tenant-id'.format(TENANT_MGT_URL_PREFIX)
+        assert req.headers['X-Client-Version'] == f'Python/Admin/{firebase_admin.__version__}'
+        assert req.headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
 
     def test_tenant_not_found(self, tenant_mgt_app):
         _instrument_tenant_mgt(tenant_mgt_app, 500, TENANT_NOT_FOUND_RESPONSE)
@@ -545,6 +554,8 @@ class TestListTenants:
         assert len(recorder) == 1
         req = recorder[0]
         assert req.method == 'GET'
+        assert req.headers['X-Client-Version'] == f'Python/Admin/{firebase_admin.__version__}'
+        assert req.headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
         request = dict(parse.parse_qsl(parse.urlsplit(req.url).query))
         assert request == expected
 
@@ -920,6 +931,8 @@ class TestTenantAwareUserManagement:
         req = recorder[0]
         assert req.method == method
         assert req.url == '{0}/tenants/tenant-id{1}'.format(prefix, want_url)
+        assert req.headers['X-Client-Version'] == f'Python/Admin/{firebase_admin.__version__}'
+        assert req.headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
         body = json.loads(req.body.decode())
         assert body == want_body
 

@@ -28,6 +28,7 @@ from firebase_admin import _auth_utils
 from firebase_admin import _http_client
 from firebase_admin import _user_import
 from firebase_admin import _user_mgt
+from firebase_admin import _utils
 from tests import testutils
 
 
@@ -135,6 +136,7 @@ def _check_request(recorder, want_url, want_body=None, want_timeout=None):
     req = recorder[0]
     assert req.method == 'POST'
     assert req.url == '{0}{1}'.format(USER_MGT_URLS['PREFIX'], want_url)
+    assert req.headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
     if want_body:
         body = json.loads(req.body.decode())
         assert body == want_body

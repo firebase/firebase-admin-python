@@ -16,12 +16,13 @@
 This module has required APIs for the clients to use Firebase Remote Config with python.
 """
 
-import json
+import asyncio
 import logging
-from typing import Dict, Optional, Literal, Union
+from typing import Dict, Optional, Literal, Union, Any
 from enum import Enum
 import re
 import hashlib
+import requests
 from firebase_admin import App, _http_client, _utils
 import firebase_admin
 
@@ -32,6 +33,7 @@ logger = logging.getLogger(__name__)
 _REMOTE_CONFIG_ATTRIBUTE = '_remoteconfig'
 MAX_CONDITION_RECURSION_DEPTH = 10
 ValueSource = Literal['default', 'remote', 'static']  # Define the ValueSource type
+
 class PercentConditionOperator(Enum):
     """Enum representing the available operators for percent conditions.
     """
@@ -62,19 +64,40 @@ class CustomSignalOperator(Enum):
     UNKNOWN = "UNKNOWN"
 
 class ServerTemplateData:
-    """Represents a Server Template Data class."""
+    """Parses, validates and encapsulates template data and metadata."""
     def __init__(self, etag, template_data):
         """Initializes a new ServerTemplateData instance.
 
         Args:
             etag: The string to be used for initialize the ETag property.
             template_data: The data to be parsed for getting the parameters and conditions.
+
+        Raises:
+            ValueError: If the template data is not valid.
         """
-        self._parameters = template_data['parameters']
-        self._conditions = template_data['conditions']
-        self._version = template_data['version']
-        self._parameter_groups = template_data['parameterGroups']
-        self._etag = etag
+        if 'parameters' in template_data:
+            if template_data['parameters'] is not None:
+                self._parameters = template_data['parameters']
+            else:
+                raise ValueError('Remote Config parameters must be a non-null object')
+        else:
+            self._parameters = {}
+
+        if 'conditions' in template_data:
+            if template_data['conditions'] is not None:
+                self._conditions = template_data['conditions']
+            else:
+                raise ValueError('Remote Config conditions must be a non-null object')
+        else:
+            self._conditions = []
+
+        self._version = ''
+        if 'version' in template_data:
+            self._version = template_data['version']
+
+        self._etag = ''
+        if etag is not None and isinstance(etag, str):
+            self._etag = etag
 
     @property
     def parameters(self):
@@ -92,13 +115,9 @@ class ServerTemplateData:
     def conditions(self):
         return self._conditions
 
-    @property
-    def parameter_groups(self):
-        return self._parameter_groups
-
 
 class ServerTemplate:
-    """Represents a Server Template with implementations for loading and evaluting the tempalte."""
+    """Represents a Server Template with implementations for loading and evaluting the template."""
     def __init__(self, app: App = None, default_config: Optional[Dict[str, str]] = None):
         """Initializes a ServerTemplate instance.
 
@@ -112,14 +131,18 @@ class ServerTemplate:
         # This gets set when the template is
         # fetched from RC servers via the load API, or via the set API.
         self._cache = None
+        self._stringified_default_config: Dict[str, str] = {}
+
+        # RC stores all remote values as string, but it's more intuitive
+        # to declare default values with specific types, so this converts
+        # the external declaration to an internal string representation.
         if default_config is not None:
-            self._stringified_default_config = json.dumps(default_config)
-        else:
-            self._stringified_default_config = None
+            for key in default_config:
+                self._stringified_default_config[key] = str(default_config[key])
 
     async def load(self):
         """Fetches the server template and caches the data."""
-        self._cache = await self._rc_service.getServerTemplate()
+        self._cache = await self._rc_service.get_server_template()
 
     def evaluate(self, context: Optional[Dict[str, Union[str, int]]] = None) -> 'ServerConfig':
         """Evaluates the cached server template to produce a ServerConfig.
@@ -140,21 +163,20 @@ class ServerTemplate:
         config_values = {}
         # Initializes config Value objects with default values.
         if self._stringified_default_config is not None:
-            for key, value in json.loads(self._stringified_default_config).items():
+            for key, value in self._stringified_default_config.items():
                 config_values[key] = _Value('default', value)
         self._evaluator = _ConditionEvaluator(self._cache.conditions,
                                               self._cache.parameters, context,
                                               config_values)
         return ServerConfig(config_values=self._evaluator.evaluate())
 
-    def set(self, template):
+    def set(self, template: ServerTemplateData):
         """Updates the cache to store the given template is of type ServerTemplateData.
 
         Args:
           template: An object of type ServerTemplateData to be cached.
         """
-        if isinstance(template, ServerTemplateData):
-            self._cache = template
+        self._cache = template
 
 
 class ServerConfig:
@@ -202,20 +224,28 @@ class _RemoteConfigService:
                                                    base_url=remote_config_base_url,
                                                    headers=rc_headers, timeout=timeout)
 
-
-    def get_server_template(self):
+    async def get_server_template(self):
         """Requests for a server template and converts the response to an instance of
         ServerTemplateData for storing the template parameters and conditions."""
-        url_prefix = self._get_url_prefix()
-        headers, response_json = self._client.headers_and_body('get',
-                                                               url=url_prefix+'/namespaces/ \
-                                                               firebase-server/serverRemoteConfig')
-        return ServerTemplateData(headers.get('ETag'), response_json)
+        try:
+            loop = asyncio.get_event_loop()
+            headers, template_data = await loop.run_in_executor(None,
+                                                                self._client.headers_and_body,
+                                                                'get', self._get_url())
+        except requests.exceptions.RequestException as error:
+            raise self._handle_remote_config_error(error)
+        else:
+            return ServerTemplateData(headers.get('etag'), template_data)
 
-    def _get_url_prefix(self):
-        # Returns project prefix for url, in the format of
-        # /v1/projects/${projectId}
-        return "/v1/projects/{0}".format(self._project_id)
+    def _get_url(self):
+        """Returns project prefix for url, in the format of /v1/projects/${projectId}"""
+        return "/v1/projects/{0}/namespaces/firebase-server/serverRemoteConfig".format(
+            self._project_id)
+
+    @classmethod
+    def _handle_remote_config_error(cls, error: Any):
+        """Handles errors received from the Cloud Functions API."""
+        return _utils.handle_platform_error_from_requests(error)
 
 
 class _ConditionEvaluator:
@@ -586,7 +616,6 @@ class _ConditionEvaluator:
         except ValueError:
             logger.warning("Invalid semantic version format for comparison.")
             return False
-
 
 async def get_server_template(app: App = None, default_config: Optional[Dict[str, str]] = None):
     """Initializes a new ServerTemplate instance and fetches the server template.

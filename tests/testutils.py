@@ -223,7 +223,6 @@ def build_mock_condition(name, condition):
     return {
         'name': name,
         'condition': condition,
-        # ... other relevant fields ...
     }
 
 def build_mock_parameter(name, description, value=None,
@@ -235,20 +234,17 @@ def build_mock_parameter(name, description, value=None,
         'conditionalValues': conditional_values,
         'defaultValue': default_value,
         'parameterGroups': parameter_groups,
-        # ... other relevant fields ...
     }
 
 def build_mock_conditional_value(condition_name, value):
     return {
         'conditionName': condition_name,
         'value': value,
-        # ... other relevant fields ...
     }
 
 def build_mock_default_value(value):
     return {
         'value': value,
-        # ... other relevant fields ...
     }
 
 def build_mock_parameter_group(name, description, parameters):
@@ -256,11 +252,9 @@ def build_mock_parameter_group(name, description, parameters):
         'name': name,
         'description': description,
         'parameters': parameters,
-        # ... other relevant fields ...
     }
 
 def build_mock_version(version_number):
     return {
         'versionNumber': version_number,
-        # ... other relevant fields ...
     }

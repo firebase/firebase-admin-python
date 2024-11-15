@@ -110,7 +110,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)  # Use ServerTemplateData here
+            template_data=ServerTemplateData('etag', template_data)
         )
 
         server_config = server_template.evaluate()
@@ -154,7 +154,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)  # Use ServerTemplateData here
+            template_data=ServerTemplateData('etag', template_data)
         )
 
         server_config = server_template.evaluate()
@@ -185,7 +185,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)  # Use ServerTemplateData here
+            template_data=ServerTemplateData('etag', template_data)
         )
 
         server_config = server_template.evaluate()
@@ -251,7 +251,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)  # Use ServerTemplateData here
+            template_data=ServerTemplateData('etag', template_data)
         )
         server_config = server_template.evaluate()
         assert server_config.get_string('dog_type') == 'corgi'
@@ -264,7 +264,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)  # Use ServerTemplateData here
+            template_data=ServerTemplateData('etag', template_data)
         )
         server_config = server_template.evaluate()
         assert server_config.get_boolean('promo_enabled') == default_config.get('promo_enabled')
@@ -280,7 +280,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)  # Use ServerTemplateData here
+            template_data=ServerTemplateData('etag', template_data)
         )
         server_config = server_template.evaluate()
         assert server_config.get_string('default_value') == default_config.get('default_value')
@@ -297,7 +297,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)  # Use ServerTemplateData here
+            template_data=ServerTemplateData('etag', template_data)
         )
         server_config = server_template.evaluate()
         assert server_config.get_string('inapp_default') == default_config.get('inapp_default')
@@ -312,7 +312,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)  # Use ServerTemplateData here
+            template_data=ServerTemplateData('etag', template_data)
         )
         server_config = server_template.evaluate()
         assert server_config.get_value('dog_type').as_string() == 'shiba'
@@ -327,12 +327,12 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)  # Use ServerTemplateData here
+            template_data=ServerTemplateData('etag', template_data)
         )
         server_config = server_template.evaluate()
         assert server_config.get_int('dog_age') == 12
 
-    def test_evaluate_return__value(self):
+    def test_evaluate_return_boolean_value(self):
         app = firebase_admin.get_app()
         template_data = SERVER_REMOTE_CONFIG_RESPONSE
         default_config = {
@@ -341,10 +341,10 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)  # Use ServerTemplateData here
+            template_data=ServerTemplateData('etag', template_data)
         )
         server_config = server_template.evaluate()
-        assert server_config.get_int('dog_is_cute')
+        assert server_config.get_boolean('dog_is_cute')
 
     def test_evaluate_unknown_operator_to_false(self):
         app = firebase_admin.get_app()
@@ -383,7 +383,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)  # Use ServerTemplateData here
+            template_data=ServerTemplateData('etag', template_data)
         )
         server_config = server_template.evaluate(context)
         assert not server_config.get_boolean('is_enabled')
@@ -427,7 +427,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)  # Use ServerTemplateData here
+            template_data=ServerTemplateData('etag', template_data)
         )
         server_config = server_template.evaluate(context)
         assert server_config.get_boolean('is_enabled')
@@ -470,7 +470,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)  # Use ServerTemplateData here
+            template_data=ServerTemplateData('etag', template_data)
         )
         server_config = server_template.evaluate(context)
         assert not server_config.get_boolean('is_enabled')
@@ -513,7 +513,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)  # Use ServerTemplateData here
+            template_data=ServerTemplateData('etag', template_data)
         )
         server_config = server_template.evaluate(context)
         assert not server_config.get_boolean('is_enabled')
@@ -560,7 +560,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)  # Use ServerTemplateData here
+            template_data=ServerTemplateData('etag', template_data)
         )
         server_config = server_template.evaluate(context)
         assert server_config.get_boolean('is_enabled')
@@ -607,7 +607,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)  # Use ServerTemplateData here
+            template_data=ServerTemplateData('etag', template_data)
         )
         server_config = server_template.evaluate(context)
         assert not server_config.get_boolean('is_enabled')
@@ -735,7 +735,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=mock_app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)  # Use ServerTemplateData here
+            template_data=ServerTemplateData('etag', template_data)
         )
 
         for _ in range(num_of_assignments):

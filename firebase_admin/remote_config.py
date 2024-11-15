@@ -169,10 +169,15 @@ class ServerConfig:
         return self.get_value(key).as_string()
 
     def get_int(self, key):
-        return self.get_value(key).as_number()
+        return self.get_value(key).as_int()
+
+    def get_float(self, key):
+        return self.get_value(key).as_float()
 
     def get_value(self, key):
-        return self._config_values[key]
+        if self._config_values[key]:
+            return self._config_values[key]
+        return _Value('static')
 
 
 class _RemoteConfigService:
@@ -622,7 +627,8 @@ class _Value:
     """
     DEFAULT_VALUE_FOR_BOOLEAN = False
     DEFAULT_VALUE_FOR_STRING = ''
-    DEFAULT_VALUE_FOR_NUMBER = 0
+    DEFAULT_VALUE_FOR_INTEGER = 0
+    DEFAULT_VALUE_FOR_FLOAT_NUMBER = 0.0
     BOOLEAN_TRUTHY_VALUES = ['1', 'true', 't', 'yes', 'y', 'on']
 
     def __init__(self, source: ValueSource, value: str = DEFAULT_VALUE_FOR_STRING):
@@ -637,6 +643,8 @@ class _Value:
 
     def as_string(self) -> str:
         """Returns the value as a string."""
+        if self.source == 'static':
+            return self.DEFAULT_VALUE_FOR_STRING
         return self.value
 
     def as_boolean(self) -> bool:
@@ -645,14 +653,17 @@ class _Value:
             return self.DEFAULT_VALUE_FOR_BOOLEAN
         return str(self.value).lower() in self.BOOLEAN_TRUTHY_VALUES
 
-    def as_number(self) -> float:
+    def as_int(self) -> float:
         """Returns the value as a number."""
         if self.source == 'static':
-            return self.DEFAULT_VALUE_FOR_NUMBER
-        try:
-            return float(self.value)
-        except ValueError:
-            return self.DEFAULT_VALUE_FOR_NUMBER
+            return self.DEFAULT_VALUE_FOR_INTEGER
+        return self.value
+
+    def as_float(self) -> float:
+        """Returns the value as a number."""
+        if self.source == 'static':
+            return self.DEFAULT_VALUE_FOR_FLOAT_NUMBER
+        return float(self.value)
 
     def get_source(self) -> ValueSource:
         """Returns the source of the value."""

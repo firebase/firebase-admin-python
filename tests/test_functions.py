@@ -209,7 +209,7 @@ class TestTaskQueueOptions:
 
         schedule_time = datetime.fromisoformat(task['schedule_time'][:-1])
         delta = abs(schedule_time - _SCHEDULE_TIME)
-        assert delta <= timedelta(seconds=30)
+        assert delta <= timedelta(seconds=15)
 
         assert task['dispatch_deadline'] == '200s'
         assert task['http_request']['headers']['x-test-header'] == 'test-header-value'

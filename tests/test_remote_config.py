@@ -38,7 +38,8 @@ class MockAdapter(testutils.MockAdapter):
         return resp
 
 
-class TestRemoteConfigServiceClient:
+class TestRemoteConfigService:
+    """Tests methods on _RemoteConfigService"""
     @classmethod
     def setup_class(cls):
         cred = testutils.MockCredential()
@@ -48,7 +49,8 @@ class TestRemoteConfigServiceClient:
     def teardown_class(cls):
         testutils.cleanup_apps()
 
-    def test_rc_instance_get_server_template(self):
+    @pytest.mark.asyncio
+    async def test_rc_instance_get_server_template(self):
         recorder = []
         response = json.dumps({
             'parameters': {
@@ -64,13 +66,14 @@ class TestRemoteConfigServiceClient:
             'https://firebaseremoteconfig.googleapis.com',
             MockAdapter(response, 200, recorder))
 
-        template = rc_instance.get_server_template()
+        template = await rc_instance.get_server_template()
 
         assert template.parameters == dict(test_key="test_value")
         assert str(template.version) == 'test'
         assert str(template.etag) == 'etag'
 
-    def test_rc_instance_get_server_template_empty_params(self):
+    @pytest.mark.asyncio
+    async def test_rc_instance_get_server_template_empty_params(self):
         recorder = []
         response = json.dumps({
             'conditions': [],
@@ -83,14 +86,15 @@ class TestRemoteConfigServiceClient:
             'https://firebaseremoteconfig.googleapis.com',
             MockAdapter(response, 200, recorder))
 
-        template = rc_instance.get_server_template()
+        template = await rc_instance.get_server_template()
 
         assert template.parameters == {}
         assert str(template.version) == 'test'
         assert str(template.etag) == 'etag'
 
 
-class TestRemoteConfigService:
+class TestRemoteConfigModule:
+    """Tests methods on firebase_admin.remote_config"""
     @classmethod
     def setup_class(cls):
         cred = testutils.MockCredential()
@@ -112,6 +116,7 @@ class TestRemoteConfigService:
 
         template = remote_config.init_server_template(
             app=app,
+            default_config={'default_test': 'default_value'},
             template_data=ServerTemplateData('etag', template_data)
         )
 

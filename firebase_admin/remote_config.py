@@ -16,6 +16,7 @@
 This module has required APIs for the clients to use Firebase Remote Config with python.
 """
 
+import asyncio
 import json
 from typing import Any, Dict, Optional
 import requests
@@ -25,7 +26,7 @@ import firebase_admin
 _REMOTE_CONFIG_ATTRIBUTE = '_remoteconfig'
 
 class ServerTemplateData:
-    """Represents a Server Template Data class."""
+    """Parses, validates and encapsulates template data and metadata."""
     def __init__(self, etag, template_data):
         """Initializes a new ServerTemplateData instance.
 
@@ -78,7 +79,7 @@ class ServerTemplateData:
 
 
 class ServerTemplate:
-    """Represents a Server Template with implementations for loading and evaluting the tempalte."""
+    """Represents a Server Template with implementations for loading and evaluting the template."""
     def __init__(self, app: App = None, default_config: Optional[Dict[str, str]] = None):
         """Initializes a ServerTemplate instance.
 
@@ -93,14 +94,18 @@ class ServerTemplate:
         # This gets set when the template is
         # fetched from RC servers via the load API, or via the set API.
         self._cache = None
+        self._stringified_default_config: Dict[str,str] = {}
+
+        # RC stores all remote values as string, but it's more intuitive
+        # to declare default values with specific types, so this converts
+        # the external declaration to an internal string representation.
         if default_config is not None:
-            self._stringified_default_config = json.dumps(default_config)
-        else:
-            self._stringified_default_config = None
+            for key in default_config:
+                self._stringified_default_config[key] = str(default_config[key])
 
     async def load(self):
         """Fetches the server template and caches the data."""
-        self._cache = self._rc_service.get_server_template()
+        self._cache = await self._rc_service.get_server_template()
 
     def evaluate(self):
         # Logic to process the cached template into a ServerConfig here.
@@ -157,21 +162,23 @@ class _RemoteConfigService:
                                                    base_url=remote_config_base_url,
                                                    headers=rc_headers, timeout=timeout)
 
-    def get_server_template(self):
+    async def get_server_template(self):
         """Requests for a server template and converts the response to an instance of
         ServerTemplateData for storing the template parameters and conditions."""
-        url_prefix = self._get_url_prefix()
         try:
-            headers, response_json = self._client.headers_and_body(
-                'get', url=url_prefix+'/namespaces/firebase-server/serverRemoteConfig')
+            loop = asyncio.get_event_loop()
+            headers, template_data = await loop.run_in_executor(None, 
+                                                                self._client.headers_and_body, 
+                                                                'get', self._get_url())
         except requests.exceptions.RequestException as error:
             raise self._handle_remote_config_error(error)
         else:
-            return ServerTemplateData(headers.get('etag'), response_json)
+            return ServerTemplateData(headers.get('etag'), template_data)
 
-    def _get_url_prefix(self):
+    def _get_url(self):
         """Returns project prefix for url, in the format of /v1/projects/${projectId}"""
-        return "/v1/projects/{0}".format(self._project_id)
+        return "/v1/projects/{0}/namespaces/firebase-server/serverRemoteConfig".format(
+            self._project_id)
 
     @classmethod
     def _handle_remote_config_error(cls, error: Any):

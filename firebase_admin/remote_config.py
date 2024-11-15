@@ -17,7 +17,6 @@ This module has required APIs for the clients to use Firebase Remote Config with
 """
 
 import asyncio
-import json
 from typing import Any, Dict, Optional
 import requests
 from firebase_admin import App, _http_client, _utils
@@ -94,7 +93,7 @@ class ServerTemplate:
         # This gets set when the template is
         # fetched from RC servers via the load API, or via the set API.
         self._cache = None
-        self._stringified_default_config: Dict[str,str] = {}
+        self._stringified_default_config: Dict[str, str] = {}
 
         # RC stores all remote values as string, but it's more intuitive
         # to declare default values with specific types, so this converts
@@ -167,8 +166,8 @@ class _RemoteConfigService:
         ServerTemplateData for storing the template parameters and conditions."""
         try:
             loop = asyncio.get_event_loop()
-            headers, template_data = await loop.run_in_executor(None, 
-                                                                self._client.headers_and_body, 
+            headers, template_data = await loop.run_in_executor(None,
+                                                                self._client.headers_and_body,
                                                                 'get', self._get_url())
         except requests.exceptions.RequestException as error:
             raise self._handle_remote_config_error(error)

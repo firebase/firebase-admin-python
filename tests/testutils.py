@@ -218,3 +218,43 @@ class MockRequestBasedMultiRequestAdapter(adapters.HTTPAdapter):
                 resp.raw = io.BytesIO(response.encode())
                 break
         return resp
+
+def build_mock_condition(name, condition):
+    return {
+        'name': name,
+        'condition': condition,
+    }
+
+def build_mock_parameter(name, description, value=None,
+                         conditional_values=None, default_value=None, parameter_groups=None):
+    return {
+        'name': name,
+        'description': description,
+        'value': value,
+        'conditionalValues': conditional_values,
+        'defaultValue': default_value,
+        'parameterGroups': parameter_groups,
+    }
+
+def build_mock_conditional_value(condition_name, value):
+    return {
+        'conditionName': condition_name,
+        'value': value,
+    }
+
+def build_mock_default_value(value):
+    return {
+        'value': value,
+    }
+
+def build_mock_parameter_group(name, description, parameters):
+    return {
+        'name': name,
+        'description': description,
+        'parameters': parameters,
+    }
+
+def build_mock_version(version_number):
+    return {
+        'versionNumber': version_number,
+    }

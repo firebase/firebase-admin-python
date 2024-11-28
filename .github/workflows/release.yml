@@ -108,6 +108,7 @@ jobs:
       uses: actions/download-artifact@v4.1.7
       with:
         name: dist
+        path: dist
 
     - name: Publish preflight check
       id: preflight

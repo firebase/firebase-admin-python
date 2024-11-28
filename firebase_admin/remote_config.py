@@ -197,7 +197,7 @@ class ServerConfig:
         return self.get_value(key).as_float()
 
     def get_value(self, key):
-        if self._config_values[key]:
+        if key in self._config_values:
             return self._config_values[key]
         return _Value('static')
 
@@ -261,7 +261,6 @@ class _ConditionEvaluator:
         """Internal function Evaluates the cached server template to produce
         a ServerConfig"""
         evaluated_conditions = self.evaluate_conditions(self._conditions, self._context)
-
         # Overlays config Value objects derived by evaluating the template.
         if self._parameters:
             for key, parameter in self._parameters.items():
@@ -454,10 +453,10 @@ class _ConditionEvaluator:
         Returns:
           True if the condition is met, False otherwise.
         """
-        custom_signal_operator = custom_signal_condition.get('custom_signal_operator') or {}
-        custom_signal_key = custom_signal_condition.get('custom_signal_key') or {}
+        custom_signal_operator = custom_signal_condition.get('customSignalOperator') or {}
+        custom_signal_key = custom_signal_condition.get('customSignalKey') or {}
         target_custom_signal_values = (
-            custom_signal_condition.get('target_custom_signal_values') or {})
+            custom_signal_condition.get('targetCustomSignalValues') or {})
 
         if not all([custom_signal_operator, custom_signal_key, target_custom_signal_values]):
             logger.warning("Missing operator, key, or target values for custom signal condition.")

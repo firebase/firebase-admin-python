@@ -197,7 +197,7 @@ class ServerConfig:
         return self.get_value(key).as_float()
 
     def get_value(self, key):
-        if self._config_values[key]:
+        if key in self._config_values:
             return self._config_values[key]
         return _Value('static')
 
@@ -454,10 +454,10 @@ class _ConditionEvaluator:
         Returns:
           True if the condition is met, False otherwise.
         """
-        custom_signal_operator = custom_signal_condition.get('custom_signal_operator') or {}
-        custom_signal_key = custom_signal_condition.get('custom_signal_key') or {}
+        custom_signal_operator = custom_signal_condition.get('customSignalOperator') or {}
+        custom_signal_key = custom_signal_condition.get('customSignalKey') or {}
         target_custom_signal_values = (
-            custom_signal_condition.get('target_custom_signal_values') or {})
+            custom_signal_condition.get('targetCustomSignalValues') or {})
 
         if not all([custom_signal_operator, custom_signal_key, target_custom_signal_values]):
             logger.warning("Missing operator, key, or target values for custom signal condition.")
@@ -471,71 +471,71 @@ class _ConditionEvaluator:
             logger.warning("Custom signal value not found in context: %s", custom_signal_key)
             return False
 
-        if custom_signal_operator == CustomSignalOperator.STRING_CONTAINS:
+        if custom_signal_operator == CustomSignalOperator.STRING_CONTAINS.value:
             return self._compare_strings(target_custom_signal_values,
                                          actual_custom_signal_value,
                                          lambda target, actual: target in actual)
-        if custom_signal_operator == CustomSignalOperator.STRING_DOES_NOT_CONTAIN:
+        if custom_signal_operator == CustomSignalOperator.STRING_DOES_NOT_CONTAIN.value:
             return not self._compare_strings(target_custom_signal_values,
                                              actual_custom_signal_value,
                                              lambda target, actual: target in actual)
-        if custom_signal_operator == CustomSignalOperator.STRING_EXACTLY_MATCHES:
+        if (custom_signal_operator == CustomSignalOperator.STRING_EXACTLY_MATCHES.value):
             return self._compare_strings(target_custom_signal_values,
                                          actual_custom_signal_value,
                                          lambda target, actual: target.strip() == actual.strip())
-        if custom_signal_operator == CustomSignalOperator.STRING_CONTAINS_REGEX:
+        if custom_signal_operator == CustomSignalOperator.STRING_CONTAINS_REGEX.value:
             return self._compare_strings(target_custom_signal_values,
                                          actual_custom_signal_value,
                                          re.search)
 
         # For numeric operators only one target value is allowed.
-        if custom_signal_operator == CustomSignalOperator.NUMERIC_LESS_THAN:
+        if custom_signal_operator == CustomSignalOperator.NUMERIC_LESS_THAN.value:
             return self._compare_numbers(target_custom_signal_values[0],
                                          actual_custom_signal_value,
                                          lambda r: r < 0)
-        if custom_signal_operator == CustomSignalOperator.NUMERIC_LESS_EQUAL:
+        if custom_signal_operator == CustomSignalOperator.NUMERIC_LESS_EQUAL.value:
             return self._compare_numbers(target_custom_signal_values[0],
                                          actual_custom_signal_value,
                                          lambda r: r <= 0)
-        if custom_signal_operator == CustomSignalOperator.NUMERIC_EQUAL:
+        if custom_signal_operator == CustomSignalOperator.NUMERIC_EQUAL.value:
             return self._compare_numbers(target_custom_signal_values[0],
                                          actual_custom_signal_value,
                                          lambda r: r == 0)
-        if custom_signal_operator == CustomSignalOperator.NUMERIC_NOT_EQUAL:
+        if custom_signal_operator == CustomSignalOperator.NUMERIC_NOT_EQUAL.value:
             return self._compare_numbers(target_custom_signal_values[0],
                                          actual_custom_signal_value,
                                          lambda r: r != 0)
-        if custom_signal_operator == CustomSignalOperator.NUMERIC_GREATER_THAN:
+        if custom_signal_operator == CustomSignalOperator.NUMERIC_GREATER_THAN.value:
             return self._compare_numbers(target_custom_signal_values[0],
                                          actual_custom_signal_value,
                                          lambda r: r > 0)
-        if custom_signal_operator == CustomSignalOperator.NUMERIC_GREATER_EQUAL:
+        if custom_signal_operator == CustomSignalOperator.NUMERIC_GREATER_EQUAL.value:
             return self._compare_numbers(target_custom_signal_values[0],
                                          actual_custom_signal_value,
                                          lambda r: r >= 0)
 
         # For semantic operators only one target value is allowed.
-        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_LESS_THAN:
+        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_LESS_THAN.value:
             return self._compare_semantic_versions(target_custom_signal_values[0],
                                                    actual_custom_signal_value,
                                                    lambda r: r < 0)
-        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_LESS_EQUAL:
+        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_LESS_EQUAL.value:
             return self._compare_semantic_versions(target_custom_signal_values[0],
                                                    actual_custom_signal_value,
                                                    lambda r: r <= 0)
-        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_EQUAL:
+        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_EQUAL.value:
             return self._compare_semantic_versions(target_custom_signal_values[0],
                                                    actual_custom_signal_value,
                                                    lambda r: r == 0)
-        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_NOT_EQUAL:
+        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_NOT_EQUAL.value:
             return self._compare_semantic_versions(target_custom_signal_values[0],
                                                    actual_custom_signal_value,
                                                    lambda r: r != 0)
-        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_GREATER_THAN:
+        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_GREATER_THAN.value:
             return self._compare_semantic_versions(target_custom_signal_values[0],
                                                    actual_custom_signal_value,
                                                    lambda r: r > 0)
-        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_GREATER_EQUAL:
+        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_GREATER_EQUAL.value:
             return self._compare_semantic_versions(target_custom_signal_values[0],
                                                    actual_custom_signal_value,
                                                    lambda r: r >= 0)

@@ -421,11 +421,11 @@ class _ConditionEvaluator:
 
         hash64 = self.hash_seeded_randomization_id(string_to_hash)
         instance_micro_percentile = hash64 % (100 * 1000000)
-        if percent_operator == PercentConditionOperator.LESS_OR_EQUAL:
+        if percent_operator == PercentConditionOperator.LESS_OR_EQUAL.value:
             return instance_micro_percentile <= norm_micro_percent
-        if percent_operator == PercentConditionOperator.GREATER_THAN:
+        if percent_operator == PercentConditionOperator.GREATER_THAN.value:
             return instance_micro_percentile > norm_micro_percent
-        if percent_operator == PercentConditionOperator.BETWEEN:
+        if percent_operator == PercentConditionOperator.BETWEEN.value:
             return norm_percent_lower_bound < instance_micro_percentile <= norm_percent_upper_bound
         logger.warning("Unknown percent operator: %s", percent_operator)
         return False

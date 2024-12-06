@@ -323,7 +323,7 @@ class BatchResponse:
 
     def __init__(self, responses):
         self._responses = responses
-        self._success_count = len([resp for resp in responses if resp.success])
+        self._success_count = sum(1 for resp in responses if resp.success)
 
     @property
     def responses(self):

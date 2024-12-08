@@ -479,7 +479,7 @@ class _ConditionEvaluator:
             return not self._compare_strings(target_custom_signal_values,
                                              actual_custom_signal_value,
                                              lambda target, actual: target in actual)
-        if (custom_signal_operator == CustomSignalOperator.STRING_EXACTLY_MATCHES.value):
+        if custom_signal_operator == CustomSignalOperator.STRING_EXACTLY_MATCHES.value:
             return self._compare_strings(target_custom_signal_values,
                                          actual_custom_signal_value,
                                          lambda target, actual: target.strip() == actual.strip())
@@ -676,7 +676,7 @@ class _Value:
         """Returns the value as a string."""
         if self.source == 'static':
             return self.DEFAULT_VALUE_FOR_STRING
-        return self.value
+        return str(self.value)
 
     def as_boolean(self) -> bool:
         """Returns the value as a boolean."""
@@ -688,13 +688,19 @@ class _Value:
         """Returns the value as a number."""
         if self.source == 'static':
             return self.DEFAULT_VALUE_FOR_INTEGER
-        return self.value
+        try:
+            return int(self.value)
+        except ValueError:
+            return self.DEFAULT_VALUE_FOR_INTEGER
 
     def as_float(self) -> float:
         """Returns the value as a number."""
         if self.source == 'static':
             return self.DEFAULT_VALUE_FOR_FLOAT_NUMBER
-        return float(self.value)
+        try:
+            return float(self.value)
+        except ValueError:
+            return self.DEFAULT_VALUE_FOR_FLOAT_NUMBER
 
     def get_source(self) -> ValueSource:
         """Returns the source of the value."""

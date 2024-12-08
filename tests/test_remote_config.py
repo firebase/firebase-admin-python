@@ -18,6 +18,7 @@ import uuid
 import pytest
 import firebase_admin
 from firebase_admin.remote_config import (
+    CustomSignalOperator,
     PercentConditionOperator,
     _REMOTE_CONFIG_ATTRIBUTE,
     _RemoteConfigService,
@@ -65,6 +66,12 @@ SERVER_REMOTE_CONFIG_RESPONSE = {
     'etag': 'etag-123456789012-5',
     'version': VERSION_INFO,
     }
+
+SEMENTIC_VERSION_LESS_THAN_TRUE = [CustomSignalOperator.SEMANTIC_VERSION_LESS_THAN.value, ['12.1.3.444'], '12.1.3.443', True]
+SEMENTIC_VERSION_EQUAL_TRUE = [CustomSignalOperator.SEMANTIC_VERSION_EQUAL.value, ['12.1.3.444'], '12.1.3.444', True]
+SEMANTIC_VERSION_GREATER_THAN_FALSE = [CustomSignalOperator.SEMANTIC_VERSION_LESS_THAN.value, ['12.1.3.4'], '12.1.3.4', False]
+SEMANTIC_VERSION_INVALID_FORMAT_STRING = [CustomSignalOperator.SEMANTIC_VERSION_LESS_THAN.value, ['12.1.3.444'], '12.1.3.abc', False]
+SEMANTIC_VERSION_INVALID_FORMAT_NEGATIVE_INTEGER = [CustomSignalOperator.SEMANTIC_VERSION_LESS_THAN.value, ['12.1.3.444'], '12.1.3.-2', False]
 
 class TestEvaluate:
     @classmethod
@@ -360,7 +367,7 @@ class TestEvaluate:
                         'andCondition': {
                             'conditions': [{
                                 'percent': {
-                                    'percentOperator': PercentConditionOperator.UNKNOWN
+                                    'percentOperator': PercentConditionOperator.UNKNOWN.value
                                 }
                             }],
                         }
@@ -402,7 +409,7 @@ class TestEvaluate:
                         'andCondition': {
                             'conditions': [{
                                 'percent': {
-                                    'percentOperator': PercentConditionOperator.LESS_OR_EQUAL,
+                                    'percentOperator': PercentConditionOperator.LESS_OR_EQUAL.value,
                                     'seed': 'abcdef',
                                     'microPercent': 100_000_000
                                 }
@@ -446,7 +453,7 @@ class TestEvaluate:
                         'andCondition': {
                             'conditions': [{
                                 'percent': {
-                                    'percentOperator': PercentConditionOperator.LESS_OR_EQUAL,
+                                    'percentOperator': PercentConditionOperator.LESS_OR_EQUAL.value,
                                     # Leaves microPercent undefined
                                 }
                             }],
@@ -489,7 +496,7 @@ class TestEvaluate:
                         'andCondition': {
                             'conditions': [{
                                 'percent': {
-                                    'percentOperator': PercentConditionOperator.BETWEEN,
+                                    'percentOperator': PercentConditionOperator.BETWEEN.value,
                                     # Leaves microPercent undefined
                                 }
                             }],
@@ -532,7 +539,7 @@ class TestEvaluate:
                         'andCondition': {
                             'conditions': [{
                                 'percent': {
-                                    'percentOperator': PercentConditionOperator.BETWEEN,
+                                    'percentOperator': PercentConditionOperator.BETWEEN.value,
                                     'seed': 'abcdef',
                                     'microPercentRange': {
                                         'microPercentLowerBound': 0,
@@ -579,7 +586,7 @@ class TestEvaluate:
                         'andCondition': {
                             'conditions': [{
                                 'percent': {
-                                    'percentOperator': PercentConditionOperator.BETWEEN,
+                                    'percentOperator': PercentConditionOperator.BETWEEN.value,
                                     'seed': 'abcdef',
                                     'microPercentRange': {
                                         'microPercentLowerBound': 50000000,
@@ -626,7 +633,7 @@ class TestEvaluate:
                         'andCondition': {
                             'conditions': [{
                                 'percent': {
-                                    'percentOperator': PercentConditionOperator.LESS_OR_EQUAL,
+                                    'percentOperator': PercentConditionOperator.LESS_OR_EQUAL.value,
                                     'seed': 'abcdef',
                                     'microPercent': 10_000_000 # 10%
                                 }
@@ -656,7 +663,7 @@ class TestEvaluate:
                         'andCondition': {
                             'conditions': [{
                                 'percent': {
-                                    'percentOperator': PercentConditionOperator.BETWEEN,
+                                    'percentOperator': PercentConditionOperator.BETWEEN.value,
                                     'seed': 'abcdef',
                                     'microPercentRange': {
                                         'microPercentLowerBound': 40_000_000,
@@ -689,7 +696,7 @@ class TestEvaluate:
                         'andCondition': {
                             'conditions': [{
                                 'percent': {
-                                    'percentOperator': PercentConditionOperator.BETWEEN,
+                                    'percentOperator': PercentConditionOperator.BETWEEN.value,
                                     'seed': 'abcdef',
                                     'microPercentRange': {
                                         'microPercentLowerBound': 25_000_000,
@@ -749,6 +756,59 @@ class TestEvaluate:
                 eval_true_count += 1
 
         return eval_true_count
+
+    @pytest.mark.parametrize('custom_signal_opearator, target_custom_signal_value, actual_custom_signal_value, parameter_value', 
+                             [
+                                 SEMENTIC_VERSION_LESS_THAN_TRUE,
+                                 SEMANTIC_VERSION_GREATER_THAN_FALSE,
+                                 SEMENTIC_VERSION_EQUAL_TRUE,
+                                 SEMANTIC_VERSION_INVALID_FORMAT_NEGATIVE_INTEGER,
+                                 SEMANTIC_VERSION_INVALID_FORMAT_STRING
+                             ])
+    def test_evaluate_custom_signal_semantic_version(self, custom_signal_opearator, 
+                                                     target_custom_signal_value, actual_custom_signal_value, parameter_value):
+        app = firebase_admin.get_app()
+        condition = {
+            'name': 'is_true',
+            'condition': {
+                'orCondition': {
+                    'conditions': [{
+                        'andCondition': {
+                            'conditions': [{
+                                'customSignal': {
+                                    'customSignalOperator': custom_signal_opearator,
+                                    'customSignalKey': 'sementic_version_key',
+                                    'targetCustomSignalValues': target_custom_signal_value
+                                }
+                            }],
+                        }
+                    }]
+                }
+            }
+        }
+        default_config = {
+            'dog_is_cute': True
+        }
+        template_data = {
+            'conditions': [condition],
+            'parameters': {
+                'is_enabled': {
+                    'defaultValue': {'value': 'false'},
+                    'conditionalValues': {'is_true': {'value': 'true'}}
+                },
+            },
+            'parameterGroups':'',
+            'version':'',
+            'etag': '123'
+        }
+        context = {'randomization_id': '123', 'sementic_version_key': actual_custom_signal_value}
+        server_template = remote_config.init_server_template(
+            app=app,
+            default_config=default_config,
+            template_data=ServerTemplateData('etag', template_data)
+        )
+        server_config = server_template.evaluate(context)
+        assert server_config.get_boolean('is_enabled') == parameter_value
 
 
 class MockAdapter(testutils.MockAdapter):

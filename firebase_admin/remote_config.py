@@ -593,9 +593,9 @@ class _ConditionEvaluator:
         """Compares two semantic version strings.
 
         Args:
-        version1: The first semantic version string.
-        version2: The second semantic version string.
-        predicate_fn: A function that takes an integer and returns a boolean.
+            version1: The first semantic version string.
+            version2: The second semantic version string.
+            predicate_fn: A function that takes an integer and returns a boolean.
 
         Returns:
             bool: The result of the predicate function.
@@ -608,6 +608,8 @@ class _ConditionEvaluator:
             v2_parts.extend([0] * (max_length - len(v2_parts)))
 
             for part1, part2 in zip(v1_parts, v2_parts):
+                if any((part1 < 0, part2 < 0)):
+                    raise ValueError
                 if part1 < part2:
                     return predicate_fn(-1)
                 if part1 > part2:

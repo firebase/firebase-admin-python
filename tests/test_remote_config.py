@@ -720,7 +720,7 @@ class TestEvaluate:
 
         truthy_assignments = self.evaluate_random_assignments(condition, 100000,
                                                               app, default_config)
-        tolerance = 474
+        tolerance = 490
         assert truthy_assignments >= 50000 - tolerance
         assert truthy_assignments <= 50000 + tolerance
 

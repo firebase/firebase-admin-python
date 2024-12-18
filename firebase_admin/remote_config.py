@@ -1,4 +1,4 @@
-# Copyright 2017 Google Inc.
+# Copyright 2024 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -197,7 +197,7 @@ class ServerConfig:
         return self.get_value(key).as_float()
 
     def get_value(self, key):
-        if self._config_values[key]:
+        if key in self._config_values:
             return self._config_values[key]
         return _Value('static')
 
@@ -421,11 +421,11 @@ class _ConditionEvaluator:
 
         hash64 = self.hash_seeded_randomization_id(string_to_hash)
         instance_micro_percentile = hash64 % (100 * 1000000)
-        if percent_operator == PercentConditionOperator.LESS_OR_EQUAL:
+        if percent_operator == PercentConditionOperator.LESS_OR_EQUAL.value:
             return instance_micro_percentile <= norm_micro_percent
-        if percent_operator == PercentConditionOperator.GREATER_THAN:
+        if percent_operator == PercentConditionOperator.GREATER_THAN.value:
             return instance_micro_percentile > norm_micro_percent
-        if percent_operator == PercentConditionOperator.BETWEEN:
+        if percent_operator == PercentConditionOperator.BETWEEN.value:
             return norm_percent_lower_bound < instance_micro_percentile <= norm_percent_upper_bound
         logger.warning("Unknown percent operator: %s", percent_operator)
         return False
@@ -454,10 +454,10 @@ class _ConditionEvaluator:
         Returns:
           True if the condition is met, False otherwise.
         """
-        custom_signal_operator = custom_signal_condition.get('custom_signal_operator') or {}
-        custom_signal_key = custom_signal_condition.get('custom_signal_key') or {}
+        custom_signal_operator = custom_signal_condition.get('customSignalOperator') or {}
+        custom_signal_key = custom_signal_condition.get('customSignalKey') or {}
         target_custom_signal_values = (
-            custom_signal_condition.get('target_custom_signal_values') or {})
+            custom_signal_condition.get('targetCustomSignalValues') or {})
 
         if not all([custom_signal_operator, custom_signal_key, target_custom_signal_values]):
             logger.warning("Missing operator, key, or target values for custom signal condition.")
@@ -471,71 +471,71 @@ class _ConditionEvaluator:
             logger.warning("Custom signal value not found in context: %s", custom_signal_key)
             return False
 
-        if custom_signal_operator == CustomSignalOperator.STRING_CONTAINS:
+        if custom_signal_operator == CustomSignalOperator.STRING_CONTAINS.value:
             return self._compare_strings(target_custom_signal_values,
                                          actual_custom_signal_value,
                                          lambda target, actual: target in actual)
-        if custom_signal_operator == CustomSignalOperator.STRING_DOES_NOT_CONTAIN:
+        if custom_signal_operator == CustomSignalOperator.STRING_DOES_NOT_CONTAIN.value:
             return not self._compare_strings(target_custom_signal_values,
                                              actual_custom_signal_value,
                                              lambda target, actual: target in actual)
-        if custom_signal_operator == CustomSignalOperator.STRING_EXACTLY_MATCHES:
+        if custom_signal_operator == CustomSignalOperator.STRING_EXACTLY_MATCHES.value:
             return self._compare_strings(target_custom_signal_values,
                                          actual_custom_signal_value,
                                          lambda target, actual: target.strip() == actual.strip())
-        if custom_signal_operator == CustomSignalOperator.STRING_CONTAINS_REGEX:
+        if custom_signal_operator == CustomSignalOperator.STRING_CONTAINS_REGEX.value:
             return self._compare_strings(target_custom_signal_values,
                                          actual_custom_signal_value,
                                          re.search)
 
         # For numeric operators only one target value is allowed.
-        if custom_signal_operator == CustomSignalOperator.NUMERIC_LESS_THAN:
+        if custom_signal_operator == CustomSignalOperator.NUMERIC_LESS_THAN.value:
             return self._compare_numbers(target_custom_signal_values[0],
                                          actual_custom_signal_value,
                                          lambda r: r < 0)
-        if custom_signal_operator == CustomSignalOperator.NUMERIC_LESS_EQUAL:
+        if custom_signal_operator == CustomSignalOperator.NUMERIC_LESS_EQUAL.value:
             return self._compare_numbers(target_custom_signal_values[0],
                                          actual_custom_signal_value,
                                          lambda r: r <= 0)
-        if custom_signal_operator == CustomSignalOperator.NUMERIC_EQUAL:
+        if custom_signal_operator == CustomSignalOperator.NUMERIC_EQUAL.value:
             return self._compare_numbers(target_custom_signal_values[0],
                                          actual_custom_signal_value,
                                          lambda r: r == 0)
-        if custom_signal_operator == CustomSignalOperator.NUMERIC_NOT_EQUAL:
+        if custom_signal_operator == CustomSignalOperator.NUMERIC_NOT_EQUAL.value:
             return self._compare_numbers(target_custom_signal_values[0],
                                          actual_custom_signal_value,
                                          lambda r: r != 0)
-        if custom_signal_operator == CustomSignalOperator.NUMERIC_GREATER_THAN:
+        if custom_signal_operator == CustomSignalOperator.NUMERIC_GREATER_THAN.value:
             return self._compare_numbers(target_custom_signal_values[0],
                                          actual_custom_signal_value,
                                          lambda r: r > 0)
-        if custom_signal_operator == CustomSignalOperator.NUMERIC_GREATER_EQUAL:
+        if custom_signal_operator == CustomSignalOperator.NUMERIC_GREATER_EQUAL.value:
             return self._compare_numbers(target_custom_signal_values[0],
                                          actual_custom_signal_value,
                                          lambda r: r >= 0)
 
         # For semantic operators only one target value is allowed.
-        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_LESS_THAN:
+        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_LESS_THAN.value:
             return self._compare_semantic_versions(target_custom_signal_values[0],
                                                    actual_custom_signal_value,
                                                    lambda r: r < 0)
-        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_LESS_EQUAL:
+        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_LESS_EQUAL.value:
             return self._compare_semantic_versions(target_custom_signal_values[0],
                                                    actual_custom_signal_value,
                                                    lambda r: r <= 0)
-        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_EQUAL:
+        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_EQUAL.value:
             return self._compare_semantic_versions(target_custom_signal_values[0],
                                                    actual_custom_signal_value,
                                                    lambda r: r == 0)
-        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_NOT_EQUAL:
+        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_NOT_EQUAL.value:
             return self._compare_semantic_versions(target_custom_signal_values[0],
                                                    actual_custom_signal_value,
                                                    lambda r: r != 0)
-        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_GREATER_THAN:
+        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_GREATER_THAN.value:
             return self._compare_semantic_versions(target_custom_signal_values[0],
                                                    actual_custom_signal_value,
                                                    lambda r: r > 0)
-        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_GREATER_EQUAL:
+        if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_GREATER_EQUAL.value:
             return self._compare_semantic_versions(target_custom_signal_values[0],
                                                    actual_custom_signal_value,
                                                    lambda r: r >= 0)
@@ -593,9 +593,9 @@ class _ConditionEvaluator:
         """Compares two semantic version strings.
 
         Args:
-        version1: The first semantic version string.
-        version2: The second semantic version string.
-        predicate_fn: A function that takes an integer and returns a boolean.
+            version1: The first semantic version string.
+            version2: The second semantic version string.
+            predicate_fn: A function that takes an integer and returns a boolean.
 
         Returns:
             bool: The result of the predicate function.
@@ -608,6 +608,8 @@ class _ConditionEvaluator:
             v2_parts.extend([0] * (max_length - len(v2_parts)))
 
             for part1, part2 in zip(v1_parts, v2_parts):
+                if any((part1 < 0, part2 < 0)):
+                    raise ValueError
                 if part1 < part2:
                     return predicate_fn(-1)
                 if part1 > part2:
@@ -674,7 +676,7 @@ class _Value:
         """Returns the value as a string."""
         if self.source == 'static':
             return self.DEFAULT_VALUE_FOR_STRING
-        return self.value
+        return str(self.value)
 
     def as_boolean(self) -> bool:
         """Returns the value as a boolean."""
@@ -686,13 +688,19 @@ class _Value:
         """Returns the value as a number."""
         if self.source == 'static':
             return self.DEFAULT_VALUE_FOR_INTEGER
-        return self.value
+        try:
+            return int(self.value)
+        except ValueError:
+            return self.DEFAULT_VALUE_FOR_INTEGER
 
     def as_float(self) -> float:
         """Returns the value as a number."""
         if self.source == 'static':
             return self.DEFAULT_VALUE_FOR_FLOAT_NUMBER
-        return float(self.value)
+        try:
+            return float(self.value)
+        except ValueError:
+            return self.DEFAULT_VALUE_FOR_FLOAT_NUMBER
 
     def get_source(self) -> ValueSource:
         """Returns the source of the value."""

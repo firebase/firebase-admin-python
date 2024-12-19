@@ -197,6 +197,7 @@ def test_send_all_500():
         assert response.exception is None
         assert re.match('^projects/.*/messages/.*$', response.message_id)
 
+@pytest.mark.skip(reason="Replaced with test_send_each_for_multicast")
 def test_send_multicast():
     multicast = messaging.MulticastMessage(
         notification=messaging.Notification('Title', 'Body'),

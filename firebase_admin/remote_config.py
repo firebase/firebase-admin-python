@@ -185,21 +185,19 @@ class ServerConfig:
         self._config_values = config_values # dictionary of param key to values
 
     def get_boolean(self, key):
-        return self.get_value(key).as_boolean()
+        return self._get_value(key).as_boolean()
 
     def get_string(self, key):
-        return self.get_value(key).as_string()
+        return self._get_value(key).as_string()
 
     def get_int(self, key):
-        return self.get_value(key).as_int()
+        return self._get_value(key).as_int()
 
     def get_float(self, key):
-        return self.get_value(key).as_float()
+        return self._get_value(key).as_float()
 
-    def get_value(self, key):
-        if key in self._config_values:
-            return self._config_values[key]
-        return _Value('static')
+    def _get_value(self, key):
+        return self._config_values.get(key, _Value('static'))
 
 
 class _RemoteConfigService:

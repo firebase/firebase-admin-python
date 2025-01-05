@@ -331,8 +331,7 @@ class TestEvaluate:
             template_data=ServerTemplateData('etag', template_data)
         )
         server_config = server_template.evaluate()
-        assert server_config.get_value('dog_type').as_string() == 'shiba'
-        assert server_config.get_value('dog_type').get_source() == 'default'
+        assert server_config.get_string('dog_type') == 'shiba'
 
     def test_evaluate_return_numeric_value(self):
         app = firebase_admin.get_app()

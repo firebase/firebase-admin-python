@@ -587,20 +587,20 @@ class _ConditionEvaluator:
         return self._compare_versions(str(actual_value),
                                       str(target_value), predicate_fn)
 
-    def _compare_versions(self, version1, version2, predicate_fn) -> bool:
+    def _compare_versions(self, sem_version_1, sem_version_2, predicate_fn) -> bool:
         """Compares two semantic version strings.
 
         Args:
-            version1: The first semantic version string.
-            version2: The second semantic version string.
+            sem_version_1: The first semantic version string.
+            sem_version_2: The second semantic version string.
             predicate_fn: A function that takes an integer and returns a boolean.
 
         Returns:
             bool: The result of the predicate function.
         """
         try:
-            v1_parts = [int(part) for part in version1.split('.')]
-            v2_parts = [int(part) for part in version2.split('.')]
+            v1_parts = [int(part) for part in sem_version_1.split('.')]
+            v2_parts = [int(part) for part in sem_version_2.split('.')]
             max_length = max(len(v1_parts), len(v2_parts))
             v1_parts.extend([0] * (max_length - len(v1_parts)))
             v2_parts.extend([0] * (max_length - len(v2_parts)))

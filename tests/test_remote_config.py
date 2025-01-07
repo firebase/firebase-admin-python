@@ -821,7 +821,7 @@ class TestEvaluate:
 
 
 class MockAdapter(testutils.MockAdapter):
-    """A Mock HTTP Adapter that Firebase Remote Config with ETag in header."""
+    """A Mock HTTP Adapter that provides Firebase Remote Config responses with ETag in header."""
 
     ETAG = 'etag'
 

@@ -55,8 +55,13 @@ def bucket(name=None, app=None) -> storage.Bucket:
 class _StorageClient:
     """Holds a Google Cloud Storage client instance."""
 
+    STORAGE_HEADERS = {
+        'X-GOOG-API-CLIENT': _utils.get_metrics_header(),
+    }
+
     def __init__(self, credentials, project, default_bucket):
-        self._client = storage.Client(credentials=credentials, project=project)
+        self._client = storage.Client(
+            credentials=credentials, project=project, extra_headers=self.STORAGE_HEADERS)
         self._default_bucket = default_bucket
 
     @classmethod

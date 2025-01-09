@@ -130,6 +130,7 @@ class TestEvaluate:
 
         server_config = server_template.evaluate()
         assert server_config.get_boolean('is_enabled')
+        assert server_config.get_value_source('is_enabled') == 'remote'
 
     def test_evaluate_or_and_false_condition_false(self):
         app = firebase_admin.get_app()

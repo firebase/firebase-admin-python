@@ -199,18 +199,23 @@ class ServerConfig:
         self._config_values = config_values # dictionary of param key to values
 
     def get_boolean(self, key):
+        """Returns the value as a boolean."""
         return self._get_value(key).as_boolean()
 
     def get_string(self, key):
+        """Returns the value as a string."""
         return self._get_value(key).as_string()
 
     def get_int(self, key):
+        """Returns the value as an integer."""
         return self._get_value(key).as_int()
 
     def get_float(self, key):
+        """Returns the value as a float."""
         return self._get_value(key).as_float()
 
     def get_value_source(self, key):
+        """Returns the source of the value."""
         return self._get_value(key).get_source()
 
     def _get_value(self, key):

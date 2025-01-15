@@ -19,6 +19,7 @@ This module has required APIs for the clients to use Firebase Remote Config with
 import asyncio
 import json
 import logging
+import threading
 from typing import Dict, Optional, Literal, Union, Any
 from enum import Enum
 import re
@@ -138,6 +139,7 @@ class ServerTemplate:
         # fetched from RC servers via the load API, or via the set API.
         self._cache = None
         self._stringified_default_config: Dict[str, str] = {}
+        self._lock = threading.RLock()
 
         # RC stores all remote values as string, but it's more intuitive
         # to declare default values with specific types, so this converts
@@ -148,7 +150,9 @@ class ServerTemplate:
 
     async def load(self):
         """Fetches the server template and caches the data."""
-        self._cache = await self._rc_service.get_server_template()
+        rc_server_template = await self._rc_service.get_server_template()
+        with self._lock:
+            self._cache = rc_server_template
 
     def evaluate(self, context: Optional[Dict[str, Union[str, int]]] = None) -> 'ServerConfig':
         """Evaluates the cached server template to produce a ServerConfig.
@@ -167,12 +171,17 @@ class ServerTemplate:
                             Call load() before calling evaluate().""")
         context = context or {}
         config_values = {}
+
+        with self._lock:
+            template_conditions = self._cache.conditions
+            template_parameters = self._cache.parameters
+
         # Initializes config Value objects with default values.
         if self._stringified_default_config is not None:
             for key, value in self._stringified_default_config.items():
                 config_values[key] = _Value('default', value)
-        self._evaluator = _ConditionEvaluator(self._cache.conditions,
-                                              self._cache.parameters, context,
+        self._evaluator = _ConditionEvaluator(template_conditions,
+                                              template_parameters, context,
                                               config_values)
         return ServerConfig(config_values=self._evaluator.evaluate())
 
@@ -183,14 +192,19 @@ class ServerTemplate:
           template_data_json: A json string representing ServerTemplateData to be cached.
         """
         template_data_map = json.loads(template_data_json)
-        self._cache = _ServerTemplateData(template_data_map)
+        template_data = _ServerTemplateData(template_data_map)
+
+        with self._lock:
+            self._cache = template_data
 
     def to_json(self):
         """Provides the server template in a JSON format to be used for initialization later."""
         if not self._cache:
             raise ValueError("""No Remote Config Server template in cache.
                             Call load() before calling toJSON().""")
-        return self._cache.template_data_json
+        with self._lock:
+            template_json = self._cache.template_data_json
+        return template_json
 
 
 class ServerConfig:

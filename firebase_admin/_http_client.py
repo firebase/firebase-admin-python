@@ -68,7 +68,15 @@ class HttpClient:
               None to disable timeouts (optional).
         """
         if credential:
-            self._session = transport.requests.AuthorizedSession(credential)
+            auth_request_session = requests.Session()
+            if retries:
+                auth_request_session.mount(
+                    "https://", requests.adapters.HTTPAdapter(max_retries=retries)
+                )
+            self._session = transport.requests.AuthorizedSession(
+                credential,
+                auth_request=transport.requests.Request(auth_request_session),
+            )
         elif session:
             self._session = session
         else:

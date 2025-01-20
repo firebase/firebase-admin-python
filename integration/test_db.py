@@ -260,10 +260,10 @@ class TestListenOperations:
             ref = python.child('users').push()
             assert ref.path == '/_adminsdk/python/users/' + ref.key
             assert ref.get() == ''
-            
+
             self.wait_for(self.events, count=2)
             assert len(self.events) == 2
-            
+
             assert self.events[1].event_type == 'put'
             assert self.events[1].path == '/users/' + ref.key
             assert self.events[1].data == ''

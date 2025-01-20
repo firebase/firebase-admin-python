@@ -16,6 +16,7 @@
 import collections
 import json
 import os
+import time
 
 import pytest
 
@@ -245,6 +246,37 @@ class TestWriteOperations:
         ref.delete()
         assert ref.get() is None
 
+class TestListenOperations:
+    """Test cases for listening to changes to node values."""
+
+    def test_listen(self, testref):
+        self.events = []
+        def callback(event):
+            self.events.append(event)
+
+        python = testref.parent
+        registration = python.listen(callback)
+        try:
+            ref = python.child('users').push()
+            assert ref.path == '/_adminsdk/python/users/' + ref.key
+            assert ref.get() == ''
+            
+            self.wait_for(self.events, count=2)
+            assert len(self.events) == 2
+            
+            assert self.events[1].event_type == 'put'
+            assert self.events[1].path == '/users/' + ref.key
+            assert self.events[1].data == ''
+        finally:
+            registration.close()
+
+    @classmethod
+    def wait_for(cls, events, count=1, timeout_seconds=5):
+        must_end = time.time() + timeout_seconds
+        while time.time() < must_end:
+            if len(events) >= count:
+                return
+        raise pytest.fail('Timed out while waiting for events')
 
 class TestAdvancedQueries:
     """Test cases for advanced interactions via the db.Query interface."""

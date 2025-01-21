@@ -17,7 +17,9 @@ This module has required APIs for the clients to use Firebase Remote Config with
 """
 
 import asyncio
+import json
 import logging
+import threading
 from typing import Dict, Optional, Literal, Union, Any
 from enum import Enum
 import re
@@ -63,13 +65,12 @@ class CustomSignalOperator(Enum):
     SEMANTIC_VERSION_GREATER_EQUAL = "SEMANTIC_VERSION_GREATER_EQUAL"
     UNKNOWN = "UNKNOWN"
 
-class ServerTemplateData:
+class _ServerTemplateData:
     """Parses, validates and encapsulates template data and metadata."""
-    def __init__(self, etag, template_data):
+    def __init__(self, template_data):
         """Initializes a new ServerTemplateData instance.
 
         Args:
-            etag: The string to be used for initialize the ETag property.
             template_data: The data to be parsed for getting the parameters and conditions.
 
         Raises:
@@ -96,8 +97,10 @@ class ServerTemplateData:
             self._version = template_data['version']
 
         self._etag = ''
-        if etag is not None and isinstance(etag, str):
-            self._etag = etag
+        if 'etag' in template_data and isinstance(template_data['etag'], str):
+            self._etag = template_data['etag']
+
+        self._template_data_json = json.dumps(template_data)
 
     @property
     def parameters(self):
@@ -114,6 +117,10 @@ class ServerTemplateData:
     @property
     def conditions(self):
         return self._conditions
+
+    @property
+    def template_data_json(self):
+        return self._template_data_json
 
 
 class ServerTemplate:
@@ -132,6 +139,7 @@ class ServerTemplate:
         # fetched from RC servers via the load API, or via the set API.
         self._cache = None
         self._stringified_default_config: Dict[str, str] = {}
+        self._lock = threading.RLock()
 
         # RC stores all remote values as string, but it's more intuitive
         # to declare default values with specific types, so this converts
@@ -142,7 +150,9 @@ class ServerTemplate:
 
     async def load(self):
         """Fetches the server template and caches the data."""
-        self._cache = await self._rc_service.get_server_template()
+        rc_server_template = await self._rc_service.get_server_template()
+        with self._lock:
+            self._cache = rc_server_template
 
     def evaluate(self, context: Optional[Dict[str, Union[str, int]]] = None) -> 'ServerConfig':
         """Evaluates the cached server template to produce a ServerConfig.
@@ -161,22 +171,40 @@ class ServerTemplate:
                             Call load() before calling evaluate().""")
         context = context or {}
         config_values = {}
+
+        with self._lock:
+            template_conditions = self._cache.conditions
+            template_parameters = self._cache.parameters
+
         # Initializes config Value objects with default values.
         if self._stringified_default_config is not None:
             for key, value in self._stringified_default_config.items():
                 config_values[key] = _Value('default', value)
-        self._evaluator = _ConditionEvaluator(self._cache.conditions,
-                                              self._cache.parameters, context,
+        self._evaluator = _ConditionEvaluator(template_conditions,
+                                              template_parameters, context,
                                               config_values)
         return ServerConfig(config_values=self._evaluator.evaluate())
 
-    def set(self, template: ServerTemplateData):
+    def set(self, template_data_json: str):
         """Updates the cache to store the given template is of type ServerTemplateData.
 
         Args:
-          template: An object of type ServerTemplateData to be cached.
+          template_data_json: A json string representing ServerTemplateData to be cached.
         """
-        self._cache = template
+        template_data_map = json.loads(template_data_json)
+        template_data = _ServerTemplateData(template_data_map)
+
+        with self._lock:
+            self._cache = template_data
+
+    def to_json(self):
+        """Provides the server template in a JSON format to be used for initialization later."""
+        if not self._cache:
+            raise ValueError("""No Remote Config Server template in cache.
+                            Call load() before calling toJSON().""")
+        with self._lock:
+            template_json = self._cache.template_data_json
+        return template_json
 
 
 class ServerConfig:
@@ -185,16 +213,24 @@ class ServerConfig:
         self._config_values = config_values # dictionary of param key to values
 
     def get_boolean(self, key):
+        """Returns the value as a boolean."""
         return self._get_value(key).as_boolean()
 
     def get_string(self, key):
+        """Returns the value as a string."""
         return self._get_value(key).as_string()
 
     def get_int(self, key):
+        """Returns the value as an integer."""
         return self._get_value(key).as_int()
 
     def get_float(self, key):
+        """Returns the value as a float."""
         return self._get_value(key).as_float()
+
+    def get_value_source(self, key):
+        """Returns the source of the value."""
+        return self._get_value(key).get_source()
 
     def _get_value(self, key):
         return self._config_values.get(key, _Value('static'))
@@ -233,7 +269,8 @@ class _RemoteConfigService:
         except requests.exceptions.RequestException as error:
             raise self._handle_remote_config_error(error)
         else:
-            return ServerTemplateData(headers.get('etag'), template_data)
+            template_data['etag'] = headers.get('etag')
+            return _ServerTemplateData(template_data)
 
     def _get_url(self):
         """Returns project prefix for url, in the format of /v1/projects/${projectId}"""
@@ -633,22 +670,22 @@ async def get_server_template(app: App = None, default_config: Optional[Dict[str
     return template
 
 def init_server_template(app: App = None, default_config: Optional[Dict[str, str]] = None,
-                         template_data: Optional[ServerTemplateData] = None):
+                         template_data_json: Optional[str] = None):
     """Initializes a new ServerTemplate instance.
 
     Args:
         app: App instance to be used. This is optional and the default app instance will
             be used if not present.
         default_config: The default config to be used in the evaluated config.
-        template_data: An optional template data to be set on initialization.
+        template_data_json: An optional template data JSON to be set on initialization.
 
     Returns:
         ServerTemplate: A new ServerTemplate instance initialized with an optional
         template and config.
     """
     template = ServerTemplate(app=app, default_config=default_config)
-    if template_data is not None:
-        template.set(template_data)
+    if template_data_json is not None:
+        template.set(template_data_json)
     return template
 
 class _Value:

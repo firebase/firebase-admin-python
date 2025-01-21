@@ -21,8 +21,7 @@ from firebase_admin.remote_config import (
     CustomSignalOperator,
     PercentConditionOperator,
     _REMOTE_CONFIG_ATTRIBUTE,
-    _RemoteConfigService,
-    ServerTemplateData)
+    _RemoteConfigService)
 from firebase_admin import remote_config, _utils
 from tests import testutils
 
@@ -121,16 +120,17 @@ class TestEvaluate:
             },
             'parameterGroups': '',
             'version': '',
-            'etag': '123'
+            'etag': 'etag'
         }
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)
+            template_data_json=json.dumps(template_data)
         )
 
         server_config = server_template.evaluate()
         assert server_config.get_boolean('is_enabled')
+        assert server_config.get_value_source('is_enabled') == 'remote'
 
     def test_evaluate_or_and_false_condition_false(self):
         app = firebase_admin.get_app()
@@ -165,12 +165,12 @@ class TestEvaluate:
             },
             'parameterGroups': '',
             'version': '',
-            'etag': '123'
+            'etag': 'etag'
         }
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)
+            template_data_json=json.dumps(template_data)
         )
 
         server_config = server_template.evaluate()
@@ -196,12 +196,12 @@ class TestEvaluate:
             },
             'parameterGroups': '',
             'version': '',
-            'etag': '123'
+            'etag': 'etag'
         }
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)
+            template_data_json=json.dumps(template_data)
         )
 
         server_config = server_template.evaluate()
@@ -262,12 +262,12 @@ class TestEvaluate:
             },
             'parameterGroups':'',
             'version':'',
-            'etag': '123'
+            'etag': 'etag'
         }
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)
+            template_data_json=json.dumps(template_data)
         )
         server_config = server_template.evaluate()
         assert server_config.get_string('dog_type') == 'corgi'
@@ -280,7 +280,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)
+            template_data_json=json.dumps(template_data)
         )
         server_config = server_template.evaluate()
         assert server_config.get_boolean('promo_enabled') == default_config.get('promo_enabled')
@@ -296,7 +296,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)
+            template_data_json=json.dumps(template_data)
         )
         server_config = server_template.evaluate()
         assert server_config.get_string('default_value') == default_config.get('default_value')
@@ -313,7 +313,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)
+            template_data_json=json.dumps(template_data)
         )
         server_config = server_template.evaluate()
         assert server_config.get_string('inapp_default') == default_config.get('inapp_default')
@@ -328,7 +328,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)
+            template_data_json=json.dumps(template_data)
         )
         server_config = server_template.evaluate()
         assert server_config.get_string('dog_type') == 'shiba'
@@ -342,7 +342,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)
+            template_data_json=json.dumps(template_data)
         )
         server_config = server_template.evaluate()
         assert server_config.get_int('dog_age') == int(default_config.get('dog_age'))
@@ -356,7 +356,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)
+            template_data_json=json.dumps(template_data)
         )
         server_config = server_template.evaluate()
         assert server_config.get_boolean('dog_is_cute')
@@ -398,7 +398,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)
+            template_data_json=json.dumps(template_data)
         )
         server_config = server_template.evaluate(context)
         assert not server_config.get_boolean('is_enabled')
@@ -442,7 +442,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)
+            template_data_json=json.dumps(template_data)
         )
         server_config = server_template.evaluate(context)
         assert server_config.get_boolean('is_enabled')
@@ -485,7 +485,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)
+            template_data_json=json.dumps(template_data)
         )
         server_config = server_template.evaluate(context)
         assert not server_config.get_boolean('is_enabled')
@@ -528,7 +528,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)
+            template_data_json=json.dumps(template_data)
         )
         server_config = server_template.evaluate(context)
         assert not server_config.get_boolean('is_enabled')
@@ -575,7 +575,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)
+            template_data_json=json.dumps(template_data)
         )
         server_config = server_template.evaluate(context)
         assert server_config.get_boolean('is_enabled')
@@ -622,7 +622,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)
+            template_data_json=json.dumps(template_data)
         )
         server_config = server_template.evaluate(context)
         assert not server_config.get_boolean('is_enabled')
@@ -750,7 +750,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=mock_app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)
+            template_data_json=json.dumps(template_data)
         )
 
         for _ in range(num_of_assignments):
@@ -814,7 +814,7 @@ class TestEvaluate:
         server_template = remote_config.init_server_template(
             app=app,
             default_config=default_config,
-            template_data=ServerTemplateData('etag', template_data)
+            template_data_json=json.dumps(template_data)
         )
         server_config = server_template.evaluate(context)
         assert server_config.get_boolean('is_enabled') == parameter_value
@@ -917,7 +917,7 @@ class TestRemoteConfigModule:
         template = remote_config.init_server_template(
             app=app,
             default_config={'default_test': 'default_value'},
-            template_data=ServerTemplateData('etag', template_data)
+            template_data_json=json.dumps(template_data)
         )
 
         config = template.evaluate()
@@ -949,3 +949,36 @@ class TestRemoteConfigModule:
 
         config = template.evaluate()
         assert config.get_string('test_key') == 'test_value'
+
+    @pytest.mark.asyncio
+    async def test_server_template_to_json(self):
+        app = firebase_admin.get_app()
+        rc_instance = _utils.get_app_service(app,
+                                             _REMOTE_CONFIG_ATTRIBUTE, _RemoteConfigService)
+
+        recorder = []
+        response = json.dumps({
+            'parameters': {
+                'test_key': {
+                    'defaultValue': {'value': 'test_value'},
+                    'conditionalValues': {}
+                }
+            },
+            'conditions': [],
+            'version': 'test'
+            })
+
+        expected_template_json = '{"parameters": {' \
+            '"test_key": {' \
+                '"defaultValue": {' \
+                    '"value": "test_value"}, ' \
+                    '"conditionalValues": {}}}, "conditions": [], ' \
+                    '"version": "test", "etag": "etag"}'
+
+        rc_instance._client.session.mount(
+            'https://firebaseremoteconfig.googleapis.com',
+            MockAdapter(response, 200, recorder))
+        template = await remote_config.get_server_template(app=app)
+
+        template_json = template.to_json()
+        assert template_json == expected_template_json

@@ -535,6 +535,49 @@ class TestListenerRegistration:
         finally:
             testutils.cleanup_apps()
 
+    @pytest.mark.parametrize(
+        'url,emulator_host,expected_base_url,expected_namespace',
+        [
+            # Production URLs with no override:
+            ('https://test.firebaseio.com', None, 'https://test.firebaseio.com/.json', None),
+            ('https://test.firebaseio.com/', None, 'https://test.firebaseio.com/.json', None),
+
+            # Production URLs with emulator_host override:
+            ('https://test.firebaseio.com', 'localhost:9000', 'http://localhost:9000/.json',
+             'test'),
+            ('https://test.firebaseio.com/', 'localhost:9000', 'http://localhost:9000/.json',
+             'test'),
+
+            # Emulator URL with no override.
+            ('http://localhost:8000/?ns=test', None, 'http://localhost:8000/.json', 'test'),
+
+            # emulator_host is ignored when the original URL is already emulator.
+            ('http://localhost:8000/?ns=test', 'localhost:9999', 'http://localhost:8000/.json',
+             'test'),
+        ]
+    )
+    def test_listen_sse_client(self, url, emulator_host, expected_base_url, expected_namespace,
+                               mocker):
+        if emulator_host:
+            os.environ[_EMULATOR_HOST_ENV_VAR] = emulator_host
+
+        try:
+            firebase_admin.initialize_app(testutils.MockCredential(), {'databaseURL' : url})
+            ref = db.reference()
+            mock_sse_client = mocker.patch('firebase_admin._sseclient.SSEClient')
+            mock_callback = mocker.Mock()
+            ref.listen(mock_callback)
+            args, kwargs = mock_sse_client.call_args
+            assert args[0] == expected_base_url
+            if expected_namespace:
+                assert kwargs.get('params') == {'ns': expected_namespace}
+            else:
+                assert kwargs.get('params') == {}
+        finally:
+            if _EMULATOR_HOST_ENV_VAR in os.environ:
+                del os.environ[_EMULATOR_HOST_ENV_VAR]
+            testutils.cleanup_apps()
+
     def test_listener_session(self):
         firebase_admin.initialize_app(testutils.MockCredential(), {
             'databaseURL' : 'https://test.firebaseio.com',

@@ -442,8 +442,8 @@ class _ConditionEvaluator:
             logger.warning("Missing percent operator for percent condition.")
             return False
         if micro_percent_range:
-            norm_percent_upper_bound = micro_percent_range.get('microPercentUpperBound')
-            norm_percent_lower_bound = micro_percent_range.get('microPercentLowerBound')
+            norm_percent_upper_bound = micro_percent_range.get('microPercentUpperBound') or 0
+            norm_percent_lower_bound = micro_percent_range.get('microPercentLowerBound') or 0
         else:
             norm_percent_upper_bound = 0
             norm_percent_lower_bound = 0

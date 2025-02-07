@@ -616,15 +616,18 @@ class _ConditionEvaluator:
             result = -1 if actual < target else 1 if actual > target else 0
             return predicate_fn(result)
         except ValueError:
-            logger.warning("Invalid numeric value for comparison for custom signal key %s.", custom_signal_key)
+            logger.warning("Invalid numeric value for comparison for custom signal key %s.",
+                           custom_signal_key)
             return False
 
-    def _compare_semantic_versions(self, custom_signal_key, target_value, actual_value, predicate_fn) -> bool:
+    def _compare_semantic_versions(self, custom_signal_key,
+                                   target_value, actual_value, predicate_fn) -> bool:
         """Compares the actual semantic version value of a signal against a target value.
         Calls the predicate function with -1, 0, 1 if actual is less than, equal to,
         or greater than target.
 
         Args:
+        custom_signal_key: The custom singal for which the evaluation is being performed.
         target_values: A list of target string values.
         actual_value: The actual value to compare, which can be a string or number.
         predicate_fn: A function that takes an integer (-1, 0, or 1) and returns a boolean.
@@ -636,10 +639,12 @@ class _ConditionEvaluator:
         return self._compare_versions(custom_signal_key, str(actual_value),
                                       str(target_value), predicate_fn)
 
-    def _compare_versions(self, custom_signal_key, sem_version_1, sem_version_2, predicate_fn) -> bool:
+    def _compare_versions(self, custom_signal_key,
+                          sem_version_1, sem_version_2, predicate_fn) -> bool:
         """Compares two semantic version strings.
 
         Args:
+            custom_signal_key: The custom singal for which the evaluation is being performed.
             sem_version_1: The first semantic version string.
             sem_version_2: The second semantic version string.
             predicate_fn: A function that takes an integer and returns a boolean.
@@ -663,7 +668,9 @@ class _ConditionEvaluator:
                     return predicate_fn(1)
             return predicate_fn(0)
         except ValueError:
-            logger.warning("Invalid semantic version format for comparison for custom signal key %s.", custom_signal_key)
+            logger.warning(
+                "Invalid semantic version format for comparison for custom signal key %s.",
+                custom_signal_key)
             return False
 
 async def get_server_template(app: App = None, default_config: Optional[Dict[str, str]] = None):

@@ -431,7 +431,7 @@ class _ConditionEvaluator:
           True if the condition is met, False otherwise.
         """
         if not context.get('randomization_id'):
-            logger.warning("Missing randomization ID for percent condition.")
+            logger.warning("Missing randomization_id in context for evaluating percent condition.")
             return False
 
         seed = percent_condition.get('seed')
@@ -442,8 +442,8 @@ class _ConditionEvaluator:
             logger.warning("Missing percent operator for percent condition.")
             return False
         if micro_percent_range:
-            norm_percent_upper_bound = micro_percent_range.get('microPercentUpperBound')
-            norm_percent_lower_bound = micro_percent_range.get('microPercentLowerBound')
+            norm_percent_upper_bound = micro_percent_range.get('microPercentUpperBound') or 0
+            norm_percent_lower_bound = micro_percent_range.get('microPercentLowerBound') or 0
         else:
             norm_percent_upper_bound = 0
             norm_percent_lower_bound = 0
@@ -503,7 +503,7 @@ class _ConditionEvaluator:
         actual_custom_signal_value = context.get(custom_signal_key) or {}
 
         if not actual_custom_signal_value:
-            logger.warning("Custom signal value not found in context: %s", custom_signal_key)
+            logger.debug("Custom signal value not found in context: %s", custom_signal_key)
             return False
 
         if custom_signal_operator == CustomSignalOperator.STRING_CONTAINS.value:
@@ -525,53 +525,65 @@ class _ConditionEvaluator:
 
         # For numeric operators only one target value is allowed.
         if custom_signal_operator == CustomSignalOperator.NUMERIC_LESS_THAN.value:
-            return self._compare_numbers(target_custom_signal_values[0],
+            return self._compare_numbers(custom_signal_key,
+                                         target_custom_signal_values[0],
                                          actual_custom_signal_value,
                                          lambda r: r < 0)
         if custom_signal_operator == CustomSignalOperator.NUMERIC_LESS_EQUAL.value:
-            return self._compare_numbers(target_custom_signal_values[0],
+            return self._compare_numbers(custom_signal_key,
+                                         target_custom_signal_values[0],
                                          actual_custom_signal_value,
                                          lambda r: r <= 0)
         if custom_signal_operator == CustomSignalOperator.NUMERIC_EQUAL.value:
-            return self._compare_numbers(target_custom_signal_values[0],
+            return self._compare_numbers(custom_signal_key,
+                                         target_custom_signal_values[0],
                                          actual_custom_signal_value,
                                          lambda r: r == 0)
         if custom_signal_operator == CustomSignalOperator.NUMERIC_NOT_EQUAL.value:
-            return self._compare_numbers(target_custom_signal_values[0],
+            return self._compare_numbers(custom_signal_key,
+                                         target_custom_signal_values[0],
                                          actual_custom_signal_value,
                                          lambda r: r != 0)
         if custom_signal_operator == CustomSignalOperator.NUMERIC_GREATER_THAN.value:
-            return self._compare_numbers(target_custom_signal_values[0],
+            return self._compare_numbers(custom_signal_key,
+                                         target_custom_signal_values[0],
                                          actual_custom_signal_value,
                                          lambda r: r > 0)
         if custom_signal_operator == CustomSignalOperator.NUMERIC_GREATER_EQUAL.value:
-            return self._compare_numbers(target_custom_signal_values[0],
+            return self._compare_numbers(custom_signal_key,
+                                         target_custom_signal_values[0],
                                          actual_custom_signal_value,
                                          lambda r: r >= 0)
 
         # For semantic operators only one target value is allowed.
         if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_LESS_THAN.value:
-            return self._compare_semantic_versions(target_custom_signal_values[0],
+            return self._compare_semantic_versions(custom_signal_key,
+                                                   target_custom_signal_values[0],
                                                    actual_custom_signal_value,
                                                    lambda r: r < 0)
         if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_LESS_EQUAL.value:
-            return self._compare_semantic_versions(target_custom_signal_values[0],
+            return self._compare_semantic_versions(custom_signal_key,
+                                                   target_custom_signal_values[0],
                                                    actual_custom_signal_value,
                                                    lambda r: r <= 0)
         if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_EQUAL.value:
-            return self._compare_semantic_versions(target_custom_signal_values[0],
+            return self._compare_semantic_versions(custom_signal_key,
+                                                   target_custom_signal_values[0],
                                                    actual_custom_signal_value,
                                                    lambda r: r == 0)
         if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_NOT_EQUAL.value:
-            return self._compare_semantic_versions(target_custom_signal_values[0],
+            return self._compare_semantic_versions(custom_signal_key,
+                                                   target_custom_signal_values[0],
                                                    actual_custom_signal_value,
                                                    lambda r: r != 0)
         if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_GREATER_THAN.value:
-            return self._compare_semantic_versions(target_custom_signal_values[0],
+            return self._compare_semantic_versions(custom_signal_key,
+                                                   target_custom_signal_values[0],
                                                    actual_custom_signal_value,
                                                    lambda r: r > 0)
         if custom_signal_operator == CustomSignalOperator.SEMANTIC_VERSION_GREATER_EQUAL.value:
-            return self._compare_semantic_versions(target_custom_signal_values[0],
+            return self._compare_semantic_versions(custom_signal_key,
+                                                   target_custom_signal_values[0],
                                                    actual_custom_signal_value,
                                                    lambda r: r >= 0)
         logger.warning("Unknown custom signal operator: %s", custom_signal_operator)
@@ -597,22 +609,25 @@ class _ConditionEvaluator:
                 return True
         return False
 
-    def _compare_numbers(self, target_value, actual_value, predicate_fn) -> bool:
+    def _compare_numbers(self, custom_signal_key, target_value, actual_value, predicate_fn) -> bool:
         try:
             target = float(target_value)
             actual = float(actual_value)
             result = -1 if actual < target else 1 if actual > target else 0
             return predicate_fn(result)
         except ValueError:
-            logger.warning("Invalid numeric value for comparison.")
+            logger.warning("Invalid numeric value for comparison for custom signal key %s.",
+                           custom_signal_key)
             return False
 
-    def _compare_semantic_versions(self, target_value, actual_value, predicate_fn) -> bool:
+    def _compare_semantic_versions(self, custom_signal_key,
+                                   target_value, actual_value, predicate_fn) -> bool:
         """Compares the actual semantic version value of a signal against a target value.
         Calls the predicate function with -1, 0, 1 if actual is less than, equal to,
         or greater than target.
 
         Args:
+        custom_signal_key: The custom singal for which the evaluation is being performed.
         target_values: A list of target string values.
         actual_value: The actual value to compare, which can be a string or number.
         predicate_fn: A function that takes an integer (-1, 0, or 1) and returns a boolean.
@@ -621,13 +636,15 @@ class _ConditionEvaluator:
             bool: True if the predicate function returns True for the result of the comparison,
         False otherwise.
         """
-        return self._compare_versions(str(actual_value),
+        return self._compare_versions(custom_signal_key, str(actual_value),
                                       str(target_value), predicate_fn)
 
-    def _compare_versions(self, sem_version_1, sem_version_2, predicate_fn) -> bool:
+    def _compare_versions(self, custom_signal_key,
+                          sem_version_1, sem_version_2, predicate_fn) -> bool:
         """Compares two semantic version strings.
 
         Args:
+            custom_signal_key: The custom singal for which the evaluation is being performed.
             sem_version_1: The first semantic version string.
             sem_version_2: The second semantic version string.
             predicate_fn: A function that takes an integer and returns a boolean.
@@ -651,7 +668,9 @@ class _ConditionEvaluator:
                     return predicate_fn(1)
             return predicate_fn(0)
         except ValueError:
-            logger.warning("Invalid semantic version format for comparison.")
+            logger.warning(
+                "Invalid semantic version format for comparison for custom signal key %s.",
+                custom_signal_key)
             return False
 
 async def get_server_template(app: App = None, default_config: Optional[Dict[str, str]] = None):

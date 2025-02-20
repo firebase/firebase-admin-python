@@ -1,3 +1,4 @@
+import json
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import remote_config
@@ -5,63 +6,69 @@ import asyncio
 
 # Evaluate the template and manually assert the config
 def test_evaluations(template):
-    # [Bug Bash 101] Custom Signals
-    # Evaluate template - pass custom signals
-    # Update the custom signals being passed in evaluate to test how variations of the 
+    # Custom Signals
     # signals cause changes to the config evaluation.
     config = template.evaluate(
           # Update custom vars 
           {
-            'custom_key_str': 'custom_val_str',
-            'version_key': '12.1.3.-1'
+             'randomization_id': 'random',
+             'custom_str': 'custom_val'
           }
         )
 
-    # [Bug Bash 101] Verify Evaluation
-    # Update the following print statements to verify if config is being created properly.
     # Print default config values 
-    print('[Default Config] default_key_str: ', config.get_string('default_key_str'))
-    print('[Default Config] default_key_number: ', config.get_int('default_key_number'))
+    print('[Default Config] default_key_str: ', config.get_string('rc_test_y'))
 
     # Verify evaluated config
-    print('[Evluated Config] Config values:', config.get_string('rc_testx'))
+    print('[Evluated Config] Config values:', config.get_string('rc_test_x'))
 
     # Verify value and source for configs
-    print('Value Source:', config.get_value_source('test_server'))
+    print('Value Source:', config.get_value_source('rc_test_x'))
     
     print('----------------')
 
-def bug_bash():
-  # [Bug Bash 101] Credentials
-  # Load creds for authentication - Update the json key from the one downloaded from the console.
-  cred = credentials.Certificate('credentials.json')
-  default_app = firebase_admin.initialize_app(cred)
-
-  # [Bug Bash 101] Default Config
-  # Create default template for initializing ServerTemplate
-  # For bug bash, update the default config to any config that you want to initialize
-  # the app with. The configs will be cached and might get updated during evaluation of the template.
-  default_config = {
-      'rc_test_3': 'default_val_str',
-      'rc_testx': 'val_str'
-  }
-
+def fetchServerTemplateAndStoreTemplate(default_app, default_config):
   # Create initial template
   template = remote_config.init_server_template(app=default_app, default_config=default_config)
 
   # Load the template from the backend
   asyncio.run(template.load())
 
-  test_evaluations(template)
-
-  # Verify template initialization from saved JSON
   template_json = template.to_json()
-  template_v2 = remote_config.init_server_template(app=default_app, 
-                                                default_config=default_config, 
-                                                template_data_json=template_json)
-  
-  test_evaluations(template_v2)
+ 
+  f = open("template.json", "w")
+  json.dump(template_json,f)
+  f.close()
 
+  return template
+
+def initializeTempalteFromLocalStorage(default_app, default_config):
+  # Verify template initialization from saved JSON
+  f = open("template.json", "r")
+  template_json = json.load(f)
+  return remote_config.init_server_template(app=default_app, 
+                                               default_config=default_config, 
+                                               template_data_json=template_json)
+  
+
+def bug_bash():
+  # Load creds for authentication - Update the json key from the one downloaded from the console.
+  cred = credentials.Certificate('credentials.json')
+  default_app = firebase_admin.initialize_app(cred)
+
+  # Default config with default values used to initialize template
+  default_config = {
+     'rc_test_x': 'rc_default_x',
+     'rc_test_y': 'rc_default_y'
+  }
+
+  # template = fetchServerTemplateAndStoreTemplate(default_app,default_config)
+
+  template = initializeTempalteFromLocalStorage(default_app,default_config)
+
+  # Evaluate Template
+  test_evaluations(template)
+  
 bug_bash()
 
 

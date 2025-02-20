@@ -124,7 +124,7 @@ class _ServerTemplateData:
 
 
 class ServerTemplate:
-    """Represents a Server Template with implementations for loading and evaluting the template."""
+    """Represents a Server Template with implementations for loading and evaluating the template."""
     def __init__(self, app: App = None, default_config: Optional[Dict[str, str]] = None):
         """Initializes a ServerTemplate instance.
 
@@ -293,7 +293,7 @@ class _ConditionEvaluator:
         self._config_values = config_values
 
     def evaluate(self):
-        """Internal function Evaluates the cached server template to produce
+        """Internal function that evaluates the cached server template to produce
         a ServerConfig"""
         evaluated_conditions = self.evaluate_conditions(self._conditions, self._context)
 
@@ -338,7 +338,7 @@ class _ConditionEvaluator:
           context: An EvaluationContext object.
 
         Returns:
-          A dictionary mapping condition names to boolean evaluation results.
+          A dictionary that maps condition names to boolean evaluation results.
         """
         evaluated_conditions = {}
         for condition in conditions:
@@ -410,7 +410,7 @@ class _ConditionEvaluator:
           nesting_level: The current recursion depth.
 
         Returns:
-          True if all of the subconditions are true, False otherwise.
+          True if all of the subconditions are met; False otherwise.
         """
         sub_conditions = and_condition.get('conditions') or []
         for sub_condition in sub_conditions:
@@ -627,7 +627,7 @@ class _ConditionEvaluator:
         or greater than target.
 
         Args:
-        custom_signal_key: The custom singal for which the evaluation is being performed.
+        custom_signal_key: The custom signal for which the evaluation is being performed.
         target_values: A list of target string values.
         actual_value: The actual value to compare, which can be a string or number.
         predicate_fn: A function that takes an integer (-1, 0, or 1) and returns a boolean.
@@ -721,6 +721,9 @@ class _Value:
 
         Args:
           source: The source of the value (e.g., 'default', 'remote', 'static').
+          "static" indicates the value was defined by a static constant.
+          "default" indicates the value was defined by default config.
+          "remote" indicates the value was defined by config produced by evaluating a template.
           value: The string value.
         """
         self.source = source

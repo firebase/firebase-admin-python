@@ -133,7 +133,7 @@ class _AppCheckService:
         except InvalidTokenError as exception:
             raise ValueError(
                 f'Decoding App Check token failed. Error: {exception}'
-                )
+                ) from exception
 
         audience = payload.get('aud')
         if not isinstance(audience, list) or self._scoped_project_id not in audience:

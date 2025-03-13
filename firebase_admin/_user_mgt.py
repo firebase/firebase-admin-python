@@ -719,6 +719,12 @@ class UserManager:
                 remove_provider.append('phone')
             else:
                 payload['phoneNumber'] = _auth_utils.validate_phone(phone_number)
+                
+        if email_verified is not None:
+            if email_verified is DELETE_ATTRIBUTE:
+                remove_provider.append('emailVerified')
+            else:
+                payload['emailVerified'] = _auth_utils.validate_email(email_verified)
 
         if custom_claims is not None:
             if custom_claims is DELETE_ATTRIBUTE:

@@ -534,6 +534,20 @@ class TestAndroidNotificationEncoder:
         else:
             expected = 'AndroidNotification.visibility must be a non-empty string.'
         assert str(excinfo.value) == expected
+    
+    @pytest.mark.parametrize('proxy', NON_STRING_ARGS + ['foo'])
+    def test_invalid_proxy(self, proxy):
+        notification = messaging.AndroidNotification(proxy=proxy)
+        excinfo = self._check_notification(notification)
+        if isinstance(proxy, str):
+            if not proxy:
+                expected = 'AndroidNotification.proxy must be a non-empty string.'
+            else:
+                expected = ('AndroidNotification.proxy must be "allow", "deny" or'
+                            ' "if_priority_lowered".')
+        else:
+            expected = 'AndroidNotification.proxy must be a non-empty string.'
+        assert str(excinfo.value) == expected
 
     @pytest.mark.parametrize('vibrate_timings', ['', 1, True, 'msec', ['500', 500], [0, 'abc']])
     def test_invalid_vibrate_timings_millis(self, vibrate_timings):
@@ -580,6 +594,7 @@ class TestAndroidNotificationEncoder:
                         light_off_duration_millis=300,
                     ),
                     default_light_settings=False, visibility='public', notification_count=1,
+                    proxy='if_priority_lowered',
                 )
             )
         )
@@ -620,6 +635,7 @@ class TestAndroidNotificationEncoder:
                     'default_light_settings': False,
                     'visibility': 'PUBLIC',
                     'notification_count': 1,
+                    'proxy': 'IF_PRIORITY_LOWERED'
                 },
             },
         }

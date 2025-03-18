@@ -145,6 +145,8 @@ class AndroidNotification:
             want the count here to represent the number of total new messages. If zero or
             unspecified, systems that support badging use the default, which is to increment a
             number displayed on the long-press menu each time a new notification arrives.
+        proxy: Sets if the notification may be proxied. Must be one of ``allow``, ``deny``, or
+            ``if_priority_lowered``. If unspecified, defaults to ``if_priority_lowered``.
 
 
     """
@@ -154,7 +156,8 @@ class AndroidNotification:
                  title_loc_args=None, channel_id=None, image=None, ticker=None, sticky=None,
                  event_timestamp=None, local_only=None, priority=None, vibrate_timings_millis=None,
                  default_vibrate_timings=None, default_sound=None, light_settings=None,
-                 default_light_settings=None, visibility=None, notification_count=None):
+                 default_light_settings=None, visibility=None, notification_count=None,
+                 proxy=None):
         self.title = title
         self.body = body
         self.icon = icon
@@ -180,6 +183,7 @@ class AndroidNotification:
         self.default_light_settings = default_light_settings
         self.visibility = visibility
         self.notification_count = notification_count
+        self.proxy = proxy
 
 
 class LightSettings:

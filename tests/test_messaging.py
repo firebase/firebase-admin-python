@@ -534,7 +534,7 @@ class TestAndroidNotificationEncoder:
         else:
             expected = 'AndroidNotification.visibility must be a non-empty string.'
         assert str(excinfo.value) == expected
-    
+
     @pytest.mark.parametrize('proxy', NON_STRING_ARGS + ['foo'])
     def test_invalid_proxy(self, proxy):
         notification = messaging.AndroidNotification(proxy=proxy)

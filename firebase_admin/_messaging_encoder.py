@@ -365,7 +365,7 @@ class MessageEncoder(json.JSONEncoder):
                     'AndroidNotification.vibrate_timings_millis', msec)
                 vibrate_timing_strings.append(formated_string)
             result['vibrate_timings'] = vibrate_timing_strings
-        
+
         proxy = result.get('proxy')
         if proxy:
             if proxy not in ('allow', 'deny', 'if_priority_lowered'):

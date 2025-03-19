@@ -137,7 +137,8 @@ class AndroidNotification:
             If ``default_light_settings`` is set to ``True`` and ``light_settings`` is also set, the
             user-specified ``light_settings`` is used instead of the default value.
         visibility: Sets the visibility of the notification. Must be either ``private``, ``public``,
-            or ``secret``. If unspecified, default to ``private``.
+            or ``secret``. If unspecified, it remains undefined in the Admin SDK, and defers to
+            the FCM backend's default mapping.
         notification_count: Sets the number of items this notification represents. May be displayed
             as a badge count for Launchers that support badging. See ``NotificationBadge``
             https://developer.android.com/training/notify-user/badges. For example, this might be
@@ -145,6 +146,9 @@ class AndroidNotification:
             want the count here to represent the number of total new messages. If zero or
             unspecified, systems that support badging use the default, which is to increment a
             number displayed on the long-press menu each time a new notification arrives.
+        proxy: Sets if the notification may be proxied. Must be one of ``allow``, ``deny``, or
+            ``if_priority_lowered``. If unspecified, it remains undefined in the Admin SDK, and
+            defers to the FCM backend's default mapping.
 
 
     """
@@ -154,7 +158,8 @@ class AndroidNotification:
                  title_loc_args=None, channel_id=None, image=None, ticker=None, sticky=None,
                  event_timestamp=None, local_only=None, priority=None, vibrate_timings_millis=None,
                  default_vibrate_timings=None, default_sound=None, light_settings=None,
-                 default_light_settings=None, visibility=None, notification_count=None):
+                 default_light_settings=None, visibility=None, notification_count=None,
+                 proxy=None):
         self.title = title
         self.body = body
         self.icon = icon
@@ -180,6 +185,7 @@ class AndroidNotification:
         self.default_light_settings = default_light_settings
         self.visibility = visibility
         self.notification_count = notification_count
+        self.proxy = proxy
 
 
 class LightSettings:

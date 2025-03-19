@@ -137,7 +137,8 @@ class AndroidNotification:
             If ``default_light_settings`` is set to ``True`` and ``light_settings`` is also set, the
             user-specified ``light_settings`` is used instead of the default value.
         visibility: Sets the visibility of the notification. Must be either ``private``, ``public``,
-            or ``secret``. If unspecified, default to ``private``.
+            or ``secret``. If unspecified, it remains undefined in the Admin SDK, and defers to
+            the FCM backend's default mapping.
         notification_count: Sets the number of items this notification represents. May be displayed
             as a badge count for Launchers that support badging. See ``NotificationBadge``
             https://developer.android.com/training/notify-user/badges. For example, this might be
@@ -146,7 +147,8 @@ class AndroidNotification:
             unspecified, systems that support badging use the default, which is to increment a
             number displayed on the long-press menu each time a new notification arrives.
         proxy: Sets if the notification may be proxied. Must be one of ``allow``, ``deny``, or
-            ``if_priority_lowered``. If unspecified, defaults to ``if_priority_lowered``.
+            ``if_priority_lowered``. If unspecified, it remains undefined in the Admin SDK, and
+            defers to the FCM backend's default mapping.
 
 
     """

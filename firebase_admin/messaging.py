@@ -14,11 +14,16 @@
 
 """Firebase Cloud Messaging module."""
 
+from __future__ import annotations
+from typing import Callable, List, Optional, TypeVar
 import concurrent.futures
 import json
 import warnings
 import requests
+import httpx
+import asyncio
 
+from google.auth import credentials, transport
 from googleapiclient import http
 from googleapiclient import _auth
 
@@ -62,6 +67,7 @@ __all__ = [
     'WebpushNotification',
     'WebpushNotificationAction',
 
+    'async_send_each'
     'send',
     'send_all',
     'send_multicast',
@@ -69,8 +75,9 @@ __all__ = [
     'send_each_for_multicast',
     'subscribe_to_topic',
     'unsubscribe_from_topic',
-]
+] # type: ignore
 
+TFirebaseError = TypeVar('TFirebaseError', bound=exceptions.FirebaseError)
 
 AndroidConfig = _messaging_utils.AndroidConfig
 AndroidFCMOptions = _messaging_utils.AndroidFCMOptions
@@ -97,7 +104,7 @@ ThirdPartyAuthError = _messaging_utils.ThirdPartyAuthError
 UnregisteredError = _messaging_utils.UnregisteredError
 
 
-def _get_messaging_service(app):
+def _get_messaging_service(app) -> _MessagingService:
     return _utils.get_app_service(app, _MESSAGING_ATTRIBUTE, _MessagingService)
 
 def send(message, dry_run=False, app=None):
@@ -139,6 +146,9 @@ def send_each(messages, dry_run=False, app=None):
         ValueError: If the input arguments are invalid.
     """
     return _get_messaging_service(app).send_each(messages, dry_run)
+
+async def async_send_each(messages, dry_run=True, app: firebase_admin.App | None = None) -> BatchResponse:
+    return await _get_messaging_service(app).async_send_each(messages, dry_run)
 
 def send_each_for_multicast(multicast_message, dry_run=False, app=None):
     """Sends the given mutlicast message to each token via Firebase Cloud Messaging (FCM).
@@ -321,21 +331,21 @@ class TopicManagementResponse:
 class BatchResponse:
     """The response received from a batch request to the FCM API."""
 
-    def __init__(self, responses):
+    def __init__(self, responses: List[SendResponse]) -> None:
         self._responses = responses
         self._success_count = len([resp for resp in responses if resp.success])
 
     @property
-    def responses(self):
+    def responses(self) -> List[SendResponse]:
         """A list of ``messaging.SendResponse`` objects (possibly empty)."""
         return self._responses
 
     @property
-    def success_count(self):
+    def success_count(self) -> int:
         return self._success_count
 
     @property
-    def failure_count(self):
+    def failure_count(self) -> int:
         return len(self.responses) - self.success_count
 
 
@@ -363,6 +373,51 @@ class SendResponse:
         """A ``FirebaseError`` if an error occurs while sending the message to the FCM service."""
         return self._exception
 
+# Auth Flow
+# The aim here is to be able to get auth credentials right before the request is sent.
+# This is similar to what is done in transport.requests.AuthorizedSession().
+# We can then pass this in at the client level.
+class CustomGoogleAuth(httpx.Auth):
+    def __init__(self, credentials: credentials.Credentials):
+        self._credential = credentials
+        self._max_refresh_attempts = 2
+        self._refresh_status_codes = (401,)
+    
+    def apply_auth_headers(self, request: httpx.Request):
+        # Build request used to refresh credentials if needed
+        auth_request = transport.requests.Request() # type: ignore
+        # This refreshes the credentials if needed and mutates the request headers to contain access token
+        # and any other google auth headers
+        self._credential.before_request(auth_request, request.method, request.url, request.headers)
+
+
+    def auth_flow(self, request: httpx.Request):
+        # Keep original headers since `credentials.before_request` mutates the passed headers and we
+        # want to keep the original in cause we need an auth retry.
+        _original_headers = request.headers.copy()
+        
+        _credential_refresh_attempt = 0
+        while (
+            _credential_refresh_attempt < self._max_refresh_attempts
+        ):
+            # copy original headers
+            request.headers = _original_headers.copy()
+            # mutates request headers
+            self.apply_auth_headers(request)
+        
+            # Continue to perform the request
+            # yield here dispatches the request and returns with the response
+            response: httpx.Response = yield request
+        
+            # We can check the result of the response and determine in we need to retry on refreshable status codes.
+            # Current transport.requests.AuthorizedSession() only does this on 401 errors. We should do the same.
+            if response.status_code in self._refresh_status_codes:
+                _credential_refresh_attempt += 1
+                print(response.status_code, response.reason_phrase, _credential_refresh_attempt)
+            else:
+                break;
+
+
 
 class _MessagingService:
     """Service class that implements Firebase Cloud Messaging (FCM) functionality."""
@@ -381,7 +436,7 @@ class _MessagingService:
         'UNREGISTERED': UnregisteredError,
     }
 
-    def __init__(self, app):
+    def __init__(self, app) -> None:
         project_id = app.project_id
         if not project_id:
             raise ValueError(
@@ -396,6 +451,12 @@ class _MessagingService:
         timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
         self._credential = app.credential.get_credential()
         self._client = _http_client.JsonHttpClient(credential=self._credential, timeout=timeout)
+        self._async_client = httpx.AsyncClient(
+            http2=True,
+            auth=CustomGoogleAuth(self._credential),
+            timeout=timeout,
+            transport=HttpxRetryTransport()
+        )
         self._build_transport = _auth.authorized_http
 
     @classmethod
@@ -423,7 +484,7 @@ class _MessagingService:
         """Sends the given messages to FCM via the FCM v1 API."""
         if not isinstance(messages, list):
             raise ValueError('messages must be a list of messaging.Message instances.')
-        if len(messages) > 500:
+        if len(messages) > 1000:
             raise ValueError('messages must not contain more than 500 elements.')
 
         def send_data(data):
@@ -447,6 +508,40 @@ class _MessagingService:
             raise exceptions.UnknownError(
                 message='Unknown error while making remote service calls: {0}'.format(error),
                 cause=error)
+
+    async def async_send_each(self, messages: List[Message], dry_run: bool = True) -> BatchResponse:
+        """Sends the given messages to FCM via the FCM v1 API."""
+        if not isinstance(messages, list):
+            raise ValueError('messages must be a list of messaging.Message instances.')
+        if len(messages) > 1000:
+            raise ValueError('messages must not contain more than 500 elements.')
+        
+        async def send_data(data):
+            try:
+                resp = await self._async_client.request(
+                    'post',
+                    url=self._fcm_url,
+                    headers=self._fcm_headers,
+                    json=data)
+                # HTTP/2 check
+                if resp.http_version != 'HTTP/2':
+                    raise Exception('This messages was not sent with HTTP/2')
+                resp.raise_for_status()
+            # except httpx.HTTPStatusError as exception:
+            except httpx.HTTPError as exception:
+                return SendResponse(resp=None, exception=self._handle_fcm_httpx_error(exception))
+            else:
+                return SendResponse(resp.json(), exception=None)
+
+        message_data = [self._message_data(message, dry_run) for message in messages]
+        try:
+            responses = await asyncio.gather(*[send_data(message) for message in message_data])
+            return BatchResponse(responses)
+        except Exception as error:
+            raise exceptions.UnknownError(
+                message='Unknown error while making remote service calls: {0}'.format(error),
+                cause=error)
+
 
     def send_all(self, messages, dry_run=False):
         """Sends the given messages to FCM via the batch API."""
@@ -533,6 +628,11 @@ class _MessagingService:
         return _utils.handle_platform_error_from_requests(
             error, _MessagingService._build_fcm_error_requests)
 
+    def _handle_fcm_httpx_error(self, error: httpx.HTTPError) -> exceptions.FirebaseError:
+        """Handles errors received from the FCM API."""
+        return _utils.handle_platform_error_from_httpx(
+            error, _MessagingService._build_fcm_error_httpx)
+
     def _handle_iid_error(self, error):
         """Handles errors received from the Instance ID API."""
         if error.response is None:
@@ -561,6 +661,13 @@ class _MessagingService:
         """Handles errors received from the googleapiclient while making batch requests."""
         return _gapic_utils.handle_platform_error_from_googleapiclient(
             error, _MessagingService._build_fcm_error_googleapiclient)
+    
+    # We should be careful to clean up the httpx clients.
+    # Since we are using an async client we must also close in async. However we can sync wrap this.
+    # The close method is called by the app on shutdown/clean-up of each service. We don't seem to
+    # make use of this much elsewhere.
+    def close(self) -> None:
+        asyncio.run(self._async_client.aclose())
 
     @classmethod
     def _build_fcm_error_requests(cls, error, message, error_dict):
@@ -570,6 +677,17 @@ class _MessagingService:
         return exc_type(message, cause=error, http_response=error.response) if exc_type else None
 
     @classmethod
+    def _build_fcm_error_httpx(cls, error: httpx.HTTPError, message, error_dict) -> Optional[exceptions.FirebaseError]:
+        """Parses a httpx error response from the FCM API and creates a FCM-specific exception if
+        appropriate."""
+        exc_type = cls._build_fcm_error(error_dict)
+        if isinstance(error, httpx.HTTPStatusError):
+            return exc_type(message, cause=error, http_response=error.response) if exc_type else None
+        else:
+            return exc_type(message, cause=error) if exc_type else None
+
+
+    @classmethod
     def _build_fcm_error_googleapiclient(cls, error, message, error_dict, http_response):
         """Parses an error response from the FCM API and creates a FCM-specific exception if
         appropriate."""
@@ -577,7 +695,7 @@ class _MessagingService:
         return exc_type(message, cause=error, http_response=http_response) if exc_type else None
 
     @classmethod
-    def _build_fcm_error(cls, error_dict):
+    def _build_fcm_error(cls, error_dict) -> Optional[Callable[..., exceptions.FirebaseError]]:
         if not error_dict:
             return None
         fcm_code = None
@@ -585,4 +703,45 @@ class _MessagingService:
             if detail.get('@type') == 'type.googleapis.com/google.firebase.fcm.v1.FcmError':
                 fcm_code = detail.get('errorCode')
                 break
-        return _MessagingService.FCM_ERROR_TYPES.get(fcm_code)
+        return _MessagingService.FCM_ERROR_TYPES.get(fcm_code) if fcm_code else None
+
+
+class HttpxRetryTransport(httpx.AsyncBaseTransport):
+    # We could also support passing kwargs here
+    def __init__(self) -> None:
+        self._retryable_status_codes = (500, 503,)
+        self._max_retry_count = 4
+
+        # We should use a full AsyncHTTPTransport under the hood since that is
+        # fully implemented. We could consider making this class extend a
+        # AsyncHTTPTransport instead and use the parent class's methods to handle
+        # requests. We sould also ensure that that transport's internal retry is
+        # not enabled.
+        self._wrapped_transport = httpx.AsyncHTTPTransport(retries=0, http2=True)
+    
+    # Checklist:
+    # - Do we want to disable built in retries
+    # - Can we dispatch the same request multiple times? Is there any side effects?
+    
+    # Two types of retries
+    # - Status code (500s, redirect)
+    # - Error code (read, connect, other)
+    # - more ???
+    
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        _retry_count = 0
+        
+        while True:
+            # Dispatch request
+            response = await self._wrapped_transport.handle_async_request(request)
+            
+            # Check if request is retryable
+            if response.status_code in self._retryable_status_codes:
+                _retry_count += 1
+                
+                # Figure out how we want to handle 0 here
+                if _retry_count > self._max_retry_count:
+                    return response
+            else:
+                return response
+                # break;

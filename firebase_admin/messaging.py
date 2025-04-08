@@ -492,7 +492,7 @@ class _MessagingService:
         """Sends the given messages to FCM via the FCM v1 API."""
         if not isinstance(messages, list):
             raise ValueError('messages must be a list of messaging.Message instances.')
-        if len(messages) > 1000:
+        if len(messages) > 500:
             raise ValueError('messages must not contain more than 500 elements.')
 
         def send_data(data):
@@ -521,7 +521,7 @@ class _MessagingService:
         """Sends the given messages to FCM via the FCM v1 API."""
         if not isinstance(messages, list):
             raise ValueError('messages must be a list of messaging.Message instances.')
-        if len(messages) > 1000:
+        if len(messages) > 500:
             raise ValueError('messages must not contain more than 500 elements.')
 
         async def send_data(data):

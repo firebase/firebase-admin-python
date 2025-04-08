@@ -467,7 +467,7 @@ class Reference:
             session = self._client.create_listener_session()
 
         try:
-            sse = _sseclient.SSEClient(url, session)
+            sse = _sseclient.SSEClient(url, session, **{"params": self._client.params})
             return ListenerRegistration(callback, sse)
         except requests.exceptions.RequestException as error:
             raise _Client.handle_rtdb_error(error)

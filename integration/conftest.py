@@ -82,7 +82,6 @@ def api_key(request):
 #     yield loop
 #     loop.close()
 
-# 
 def pytest_collection_modifyitems(items):
     pytest_asyncio_tests = (item for item in items if is_async_test(item))
     session_scope_marker = pytest.mark.asyncio(loop_scope="session")

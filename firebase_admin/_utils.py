@@ -16,7 +16,7 @@
 
 import json
 from platform import python_version
-from typing import Callable, Optional, Union
+from typing import Callable, Optional
 
 import google.auth
 import requests
@@ -131,8 +131,8 @@ def handle_platform_error_from_requests(error, handle_func=None):
     return exc if exc else _handle_func_requests(error, message, error_dict)
 
 def handle_platform_error_from_httpx(
-    error: httpx.HTTPError,
-    handle_func: Optional[Callable[...,Optional[exceptions.FirebaseError]]] = None
+        error: httpx.HTTPError,
+        handle_func: Optional[Callable[..., Optional[exceptions.FirebaseError]]] = None
 ) -> exceptions.FirebaseError:
     """Constructs a ``FirebaseError`` from the given httpx error.
 
@@ -158,8 +158,7 @@ def handle_platform_error_from_httpx(
             exc = handle_func(error, message, error_dict)
 
         return exc if exc else _handle_func_httpx(error, message, error_dict)
-    else:
-        return handle_httpx_error(error)
+    return handle_httpx_error(error)
 
 
 def handle_operation_error(error):

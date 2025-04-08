@@ -15,25 +15,29 @@
 """Firebase Cloud Messaging module."""
 
 from __future__ import annotations
-from typing import Callable, List, Optional, TypeVar
+from typing import Callable, List, Optional
 import concurrent.futures
 import json
 import warnings
+import asyncio
 import requests
 import httpx
-import asyncio
 
-from google.auth import credentials, transport
+from google.auth import credentials
+from google.auth.transport  import requests as auth_requests
 from googleapiclient import http
 from googleapiclient import _auth
 
 import firebase_admin
-from firebase_admin import _http_client
-from firebase_admin import _messaging_encoder
-from firebase_admin import _messaging_utils
-from firebase_admin import _gapic_utils
-from firebase_admin import _utils
-from firebase_admin import exceptions
+from firebase_admin import (
+    _http_client,
+    _messaging_encoder,
+    _messaging_utils,
+    _gapic_utils,
+    _utils,
+    exceptions,
+    App
+)
 
 
 _MESSAGING_ATTRIBUTE = '_messaging'
@@ -67,17 +71,16 @@ __all__ = [
     'WebpushNotification',
     'WebpushNotificationAction',
 
-    'async_send_each'
     'send',
     'send_all',
     'send_multicast',
     'send_each',
+    'send_each_async',
     'send_each_for_multicast',
     'subscribe_to_topic',
     'unsubscribe_from_topic',
-] # type: ignore
+]
 
-TFirebaseError = TypeVar('TFirebaseError', bound=exceptions.FirebaseError)
 
 AndroidConfig = _messaging_utils.AndroidConfig
 AndroidFCMOptions = _messaging_utils.AndroidFCMOptions
@@ -104,10 +107,10 @@ ThirdPartyAuthError = _messaging_utils.ThirdPartyAuthError
 UnregisteredError = _messaging_utils.UnregisteredError
 
 
-def _get_messaging_service(app) -> _MessagingService:
+def _get_messaging_service(app: Optional[App]) -> _MessagingService:
     return _utils.get_app_service(app, _MESSAGING_ATTRIBUTE, _MessagingService)
 
-def send(message, dry_run=False, app=None):
+def send(message, dry_run=False, app: Optional[App] = None):
     """Sends the given message via Firebase Cloud Messaging (FCM).
 
     If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
@@ -147,8 +150,8 @@ def send_each(messages, dry_run=False, app=None):
     """
     return _get_messaging_service(app).send_each(messages, dry_run)
 
-async def async_send_each(messages, dry_run=True, app: firebase_admin.App | None = None) -> BatchResponse:
-    return await _get_messaging_service(app).async_send_each(messages, dry_run)
+async def send_each_async(messages, dry_run=True, app: Optional[App] = None) -> BatchResponse:
+    return await _get_messaging_service(app).send_each_async(messages, dry_run)
 
 def send_each_for_multicast(multicast_message, dry_run=False, app=None):
     """Sends the given mutlicast message to each token via Firebase Cloud Messaging (FCM).
@@ -374,20 +377,26 @@ class SendResponse:
         return self._exception
 
 # Auth Flow
+# TODO: Remove comments
 # The aim here is to be able to get auth credentials right before the request is sent.
 # This is similar to what is done in transport.requests.AuthorizedSession().
 # We can then pass this in at the client level.
-class CustomGoogleAuth(httpx.Auth):
-    def __init__(self, credentials: credentials.Credentials):
-        self._credential = credentials
+
+# Notes:
+# - This implementations does not cover timeouts on requests sent to refresh credentials.
+# - Uses HTTP/1 and a blocking credential for refreshing.
+class GoogleAuthCredentialFlow(httpx.Auth):
+    """Google Auth Credential Auth Flow"""
+    def __init__(self, credential: credentials.Credentials):
+        self._credential = credential
         self._max_refresh_attempts = 2
         self._refresh_status_codes = (401,)
-    
+
     def apply_auth_headers(self, request: httpx.Request):
         # Build request used to refresh credentials if needed
-        auth_request = transport.requests.Request() # type: ignore
-        # This refreshes the credentials if needed and mutates the request headers to contain access token
-        # and any other google auth headers
+        auth_request = auth_requests.Request()
+        # This refreshes the credentials if needed and mutates the request headers to
+        # contain access token and any other google auth headers
         self._credential.before_request(auth_request, request.method, request.url, request.headers)
 
 
@@ -395,27 +404,26 @@ class CustomGoogleAuth(httpx.Auth):
         # Keep original headers since `credentials.before_request` mutates the passed headers and we
         # want to keep the original in cause we need an auth retry.
         _original_headers = request.headers.copy()
-        
+
         _credential_refresh_attempt = 0
-        while (
-            _credential_refresh_attempt < self._max_refresh_attempts
-        ):
+        while _credential_refresh_attempt <= self._max_refresh_attempts:
             # copy original headers
             request.headers = _original_headers.copy()
             # mutates request headers
             self.apply_auth_headers(request)
-        
+
             # Continue to perform the request
             # yield here dispatches the request and returns with the response
             response: httpx.Response = yield request
-        
-            # We can check the result of the response and determine in we need to retry on refreshable status codes.
-            # Current transport.requests.AuthorizedSession() only does this on 401 errors. We should do the same.
+
+            # We can check the result of the response and determine in we need to retry
+            # on refreshable status codes. Current transport.requests.AuthorizedSession()
+            # only does this on 401 errors. We should do the same.
             if response.status_code in self._refresh_status_codes:
                 _credential_refresh_attempt += 1
-                print(response.status_code, response.reason_phrase, _credential_refresh_attempt)
             else:
-                break;
+                break
+        # Last yielded response is auto returned.
 
 
 
@@ -453,7 +461,7 @@ class _MessagingService:
         self._client = _http_client.JsonHttpClient(credential=self._credential, timeout=timeout)
         self._async_client = httpx.AsyncClient(
             http2=True,
-            auth=CustomGoogleAuth(self._credential),
+            auth=GoogleAuthCredentialFlow(self._credential),
             timeout=timeout,
             transport=HttpxRetryTransport()
         )
@@ -509,13 +517,13 @@ class _MessagingService:
                 message='Unknown error while making remote service calls: {0}'.format(error),
                 cause=error)
 
-    async def async_send_each(self, messages: List[Message], dry_run: bool = True) -> BatchResponse:
+    async def send_each_async(self, messages: List[Message], dry_run: bool = True) -> BatchResponse:
         """Sends the given messages to FCM via the FCM v1 API."""
         if not isinstance(messages, list):
             raise ValueError('messages must be a list of messaging.Message instances.')
         if len(messages) > 1000:
             raise ValueError('messages must not contain more than 500 elements.')
-        
+
         async def send_data(data):
             try:
                 resp = await self._async_client.request(
@@ -661,7 +669,8 @@ class _MessagingService:
         """Handles errors received from the googleapiclient while making batch requests."""
         return _gapic_utils.handle_platform_error_from_googleapiclient(
             error, _MessagingService._build_fcm_error_googleapiclient)
-    
+
+    # TODO: Remove comments
     # We should be careful to clean up the httpx clients.
     # Since we are using an async client we must also close in async. However we can sync wrap this.
     # The close method is called by the app on shutdown/clean-up of each service. We don't seem to
@@ -677,14 +686,16 @@ class _MessagingService:
         return exc_type(message, cause=error, http_response=error.response) if exc_type else None
 
     @classmethod
-    def _build_fcm_error_httpx(cls, error: httpx.HTTPError, message, error_dict) -> Optional[exceptions.FirebaseError]:
+    def _build_fcm_error_httpx(
+                cls, error: httpx.HTTPError, message, error_dict
+        ) -> Optional[exceptions.FirebaseError]:
         """Parses a httpx error response from the FCM API and creates a FCM-specific exception if
         appropriate."""
         exc_type = cls._build_fcm_error(error_dict)
         if isinstance(error, httpx.HTTPStatusError):
-            return exc_type(message, cause=error, http_response=error.response) if exc_type else None
-        else:
-            return exc_type(message, cause=error) if exc_type else None
+            return exc_type(
+                message, cause=error, http_response=error.response) if exc_type else None
+        return exc_type(message, cause=error) if exc_type else None
 
 
     @classmethod
@@ -706,42 +717,43 @@ class _MessagingService:
         return _MessagingService.FCM_ERROR_TYPES.get(fcm_code) if fcm_code else None
 
 
+# TODO: Remove comments
+# Notes:
+# This implementation currently only covers basic retires for pre-defined status errors
 class HttpxRetryTransport(httpx.AsyncBaseTransport):
+    """HTTPX transport with retry logic."""
     # We could also support passing kwargs here
-    def __init__(self) -> None:
+    def __init__(self, **kwargs) -> None:
+        # Hardcoded settings for now
         self._retryable_status_codes = (500, 503,)
         self._max_retry_count = 4
 
-        # We should use a full AsyncHTTPTransport under the hood since that is
-        # fully implemented. We could consider making this class extend a
-        # AsyncHTTPTransport instead and use the parent class's methods to handle
-        # requests. We sould also ensure that that transport's internal retry is
-        # not enabled.
-        self._wrapped_transport = httpx.AsyncHTTPTransport(retries=0, http2=True)
-    
-    # Checklist:
-    # - Do we want to disable built in retries
-    # - Can we dispatch the same request multiple times? Is there any side effects?
-    
-    # Two types of retries
-    # - Status code (500s, redirect)
-    # - Error code (read, connect, other)
-    # - more ???
-    
+        # - We use a full AsyncHTTPTransport under the hood to make use of it's
+        # fully implemented `handle_async_request()`.
+        # - We could consider making the `HttpxRetryTransport`` class extend a
+        #   `AsyncHTTPTransport` instead and use the parent class's methods to handle
+        #   requests.
+        # - We should also ensure that that transport's internal retry is
+        #   not enabled.
+        transport_kwargs = kwargs.copy()
+        transport_kwargs.update({'retries': 0, 'http2': True})
+        self._wrapped_transport = httpx.AsyncHTTPTransport(**transport_kwargs)
+
+
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
         _retry_count = 0
-        
+
         while True:
             # Dispatch request
+            # Let exceptions pass through for now
             response = await self._wrapped_transport.handle_async_request(request)
-            
+
             # Check if request is retryable
             if response.status_code in self._retryable_status_codes:
                 _retry_count += 1
-                
-                # Figure out how we want to handle 0 here
+
+                # Return if retries exhausted
                 if _retry_count > self._max_retry_count:
                     return response
             else:
                 return response
-                # break;

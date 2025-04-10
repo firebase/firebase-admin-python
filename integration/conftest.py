@@ -15,8 +15,9 @@
 """pytest configuration and global fixtures for integration tests."""
 import json
 
-import asyncio
+# import asyncio
 import pytest
+from pytest_asyncio import is_async_test
 
 import firebase_admin
 from firebase_admin import credentials
@@ -72,11 +73,17 @@ def api_key(request):
     with open(path) as keyfile:
         return keyfile.read().strip()
 
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create an instance of the default event loop for test session.
-    This avoids early eventloop closure.
-    """
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
+# @pytest.fixture(scope="session")
+# def event_loop():
+#     """Create an instance of the default event loop for test session.
+#     This avoids early eventloop closure.
+#     """
+#     loop = asyncio.get_event_loop_policy().new_event_loop()
+#     yield loop
+#     loop.close()
+
+def pytest_collection_modifyitems(items):
+    pytest_asyncio_tests = (item for item in items if is_async_test(item))
+    session_scope_marker = pytest.mark.asyncio(loop_scope="session")
+    for async_test in pytest_asyncio_tests:
+        async_test.add_marker(session_scope_marker, append=False)

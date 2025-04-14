@@ -35,8 +35,8 @@ logger = logging.getLogger(__name__)
 class HttpxRetry:
     """HTTPX based retry config"""
     # TODO: Decide
-    # urllib3.Retry ignores the status_forcelist and only respects Retry-After header
-    # for 413, 429 and 503 errors.
+    # urllib3.Retry ignores the status_forcelist when respecting Retry-After header
+    # Only 413, 429 and 503 errors are retried with the Retry-After header.
     # Should we do the same?
     # Default status codes to be used for ``status_forcelist``
     RETRY_AFTER_STATUS_CODES = frozenset([413, 429, 503])
@@ -123,7 +123,7 @@ class HttpxRetry:
 
     def get_retry_after(self, response: httpx.Response) -> float | None:
         """Determine the Retry-After time needed before sending the next request."""
-        retry_after_header = response.headers.get('Retry_After', None)
+        retry_after_header = response.headers.get('Retry-After', None)
         if retry_after_header:
             # Convert retry header to a float in seconds
             return self._parse_retry_after(retry_after_header)
@@ -131,9 +131,12 @@ class HttpxRetry:
 
     def get_backoff_time(self):
         """Determine the backoff time needed before sending the next request."""
-        # request_count is the number of previous request attempts
-        request_count = len(self.history)
-        backoff = self.backoff_factor * (2 ** (request_count-1))
+        # attempt_count is the number of previous request attempts
+        attempt_count = len(self.history)
+        # Backoff should be set to 0 until after first retry.
+        if attempt_count <= 1:
+            return 0
+        backoff = self.backoff_factor * (2 ** (attempt_count-1))
         if self.backoff_jitter:
             backoff += random.random() * self.backoff_jitter
         return float(max(0, min(self.backoff_max, backoff)))
@@ -141,7 +144,7 @@ class HttpxRetry:
     async def sleep_for_backoff(self) -> None:
         """Determine and wait the backoff time needed before sending the next request."""
         backoff = self.get_backoff_time()
-        logger.debug('Sleeping for %f seconds following failed request', backoff)
+        logger.debug('Sleeping for backoff of %f seconds following failed request', backoff)
         await asyncio.sleep(backoff)
 
     async def sleep(self, response: httpx.Response) -> None:
@@ -149,6 +152,10 @@ class HttpxRetry:
         if self.respect_retry_after_header:
             retry_after = self.get_retry_after(response)
             if retry_after:
+                logger.debug(
+                    'Sleeping for Retry-After header of %f seconds following failed request',
+                    retry_after
+                )
                 await asyncio.sleep(retry_after)
                 return
         await self.sleep_for_backoff()

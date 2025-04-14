@@ -20,6 +20,7 @@ import concurrent.futures
 import json
 import warnings
 import asyncio
+import logging
 import requests
 import httpx
 
@@ -38,7 +39,9 @@ from firebase_admin import (
     exceptions,
     App
 )
+from firebase_admin._retry import HttpxRetryTransport
 
+logger = logging.getLogger(__name__)
 
 _MESSAGING_ATTRIBUTE = '_messaging'
 
@@ -410,6 +413,9 @@ class GoogleAuthCredentialFlow(httpx.Auth):
             # copy original headers
             request.headers = _original_headers.copy()
             # mutates request headers
+            logger.debug(
+                'Refreshing credentials for request attempt %d',
+                _credential_refresh_attempt + 1)
             self.apply_auth_headers(request)
 
             # Continue to perform the request
@@ -420,6 +426,9 @@ class GoogleAuthCredentialFlow(httpx.Auth):
             # on refreshable status codes. Current transport.requests.AuthorizedSession()
             # only does this on 401 errors. We should do the same.
             if response.status_code in self._refresh_status_codes:
+                logger.debug(
+                    'Request attempt %d failed due to unauthorized credentials',
+                    _credential_refresh_attempt + 1)
                 _credential_refresh_attempt += 1
             else:
                 break
@@ -715,45 +724,3 @@ class _MessagingService:
                 fcm_code = detail.get('errorCode')
                 break
         return _MessagingService.FCM_ERROR_TYPES.get(fcm_code) if fcm_code else None
-
-
-# TODO: Remove comments
-# Notes:
-# This implementation currently only covers basic retires for pre-defined status errors
-class HttpxRetryTransport(httpx.AsyncBaseTransport):
-    """HTTPX transport with retry logic."""
-    # We could also support passing kwargs here
-    def __init__(self, **kwargs) -> None:
-        # Hardcoded settings for now
-        self._retryable_status_codes = (500, 503,)
-        self._max_retry_count = 4
-
-        # - We use a full AsyncHTTPTransport under the hood to make use of it's
-        # fully implemented `handle_async_request()`.
-        # - We could consider making the `HttpxRetryTransport`` class extend a
-        #   `AsyncHTTPTransport` instead and use the parent class's methods to handle
-        #   requests.
-        # - We should also ensure that that transport's internal retry is
-        #   not enabled.
-        transport_kwargs = kwargs.copy()
-        transport_kwargs.update({'retries': 0, 'http2': True})
-        self._wrapped_transport = httpx.AsyncHTTPTransport(**transport_kwargs)
-
-
-    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
-        _retry_count = 0
-
-        while True:
-            # Dispatch request
-            # Let exceptions pass through for now
-            response = await self._wrapped_transport.handle_async_request(request)
-
-            # Check if request is retryable
-            if response.status_code in self._retryable_status_codes:
-                _retry_count += 1
-
-                # Return if retries exhausted
-                if _retry_count > self._max_retry_count:
-                    return response
-            else:
-                return response

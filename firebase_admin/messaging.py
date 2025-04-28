@@ -73,7 +73,6 @@ __all__ = [
     'WebpushNotification',
     'WebpushNotificationAction',
 
-    'send_each_async',
     'send',
     'send_all',
     'send_multicast',

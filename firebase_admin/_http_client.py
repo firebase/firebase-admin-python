@@ -18,16 +18,19 @@ This module provides utilities for making HTTP calls using the requests library.
 """
 
 from __future__ import annotations
-from typing import Any, Optional
-from google.auth import credentials
-from google.auth.transport import requests as google_auth_requests
+import logging
+from typing import Any, Dict, Optional, Tuple, Union
 import httpx
-import requests
 import requests.adapters
-from urllib3.util import retry
+from requests.packages.urllib3.util import retry # pylint: disable=import-error
+from google.auth import credentials
+from google.auth import transport
+from google.auth.transport import requests as google_auth_requests
 
 from firebase_admin import _utils
 from firebase_admin._retry import HttpxRetry, HttpxRetryTransport
+
+logger = logging.getLogger(__name__)
 
 if hasattr(retry.Retry.DEFAULT, 'allowed_methods'):
     _ANY_METHOD = {'allowed_methods': None}
@@ -38,8 +41,7 @@ else:
 # last response upon exhausting all retries.
 DEFAULT_RETRY_CONFIG = retry.Retry(
     connect=1, read=1, status=4, status_forcelist=[500, 503],
-    raise_on_status=False, backoff_factor=0.5, allowed_methods=None)
-    # raise_on_status=False, backoff_factor=0.5, **_ANY_METHOD)
+    raise_on_status=False, backoff_factor=0.5, **_ANY_METHOD)
 
 DEFAULT_HTTPX_RETRY_CONFIG = HttpxRetry(status=4, status_forcelist=[500, 503], backoff_factor=0.5)
 
@@ -77,7 +79,7 @@ class HttpClient:
               None to disable timeouts (optional).
         """
         if credential:
-            self._session = google_auth_requests.AuthorizedSession(credential)
+            self._session = transport.requests.AuthorizedSession(credential)
         elif session:
             self._session = session
         else:
@@ -173,6 +175,7 @@ class JsonHttpClient(HttpClient):
 # Notes:
 # - This implementations does not cover timeouts on requests sent to refresh credentials.
 # - Uses HTTP/1 and a blocking credential for refreshing.
+# - Network error retries for refreshing credentials.
 class GoogleAuthCredentialFlow(httpx.Auth):
     """Google Auth Credential Auth Flow"""
     def __init__(self, credential: credentials.Credentials):
@@ -180,53 +183,88 @@ class GoogleAuthCredentialFlow(httpx.Auth):
         self._max_refresh_attempts = 2
         self._refresh_status_codes = (401,)
 
-    def apply_auth_headers(self, request: httpx.Request):
-        # Build request used to refresh credentials if needed
-        auth_request = google_auth_requests.Request()
-        # This refreshes the credentials if needed and mutates the request headers to
-        # contain access token and any other google auth headers
-        self._credential.before_request(auth_request, request.method, request.url, request.headers)
+    def apply_auth_headers(
+            self, request: httpx.Request, auth_request: google_auth_requests.Request):
+        """A helper function to refreshes credentials if needed and mutates the request headers to
+        contain access token and any other google auth headers."""
+
+        logger.debug(
+            'Attempting to apply auth headers. Credential validity before: %s',
+            self._credential.valid
+        )
+        self._credential.before_request(
+            auth_request, request.method, str(request.url), request.headers
+        )
+        logger.debug('Auth headers applied. Credential validity after: %s', self._credential.valid)
 
     def auth_flow(self, request: httpx.Request):
-        # Keep original headers since `credentials.before_request` mutates the passed headers and we
-        # want to keep the original in cause we need an auth retry.
         _original_headers = request.headers.copy()
-
         _credential_refresh_attempt = 0
-        while _credential_refresh_attempt <= self._max_refresh_attempts:
-            # copy original headers
-            request.headers = _original_headers.copy()
-            # mutates request headers
-            self.apply_auth_headers(request)
 
-            # Continue to perform the request
-            # yield here dispatches the request and returns with the response
+        # Create a Google auth request object to be used for refreshing credentials
+        auth_request = google_auth_requests.Request()
+
+        while True:
+            # Copy original headers for each attempt
+            request.headers = _original_headers.copy()
+
+            # Apply auth headers (which might include an implicit refresh if token is expired)
+            self.apply_auth_headers(request, auth_request)
+
+            logger.debug(
+                'Dispatching request, attempt %d of %d',
+                _credential_refresh_attempt, self._max_refresh_attempts
+            )
             response: httpx.Response = yield request
 
-            # We can check the result of the response and determine in we need to retry
-            # on refreshable status codes. Current transport.requests.AuthorizedSession()
-            # only does this on 401 errors. We should do the same.
             if response.status_code in self._refresh_status_codes:
-                _credential_refresh_attempt += 1
+                if _credential_refresh_attempt < self._max_refresh_attempts:
+                    logger.debug(
+                        'Received status %d. Attempting explicit credential refresh. \
+                        Attempt %d of %d.',
+                        response.status_code,
+                        _credential_refresh_attempt + 1,
+                        self._max_refresh_attempts
+                    )
+                    # Explicitly force a credentials refresh
+                    self._credential.refresh(auth_request)
+                    _credential_refresh_attempt += 1
+                else:
+                    logger.debug(
+                        'Received status %d, but max auth refresh attempts (%d) reached. \
+                        Returning last response.',
+                        response.status_code, self._max_refresh_attempts
+                    )
+                    break
             else:
+                # Status code is not one that requires a refresh, so break and return response
+                logger.debug(
+                    'Status code %d does not require refresh. Returning response.',
+                    response.status_code
+                )
                 break
-        # Last yielded response is auto returned.
+        # The last yielded response is automatically returned by httpx's auth flow.
 
 
 
 class HttpxAsyncClient():
+    """Async HTTP client used to make HTTP/2 calls using HTTPX.
+
+    HttpxAsyncClient maintains an async HTTPX client, and handles request authentication and retries
+    if necessary.
+    """
     def __init__(
-        self,
-        credential: Optional[credentials.Credentials] = None,
-        base_url: str = '',
-        headers: Optional[httpx.Headers] = None,
-        retry_config: HttpxRetry = DEFAULT_HTTPX_RETRY_CONFIG,
-        timeout: int = DEFAULT_TIMEOUT_SECONDS,
-        http2: bool = True
+            self,
+            credential: Optional[credentials.Credentials] = None,
+            base_url: str = '',
+            headers: Optional[Union[httpx.Headers, Dict[str, str]]] = None,
+            retry_config: HttpxRetry = DEFAULT_HTTPX_RETRY_CONFIG,
+            timeout: int = DEFAULT_TIMEOUT_SECONDS,
+            http2: bool = True
     ) -> None:
         """Creates a new HttpxAsyncClient instance from the provided arguments.
 
-        If a credential is provided, initializes a new async HTTPX client authorized with it. 
+        If a credential is provided, initializes a new async HTTPX client authorized with it.
         Otherwise, initializes a new unauthorized async HTTPX client.
 
         Args:
@@ -239,10 +277,9 @@ class HttpxAsyncClient():
             http2: A boolean indicating if HTTP/2 support should be enabled. Defaults to `True` when
                 not specified (optional).
         """
-        
         self._base_url = base_url
         self._timeout = timeout
-        self._headers = headers
+        self._headers = {**headers, **METRICS_HEADERS} if headers else {**METRICS_HEADERS}
         self._retry_config = retry_config
 
         # Only set up retries on urls starting with 'http://' and 'https://'
@@ -266,7 +303,6 @@ class HttpxAsyncClient():
                 headers=self._headers,
                 mounts=self._mounts
             )
-        pass
 
     @property
     def base_url(self):
@@ -279,7 +315,7 @@ class HttpxAsyncClient():
     @property
     def async_client(self):
         return self._async_client
-    
+
     async def request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
         """Makes an HTTP call using the HTTPX library.
 
@@ -304,12 +340,13 @@ class HttpxAsyncClient():
             kwargs['timeout'] = self.timeout
         resp = await self._async_client.request(method, self.base_url + url, **kwargs)
         return resp.raise_for_status()
-    
+
     async def headers(self, method: str, url: str, **kwargs: Any) -> httpx.Headers:
         resp = await self.request(method, url, **kwargs)
         return resp.headers
 
-    async def body_and_response(self, method: str, url: str, **kwargs: Any) -> tuple[Any, httpx.Response]:
+    async def body_and_response(
+            self, method: str, url: str, **kwargs: Any) -> Tuple[Any, httpx.Response]:
         resp = await self.request(method, url, **kwargs)
         return self.parse_body(resp), resp
 
@@ -317,12 +354,13 @@ class HttpxAsyncClient():
         resp = await self.request(method, url, **kwargs)
         return self.parse_body(resp)
 
-    async def headers_and_body(self, method: str, url: str, **kwargs: Any) -> tuple[httpx.Headers, Any]:
+    async def headers_and_body(
+            self, method: str, url: str, **kwargs: Any) -> Tuple[httpx.Headers, Any]:
         resp = await self.request(method, url, **kwargs)
         return resp.headers, self.parse_body(resp)
 
     def parse_body(self, resp: httpx.Response) -> Any:
         return resp.json()
-    
+
     async def aclose(self) -> None:
         await self._async_client.aclose()

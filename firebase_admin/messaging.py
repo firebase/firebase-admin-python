@@ -39,7 +39,6 @@ from firebase_admin import (
     exceptions,
     App
 )
-from firebase_admin._retry import HttpxRetryTransport
 
 logger = logging.getLogger(__name__)
 
@@ -469,13 +468,8 @@ class _MessagingService:
         timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
         self._credential = app.credential.get_credential()
         self._client = _http_client.JsonHttpClient(credential=self._credential, timeout=timeout)
-        # self._async_client = httpx.AsyncClient(
-        #     http2=True,
-        #     auth=GoogleAuthCredentialFlow(self._credential),
-        #     timeout=timeout,
-        #     transport=HttpxRetryTransport()
-        # )
-        self._async_client = _http_client.HttpxAsyncClient(credential=self._credential, timeout=timeout)
+        self._async_client = _http_client.HttpxAsyncClient(
+            credential=self._credential, timeout=timeout)
         self._build_transport = _auth.authorized_http
 
     @classmethod

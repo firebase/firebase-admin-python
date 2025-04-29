@@ -152,7 +152,64 @@ def send_each(messages, dry_run=False, app=None):
     """
     return _get_messaging_service(app).send_each(messages, dry_run)
 
-async def send_each_async(messages, dry_run=True, app: Optional[App] = None) -> BatchResponse:
+async def send_each_async(
+        messages: List[Message],
+        dry_run: bool = False,
+        app: Optional[App] = None
+    ) -> BatchResponse:
+    """Sends each message in the given list asynchronously via Firebase Cloud Messaging.
+
+    If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
+    recipients. Instead FCM performs all the usual validations, and emulates the send operation.
+
+    Args:
+        messages: A list of ``messaging.Message`` instances.
+        dry_run: A boolean indicating whether to run the operation in dry run mode (optional).
+        app: An App instance (optional).
+
+    Returns:
+        BatchResponse: A ``messaging.BatchResponse`` instance.
+
+    Raises:
+        FirebaseError: If an error occurs while sending the message to the FCM service.
+        ValueError: If the input arguments are invalid.
+    """
+    return await _get_messaging_service(app).send_each_async(messages, dry_run)
+
+async def send_each_for_multicast_async(
+        multicast_message: MulticastMessage,
+        dry_run: bool = False,
+        app: Optional[App] = None
+    ) -> BatchResponse:
+    """Sends the given mutlicast message to each token asynchronously via Firebase Cloud Messaging
+    (FCM).
+
+    If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
+    recipients. Instead FCM performs all the usual validations, and emulates the send operation.
+
+    Args:
+        multicast_message: An instance of ``messaging.MulticastMessage``.
+        dry_run: A boolean indicating whether to run the operation in dry run mode (optional).
+        app: An App instance (optional).
+
+    Returns:
+        BatchResponse: A ``messaging.BatchResponse`` instance.
+
+    Raises:
+        FirebaseError: If an error occurs while sending the message to the FCM service.
+        ValueError: If the input arguments are invalid.
+    """
+    if not isinstance(multicast_message, MulticastMessage):
+        raise ValueError('Message must be an instance of messaging.MulticastMessage class.')
+    messages = [Message(
+        data=multicast_message.data,
+        notification=multicast_message.notification,
+        android=multicast_message.android,
+        webpush=multicast_message.webpush,
+        apns=multicast_message.apns,
+        fcm_options=multicast_message.fcm_options,
+        token=token
+    ) for token in multicast_message.tokens]
     return await _get_messaging_service(app).send_each_async(messages, dry_run)
 
 def send_each_for_multicast(multicast_message, dry_run=False, app=None):

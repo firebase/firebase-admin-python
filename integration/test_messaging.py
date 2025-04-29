@@ -254,39 +254,6 @@ async def test_send_each_async():
     assert isinstance(response.exception, exceptions.InvalidArgumentError)
     assert response.message_id is None
 
-
-# @pytest.mark.asyncio
-# async def test_send_each_async_error():
-#     messages = [
-#         messaging.Message(
-#             topic='foo-bar', notification=messaging.Notification('Title', 'Body')),
-#         messaging.Message(
-#             topic='foo-bar', notification=messaging.Notification('Title', 'Body')),
-#         messaging.Message(
-#             token='not-a-token', notification=messaging.Notification('Title', 'Body')),
-#     ]
-
-#     batch_response = await messaging.send_each_async(messages, dry_run=True)
-
-#     assert batch_response.success_count == 2
-#     assert batch_response.failure_count == 1
-#     assert len(batch_response.responses) == 3
-
-#     response = batch_response.responses[0]
-#     assert response.success is True
-#     assert response.exception is None
-#     assert re.match('^projects/.*/messages/.*$', response.message_id)
-
-#     response = batch_response.responses[1]
-#     assert response.success is True
-#     assert response.exception is None
-#     assert re.match('^projects/.*/messages/.*$', response.message_id)
-
-#     response = batch_response.responses[2]
-#     assert response.success is False
-#     assert isinstance(response.exception, exceptions.InvalidArgumentError)
-#     assert response.message_id is None
-
 @pytest.mark.asyncio
 async def test_send_each_async_500():
     messages = []
@@ -303,3 +270,19 @@ async def test_send_each_async_500():
         assert response.success is True
         assert response.exception is None
         assert re.match('^projects/.*/messages/.*$', response.message_id)
+
+@pytest.mark.asyncio
+async def test_send_each_for_multicast_async():
+    multicast = messaging.MulticastMessage(
+        notification=messaging.Notification('Title', 'Body'),
+        tokens=['not-a-token', 'also-not-a-token'])
+
+    batch_response = await messaging.send_each_for_multicast_async(multicast)
+
+    assert batch_response.success_count == 0
+    assert batch_response.failure_count == 2
+    assert len(batch_response.responses) == 2
+    for response in batch_response.responses:
+        assert response.success is False
+        assert response.exception is not None
+        assert response.message_id is None

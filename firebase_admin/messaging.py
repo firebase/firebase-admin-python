@@ -533,13 +533,11 @@ class _MessagingService:
                     url=self._fcm_url,
                     headers=self._fcm_headers,
                     json=data)
-                # HTTP/2 check
-                if resp.http_version != 'HTTP/2':
-                    raise Exception('This messages was not sent with HTTP/2')
-                resp.raise_for_status()
-            # except httpx.HTTPStatusError as exception:
             except httpx.HTTPError as exception:
                 return SendResponse(resp=None, exception=self._handle_fcm_httpx_error(exception))
+            # Catch errors caused by the requests library during authorization
+            except requests.exceptions.RequestException as exception:
+                return SendResponse(resp=None, exception=self._handle_fcm_error(exception))
             else:
                 return SendResponse(resp.json(), exception=None)
 

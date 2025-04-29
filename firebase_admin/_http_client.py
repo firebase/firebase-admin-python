@@ -335,6 +335,7 @@ class HttpxAsyncClient():
 
         Raises:
             HTTPError: Any HTTPX exceptions encountered while making the HTTP call.
+            RequestException: Any requests exceptions encountered while making the HTTP call.
         """
         if 'timeout' not in kwargs:
             kwargs['timeout'] = self.timeout

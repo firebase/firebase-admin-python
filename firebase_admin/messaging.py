@@ -24,8 +24,6 @@ import logging
 import requests
 import httpx
 
-from google.auth import credentials
-from google.auth.transport  import requests as auth_requests
 from googleapiclient import http
 from googleapiclient import _auth
 
@@ -434,63 +432,6 @@ class SendResponse:
     def exception(self):
         """A ``FirebaseError`` if an error occurs while sending the message to the FCM service."""
         return self._exception
-
-# Auth Flow
-# TODO: Remove comments
-# The aim here is to be able to get auth credentials right before the request is sent.
-# This is similar to what is done in transport.requests.AuthorizedSession().
-# We can then pass this in at the client level.
-
-# Notes:
-# - This implementations does not cover timeouts on requests sent to refresh credentials.
-# - Uses HTTP/1 and a blocking credential for refreshing.
-class GoogleAuthCredentialFlow(httpx.Auth):
-    """Google Auth Credential Auth Flow"""
-    def __init__(self, credential: credentials.Credentials):
-        self._credential = credential
-        self._max_refresh_attempts = 2
-        self._refresh_status_codes = (401,)
-
-    def apply_auth_headers(self, request: httpx.Request):
-        # Build request used to refresh credentials if needed
-        auth_request = auth_requests.Request()
-        # This refreshes the credentials if needed and mutates the request headers to
-        # contain access token and any other google auth headers
-        self._credential.before_request(auth_request, request.method, request.url, request.headers)
-
-
-    def auth_flow(self, request: httpx.Request):
-        # Keep original headers since `credentials.before_request` mutates the passed headers and we
-        # want to keep the original in cause we need an auth retry.
-        _original_headers = request.headers.copy()
-
-        _credential_refresh_attempt = 0
-        while _credential_refresh_attempt <= self._max_refresh_attempts:
-            # copy original headers
-            request.headers = _original_headers.copy()
-            # mutates request headers
-            logger.debug(
-                'Refreshing credentials for request attempt %d',
-                _credential_refresh_attempt + 1)
-            self.apply_auth_headers(request)
-
-            # Continue to perform the request
-            # yield here dispatches the request and returns with the response
-            response: httpx.Response = yield request
-
-            # We can check the result of the response and determine in we need to retry
-            # on refreshable status codes. Current transport.requests.AuthorizedSession()
-            # only does this on 401 errors. We should do the same.
-            if response.status_code in self._refresh_status_codes:
-                logger.debug(
-                    'Request attempt %d failed due to unauthorized credentials',
-                    _credential_refresh_attempt + 1)
-                _credential_refresh_attempt += 1
-            else:
-                break
-        # Last yielded response is auto returned.
-
-
 
 class _MessagingService:
     """Service class that implements Firebase Cloud Messaging (FCM) functionality."""

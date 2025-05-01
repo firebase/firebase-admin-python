@@ -332,6 +332,7 @@ class APNSConfig:
     Args:
         headers: A dictionary of headers (optional).
         payload: A ``messaging.APNSPayload`` to be included in the message (optional).
+        live_activity_token: A push to start live activity token (optional).
         fcm_options: A ``messaging.APNSFCMOptions`` instance to be included in the message
             (optional).
 
@@ -339,9 +340,10 @@ class APNSConfig:
         /NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html
     """
 
-    def __init__(self, headers=None, payload=None, fcm_options=None):
+    def __init__(self, headers=None, payload=None, live_activity_token=None, fcm_options=None):
         self.headers = headers
         self.payload = payload
+        self.live_activity_token = live_activity_token
         self.fcm_options = fcm_options
 
 

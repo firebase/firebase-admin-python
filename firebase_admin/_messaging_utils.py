@@ -332,7 +332,7 @@ class APNSConfig:
     Args:
         headers: A dictionary of headers (optional).
         payload: A ``messaging.APNSPayload`` to be included in the message (optional).
-        live_activity_token: A push to start live activity token (optional).
+        live_activity_token: A push to start live activity (optional).
         fcm_options: A ``messaging.APNSFCMOptions`` instance to be included in the message
             (optional).
 

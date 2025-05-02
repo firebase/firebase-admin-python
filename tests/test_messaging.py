@@ -25,6 +25,7 @@ import firebase_admin
 from firebase_admin import exceptions
 from firebase_admin import messaging
 from firebase_admin import _http_client
+from firebase_admin import _utils
 from tests import testutils
 
 
@@ -33,6 +34,7 @@ NON_DICT_ARGS = ['', list(), tuple(), True, False, 1, 0, {1: 'foo'}, {'foo': 1}]
 NON_OBJECT_ARGS = [list(), tuple(), dict(), 'foo', 0, 1, True, False]
 NON_LIST_ARGS = ['', tuple(), dict(), True, False, 1, 0, [1], ['foo', 1]]
 NON_UINT_ARGS = ['1.23s', list(), tuple(), dict(), -1.23]
+NON_BOOL_ARGS = ['', list(), tuple(), dict(), 1, 0, [1], ['foo', 1], {1: 'foo'}, {'foo': 1}]
 HTTP_ERROR_CODES = {
     400: exceptions.InvalidArgumentError,
     403: exceptions.PermissionDeniedError,
@@ -249,7 +251,8 @@ class TestFcmOptionEncoder:
                 topic='topic',
                 fcm_options=messaging.FCMOptions('message-label'),
                 android=messaging.AndroidConfig(
-                    fcm_options=messaging.AndroidFCMOptions('android-label')),
+                    fcm_options=messaging.AndroidFCMOptions('android-label'),
+                    direct_boot_ok=False),
                 apns=messaging.APNSConfig(fcm_options=
                                           messaging.APNSFCMOptions(
                                               analytics_label='apns-label',
@@ -259,7 +262,8 @@ class TestFcmOptionEncoder:
             {
                 'topic': 'topic',
                 'fcm_options': {'analytics_label': 'message-label'},
-                'android': {'fcm_options': {'analytics_label': 'android-label'}},
+                'android': {'fcm_options': {'analytics_label': 'android-label'},
+                            'direct_boot_ok': False},
                 'apns': {'fcm_options': {'analytics_label': 'apns-label',
                                          'image': 'https://images.unsplash.com/photo-14944386399'
                                                   '46-1ebd1d20bf85?fit=crop&w=900&q=60'}},
@@ -317,6 +321,20 @@ class TestAndroidConfigEncoder:
             check_encoding(messaging.Message(
                 topic='topic', android=messaging.AndroidConfig(data=data)))
 
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_analytics_label(self, data):
+        with pytest.raises(ValueError):
+            check_encoding(messaging.Message(
+                topic='topic', android=messaging.AndroidConfig(
+                    fcm_options=messaging.AndroidFCMOptions(analytics_label=data))))
+
+    @pytest.mark.parametrize('data', NON_BOOL_ARGS)
+    def test_invalid_direct_boot_ok(self, data):
+        with pytest.raises(ValueError):
+            check_encoding(messaging.Message(
+                topic='topic', android=messaging.AndroidConfig(direct_boot_ok=data)))
+
+
     def test_android_config(self):
         msg = messaging.Message(
             topic='topic',
@@ -326,7 +344,8 @@ class TestAndroidConfigEncoder:
                 priority='high',
                 ttl=123,
                 data={'k1': 'v1', 'k2': 'v2'},
-                fcm_options=messaging.AndroidFCMOptions('analytics_label_v1')
+                fcm_options=messaging.AndroidFCMOptions('analytics_label_v1'),
+                direct_boot_ok=True,
             )
         )
         expected = {
@@ -343,6 +362,7 @@ class TestAndroidConfigEncoder:
                 'fcm_options': {
                     'analytics_label': 'analytics_label_v1',
                 },
+                'direct_boot_ok': True,
             },
         }
         check_encoding(msg, expected)
@@ -515,6 +535,20 @@ class TestAndroidNotificationEncoder:
             expected = 'AndroidNotification.visibility must be a non-empty string.'
         assert str(excinfo.value) == expected
 
+    @pytest.mark.parametrize('proxy', NON_STRING_ARGS + ['foo'])
+    def test_invalid_proxy(self, proxy):
+        notification = messaging.AndroidNotification(proxy=proxy)
+        excinfo = self._check_notification(notification)
+        if isinstance(proxy, str):
+            if not proxy:
+                expected = 'AndroidNotification.proxy must be a non-empty string.'
+            else:
+                expected = ('AndroidNotification.proxy must be "allow", "deny" or'
+                            ' "if_priority_lowered".')
+        else:
+            expected = 'AndroidNotification.proxy must be a non-empty string.'
+        assert str(excinfo.value) == expected
+
     @pytest.mark.parametrize('vibrate_timings', ['', 1, True, 'msec', ['500', 500], [0, 'abc']])
     def test_invalid_vibrate_timings_millis(self, vibrate_timings):
         notification = messaging.AndroidNotification(vibrate_timings_millis=vibrate_timings)
@@ -560,6 +594,7 @@ class TestAndroidNotificationEncoder:
                         light_off_duration_millis=300,
                     ),
                     default_light_settings=False, visibility='public', notification_count=1,
+                    proxy='if_priority_lowered',
                 )
             )
         )
@@ -600,6 +635,7 @@ class TestAndroidNotificationEncoder:
                     'default_light_settings': False,
                     'visibility': 'PUBLIC',
                     'notification_count': 1,
+                    'proxy': 'IF_PRIORITY_LOWERED'
                 },
             },
         }
@@ -1567,7 +1603,7 @@ class TestApsAlertEncoder:
 
 class TestTimeout:
 
-    def teardown(self):
+    def teardown_method(self):
         testutils.cleanup_apps()
 
     def _instrument_service(self, url, response):
@@ -1641,6 +1677,18 @@ class TestSend:
             testutils.MockAdapter(payload, status, recorder))
         return fcm_service, recorder
 
+
+    def _assert_request(self, request, expected_method, expected_url, expected_body=None):
+        assert request.method == expected_method
+        assert request.url == expected_url
+        assert request.headers['X-GOOG-API-FORMAT-VERSION'] == '2'
+        assert request.headers['X-FIREBASE-CLIENT'] == self._CLIENT_VERSION
+        assert request.headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
+        if expected_body is None:
+            assert request.body is None
+        else:
+            assert json.loads(request.body.decode()) == expected_body
+
     def _get_url(self, project_id):
         return messaging._MessagingService.FCM_URL.format(project_id)
 
@@ -1663,15 +1711,11 @@ class TestSend:
         msg_id = messaging.send(msg, dry_run=True)
         assert msg_id == 'message-id'
         assert len(recorder) == 1
-        assert recorder[0].method == 'POST'
-        assert recorder[0].url == self._get_url('explicit-project-id')
-        assert recorder[0].headers['X-GOOG-API-FORMAT-VERSION'] == '2'
-        assert recorder[0].headers['X-FIREBASE-CLIENT'] == self._CLIENT_VERSION
         body = {
             'message': messaging._MessagingService.encode_message(msg),
             'validate_only': True,
         }
-        assert json.loads(recorder[0].body.decode()) == body
+        self._assert_request(recorder[0], 'POST', self._get_url('explicit-project-id'), body)
 
     def test_send(self):
         _, recorder = self._instrument_messaging_service()
@@ -1679,12 +1723,8 @@ class TestSend:
         msg_id = messaging.send(msg)
         assert msg_id == 'message-id'
         assert len(recorder) == 1
-        assert recorder[0].method == 'POST'
-        assert recorder[0].url == self._get_url('explicit-project-id')
-        assert recorder[0].headers['X-GOOG-API-FORMAT-VERSION'] == '2'
-        assert recorder[0].headers['X-FIREBASE-CLIENT'] == self._CLIENT_VERSION
         body = {'message': messaging._MessagingService.encode_message(msg)}
-        assert json.loads(recorder[0].body.decode()) == body
+        self._assert_request(recorder[0], 'POST', self._get_url('explicit-project-id'), body)
 
     @pytest.mark.parametrize('status,exc_type', HTTP_ERROR_CODES.items())
     def test_send_error(self, status, exc_type):
@@ -1695,12 +1735,8 @@ class TestSend:
         expected = 'Unexpected HTTP response with status: {0}; body: {{}}'.format(status)
         check_exception(excinfo.value, expected, status)
         assert len(recorder) == 1
-        assert recorder[0].method == 'POST'
-        assert recorder[0].url == self._get_url('explicit-project-id')
-        assert recorder[0].headers['X-GOOG-API-FORMAT-VERSION'] == '2'
-        assert recorder[0].headers['X-FIREBASE-CLIENT'] == self._CLIENT_VERSION
         body = {'message': messaging._MessagingService.JSON_ENCODER.default(msg)}
-        assert json.loads(recorder[0].body.decode()) == body
+        self._assert_request(recorder[0], 'POST', self._get_url('explicit-project-id'), body)
 
     @pytest.mark.parametrize('status', HTTP_ERROR_CODES)
     def test_send_detailed_error(self, status):
@@ -1716,10 +1752,8 @@ class TestSend:
             messaging.send(msg)
         check_exception(excinfo.value, 'test error', status)
         assert len(recorder) == 1
-        assert recorder[0].method == 'POST'
-        assert recorder[0].url == self._get_url('explicit-project-id')
         body = {'message': messaging._MessagingService.JSON_ENCODER.default(msg)}
-        assert json.loads(recorder[0].body.decode()) == body
+        self._assert_request(recorder[0], 'POST', self._get_url('explicit-project-id'), body)
 
     @pytest.mark.parametrize('status', HTTP_ERROR_CODES)
     def test_send_canonical_error_code(self, status):
@@ -1735,10 +1769,8 @@ class TestSend:
             messaging.send(msg)
         check_exception(excinfo.value, 'test error', status)
         assert len(recorder) == 1
-        assert recorder[0].method == 'POST'
-        assert recorder[0].url == self._get_url('explicit-project-id')
         body = {'message': messaging._MessagingService.JSON_ENCODER.default(msg)}
-        assert json.loads(recorder[0].body.decode()) == body
+        self._assert_request(recorder[0], 'POST', self._get_url('explicit-project-id'), body)
 
     @pytest.mark.parametrize('status', HTTP_ERROR_CODES)
     @pytest.mark.parametrize('fcm_error_code, exc_type', FCM_ERROR_CODES.items())
@@ -1761,10 +1793,8 @@ class TestSend:
             messaging.send(msg)
         check_exception(excinfo.value, 'test error', status)
         assert len(recorder) == 1
-        assert recorder[0].method == 'POST'
-        assert recorder[0].url == self._get_url('explicit-project-id')
         body = {'message': messaging._MessagingService.JSON_ENCODER.default(msg)}
-        assert json.loads(recorder[0].body.decode()) == body
+        self._assert_request(recorder[0], 'POST', self._get_url('explicit-project-id'), body)
 
     @pytest.mark.parametrize('status', HTTP_ERROR_CODES)
     def test_send_unknown_fcm_error_code(self, status):
@@ -1786,10 +1816,8 @@ class TestSend:
             messaging.send(msg)
         check_exception(excinfo.value, 'test error', status)
         assert len(recorder) == 1
-        assert recorder[0].method == 'POST'
-        assert recorder[0].url == self._get_url('explicit-project-id')
         body = {'message': messaging._MessagingService.JSON_ENCODER.default(msg)}
-        assert json.loads(recorder[0].body.decode()) == body
+        self._assert_request(recorder[0], 'POST', self._get_url('explicit-project-id'), body)
 
 
 class _HttpMockException:
@@ -2572,6 +2600,12 @@ class TestTopicManagement:
             testutils.MockAdapter(payload, status, recorder))
         return fcm_service, recorder
 
+    def _assert_request(self, request, expected_method, expected_url):
+        assert request.method == expected_method
+        assert request.url == expected_url
+        assert request.headers['access_token_auth'] == 'true'
+        assert request.headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
+
     def _get_url(self, path):
         return '{0}/{1}'.format(messaging._MessagingService.IID_URL, path)
 
@@ -2606,8 +2640,7 @@ class TestTopicManagement:
         resp = messaging.subscribe_to_topic(args[0], args[1])
         self._check_response(resp)
         assert len(recorder) == 1
-        assert recorder[0].method == 'POST'
-        assert recorder[0].url == self._get_url('iid/v1:batchAdd')
+        self._assert_request(recorder[0], 'POST', self._get_url('iid/v1:batchAdd'))
         assert json.loads(recorder[0].body.decode()) == args[2]
 
     @pytest.mark.parametrize('status, exc_type', HTTP_ERROR_CODES.items())
@@ -2618,8 +2651,7 @@ class TestTopicManagement:
             messaging.subscribe_to_topic('foo', 'test-topic')
         assert str(excinfo.value) == 'Error while calling the IID service: error_reason'
         assert len(recorder) == 1
-        assert recorder[0].method == 'POST'
-        assert recorder[0].url == self._get_url('iid/v1:batchAdd')
+        self._assert_request(recorder[0], 'POST', self._get_url('iid/v1:batchAdd'))
 
     @pytest.mark.parametrize('status, exc_type', HTTP_ERROR_CODES.items())
     def test_subscribe_to_topic_non_json_error(self, status, exc_type):
@@ -2629,8 +2661,7 @@ class TestTopicManagement:
         reason = 'Unexpected HTTP response with status: {0}; body: not json'.format(status)
         assert str(excinfo.value) == reason
         assert len(recorder) == 1
-        assert recorder[0].method == 'POST'
-        assert recorder[0].url == self._get_url('iid/v1:batchAdd')
+        self._assert_request(recorder[0], 'POST', self._get_url('iid/v1:batchAdd'))
 
     @pytest.mark.parametrize('args', _VALID_ARGS)
     def test_unsubscribe_from_topic(self, args):
@@ -2638,8 +2669,7 @@ class TestTopicManagement:
         resp = messaging.unsubscribe_from_topic(args[0], args[1])
         self._check_response(resp)
         assert len(recorder) == 1
-        assert recorder[0].method == 'POST'
-        assert recorder[0].url == self._get_url('iid/v1:batchRemove')
+        self._assert_request(recorder[0], 'POST', self._get_url('iid/v1:batchRemove'))
         assert json.loads(recorder[0].body.decode()) == args[2]
 
     @pytest.mark.parametrize('status, exc_type', HTTP_ERROR_CODES.items())
@@ -2650,8 +2680,7 @@ class TestTopicManagement:
             messaging.unsubscribe_from_topic('foo', 'test-topic')
         assert str(excinfo.value) == 'Error while calling the IID service: error_reason'
         assert len(recorder) == 1
-        assert recorder[0].method == 'POST'
-        assert recorder[0].url == self._get_url('iid/v1:batchRemove')
+        self._assert_request(recorder[0], 'POST', self._get_url('iid/v1:batchRemove'))
 
     @pytest.mark.parametrize('status, exc_type', HTTP_ERROR_CODES.items())
     def test_unsubscribe_from_topic_non_json_error(self, status, exc_type):
@@ -2661,8 +2690,7 @@ class TestTopicManagement:
         reason = 'Unexpected HTTP response with status: {0}; body: not json'.format(status)
         assert str(excinfo.value) == reason
         assert len(recorder) == 1
-        assert recorder[0].method == 'POST'
-        assert recorder[0].url == self._get_url('iid/v1:batchRemove')
+        self._assert_request(recorder[0], 'POST', self._get_url('iid/v1:batchRemove'))
 
     def _check_response(self, resp):
         assert resp.success_count == 1

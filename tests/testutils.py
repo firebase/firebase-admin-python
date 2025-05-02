@@ -18,7 +18,7 @@ import os
 
 import pytest
 
-from google.auth import credentials
+from google.auth import credentials, compute_engine
 from google.auth import transport
 from requests import adapters
 from requests import models
@@ -119,6 +119,10 @@ class MockGoogleCredential(credentials.Credentials):
     def refresh(self, request):
         self.token = 'mock-token'
 
+    @property
+    def service_account_email(self):
+        return 'mock-email'
+
 
 class MockCredential(firebase_admin.credentials.Base):
     """A mock Firebase credential implementation."""
@@ -129,6 +133,19 @@ class MockCredential(firebase_admin.credentials.Base):
     def get_credential(self):
         return self._g_credential
 
+class MockGoogleComputeEngineCredential(compute_engine.Credentials):
+    """A mock Compute Engine credential"""
+    def refresh(self, request):
+        self.token = 'mock-compute-engine-token'
+
+class MockComputeEngineCredential(firebase_admin.credentials.Base):
+    """A mock Firebase credential implementation."""
+
+    def __init__(self):
+        self._g_credential = MockGoogleComputeEngineCredential()
+
+    def get_credential(self):
+        return self._g_credential
 
 class MockMultiRequestAdapter(adapters.HTTPAdapter):
     """A mock HTTP adapter that supports multiple responses for the Python requests module."""
@@ -201,3 +218,43 @@ class MockRequestBasedMultiRequestAdapter(adapters.HTTPAdapter):
                 resp.raw = io.BytesIO(response.encode())
                 break
         return resp
+
+def build_mock_condition(name, condition):
+    return {
+        'name': name,
+        'condition': condition,
+    }
+
+def build_mock_parameter(name, description, value=None,
+                         conditional_values=None, default_value=None, parameter_groups=None):
+    return {
+        'name': name,
+        'description': description,
+        'value': value,
+        'conditionalValues': conditional_values,
+        'defaultValue': default_value,
+        'parameterGroups': parameter_groups,
+    }
+
+def build_mock_conditional_value(condition_name, value):
+    return {
+        'conditionName': condition_name,
+        'value': value,
+    }
+
+def build_mock_default_value(value):
+    return {
+        'value': value,
+    }
+
+def build_mock_parameter_group(name, description, parameters):
+    return {
+        'name': name,
+        'description': description,
+        'parameters': parameters,
+    }
+
+def build_mock_version(version_number):
+    return {
+        'versionNumber': version_number,
+    }

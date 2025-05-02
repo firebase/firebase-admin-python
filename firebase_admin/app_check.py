@@ -16,7 +16,7 @@
 
 from typing import Any, Dict
 import jwt
-from jwt import PyJWKClient, ExpiredSignatureError, InvalidTokenError
+from jwt import PyJWKClient, ExpiredSignatureError, InvalidTokenError, DecodeError
 from jwt import InvalidAudienceError, InvalidIssuerError, InvalidSignatureError
 from firebase_admin import _utils
 
@@ -38,6 +38,7 @@ def verify_token(token: str, app=None) -> Dict[str, Any]:
     Raises:
         ValueError: If the app's ``project_id`` is invalid or unspecified,
         or if the token's headers or payload are invalid.
+        PyJWKClientError: If PyJWKClient fails to fetch a valid signing key.
     """
     return _get_app_check_service(app).verify_token(token)
 
@@ -50,6 +51,10 @@ class _AppCheckService:
     _scoped_project_id = None
     _jwks_client = None
 
+    _APP_CHECK_HEADERS = {
+        'X-GOOG-API-CLIENT': _utils.get_metrics_header(),
+    }
+
     def __init__(self, app):
         # Validate and store the project_id to validate the JWT claims
         self._project_id = app.project_id
@@ -61,7 +66,8 @@ class _AppCheckService:
                 'GOOGLE_CLOUD_PROJECT environment variable.')
         self._scoped_project_id = 'projects/' + app.project_id
         # Default lifespan is 300 seconds (5 minutes) so we change it to 21600 seconds (6 hours).
-        self._jwks_client = PyJWKClient(self._JWKS_URL, lifespan=21600)
+        self._jwks_client = PyJWKClient(
+            self._JWKS_URL, lifespan=21600, headers=self._APP_CHECK_HEADERS)
 
 
     def verify_token(self, token: str) -> Dict[str, Any]:
@@ -71,9 +77,14 @@ class _AppCheckService:
         # Obtain the Firebase App Check Public Keys
         # Note: It is not recommended to hard code these keys as they rotate,
         # but you should cache them for up to 6 hours.
-        signing_key = self._jwks_client.get_signing_key_from_jwt(token)
-        self._has_valid_token_headers(jwt.get_unverified_header(token))
-        verified_claims = self._decode_and_verify(token, signing_key.key)
+        try:
+            signing_key = self._jwks_client.get_signing_key_from_jwt(token)
+            self._has_valid_token_headers(jwt.get_unverified_header(token))
+            verified_claims = self._decode_and_verify(token, signing_key.key)
+        except (InvalidTokenError, DecodeError) as exception:
+            raise ValueError(
+                f'Verifying App Check token failed. Error: {exception}'
+                )
 
         verified_claims['app_id'] = verified_claims.get('sub')
         return verified_claims

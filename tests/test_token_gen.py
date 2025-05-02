@@ -440,6 +440,10 @@ class TestVerifyIdToken:
             'iat': int(time.time()) - 10000,
             'exp': int(time.time()) - 3600
         }),
+        'ExpiredTokenShort': _get_id_token({
+            'iat': int(time.time()) - 10000,
+            'exp': int(time.time()) - 30
+        }),
         'BadFormatToken': 'foobar'
     }
 
@@ -447,7 +451,8 @@ class TestVerifyIdToken:
         'NoKid',
         'WrongKid',
         'FutureToken',
-        'ExpiredToken'
+        'ExpiredToken',
+        'ExpiredTokenShort',
     ]
 
     def _assert_valid_token(self, id_token, app):
@@ -555,6 +560,20 @@ class TestVerifyIdToken:
         assert excinfo.value.cause is not None
         assert excinfo.value.http_response is None
 
+    def test_expired_token_with_tolerance(self, user_mgt_app):
+        _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
+        id_token = self.invalid_tokens['ExpiredTokenShort']
+        if _is_emulated():
+            self._assert_valid_token(id_token, user_mgt_app)
+            return
+        claims = auth.verify_id_token(id_token, app=user_mgt_app,
+                                      clock_skew_seconds=60)
+        assert claims['admin'] is True
+        assert claims['uid'] == claims['sub']
+        with pytest.raises(auth.ExpiredIdTokenError):
+            auth.verify_id_token(id_token, app=user_mgt_app,
+                                 clock_skew_seconds=20)
+
     def test_project_id_option(self):
         app = firebase_admin.initialize_app(
             testutils.MockCredential(), options={'projectId': 'mock-project-id'}, name='myApp')
@@ -619,6 +638,10 @@ class TestVerifySessionCookie:
             'iat': int(time.time()) - 10000,
             'exp': int(time.time()) - 3600
         }),
+        'ExpiredCookieShort': _get_session_cookie({
+            'iat': int(time.time()) - 10000,
+            'exp': int(time.time()) - 30
+        }),
         'BadFormatCookie': 'foobar',
         'IDToken': TEST_ID_TOKEN,
     }
@@ -627,7 +650,8 @@ class TestVerifySessionCookie:
         'NoKid',
         'WrongKid',
         'FutureCookie',
-        'ExpiredCookie'
+        'ExpiredCookie',
+        'ExpiredCookieShort',
     ]
 
     def _assert_valid_cookie(self, cookie, app, check_revoked=False):
@@ -714,6 +738,20 @@ class TestVerifySessionCookie:
         assert 'Token expired' in str(excinfo.value)
         assert excinfo.value.cause is not None
         assert excinfo.value.http_response is None
+
+    def test_expired_cookie_with_tolerance(self, user_mgt_app):
+        _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
+        cookie = self.invalid_cookies['ExpiredCookieShort']
+        if _is_emulated():
+            self._assert_valid_cookie(cookie, user_mgt_app)
+            return
+        claims = auth.verify_session_cookie(cookie, app=user_mgt_app, check_revoked=False,
+                                            clock_skew_seconds=59)
+        assert claims['admin'] is True
+        assert claims['uid'] == claims['sub']
+        with pytest.raises(auth.ExpiredSessionCookieError):
+            auth.verify_session_cookie(cookie, app=user_mgt_app, check_revoked=False,
+                                       clock_skew_seconds=29)
 
     def test_project_id_option(self):
         app = firebase_admin.initialize_app(
@@ -815,5 +853,5 @@ class TestCertificateFetchTimeout:
         request.session.mount('https://', testutils.MockAdapter(MOCK_PUBLIC_CERTS, 200, recorder))
         return recorder
 
-    def teardown(self):
+    def teardown_method(self):
         testutils.cleanup_apps()

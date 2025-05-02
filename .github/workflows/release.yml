@@ -40,14 +40,14 @@ jobs:
     # via the 'ref' client parameter.
     steps:
     - name: Checkout source for staging
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         ref: ${{ github.event.client_payload.ref || github.ref }}
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
-        python-version: 3.7
+        python-version: 3.8
 
     - name: Install dependencies
       run: |
@@ -73,7 +73,7 @@ jobs:
     # Attach the packaged artifacts to the workflow output. These can be manually
     # downloaded for later inspection if necessary.
     - name: Archive artifacts
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v4
       with:
         name: dist
         path: dist
@@ -87,45 +87,43 @@ jobs:
     #   3. with the label 'release:publish', and
     #   4. the title prefix '[chore] Release '.
     if: github.event.pull_request.merged &&
-      github.ref == 'master' &&
+      github.ref == 'refs/heads/master' &&
       contains(github.event.pull_request.labels.*.name, 'release:publish') &&
       startsWith(github.event.pull_request.title, '[chore] Release ')
 
     runs-on: ubuntu-latest
+    permissions:
+      # Used to create a short-lived OIDC token which is given to PyPi to identify this workflow job
+      # See: https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect#adding-permissions-settings
+      # and https://docs.pypi.org/trusted-publishers/using-a-publisher/
+      id-token: write
+      contents: write
 
     steps:
     - name: Checkout source for publish
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     # Download the artifacts created by the stage_release job.
     - name: Download release candidates
-      uses: actions/download-artifact@v1
+      uses: actions/download-artifact@v4.1.7
       with:
         name: dist
+        path: dist
 
     - name: Publish preflight check
       id: preflight
       run: ./.github/scripts/publish_preflight_check.sh
 
-    # We pull this action from a custom fork of a contributor until
-    # https://github.com/actions/create-release/pull/32 is merged. Also note that v1 of
-    # this action does not support the "body" parameter.
+    # See: https://cli.github.com/manual/gh_release_create
     - name: Create release tag
-      uses: fleskesvor/create-release@1a72e235c178bf2ae6c51a8ae36febc24568c5fe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ steps.preflight.outputs.version }}
-        release_name: Firebase Admin Python SDK ${{ steps.preflight.outputs.version }}
-        body: ${{ steps.preflight.outputs.changelog }}
-        draft: false
-        prerelease: false
+      run: gh release create ${{ steps.preflight.outputs.version }}
+            --title "Firebase Admin Python SDK ${{ steps.preflight.outputs.version }}"
+            --notes '${{ steps.preflight.outputs.changelog }}'
 
     - name: Publish to Pypi
-      uses: pypa/gh-action-pypi-publish@v1.0.0a0
-      with:
-        user: firebase
-        password: ${{ secrets.PYPI_PASSWORD }}
+      uses: pypa/gh-action-pypi-publish@release/v1
 
     # Post to Twitter if explicitly opted-in by adding the label 'release:tweet'.
     - name: Post to Twitter

@@ -17,6 +17,7 @@ from collections import namedtuple
 import os
 
 import pytest
+from google.auth.exceptions import DefaultCredentialsError
 
 import firebase_admin
 from firebase_admin import credentials
@@ -245,6 +246,16 @@ class TestFirebaseApp:
         with pytest.raises(ValueError):
             firebase_admin.initialize_app(app_credential, name='myApp')
 
+    def test_app_init_with_google_auth_cred(self):
+        cred = testutils.MockGoogleCredential()
+        assert isinstance(cred, credentials.GoogleAuthCredentials)
+        app = firebase_admin.initialize_app(cred)
+        assert cred is app.credential.get_credential()
+        assert isinstance(app.credential, credentials.Base)
+        assert isinstance(app.credential, credentials._ExternalCredentials)
+        with pytest.raises(ValueError):
+            firebase_admin.initialize_app(app_credential)
+
     @pytest.mark.parametrize('cred', invalid_credentials)
     def test_app_init_with_invalid_credential(self, cred):
         with pytest.raises(ValueError):
@@ -313,6 +324,27 @@ class TestFirebaseApp:
         def evaluate():
             app = firebase_admin.initialize_app(testutils.MockCredential(), name='myApp')
             assert app.project_id is None
+        testutils.run_without_project_id(evaluate)
+
+    def test_no_project_id_from_environment(self, app_credential):
+        default_env = 'GOOGLE_APPLICATION_CREDENTIALS'
+        gcloud_env = 'CLOUDSDK_CONFIG'
+        def evaluate():
+            app = firebase_admin.initialize_app(app_credential, name='myApp')
+            app._credential._g_credential = None
+            old_gcloud_var = os.environ.get(gcloud_env)
+            os.environ[gcloud_env] = ''
+            old_default_var = os.environ.get(default_env)
+            if old_default_var:
+                del os.environ[default_env]
+            with pytest.raises((AttributeError, DefaultCredentialsError)):
+                project_id = app._credential.project_id
+            project_id = app.project_id
+            if old_default_var:
+                os.environ[default_env] = old_default_var
+            if old_gcloud_var:
+                os.environ[gcloud_env] = old_gcloud_var
+            assert project_id is None
         testutils.run_without_project_id(evaluate)
 
     def test_non_string_project_id(self):

@@ -193,16 +193,20 @@ class TestReference:
         ref._client.session.mount(self.test_url, adapter)
         return recorder
 
+    def _assert_request(self, request, expected_method, expected_url):
+        assert request.method == expected_method
+        assert request.url == expected_url
+        assert request.headers['Authorization'] == 'Bearer mock-token'
+        assert request.headers['User-Agent'] == db._USER_AGENT
+        assert request.headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
+
     @pytest.mark.parametrize('data', valid_values)
     def test_get_value(self, data):
         ref = db.reference('/test')
         recorder = self.instrument(ref, json.dumps(data))
         assert ref.get() == data
         assert len(recorder) == 1
-        assert recorder[0].method == 'GET'
-        assert recorder[0].url == 'https://test.firebaseio.com/test.json'
-        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
-        assert recorder[0].headers['User-Agent'] == db._USER_AGENT
+        self._assert_request(recorder[0], 'GET', 'https://test.firebaseio.com/test.json')
         assert 'X-Firebase-ETag' not in recorder[0].headers
 
     @pytest.mark.parametrize('data', valid_values)
@@ -211,10 +215,7 @@ class TestReference:
         recorder = self.instrument(ref, json.dumps(data))
         assert ref.get(etag=True) == (data, MockAdapter.ETAG)
         assert len(recorder) == 1
-        assert recorder[0].method == 'GET'
-        assert recorder[0].url == 'https://test.firebaseio.com/test.json'
-        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
-        assert recorder[0].headers['User-Agent'] == db._USER_AGENT
+        self._assert_request(recorder[0], 'GET', 'https://test.firebaseio.com/test.json')
         assert recorder[0].headers['X-Firebase-ETag'] == 'true'
 
     @pytest.mark.parametrize('data', valid_values)
@@ -223,10 +224,8 @@ class TestReference:
         recorder = self.instrument(ref, json.dumps(data))
         assert ref.get(shallow=True) == data
         assert len(recorder) == 1
-        assert recorder[0].method == 'GET'
-        assert recorder[0].url == 'https://test.firebaseio.com/test.json?shallow=true'
-        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
-        assert recorder[0].headers['User-Agent'] == db._USER_AGENT
+        self._assert_request(
+            recorder[0], 'GET', 'https://test.firebaseio.com/test.json?shallow=true')
 
     def test_get_with_etag_and_shallow(self):
         ref = db.reference('/test')
@@ -240,14 +239,12 @@ class TestReference:
 
         assert ref.get_if_changed('invalid-etag') == (True, data, MockAdapter.ETAG)
         assert len(recorder) == 1
-        assert recorder[0].method == 'GET'
-        assert recorder[0].url == 'https://test.firebaseio.com/test.json'
+        self._assert_request(recorder[0], 'GET', 'https://test.firebaseio.com/test.json')
         assert recorder[0].headers['if-none-match'] == 'invalid-etag'
 
         assert ref.get_if_changed(MockAdapter.ETAG) == (False, None, None)
         assert len(recorder) == 2
-        assert recorder[1].method == 'GET'
-        assert recorder[1].url == 'https://test.firebaseio.com/test.json'
+        self._assert_request(recorder[1], 'GET', 'https://test.firebaseio.com/test.json')
         assert recorder[1].headers['if-none-match'] == MockAdapter.ETAG
 
     @pytest.mark.parametrize('etag', [0, 1, True, False, dict(), list(), tuple()])
@@ -264,9 +261,8 @@ class TestReference:
         query_str = 'orderBy=%22foo%22'
         assert query.get() == data
         assert len(recorder) == 1
-        assert recorder[0].method == 'GET'
-        assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
-        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+        self._assert_request(
+            recorder[0], 'GET', 'https://test.firebaseio.com/test.json?' + query_str)
 
     @pytest.mark.parametrize('data', valid_values)
     def test_limit_query(self, data):
@@ -277,9 +273,8 @@ class TestReference:
         query_str = 'limitToFirst=100&orderBy=%22foo%22'
         assert query.get() == data
         assert len(recorder) == 1
-        assert recorder[0].method == 'GET'
-        assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
-        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+        self._assert_request(
+            recorder[0], 'GET', 'https://test.firebaseio.com/test.json?' + query_str)
 
     @pytest.mark.parametrize('data', valid_values)
     def test_range_query(self, data):
@@ -291,9 +286,8 @@ class TestReference:
         query_str = 'endAt=200&orderBy=%22foo%22&startAt=100'
         assert query.get() == data
         assert len(recorder) == 1
-        assert recorder[0].method == 'GET'
-        assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
-        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
+        self._assert_request(
+            recorder[0], 'GET', 'https://test.firebaseio.com/test.json?' + query_str)
 
     @pytest.mark.parametrize('data', valid_values)
     def test_set_value(self, data):
@@ -301,10 +295,9 @@ class TestReference:
         recorder = self.instrument(ref, '')
         ref.set(data)
         assert len(recorder) == 1
-        assert recorder[0].method == 'PUT'
-        assert recorder[0].url == 'https://test.firebaseio.com/test.json?print=silent'
+        self._assert_request(
+            recorder[0], 'PUT', 'https://test.firebaseio.com/test.json?print=silent')
         assert json.loads(recorder[0].body.decode()) == data
-        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
     def test_set_none_value(self):
         ref = db.reference('/test')
@@ -327,10 +320,9 @@ class TestReference:
         recorder = self.instrument(ref, json.dumps(data))
         ref.update(data)
         assert len(recorder) == 1
-        assert recorder[0].method == 'PATCH'
-        assert recorder[0].url == 'https://test.firebaseio.com/test.json?print=silent'
+        self._assert_request(
+            recorder[0], 'PATCH', 'https://test.firebaseio.com/test.json?print=silent')
         assert json.loads(recorder[0].body.decode()) == data
-        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
 
     @pytest.mark.parametrize('data', valid_values)
     def test_set_if_unchanged_success(self, data):
@@ -339,10 +331,8 @@ class TestReference:
         vals = ref.set_if_unchanged(MockAdapter.ETAG, data)
         assert vals == (True, data, MockAdapter.ETAG)
         assert len(recorder) == 1
-        assert recorder[0].method == 'PUT'
-        assert recorder[0].url == 'https://test.firebaseio.com/test.json'
+        self._assert_request(recorder[0], 'PUT', 'https://test.firebaseio.com/test.json')
         assert json.loads(recorder[0].body.decode()) == data
-        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
         assert recorder[0].headers['if-match'] == MockAdapter.ETAG
 
     @pytest.mark.parametrize('data', valid_values)
@@ -352,10 +342,8 @@ class TestReference:
         vals = ref.set_if_unchanged('invalid-etag', data)
         assert vals == (False, {'foo':'bar'}, MockAdapter.ETAG)
         assert len(recorder) == 1
-        assert recorder[0].method == 'PUT'
-        assert recorder[0].url == 'https://test.firebaseio.com/test.json'
+        self._assert_request(recorder[0], 'PUT', 'https://test.firebaseio.com/test.json')
         assert json.loads(recorder[0].body.decode()) == data
-        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
         assert recorder[0].headers['if-match'] == 'invalid-etag'
 
     @pytest.mark.parametrize('etag', [0, 1, True, False, dict(), list(), tuple()])
@@ -397,22 +385,16 @@ class TestReference:
         assert isinstance(child, db.Reference)
         assert child.key == 'testkey'
         assert len(recorder) == 1
-        assert recorder[0].method == 'POST'
-        assert recorder[0].url == 'https://test.firebaseio.com/test.json'
+        self._assert_request(recorder[0], 'POST', 'https://test.firebaseio.com/test.json')
         assert json.loads(recorder[0].body.decode()) == data
-        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
-        assert recorder[0].headers['User-Agent'] == db._USER_AGENT
 
     def test_push_default(self):
         ref = db.reference('/test')
         recorder = self.instrument(ref, json.dumps({'name' : 'testkey'}))
         assert ref.push().key == 'testkey'
         assert len(recorder) == 1
-        assert recorder[0].method == 'POST'
-        assert recorder[0].url == 'https://test.firebaseio.com/test.json'
+        self._assert_request(recorder[0], 'POST', 'https://test.firebaseio.com/test.json')
         assert json.loads(recorder[0].body.decode()) == ''
-        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
-        assert recorder[0].headers['User-Agent'] == db._USER_AGENT
 
     def test_push_none_value(self):
         ref = db.reference('/test')
@@ -425,10 +407,7 @@ class TestReference:
         recorder = self.instrument(ref, '')
         ref.delete()
         assert len(recorder) == 1
-        assert recorder[0].method == 'DELETE'
-        assert recorder[0].url == 'https://test.firebaseio.com/test.json'
-        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
-        assert recorder[0].headers['User-Agent'] == db._USER_AGENT
+        self._assert_request(recorder[0], 'DELETE', 'https://test.firebaseio.com/test.json')
 
     def test_transaction(self):
         ref = db.reference('/test')
@@ -442,8 +421,8 @@ class TestReference:
         new_value = ref.transaction(transaction_update)
         assert new_value == {'foo1' : 'bar1', 'foo2' : 'bar2'}
         assert len(recorder) == 2
-        assert recorder[0].method == 'GET'
-        assert recorder[1].method == 'PUT'
+        self._assert_request(recorder[0], 'GET', 'https://test.firebaseio.com/test.json')
+        self._assert_request(recorder[1], 'PUT', 'https://test.firebaseio.com/test.json')
         assert json.loads(recorder[1].body.decode()) == {'foo1': 'bar1', 'foo2': 'bar2'}
 
     def test_transaction_scalar(self):
@@ -454,8 +433,8 @@ class TestReference:
         new_value = ref.transaction(lambda x: x + 1 if x else 1)
         assert new_value == 43
         assert len(recorder) == 2
-        assert recorder[0].method == 'GET'
-        assert recorder[1].method == 'PUT'
+        self._assert_request(recorder[0], 'GET', 'https://test.firebaseio.com/test/count.json')
+        self._assert_request(recorder[1], 'PUT', 'https://test.firebaseio.com/test/count.json')
         assert json.loads(recorder[1].body.decode()) == 43
 
     def test_transaction_error(self):
@@ -471,7 +450,7 @@ class TestReference:
             ref.transaction(transaction_update)
         assert str(excinfo.value) == 'test error'
         assert len(recorder) == 1
-        assert recorder[0].method == 'GET'
+        self._assert_request(recorder[0], 'GET', 'https://test.firebaseio.com/test.json')
 
     def test_transaction_abort(self):
         ref = db.reference('/test/count')
@@ -556,6 +535,49 @@ class TestListenerRegistration:
         finally:
             testutils.cleanup_apps()
 
+    @pytest.mark.parametrize(
+        'url,emulator_host,expected_base_url,expected_namespace',
+        [
+            # Production URLs with no override:
+            ('https://test.firebaseio.com', None, 'https://test.firebaseio.com/.json', None),
+            ('https://test.firebaseio.com/', None, 'https://test.firebaseio.com/.json', None),
+
+            # Production URLs with emulator_host override:
+            ('https://test.firebaseio.com', 'localhost:9000', 'http://localhost:9000/.json',
+             'test'),
+            ('https://test.firebaseio.com/', 'localhost:9000', 'http://localhost:9000/.json',
+             'test'),
+
+            # Emulator URL with no override.
+            ('http://localhost:8000/?ns=test', None, 'http://localhost:8000/.json', 'test'),
+
+            # emulator_host is ignored when the original URL is already emulator.
+            ('http://localhost:8000/?ns=test', 'localhost:9999', 'http://localhost:8000/.json',
+             'test'),
+        ]
+    )
+    def test_listen_sse_client(self, url, emulator_host, expected_base_url, expected_namespace,
+                               mocker):
+        if emulator_host:
+            os.environ[_EMULATOR_HOST_ENV_VAR] = emulator_host
+
+        try:
+            firebase_admin.initialize_app(testutils.MockCredential(), {'databaseURL' : url})
+            ref = db.reference()
+            mock_sse_client = mocker.patch('firebase_admin._sseclient.SSEClient')
+            mock_callback = mocker.Mock()
+            ref.listen(mock_callback)
+            args, kwargs = mock_sse_client.call_args
+            assert args[0] == expected_base_url
+            if expected_namespace:
+                assert kwargs.get('params') == {'ns': expected_namespace}
+            else:
+                assert kwargs.get('params') == {}
+        finally:
+            if _EMULATOR_HOST_ENV_VAR in os.environ:
+                del os.environ[_EMULATOR_HOST_ENV_VAR]
+            testutils.cleanup_apps()
+
     def test_listener_session(self):
         firebase_admin.initialize_app(testutils.MockCredential(), {
             'databaseURL' : 'https://test.firebaseio.com',
@@ -638,16 +660,21 @@ class TestReferenceWithAuthOverride:
         ref._client.session.mount(self.test_url, adapter)
         return recorder
 
+    def _assert_request(self, request, expected_method, expected_url):
+        assert request.method == expected_method
+        assert request.url == expected_url
+        assert request.headers['Authorization'] == 'Bearer mock-token'
+        assert request.headers['User-Agent'] == db._USER_AGENT
+        assert request.headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
+
     def test_get_value(self):
         ref = db.reference('/test')
         recorder = self.instrument(ref, json.dumps('data'))
         query_str = 'auth_variable_override={0}'.format(self.encoded_override)
         assert ref.get() == 'data'
         assert len(recorder) == 1
-        assert recorder[0].method == 'GET'
-        assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
-        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
-        assert recorder[0].headers['User-Agent'] == db._USER_AGENT
+        self._assert_request(
+            recorder[0], 'GET', 'https://test.firebaseio.com/test.json?' + query_str)
 
     def test_set_value(self):
         ref = db.reference('/test')
@@ -656,11 +683,9 @@ class TestReferenceWithAuthOverride:
         ref.set(data)
         query_str = 'print=silent&auth_variable_override={0}'.format(self.encoded_override)
         assert len(recorder) == 1
-        assert recorder[0].method == 'PUT'
-        assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
+        self._assert_request(
+            recorder[0], 'PUT', 'https://test.firebaseio.com/test.json?' + query_str)
         assert json.loads(recorder[0].body.decode()) == data
-        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
-        assert recorder[0].headers['User-Agent'] == db._USER_AGENT
 
     def test_order_by_query(self):
         ref = db.reference('/test')
@@ -669,10 +694,8 @@ class TestReferenceWithAuthOverride:
         query_str = 'orderBy=%22foo%22&auth_variable_override={0}'.format(self.encoded_override)
         assert query.get() == 'data'
         assert len(recorder) == 1
-        assert recorder[0].method == 'GET'
-        assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
-        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
-        assert recorder[0].headers['User-Agent'] == db._USER_AGENT
+        self._assert_request(
+            recorder[0], 'GET', 'https://test.firebaseio.com/test.json?' + query_str)
 
     def test_range_query(self):
         ref = db.reference('/test')
@@ -682,10 +705,8 @@ class TestReferenceWithAuthOverride:
                      'auth_variable_override={0}'.format(self.encoded_override))
         assert query.get() == 'data'
         assert len(recorder) == 1
-        assert recorder[0].method == 'GET'
-        assert recorder[0].url == 'https://test.firebaseio.com/test.json?' + query_str
-        assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
-        assert recorder[0].headers['User-Agent'] == db._USER_AGENT
+        self._assert_request(
+            recorder[0], 'GET', 'https://test.firebaseio.com/test.json?' + query_str)
 
 
 class TestDatabaseInitialization:

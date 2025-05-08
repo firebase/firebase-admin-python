@@ -38,7 +38,7 @@ DEFAULT_RETRY_CONFIG = retry.Retry(
 DEFAULT_TIMEOUT_SECONDS = 120
 
 METRICS_HEADERS = {
-    'X-GOOG-API-CLIENT': _utils.get_metrics_header(),
+    'x-goog-api-client': _utils.get_metrics_header(),
 }
 
 class HttpClient:
@@ -76,7 +76,6 @@ class HttpClient:
 
         if headers:
             self._session.headers.update(headers)
-        self._session.headers.update(METRICS_HEADERS)
         if retries:
             self._session.mount('http://', requests.adapters.HTTPAdapter(max_retries=retries))
             self._session.mount('https://', requests.adapters.HTTPAdapter(max_retries=retries))
@@ -120,6 +119,7 @@ class HttpClient:
         """
         if 'timeout' not in kwargs:
             kwargs['timeout'] = self.timeout
+        kwargs.setdefault('headers', {}).update(METRICS_HEADERS)
         resp = self._session.request(method, self.base_url + url, **kwargs)
         resp.raise_for_status()
         return resp

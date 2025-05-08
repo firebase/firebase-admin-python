@@ -523,7 +523,8 @@ class BaseProjectManagementTest:
         assert request.method == expected_method
         assert request.url == expected_url
         assert request.headers['X-Client-Version'] == f'Python/Admin/{firebase_admin.__version__}'
-        assert request.headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
+        expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
+        assert request.headers['x-goog-api-client'] == expected_metrics_header
         if expected_body is None:
             assert request.body is None
         else:

@@ -55,7 +55,8 @@ def test_send():
                     light_off_duration_millis=200,
                     light_on_duration_millis=300
                 ),
-                notification_count=1
+                notification_count=1,
+                proxy='if_priority_lowered',
             )
         ),
         apns=messaging.APNSConfig(payload=messaging.APNSPayload(

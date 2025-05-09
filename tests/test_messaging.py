@@ -535,6 +535,20 @@ class TestAndroidNotificationEncoder:
             expected = 'AndroidNotification.visibility must be a non-empty string.'
         assert str(excinfo.value) == expected
 
+    @pytest.mark.parametrize('proxy', NON_STRING_ARGS + ['foo'])
+    def test_invalid_proxy(self, proxy):
+        notification = messaging.AndroidNotification(proxy=proxy)
+        excinfo = self._check_notification(notification)
+        if isinstance(proxy, str):
+            if not proxy:
+                expected = 'AndroidNotification.proxy must be a non-empty string.'
+            else:
+                expected = ('AndroidNotification.proxy must be "allow", "deny" or'
+                            ' "if_priority_lowered".')
+        else:
+            expected = 'AndroidNotification.proxy must be a non-empty string.'
+        assert str(excinfo.value) == expected
+
     @pytest.mark.parametrize('vibrate_timings', ['', 1, True, 'msec', ['500', 500], [0, 'abc']])
     def test_invalid_vibrate_timings_millis(self, vibrate_timings):
         notification = messaging.AndroidNotification(vibrate_timings_millis=vibrate_timings)
@@ -580,6 +594,7 @@ class TestAndroidNotificationEncoder:
                         light_off_duration_millis=300,
                     ),
                     default_light_settings=False, visibility='public', notification_count=1,
+                    proxy='if_priority_lowered',
                 )
             )
         )
@@ -620,6 +635,7 @@ class TestAndroidNotificationEncoder:
                     'default_light_settings': False,
                     'visibility': 'PUBLIC',
                     'notification_count': 1,
+                    'proxy': 'IF_PRIORITY_LOWERED'
                 },
             },
         }
@@ -1667,7 +1683,8 @@ class TestSend:
         assert request.url == expected_url
         assert request.headers['X-GOOG-API-FORMAT-VERSION'] == '2'
         assert request.headers['X-FIREBASE-CLIENT'] == self._CLIENT_VERSION
-        assert request.headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
+        expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
+        assert request.headers['x-goog-api-client'] == expected_metrics_header
         if expected_body is None:
             assert request.body is None
         else:
@@ -2588,7 +2605,8 @@ class TestTopicManagement:
         assert request.method == expected_method
         assert request.url == expected_url
         assert request.headers['access_token_auth'] == 'true'
-        assert request.headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
+        expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
+        assert request.headers['x-goog-api-client'] == expected_metrics_header
 
     def _get_url(self, path):
         return '{0}/{1}'.format(messaging._MessagingService.IID_URL, path)

@@ -319,7 +319,9 @@ class MessageEncoder(json.JSONEncoder):
             'visibility': _Validators.check_string(
                 'AndroidNotification.visibility', notification.visibility, non_empty=True),
             'notification_count': _Validators.check_number(
-                'AndroidNotification.notification_count', notification.notification_count)
+                'AndroidNotification.notification_count', notification.notification_count),
+            'proxy': _Validators.check_string(
+                'AndroidNotification.proxy', notification.proxy, non_empty=True)
         }
         result = cls.remove_null_values(result)
         color = result.get('color')
@@ -363,6 +365,13 @@ class MessageEncoder(json.JSONEncoder):
                     'AndroidNotification.vibrate_timings_millis', msec)
                 vibrate_timing_strings.append(formated_string)
             result['vibrate_timings'] = vibrate_timing_strings
+
+        proxy = result.get('proxy')
+        if proxy:
+            if proxy not in ('allow', 'deny', 'if_priority_lowered'):
+                raise ValueError(
+                    'AndroidNotification.proxy must be "allow", "deny" or "if_priority_lowered".')
+            result['proxy'] = proxy.upper()
         return result
 
     @classmethod

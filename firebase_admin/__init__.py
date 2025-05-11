@@ -66,7 +66,7 @@ def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
         credential = credentials.ApplicationDefault()
     app = App(name, credential, options)
     with _apps_lock:
-        if app.name not in _apps:
+        if not is_app_initialized(app.name):
             _apps[app.name] = app
             return app
 
@@ -84,6 +84,17 @@ def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
         'initialize_app() more than once with the same app name as the '
         'second argument. Make sure you provide a unique name every time '
         'you call initialize_app().').format(name))
+
+
+def is_app_initialized(name=_DEFAULT_APP_NAME):
+    """Returns True if the App instance for the specified name is initialized.
+    Args:
+      name: Name of the App instance to retrieve (optional).
+    Returns:
+      bool: True if the App instance is initialized, False otherwise.
+    """
+    with _apps_lock:
+        return name in _apps
 
 
 def delete_app(app):
@@ -130,9 +141,8 @@ def get_app(name=_DEFAULT_APP_NAME):
     if not isinstance(name, str):
         raise ValueError('Illegal app name argument type: "{}". App name '
                          'must be a string.'.format(type(name)))
-    with _apps_lock:
-        if name in _apps:
-            return _apps[name]
+    if is_app_initialized(name):
+        return _apps[name]
 
     if name == _DEFAULT_APP_NAME:
         raise ValueError(

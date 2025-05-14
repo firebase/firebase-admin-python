@@ -17,6 +17,7 @@ import datetime
 from itertools import chain, repeat
 import json
 import numbers
+import httpx
 import respx
 
 from googleapiclient import http
@@ -2100,54 +2101,26 @@ class TestSendEach(TestBatch):
         assert all([r.success for r in batch_response.responses])
         assert not any([r.exception for r in batch_response.responses])
 
-    # @respx.mock
-    # @pytest.mark.asyncio
-    # async def test_send_each_async_error_request(self):
-    #     payload = json.dumps({
-    #         'error': {
-    #             'status': 'INTERNAL',
-    #             'message': 'test INTERNAL error',
-    #             'details': [
-    #                 {
-    #                     '@type': 'type.googleapis.com/google.firebase.fcm.v1.FcmError',
-    #                     'errorCode': 'SOME_UNKNOWN_CODE',
-    #                 },
-    #             ],
-    #         }
-    #     })
-    #     responses = chain(
-    #         [
-    #             httpx.ConnectError("Test request error", request=httpx.Request('POST', 'URL'))
-    #             # respx.MockResponse(500, http_version='HTTP/2', content=payload),
-    #         ],
-    #         # repeat(
-        #           respx.MockResponse(200, http_version='HTTP/2', json={'name': 'message-id1'})),
-    #         # respx.MockResponse(200, http_version='HTTP/2', json={'name': 'message-id3'}),
-    #     )
+    @respx.mock
+    @pytest.mark.asyncio
+    async def test_send_each_async_request_error(self):
+        responses = httpx.ConnectError("Test request error", request=httpx.Request(
+            'POST',
+            'https://fcm.googleapis.com/v1/projects/explicit-project-id/messages:send'))
 
-    #     # responses = repeat(respx.MockResponse(500, http_version='HTTP/2', content=payload))
+        msg1 = messaging.Message(topic='foo1')
+        route = respx.request(
+            'POST',
+            'https://fcm.googleapis.com/v1/projects/explicit-project-id/messages:send'
+        ).mock(side_effect=responses)
+        batch_response = await messaging.send_each_async([msg1], dry_run=True)
 
-    #     msg1 = messaging.Message(topic='foo1')
-        # route = respx.request(
-        #     'POST',
-        #     'https://fcm.googleapis.com/v1/projects/explicit-project-id/messages:send'
-        # ).mock(side_effect=responses)
-    #     batch_response = await messaging.send_each_async([msg1], dry_run=True)
-
-    #     assert route.call_count == 1
-    #     assert batch_response.success_count == 0
-    #     assert batch_response.failure_count == 1
-    #     assert len(batch_response.responses) == 1
-    #     exception = batch_response.responses[0].exception
-    #     assert isinstance(exception, exceptions.UnavailableError)
-
-    #     # assert route.call_count == 4
-    #     # assert batch_response.success_count == 1
-    #     # assert batch_response.failure_count == 0
-    #     # assert len(batch_response.responses) == 1
-    #     # assert [r.message_id for r in batch_response.responses] == ['message-id1']
-    #     # assert all([r.success for r in batch_response.responses])
-    #     # assert not any([r.exception for r in batch_response.responses])
+        assert route.call_count == 1
+        assert batch_response.success_count == 0
+        assert batch_response.failure_count == 1
+        assert len(batch_response.responses) == 1
+        exception = batch_response.responses[0].exception
+        assert isinstance(exception, exceptions.UnavailableError)
 
     @pytest.mark.parametrize('status', HTTP_ERROR_CODES)
     def test_send_each_detailed_error(self, status):

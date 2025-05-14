@@ -379,15 +379,6 @@ class SendResponse:
         """A ``FirebaseError`` if an error occurs while sending the message to the FCM service."""
         return self._exception
 
-# Auth Flow
-# TODO: Remove comments
-# The aim here is to be able to get auth credentials right before the request is sent.
-# This is similar to what is done in transport.requests.AuthorizedSession().
-# We can then pass this in at the client level.
-
-# Notes:
-# - This implementations does not cover timeouts on requests sent to refresh credentials.
-# - Uses HTTP/1 and a blocking credential for refreshing.
 class GoogleAuthCredentialFlow(httpx.Auth):
     """Google Auth Credential Auth Flow"""
     def __init__(self, credential: credentials.Credentials):
@@ -679,11 +670,6 @@ class _MessagingService:
         return _gapic_utils.handle_platform_error_from_googleapiclient(
             error, _MessagingService._build_fcm_error_googleapiclient)
 
-    # TODO: Remove comments
-    # We should be careful to clean up the httpx clients.
-    # Since we are using an async client we must also close in async. However we can sync wrap this.
-    # The close method is called by the app on shutdown/clean-up of each service. We don't seem to
-    # make use of this much elsewhere.
     def close(self) -> None:
         asyncio.run(self._async_client.aclose())
 

@@ -37,7 +37,7 @@ class TestHttpxRetryTransport():
     @respx.mock
     async def test_no_retry_on_success(self, base_url: str, mocker: MockerFixture):
         """Test that a successful response doesn't trigger retries."""
-        retry_config = HttpxRetry(status=3, status_forcelist=[500])
+        retry_config = HttpxRetry(max_retries=3, status_forcelist=[500])
         transport = HttpxRetryTransport(retry=retry_config)
         client = httpx.AsyncClient(transport=transport)
 
@@ -55,7 +55,7 @@ class TestHttpxRetryTransport():
     @respx.mock
     async def test_no_retry_on_non_retryable_status(self, base_url: str, mocker: MockerFixture):
         """Test that a non-retryable error status doesn't trigger retries."""
-        retry_config = HttpxRetry(status=3, status_forcelist=[500, 503])
+        retry_config = HttpxRetry(max_retries=3, status_forcelist=[500, 503])
         transport = HttpxRetryTransport(retry=retry_config)
         client = httpx.AsyncClient(transport=transport)
 
@@ -75,7 +75,7 @@ class TestHttpxRetryTransport():
             self, base_url: str, mocker: MockerFixture
     ):
         """Test retry on status code from status_forcelist, succeeding on the last attempt."""
-        retry_config = HttpxRetry(status=2, status_forcelist=[503, 500], backoff_factor=0.5)
+        retry_config = HttpxRetry(max_retries=2, status_forcelist=[503, 500], backoff_factor=0.5)
         transport = HttpxRetryTransport(retry=retry_config)
         client = httpx.AsyncClient(transport=transport)
 
@@ -101,7 +101,7 @@ class TestHttpxRetryTransport():
             self, base_url: str, mocker: MockerFixture
     ):
         """Test that the last response is returned when retries are exhausted."""
-        retry_config = HttpxRetry(status=1, status_forcelist=[500], backoff_factor=0)
+        retry_config = HttpxRetry(max_retries=1, status_forcelist=[500], backoff_factor=0)
         transport = HttpxRetryTransport(retry=retry_config)
         client = httpx.AsyncClient(transport=transport)
 
@@ -124,7 +124,8 @@ class TestHttpxRetryTransport():
     @respx.mock
     async def test_retry_after_header_seconds(self, base_url: str, mocker: MockerFixture):
         """Test respecting Retry-After header with seconds value."""
-        retry_config = HttpxRetry(status=1, respect_retry_after_header=True, backoff_factor=100)
+        retry_config = HttpxRetry(
+            max_retries=1, respect_retry_after_header=True, backoff_factor=100)
         transport = HttpxRetryTransport(retry=retry_config)
         client = httpx.AsyncClient(transport=transport)
 
@@ -146,7 +147,8 @@ class TestHttpxRetryTransport():
     @respx.mock
     async def test_retry_after_header_http_date(self, base_url: str, mocker: MockerFixture):
         """Test respecting Retry-After header with an HTTP-date value."""
-        retry_config = HttpxRetry(status=1, respect_retry_after_header=True, backoff_factor=100)
+        retry_config = HttpxRetry(
+            max_retries=1, respect_retry_after_header=True, backoff_factor=100)
         transport = HttpxRetryTransport(retry=retry_config)
         client = httpx.AsyncClient(transport=transport)
 
@@ -181,7 +183,7 @@ class TestHttpxRetryTransport():
     async def test_retry_after_ignored_when_disabled(self, base_url: str, mocker: MockerFixture):
         """Test Retry-After header is ignored if `respect_retry_after_header` is `False`."""
         retry_config = HttpxRetry(
-            status=3, respect_retry_after_header=False, status_forcelist=[429],
+            max_retries=3, respect_retry_after_header=False, status_forcelist=[429],
             backoff_factor=0.5, backoff_max=10)
         transport = HttpxRetryTransport(retry=retry_config)
         client = httpx.AsyncClient(transport=transport)
@@ -215,7 +217,7 @@ class TestHttpxRetryTransport():
         """Test Retry-After header is ignored if `respect_retry_after_header`is `True` but header is
         not set."""
         retry_config = HttpxRetry(
-            status=3, respect_retry_after_header=True, status_forcelist=[429],
+            max_retries=3, respect_retry_after_header=True, status_forcelist=[429],
             backoff_factor=0.5, backoff_max=10)
         transport = HttpxRetryTransport(retry=retry_config)
         client = httpx.AsyncClient(transport=transport)
@@ -247,7 +249,7 @@ class TestHttpxRetryTransport():
         """Test that sleep time increases exponentially with `backoff_factor`."""
         # status=3 allows 3 retries (attempts 2, 3, 4)
         retry_config = HttpxRetry(
-            status=3, status_forcelist=[500], backoff_factor=0.1, backoff_max=10.0)
+            max_retries=3, status_forcelist=[500], backoff_factor=0.1, backoff_max=10.0)
         transport = HttpxRetryTransport(retry=retry_config)
         client = httpx.AsyncClient(transport=transport)
 
@@ -278,7 +280,7 @@ class TestHttpxRetryTransport():
         """Test that backoff time respects `backoff_max`."""
         # status=4 allows 4 retries. backoff_factor=1 causes rapid increase.
         retry_config = HttpxRetry(
-            status=4, status_forcelist=[500], backoff_factor=1, backoff_max=3.0)
+            max_retries=4, status_forcelist=[500], backoff_factor=1, backoff_max=3.0)
         transport = HttpxRetryTransport(retry=retry_config)
         client = httpx.AsyncClient(transport=transport)
 
@@ -310,7 +312,7 @@ class TestHttpxRetryTransport():
     async def test_backoff_jitter(self, base_url: str, mocker: MockerFixture):
         """Test that `backoff_jitter` adds randomness within bounds."""
         retry_config = HttpxRetry(
-            status=3, status_forcelist=[500], backoff_factor=0.2, backoff_jitter=0.1)
+            max_retries=3, status_forcelist=[500], backoff_factor=0.2, backoff_jitter=0.1)
         transport = HttpxRetryTransport(retry=retry_config)
         client = httpx.AsyncClient(transport=transport)
 
@@ -343,7 +345,7 @@ class TestHttpxRetryTransport():
     @respx.mock
     async def test_error_not_retryable(self, base_url):
         """Test that non-HTTP errors are raised immediately if not retryable."""
-        retry_config = HttpxRetry(status=3)
+        retry_config = HttpxRetry(max_retries=3)
         transport = HttpxRetryTransport(retry=retry_config)
         client = httpx.AsyncClient(transport=transport)
 
@@ -362,7 +364,7 @@ class TestHttpxRetry():
 
     def test_httpx_retry_copy(self, base_url):
         """Test that `HttpxRetry.copy()` creates a deep copy."""
-        original = HttpxRetry(status=5, status_forcelist=[500, 503], backoff_factor=0.5)
+        original = HttpxRetry(max_retries=5, status_forcelist=[500, 503], backoff_factor=0.5)
         original.history.append((base_url, None, None)) # Add something mutable
 
         copied = original.copy()
@@ -372,17 +374,17 @@ class TestHttpxRetry():
         assert original.history is not copied.history
 
         # Assert values are the same initially
-        assert copied.status == original.status
+        assert copied.retries_left == original.retries_left
         assert copied.status_forcelist == original.status_forcelist
         assert copied.backoff_factor == original.backoff_factor
         assert len(copied.history) == 1
 
         # Modify the copy and check original is unchanged
-        copied.status = 1
+        copied.retries_left = 1
         copied.status_forcelist = [404]
         copied.history.append((base_url, None, None))
 
-        assert original.status == 5
+        assert original.retries_left == 5
         assert original.status_forcelist == [500, 503]
         assert len(original.history) == 1
 
@@ -413,7 +415,8 @@ class TestHttpxRetry():
             retry._parse_retry_after('Invalid Date Format')
 
     def test_get_backoff_time_calculation(self):
-        retry = HttpxRetry(status=6, status_forcelist=[503], backoff_factor=0.5, backoff_max=10.0)
+        retry = HttpxRetry(
+            max_retries=6, status_forcelist=[503], backoff_factor=0.5, backoff_max=10.0)
         response = httpx.Response(503)
         # No history -> attempt 1 -> no backoff before first request
         # Note: get_backoff_time() is typically called *before* the *next* request,
@@ -447,5 +450,5 @@ class TestHttpxRetry():
 
         # Simulate attempt 6 completed
         retry.increment(self._TEST_REQUEST, response)
-        # History len 6, attempt 7 -> 0.5*(2^4) = 10.0
+        # History len 6, attempt 7 -> 0.5*(2^5) = 16.0 Clamped to 10
         assert retry.get_backoff_time() == pytest.approx(10.0)

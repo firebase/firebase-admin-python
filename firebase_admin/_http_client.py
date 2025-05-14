@@ -43,7 +43,8 @@ DEFAULT_RETRY_CONFIG = retry.Retry(
     connect=1, read=1, status=4, status_forcelist=[500, 503],
     raise_on_status=False, backoff_factor=0.5, **_ANY_METHOD)
 
-DEFAULT_HTTPX_RETRY_CONFIG = HttpxRetry(status=4, status_forcelist=[500, 503], backoff_factor=0.5)
+DEFAULT_HTTPX_RETRY_CONFIG = HttpxRetry(
+    max_retries=4, status_forcelist=[500, 503], backoff_factor=0.5)
 
 
 DEFAULT_TIMEOUT_SECONDS = 120
@@ -166,16 +167,6 @@ class JsonHttpClient(HttpClient):
         return resp.json()
 
 
-# Auth Flow
-# TODO: Remove comments
-# The aim here is to be able to get auth credentials right before the request is sent.
-# This is similar to what is done in transport.requests.AuthorizedSession().
-# We can then pass this in at the client level.
-
-# Notes:
-# - This implementations does not cover timeouts on requests sent to refresh credentials.
-# - Uses HTTP/1 and a blocking credential for refreshing.
-# - Network error retries for refreshing credentials.
 class GoogleAuthCredentialFlow(httpx.Auth):
     """Google Auth Credential Auth Flow"""
     def __init__(self, credential: credentials.Credentials):

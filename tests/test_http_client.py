@@ -276,7 +276,7 @@ class TestHttpxAsyncClient:
 
         mock_credential = testutils.MockGoogleCredential()
         headers = {'X-Custom': 'Test'}
-        custom_retry = HttpxRetry(status=1, status_forcelist=[429], backoff_factor=0)
+        custom_retry = HttpxRetry(max_retries=1, status_forcelist=[429], backoff_factor=0)
         timeout = 60
         http2 = False
 

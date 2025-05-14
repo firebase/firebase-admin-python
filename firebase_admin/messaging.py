@@ -670,11 +670,6 @@ class _MessagingService:
         return _gapic_utils.handle_platform_error_from_googleapiclient(
             error, _MessagingService._build_fcm_error_googleapiclient)
 
-    # TODO: Remove comments
-    # We should be careful to clean up the httpx clients.
-    # Since we are using an async client we must also close in async. However we can sync wrap this.
-    # The close method is called by the app on shutdown/clean-up of each service. We don't seem to
-    # make use of this much elsewhere.
     def close(self) -> None:
         asyncio.run(self._async_client.aclose())
 

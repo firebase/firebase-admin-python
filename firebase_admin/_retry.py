@@ -34,23 +34,18 @@ logger = logging.getLogger(__name__)
 
 class HttpxRetry:
     """HTTPX based retry config"""
-    # TODO: Decide
-    # urllib3.Retry ignores the status_forcelist when respecting Retry-After header
-    # Only 413, 429 and 503 errors are retried with the Retry-After header.
-    # Should we do the same?
-    # Default status codes to be used for ``status_forcelist``
+    # Status codes to be used for respecting `Retry-After` header
     RETRY_AFTER_STATUS_CODES = frozenset([413, 429, 503])
 
-    #: Default maximum backoff time.
+    # Default maximum backoff time.
     DEFAULT_BACKOFF_MAX = 120
 
     def __init__(
             self,
-            status: int = 10,
+            max_retries: int = 10,
             status_forcelist: Optional[List[int]] = None,
             backoff_factor: float = 0,
             backoff_max: float = DEFAULT_BACKOFF_MAX,
-            raise_on_status: bool = False,
             backoff_jitter: float = 0,
             history: Optional[List[Tuple[
                 httpx.Request,
@@ -59,11 +54,10 @@ class HttpxRetry:
             ]]] = None,
             respect_retry_after_header: bool = False,
     ) -> None:
-        self.status = status
+        self.retries_left = max_retries
         self.status_forcelist = status_forcelist
         self.backoff_factor = backoff_factor
         self.backoff_max = backoff_max
-        self.raise_on_status = raise_on_status
         self.backoff_jitter = backoff_jitter
         if history:
             self.history = history
@@ -90,16 +84,10 @@ class HttpxRetry:
 
         return False
 
-    # Placeholder for exception retrying
-    def is_retryable_error(self, error: Exception):
-        """Determine if the error implies that the request should be retired if possible."""
-        logger.debug(error)
-        return False
-
     def is_exhausted(self) -> bool:
         """Determine if there are anymore more retires."""
-        # status count is negative
-        return self.status < 0
+        # retries_left is negative
+        return self.retries_left < 0
 
     # Identical implementation of `urllib3.Retry.parse_retry_after()`
     def _parse_retry_after(self, retry_after_header: str) -> float | None:
@@ -111,7 +99,6 @@ class HttpxRetry:
         else:
             retry_date_tuple = email.utils.parsedate_tz(retry_after_header)
             if retry_date_tuple is None:
-                # TODO: Verify if this is the appropriate way to handle this.
                 raise httpx.RemoteProtocolError(f"Invalid Retry-After header: {retry_after_header}")
 
             retry_date = email.utils.mktime_tz(retry_date_tuple)
@@ -167,45 +154,29 @@ class HttpxRetry:
             error: Optional[Exception] = None
     ) -> None:
         """Update the retry state based on request attempt."""
-        if response and self.is_retryable_response(response):
-            self.status -= 1
+        self.retries_left -= 1
         self.history.append((request, response, error))
 
 
-# TODO: Remove comments
-# Note - This implementation currently covers:
-#   - basic retires for pre-defined status errors
-#   - applying retry backoff and backoff jitter
-#   - ability to respect a response's retry-after header
 class HttpxRetryTransport(httpx.AsyncBaseTransport):
     """HTTPX transport with retry logic."""
 
-    # DEFAULT_RETRY = HttpxRetry(
-    #     connect=1, read=1, status=4, status_forcelist=[500, 503],
-    #     raise_on_status=False, backoff_factor=0.5, allowed_methods=None
-    # )
-    DEFAULT_RETRY = HttpxRetry(status=4, status_forcelist=[500, 503], backoff_factor=0.5)
+    DEFAULT_RETRY = HttpxRetry(max_retries=4, status_forcelist=[500, 503], backoff_factor=0.5)
 
-    # We could also support passing kwargs here
     def __init__(self, retry: HttpxRetry = DEFAULT_RETRY, **kwargs) -> None:
         self._retry = retry
 
         transport_kwargs = kwargs.copy()
         transport_kwargs.update({'retries': 0, 'http2': True})
-        # We should use a full AsyncHTTPTransport under the hood since that is
-        # fully implemented. We could consider making this class extend a
-        # AsyncHTTPTransport instead and use the parent class's methods to handle
-        # requests. We sould also ensure that that transport's internal retry is
-        # not enabled.
+        # We use a full AsyncHTTPTransport under the hood that is already
+        # set up to handle requests. We also insure that that transport's internal
+        # retries are not allowed.
         self._wrapped_transport = httpx.AsyncHTTPTransport(**transport_kwargs)
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
         return await self._dispatch_with_retry(
             request, self._wrapped_transport.handle_async_request)
 
-    # Two types of retries
-    # - Status code (500s, redirect)
-    # - Error code (read, connect, other)
     async def _dispatch_with_retry(
             self,
             request: httpx.Request,
@@ -213,7 +184,7 @@ class HttpxRetryTransport(httpx.AsyncBaseTransport):
     ) -> httpx.Response:
         """Sends a request with retry logic using a provided dispatch method."""
         # This request config is used across all requests that use this transport and therefore
-        # needs to be copied to be used for just this request ans it's retries.
+        # needs to be copied to be used for just this request and it's retries.
         retry = self._retry.copy()
         # First request
         response, error = None, None
@@ -238,16 +209,16 @@ class HttpxRetryTransport(httpx.AsyncBaseTransport):
             if response and not retry.is_retryable_response(response):
                 return response
 
-            if error and not retry.is_retryable_error(error):
+            if error:
                 raise error
 
-            retry.increment(request, response)
+            retry.increment(request, response, error)
 
         if response:
             return response
         if error:
             raise error
-        raise Exception('_dispatch_with_retry() ended with no response or exception')
+        raise AssertionError('_dispatch_with_retry() ended with no response or exception')
 
     async def aclose(self) -> None:
         await self._wrapped_transport.aclose()

@@ -17,16 +17,29 @@
  This module provides utilities for making HTTP calls using the requests library.
  """
 
-from google.auth import transport
-import requests
-from requests.packages.urllib3.util import retry # pylint: disable=import-error
+import typing
 
+import typing_extensions
+import google.auth.transport.requests
+import google.auth.credentials
+import requests.adapters
+import requests.structures
+
+from firebase_admin import _typing
 from firebase_admin import _utils
 
-if hasattr(retry.Retry.DEFAULT, 'allowed_methods'):
-    _ANY_METHOD = {'allowed_methods': None}
+if typing.TYPE_CHECKING:
+    from urllib3.util import retry
 else:
-    _ANY_METHOD = {'method_whitelist': None}
+    from requests.packages.urllib3.util import retry # pylint: disable=import-error
+
+_AnyT = typing_extensions.TypeVar("_AnyT", default=typing.Any)
+
+if hasattr(retry.Retry.DEFAULT, 'allowed_methods'):
+    _ANY_METHOD: typing.Dict[str, typing.Any] = {'allowed_methods': None}
+else:
+    _ANY_METHOD = {'method_whitelist': None}  # type: ignore[reportConstantRedefinition]
+
 # Default retry configuration: Retries once on low-level connection and socket read errors.
 # Retries up to 4 times on HTTP 500 and 503 errors, with exponential backoff. Returns the
 # last response upon exhausting all retries.
@@ -41,7 +54,7 @@ METRICS_HEADERS = {
     'x-goog-api-client': _utils.get_metrics_header(),
 }
 
-class HttpClient:
+class HttpClient(typing.Generic[_AnyT]):
     """Base HTTP client used to make HTTP calls.
 
     HttpClient maintains an HTTP session, and handles request authentication and retries if
@@ -49,8 +62,14 @@ class HttpClient:
     """
 
     def __init__(
-            self, credential=None, session=None, base_url='', headers=None,
-            retries=DEFAULT_RETRY_CONFIG, timeout=DEFAULT_TIMEOUT_SECONDS):
+        self,
+        credential: typing.Optional[google.auth.credentials.Credentials] = None,
+        session: typing.Optional[requests.Session] = None,
+        base_url: str = '',
+        headers: typing.Optional["_typing.HeadersLike"] = None,
+        retries: retry.Retry = DEFAULT_RETRY_CONFIG,
+        timeout: int = DEFAULT_TIMEOUT_SECONDS
+    ) -> None:
         """Creates a new HttpClient instance from the provided arguments.
 
         If a credential is provided, initializes a new HTTP session authorized with it. If neither
@@ -67,8 +86,9 @@ class HttpClient:
           timeout: HTTP timeout in seconds. Defaults to 120 seconds when not specified. Set to
               None to disable timeouts (optional).
         """
+        self._session: typing.Optional[requests.Session]
         if credential:
-            self._session = transport.requests.AuthorizedSession(credential)
+            self._session = google.auth.transport.requests.AuthorizedSession(credential)
         elif session:
             self._session = session
         else:
@@ -83,21 +103,21 @@ class HttpClient:
         self._timeout = timeout
 
     @property
-    def session(self):
+    def session(self) -> typing.Optional[requests.Session]:
         return self._session
 
     @property
-    def base_url(self):
+    def base_url(self) -> str:
         return self._base_url
 
     @property
-    def timeout(self):
+    def timeout(self) -> int:
         return self._timeout
 
-    def parse_body(self, resp):
+    def parse_body(self, resp: requests.Response) -> _AnyT:
         raise NotImplementedError
 
-    def request(self, method, url, **kwargs):
+    def request(self, method: str, url: str, **kwargs: typing.Any) -> requests.Response:
         """Makes an HTTP call using the Python requests library.
 
         This is the sole entry point to the requests library. All other helper methods in this
@@ -120,36 +140,39 @@ class HttpClient:
         if 'timeout' not in kwargs:
             kwargs['timeout'] = self.timeout
         kwargs.setdefault('headers', {}).update(METRICS_HEADERS)
-        resp = self._session.request(method, self.base_url + url, **kwargs)
+        # possible issue: _session can be None
+        resp = self._session.request(method, self.base_url + url, **kwargs)  # type: ignore[reportOptionalMemberAccess]
         resp.raise_for_status()
         return resp
 
-    def headers(self, method, url, **kwargs):
+    def headers(self, method: str, url: str, **kwargs: typing.Any) -> requests.structures.CaseInsensitiveDict[str]:
         resp = self.request(method, url, **kwargs)
         return resp.headers
 
-    def body_and_response(self, method, url, **kwargs):
+    def body_and_response(self, method: str, url: str, **kwargs: typing.Any) -> typing.Tuple[_AnyT, requests.Response]:
         resp = self.request(method, url, **kwargs)
         return self.parse_body(resp), resp
 
-    def body(self, method, url, **kwargs):
+    def body(self, method: str, url: str, **kwargs: typing.Any) -> _AnyT:
         resp = self.request(method, url, **kwargs)
         return self.parse_body(resp)
 
-    def headers_and_body(self, method, url, **kwargs):
+    def headers_and_body(
+        self,
+        method: str,
+        url: str,
+        **kwargs: typing.Any,
+    ) -> typing.Tuple[requests.structures.CaseInsensitiveDict[str], _AnyT]:
         resp = self.request(method, url, **kwargs)
         return resp.headers, self.parse_body(resp)
 
-    def close(self):
-        self._session.close()
-        self._session = None
+    def close(self) -> None:
+        if self._session is not None:
+            self._session.close()
+            self._session = None
 
 
-class JsonHttpClient(HttpClient):
+class JsonHttpClient(HttpClient[typing.Dict[str ,"_typing.Json"]]):
     """An HTTP client that parses response messages as JSON."""
-
-    def __init__(self, **kwargs):
-        HttpClient.__init__(self, **kwargs)
-
-    def parse_body(self, resp):
+    def parse_body(self, resp: requests.Response) -> typing.Dict[str ,"_typing.Json"]:
         return resp.json()

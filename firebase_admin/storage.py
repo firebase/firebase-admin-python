@@ -18,6 +18,8 @@ This module contains utilities for accessing Google Cloud Storage buckets associ
 Firebase apps. This requires the ``google-cloud-storage`` Python module.
 """
 
+import typing
+
 # pylint: disable=import-error,no-name-in-module
 try:
     from google.cloud import storage
@@ -25,12 +27,14 @@ except ImportError:
     raise ImportError('Failed to import the Cloud Storage library for Python. Make sure '
                       'to install the "google-cloud-storage" module.')
 
-from firebase_admin import _utils
+from google.auth import credentials
+
+from firebase_admin import App, _utils
 
 
 _STORAGE_ATTRIBUTE = '_storage'
 
-def bucket(name=None, app=None) -> storage.Bucket:
+def bucket(name: typing.Optional[str] = None, app: typing.Optional[App] = None) -> storage.Bucket:
     """Returns a handle to a Google Cloud Storage bucket.
 
     If the name argument is not provided, uses the 'storageBucket' option specified when
@@ -59,20 +63,25 @@ class _StorageClient:
         'x-goog-api-client': _utils.get_metrics_header(),
     }
 
-    def __init__(self, credentials, project, default_bucket):
+    def __init__(
+        self,
+        credentials: credentials.Credentials,
+        project: typing.Optional[str],
+        default_bucket: typing.Optional[str]
+    ) -> None:
         self._client = storage.Client(
             credentials=credentials, project=project, extra_headers=self.STORAGE_HEADERS)
         self._default_bucket = default_bucket
 
     @classmethod
-    def from_app(cls, app):
+    def from_app(cls, app: App) -> "_StorageClient":
         credentials = app.credential.get_credential()
         default_bucket = app.options.get('storageBucket')
         # Specifying project ID is not required, but providing it when available
         # significantly speeds up the initialization of the storage client.
         return _StorageClient(credentials, app.project_id, default_bucket)
 
-    def bucket(self, name=None):
+    def bucket(self, name: typing.Optional[str] = None) -> storage.Bucket:
         """Returns a handle to the specified Cloud Storage Bucket."""
         bucket_name = name if name is not None else self._default_bucket
         if bucket_name is None:
@@ -84,4 +93,4 @@ class _StorageClient:
             raise ValueError(
                 'Invalid storage bucket name: "{0}". Bucket name must be a non-empty '
                 'string.'.format(bucket_name))
-        return self._client.bucket(bucket_name)
+        return self._client.bucket(bucket_name)  # type: ignore[reportUnknownMemberType]

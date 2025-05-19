@@ -17,23 +17,31 @@ import datetime
 import json
 import os
 import threading
+import typing
 
 from google.auth.credentials import Credentials as GoogleAuthCredentials
 from google.auth.exceptions import DefaultCredentialsError
 from firebase_admin import credentials
 from firebase_admin.__about__ import __version__
+from firebase_admin import _typing
 
 
-_apps = {}
+_T = typing.TypeVar("_T")
+
+_apps: typing.Dict[str, "App"] = {}
 _apps_lock = threading.RLock()
-_clock = datetime.datetime.utcnow
+_clock = lambda: datetime.datetime.now(datetime.timezone.utc)
 
 _DEFAULT_APP_NAME = '[DEFAULT]'
 _FIREBASE_CONFIG_ENV_VAR = 'FIREBASE_CONFIG'
 _CONFIG_VALID_KEYS = ['databaseAuthVariableOverride', 'databaseURL', 'httpTimeout', 'projectId',
                       'storageBucket']
 
-def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
+def initialize_app(
+    credential: typing.Optional[_typing.CredentialLike] = None,
+    options: typing.Optional[typing.Dict[str, typing.Any]] = None,
+    name: str = _DEFAULT_APP_NAME
+) -> "App":
     """Initializes and returns a new App instance.
 
     Creates a new App instance using the specified options
@@ -86,7 +94,7 @@ def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
         'you call initialize_app().').format(name))
 
 
-def delete_app(app):
+def delete_app(app: "App") -> None:
     """Gracefully deletes an App instance.
 
     Args:
@@ -114,7 +122,7 @@ def delete_app(app):
          'second argument.').format(app.name))
 
 
-def get_app(name=_DEFAULT_APP_NAME):
+def get_app(name: str = _DEFAULT_APP_NAME) -> "App":
     """Retrieves an App instance by name.
 
     Args:
@@ -148,7 +156,7 @@ def get_app(name=_DEFAULT_APP_NAME):
 class _AppOptions:
     """A collection of configuration options for an App."""
 
-    def __init__(self, options):
+    def __init__(self, options: typing.Optional[typing.Dict[str, typing.Any]]) -> None:
         if options is None:
             options = self._load_from_environment()
 
@@ -157,11 +165,16 @@ class _AppOptions:
                              'must be a dictionary.'.format(type(options)))
         self._options = options
 
-    def get(self, key, default=None):
+    @typing.overload
+    def get(self, key: str, default: None = None) -> typing.Optional[typing.Any]: ...
+    # possible issue: needs return Any | _T ?
+    @typing.overload
+    def get(self, key: str, default: _T) -> _T: ...
+    def get(self, key: str, default: typing.Any = None) -> typing.Optional[typing.Any]:
         """Returns the option identified by the provided key."""
         return self._options.get(key, default)
 
-    def _load_from_environment(self):
+    def _load_from_environment(self) -> typing.Dict[str, typing.Any]:
         """Invoked when no options are passed to __init__, loads options from FIREBASE_CONFIG.
 
         If the value of the FIREBASE_CONFIG environment variable starts with "{" an attempt is made
@@ -193,7 +206,12 @@ class App:
     common to all Firebase APIs.
     """
 
-    def __init__(self, name, credential, options):
+    def __init__(
+        self,
+        name: str,
+        credential: _typing.CredentialLike,
+        options: typing.Optional[typing.Dict[str, typing.Any]]
+    ) -> None:
         """Constructs a new App using the provided name and options.
 
         Args:
@@ -218,37 +236,37 @@ class App:
                              'with a valid credential instance.')
         self._options = _AppOptions(options)
         self._lock = threading.RLock()
-        self._services = {}
+        self._services: typing.Optional[typing.Dict[str, typing.Any]] = {}
 
         App._validate_project_id(self._options.get('projectId'))
         self._project_id_initialized = False
 
     @classmethod
-    def _validate_project_id(cls, project_id):
+    def _validate_project_id(cls, project_id: typing.Optional[str]) -> None:
         if project_id is not None and not isinstance(project_id, str):
             raise ValueError(
                 'Invalid project ID: "{0}". project ID must be a string.'.format(project_id))
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self._name
 
     @property
-    def credential(self):
+    def credential(self) -> credentials.Base:
         return self._credential
 
     @property
-    def options(self):
+    def options(self) -> _AppOptions:
         return self._options
 
     @property
-    def project_id(self):
+    def project_id(self) -> typing.Optional[str]:
         if not self._project_id_initialized:
             self._project_id = self._lookup_project_id()
             self._project_id_initialized = True
         return self._project_id
 
-    def _lookup_project_id(self):
+    def _lookup_project_id(self) -> typing.Optional[str]:
         """Looks up the Firebase project ID associated with an App.
 
         If a ``projectId`` is specified in app options, it is returned. Then tries to
@@ -259,10 +277,10 @@ class App:
         Returns:
             str: A project ID string or None.
         """
-        project_id = self._options.get('projectId')
+        project_id: typing.Optional[str] = self._options.get('projectId')
         if not project_id:
             try:
-                project_id = self._credential.project_id
+                project_id = getattr(self._credential, "project_id")
             except (AttributeError, DefaultCredentialsError):
                 pass
         if not project_id:
@@ -271,7 +289,7 @@ class App:
         App._validate_project_id(self._options.get('projectId'))
         return project_id
 
-    def _get_service(self, name, initializer):
+    def _get_service(self, name: str, initializer: _typing.ServiceInitializer[_T]) -> _T:
         """Returns the service instance identified by the given name.
 
         Services are functional entities exposed by the Admin SDK (e.g. auth, database). Each
@@ -301,7 +319,7 @@ class App:
                 self._services[name] = initializer(self)
             return self._services[name]
 
-    def _cleanup(self):
+    def _cleanup(self) -> None:
         """Cleans up any services associated with this App.
 
         Checks whether each service contains a close() method, and calls it if available.
@@ -309,7 +327,8 @@ class App:
         any services started by the App.
         """
         with self._lock:
-            for service in self._services.values():
-                if hasattr(service, 'close') and hasattr(service.close, '__call__'):
-                    service.close()
+            if self._services:
+                for service in self._services.values():
+                    if hasattr(service, 'close') and hasattr(service.close, '__call__'):
+                        service.close()
             self._services = None

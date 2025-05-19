@@ -14,21 +14,24 @@
 
 """Firebase Functions module."""
 
-from __future__ import annotations
-from datetime import datetime, timedelta
-from urllib import parse
-import re
+import base64
+import dataclasses
+import datetime
 import json
-from base64 import b64encode
-from typing import Any, Optional, Dict
-from dataclasses import dataclass
-from google.auth.compute_engine import Credentials as ComputeEngineCredentials
+import re
+import typing
+import typing_extensions
+import urllib.parse
 
 import requests
+from google.auth.credentials import Credentials as GoogleAuthCredentials
+from google.auth.compute_engine import Credentials as ComputeEngineCredentials
+
 import firebase_admin
-from firebase_admin import App
 from firebase_admin import _http_client
+from firebase_admin import _typing
 from firebase_admin import _utils
+from firebase_admin import exceptions
 
 _FUNCTIONS_ATTRIBUTE = '_functions'
 
@@ -54,14 +57,14 @@ _FUNCTIONS_HEADERS = {
 # Default canonical location ID of the task queue.
 _DEFAULT_LOCATION = 'us-central1'
 
-def _get_functions_service(app) -> _FunctionsService:
+def _get_functions_service(app: typing.Optional[firebase_admin.App]) -> "_FunctionsService":
     return _utils.get_app_service(app, _FUNCTIONS_ATTRIBUTE, _FunctionsService)
 
 def task_queue(
-        function_name: str,
-        extension_id: Optional[str] = None,
-        app: Optional[App] = None
-    ) -> TaskQueue:
+    function_name: str,
+    extension_id: typing.Optional[str] = None,
+    app: typing.Optional[firebase_admin.App] = None,
+) -> "TaskQueue":
     """Creates a reference to a TaskQueue for a given function name.
 
     The function name can be either:
@@ -89,9 +92,10 @@ def task_queue(
     """
     return _get_functions_service(app).task_queue(function_name, extension_id)
 
+
 class _FunctionsService:
     """Service class that implements Firebase Functions functionality."""
-    def __init__(self, app: App):
+    def __init__(self, app: firebase_admin.App) -> None:
         self._project_id = app.project_id
         if not self._project_id:
             raise ValueError(
@@ -102,28 +106,27 @@ class _FunctionsService:
         self._credential = app.credential.get_credential()
         self._http_client = _http_client.JsonHttpClient(credential=self._credential)
 
-    def task_queue(self, function_name: str, extension_id: Optional[str] = None) -> TaskQueue:
+    def task_queue(self, function_name: str, extension_id: typing.Optional[str] = None) -> "TaskQueue":
         """Creates a TaskQueue instance."""
         return TaskQueue(
             function_name, extension_id, self._project_id, self._credential, self._http_client)
 
     @classmethod
-    def handle_functions_error(cls, error: Any):
+    def handle_functions_error(cls, error: requests.RequestException) -> exceptions.FirebaseError:
         """Handles errors received from the Cloud Functions API."""
-
         return _utils.handle_platform_error_from_requests(error)
+
 
 class TaskQueue:
     """TaskQueue class that implements Firebase Cloud Tasks Queues functionality."""
     def __init__(
-            self,
-            function_name: str,
-            extension_id: Optional[str],
-            project_id,
-            credential,
-            http_client
-        ) -> None:
-
+        self,
+        function_name: str,
+        extension_id: typing.Optional[str],
+        project_id: typing.Optional[str],
+        credential: GoogleAuthCredentials,
+        http_client: _http_client.HttpClient[typing.Dict[str, _typing.Json]]
+    ) -> None:
         # Validate function_name
         _Validators.check_non_empty_string('function_name', function_name)
 
@@ -144,8 +147,7 @@ class TaskQueue:
             _Validators.check_non_empty_string('extension_id', self._extension_id)
             self._resource.resource_id = f'ext-{self._extension_id}-{self._resource.resource_id}'
 
-
-    def enqueue(self, task_data: Any, opts: Optional[TaskOptions] = None) -> str:
+    def enqueue(self, task_data: typing.Any, opts: typing.Optional["TaskOptions"] = None) -> str:
         """Creates a task and adds it to the queue. Tasks cannot be updated after creation.
 
         This action requires `cloudtasks.tasks.create` IAM permission on the service account.
@@ -172,7 +174,7 @@ class TaskQueue:
                 headers=_FUNCTIONS_HEADERS,
                 json={'task': task_payload.__dict__}
             )
-            task_name = resp.get('name', None)
+            task_name = typing.cast(str, resp['name'])
             task_resource = \
                 self._parse_resource_name(task_name, f'queues/{self._resource.resource_id}/tasks')
             return task_resource.resource_id
@@ -203,8 +205,7 @@ class TaskQueue:
         except requests.exceptions.RequestException as error:
             raise _FunctionsService.handle_functions_error(error)
 
-
-    def _parse_resource_name(self, resource_name: str, resource_id_key: str) -> Resource:
+    def _parse_resource_name(self, resource_name: str, resource_id_key: str) -> "Resource":
         """Parses a full or partial resource path into a ``Resource``."""
         if '/' not in resource_name:
             return Resource(resource_id=resource_name)
@@ -215,7 +216,7 @@ class TaskQueue:
             raise ValueError('Invalid resource name format.')
         return Resource(project_id=match[2], location_id=match[3], resource_id=match[4])
 
-    def _get_url(self, resource: Resource, url_format: str) -> str:
+    def _get_url(self, resource: "Resource", url_format: str) -> str:
         """Generates url path from a ``Resource`` and url format string."""
         return url_format.format(
             project_id=resource.project_id,
@@ -223,18 +224,18 @@ class TaskQueue:
             resource_id=resource.resource_id)
 
     def _validate_task_options(
-            self,
-            data: Any,
-            resource: Resource,
-            opts: Optional[TaskOptions] = None
-        ) -> Task:
+        self,
+        data: typing.Dict[str, typing.Any],
+        resource: "Resource",
+        opts: typing.Optional["TaskOptions"] = None,
+    ) -> "Task":
         """Validate and create a Task from optional ``TaskOptions``."""
         task_http_request = {
             'url': '',
             'oidc_token': {
                 'service_account_email': ''
             },
-            'body': b64encode(json.dumps(data).encode()).decode(),
+            'body': base64.b64encode(json.dumps(data).encode()).decode(),
             'headers': {
                 'Content-Type': 'application/json',
             }
@@ -255,7 +256,8 @@ class TaskQueue:
                 if not isinstance(opts.schedule_delay_seconds, int) \
                 or opts.schedule_delay_seconds < 0:
                     raise ValueError('schedule_delay_seconds should be positive int.')
-                schedule_time = datetime.utcnow() + timedelta(seconds=opts.schedule_delay_seconds)
+                schedule_time = datetime.datetime.now(datetime.timezone.utc) + \
+                    datetime.timedelta(seconds=opts.schedule_delay_seconds)
                 task.schedule_time = schedule_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
             if opts.dispatch_deadline_seconds is not None:
                 if not isinstance(opts.dispatch_deadline_seconds, int) \
@@ -279,7 +281,12 @@ class TaskQueue:
                 task.http_request['url'] = opts.uri
         return task
 
-    def _update_task_payload(self, task: Task, resource: Resource, extension_id: str) -> Task:
+    def _update_task_payload(
+        self,
+        task: "Task",
+        resource: "Resource",
+        extension_id: typing.Optional[str],
+    ) -> "Task":
         """Prepares task to be sent with credentials."""
         # Get function url from task or generate from resources
         if not _Validators.is_non_empty_string(task.http_request['url']):
@@ -289,49 +296,50 @@ class TaskQueue:
         if _Validators.is_non_empty_string(extension_id) and \
             isinstance(self._credential, ComputeEngineCredentials):
 
-            id_token = self._credential.token
+            id_token = typing.cast(str, self._credential.token)  # type: ignore[reportUnknownMemberType]
             task.http_request['headers'] = \
                 {**task.http_request['headers'], 'Authorization': f'Bearer ${id_token}'}
             # Delete oidc token
             del task.http_request['oidc_token']
         else:
+            # possible issue: _credential needs more specific annotation
             task.http_request['oidc_token'] = \
-                {'service_account_email': self._credential.service_account_email}
+                {'service_account_email': self._credential.service_account_email}  # type: ignore[reportUnknownMemberType]
         return task
 
 
 class _Validators:
     """A collection of data validation utilities."""
-    @classmethod
-    def check_non_empty_string(cls, label: str, value: Any):
+    @staticmethod
+    def check_non_empty_string(label: str, value: typing.Any) -> None:
         """Checks if given value is a non-empty string and throws error if not."""
         if not isinstance(value, str):
             raise ValueError('{0} "{1}" must be a string.'.format(label, value))
         if value == '':
             raise ValueError('{0} "{1}" must be a non-empty string.'.format(label, value))
 
-    @classmethod
-    def is_non_empty_string(cls, value: Any):
+    @staticmethod
+    def is_non_empty_string(value: typing.Any) -> typing_extensions.TypeGuard[str]:
         """Checks if given value is a non-empty string and returns bool."""
         if not isinstance(value, str) or value == '':
             return False
         return True
 
-    @classmethod
-    def is_task_id(cls, task_id: Any):
+    @staticmethod
+    def is_task_id(task_id: str) -> bool:
         """Checks if given value is a valid task id."""
         reg = '^[A-Za-z0-9_-]+$'
         if re.match(reg, task_id) is not None and len(task_id) <= 500:
             return True
         return False
 
-    @classmethod
-    def is_url(cls, url: Any):
+    @staticmethod
+    def is_url(url: typing.Any) -> typing_extensions.TypeGuard[str]:
         """Checks if given value is a valid url."""
         if not isinstance(url, str):
             return False
         try:
-            parsed = parse.urlparse(url)
+            parsed = urllib.parse.urlparse(url)
             if not parsed.netloc or parsed.scheme not in ['http', 'https']:
                 return False
             return True
@@ -339,7 +347,7 @@ class _Validators:
             return False
 
 
-@dataclass
+@dataclasses.dataclass
 class TaskOptions:
     """Task Options that can be applied to a Task.
 
@@ -397,14 +405,15 @@ class TaskOptions:
         uri: The full URL that the request will be sent to. Must be a valid RFC3986 https or
             http URL.
     """
-    schedule_delay_seconds: Optional[int] = None
-    schedule_time: Optional[datetime] = None
-    dispatch_deadline_seconds: Optional[int] = None
-    task_id: Optional[str] = None
-    headers: Optional[Dict[str, str]] = None
-    uri: Optional[str] = None
+    schedule_delay_seconds: typing.Optional[int] = None
+    schedule_time: typing.Optional[datetime.datetime] = None
+    dispatch_deadline_seconds: typing.Optional[int] = None
+    task_id: typing.Optional[str] = None
+    headers: typing.Optional[typing.Dict[str, str]] = None
+    uri: typing.Optional[str] = None
 
-@dataclass
+
+@dataclasses.dataclass
 class Task:
     """Contains the relevant fields for enqueueing tasks that trigger Cloud Functions.
 
@@ -418,13 +427,13 @@ class Task:
         schedule_time: The time when the task is scheduled to be attempted or retried.
         dispatch_deadline: The deadline for requests sent to the worker.
     """
-    http_request: Dict[str, Optional[str | dict]]
-    name: Optional[str] = None
-    schedule_time: Optional[str] = None
-    dispatch_deadline: Optional[str] = None
+    http_request: typing.Dict[str, typing.Any]
+    name: typing.Optional[str] = None
+    schedule_time: typing.Optional[str] = None
+    dispatch_deadline: typing.Optional[str] = None
 
 
-@dataclass
+@dataclasses.dataclass
 class Resource:
     """Contains the parsed address of a resource.
 
@@ -434,5 +443,5 @@ class Resource:
         location_id: The location ID of the resource.
     """
     resource_id: str
-    project_id: Optional[str] = None
-    location_id: Optional[str] = None
+    project_id: typing.Optional[str] = None
+    location_id: typing.Optional[str] = None

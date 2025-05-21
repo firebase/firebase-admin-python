@@ -37,6 +37,7 @@ from firebase_admin import (
     exceptions,
     App
 )
+from firebase_admin._retry import HttpxRetryTransport
 
 logger = logging.getLogger(__name__)
 

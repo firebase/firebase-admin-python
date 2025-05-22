@@ -19,7 +19,7 @@ This module provides utilities for making HTTP calls using the requests library.
 
 from __future__ import annotations
 import logging
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Generator, Optional, Tuple, Union
 import httpx
 import requests.adapters
 from requests.packages.urllib3.util import retry # pylint: disable=import-error
@@ -175,7 +175,10 @@ class GoogleAuthCredentialFlow(httpx.Auth):
         self._refresh_status_codes = (401,)
 
     def apply_auth_headers(
-            self, request: httpx.Request, auth_request: google_auth_requests.Request):
+            self,
+            request: httpx.Request,
+            auth_request: google_auth_requests.Request
+        ) -> None:
         """A helper function to refreshes credentials if needed and mutates the request headers to
         contain access token and any other google auth headers."""
 
@@ -188,7 +191,7 @@ class GoogleAuthCredentialFlow(httpx.Auth):
         )
         logger.debug('Auth headers applied. Credential validity after: %s', self._credential.valid)
 
-    def auth_flow(self, request: httpx.Request):
+    def auth_flow(self, request: httpx.Request) -> Generator[httpx.Request, httpx.Response, None]:
         _original_headers = request.headers.copy()
         _credential_refresh_attempt = 0
 

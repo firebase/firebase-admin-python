@@ -52,7 +52,7 @@ class _AppCheckService:
     _jwks_client = None
 
     _APP_CHECK_HEADERS = {
-        'X-GOOG-API-CLIENT': _utils.get_metrics_header(),
+        'x-goog-api-client': _utils.get_metrics_header(),
     }
 
     def __init__(self, app):

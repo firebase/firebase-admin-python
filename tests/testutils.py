@@ -123,6 +123,10 @@ class MockGoogleCredential(credentials.Credentials):
     def service_account_email(self):
         return 'mock-email'
 
+    # Simulate x-goog-api-client modification in credential refresh
+    def _metric_header_for_usage(self):
+        return 'mock-cred-metric-tag'
+
 
 class MockCredential(firebase_admin.credentials.Base):
     """A mock Firebase credential implementation."""

@@ -15,6 +15,9 @@
 """Test cases for the firebase_admin.tenant_mgt module."""
 
 import json
+import time
+import datetime
+import unittest.mock
 from urllib import parse
 
 import pytest
@@ -29,6 +32,9 @@ from firebase_admin import _user_mgt
 from firebase_admin import _utils
 from tests import testutils
 from tests import test_token_gen
+from tests.test_token_gen import MOCK_CURRENT_TIME
+# jwt_helpers will be used in mocker.patch.object, if not, the string path is fine.
+from google.auth.jwt import _helpers as jwt_helpers
 
 
 GET_TENANT_RESPONSE = """{
@@ -964,6 +970,18 @@ class TestTenantAwareUserManagement:
 
 class TestVerifyIdToken:
 
+    def setup_method(self, method):
+        self.time_patch = unittest.mock.patch('time.time', return_value=MOCK_CURRENT_TIME)
+        self.mock_time = self.time_patch.start()
+        self.utcnow_patch = unittest.mock.patch.object(
+            jwt_helpers, 'utcnow', return_value=datetime.datetime.fromtimestamp(
+                MOCK_CURRENT_TIME, tz=datetime.timezone.utc))
+        self.mock_utcnow = self.utcnow_patch.start()
+
+    def teardown_method(self, method):
+        self.time_patch.stop()
+        self.utcnow_patch.stop()
+
     def test_valid_token(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('test-tenant', app=tenant_mgt_app)
         client._token_verifier.request = test_token_gen.MOCK_REQUEST
@@ -996,6 +1014,18 @@ def tenant_aware_custom_token_app():
 
 
 class TestCreateCustomToken:
+
+    def setup_method(self, method):
+        self.time_patch = unittest.mock.patch('time.time', return_value=MOCK_CURRENT_TIME)
+        self.mock_time = self.time_patch.start()
+        self.utcnow_patch = unittest.mock.patch.object(
+            jwt_helpers, 'utcnow', return_value=datetime.datetime.fromtimestamp(
+                MOCK_CURRENT_TIME, tz=datetime.timezone.utc))
+        self.mock_utcnow = self.utcnow_patch.start()
+
+    def teardown_method(self, method):
+        self.time_patch.stop()
+        self.utcnow_patch.stop()
 
     def test_custom_token(self, tenant_aware_custom_token_app):
         client = tenant_mgt.auth_for_tenant('test-tenant', app=tenant_aware_custom_token_app)

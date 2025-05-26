@@ -530,6 +530,9 @@ class MessageEncoder(json.JSONEncoder):
             'payload': cls.encode_apns_payload(apns.payload),
             'fcm_options': cls.encode_apns_fcm_options(apns.fcm_options),
         }
+        if apns.live_activity_token:
+            result['live_activity_token'] = _Validators.check_string(
+                'APNSConfig.live_activity_token', apns.live_activity_token, non_empty=True)
         return cls.remove_null_values(result)
 
     @classmethod

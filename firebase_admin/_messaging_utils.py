@@ -334,7 +334,7 @@ class APNSConfig:
         payload: A ``messaging.APNSPayload`` to be included in the message (optional).
         fcm_options: A ``messaging.APNSFCMOptions`` instance to be included in the message
             (optional).
-        live_activity_token: An optional string that identifies the live activity to update.
+        live_activity_token: A live activity token string (optional).
 
     .. _APNS Documentation: https://developer.apple.com/library/content/documentation\
         /NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html

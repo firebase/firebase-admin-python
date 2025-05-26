@@ -156,7 +156,6 @@ class HttpClient:
         self._session.close()
         self._session = None
 
-
 class JsonHttpClient(HttpClient):
     """An HTTP client that parses response messages as JSON."""
 
@@ -165,7 +164,6 @@ class JsonHttpClient(HttpClient):
 
     def parse_body(self, resp):
         return resp.json()
-
 
 class GoogleAuthCredentialFlow(httpx.Auth):
     """Google Auth Credential Auth Flow"""
@@ -238,8 +236,6 @@ class GoogleAuthCredentialFlow(httpx.Auth):
                 )
                 break
         # The last yielded response is automatically returned by httpx's auth flow.
-
-
 
 class HttpxAsyncClient():
     """Async HTTP client used to make HTTP/2 calls using HTTPX.

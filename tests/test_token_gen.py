@@ -19,11 +19,14 @@ import datetime
 import json
 import os
 import time
+import unittest.mock
+import datetime
 
 from google.auth import crypt
 from google.auth import jwt
 import google.auth.exceptions
 import google.oauth2.id_token
+from google.auth.jwt import _helpers as jwt_helpers
 import pytest
 from pytest_localserver import plugin
 
@@ -36,6 +39,7 @@ from firebase_admin import _token_gen
 from tests import testutils
 
 
+MOCK_CURRENT_TIME = 1500000000
 MOCK_UID = 'user1'
 MOCK_CREDENTIAL = credentials.Certificate(
     testutils.resource_filename('service_account.json'))
@@ -105,16 +109,17 @@ def verify_custom_token(custom_token, expected_claims, tenant_id=None):
         for key, value in expected_claims.items():
             assert value == token['claims'][key]
 
-def _get_id_token(payload_overrides=None, header_overrides=None):
+def _get_id_token(payload_overrides=None, header_overrides=None, current_time=MOCK_CURRENT_TIME):
     signer = crypt.RSASigner.from_string(MOCK_PRIVATE_KEY)
     headers = {
         'kid': 'mock-key-id-1'
     }
+    now = int(current_time if current_time is not None else time.time())
     payload = {
         'aud': MOCK_CREDENTIAL.project_id,
         'iss': 'https://securetoken.google.com/' + MOCK_CREDENTIAL.project_id,
-        'iat': int(time.time()) - 100,
-        'exp': int(time.time()) + 3600,
+        'iat': now - 100,
+        'exp': now + 3600,
         'sub': '1234567890',
         'admin': True,
         'firebase': {
@@ -127,12 +132,12 @@ def _get_id_token(payload_overrides=None, header_overrides=None):
         payload = _merge_jwt_claims(payload, payload_overrides)
     return jwt.encode(signer, payload, header=headers)
 
-def _get_session_cookie(payload_overrides=None, header_overrides=None):
+def _get_session_cookie(payload_overrides=None, header_overrides=None, current_time=MOCK_CURRENT_TIME):
     payload_overrides = payload_overrides or {}
     if 'iss' not in payload_overrides:
         payload_overrides['iss'] = 'https://session.firebase.google.com/{0}'.format(
             MOCK_CREDENTIAL.project_id)
-    return _get_id_token(payload_overrides, header_overrides)
+    return _get_id_token(payload_overrides, header_overrides, current_time=current_time)
 
 def _instrument_user_manager(app, status, payload):
     client = auth._get_client(app)
@@ -205,7 +210,7 @@ def env_var_app(request):
 @pytest.fixture(scope='module')
 def revoked_tokens():
     mock_user = json.loads(testutils.resource('get_user.json'))
-    mock_user['users'][0]['validSince'] = str(int(time.time())+100)
+    mock_user['users'][0]['validSince'] = str(MOCK_CURRENT_TIME + 100)
     return json.dumps(mock_user)
 
 @pytest.fixture(scope='module')
@@ -218,7 +223,7 @@ def user_disabled():
 def user_disabled_and_revoked():
     mock_user = json.loads(testutils.resource('get_user.json'))
     mock_user['users'][0]['disabled'] = True
-    mock_user['users'][0]['validSince'] = str(int(time.time())+100)
+    mock_user['users'][0]['validSince'] = str(MOCK_CURRENT_TIME + 100)
     return json.dumps(mock_user)
 
 
@@ -420,6 +425,17 @@ TEST_SESSION_COOKIE = _get_session_cookie()
 
 class TestVerifyIdToken:
 
+    def setup_method(self, method):
+        self.time_patch = unittest.mock.patch('time.time', return_value=MOCK_CURRENT_TIME)
+        self.time_patch.start()
+        self.utcnow_patch = unittest.mock.patch.object(
+            jwt_helpers, 'utcnow', return_value=datetime.datetime.utcfromtimestamp(MOCK_CURRENT_TIME))
+        self.utcnow_patch.start()
+
+    def teardown_method(self, method):
+        self.time_patch.stop()
+        self.utcnow_patch.stop()
+
     valid_tokens = {
         'BinaryToken': TEST_ID_TOKEN,
         'TextToken': TEST_ID_TOKEN.decode('utf-8'),
@@ -435,15 +451,9 @@ class TestVerifyIdToken:
         'EmptySubject': _get_id_token({'sub': ''}),
         'IntSubject': _get_id_token({'sub': 10}),
         'LongStrSubject': _get_id_token({'sub': 'a' * 129}),
-        'FutureToken': _get_id_token({'iat': int(time.time()) + 1000}),
-        'ExpiredToken': _get_id_token({
-            'iat': int(time.time()) - 10000,
-            'exp': int(time.time()) - 3600
-        }),
-        'ExpiredTokenShort': _get_id_token({
-            'iat': int(time.time()) - 10000,
-            'exp': int(time.time()) - 30
-        }),
+        'FutureToken': _get_id_token({'iat': MOCK_CURRENT_TIME + 1000}),
+        'ExpiredToken': _get_id_token({'iat': MOCK_CURRENT_TIME - 10000, 'exp': MOCK_CURRENT_TIME - 3600}),
+        'ExpiredTokenShort': _get_id_token({'iat': MOCK_CURRENT_TIME - 10000, 'exp': MOCK_CURRENT_TIME - 30}),
         'BadFormatToken': 'foobar'
     }
 
@@ -618,6 +628,17 @@ class TestVerifyIdToken:
 
 class TestVerifySessionCookie:
 
+    def setup_method(self, method):
+        self.time_patch = unittest.mock.patch('time.time', return_value=MOCK_CURRENT_TIME)
+        self.time_patch.start()
+        self.utcnow_patch = unittest.mock.patch.object(
+            jwt_helpers, 'utcnow', return_value=datetime.datetime.utcfromtimestamp(MOCK_CURRENT_TIME))
+        self.utcnow_patch.start()
+
+    def teardown_method(self, method):
+        self.time_patch.stop()
+        self.utcnow_patch.stop()
+
     valid_cookies = {
         'BinaryCookie': TEST_SESSION_COOKIE,
         'TextCookie': TEST_SESSION_COOKIE.decode('utf-8'),
@@ -633,15 +654,9 @@ class TestVerifySessionCookie:
         'EmptySubject': _get_session_cookie({'sub': ''}),
         'IntSubject': _get_session_cookie({'sub': 10}),
         'LongStrSubject': _get_session_cookie({'sub': 'a' * 129}),
-        'FutureCookie': _get_session_cookie({'iat': int(time.time()) + 1000}),
-        'ExpiredCookie': _get_session_cookie({
-            'iat': int(time.time()) - 10000,
-            'exp': int(time.time()) - 3600
-        }),
-        'ExpiredCookieShort': _get_session_cookie({
-            'iat': int(time.time()) - 10000,
-            'exp': int(time.time()) - 30
-        }),
+        'FutureCookie': _get_session_cookie({'iat': MOCK_CURRENT_TIME + 1000}),
+        'ExpiredCookie': _get_session_cookie({'iat': MOCK_CURRENT_TIME - 10000, 'exp': MOCK_CURRENT_TIME - 3600}),
+        'ExpiredCookieShort': _get_session_cookie({'iat': MOCK_CURRENT_TIME - 10000, 'exp': MOCK_CURRENT_TIME - 30}),
         'BadFormatCookie': 'foobar',
         'IDToken': TEST_ID_TOKEN,
     }
@@ -792,6 +807,17 @@ class TestVerifySessionCookie:
 
 class TestCertificateCaching:
 
+    def setup_method(self, method):
+        self.time_patch = unittest.mock.patch('time.time', return_value=MOCK_CURRENT_TIME)
+        self.time_patch.start()
+        self.utcnow_patch = unittest.mock.patch.object(
+            jwt_helpers, 'utcnow', return_value=datetime.datetime.utcfromtimestamp(MOCK_CURRENT_TIME))
+        self.utcnow_patch.start()
+
+    def teardown_method(self, method):
+        self.time_patch.stop()
+        self.utcnow_patch.stop()
+
     def test_certificate_caching(self, user_mgt_app, httpserver):
         httpserver.serve_content(MOCK_PUBLIC_CERTS, 200, headers={'Cache-Control': 'max-age=3600'})
         verifier = _token_gen.TokenVerifier(user_mgt_app)
@@ -809,6 +835,17 @@ class TestCertificateCaching:
 
 
 class TestCertificateFetchTimeout:
+
+    def setup_method(self, method):
+        self.time_patch = unittest.mock.patch('time.time', return_value=MOCK_CURRENT_TIME)
+        self.time_patch.start()
+        self.utcnow_patch = unittest.mock.patch.object(
+            jwt_helpers, 'utcnow', return_value=datetime.datetime.utcfromtimestamp(MOCK_CURRENT_TIME))
+        self.utcnow_patch.start()
+
+    def teardown_method(self, method):
+        self.time_patch.stop()
+        self.utcnow_patch.stop()
 
     timeout_configs = [
         ({'httpTimeout': 4}, 4),

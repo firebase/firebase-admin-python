@@ -15,8 +15,6 @@
 """Test cases for the firebase_admin.tenant_mgt module."""
 
 import json
-import time
-import datetime
 import unittest.mock
 from urllib import parse
 
@@ -32,9 +30,7 @@ from firebase_admin import _user_mgt
 from firebase_admin import _utils
 from tests import testutils
 from tests import test_token_gen
-from tests.test_token_gen import MOCK_CURRENT_TIME
-# jwt_helpers will be used in mocker.patch.object, if not, the string path is fine.
-from google.auth.jwt import _helpers as jwt_helpers
+from tests.test_token_gen import MOCK_CURRENT_TIME, MOCK_CURRENT_TIME_UTC
 
 
 GET_TENANT_RESPONSE = """{
@@ -970,15 +966,14 @@ class TestTenantAwareUserManagement:
 
 class TestVerifyIdToken:
 
-    def setup_method(self, method):
+    def setup_method(self):
         self.time_patch = unittest.mock.patch('time.time', return_value=MOCK_CURRENT_TIME)
         self.mock_time = self.time_patch.start()
-        self.utcnow_patch = unittest.mock.patch.object(
-            jwt_helpers, 'utcnow', return_value=datetime.datetime.fromtimestamp(
-                MOCK_CURRENT_TIME, tz=datetime.timezone.utc))
+        self.utcnow_patch = unittest.mock.patch(
+            'google.auth.jwt._helpers.utcnow', return_value=MOCK_CURRENT_TIME_UTC)
         self.mock_utcnow = self.utcnow_patch.start()
 
-    def teardown_method(self, method):
+    def teardown_method(self):
         self.time_patch.stop()
         self.utcnow_patch.stop()
 
@@ -1015,15 +1010,14 @@ def tenant_aware_custom_token_app():
 
 class TestCreateCustomToken:
 
-    def setup_method(self, method):
+    def setup_method(self):
         self.time_patch = unittest.mock.patch('time.time', return_value=MOCK_CURRENT_TIME)
         self.mock_time = self.time_patch.start()
-        self.utcnow_patch = unittest.mock.patch.object(
-            jwt_helpers, 'utcnow', return_value=datetime.datetime.fromtimestamp(
-                MOCK_CURRENT_TIME, tz=datetime.timezone.utc))
+        self.utcnow_patch = unittest.mock.patch(
+            'google.auth.jwt._helpers.utcnow', return_value=MOCK_CURRENT_TIME_UTC)
         self.mock_utcnow = self.utcnow_patch.start()
 
-    def teardown_method(self, method):
+    def teardown_method(self):
         self.time_patch.stop()
         self.utcnow_patch.stop()
 

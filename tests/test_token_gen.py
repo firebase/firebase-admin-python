@@ -20,13 +20,11 @@ import json
 import os
 import time
 import unittest.mock
-import datetime
 
 from google.auth import crypt
 from google.auth import jwt
 import google.auth.exceptions
 import google.oauth2.id_token
-from google.auth.jwt import _helpers as jwt_helpers
 import pytest
 from pytest_localserver import plugin
 
@@ -40,6 +38,8 @@ from tests import testutils
 
 
 MOCK_CURRENT_TIME = 1500000000
+MOCK_CURRENT_TIME_UTC = datetime.datetime.fromtimestamp(
+    MOCK_CURRENT_TIME, tz=datetime.timezone.utc)
 MOCK_UID = 'user1'
 MOCK_CREDENTIAL = credentials.Certificate(
     testutils.resource_filename('service_account.json'))
@@ -132,7 +132,8 @@ def _get_id_token(payload_overrides=None, header_overrides=None, current_time=MO
         payload = _merge_jwt_claims(payload, payload_overrides)
     return jwt.encode(signer, payload, header=headers)
 
-def _get_session_cookie(payload_overrides=None, header_overrides=None, current_time=MOCK_CURRENT_TIME):
+def _get_session_cookie(
+        payload_overrides=None, header_overrides=None, current_time=MOCK_CURRENT_TIME):
     payload_overrides = payload_overrides or {}
     if 'iss' not in payload_overrides:
         payload_overrides['iss'] = 'https://session.firebase.google.com/{0}'.format(
@@ -425,14 +426,14 @@ TEST_SESSION_COOKIE = _get_session_cookie()
 
 class TestVerifyIdToken:
 
-    def setup_method(self, method):
+    def setup_method(self):
         self.time_patch = unittest.mock.patch('time.time', return_value=MOCK_CURRENT_TIME)
         self.time_patch.start()
-        self.utcnow_patch = unittest.mock.patch.object(
-            jwt_helpers, 'utcnow', return_value=datetime.datetime.utcfromtimestamp(MOCK_CURRENT_TIME))
+        self.utcnow_patch = unittest.mock.patch(
+            'google.auth.jwt._helpers.utcnow', return_value=MOCK_CURRENT_TIME_UTC)
         self.utcnow_patch.start()
 
-    def teardown_method(self, method):
+    def teardown_method(self):
         self.time_patch.stop()
         self.utcnow_patch.stop()
 
@@ -452,8 +453,14 @@ class TestVerifyIdToken:
         'IntSubject': _get_id_token({'sub': 10}),
         'LongStrSubject': _get_id_token({'sub': 'a' * 129}),
         'FutureToken': _get_id_token({'iat': MOCK_CURRENT_TIME + 1000}),
-        'ExpiredToken': _get_id_token({'iat': MOCK_CURRENT_TIME - 10000, 'exp': MOCK_CURRENT_TIME - 3600}),
-        'ExpiredTokenShort': _get_id_token({'iat': MOCK_CURRENT_TIME - 10000, 'exp': MOCK_CURRENT_TIME - 30}),
+        'ExpiredToken': _get_id_token({
+            'iat': MOCK_CURRENT_TIME - 10000,
+            'exp': MOCK_CURRENT_TIME - 3600
+        }),
+        'ExpiredTokenShort': _get_id_token({
+            'iat': MOCK_CURRENT_TIME - 10000,
+            'exp': MOCK_CURRENT_TIME - 30
+        }),
         'BadFormatToken': 'foobar'
     }
 
@@ -628,14 +635,14 @@ class TestVerifyIdToken:
 
 class TestVerifySessionCookie:
 
-    def setup_method(self, method):
+    def setup_method(self):
         self.time_patch = unittest.mock.patch('time.time', return_value=MOCK_CURRENT_TIME)
         self.time_patch.start()
-        self.utcnow_patch = unittest.mock.patch.object(
-            jwt_helpers, 'utcnow', return_value=datetime.datetime.utcfromtimestamp(MOCK_CURRENT_TIME))
+        self.utcnow_patch = unittest.mock.patch(
+            'google.auth.jwt._helpers.utcnow', return_value=MOCK_CURRENT_TIME_UTC)
         self.utcnow_patch.start()
 
-    def teardown_method(self, method):
+    def teardown_method(self):
         self.time_patch.stop()
         self.utcnow_patch.stop()
 
@@ -655,8 +662,14 @@ class TestVerifySessionCookie:
         'IntSubject': _get_session_cookie({'sub': 10}),
         'LongStrSubject': _get_session_cookie({'sub': 'a' * 129}),
         'FutureCookie': _get_session_cookie({'iat': MOCK_CURRENT_TIME + 1000}),
-        'ExpiredCookie': _get_session_cookie({'iat': MOCK_CURRENT_TIME - 10000, 'exp': MOCK_CURRENT_TIME - 3600}),
-        'ExpiredCookieShort': _get_session_cookie({'iat': MOCK_CURRENT_TIME - 10000, 'exp': MOCK_CURRENT_TIME - 30}),
+        'ExpiredCookie': _get_session_cookie({
+            'iat': MOCK_CURRENT_TIME - 10000,
+            'exp': MOCK_CURRENT_TIME - 3600
+        }),
+        'ExpiredCookieShort': _get_session_cookie({
+            'iat': MOCK_CURRENT_TIME - 10000,
+            'exp': MOCK_CURRENT_TIME - 30
+        }),
         'BadFormatCookie': 'foobar',
         'IDToken': TEST_ID_TOKEN,
     }
@@ -807,14 +820,14 @@ class TestVerifySessionCookie:
 
 class TestCertificateCaching:
 
-    def setup_method(self, method):
+    def setup_method(self):
         self.time_patch = unittest.mock.patch('time.time', return_value=MOCK_CURRENT_TIME)
         self.time_patch.start()
-        self.utcnow_patch = unittest.mock.patch.object(
-            jwt_helpers, 'utcnow', return_value=datetime.datetime.utcfromtimestamp(MOCK_CURRENT_TIME))
+        self.utcnow_patch = unittest.mock.patch(
+            'google.auth.jwt._helpers.utcnow', return_value=MOCK_CURRENT_TIME_UTC)
         self.utcnow_patch.start()
 
-    def teardown_method(self, method):
+    def teardown_method(self):
         self.time_patch.stop()
         self.utcnow_patch.stop()
 
@@ -836,16 +849,17 @@ class TestCertificateCaching:
 
 class TestCertificateFetchTimeout:
 
-    def setup_method(self, method):
+    def setup_method(self):
         self.time_patch = unittest.mock.patch('time.time', return_value=MOCK_CURRENT_TIME)
         self.time_patch.start()
-        self.utcnow_patch = unittest.mock.patch.object(
-            jwt_helpers, 'utcnow', return_value=datetime.datetime.utcfromtimestamp(MOCK_CURRENT_TIME))
+        self.utcnow_patch = unittest.mock.patch(
+            'google.auth.jwt._helpers.utcnow', return_value=MOCK_CURRENT_TIME_UTC)
         self.utcnow_patch.start()
 
-    def teardown_method(self, method):
+    def teardown_method(self):
         self.time_patch.stop()
         self.utcnow_patch.stop()
+        testutils.cleanup_apps()
 
     timeout_configs = [
         ({'httpTimeout': 4}, 4),
@@ -889,6 +903,3 @@ class TestCertificateFetchTimeout:
         recorder = []
         request.session.mount('https://', testutils.MockAdapter(MOCK_PUBLIC_CERTS, 200, recorder))
         return recorder
-
-    def teardown_method(self):
-        testutils.cleanup_apps()

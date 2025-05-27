@@ -600,7 +600,10 @@ class TestHttpxAsyncClient:
         if has_metrics:
             for header_key in _http_client.METRICS_HEADERS:
                 assert header_key in headers
-                assert headers.get(header_key) == _http_client.METRICS_HEADERS.get(header_key)
+                expected_metrics_header = _http_client.METRICS_HEADERS.get(header_key, '')
+                if has_auth:
+                    expected_metrics_header += ' mock-cred-metric-tag'
+                assert headers.get(header_key) == expected_metrics_header
 
 
 class TestGoogleAuthCredentialFlow:

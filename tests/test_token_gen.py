@@ -19,6 +19,7 @@ import datetime
 import json
 import os
 import time
+from unittest import mock
 
 from google.auth import crypt
 from google.auth import jwt
@@ -562,17 +563,34 @@ class TestVerifyIdToken:
 
     def test_expired_token_with_tolerance(self, user_mgt_app):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
-        id_token = self.invalid_tokens['ExpiredTokenShort']
+        id_token_encoded = self.invalid_tokens['ExpiredTokenShort']
         if _is_emulated():
-            self._assert_valid_token(id_token, user_mgt_app)
+            # Emulator mode doesn't perform the same time checks, skip advanced mocking
+            self._assert_valid_token(id_token_encoded, user_mgt_app)
             return
-        claims = auth.verify_id_token(id_token, app=user_mgt_app,
-                                      clock_skew_seconds=60)
+
+        # Decode the token to get its actual 'exp' timestamp
+        # Ensure 'google.auth.jwt' is available for jwt.decode
+        # This might require `from google.auth import jwt` if not already present
+        decoded_token = jwt.decode(id_token_encoded, verify=False)
+        exp_timestamp = decoded_token['exp']
+
+        # Valid case: mock utcnow to be exactly at exp + clock_skew (boundary of validity)
+        # The token should be considered valid here.
+        mock_now_valid = datetime.datetime.utcfromtimestamp(exp_timestamp + 60)
+        with mock.patch('google.auth._helpers.utcnow', return_value=mock_now_valid):
+            claims = auth.verify_id_token(id_token_encoded, app=user_mgt_app,
+                                          clock_skew_seconds=60)
         assert claims['admin'] is True
         assert claims['uid'] == claims['sub']
-        with pytest.raises(auth.ExpiredIdTokenError):
-            auth.verify_id_token(id_token, app=user_mgt_app,
-                                 clock_skew_seconds=20)
+
+        # Expired case: mock utcnow to be 1 second after exp + clock_skew (just expired)
+        # The token should be considered expired here.
+        mock_now_expired = datetime.datetime.utcfromtimestamp(exp_timestamp + 20 + 1)
+        with mock.patch('google.auth._helpers.utcnow', return_value=mock_now_expired):
+            with pytest.raises(auth.ExpiredIdTokenError):
+                auth.verify_id_token(id_token_encoded, app=user_mgt_app,
+                                     clock_skew_seconds=20)
 
     def test_project_id_option(self):
         app = firebase_admin.initialize_app(
@@ -741,17 +759,34 @@ class TestVerifySessionCookie:
 
     def test_expired_cookie_with_tolerance(self, user_mgt_app):
         _overwrite_cert_request(user_mgt_app, MOCK_REQUEST)
-        cookie = self.invalid_cookies['ExpiredCookieShort']
+        cookie_encoded = self.invalid_cookies['ExpiredCookieShort']
         if _is_emulated():
-            self._assert_valid_cookie(cookie, user_mgt_app)
+            # Emulator mode doesn't perform the same time checks, skip advanced mocking
+            self._assert_valid_cookie(cookie_encoded, user_mgt_app)
             return
-        claims = auth.verify_session_cookie(cookie, app=user_mgt_app, check_revoked=False,
-                                            clock_skew_seconds=59)
+
+        # Decode the token to get its actual 'exp' timestamp
+        decoded_cookie = jwt.decode(cookie_encoded, verify=False)
+        exp_timestamp = decoded_cookie['exp']
+
+        # Valid case: mock utcnow to be exactly at exp + clock_skew (boundary of validity)
+        # The cookie should be considered valid here.
+        mock_now_valid = datetime.datetime.utcfromtimestamp(exp_timestamp + 59)
+        with mock.patch('google.auth._helpers.utcnow', return_value=mock_now_valid):
+            claims = auth.verify_session_cookie(
+                cookie_encoded, app=user_mgt_app, check_revoked=False,
+                clock_skew_seconds=59) # This clock_skew is used by google.auth.jwt
         assert claims['admin'] is True
         assert claims['uid'] == claims['sub']
-        with pytest.raises(auth.ExpiredSessionCookieError):
-            auth.verify_session_cookie(cookie, app=user_mgt_app, check_revoked=False,
-                                       clock_skew_seconds=29)
+
+        # Expired case: mock utcnow to be 1 second after exp + clock_skew (just expired)
+        # The cookie should be considered expired here.
+        mock_now_expired = datetime.datetime.utcfromtimestamp(exp_timestamp + 29 + 1)
+        with mock.patch('google.auth._helpers.utcnow', return_value=mock_now_expired):
+            with pytest.raises(auth.ExpiredSessionCookieError):
+                auth.verify_session_cookie(
+                    cookie_encoded, app=user_mgt_app, check_revoked=False,
+                    clock_skew_seconds=29) # This clock_skew is used by google.auth.jwt
 
     def test_project_id_option(self):
         app = firebase_admin.initialize_app(

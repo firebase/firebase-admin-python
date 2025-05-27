@@ -122,7 +122,8 @@ class TestTaskQueue:
         assert recorder[0].url == _DEFAULT_REQUEST_URL
         assert recorder[0].headers['Content-Type'] == 'application/json'
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
-        assert recorder[0].headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
+        expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
+        assert recorder[0].headers['x-goog-api-client'] == expected_metrics_header
         assert task_id == 'test-task-id'
 
     def test_task_enqueue_with_extension(self):
@@ -139,7 +140,8 @@ class TestTaskQueue:
         assert recorder[0].url == _CLOUD_TASKS_URL + resource_name
         assert recorder[0].headers['Content-Type'] == 'application/json'
         assert recorder[0].headers['Authorization'] == 'Bearer mock-token'
-        assert recorder[0].headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
+        expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
+        assert recorder[0].headers['x-goog-api-client'] == expected_metrics_header
         assert task_id == 'test-task-id'
 
     def test_task_delete(self):
@@ -149,8 +151,8 @@ class TestTaskQueue:
         assert len(recorder) == 1
         assert recorder[0].method == 'DELETE'
         assert recorder[0].url == _DEFAULT_TASK_URL
-        assert recorder[0].headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
-
+        expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
+        assert recorder[0].headers['x-goog-api-client'] == expected_metrics_header
 
 class TestTaskQueueOptions:
 

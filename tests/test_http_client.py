@@ -86,7 +86,21 @@ class TestHttpClient:
         assert len(recorder) == 1
         assert recorder[0].method == 'GET'
         assert recorder[0].url == _TEST_URL
-        assert recorder[0].headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
+        assert recorder[0].headers['x-goog-api-client'] == _utils.get_metrics_header()
+
+    def test_metrics_headers_with_credentials(self):
+        client = _http_client.HttpClient(
+            credential=testutils.MockGoogleCredential())
+        assert client.session is not None
+        recorder = self._instrument(client, 'body')
+        resp = client.request('get', _TEST_URL)
+        assert resp.status_code == 200
+        assert resp.text == 'body'
+        assert len(recorder) == 1
+        assert recorder[0].method == 'GET'
+        assert recorder[0].url == _TEST_URL
+        expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
+        assert recorder[0].headers['x-goog-api-client'] == expected_metrics_header
 
     def test_credential(self):
         client = _http_client.HttpClient(

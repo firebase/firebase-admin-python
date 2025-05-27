@@ -1686,7 +1686,8 @@ class TestSend:
         assert request.url == expected_url
         assert request.headers['X-GOOG-API-FORMAT-VERSION'] == '2'
         assert request.headers['X-FIREBASE-CLIENT'] == self._CLIENT_VERSION
-        assert request.headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
+        expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
+        assert request.headers['x-goog-api-client'] == expected_metrics_header
         if expected_body is None:
             assert request.body is None
         else:
@@ -2802,7 +2803,8 @@ class TestTopicManagement:
         assert request.method == expected_method
         assert request.url == expected_url
         assert request.headers['access_token_auth'] == 'true'
-        assert request.headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
+        expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
+        assert request.headers['x-goog-api-client'] == expected_metrics_header
 
     def _get_url(self, path):
         return '{0}/{1}'.format(messaging._MessagingService.IID_URL, path)

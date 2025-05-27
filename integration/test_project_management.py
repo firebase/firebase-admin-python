@@ -60,6 +60,16 @@ def ios_app(default_app):
         bundle_id=TEST_APP_BUNDLE_ID, display_name=TEST_APP_DISPLAY_NAME_PREFIX)
 
 
+@pytest.fixture(scope='module')
+def web_app(default_app):
+    del default_app
+    web_apps = project_management.list_web_apps()
+    for web_app in web_apps:
+        if _starts_with(web_app.get_metadata().display_name, TEST_APP_DISPLAY_NAME_PREFIX):
+            return web_app
+    return project_management.create_web_app(display_name=TEST_APP_DISPLAY_NAME_PREFIX)
+
+
 def test_create_android_app_already_exists(android_app):
     del android_app
 
@@ -180,3 +190,35 @@ def test_get_ios_app_config(ios_app, project_id):
     assert plist['BUNDLE_ID'] == TEST_APP_BUNDLE_ID
     assert plist['PROJECT_ID'] == project_id
     assert plist['GOOGLE_APP_ID'] == ios_app.app_id
+
+
+def test_web_set_display_name_and_get_metadata(web_app, project_id):
+    app_id = web_app.app_id
+    web_app = project_management.web_app(app_id)
+    new_display_name = '{0} helloworld {1}'.format(
+        TEST_APP_DISPLAY_NAME_PREFIX, random.randint(0, 10000))
+
+    web_app.set_display_name(new_display_name)
+    metadata = project_management.web_app(app_id).get_metadata()
+    web_app.set_display_name(TEST_APP_DISPLAY_NAME_PREFIX)  # Revert the display name.
+
+    assert metadata._name == 'projects/{0}/webApps/{1}'.format(project_id, app_id)
+    assert metadata.app_id == app_id
+    assert metadata.project_id == project_id
+    assert metadata.display_name == new_display_name
+
+
+def test_list_web_apps(web_app):
+    del web_app
+
+    web_apps = project_management.list_web_apps()
+
+    assert any(_starts_with(web_app.get_metadata().display_name, TEST_APP_DISPLAY_NAME_PREFIX)
+               for web_app in web_apps)
+
+
+def test_get_web_app_config(web_app, project_id):
+    config = web_app.get_config()
+
+    assert config['projectId'] == project_id
+    assert config['appId'] == web_app.app_id

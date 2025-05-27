@@ -77,6 +77,7 @@ __all__ = [
     'send_each',
     'send_each_async',
     'send_each_for_multicast',
+    'send_each_for_multicast_async',
     'subscribe_to_topic',
     'unsubscribe_from_topic',
 ]

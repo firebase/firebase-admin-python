@@ -15,7 +15,6 @@
 """pytest configuration and global fixtures for integration tests."""
 import json
 
-# import asyncio
 import pytest
 from pytest_asyncio import is_async_test
 
@@ -72,15 +71,6 @@ def api_key(request):
                          'command-line option.')
     with open(path) as keyfile:
         return keyfile.read().strip()
-
-# @pytest.fixture(scope="session")
-# def event_loop():
-#     """Create an instance of the default event loop for test session.
-#     This avoids early eventloop closure.
-#     """
-#     loop = asyncio.get_event_loop_policy().new_event_loop()
-#     yield loop
-#     loop.close()
 
 def pytest_collection_modifyitems(items):
     pytest_asyncio_tests = (item for item in items if is_async_test(item))

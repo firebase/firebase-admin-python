@@ -23,8 +23,7 @@ import email.utils
 import random
 import re
 import time
-from types import CoroutineType
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple, Coroutine
 import logging
 import asyncio
 import httpx
@@ -163,7 +162,7 @@ class HttpxRetryTransport(httpx.AsyncBaseTransport):
 
     DEFAULT_RETRY = HttpxRetry(max_retries=4, status_forcelist=[500, 503], backoff_factor=0.5)
 
-    def __init__(self, retry: HttpxRetry = DEFAULT_RETRY, **kwargs) -> None:
+    def __init__(self, retry: HttpxRetry = DEFAULT_RETRY, **kwargs: Any) -> None:
         self._retry = retry
 
         transport_kwargs = kwargs.copy()
@@ -180,7 +179,7 @@ class HttpxRetryTransport(httpx.AsyncBaseTransport):
     async def _dispatch_with_retry(
             self,
             request: httpx.Request,
-            dispatch_method: Callable[[httpx.Request], CoroutineType[Any, Any, httpx.Response]]
+            dispatch_method: Callable[[httpx.Request], Coroutine[Any, Any, httpx.Response]]
     ) -> httpx.Response:
         """Sends a request with retry logic using a provided dispatch method."""
         # This request config is used across all requests that use this transport and therefore

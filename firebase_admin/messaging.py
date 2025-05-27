@@ -15,7 +15,7 @@
 """Firebase Cloud Messaging module."""
 
 from __future__ import annotations
-from typing import Callable, List, Optional
+from typing import Any, Callable, Dict, List, Optional, cast
 import concurrent.futures
 import json
 import warnings
@@ -24,8 +24,6 @@ import logging
 import requests
 import httpx
 
-from google.auth import credentials
-from google.auth.transport  import requests as auth_requests
 from googleapiclient import http
 from googleapiclient import _auth
 
@@ -39,7 +37,6 @@ from firebase_admin import (
     exceptions,
     App
 )
-from firebase_admin._retry import HttpxRetryTransport
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +110,7 @@ UnregisteredError = _messaging_utils.UnregisteredError
 def _get_messaging_service(app: Optional[App]) -> _MessagingService:
     return _utils.get_app_service(app, _MESSAGING_ATTRIBUTE, _MessagingService)
 
-def send(message, dry_run=False, app: Optional[App] = None):
+def send(message: Message, dry_run: bool = False, app: Optional[App] = None) -> str:
     """Sends the given message via Firebase Cloud Messaging (FCM).
 
     If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
@@ -133,7 +130,11 @@ def send(message, dry_run=False, app: Optional[App] = None):
     """
     return _get_messaging_service(app).send(message, dry_run)
 
-def send_each(messages, dry_run=False, app=None):
+def send_each(
+        messages: List[Message],
+        dry_run: bool = False,
+        app: Optional[App] = None
+    ) -> BatchResponse:
     """Sends each message in the given list via Firebase Cloud Messaging.
 
     If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
@@ -153,7 +154,64 @@ def send_each(messages, dry_run=False, app=None):
     """
     return _get_messaging_service(app).send_each(messages, dry_run)
 
-async def send_each_async(messages, dry_run=True, app: Optional[App] = None) -> BatchResponse:
+async def send_each_async(
+        messages: List[Message],
+        dry_run: bool = False,
+        app: Optional[App] = None
+    ) -> BatchResponse:
+    """Sends each message in the given list asynchronously via Firebase Cloud Messaging.
+
+    If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
+    recipients. Instead FCM performs all the usual validations, and emulates the send operation.
+
+    Args:
+        messages: A list of ``messaging.Message`` instances.
+        dry_run: A boolean indicating whether to run the operation in dry run mode (optional).
+        app: An App instance (optional).
+
+    Returns:
+        BatchResponse: A ``messaging.BatchResponse`` instance.
+
+    Raises:
+        FirebaseError: If an error occurs while sending the message to the FCM service.
+        ValueError: If the input arguments are invalid.
+    """
+    return await _get_messaging_service(app).send_each_async(messages, dry_run)
+
+async def send_each_for_multicast_async(
+        multicast_message: MulticastMessage,
+        dry_run: bool = False,
+        app: Optional[App] = None
+    ) -> BatchResponse:
+    """Sends the given mutlicast message to each token asynchronously via Firebase Cloud Messaging
+    (FCM).
+
+    If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
+    recipients. Instead FCM performs all the usual validations, and emulates the send operation.
+
+    Args:
+        multicast_message: An instance of ``messaging.MulticastMessage``.
+        dry_run: A boolean indicating whether to run the operation in dry run mode (optional).
+        app: An App instance (optional).
+
+    Returns:
+        BatchResponse: A ``messaging.BatchResponse`` instance.
+
+    Raises:
+        FirebaseError: If an error occurs while sending the message to the FCM service.
+        ValueError: If the input arguments are invalid.
+    """
+    if not isinstance(multicast_message, MulticastMessage):
+        raise ValueError('Message must be an instance of messaging.MulticastMessage class.')
+    messages = [Message(
+        data=multicast_message.data,
+        notification=multicast_message.notification,
+        android=multicast_message.android,
+        webpush=multicast_message.webpush,
+        apns=multicast_message.apns,
+        fcm_options=multicast_message.fcm_options,
+        token=token
+    ) for token in multicast_message.tokens]
     return await _get_messaging_service(app).send_each_async(messages, dry_run)
 
 def send_each_for_multicast(multicast_message, dry_run=False, app=None):
@@ -379,54 +437,6 @@ class SendResponse:
         """A ``FirebaseError`` if an error occurs while sending the message to the FCM service."""
         return self._exception
 
-class GoogleAuthCredentialFlow(httpx.Auth):
-    """Google Auth Credential Auth Flow"""
-    def __init__(self, credential: credentials.Credentials):
-        self._credential = credential
-        self._max_refresh_attempts = 2
-        self._refresh_status_codes = (401,)
-
-    def apply_auth_headers(self, request: httpx.Request):
-        # Build request used to refresh credentials if needed
-        auth_request = auth_requests.Request()
-        # This refreshes the credentials if needed and mutates the request headers to
-        # contain access token and any other google auth headers
-        self._credential.before_request(auth_request, request.method, request.url, request.headers)
-
-
-    def auth_flow(self, request: httpx.Request):
-        # Keep original headers since `credentials.before_request` mutates the passed headers and we
-        # want to keep the original in cause we need an auth retry.
-        _original_headers = request.headers.copy()
-
-        _credential_refresh_attempt = 0
-        while _credential_refresh_attempt <= self._max_refresh_attempts:
-            # copy original headers
-            request.headers = _original_headers.copy()
-            # mutates request headers
-            logger.debug(
-                'Refreshing credentials for request attempt %d',
-                _credential_refresh_attempt + 1)
-            self.apply_auth_headers(request)
-
-            # Continue to perform the request
-            # yield here dispatches the request and returns with the response
-            response: httpx.Response = yield request
-
-            # We can check the result of the response and determine in we need to retry
-            # on refreshable status codes. Current transport.requests.AuthorizedSession()
-            # only does this on 401 errors. We should do the same.
-            if response.status_code in self._refresh_status_codes:
-                logger.debug(
-                    'Request attempt %d failed due to unauthorized credentials',
-                    _credential_refresh_attempt + 1)
-                _credential_refresh_attempt += 1
-            else:
-                break
-        # Last yielded response is auto returned.
-
-
-
 class _MessagingService:
     """Service class that implements Firebase Cloud Messaging (FCM) functionality."""
 
@@ -444,7 +454,7 @@ class _MessagingService:
         'UNREGISTERED': UnregisteredError,
     }
 
-    def __init__(self, app) -> None:
+    def __init__(self, app: App) -> None:
         project_id = app.project_id
         if not project_id:
             raise ValueError(
@@ -459,12 +469,8 @@ class _MessagingService:
         timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
         self._credential = app.credential.get_credential()
         self._client = _http_client.JsonHttpClient(credential=self._credential, timeout=timeout)
-        self._async_client = httpx.AsyncClient(
-            http2=True,
-            auth=GoogleAuthCredentialFlow(self._credential),
-            timeout=timeout,
-            transport=HttpxRetryTransport()
-        )
+        self._async_client = _http_client.HttpxAsyncClient(
+            credential=self._credential, timeout=timeout)
         self._build_transport = _auth.authorized_http
 
     @classmethod
@@ -473,7 +479,7 @@ class _MessagingService:
             raise ValueError('Message must be an instance of messaging.Message class.')
         return cls.JSON_ENCODER.default(message)
 
-    def send(self, message, dry_run=False):
+    def send(self, message: Message, dry_run: bool = False) -> str:
         """Sends the given message to FCM via the FCM v1 API."""
         data = self._message_data(message, dry_run)
         try:
@@ -486,9 +492,9 @@ class _MessagingService:
         except requests.exceptions.RequestException as error:
             raise self._handle_fcm_error(error)
         else:
-            return resp['name']
+            return cast(str, resp['name'])
 
-    def send_each(self, messages, dry_run=False):
+    def send_each(self, messages: List[Message], dry_run: bool = False) -> BatchResponse:
         """Sends the given messages to FCM via the FCM v1 API."""
         if not isinstance(messages, list):
             raise ValueError('messages must be a list of messaging.Message instances.')
@@ -531,13 +537,11 @@ class _MessagingService:
                     url=self._fcm_url,
                     headers=self._fcm_headers,
                     json=data)
-                # HTTP/2 check
-                if resp.http_version != 'HTTP/2':
-                    raise Exception('This messages was not sent with HTTP/2')
-                resp.raise_for_status()
-            # except httpx.HTTPStatusError as exception:
             except httpx.HTTPError as exception:
                 return SendResponse(resp=None, exception=self._handle_fcm_httpx_error(exception))
+            # Catch errors caused by the requests library during authorization
+            except requests.exceptions.RequestException as exception:
+                return SendResponse(resp=None, exception=self._handle_fcm_error(exception))
             else:
                 return SendResponse(resp.json(), exception=None)
 
@@ -682,7 +686,10 @@ class _MessagingService:
 
     @classmethod
     def _build_fcm_error_httpx(
-                cls, error: httpx.HTTPError, message, error_dict
+            cls,
+            error: httpx.HTTPError,
+            message: str,
+            error_dict: Optional[Dict[str, Any]]
         ) -> Optional[exceptions.FirebaseError]:
         """Parses a httpx error response from the FCM API and creates a FCM-specific exception if
         appropriate."""
@@ -701,7 +708,11 @@ class _MessagingService:
         return exc_type(message, cause=error, http_response=http_response) if exc_type else None
 
     @classmethod
-    def _build_fcm_error(cls, error_dict) -> Optional[Callable[..., exceptions.FirebaseError]]:
+    def _build_fcm_error(
+            cls,
+            error_dict: Optional[Dict[str, Any]]
+        ) -> Optional[Callable[..., exceptions.FirebaseError]]:
+        """Parses an error response to determine the appropriate FCM-specific error type."""
         if not error_dict:
             return None
         fcm_code = None

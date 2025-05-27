@@ -1094,7 +1094,8 @@ class TestAPNSConfigEncoder:
             topic='topic',
             apns=messaging.APNSConfig(
                 headers={'h1': 'v1', 'h2': 'v2'},
-                fcm_options=messaging.APNSFCMOptions('analytics_label_v1')
+                fcm_options=messaging.APNSFCMOptions('analytics_label_v1'),
+                live_activity_token='test_token_string'
             ),
         )
         expected = {
@@ -1107,6 +1108,7 @@ class TestAPNSConfigEncoder:
                 'fcm_options': {
                     'analytics_label': 'analytics_label_v1',
                 },
+                'live_activity_token': 'test_token_string',
             },
         }
         check_encoding(msg, expected)

@@ -529,6 +529,8 @@ class MessageEncoder(json.JSONEncoder):
                 'APNSConfig.headers', apns.headers),
             'payload': cls.encode_apns_payload(apns.payload),
             'fcm_options': cls.encode_apns_fcm_options(apns.fcm_options),
+            'live_activity_token': _Validators.check_string(
+                'APNSConfig.live_activity_token', apns.live_activity_token),
         }
         return cls.remove_null_values(result)
 

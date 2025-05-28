@@ -43,6 +43,9 @@ install_requires = [
     'google-cloud-firestore>=2.19.0; platform.python_implementation != "PyPy"',
     'google-cloud-storage>=1.37.1',
     'pyjwt[crypto] >= 2.5.0',
+    'typing-extensions >= 4.12.0',
+    'types-requests',
+    'types-httplib2'
 ]
 
 setup(
@@ -73,5 +76,6 @@ setup(
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
         'License :: OSI Approved :: Apache Software License',
+        'Typing :: Typed',
     ],
 )

@@ -177,8 +177,8 @@ class GoogleAuthCredentialFlow(httpx.Auth):
             request: httpx.Request,
             auth_request: google_auth_requests.Request
         ) -> None:
-        """A helper function to refreshes credentials if needed and mutates the request headers to
-        contain access token and any other google auth headers."""
+        """A helper function that refreshes credentials if needed and mutates the request headers
+        to contain access token and any other Google Auth headers."""
 
         logger.debug(
             'Attempting to apply auth headers. Credential validity before: %s',
@@ -240,7 +240,7 @@ class GoogleAuthCredentialFlow(httpx.Auth):
 class HttpxAsyncClient():
     """Async HTTP client used to make HTTP/2 calls using HTTPX.
 
-    HttpxAsyncClient maintains an async HTTPX client, and handles request authentication and retries
+    HttpxAsyncClient maintains an async HTTPX client, handles request authentication, and retries
     if necessary.
     """
     def __init__(

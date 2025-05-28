@@ -115,7 +115,7 @@ def send(message: Message, dry_run: bool = False, app: Optional[App] = None) -> 
     """Sends the given message via Firebase Cloud Messaging (FCM).
 
     If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
-    recipients. Instead FCM performs all the usual validations, and emulates the send operation.
+    recipients. Instead, FCM performs all the usual validations and emulates the send operation.
 
     Args:
         message: An instance of ``messaging.Message``.
@@ -139,7 +139,7 @@ def send_each(
     """Sends each message in the given list via Firebase Cloud Messaging.
 
     If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
-    recipients. Instead FCM performs all the usual validations, and emulates the send operation.
+    recipients. Instead, FCM performs all the usual validations and emulates the send operation.
 
     Args:
         messages: A list of ``messaging.Message`` instances.
@@ -163,7 +163,7 @@ async def send_each_async(
     """Sends each message in the given list asynchronously via Firebase Cloud Messaging.
 
     If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
-    recipients. Instead FCM performs all the usual validations, and emulates the send operation.
+    recipients. Instead, FCM performs all the usual validations and emulates the send operation.
 
     Args:
         messages: A list of ``messaging.Message`` instances.
@@ -188,7 +188,7 @@ async def send_each_for_multicast_async(
     (FCM).
 
     If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
-    recipients. Instead FCM performs all the usual validations, and emulates the send operation.
+    recipients. Instead, FCM performs all the usual validations and emulates the send operation.
 
     Args:
         multicast_message: An instance of ``messaging.MulticastMessage``.
@@ -219,7 +219,7 @@ def send_each_for_multicast(multicast_message, dry_run=False, app=None):
     """Sends the given mutlicast message to each token via Firebase Cloud Messaging (FCM).
 
     If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
-    recipients. Instead FCM performs all the usual validations, and emulates the send operation.
+    recipients. Instead, FCM performs all the usual validations and emulates the send operation.
 
     Args:
         multicast_message: An instance of ``messaging.MulticastMessage``.
@@ -250,7 +250,7 @@ def send_all(messages, dry_run=False, app=None):
     """Sends the given list of messages via Firebase Cloud Messaging as a single batch.
 
     If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
-    recipients. Instead FCM performs all the usual validations, and emulates the send operation.
+    recipients. Instead, FCM performs all the usual validations and emulates the send operation.
 
     Args:
         messages: A list of ``messaging.Message`` instances.
@@ -273,7 +273,7 @@ def send_multicast(multicast_message, dry_run=False, app=None):
     """Sends the given mutlicast message to all tokens via Firebase Cloud Messaging (FCM).
 
     If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
-    recipients. Instead FCM performs all the usual validations, and emulates the send operation.
+    recipients. Instead, FCM performs all the usual validations and emulates the send operation.
 
     Args:
         multicast_message: An instance of ``messaging.MulticastMessage``.

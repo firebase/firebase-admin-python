@@ -43,7 +43,8 @@ MOCK_LIST_USERS_RESPONSE = testutils.resource('list_users.json')
 MOCK_ACTION_CODE_DATA = {
     'url': 'http://localhost',
     'handle_code_in_app': True,
-    'dynamic_link_domain': 'http://testly',
+    'dynamic_link_domain': 'http://dynamic-link-domain',
+    'link_domain': 'http://link-domain',
     'ios_bundle_id': 'test.bundle',
     'android_package_name': 'test.bundle',
     'android_minimum_version': '7',
@@ -1364,7 +1365,8 @@ class TestActionCodeSetting:
         data = {
             'url': 'http://localhost',
             'handle_code_in_app': True,
-            'dynamic_link_domain': 'http://testly',
+            'dynamic_link_domain': 'http://dynamic-link-domain',
+            'link_domain': 'http://link-domain',
             'ios_bundle_id': 'test.bundle',
             'android_package_name': 'test.bundle',
             'android_minimum_version': '7',
@@ -1375,6 +1377,7 @@ class TestActionCodeSetting:
         assert parameters['continueUrl'] == data['url']
         assert parameters['canHandleCodeInApp'] == data['handle_code_in_app']
         assert parameters['dynamicLinkDomain'] == data['dynamic_link_domain']
+        assert parameters['linkDomain'] == data['link_domain']
         assert parameters['iOSBundleId'] == data['ios_bundle_id']
         assert parameters['androidPackageName'] == data['android_package_name']
         assert parameters['androidMinimumVersion'] == data['android_minimum_version']
@@ -1535,6 +1538,7 @@ class TestGenerateEmailActionLink:
             assert request['continueUrl'] == settings.url
             assert request['canHandleCodeInApp'] == settings.handle_code_in_app
             assert request['dynamicLinkDomain'] == settings.dynamic_link_domain
+            assert request['linkDomain'] == settings.link_domain
             assert request['iOSBundleId'] == settings.ios_bundle_id
             assert request['androidPackageName'] == settings.android_package_name
             assert request['androidMinimumVersion'] == settings.android_minimum_version

@@ -490,7 +490,8 @@ class ActionCodeSettings:
     """
 
     def __init__(self, url, handle_code_in_app=None, dynamic_link_domain=None, ios_bundle_id=None,
-                 android_package_name=None, android_install_app=None, android_minimum_version=None):
+                 android_package_name=None, android_install_app=None, android_minimum_version=None,
+                 link_domain=None):
         self.url = url
         self.handle_code_in_app = handle_code_in_app
         self.dynamic_link_domain = dynamic_link_domain
@@ -498,6 +499,7 @@ class ActionCodeSettings:
         self.android_package_name = android_package_name
         self.android_install_app = android_install_app
         self.android_minimum_version = android_minimum_version
+        self.link_domain = link_domain
 
 
 def encode_action_code_settings(settings):
@@ -534,6 +536,13 @@ def encode_action_code_settings(settings):
             raise ValueError('Invalid value provided for dynamic_link_domain: {0}'
                              .format(settings.dynamic_link_domain))
         parameters['dynamicLinkDomain'] = settings.dynamic_link_domain
+
+    # link_domain
+    if settings.link_domain is not None:
+        if not isinstance(settings.link_domain, str):
+            raise ValueError('Invalid value provided for link_domain: {0}'
+                             .format(settings.link_domain))
+        parameters['linkDomain'] = settings.link_domain
 
     # ios_bundle_id
     if settings.ios_bundle_id is not None:

@@ -68,7 +68,8 @@ class TestDeleteInstanceId:
     def _assert_request(self, request, expected_method, expected_url):
         assert request.method == expected_method
         assert request.url == expected_url
-        assert request.headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
+        expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
+        assert request.headers['x-goog-api-client'] == expected_metrics_header
 
     def _get_url(self, project_id, iid):
         return instance_id._IID_SERVICE_URL + 'project/{0}/instanceId/{1}'.format(project_id, iid)

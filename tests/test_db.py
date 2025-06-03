@@ -198,7 +198,8 @@ class TestReference:
         assert request.url == expected_url
         assert request.headers['Authorization'] == 'Bearer mock-token'
         assert request.headers['User-Agent'] == db._USER_AGENT
-        assert request.headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
+        expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
+        assert request.headers['x-goog-api-client'] == expected_metrics_header
 
     @pytest.mark.parametrize('data', valid_values)
     def test_get_value(self, data):
@@ -665,7 +666,8 @@ class TestReferenceWithAuthOverride:
         assert request.url == expected_url
         assert request.headers['Authorization'] == 'Bearer mock-token'
         assert request.headers['User-Agent'] == db._USER_AGENT
-        assert request.headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
+        expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
+        assert request.headers['x-goog-api-client'] == expected_metrics_header
 
     def test_get_value(self):
         ref = db.reference('/test')

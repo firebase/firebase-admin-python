@@ -334,15 +334,17 @@ class APNSConfig:
         payload: A ``messaging.APNSPayload`` to be included in the message (optional).
         fcm_options: A ``messaging.APNSFCMOptions`` instance to be included in the message
             (optional).
+        live_activity_token: A live activity token string (optional).
 
     .. _APNS Documentation: https://developer.apple.com/library/content/documentation\
         /NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html
     """
 
-    def __init__(self, headers=None, payload=None, fcm_options=None):
+    def __init__(self, headers=None, payload=None, fcm_options=None, live_activity_token=None):
         self.headers = headers
         self.payload = payload
         self.fcm_options = fcm_options
+        self.live_activity_token = live_activity_token
 
 
 class APNSPayload:

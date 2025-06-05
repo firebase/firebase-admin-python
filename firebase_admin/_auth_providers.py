@@ -14,12 +14,19 @@
 
 """Firebase auth providers management sub module."""
 
+import typing
+import typing_extensions
 from urllib import parse
 
 import requests
 
 from firebase_admin import _auth_utils
+from firebase_admin import _http_client
+from firebase_admin import _typing
 from firebase_admin import _user_mgt
+
+
+_ProviderConfigT = typing_extensions.TypeVar("_ProviderConfigT", bound="ProviderConfig", default="ProviderConfig")
 
 
 MAX_LIST_CONFIGS_RESULTS = 100
@@ -28,20 +35,20 @@ MAX_LIST_CONFIGS_RESULTS = 100
 class ProviderConfig:
     """Parent type for all authentication provider config types."""
 
-    def __init__(self, data):
+    def __init__(self, data: typing.Dict[str, typing.Any]) -> None:
         self._data = data
 
     @property
-    def provider_id(self):
+    def provider_id(self) -> str:
         name = self._data['name']
         return name.split('/')[-1]
 
     @property
-    def display_name(self):
+    def display_name(self) -> typing.Optional[str]:
         return self._data.get('displayName')
 
     @property
-    def enabled(self):
+    def enabled(self) -> bool:
         return self._data.get('enabled', False)
 
 
@@ -80,55 +87,60 @@ class SAMLProviderConfig(ProviderConfig):
 
     @property
     def idp_entity_id(self):
-        return self._data.get('idpConfig', {})['idpEntityId']
+        return self._data['idpConfig']['idpEntityId']
 
     @property
     def sso_url(self):
-        return self._data.get('idpConfig', {})['ssoUrl']
+        return self._data['idpConfig']['ssoUrl']
 
     @property
     def x509_certificates(self):
-        certs = self._data.get('idpConfig', {})['idpCertificates']
+        certs = self._data['idpConfig']['idpCertificates']
         return [c['x509Certificate'] for c in certs]
 
     @property
     def callback_url(self):
-        return self._data.get('spConfig', {})['callbackUri']
+        return self._data['spConfig']['callbackUri']
 
     @property
     def rp_entity_id(self):
-        return self._data.get('spConfig', {})['spEntityId']
+        return self._data['spConfig']['spEntityId']
 
 
-class ListProviderConfigsPage:
-    """Represents a page of AuthProviderConfig instances retrieved from a Firebase project.
+class ListProviderConfigsPage(typing.Generic[_ProviderConfigT]):
+    """Represents a page of ProviderConfig instances retrieved from a Firebase project.
 
     Provides methods for traversing the provider configs included in this page, as well as
     retrieving subsequent pages. The iterator returned by ``iterate_all()`` can be used to iterate
     through all provider configs in the Firebase project starting from this page.
     """
 
-    def __init__(self, download, page_token, max_results):
+    def __init__(
+        self,
+        download: typing.Callable[[typing.Optional[str], int], typing.Dict[str, _typing.Json]],
+        page_token: typing.Optional[str],
+        max_results: int
+    ) -> None:
         self._download = download
         self._max_results = max_results
         self._current = download(page_token, max_results)
 
     @property
-    def provider_configs(self):
-        """A list of ``AuthProviderConfig`` instances available in this page."""
+    def provider_configs(self) -> typing.List[_ProviderConfigT]:
+        """A list of ``ProviderConfig`` instances available in this page."""
         raise NotImplementedError
 
     @property
-    def next_page_token(self):
+    def next_page_token(self) -> str:
         """Page token string for the next page (empty string indicates no more pages)."""
-        return self._current.get('nextPageToken', '')
+        return typing.cast(str, self._current.get('nextPageToken', ''))
 
     @property
-    def has_next_page(self):
+    def has_next_page(self) -> bool:
         """A boolean indicating whether more pages are available."""
         return bool(self.next_page_token)
 
-    def get_next_page(self):
+    def get_next_page(self) -> typing.Optional[typing_extensions.Self]:
         """Retrieves the next page of provider configs, if available.
 
         Returns:
@@ -139,7 +151,7 @@ class ListProviderConfigsPage:
             return self.__class__(self._download, self.next_page_token, self._max_results)
         return None
 
-    def iterate_all(self):
+    def iterate_all(self) -> "_ProviderConfigIterator[_ProviderConfigT]":
         """Retrieves an iterator for provider configs.
 
         Returned iterator will iterate through all the provider configs in the Firebase project
@@ -147,30 +159,39 @@ class ListProviderConfigsPage:
         in memory at a time.
 
         Returns:
-            iterator: An iterator of AuthProviderConfig instances.
+            iterator: An iterator of ProviderConfig instances.
         """
         return _ProviderConfigIterator(self)
 
 
-class _ListOIDCProviderConfigsPage(ListProviderConfigsPage):
-
+class _ListOIDCProviderConfigsPage(ListProviderConfigsPage[OIDCProviderConfig]):
     @property
-    def provider_configs(self):
-        return [OIDCProviderConfig(data) for data in self._current.get('oauthIdpConfigs', [])]
+    def provider_configs(self) -> typing.List[OIDCProviderConfig]:
+        return [
+            OIDCProviderConfig(data)
+            for data in typing.cast(
+                typing.List[typing.Dict[str, typing.Any]],
+                self._current.get('oauthIdpConfigs', []),
+            )
+        ]
 
 
-class _ListSAMLProviderConfigsPage(ListProviderConfigsPage):
-
+class _ListSAMLProviderConfigsPage(ListProviderConfigsPage[SAMLProviderConfig]):
     @property
-    def provider_configs(self):
-        return [SAMLProviderConfig(data) for data in self._current.get('inboundSamlConfigs', [])]
+    def provider_configs(self) -> typing.List[SAMLProviderConfig]:
+        return [
+            SAMLProviderConfig(data)
+            for data in typing.cast(
+                typing.List[typing.Dict[str, typing.Any]],
+                self._current.get('inboundSamlConfigs', []),
+            )
+        ]
 
 
-class _ProviderConfigIterator(_auth_utils.PageIterator):
-
+class _ProviderConfigIterator(_auth_utils.PageIterator[ListProviderConfigsPage[_ProviderConfigT]]):
     @property
-    def items(self):
-        return self._current_page.provider_configs
+    def items(self) -> typing.List[_ProviderConfigT]:
+        return self._current_page.provider_configs if self._current_page else []
 
 
 class ProviderConfigClient:
@@ -178,24 +199,38 @@ class ProviderConfigClient:
 
     PROVIDER_CONFIG_URL = 'https://identitytoolkit.googleapis.com/v2'
 
-    def __init__(self, http_client, project_id, tenant_id=None, url_override=None):
+    def __init__(
+        self,
+        http_client: _http_client.HttpClient[typing.Dict[str, _typing.Json]],
+        project_id: str,
+        tenant_id: typing.Optional[str] = None,
+        url_override: typing.Optional[str] = None,
+    ) -> None:
         self.http_client = http_client
         url_prefix = url_override or self.PROVIDER_CONFIG_URL
         self.base_url = '{0}/projects/{1}'.format(url_prefix, project_id)
         if tenant_id:
             self.base_url += '/tenants/{0}'.format(tenant_id)
 
-    def get_oidc_provider_config(self, provider_id):
+    def get_oidc_provider_config(self, provider_id: str) -> OIDCProviderConfig:
         _validate_oidc_provider_id(provider_id)
         body = self._make_request('get', '/oauthIdpConfigs/{0}'.format(provider_id))
         return OIDCProviderConfig(body)
 
     def create_oidc_provider_config(
-            self, provider_id, client_id, issuer, display_name=None, enabled=None,
-            client_secret=None, id_token_response_type=None, code_response_type=None):
+        self,
+        provider_id: str,
+        client_id: str,
+        issuer: str,
+        display_name: typing.Optional[str] = None,
+        enabled: typing.Optional[bool] = None,
+        client_secret: typing.Optional[str] = None,
+        id_token_response_type: typing.Optional[bool] = None,
+        code_response_type: typing.Optional[bool] = None,
+    ):
         """Creates a new OIDC provider config from the given parameters."""
         _validate_oidc_provider_id(provider_id)
-        req = {
+        req: typing.Dict[str, _typing.Json] = {
             'clientId': _validate_non_empty_string(client_id, 'client_id'),
             'issuer': _validate_url(issuer, 'issuer'),
         }
@@ -204,7 +239,7 @@ class ProviderConfigClient:
         if enabled is not None:
             req['enabled'] = _auth_utils.validate_boolean(enabled, 'enabled')
 
-        response_type = {}
+        response_type: typing.Dict[str, _typing.Json] = {}
         if id_token_response_type is False and code_response_type is False:
             raise ValueError('At least one response type must be returned.')
         if id_token_response_type is not None:
@@ -223,12 +258,19 @@ class ProviderConfigClient:
         return OIDCProviderConfig(body)
 
     def update_oidc_provider_config(
-            self, provider_id, client_id=None, issuer=None, display_name=None,
-            enabled=None, client_secret=None, id_token_response_type=None,
-            code_response_type=None):
+        self,
+        provider_id: str,
+        client_id: typing.Optional[str] = None,
+        issuer: typing.Optional[str] = None,
+        display_name: typing.Optional[str] = None,
+        enabled: typing.Optional[bool] = None,
+        client_secret: typing.Optional[str] = None,
+        id_token_response_type: typing.Optional[bool] = None,
+        code_response_type: typing.Optional[bool] = None,
+    ) -> OIDCProviderConfig:
         """Updates an existing OIDC provider config with the given parameters."""
         _validate_oidc_provider_id(provider_id)
-        req = {}
+        req: typing.Dict[str, _typing.Json] = {}
         if display_name is not None:
             if display_name == _user_mgt.DELETE_ATTRIBUTE:
                 req['displayName'] = None
@@ -264,28 +306,44 @@ class ProviderConfigClient:
         body = self._make_request('patch', url, json=req, params=params)
         return OIDCProviderConfig(body)
 
-    def delete_oidc_provider_config(self, provider_id):
+    def delete_oidc_provider_config(self, provider_id: str) -> None:
         _validate_oidc_provider_id(provider_id)
         self._make_request('delete', '/oauthIdpConfigs/{0}'.format(provider_id))
 
-    def list_oidc_provider_configs(self, page_token=None, max_results=MAX_LIST_CONFIGS_RESULTS):
+    def list_oidc_provider_configs(
+        self,
+        page_token: typing.Optional[str] = None,
+        max_results: int = MAX_LIST_CONFIGS_RESULTS,
+    ) -> _ListOIDCProviderConfigsPage:
         return _ListOIDCProviderConfigsPage(
             self._fetch_oidc_provider_configs, page_token, max_results)
 
-    def _fetch_oidc_provider_configs(self, page_token=None, max_results=MAX_LIST_CONFIGS_RESULTS):
+    def _fetch_oidc_provider_configs(
+        self,
+        page_token: typing.Optional[str] = None,
+        max_results: int = MAX_LIST_CONFIGS_RESULTS,
+    ) -> typing.Dict[str, _typing.Json]:
         return self._fetch_provider_configs('/oauthIdpConfigs', page_token, max_results)
 
-    def get_saml_provider_config(self, provider_id):
+    def get_saml_provider_config(self, provider_id: str) -> SAMLProviderConfig:
         _validate_saml_provider_id(provider_id)
         body = self._make_request('get', '/inboundSamlConfigs/{0}'.format(provider_id))
         return SAMLProviderConfig(body)
 
     def create_saml_provider_config(
-            self, provider_id, idp_entity_id, sso_url, x509_certificates,
-            rp_entity_id, callback_url, display_name=None, enabled=None):
+        self,
+        provider_id: str,
+        idp_entity_id: str,
+        sso_url: str,
+        x509_certificates: typing.List[str],
+        rp_entity_id: str,
+        callback_url: str,
+        display_name: typing.Optional[str] = None,
+        enabled: typing.Optional[bool] = None,
+    ) -> SAMLProviderConfig:
         """Creates a new SAML provider config from the given parameters."""
         _validate_saml_provider_id(provider_id)
-        req = {
+        req: typing.Dict[str, typing.Any] = {
             'idpConfig': {
                 'idpEntityId': _validate_non_empty_string(idp_entity_id, 'idp_entity_id'),
                 'ssoUrl': _validate_url(sso_url, 'sso_url'),
@@ -306,11 +364,19 @@ class ProviderConfigClient:
         return SAMLProviderConfig(body)
 
     def update_saml_provider_config(
-            self, provider_id, idp_entity_id=None, sso_url=None, x509_certificates=None,
-            rp_entity_id=None, callback_url=None, display_name=None, enabled=None):
+        self,
+        provider_id: str,
+        idp_entity_id: typing.Optional[str] = None,
+        sso_url: typing.Optional[str] = None,
+        x509_certificates: typing.Optional[typing.List[str]]=None,
+        rp_entity_id: typing.Optional[str] = None,
+        callback_url: typing.Optional[str] = None,
+        display_name: typing.Optional[str] = None,
+        enabled: typing.Optional[bool] = None,
+    ) -> SAMLProviderConfig:
         """Updates an existing SAML provider config with the given parameters."""
         _validate_saml_provider_id(provider_id)
-        idp_config = {}
+        idp_config: typing.Dict[str, typing.Any] = {}
         if idp_entity_id is not None:
             idp_config['idpEntityId'] = _validate_non_empty_string(idp_entity_id, 'idp_entity_id')
         if sso_url is not None:
@@ -318,13 +384,13 @@ class ProviderConfigClient:
         if x509_certificates is not None:
             idp_config['idpCertificates'] = _validate_x509_certificates(x509_certificates)
 
-        sp_config = {}
+        sp_config: typing.Dict[str, _typing.Json] = {}
         if rp_entity_id is not None:
             sp_config['spEntityId'] = _validate_non_empty_string(rp_entity_id, 'rp_entity_id')
         if callback_url is not None:
             sp_config['callbackUri'] = _validate_url(callback_url, 'callback_url')
 
-        req = {}
+        req: typing.Dict[str, _typing.Json] = {}
         if display_name is not None:
             if display_name == _user_mgt.DELETE_ATTRIBUTE:
                 req['displayName'] = None
@@ -346,18 +412,31 @@ class ProviderConfigClient:
         body = self._make_request('patch', url, json=req, params=params)
         return SAMLProviderConfig(body)
 
-    def delete_saml_provider_config(self, provider_id):
+    def delete_saml_provider_config(self, provider_id: str) -> None:
         _validate_saml_provider_id(provider_id)
         self._make_request('delete', '/inboundSamlConfigs/{0}'.format(provider_id))
 
-    def list_saml_provider_configs(self, page_token=None, max_results=MAX_LIST_CONFIGS_RESULTS):
+    def list_saml_provider_configs(
+        self,
+        page_token: typing.Optional[str] = None,
+        max_results: int = MAX_LIST_CONFIGS_RESULTS,
+    ) -> _ListSAMLProviderConfigsPage:
         return _ListSAMLProviderConfigsPage(
             self._fetch_saml_provider_configs, page_token, max_results)
 
-    def _fetch_saml_provider_configs(self, page_token=None, max_results=MAX_LIST_CONFIGS_RESULTS):
+    def _fetch_saml_provider_configs(
+        self,
+        page_token: typing.Optional[str] = None,
+        max_results: int = MAX_LIST_CONFIGS_RESULTS,
+    ) -> typing.Dict[str, _typing.Json]:
         return self._fetch_provider_configs('/inboundSamlConfigs', page_token, max_results)
 
-    def _fetch_provider_configs(self, path, page_token=None, max_results=MAX_LIST_CONFIGS_RESULTS):
+    def _fetch_provider_configs(
+        self,
+        path: str,
+        page_token: typing.Optional[str] = None,
+        max_results: int = MAX_LIST_CONFIGS_RESULTS,
+    ) -> typing.Dict[str, _typing.Json]:
         """Fetches a page of auth provider configs"""
         if page_token is not None:
             if not isinstance(page_token, str) or not page_token:
@@ -374,7 +453,7 @@ class ProviderConfigClient:
             params += '&pageToken={0}'.format(page_token)
         return self._make_request('get', path, params=params)
 
-    def _make_request(self, method, path, **kwargs):
+    def _make_request(self, method: str, path: str, **kwargs: typing.Any) -> typing.Dict[str, _typing.Json]:
         url = '{0}{1}'.format(self.base_url, path)
         try:
             return self.http_client.body(method, url, **kwargs)
@@ -382,7 +461,7 @@ class ProviderConfigClient:
             raise _auth_utils.handle_auth_backend_error(error)
 
 
-def _validate_oidc_provider_id(provider_id):
+def _validate_oidc_provider_id(provider_id: typing.Any) -> str:
     if not isinstance(provider_id, str):
         raise ValueError(
             'Invalid OIDC provider ID: {0}. Provider ID must be a non-empty string.'.format(
@@ -392,7 +471,7 @@ def _validate_oidc_provider_id(provider_id):
     return provider_id
 
 
-def _validate_saml_provider_id(provider_id):
+def _validate_saml_provider_id(provider_id: typing.Any) -> str:
     if not isinstance(provider_id, str):
         raise ValueError(
             'Invalid SAML provider ID: {0}. Provider ID must be a non-empty string.'.format(
@@ -402,7 +481,7 @@ def _validate_saml_provider_id(provider_id):
     return provider_id
 
 
-def _validate_non_empty_string(value, label):
+def _validate_non_empty_string(value: typing.Any, label: str) -> str:
     """Validates that the given value is a non-empty string."""
     if not isinstance(value, str):
         raise ValueError('Invalid type for {0}: {1}.'.format(label, value))
@@ -411,7 +490,7 @@ def _validate_non_empty_string(value, label):
     return value
 
 
-def _validate_url(url, label):
+def _validate_url(url: typing.Any, label: str) -> str:
     """Validates that the given value is a well-formed URL string."""
     if not isinstance(url, str) or not url:
         raise ValueError(
@@ -426,9 +505,10 @@ def _validate_url(url, label):
         raise ValueError('Malformed {0}: "{1}".'.format(label, url))
 
 
-def _validate_x509_certificates(x509_certificates):
+def _validate_x509_certificates(x509_certificates: typing.Any) -> typing.List[typing.Dict[str, str]]:
     if not isinstance(x509_certificates, list) or not x509_certificates:
         raise ValueError('x509_certificates must be a non-empty list.')
+    x509_certificates = typing.cast(typing.List[typing.Any], x509_certificates)
     if not all([isinstance(cert, str) and cert for cert in x509_certificates]):
         raise ValueError('x509_certificates must only contain non-empty strings.')
     return [{'x509Certificate': cert} for cert in x509_certificates]

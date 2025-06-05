@@ -210,7 +210,7 @@ class App:
         self,
         name: str,
         credential: _typing.CredentialLike,
-        options: typing.Optional[typing.Dict[str, typing.Any]]
+        options: typing.Optional[typing.Dict[str, typing.Any]],
     ) -> None:
         """Constructs a new App using the provided name and options.
 

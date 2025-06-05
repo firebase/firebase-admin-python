@@ -94,7 +94,7 @@ class MulticastMessage:
         android: typing.Optional[_messaging_utils.AndroidConfig] = None,
         webpush: typing.Optional[_messaging_utils.WebpushConfig] = None,
         apns: typing.Optional[_messaging_utils.APNSConfig] = None,
-        fcm_options: typing.Optional[_messaging_utils.FCMOptions] = None
+        fcm_options: typing.Optional[_messaging_utils.FCMOptions] = None,
     ) -> None:
         _Validators.check_string_list('MulticastMessage.tokens', tokens)
         if len(tokens) > 500:
@@ -593,6 +593,8 @@ class MessageEncoder(json.JSONEncoder):
                 'APNSConfig.headers', apns.headers),
             'payload': cls.encode_apns_payload(apns.payload),
             'fcm_options': cls.encode_apns_fcm_options(apns.fcm_options),
+            'live_activity_token': _Validators.check_string(
+                'APNSConfig.live_activity_token', apns.live_activity_token),
         }
         return cls.remove_null_values(result)
 

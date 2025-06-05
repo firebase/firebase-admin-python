@@ -16,23 +16,30 @@
 
 import concurrent.futures
 import json
+import logging
 import typing
 import warnings
 
+import asyncio
 import httplib2
+import httpx
 import requests
 from google.auth import credentials
 from googleapiclient import http
 from googleapiclient import _auth
 
 import firebase_admin
-from firebase_admin import _http_client
-from firebase_admin import _messaging_encoder
-from firebase_admin import _messaging_utils
-from firebase_admin import _gapic_utils
-from firebase_admin import _typing
-from firebase_admin import _utils
-from firebase_admin import exceptions
+from firebase_admin import (
+    _http_client,
+    _messaging_encoder,
+    _messaging_utils,
+    _gapic_utils,
+    _typing,
+    _utils,
+    exceptions
+)
+
+logger = logging.getLogger(__name__)
 
 if typing.TYPE_CHECKING:
     from oauth2client.client import Credentials as OAuth2Credentials
@@ -75,7 +82,9 @@ __all__ = [
     'send_all',
     'send_multicast',
     'send_each',
+    'send_each_async',
     'send_each_for_multicast',
+    'send_each_for_multicast_async',
     'subscribe_to_topic',
     'unsubscribe_from_topic',
 ]
@@ -113,7 +122,7 @@ ThirdPartyAuthError = _messaging_utils.ThirdPartyAuthError
 UnregisteredError = _messaging_utils.UnregisteredError
 
 
-def _get_messaging_service(app: typing.Optional[firebase_admin.App]) -> "_MessagingService":
+def _get_messaging_service(app: typing.Optional[firebase_admin.App]) -> '_MessagingService':
     return _utils.get_app_service(app, _MESSAGING_ATTRIBUTE, _MessagingService)
 
 
@@ -121,7 +130,7 @@ def send(message: Message, dry_run: bool = False, app: typing.Optional[firebase_
     """Sends the given message via Firebase Cloud Messaging (FCM).
 
     If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
-    recipients. Instead FCM performs all the usual validations, and emulates the send operation.
+    recipients. Instead, FCM performs all the usual validations and emulates the send operation.
 
     Args:
         message: An instance of ``messaging.Message``.
@@ -142,11 +151,11 @@ def send_each(
     messages: typing.List[Message],
     dry_run: bool = False,
     app: typing.Optional[firebase_admin.App] = None,
-) -> "BatchResponse":
+) -> 'BatchResponse':
     """Sends each message in the given list via Firebase Cloud Messaging.
 
     If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
-    recipients. Instead FCM performs all the usual validations, and emulates the send operation.
+    recipients. Instead, FCM performs all the usual validations and emulates the send operation.
 
     Args:
         messages: A list of ``messaging.Message`` instances.
@@ -163,15 +172,77 @@ def send_each(
     return _get_messaging_service(app).send_each(messages, dry_run)
 
 
+async def send_each_async(
+        messages: typing.List[Message],
+        dry_run: bool = False,
+        app: typing.Optional[firebase_admin.App] = None
+    ) -> 'BatchResponse':
+    """Sends each message in the given list asynchronously via Firebase Cloud Messaging.
+
+    If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
+    recipients. Instead, FCM performs all the usual validations and emulates the send operation.
+
+    Args:
+        messages: A list of ``messaging.Message`` instances.
+        dry_run: A boolean indicating whether to run the operation in dry run mode (optional).
+        app: An App instance (optional).
+
+    Returns:
+        BatchResponse: A ``messaging.BatchResponse`` instance.
+
+    Raises:
+        FirebaseError: If an error occurs while sending the message to the FCM service.
+        ValueError: If the input arguments are invalid.
+    """
+    return await _get_messaging_service(app).send_each_async(messages, dry_run)
+
+
+async def send_each_for_multicast_async(
+    multicast_message: MulticastMessage,
+    dry_run: bool = False,
+    app: typing.Optional[firebase_admin.App] = None,
+) -> 'BatchResponse':
+    """Sends the given mutlicast message to each token asynchronously via Firebase Cloud Messaging
+    (FCM).
+
+    If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
+    recipients. Instead, FCM performs all the usual validations and emulates the send operation.
+
+    Args:
+        multicast_message: An instance of ``messaging.MulticastMessage``.
+        dry_run: A boolean indicating whether to run the operation in dry run mode (optional).
+        app: An App instance (optional).
+
+    Returns:
+        BatchResponse: A ``messaging.BatchResponse`` instance.
+
+    Raises:
+        FirebaseError: If an error occurs while sending the message to the FCM service.
+        ValueError: If the input arguments are invalid.
+    """
+    if not isinstance(multicast_message, MulticastMessage):
+        raise ValueError('Message must be an instance of messaging.MulticastMessage class.')
+    messages = [Message(
+        data=multicast_message.data,
+        notification=multicast_message.notification,
+        android=multicast_message.android,
+        webpush=multicast_message.webpush,
+        apns=multicast_message.apns,
+        fcm_options=multicast_message.fcm_options,
+        token=token
+    ) for token in multicast_message.tokens]
+    return await _get_messaging_service(app).send_each_async(messages, dry_run)
+
+
 def send_each_for_multicast(
     multicast_message: MulticastMessage,
     dry_run: bool = False,
     app: typing.Optional[firebase_admin.App] = None,
-):
+) -> 'BatchResponse':
     """Sends the given mutlicast message to each token via Firebase Cloud Messaging (FCM).
 
     If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
-    recipients. Instead FCM performs all the usual validations, and emulates the send operation.
+    recipients. Instead, FCM performs all the usual validations and emulates the send operation.
 
     Args:
         multicast_message: An instance of ``messaging.MulticastMessage``.
@@ -203,11 +274,11 @@ def send_all(
     messages: typing.List[Message],
     dry_run: bool = False,
     app: typing.Optional[firebase_admin.App] = None,
-) -> "BatchResponse":
+) -> 'BatchResponse':
     """Sends the given list of messages via Firebase Cloud Messaging as a single batch.
 
     If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
-    recipients. Instead FCM performs all the usual validations, and emulates the send operation.
+    recipients. Instead, FCM performs all the usual validations and emulates the send operation.
 
     Args:
         messages: A list of ``messaging.Message`` instances.
@@ -231,11 +302,11 @@ def send_multicast(
     multicast_message: MulticastMessage,
     dry_run: bool = False,
     app: typing.Optional[firebase_admin.App] = None,
-) -> "BatchResponse":
+) -> 'BatchResponse':
     """Sends the given mutlicast message to all tokens via Firebase Cloud Messaging (FCM).
 
     If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
-    recipients. Instead FCM performs all the usual validations, and emulates the send operation.
+    recipients. Instead, FCM performs all the usual validations and emulates the send operation.
 
     Args:
         multicast_message: An instance of ``messaging.MulticastMessage``.
@@ -271,7 +342,7 @@ def subscribe_to_topic(
     tokens: typing.Union[typing.List[str], str],
     topic: str,
     app: typing.Optional[firebase_admin.App] = None,
-) -> "TopicManagementResponse":
+) -> 'TopicManagementResponse':
     """Subscribes a list of registration tokens to an FCM topic.
 
     Args:
@@ -295,7 +366,7 @@ def unsubscribe_from_topic(
     tokens: typing.Union[typing.List[str], str],
     topic: str,
     app: typing.Optional[firebase_admin.App] = None,
-) -> "TopicManagementResponse":
+) -> 'TopicManagementResponse':
     """Unsubscribes a list of registration tokens from an FCM topic.
 
     Args:
@@ -368,12 +439,12 @@ class TopicManagementResponse:
 class BatchResponse:
     """The response received from a batch request to the FCM API."""
 
-    def __init__(self, responses: typing.List["SendResponse"]) -> None:
+    def __init__(self, responses: typing.List['SendResponse']) -> None:
         self._responses = responses
-        self._success_count = len([resp for resp in responses if resp.success])
+        self._success_count = sum(1 for resp in responses if resp.success)
 
     @property
-    def responses(self) -> typing.List["SendResponse"]:
+    def responses(self) -> typing.List['SendResponse']:
         """A list of ``messaging.SendResponse`` objects (possibly empty)."""
         return self._responses
 
@@ -429,7 +500,7 @@ class _MessagingService:
         'QUOTA_EXCEEDED': QuotaExceededError,
         'SENDER_ID_MISMATCH': SenderIdMismatchError,
         'THIRD_PARTY_AUTH_ERROR': ThirdPartyAuthError,
-        'UNREGISTERED': UnregisteredError
+        'UNREGISTERED': UnregisteredError,
     }
 
     def __init__(self, app: firebase_admin.App) -> None:
@@ -447,6 +518,8 @@ class _MessagingService:
         timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
         self._credential = app.credential.get_credential()
         self._client = _http_client.JsonHttpClient(credential=self._credential, timeout=timeout)
+        self._async_client = _http_client.HttpxAsyncClient(
+            credential=self._credential, timeout=timeout)
         self._build_transport: _TransportBuilder = _auth.authorized_http  # type: ignore[reportUnknownMemberType]
 
     @classmethod
@@ -494,6 +567,37 @@ class _MessagingService:
             with concurrent.futures.ThreadPoolExecutor(max_workers=len(message_data)) as executor:
                 responses = [resp for resp in executor.map(send_data, message_data)]
                 return BatchResponse(responses)
+        except Exception as error:
+            raise exceptions.UnknownError(
+                message='Unknown error while making remote service calls: {0}'.format(error),
+                cause=error)
+
+    async def send_each_async(self, messages: typing.List[Message], dry_run: bool = True) -> BatchResponse:
+        """Sends the given messages to FCM via the FCM v1 API."""
+        if not isinstance(messages, list):
+            raise ValueError('messages must be a list of messaging.Message instances.')
+        if len(messages) > 500:
+            raise ValueError('messages must not contain more than 500 elements.')
+
+        async def send_data(data):
+            try:
+                resp = await self._async_client.request(
+                    'post',
+                    url=self._fcm_url,
+                    headers=self._fcm_headers,
+                    json=data)
+            except httpx.HTTPError as exception:
+                return SendResponse(resp=None, exception=self._handle_fcm_httpx_error(exception))
+            # Catch errors caused by the requests library during authorization
+            except requests.exceptions.RequestException as exception:
+                return SendResponse(resp=None, exception=self._handle_fcm_error(exception))
+            else:
+                return SendResponse(resp.json(), exception=None)
+
+        message_data = [self._message_data(message, dry_run) for message in messages]
+        try:
+            responses = await asyncio.gather(*[send_data(message) for message in message_data])
+            return BatchResponse(responses)
         except Exception as error:
             raise exceptions.UnknownError(
                 message='Unknown error while making remote service calls: {0}'.format(error),
@@ -593,6 +697,11 @@ class _MessagingService:
         return _utils.handle_platform_error_from_requests(
             error, _MessagingService._build_fcm_error_requests)
 
+    def _handle_fcm_httpx_error(self, error: httpx.HTTPError) -> exceptions.FirebaseError:
+        """Handles errors received from the FCM API."""
+        return _utils.handle_platform_error_from_httpx(
+            error, _MessagingService._build_fcm_error_httpx)
+
     def _handle_iid_error(self, error: requests.RequestException) -> exceptions.FirebaseError:
         """Handles errors received from the Instance ID API."""
         if error.response is None:
@@ -622,12 +731,15 @@ class _MessagingService:
         return _gapic_utils.handle_platform_error_from_googleapiclient(
             error, _MessagingService._build_fcm_error_googleapiclient)
 
+    def close(self) -> None:
+        asyncio.run(self._async_client.aclose())
+
     @classmethod
     def _build_fcm_error_requests(
         cls,
         error: requests.RequestException,
         message: str,
-        error_dict: typing.Dict[str, typing.Any]
+        error_dict: typing.Dict[str, typing.Any],
     ) -> typing.Optional[exceptions.FirebaseError]:
         """Parses an error response from the FCM API and creates a FCM-specific exception if
         appropriate."""
@@ -635,12 +747,27 @@ class _MessagingService:
         return exc_type(message, cause=error, http_response=error.response) if exc_type else None
 
     @classmethod
+    def _build_fcm_error_httpx(
+        cls,
+        error: httpx.HTTPError,
+        message: str,
+        error_dict: typing.Optional[typing.Dict[str, typing.Any]]
+    ) -> typing.Optional[exceptions.FirebaseError]:
+        """Parses a httpx error response from the FCM API and creates a FCM-specific exception if
+        appropriate."""
+        exc_type = cls._build_fcm_error(error_dict)
+        if isinstance(error, httpx.HTTPStatusError):
+            return exc_type(
+                message, cause=error, http_response=error.response) if exc_type else None
+        return exc_type(message, cause=error) if exc_type else None
+
+    @classmethod
     def _build_fcm_error_googleapiclient(
         cls,
         error: typing.Optional[Exception],
         message: str,
         error_dict: typing.Dict[str, typing.Any],
-        http_response: typing.Optional[requests.Response]
+        http_response: typing.Optional[requests.Response],
     ) -> typing.Optional[exceptions.FirebaseError]:
         """Parses an error response from the FCM API and creates a FCM-specific exception if
         appropriate."""
@@ -649,11 +776,12 @@ class _MessagingService:
 
     @classmethod
     def _build_fcm_error(cls, error_dict: typing.Dict[str, typing.Any]) -> typing.Optional[_typing.FirebaseErrorFactory]:
+        """Parses an error response to determine the appropriate FCM-specific error type."""
         if not error_dict:
             return None
-        fcm_code: typing.Any = None
+        fcm_code = None
         for detail in error_dict.get('details', []):
             if detail.get('@type') == 'type.googleapis.com/google.firebase.fcm.v1.FcmError':
-                fcm_code = detail.get('errorCode')
+                fcm_code = typing.cast(str, detail.get('errorCode'))
                 break
-        return _MessagingService.FCM_ERROR_TYPES.get(fcm_code)
+        return _MessagingService.FCM_ERROR_TYPES.get(fcm_code) if fcm_code else None

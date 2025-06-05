@@ -20,6 +20,7 @@ Google Cloud Identity Platform (GCIP) instance.
 
 import re
 import threading
+import typing
 
 import requests
 
@@ -54,7 +55,7 @@ TenantIdMismatchError = _auth_utils.TenantIdMismatchError
 TenantNotFoundError = _auth_utils.TenantNotFoundError
 
 
-def auth_for_tenant(tenant_id, app=None):
+def auth_for_tenant(tenant_id: str, app: typing.Optional[firebase_admin.App] = None) -> auth.Client:
     """Gets an Auth Client instance scoped to the given tenant ID.
 
     Args:
@@ -71,7 +72,7 @@ def auth_for_tenant(tenant_id, app=None):
     return tenant_mgt_service.auth_for_tenant(tenant_id)
 
 
-def get_tenant(tenant_id, app=None):
+def get_tenant(tenant_id: str, app: typing.Optional[firebase_admin.App] = None) -> "Tenant":
     """Gets the tenant corresponding to the given ``tenant_id``.
 
     Args:
@@ -91,7 +92,11 @@ def get_tenant(tenant_id, app=None):
 
 
 def create_tenant(
-        display_name, allow_password_sign_up=None, enable_email_link_sign_in=None, app=None):
+    display_name: str,
+    allow_password_sign_up: typing.Optional[bool] = None,
+    enable_email_link_sign_in: typing.Optional[bool] = None,
+    app: typing.Optional[firebase_admin.App] = None
+) -> "Tenant":
     """Creates a new tenant from the given options.
 
     Args:
@@ -117,8 +122,12 @@ def create_tenant(
 
 
 def update_tenant(
-        tenant_id, display_name=None, allow_password_sign_up=None, enable_email_link_sign_in=None,
-        app=None):
+    tenant_id: str,
+    display_name: typing.Optional[str] = None,
+    allow_password_sign_up: typing.Optional[bool] = None,
+    enable_email_link_sign_in: typing.Optional[bool] = None,
+    app: typing.Optional[firebase_admin.App] = None,
+) -> "Tenant":
     """Updates an existing tenant with the given options.
 
     Args:
@@ -144,7 +153,7 @@ def update_tenant(
         enable_email_link_sign_in=enable_email_link_sign_in)
 
 
-def delete_tenant(tenant_id, app=None):
+def delete_tenant(tenant_id: str, app: typing.Optional[firebase_admin.App] = None) -> None:
     """Deletes the tenant corresponding to the given ``tenant_id``.
 
     Args:
@@ -160,7 +169,11 @@ def delete_tenant(tenant_id, app=None):
     tenant_mgt_service.delete_tenant(tenant_id)
 
 
-def list_tenants(page_token=None, max_results=_MAX_LIST_TENANTS_RESULTS, app=None):
+def list_tenants(
+    page_token: typing.Optional[str] = None,
+    max_results: int = _MAX_LIST_TENANTS_RESULTS,
+    app: typing.Optional[firebase_admin.App] = None
+) -> "ListTenantsPage":
     """Retrieves a page of tenants from a Firebase project.
 
     The ``page_token`` argument governs the starting point of the page. The ``max_results``
@@ -183,12 +196,12 @@ def list_tenants(page_token=None, max_results=_MAX_LIST_TENANTS_RESULTS, app=Non
         FirebaseError: If an error occurs while retrieving the user accounts.
     """
     tenant_mgt_service = _get_tenant_mgt_service(app)
-    def download(page_token, max_results):
+    def download(page_token: typing.Optional[str], max_results: int) -> typing.Dict[str, typing.Any]:
         return tenant_mgt_service.list_tenants(page_token, max_results)
     return ListTenantsPage(download, page_token, max_results)
 
 
-def _get_tenant_mgt_service(app):
+def _get_tenant_mgt_service(app: typing.Optional[firebase_admin.App]) -> "_TenantManagementService":
     return _utils.get_app_service(app, _TENANT_MGT_ATTRIBUTE, _TenantManagementService)
 
 
@@ -203,7 +216,7 @@ class Tenant:
     such as the display name, tenant identifier and email authentication configuration.
     """
 
-    def __init__(self, data):
+    def __init__(self, data: typing.Dict[str, typing.Any]) -> None:
         if not isinstance(data, dict):
             raise ValueError('Invalid data argument in Tenant constructor: {0}'.format(data))
         if not 'name' in data:
@@ -212,7 +225,7 @@ class Tenant:
         self._data = data
 
     @property
-    def tenant_id(self):
+    def tenant_id(self) -> str:
         name = self._data['name']
         return name.split('/')[-1]
 
@@ -221,11 +234,11 @@ class Tenant:
         return self._data.get('displayName')
 
     @property
-    def allow_password_sign_up(self):
+    def allow_password_sign_up(self) -> bool:
         return self._data.get('allowPasswordSignup', False)
 
     @property
-    def enable_email_link_sign_in(self):
+    def enable_email_link_sign_in(self) -> bool:
         return self._data.get('enableEmailLinkSignin', False)
 
 
@@ -234,17 +247,17 @@ class _TenantManagementService:
 
     TENANT_MGT_URL = 'https://identitytoolkit.googleapis.com/v2'
 
-    def __init__(self, app):
+    def __init__(self, app: firebase_admin.App) -> None:
         credential = app.credential.get_credential()
         version_header = 'Python/Admin/{0}'.format(firebase_admin.__version__)
         base_url = '{0}/projects/{1}'.format(self.TENANT_MGT_URL, app.project_id)
         self.app = app
         self.client = _http_client.JsonHttpClient(
             credential=credential, base_url=base_url, headers={'X-Client-Version': version_header})
-        self.tenant_clients = {}
+        self.tenant_clients: typing.Dict[str, auth.Client] = {}
         self.lock = threading.RLock()
 
-    def auth_for_tenant(self, tenant_id):
+    def auth_for_tenant(self, tenant_id: str) -> auth.Client:
         """Gets an Auth Client instance scoped to the given tenant ID."""
         if not isinstance(tenant_id, str) or not tenant_id:
             raise ValueError(
@@ -256,9 +269,9 @@ class _TenantManagementService:
 
             client = auth.Client(self.app, tenant_id=tenant_id)
             self.tenant_clients[tenant_id] = client
-            return  client
+            return client
 
-    def get_tenant(self, tenant_id):
+    def get_tenant(self, tenant_id: str) -> Tenant:
         """Gets the tenant corresponding to the given ``tenant_id``."""
         if not isinstance(tenant_id, str) or not tenant_id:
             raise ValueError(
@@ -272,10 +285,14 @@ class _TenantManagementService:
             return Tenant(body)
 
     def create_tenant(
-            self, display_name, allow_password_sign_up=None, enable_email_link_sign_in=None):
+        self,
+        display_name: str,
+        allow_password_sign_up: typing.Optional[bool] = None,
+        enable_email_link_sign_in: typing.Optional[bool] = None
+    ):
         """Creates a new tenant from the given parameters."""
 
-        payload = {'displayName': _validate_display_name(display_name)}
+        payload: typing.Dict[str, typing.Any] = {'displayName': _validate_display_name(display_name)}
         if allow_password_sign_up is not None:
             payload['allowPasswordSignup'] = _auth_utils.validate_boolean(
                 allow_password_sign_up, 'allowPasswordSignup')
@@ -291,13 +308,17 @@ class _TenantManagementService:
             return Tenant(body)
 
     def update_tenant(
-            self, tenant_id, display_name=None, allow_password_sign_up=None,
-            enable_email_link_sign_in=None):
+        self,
+        tenant_id: str,
+        display_name: typing.Optional[str] = None,
+        allow_password_sign_up: typing.Optional[bool] = None,
+        enable_email_link_sign_in: typing.Optional[bool] = None
+    ):
         """Updates the specified tenant with the given parameters."""
         if not isinstance(tenant_id, str) or not tenant_id:
             raise ValueError('Tenant ID must be a non-empty string.')
 
-        payload = {}
+        payload: typing.Dict[str, typing.Any] = {}
         if display_name is not None:
             payload['displayName'] = _validate_display_name(display_name)
         if allow_password_sign_up is not None:
@@ -320,7 +341,7 @@ class _TenantManagementService:
         else:
             return Tenant(body)
 
-    def delete_tenant(self, tenant_id):
+    def delete_tenant(self, tenant_id: str) -> None:
         """Deletes the tenant corresponding to the given ``tenant_id``."""
         if not isinstance(tenant_id, str) or not tenant_id:
             raise ValueError(
@@ -331,7 +352,11 @@ class _TenantManagementService:
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)
 
-    def list_tenants(self, page_token=None, max_results=_MAX_LIST_TENANTS_RESULTS):
+    def list_tenants(
+        self,
+        page_token: typing.Optional[str] = None,
+        max_results: int = _MAX_LIST_TENANTS_RESULTS,
+    ) -> typing.Dict[str, typing.Any]:
         """Retrieves a batch of tenants."""
         if page_token is not None:
             if not isinstance(page_token, str) or not page_token:
@@ -343,7 +368,7 @@ class _TenantManagementService:
                 'Max results must be a positive integer less than or equal to '
                 '{0}.'.format(_MAX_LIST_TENANTS_RESULTS))
 
-        payload = {'pageSize': max_results}
+        payload: typing.Dict[str, typing.Any] = {'pageSize': max_results}
         if page_token:
             payload['pageToken'] = page_token
         try:
@@ -360,27 +385,32 @@ class ListTenantsPage:
     through all tenants in the Firebase project starting from this page.
     """
 
-    def __init__(self, download, page_token, max_results):
+    def __init__(
+        self,
+        download: typing.Callable[[typing.Optional[str], int], typing.Dict[str, typing.Any]],
+        page_token: typing.Optional[str],
+        max_results: int,
+    ) -> None:
         self._download = download
         self._max_results = max_results
         self._current = download(page_token, max_results)
 
     @property
-    def tenants(self):
+    def tenants(self) -> typing.List[Tenant]:
         """A list of ``ExportedUserRecord`` instances available in this page."""
         return [Tenant(data) for data in self._current.get('tenants', [])]
 
     @property
-    def next_page_token(self):
+    def next_page_token(self) -> str:
         """Page token string for the next page (empty string indicates no more pages)."""
         return self._current.get('nextPageToken', '')
 
     @property
-    def has_next_page(self):
+    def has_next_page(self) -> bool:
         """A boolean indicating whether more pages are available."""
         return bool(self.next_page_token)
 
-    def get_next_page(self):
+    def get_next_page(self) -> typing.Optional["ListTenantsPage"]:
         """Retrieves the next page of tenants, if available.
 
         Returns:
@@ -411,16 +441,16 @@ class _TenantIterator:
     of entries in memory.
     """
 
-    def __init__(self, current_page):
+    def __init__(self, current_page: ListTenantsPage) -> None:
         if not current_page:
             raise ValueError('Current page must not be None.')
-        self._current_page = current_page
+        self._current_page: ListTenantsPage = current_page
         self._index = 0
 
-    def next(self):
+    def next(self) -> Tenant:
         if self._index == len(self._current_page.tenants):
             if self._current_page.has_next_page:
-                self._current_page = self._current_page.get_next_page()
+                self._current_page = typing.cast(ListTenantsPage, self._current_page.get_next_page())
                 self._index = 0
         if self._index < len(self._current_page.tenants):
             result = self._current_page.tenants[self._index]
@@ -428,14 +458,14 @@ class _TenantIterator:
             return result
         raise StopIteration
 
-    def __next__(self):
+    def __next__(self) -> Tenant:
         return self.next()
 
-    def __iter__(self):
+    def __iter__(self) -> typing.Iterator[Tenant]:
         return self
 
 
-def _validate_display_name(display_name):
+def _validate_display_name(display_name: typing.Any) -> str:
     if not isinstance(display_name, str):
         raise ValueError('Invalid type for displayName')
     if not _DISPLAY_NAME_PATTERN.search(display_name):

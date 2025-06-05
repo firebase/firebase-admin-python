@@ -16,11 +16,14 @@
 
 import base64
 import json
+import typing
 
 from firebase_admin import _auth_utils
+from firebase_admin import _user_mgt
+from firebase_admin import _typing
 
 
-def b64_encode(bytes_value):
+def b64_encode(bytes_value: bytes) -> str:
     return base64.urlsafe_b64encode(bytes_value).decode()
 
 
@@ -39,7 +42,14 @@ class UserProvider:
         photo_url: User's photo URL (optional).
     """
 
-    def __init__(self, uid, provider_id, email=None, display_name=None, photo_url=None):
+    def __init__(
+        self,
+        uid: str,
+        provider_id: str,
+        email: typing.Optional[str] = None,
+        display_name: typing.Optional[str] = None,
+        photo_url: typing.Optional[str] = None,
+    ) -> None:
         self.uid = uid
         self.provider_id = provider_id
         self.email = email
@@ -47,46 +57,46 @@ class UserProvider:
         self.photo_url = photo_url
 
     @property
-    def uid(self):
+    def uid(self) -> str:
         return self._uid
 
     @uid.setter
-    def uid(self, uid):
+    def uid(self, uid: str) -> None:
         self._uid = _auth_utils.validate_uid(uid, required=True)
 
     @property
-    def provider_id(self):
+    def provider_id(self) -> str:
         return self._provider_id
 
     @provider_id.setter
-    def provider_id(self, provider_id):
+    def provider_id(self, provider_id: str) -> None:
         self._provider_id = _auth_utils.validate_provider_id(provider_id, required=True)
 
     @property
-    def email(self):
+    def email(self) -> typing.Optional[str]:
         return self._email
 
     @email.setter
-    def email(self, email):
+    def email(self, email: typing.Optional[str]) -> None:
         self._email = _auth_utils.validate_email(email)
 
     @property
-    def display_name(self):
+    def display_name(self) -> typing.Optional[str]:
         return self._display_name
 
     @display_name.setter
-    def display_name(self, display_name):
+    def display_name(self, display_name: typing.Optional[str]) -> None:
         self._display_name = _auth_utils.validate_display_name(display_name)
 
     @property
-    def photo_url(self):
+    def photo_url(self) -> typing.Optional[str]:
         return self._photo_url
 
     @photo_url.setter
-    def photo_url(self, photo_url):
+    def photo_url(self, photo_url: typing.Optional[str]):
         self._photo_url = _auth_utils.validate_photo_url(photo_url)
 
-    def to_dict(self):
+    def to_dict(self) -> typing.Dict[str, str]:
         payload = {
             'rawId': self.uid,
             'providerId': self.provider_id,
@@ -123,9 +133,21 @@ class ImportUserRecord:
         ValueError: If provided arguments are invalid.
     """
 
-    def __init__(self, uid, email=None, email_verified=None, display_name=None, phone_number=None,
-                 photo_url=None, disabled=None, user_metadata=None, provider_data=None,
-                 custom_claims=None, password_hash=None, password_salt=None):
+    def __init__(
+        self,
+        uid: str,
+        email: typing.Optional[str] = None,
+        email_verified: typing.Optional[bool] = None,
+        display_name: typing.Optional[str] = None,
+        phone_number: typing.Optional[str] = None,
+        photo_url: typing.Optional[str] = None,
+        disabled: typing.Optional[bool] = None,
+        user_metadata: typing.Optional[_user_mgt.UserMetadata] = None,
+        provider_data: typing.Optional[typing.List[UserProvider]] = None,
+        custom_claims: typing.Optional[typing.Dict[str, typing.Any]] = None,
+        password_hash: typing.Optional[bytes] = None,
+        password_salt: typing.Optional[bytes] = None,
+    ) -> None:
         self.uid = uid
         self.email = email
         self.display_name = display_name
@@ -140,67 +162,67 @@ class ImportUserRecord:
         self.custom_claims = custom_claims
 
     @property
-    def uid(self):
+    def uid(self) -> str:
         return self._uid
 
     @uid.setter
-    def uid(self, uid):
+    def uid(self, uid: str) -> None:
         self._uid = _auth_utils.validate_uid(uid, required=True)
 
     @property
-    def email(self):
+    def email(self) -> typing.Optional[str]:
         return self._email
 
     @email.setter
-    def email(self, email):
+    def email(self, email: typing.Optional[str]) -> None:
         self._email = _auth_utils.validate_email(email)
 
     @property
-    def display_name(self):
+    def display_name(self) -> typing.Optional[str]:
         return self._display_name
 
     @display_name.setter
-    def display_name(self, display_name):
+    def display_name(self, display_name: typing.Optional[str]) -> None:
         self._display_name = _auth_utils.validate_display_name(display_name)
 
     @property
-    def phone_number(self):
+    def phone_number(self) -> typing.Optional[str]:
         return self._phone_number
 
     @phone_number.setter
-    def phone_number(self, phone_number):
+    def phone_number(self, phone_number: typing.Optional[str]) -> None:
         self._phone_number = _auth_utils.validate_phone(phone_number)
 
     @property
-    def photo_url(self):
+    def photo_url(self) -> typing.Optional[str]:
         return self._photo_url
 
     @photo_url.setter
-    def photo_url(self, photo_url):
+    def photo_url(self, photo_url: typing.Optional[str]) -> None:
         self._photo_url = _auth_utils.validate_photo_url(photo_url)
 
     @property
-    def password_hash(self):
+    def password_hash(self) -> typing.Optional[bytes]:
         return self._password_hash
 
     @password_hash.setter
-    def password_hash(self, password_hash):
+    def password_hash(self, password_hash: typing.Optional[bytes]) -> None:
         self._password_hash = _auth_utils.validate_bytes(password_hash, 'password_hash')
 
     @property
-    def password_salt(self):
+    def password_salt(self) -> typing.Optional[bytes]:
         return self._password_salt
 
     @password_salt.setter
-    def password_salt(self, password_salt):
+    def password_salt(self, password_salt: typing.Optional[bytes]) -> None:
         self._password_salt = _auth_utils.validate_bytes(password_salt, 'password_salt')
 
     @property
-    def user_metadata(self):
+    def user_metadata(self) -> typing.Optional[_user_mgt.UserMetadata]:
         return self._user_metadata
 
     @user_metadata.setter
-    def user_metadata(self, user_metadata):
+    def user_metadata(self, user_metadata: typing.Optional[_user_mgt.UserMetadata]) -> None:
         created_at = user_metadata.creation_timestamp if user_metadata is not None else None
         last_login_at = user_metadata.last_sign_in_timestamp if user_metadata is not None else None
         self._created_at = _auth_utils.validate_timestamp(created_at, 'creation_timestamp')
@@ -209,11 +231,11 @@ class ImportUserRecord:
         self._user_metadata = user_metadata
 
     @property
-    def provider_data(self):
+    def provider_data(self) -> typing.Optional[typing.List[UserProvider]]:
         return self._provider_data
 
     @provider_data.setter
-    def provider_data(self, provider_data):
+    def provider_data(self, provider_data: typing.Optional[typing.List[UserProvider]]) -> None:
         if provider_data is not None:
             try:
                 if any([not isinstance(p, UserProvider) for p in provider_data]):
@@ -223,19 +245,19 @@ class ImportUserRecord:
         self._provider_data = provider_data
 
     @property
-    def custom_claims(self):
+    def custom_claims(self) -> typing.Optional[typing.Dict[str, typing.Any]]:
         return self._custom_claims
 
     @custom_claims.setter
-    def custom_claims(self, custom_claims):
+    def custom_claims(self, custom_claims: typing.Optional[typing.Dict[str, typing.Any]]) -> None:
         json_claims = json.dumps(custom_claims) if isinstance(
             custom_claims, dict) else custom_claims
         self._custom_claims_str = _auth_utils.validate_custom_claims(json_claims)
         self._custom_claims = custom_claims
 
-    def to_dict(self):
+    def to_dict(self) -> typing.Dict[str, typing.Any]:
         """Returns a dict representation of the user. For internal use only."""
-        payload = {
+        payload: typing.Dict[str, typing.Any] = {
             'localId': self.uid,
             'email': self.email,
             'displayName': self.display_name,
@@ -265,25 +287,25 @@ class UserImportHash:
     .. _documentation: https://firebase.google.com/docs/auth/admin/import-users
     """
 
-    def __init__(self, name, data=None):
+    def __init__(self, name: str, data: typing.Optional[typing.Dict[str, typing.Any]] = None) -> None:
         self._name = name
         self._data = data
 
-    def to_dict(self):
-        payload = {'hashAlgorithm': self._name}
+    def to_dict(self) -> typing.Dict[str, typing.Any]:
+        payload: typing.Dict[str, typing.Any] = {'hashAlgorithm': self._name}
         if self._data:
             payload.update(self._data)
         return payload
 
     @classmethod
-    def _hmac(cls, name, key):
+    def _hmac(cls, name: str, key: bytes) -> "UserImportHash":
         data = {
             'signerKey': b64_encode(_auth_utils.validate_bytes(key, 'key', required=True))
         }
         return UserImportHash(name, data)
 
     @classmethod
-    def hmac_sha512(cls, key):
+    def hmac_sha512(cls, key: bytes) -> "UserImportHash":
         """Creates a new HMAC SHA512 algorithm instance.
 
         Args:
@@ -295,7 +317,7 @@ class UserImportHash:
         return cls._hmac('HMAC_SHA512', key)
 
     @classmethod
-    def hmac_sha256(cls, key):
+    def hmac_sha256(cls, key: bytes) -> "UserImportHash":
         """Creates a new HMAC SHA256 algorithm instance.
 
         Args:
@@ -307,7 +329,7 @@ class UserImportHash:
         return cls._hmac('HMAC_SHA256', key)
 
     @classmethod
-    def hmac_sha1(cls, key):
+    def hmac_sha1(cls, key: bytes) -> "UserImportHash":
         """Creates a new HMAC SHA1 algorithm instance.
 
         Args:
@@ -319,7 +341,7 @@ class UserImportHash:
         return cls._hmac('HMAC_SHA1', key)
 
     @classmethod
-    def hmac_md5(cls, key):
+    def hmac_md5(cls, key: bytes) -> "UserImportHash":
         """Creates a new HMAC MD5 algorithm instance.
 
         Args:
@@ -331,7 +353,7 @@ class UserImportHash:
         return cls._hmac('HMAC_MD5', key)
 
     @classmethod
-    def md5(cls, rounds):
+    def md5(cls, rounds: int) -> "UserImportHash":
         """Creates a new MD5 algorithm instance.
 
         Args:
@@ -345,7 +367,7 @@ class UserImportHash:
             {'rounds': _auth_utils.validate_int(rounds, 'rounds', 0, 8192)})
 
     @classmethod
-    def sha1(cls, rounds):
+    def sha1(cls, rounds: int) -> "UserImportHash":
         """Creates a new SHA1 algorithm instance.
 
         Args:
@@ -359,7 +381,7 @@ class UserImportHash:
             {'rounds': _auth_utils.validate_int(rounds, 'rounds', 1, 8192)})
 
     @classmethod
-    def sha256(cls, rounds):
+    def sha256(cls, rounds: int) -> "UserImportHash":
         """Creates a new SHA256 algorithm instance.
 
         Args:
@@ -373,7 +395,7 @@ class UserImportHash:
             {'rounds': _auth_utils.validate_int(rounds, 'rounds', 1, 8192)})
 
     @classmethod
-    def sha512(cls, rounds):
+    def sha512(cls, rounds: int) -> "UserImportHash":
         """Creates a new SHA512 algorithm instance.
 
         Args:
@@ -387,7 +409,7 @@ class UserImportHash:
             {'rounds': _auth_utils.validate_int(rounds, 'rounds', 1, 8192)})
 
     @classmethod
-    def pbkdf_sha1(cls, rounds):
+    def pbkdf_sha1(cls, rounds: int) -> "UserImportHash":
         """Creates a new PBKDF SHA1 algorithm instance.
 
         Args:
@@ -401,7 +423,7 @@ class UserImportHash:
             {'rounds': _auth_utils.validate_int(rounds, 'rounds', 0, 120000)})
 
     @classmethod
-    def pbkdf2_sha256(cls, rounds):
+    def pbkdf2_sha256(cls, rounds: int) -> "UserImportHash":
         """Creates a new PBKDF2 SHA256 algorithm instance.
 
         Args:
@@ -415,7 +437,13 @@ class UserImportHash:
             {'rounds': _auth_utils.validate_int(rounds, 'rounds', 0, 120000)})
 
     @classmethod
-    def scrypt(cls, key, rounds, memory_cost, salt_separator=None):
+    def scrypt(
+        cls,
+        key: bytes,
+        rounds: int,
+        memory_cost: int,
+        salt_separator: typing.Optional[bytes] = None,
+    ) -> "UserImportHash":
         """Creates a new Scrypt algorithm instance.
 
         This is the modified Scrypt algorithm used by Firebase Auth. See ``standard_scrypt()``
@@ -430,18 +458,18 @@ class UserImportHash:
         Returns:
             UserImportHash: A new ``UserImportHash``.
         """
-        data = {
+        data: typing.Dict[str, typing.Any] = {
             'signerKey': b64_encode(_auth_utils.validate_bytes(key, 'key', required=True)),
             'rounds': _auth_utils.validate_int(rounds, 'rounds', 1, 8),
             'memoryCost': _auth_utils.validate_int(memory_cost, 'memory_cost', 1, 14),
         }
         if salt_separator:
-            data['saltSeparator'] = b64_encode(_auth_utils.validate_bytes(
-                salt_separator, 'salt_separator'))
+            _auth_utils.validate_bytes(salt_separator, 'salt_separator')
+            data['saltSeparator'] = b64_encode(salt_separator)
         return UserImportHash('SCRYPT', data)
 
     @classmethod
-    def bcrypt(cls):
+    def bcrypt(cls) -> "UserImportHash":
         """Creates a new Bcrypt algorithm instance.
 
         Returns:
@@ -450,7 +478,13 @@ class UserImportHash:
         return UserImportHash('BCRYPT')
 
     @classmethod
-    def standard_scrypt(cls, memory_cost, parallelization, block_size, derived_key_length):
+    def standard_scrypt(
+        cls,
+        memory_cost: int,
+        parallelization: int,
+        block_size: int,
+        derived_key_length: int,
+    ) -> "UserImportHash":
         """Creates a new standard Scrypt algorithm instance.
 
         Args:
@@ -479,16 +513,16 @@ class ErrorInfo:
     # it's home in _user_import.py). It's now also used by bulk deletion of
     # users. Move this to a more common location.
 
-    def __init__(self, error):
-        self._index = error['index']
-        self._reason = error['message']
+    def __init__(self, error: typing.Dict[str, _typing.Json]) -> None:
+        self._index = typing.cast(int, error['index'])
+        self._reason = typing.cast(str, error['message'])
 
     @property
-    def index(self):
+    def index(self) -> int:
         return self._index
 
     @property
-    def reason(self):
+    def reason(self) -> str:
         return self._reason
 
 
@@ -498,23 +532,23 @@ class UserImportResult:
     See ``auth.import_users()`` API for more details.
     """
 
-    def __init__(self, result, total):
+    def __init__(self, result: typing.Dict[str, typing.Any], total: int) -> None:
         errors = result.get('error', [])
         self._success_count = total - len(errors)
         self._failure_count = len(errors)
         self._errors = [ErrorInfo(err) for err in errors]
 
     @property
-    def success_count(self):
+    def success_count(self) -> int:
         """Returns the number of users successfully imported."""
         return self._success_count
 
     @property
-    def failure_count(self):
+    def failure_count(self) -> int:
         """Returns the number of users that failed to be imported."""
         return self._failure_count
 
     @property
-    def errors(self):
+    def errors(self) -> typing.List[ErrorInfo]:
         """Returns a list of ``auth.ErrorInfo`` instances describing the errors encountered."""
         return self._errors

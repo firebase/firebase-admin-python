@@ -18,21 +18,16 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, List, Optional, cast
 import concurrent.futures
 import json
-import warnings
 import asyncio
 import logging
 import requests
 import httpx
-
-from googleapiclient import http
-from googleapiclient import _auth
 
 import firebase_admin
 from firebase_admin import (
     _http_client,
     _messaging_encoder,
     _messaging_utils,
-    _gapic_utils,
     _utils,
     exceptions,
     App
@@ -72,8 +67,6 @@ __all__ = [
     'WebpushNotificationAction',
 
     'send',
-    'send_all',
-    'send_multicast',
     'send_each',
     'send_each_async',
     'send_each_for_multicast',
@@ -246,64 +239,6 @@ def send_each_for_multicast(multicast_message, dry_run=False, app=None):
     ) for token in multicast_message.tokens]
     return _get_messaging_service(app).send_each(messages, dry_run)
 
-def send_all(messages, dry_run=False, app=None):
-    """Sends the given list of messages via Firebase Cloud Messaging as a single batch.
-
-    If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
-    recipients. Instead, FCM performs all the usual validations and emulates the send operation.
-
-    Args:
-        messages: A list of ``messaging.Message`` instances.
-        dry_run: A boolean indicating whether to run the operation in dry run mode (optional).
-        app: An App instance (optional).
-
-    Returns:
-        BatchResponse: A ``messaging.BatchResponse`` instance.
-
-    Raises:
-        FirebaseError: If an error occurs while sending the message to the FCM service.
-        ValueError: If the input arguments are invalid.
-
-    send_all() is deprecated. Use send_each() instead.
-    """
-    warnings.warn('send_all() is deprecated. Use send_each() instead.', DeprecationWarning)
-    return _get_messaging_service(app).send_all(messages, dry_run)
-
-def send_multicast(multicast_message, dry_run=False, app=None):
-    """Sends the given mutlicast message to all tokens via Firebase Cloud Messaging (FCM).
-
-    If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
-    recipients. Instead, FCM performs all the usual validations and emulates the send operation.
-
-    Args:
-        multicast_message: An instance of ``messaging.MulticastMessage``.
-        dry_run: A boolean indicating whether to run the operation in dry run mode (optional).
-        app: An App instance (optional).
-
-    Returns:
-        BatchResponse: A ``messaging.BatchResponse`` instance.
-
-    Raises:
-        FirebaseError: If an error occurs while sending the message to the FCM service.
-        ValueError: If the input arguments are invalid.
-
-    send_multicast() is deprecated. Use send_each_for_multicast() instead.
-    """
-    warnings.warn('send_multicast() is deprecated. Use send_each_for_multicast() instead.',
-                  DeprecationWarning)
-    if not isinstance(multicast_message, MulticastMessage):
-        raise ValueError('Message must be an instance of messaging.MulticastMessage class.')
-    messages = [Message(
-        data=multicast_message.data,
-        notification=multicast_message.notification,
-        android=multicast_message.android,
-        webpush=multicast_message.webpush,
-        apns=multicast_message.apns,
-        fcm_options=multicast_message.fcm_options,
-        token=token
-    ) for token in multicast_message.tokens]
-    return _get_messaging_service(app).send_all(messages, dry_run)
-
 def subscribe_to_topic(tokens, topic, app=None):
     """Subscribes a list of registration tokens to an FCM topic.
 
@@ -472,7 +407,6 @@ class _MessagingService:
         self._client = _http_client.JsonHttpClient(credential=self._credential, timeout=timeout)
         self._async_client = _http_client.HttpxAsyncClient(
             credential=self._credential, timeout=timeout)
-        self._build_transport = _auth.authorized_http
 
     @classmethod
     def encode_message(cls, message):
@@ -555,45 +489,6 @@ class _MessagingService:
                 message='Unknown error while making remote service calls: {0}'.format(error),
                 cause=error)
 
-
-    def send_all(self, messages, dry_run=False):
-        """Sends the given messages to FCM via the batch API."""
-        if not isinstance(messages, list):
-            raise ValueError('messages must be a list of messaging.Message instances.')
-        if len(messages) > 500:
-            raise ValueError('messages must not contain more than 500 elements.')
-
-        responses = []
-
-        def batch_callback(_, response, error):
-            exception = None
-            if error:
-                exception = self._handle_batch_error(error)
-            send_response = SendResponse(response, exception)
-            responses.append(send_response)
-
-        batch = http.BatchHttpRequest(
-            callback=batch_callback, batch_uri=_MessagingService.FCM_BATCH_URL)
-        transport = self._build_transport(self._credential)
-        for message in messages:
-            body = json.dumps(self._message_data(message, dry_run))
-            req = http.HttpRequest(
-                http=transport,
-                postproc=self._postproc,
-                uri=self._fcm_url,
-                method='POST',
-                body=body,
-                headers=self._fcm_headers
-            )
-            batch.add(req)
-
-        try:
-            batch.execute()
-        except Exception as error:
-            raise self._handle_batch_error(error)
-        else:
-            return BatchResponse(responses)
-
     def make_topic_management_request(self, tokens, topic, operation):
         """Invokes the IID service for topic management functionality."""
         if isinstance(tokens, str):
@@ -670,11 +565,6 @@ class _MessagingService:
 
         return _utils.handle_requests_error(error, msg)
 
-    def _handle_batch_error(self, error):
-        """Handles errors received from the googleapiclient while making batch requests."""
-        return _gapic_utils.handle_platform_error_from_googleapiclient(
-            error, _MessagingService._build_fcm_error_googleapiclient)
-
     def close(self) -> None:
         asyncio.run(self._async_client.aclose())
 
@@ -699,14 +589,6 @@ class _MessagingService:
             return exc_type(
                 message, cause=error, http_response=error.response) if exc_type else None
         return exc_type(message, cause=error) if exc_type else None
-
-
-    @classmethod
-    def _build_fcm_error_googleapiclient(cls, error, message, error_dict, http_response):
-        """Parses an error response from the FCM API and creates a FCM-specific exception if
-        appropriate."""
-        exc_type = cls._build_fcm_error(error_dict)
-        return exc_type(message, cause=error, http_response=http_response) if exc_type else None
 
     @classmethod
     def _build_fcm_error(

@@ -32,7 +32,7 @@ if typing.TYPE_CHECKING:
 else:
     import os
 
-    StrPath = typing.Union[str, os.PathLike[str]]
+    StrPath = typing.Union[str, 'os.PathLike[str]']
 
 
 _request = requests.Request()

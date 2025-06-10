@@ -160,24 +160,24 @@ class Reference:
     def __init__(
         self,
         *,
-        client: "_Client",
-        path: str,
+        segments: typing.List[str],
+        client: typing.Optional["_Client"] = None,
         **kwargs: typing.Any,
     ) -> None: ...
     @typing.overload
     def __init__(
         self,
         *,
-        client: "_Client",
-        segments: typing.List[str],
+        path: str,
+        client: typing.Optional["_Client"] = None,
         **kwargs: typing.Any,
     ) -> None: ...
     def __init__(
         self,
         *,
-        client: "_Client",
         path: typing.Optional[str] = None,
         segments: typing.Optional[typing.List[str]] = None,
+        client: typing.Optional["_Client"] = None,
         **kwargs: typing.Any,
     ) -> None:
         """Creates a new Reference using the provided parameters.

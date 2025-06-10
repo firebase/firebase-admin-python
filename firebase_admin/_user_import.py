@@ -142,7 +142,7 @@ class ImportUserRecord:
         phone_number: typing.Optional[str] = None,
         photo_url: typing.Optional[str] = None,
         disabled: typing.Optional[bool] = None,
-        user_metadata: typing.Optional[_user_mgt.UserMetadata] = None,
+        user_metadata: typing.Optional['_user_mgt.UserMetadata'] = None,
         provider_data: typing.Optional[typing.List[UserProvider]] = None,
         custom_claims: typing.Optional[typing.Dict[str, typing.Any]] = None,
         password_hash: typing.Optional[bytes] = None,
@@ -218,11 +218,11 @@ class ImportUserRecord:
         self._password_salt = _auth_utils.validate_bytes(password_salt, 'password_salt')
 
     @property
-    def user_metadata(self) -> typing.Optional[_user_mgt.UserMetadata]:
+    def user_metadata(self) -> typing.Optional['_user_mgt.UserMetadata']:
         return self._user_metadata
 
     @user_metadata.setter
-    def user_metadata(self, user_metadata: typing.Optional[_user_mgt.UserMetadata]) -> None:
+    def user_metadata(self, user_metadata: typing.Optional['_user_mgt.UserMetadata']) -> None:
         created_at = user_metadata.creation_timestamp if user_metadata is not None else None
         last_login_at = user_metadata.last_sign_in_timestamp if user_metadata is not None else None
         self._created_at = _auth_utils.validate_timestamp(created_at, 'creation_timestamp')

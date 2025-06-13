@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/firebase/firebase-admin-python.svg?branch=master)](https://travis-ci.org/firebase/firebase-admin-python)
+[![Nightly Builds](https://github.com/firebase/firebase-admin-python/actions/workflows/nightly.yml/badge.svg)](https://github.com/firebase/firebase-admin-python/actions/workflows/nightly.yml)
 [![Python](https://img.shields.io/pypi/pyversions/firebase-admin.svg)](https://pypi.org/project/firebase-admin/)
 [![Version](https://img.shields.io/pypi/v/firebase-admin.svg)](https://pypi.org/project/firebase-admin/)
 

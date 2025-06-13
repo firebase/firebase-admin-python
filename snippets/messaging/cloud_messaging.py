@@ -245,6 +245,29 @@ def send_all():
     # [END send_all]
 
 
+def send_each():
+    registration_token = 'YOUR_REGISTRATION_TOKEN'
+    # [START send_each]
+    # Create a list containing up to 500 messages.
+    messages = [
+        messaging.Message(
+            notification=messaging.Notification('Price drop', '5% off all electronics'),
+            token=registration_token,
+        ),
+        # ...
+        messaging.Message(
+            notification=messaging.Notification('Price drop', '2% off all books'),
+            topic='readers-club',
+        ),
+    ]
+
+    response = messaging.send_each(messages)
+    # See the BatchResponse reference documentation
+    # for the contents of response.
+    print('{0} messages were sent successfully'.format(response.success_count))
+    # [END send_each]
+
+
 def send_multicast():
     # [START send_multicast]
     # Create a list containing up to 500 registration tokens.
@@ -289,3 +312,28 @@ def send_multicast_and_handle_errors():
                 failed_tokens.append(registration_tokens[idx])
         print('List of tokens that caused failures: {0}'.format(failed_tokens))
     # [END send_multicast_error]
+
+
+def send_each_for_multicast_and_handle_errors():
+    # [START send_each_for_multicast_error]
+    # These registration tokens come from the client FCM SDKs.
+    registration_tokens = [
+        'YOUR_REGISTRATION_TOKEN_1',
+        # ...
+        'YOUR_REGISTRATION_TOKEN_N',
+    ]
+
+    message = messaging.MulticastMessage(
+        data={'score': '850', 'time': '2:45'},
+        tokens=registration_tokens,
+    )
+    response = messaging.send_each_for_multicast(message)
+    if response.failure_count > 0:
+        responses = response.responses
+        failed_tokens = []
+        for idx, resp in enumerate(responses):
+            if not resp.success:
+                # The order of responses corresponds to the order of the registration tokens.
+                failed_tokens.append(registration_tokens[idx])
+        print('List of tokens that caused failures: {0}'.format(failed_tokens))
+    # [END send_each_for_multicast_error]

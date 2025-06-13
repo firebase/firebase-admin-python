@@ -38,7 +38,7 @@ def _verify_bucket(bucket, expected_name):
     blob.upload_from_string('Hello World')
 
     blob = bucket.get_blob(file_name)
-    assert blob.download_as_string().decode() == 'Hello World'
+    assert blob.download_as_bytes().decode() == 'Hello World'
 
     bucket.delete_blob(file_name)
     assert not bucket.get_blob(file_name)

@@ -154,7 +154,7 @@ class HttpClient(typing.Generic[_AnyT]):
         resp.raise_for_status()
         return resp
 
-    def headers(self, method: str, url: str, **kwargs: typing.Any) -> requests.structures.CaseInsensitiveDict[str]:
+    def headers(self, method: str, url: str, **kwargs: typing.Any) -> 'requests.structures.CaseInsensitiveDict[str]':
         resp = self.request(method, url, **kwargs)
         return resp.headers
 

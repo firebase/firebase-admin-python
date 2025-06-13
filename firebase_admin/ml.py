@@ -287,7 +287,7 @@ class Model:
             return None
         format_str = '%Y-%m-%dT%H:%M:%S.%fZ'
         epoch = datetime.datetime.fromtimestamp(0, datetime.timezone.utc)
-        datetime_object = datetime.datetime.strptime(date_string, format_str)
+        datetime_object = datetime.datetime.strptime(date_string, format_str).replace(tzinfo=datetime.timezone.utc)
         millis = int((datetime_object - epoch).total_seconds() * 1000)
         return millis
 

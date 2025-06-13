@@ -186,7 +186,7 @@ class Reference:
         Reference.
         """
         self._client = client
-        if segments:
+        if segments is not None:
             self._segments = segments
         else:
             self._segments = _parse_path(path)

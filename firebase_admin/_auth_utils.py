@@ -619,8 +619,11 @@ def _parse_error_body(response: requests.Response) -> typing.Tuple[typing.Option
         return None, None
 
     # Auth error response format: {"error": {"message": "AUTH_ERROR_CODE: Optional text"}}
-    parsed_body = typing.cast(typing.Dict[str, typing.Dict[str, str]], parsed_body)
+    parsed_body = typing.cast(typing.Dict[str, typing.Any], parsed_body)
     error_dict = parsed_body.get('error', {})
+    if not isinstance(error_dict, dict):
+        return None, None
+    error_dict = typing.cast(typing.Dict[str, str], error_dict)
     code, custom_message = error_dict.get('message'), None
     if code:
         separator = code.find(':')

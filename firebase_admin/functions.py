@@ -249,7 +249,7 @@ class TaskQueue:
                 raise ValueError(
                     'Both sechdule_delay_seconds and schedule_time cannot be set at the same time.')
             if opts.schedule_time is not None and opts.schedule_delay_seconds is None:
-                if not isinstance(opts.schedule_time, datetime):
+                if not isinstance(opts.schedule_time, datetime.datetime):
                     raise ValueError('schedule_time should be UTC datetime.')
                 task.schedule_time = opts.schedule_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
             if opts.schedule_delay_seconds is not None and opts.schedule_time is None:

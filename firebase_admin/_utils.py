@@ -15,18 +15,21 @@
 """Internal utilities common to all modules."""
 
 import json
+import typing
 from platform import python_version
-from typing import Callable, Optional
 
-import google.auth
-import requests
+import google.auth.credentials
+import google.auth.transport
 import httpx
+import requests
 
 import firebase_admin
 from firebase_admin import exceptions
+from firebase_admin import _typing
 
+_T = typing.TypeVar("_T")
 
-_ERROR_CODE_TO_EXCEPTION_TYPE = {
+_ERROR_CODE_TO_EXCEPTION_TYPE: typing.Dict[str, "_typing.FirebaseErrorFactoryWithDefaults"] = {
     exceptions.INVALID_ARGUMENT: exceptions.InvalidArgumentError,
     exceptions.FAILED_PRECONDITION: exceptions.FailedPreconditionError,
     exceptions.OUT_OF_RANGE: exceptions.OutOfRangeError,
@@ -46,7 +49,7 @@ _ERROR_CODE_TO_EXCEPTION_TYPE = {
 }
 
 
-_HTTP_STATUS_TO_ERROR_CODE = {
+_HTTP_STATUS_TO_ERROR_CODE: typing.Dict[int, str] = {
     400: exceptions.INVALID_ARGUMENT,
     401: exceptions.UNAUTHENTICATED,
     403: exceptions.PERMISSION_DENIED,
@@ -60,7 +63,7 @@ _HTTP_STATUS_TO_ERROR_CODE = {
 
 
 # See https://github.com/googleapis/googleapis/blob/master/google/rpc/code.proto
-_RPC_CODE_TO_ERROR_CODE = {
+_RPC_CODE_TO_ERROR_CODE: typing.Dict[int, str] = {
     1: exceptions.CANCELLED,
     2: exceptions.UNKNOWN,
     3: exceptions.INVALID_ARGUMENT,
@@ -78,10 +81,10 @@ _RPC_CODE_TO_ERROR_CODE = {
     16: exceptions.UNAUTHENTICATED,
 }
 
-def get_metrics_header():
+def get_metrics_header() -> str:
     return f'gl-python/{python_version()} fire-admin/{firebase_admin.__version__}'
 
-def _get_initialized_app(app):
+def _get_initialized_app(app: typing.Optional["firebase_admin.App"]) -> "firebase_admin.App":
     """Returns a reference to an initialized App instance."""
     if app is None:
         return firebase_admin.get_app()
@@ -97,13 +100,19 @@ def _get_initialized_app(app):
                      ' firebase_admin.App, but given "{0}".'.format(type(app)))
 
 
-
-def get_app_service(app, name, initializer):
+def get_app_service(
+    app: typing.Optional["firebase_admin.App"],
+    name: str,
+    initializer: "_typing.ServiceInitializer[_T]",
+) -> _T:
     app = _get_initialized_app(app)
     return app._get_service(name, initializer) # pylint: disable=protected-access
 
 
-def handle_platform_error_from_requests(error, handle_func=None):
+def handle_platform_error_from_requests(
+    error: requests.RequestException,
+    handle_func: typing.Optional["_typing.RequestErrorHandler"] = None,
+) -> exceptions.FirebaseError:
     """Constructs a ``FirebaseError`` from the given requests error.
 
     This can be used to handle errors returned by Google Cloud Platform (GCP) APIs.
@@ -130,9 +139,10 @@ def handle_platform_error_from_requests(error, handle_func=None):
 
     return exc if exc else _handle_func_requests(error, message, error_dict)
 
+
 def handle_platform_error_from_httpx(
-        error: httpx.HTTPError,
-        handle_func: Optional[Callable[..., Optional[exceptions.FirebaseError]]] = None
+    error: httpx.HTTPError,
+    handle_func: typing.Optional[typing.Callable[..., typing.Optional[exceptions.FirebaseError]]] = None,
 ) -> exceptions.FirebaseError:
     """Constructs a ``FirebaseError`` from the given httpx error.
 
@@ -161,7 +171,7 @@ def handle_platform_error_from_httpx(
     return handle_httpx_error(error)
 
 
-def handle_operation_error(error):
+def handle_operation_error(error: typing.Union[typing.Dict[str, typing.Any], Exception]) -> exceptions.FirebaseError:
     """Constructs a ``FirebaseError`` from the given operation error.
 
     Args:
@@ -175,14 +185,19 @@ def handle_operation_error(error):
             message='Unknown error while making a remote service call: {0}'.format(error),
             cause=error)
 
-    rpc_code = error.get('code')
-    message = error.get('message')
+    rpc_code = error.get('code', 0)
+    # possible issue: needs be str | None ?
+    message = typing.cast(str, error.get('message'))
     error_code = _rpc_code_to_error_code(rpc_code)
     err_type = _error_code_to_exception_type(error_code)
     return err_type(message=message)
 
 
-def _handle_func_requests(error, message, error_dict):
+def _handle_func_requests(
+    error: requests.RequestException,
+    message: str,
+    error_dict: typing.Dict[str, typing.Any],
+) -> exceptions.FirebaseError:
     """Constructs a ``FirebaseError`` from the given GCP error.
 
     Args:
@@ -197,7 +212,11 @@ def _handle_func_requests(error, message, error_dict):
     return handle_requests_error(error, message, code)
 
 
-def handle_requests_error(error, message=None, code=None):
+def handle_requests_error(
+    error: requests.RequestException,
+    message: typing.Optional[str] = None,
+    code: typing.Optional[str] = None,
+) -> exceptions.FirebaseError:
     """Constructs a ``FirebaseError`` from the given requests error.
 
     This method is agnostic of the remote service that produced the error, whether it is a GCP
@@ -236,7 +255,12 @@ def handle_requests_error(error, message=None, code=None):
     err_type = _error_code_to_exception_type(code)
     return err_type(message=message, cause=error, http_response=error.response)
 
-def _handle_func_httpx(error: httpx.HTTPError, message, error_dict) -> exceptions.FirebaseError:
+
+def _handle_func_httpx(
+    error: httpx.HTTPError,
+    message: str,
+    error_dict: typing.Dict[str, typing.Any],
+) -> exceptions.FirebaseError:
     """Constructs a ``FirebaseError`` from the given GCP error.
 
     Args:
@@ -251,7 +275,11 @@ def _handle_func_httpx(error: httpx.HTTPError, message, error_dict) -> exception
     return handle_httpx_error(error, message, code)
 
 
-def handle_httpx_error(error: httpx.HTTPError, message=None, code=None) -> exceptions.FirebaseError:
+def handle_httpx_error(
+    error: Exception,
+    message: typing.Optional[str] = None,
+    code: typing.Optional[str] = None,
+) -> exceptions.FirebaseError:
     """Constructs a ``FirebaseError`` from the given httpx error.
 
     This method is agnostic of the remote service that produced the error, whether it is a GCP
@@ -285,26 +313,28 @@ def handle_httpx_error(error: httpx.HTTPError, message=None, code=None) -> excep
             message = str(error)
 
         err_type = _error_code_to_exception_type(code)
-        return err_type(message=message, cause=error, http_response=error.response)
+        # possible issue: FirebaseError needs accept httpx.Response?
+        return err_type(message=message, cause=error, http_response=error.response)  # type: ignore[reportArgumentType]
 
     return exceptions.UnknownError(
         message='Unknown error while making a remote service call: {0}'.format(error),
         cause=error)
 
-def _http_status_to_error_code(status):
+
+def _http_status_to_error_code(status: int) -> str:
     """Maps an HTTP status to a platform error code."""
     return _HTTP_STATUS_TO_ERROR_CODE.get(status, exceptions.UNKNOWN)
 
-def _rpc_code_to_error_code(rpc_code):
+def _rpc_code_to_error_code(rpc_code: int) -> str:
     """Maps an RPC code to a platform error code."""
     return _RPC_CODE_TO_ERROR_CODE.get(rpc_code, exceptions.UNKNOWN)
 
-def _error_code_to_exception_type(code):
+def _error_code_to_exception_type(code: str) -> "_typing.FirebaseErrorFactoryWithDefaults":
     """Maps a platform error code to an exception type."""
     return _ERROR_CODE_TO_EXCEPTION_TYPE.get(code, exceptions.UnknownError)
 
 
-def _parse_platform_error(content, status_code):
+def _parse_platform_error(content: str, status_code: int) -> typing.Tuple[typing.Dict[str, typing.Any], str]:
     """Parses an HTTP error response from a Google Cloud Platform API and extracts the error code
     and message fields.
 
@@ -315,15 +345,15 @@ def _parse_platform_error(content, status_code):
     Returns:
         tuple: A tuple containing error code and message.
     """
-    data = {}
+    data: typing.Dict[str, typing.Any] = {}
     try:
         parsed_body = json.loads(content)
         if isinstance(parsed_body, dict):
-            data = parsed_body
+            data = typing.cast(typing.Dict[str, typing.Any], parsed_body)
     except ValueError:
         pass
 
-    error_dict = data.get('error', {})
+    error_dict: typing.Dict[str, typing.Any] = data.get('error', {})
     msg = error_dict.get('message')
     if not msg:
         msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(status_code, content)
@@ -339,9 +369,9 @@ class EmulatorAdminCredentials(google.auth.credentials.Credentials):
     This is used instead of user-supplied credentials or ADC.  It will silently do nothing when
     asked to refresh credentials.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         google.auth.credentials.Credentials.__init__(self)
         self.token = 'owner'
 
-    def refresh(self, request):
+    def refresh(self, request: google.auth.transport.Request) -> None:
         pass

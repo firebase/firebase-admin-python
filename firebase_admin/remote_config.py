@@ -20,13 +20,19 @@ import asyncio
 import json
 import logging
 import threading
-from typing import Dict, Optional, Literal, Union, Any
+import typing
 from enum import Enum
 import re
 import hashlib
+
 import requests
-from firebase_admin import App, _http_client, _utils
+
 import firebase_admin
+from firebase_admin import _http_client
+from firebase_admin import _typing
+from firebase_admin import _utils
+from firebase_admin import exceptions
+
 
 # Set up logging (you can customize the level and output)
 logging.basicConfig(level=logging.INFO)
@@ -34,7 +40,8 @@ logger = logging.getLogger(__name__)
 
 _REMOTE_CONFIG_ATTRIBUTE = '_remoteconfig'
 MAX_CONDITION_RECURSION_DEPTH = 10
-ValueSource = Literal['default', 'remote', 'static']  # Define the ValueSource type
+ValueSource = typing.Literal['default', 'remote', 'static']  # Define the ValueSource type
+
 
 class PercentConditionOperator(Enum):
     """Enum representing the available operators for percent conditions.
@@ -43,6 +50,7 @@ class PercentConditionOperator(Enum):
     GREATER_THAN = "GREATER_THAN"
     BETWEEN = "BETWEEN"
     UNKNOWN = "UNKNOWN"
+
 
 class CustomSignalOperator(Enum):
     """Enum representing the available operators for custom signal conditions.
@@ -65,9 +73,10 @@ class CustomSignalOperator(Enum):
     SEMANTIC_VERSION_GREATER_EQUAL = "SEMANTIC_VERSION_GREATER_EQUAL"
     UNKNOWN = "UNKNOWN"
 
+
 class _ServerTemplateData:
     """Parses, validates and encapsulates template data and metadata."""
-    def __init__(self, template_data):
+    def __init__(self, template_data: typing.Dict[str, typing.Any]) -> None:
         """Initializes a new ServerTemplateData instance.
 
         Args:
@@ -78,7 +87,7 @@ class _ServerTemplateData:
         """
         if 'parameters' in template_data:
             if template_data['parameters'] is not None:
-                self._parameters = template_data['parameters']
+                self._parameters: typing.Dict[str, typing.Dict[str, typing.Any]] = template_data['parameters']
             else:
                 raise ValueError('Remote Config parameters must be a non-null object')
         else:
@@ -86,32 +95,32 @@ class _ServerTemplateData:
 
         if 'conditions' in template_data:
             if template_data['conditions'] is not None:
-                self._conditions = template_data['conditions']
+                self._conditions: typing.List[typing.Dict[str, typing.Any]] = template_data['conditions']
             else:
                 raise ValueError('Remote Config conditions must be a non-null object')
         else:
             self._conditions = []
 
-        self._version = ''
+        self._version: str = ''
         if 'version' in template_data:
             self._version = template_data['version']
 
-        self._etag = ''
+        self._etag: str = ''
         if 'etag' in template_data and isinstance(template_data['etag'], str):
             self._etag = template_data['etag']
 
         self._template_data_json = json.dumps(template_data)
 
     @property
-    def parameters(self):
+    def parameters(self) -> typing.Dict[str, typing.Dict[str, typing.Any]]:
         return self._parameters
 
     @property
-    def etag(self):
+    def etag(self) -> str:
         return self._etag
 
     @property
-    def version(self):
+    def version(self) -> str:
         return self._version
 
     @property
@@ -119,13 +128,17 @@ class _ServerTemplateData:
         return self._conditions
 
     @property
-    def template_data_json(self):
+    def template_data_json(self) -> str:
         return self._template_data_json
 
 
 class ServerTemplate:
     """Represents a Server Template with implementations for loading and evaluating the template."""
-    def __init__(self, app: App = None, default_config: Optional[Dict[str, str]] = None):
+    def __init__(
+        self,
+        app: typing.Optional[firebase_admin.App] = None,
+        default_config: typing.Optional[typing.Dict[str, str]] = None,
+    ) -> None:
         """Initializes a ServerTemplate instance.
 
         Args:
@@ -137,8 +150,8 @@ class ServerTemplate:
                                                   _REMOTE_CONFIG_ATTRIBUTE, _RemoteConfigService)
         # This gets set when the template is
         # fetched from RC servers via the load API, or via the set API.
-        self._cache = None
-        self._stringified_default_config: Dict[str, str] = {}
+        self._cache: typing.Optional[_ServerTemplateData] = None
+        self._stringified_default_config: typing.Dict[str, str] = {}
         self._lock = threading.RLock()
 
         # RC stores all remote values as string, but it's more intuitive
@@ -148,13 +161,13 @@ class ServerTemplate:
             for key in default_config:
                 self._stringified_default_config[key] = str(default_config[key])
 
-    async def load(self):
+    async def load(self) -> None:
         """Fetches the server template and caches the data."""
         rc_server_template = await self._rc_service.get_server_template()
         with self._lock:
             self._cache = rc_server_template
 
-    def evaluate(self, context: Optional[Dict[str, Union[str, int]]] = None) -> 'ServerConfig':
+    def evaluate(self, context: typing.Optional[typing.Dict[str, typing.Union[str, int]]] = None) -> 'ServerConfig':
         """Evaluates the cached server template to produce a ServerConfig.
 
         Args:
@@ -170,14 +183,14 @@ class ServerTemplate:
             raise ValueError("""No Remote Config Server template in cache.
                             Call load() before calling evaluate().""")
         context = context or {}
-        config_values = {}
+        config_values: typing.Dict[str, _Value] = {}
 
         with self._lock:
             template_conditions = self._cache.conditions
             template_parameters = self._cache.parameters
 
         # Initializes config Value objects with default values.
-        if self._stringified_default_config is not None:
+        if self._stringified_default_config:
             for key, value in self._stringified_default_config.items():
                 config_values[key] = _Value('default', value)
         self._evaluator = _ConditionEvaluator(template_conditions,
@@ -185,7 +198,7 @@ class ServerTemplate:
                                               config_values)
         return ServerConfig(config_values=self._evaluator.evaluate())
 
-    def set(self, template_data_json: str):
+    def set(self, template_data_json: str) -> None:
         """Updates the cache to store the given template is of type ServerTemplateData.
 
         Args:
@@ -197,7 +210,7 @@ class ServerTemplate:
         with self._lock:
             self._cache = template_data
 
-    def to_json(self):
+    def to_json(self) -> str:
         """Provides the server template in a JSON format to be used for initialization later."""
         if not self._cache:
             raise ValueError("""No Remote Config Server template in cache.
@@ -209,30 +222,30 @@ class ServerTemplate:
 
 class ServerConfig:
     """Represents a Remote Config Server Side Config."""
-    def __init__(self, config_values):
+    def __init__(self, config_values: typing.Dict[str, "_Value"]):
         self._config_values = config_values # dictionary of param key to values
 
-    def get_boolean(self, key):
+    def get_boolean(self, key: str) -> bool:
         """Returns the value as a boolean."""
         return self._get_value(key).as_boolean()
 
-    def get_string(self, key):
+    def get_string(self, key: str) -> str:
         """Returns the value as a string."""
         return self._get_value(key).as_string()
 
-    def get_int(self, key):
+    def get_int(self, key: str) -> int:
         """Returns the value as an integer."""
         return self._get_value(key).as_int()
 
-    def get_float(self, key):
+    def get_float(self, key: str) -> float:
         """Returns the value as a float."""
         return self._get_value(key).as_float()
 
-    def get_value_source(self, key):
+    def get_value_source(self, key: str) -> ValueSource:
         """Returns the source of the value."""
         return self._get_value(key).get_source()
 
-    def _get_value(self, key):
+    def _get_value(self, key: str) -> "_Value":
         return self._config_values.get(key, _Value('static'))
 
 
@@ -240,7 +253,7 @@ class _RemoteConfigService:
     """Internal class that facilitates sending requests to the Firebase Remote
         Config backend API.
     """
-    def __init__(self, app):
+    def __init__(self, app: firebase_admin.App) -> None:
         """Initialize a JsonHttpClient with necessary inputs.
 
         Args:
@@ -258,7 +271,7 @@ class _RemoteConfigService:
                                                    base_url=remote_config_base_url,
                                                    headers=rc_headers, timeout=timeout)
 
-    async def get_server_template(self):
+    async def get_server_template(self) -> _ServerTemplateData:
         """Requests for a server template and converts the response to an instance of
         ServerTemplateData for storing the template parameters and conditions."""
         try:
@@ -272,13 +285,13 @@ class _RemoteConfigService:
             template_data['etag'] = headers.get('etag')
             return _ServerTemplateData(template_data)
 
-    def _get_url(self):
+    def _get_url(self) -> str:
         """Returns project prefix for url, in the format of /v1/projects/${projectId}"""
         return "/v1/projects/{0}/namespaces/firebase-server/serverRemoteConfig".format(
             self._project_id)
 
     @classmethod
-    def _handle_remote_config_error(cls, error: Any):
+    def _handle_remote_config_error(cls, error: requests.RequestException) -> exceptions.FirebaseError:
         """Handles errors received from the Cloud Functions API."""
         return _utils.handle_platform_error_from_requests(error)
 
@@ -286,13 +299,19 @@ class _RemoteConfigService:
 class _ConditionEvaluator:
     """Internal class that facilitates sending requests to the Firebase Remote
     Config backend API."""
-    def __init__(self, conditions, parameters, context, config_values):
+    def __init__(
+        self,
+        conditions: typing.List[typing.Dict[str, typing.Any]],
+        parameters: typing.Dict[str, typing.Dict[str, typing.Any]],
+        context: typing.Dict[str, typing.Any],
+        config_values: typing.Dict[str, "_Value"],
+    ) -> None:
         self._context = context
         self._conditions = conditions
         self._parameters = parameters
         self._config_values = config_values
 
-    def evaluate(self):
+    def evaluate(self) -> typing.Dict[str, "_Value"]:
         """Internal function that evaluates the cached server template to produce
         a ServerConfig"""
         evaluated_conditions = self.evaluate_conditions(self._conditions, self._context)
@@ -300,9 +319,9 @@ class _ConditionEvaluator:
         # Overlays config Value objects derived by evaluating the template.
         if self._parameters:
             for key, parameter in self._parameters.items():
-                conditional_values = parameter.get('conditionalValues', {})
-                default_value = parameter.get('defaultValue', {})
-                parameter_value_wrapper = None
+                conditional_values: typing.Dict[str, typing.Any] = parameter.get('conditionalValues', {})
+                default_value: typing.Dict[str, typing.Any] = parameter.get('defaultValue', {})
+                parameter_value_wrapper: typing.Optional[typing.Dict[str, typing.Any]] = None
                 # Iterates in order over condition list. If there is a value associated
                 # with a condition, this checks if the condition is true.
                 if evaluated_conditions:
@@ -316,8 +335,9 @@ class _ConditionEvaluator:
                     continue
 
                 if parameter_value_wrapper:
+                    # possible issue: Is `None` a valid value for `_Value`?
                     parameter_value = parameter_value_wrapper.get('value')
-                    self._config_values[key] = _Value('remote', parameter_value)
+                    self._config_values[key] = _Value('remote', parameter_value)  # type: ignore[reportArgumentType]
                     continue
 
                 if not default_value:
@@ -327,10 +347,14 @@ class _ConditionEvaluator:
                 if default_value.get('useInAppDefault'):
                     logger.info("Using in-app default value for key '%s'", key)
                     continue
-                self._config_values[key] = _Value('remote', default_value.get('value'))
+                self._config_values[key] = _Value('remote', default_value.get('value'))  # type: ignore[reportArgumentType]
         return self._config_values
 
-    def evaluate_conditions(self, conditions, context)-> Dict[str, bool]:
+    def evaluate_conditions(
+        self,
+        conditions: typing.List[typing.Dict[str, typing.Any]],
+        context: typing.Dict[str, typing.Any],
+    )-> typing.Dict[str, bool]:
         """Evaluates a list of conditions and returns a dictionary of results.
 
         Args:
@@ -340,15 +364,20 @@ class _ConditionEvaluator:
         Returns:
           A dictionary that maps condition names to boolean evaluation results.
         """
-        evaluated_conditions = {}
+        evaluated_conditions: typing.Dict[typing.Any, typing.Any] = {}
         for condition in conditions:
+            # possible issue: does condition always have `name`?
             evaluated_conditions[condition.get('name')] = self.evaluate_condition(
-                condition.get('condition'), context
+                condition['condition'], context
             )
         return evaluated_conditions
 
-    def evaluate_condition(self, condition, context,
-                           nesting_level: int = 0) -> bool:
+    def evaluate_condition(
+        self,
+        condition: typing.Dict[str, typing.Any],
+        context: typing.Dict[str, typing.Any],
+        nesting_level: int = 0,
+    ) -> bool:
         """Recursively evaluates a condition.
 
         Args:
@@ -363,25 +392,28 @@ class _ConditionEvaluator:
             logger.warning("Maximum condition recursion depth exceeded.")
             return False
         if condition.get('orCondition') is not None:
-            return self.evaluate_or_condition(condition.get('orCondition'),
+            return self.evaluate_or_condition(condition['orCondition'],
                                               context, nesting_level + 1)
         if condition.get('andCondition') is not None:
-            return self.evaluate_and_condition(condition.get('andCondition'),
+            return self.evaluate_and_condition(condition['andCondition'],
                                                context, nesting_level + 1)
         if condition.get('true') is not None:
             return True
         if condition.get('false') is not None:
             return False
         if condition.get('percent') is not None:
-            return self.evaluate_percent_condition(condition.get('percent'), context)
+            return self.evaluate_percent_condition(condition['percent'], context)
         if condition.get('customSignal') is not None:
-            return self.evaluate_custom_signal_condition(condition.get('customSignal'), context)
+            return self.evaluate_custom_signal_condition(condition['customSignal'], context)
         logger.warning("Unknown condition type encountered.")
         return False
 
-    def evaluate_or_condition(self, or_condition,
-                              context,
-                              nesting_level: int = 0) -> bool:
+    def evaluate_or_condition(
+        self,
+        or_condition: typing.Dict[str, typing.Any],
+        context: typing.Dict[str, typing.Any],
+        nesting_level: int = 0,
+    ) -> bool:
         """Evaluates an OR condition.
 
         Args:
@@ -392,16 +424,19 @@ class _ConditionEvaluator:
         Returns:
           True if any of the subconditions are true, False otherwise.
         """
-        sub_conditions = or_condition.get('conditions') or []
+        sub_conditions: typing.List[typing.Dict[str, typing.Any]] = or_condition.get('conditions') or []
         for sub_condition in sub_conditions:
             result = self.evaluate_condition(sub_condition, context, nesting_level + 1)
             if result:
                 return True
         return False
 
-    def evaluate_and_condition(self, and_condition,
-                               context,
-                               nesting_level: int = 0) -> bool:
+    def evaluate_and_condition(
+        self,
+        and_condition: typing.Dict[str, typing.Any],
+        context: typing.Dict[str, typing.Any],
+        nesting_level: int = 0,
+    ) -> bool:
         """Evaluates an AND condition.
 
         Args:
@@ -412,15 +447,18 @@ class _ConditionEvaluator:
         Returns:
           True if all of the subconditions are met; False otherwise.
         """
-        sub_conditions = and_condition.get('conditions') or []
+        sub_conditions: typing.List[typing.Dict[str, typing.Any]] = and_condition.get('conditions') or []
         for sub_condition in sub_conditions:
             result = self.evaluate_condition(sub_condition, context, nesting_level + 1)
             if not result:
                 return False
         return True
 
-    def evaluate_percent_condition(self, percent_condition,
-                                   context) -> bool:
+    def evaluate_percent_condition(
+        self,
+        percent_condition: typing.Dict[str, typing.Any],
+        context: typing.Dict[str, typing.Any],
+    ) -> bool:
         """Evaluates a percent condition.
 
         Args:
@@ -464,6 +502,7 @@ class _ConditionEvaluator:
             return norm_percent_lower_bound < instance_micro_percentile <= norm_percent_upper_bound
         logger.warning("Unknown percent operator: %s", percent_operator)
         return False
+
     def hash_seeded_randomization_id(self, seeded_randomization_id: str) -> int:
         """Hashes a seeded randomization ID.
 
@@ -478,8 +517,11 @@ class _ConditionEvaluator:
         hash64 = hash_object.hexdigest()
         return abs(int(hash64, 16))
 
-    def evaluate_custom_signal_condition(self, custom_signal_condition,
-                                         context) -> bool:
+    def evaluate_custom_signal_condition(
+        self,
+        custom_signal_condition: typing.Dict[str, typing.Any],
+        context: typing.Dict[str, typing.Any],
+    ) -> bool:
         """Evaluates a custom signal condition.
 
         Args:
@@ -489,18 +531,16 @@ class _ConditionEvaluator:
         Returns:
           True if the condition is met, False otherwise.
         """
-        custom_signal_operator = custom_signal_condition.get('customSignalOperator') or {}
-        custom_signal_key = custom_signal_condition.get('customSignalKey') or {}
-        target_custom_signal_values = (
-            custom_signal_condition.get('targetCustomSignalValues') or {})
+        custom_signal_operator: typing.Optional[str] = custom_signal_condition.get('customSignalOperator')
+        custom_signal_key: typing.Optional[str] = custom_signal_condition.get('customSignalKey')
+        target_custom_signal_values: typing.Optional[typing.List[typing.Any]] = (
+            custom_signal_condition.get('targetCustomSignalValues'))
 
-        if not all([custom_signal_operator, custom_signal_key, target_custom_signal_values]):
+        if not (custom_signal_operator and custom_signal_key and target_custom_signal_values):
             logger.warning("Missing operator, key, or target values for custom signal condition.")
             return False
 
-        if not target_custom_signal_values:
-            return False
-        actual_custom_signal_value = context.get(custom_signal_key) or {}
+        actual_custom_signal_value: typing.Optional[typing.Any] = context.get(custom_signal_key)
 
         if not actual_custom_signal_value:
             logger.debug("Custom signal value not found in context: %s", custom_signal_key)
@@ -521,7 +561,7 @@ class _ConditionEvaluator:
         if custom_signal_operator == CustomSignalOperator.STRING_CONTAINS_REGEX.value:
             return self._compare_strings(target_custom_signal_values,
                                          actual_custom_signal_value,
-                                         re.search)
+                                         lambda pattern, string: bool(re.search(pattern, string)))
 
         # For numeric operators only one target value is allowed.
         if custom_signal_operator == CustomSignalOperator.NUMERIC_LESS_THAN.value:
@@ -589,7 +629,12 @@ class _ConditionEvaluator:
         logger.warning("Unknown custom signal operator: %s", custom_signal_operator)
         return False
 
-    def _compare_strings(self, target_values, actual_value, predicate_fn) -> bool:
+    def _compare_strings(
+        self,
+        target_values: typing.List[str],
+        actual_value: str,
+        predicate_fn: typing.Callable[[str, str], bool],
+    ) -> bool:
         """Compares the actual string value of a signal against a list of target values.
 
         Args:
@@ -609,7 +654,13 @@ class _ConditionEvaluator:
                 return True
         return False
 
-    def _compare_numbers(self, custom_signal_key, target_value, actual_value, predicate_fn) -> bool:
+    def _compare_numbers(
+        self,
+        custom_signal_key: str,
+        target_value: _typing.ConvertibleToFloat,
+        actual_value: _typing.ConvertibleToFloat,
+        predicate_fn: typing.Callable[[float], bool],
+    ) -> bool:
         try:
             target = float(target_value)
             actual = float(actual_value)
@@ -620,8 +671,13 @@ class _ConditionEvaluator:
                            custom_signal_key)
             return False
 
-    def _compare_semantic_versions(self, custom_signal_key,
-                                   target_value, actual_value, predicate_fn) -> bool:
+    def _compare_semantic_versions(
+        self,
+        custom_signal_key: str,
+        target_value: str,
+        actual_value: str,
+        predicate_fn: typing.Callable[[typing.Literal[-1, 0, 1]], bool]
+    ) -> bool:
         """Compares the actual semantic version value of a signal against a target value.
         Calls the predicate function with -1, 0, 1 if actual is less than, equal to,
         or greater than target.
@@ -639,8 +695,13 @@ class _ConditionEvaluator:
         return self._compare_versions(custom_signal_key, str(actual_value),
                                       str(target_value), predicate_fn)
 
-    def _compare_versions(self, custom_signal_key,
-                          sem_version_1, sem_version_2, predicate_fn) -> bool:
+    def _compare_versions(
+        self,
+        custom_signal_key: str,
+        sem_version_1: str,
+        sem_version_2: str,
+        predicate_fn: typing.Callable[[typing.Literal[-1, 0, 1]], bool]
+    ) -> bool:
         """Compares two semantic version strings.
 
         Args:
@@ -673,7 +734,11 @@ class _ConditionEvaluator:
                 custom_signal_key)
             return False
 
-async def get_server_template(app: App = None, default_config: Optional[Dict[str, str]] = None):
+
+async def get_server_template(
+    app: typing.Optional[firebase_admin.App] = None,
+    default_config: typing.Optional[typing.Dict[str, str]] = None
+) -> ServerTemplate:
     """Initializes a new ServerTemplate instance and fetches the server template.
 
     Args:
@@ -688,8 +753,12 @@ async def get_server_template(app: App = None, default_config: Optional[Dict[str
     await template.load()
     return template
 
-def init_server_template(app: App = None, default_config: Optional[Dict[str, str]] = None,
-                         template_data_json: Optional[str] = None):
+
+def init_server_template(
+    app: typing.Optional[firebase_admin.App] = None,
+    default_config: typing.Optional[typing.Dict[str, str]] = None,
+    template_data_json: typing.Optional[str] = None,
+) -> ServerTemplate:
     """Initializes a new ServerTemplate instance.
 
     Args:
@@ -707,6 +776,7 @@ def init_server_template(app: App = None, default_config: Optional[Dict[str, str
         template.set(template_data_json)
     return template
 
+
 class _Value:
     """Represents a value fetched from Remote Config.
     """
@@ -716,7 +786,7 @@ class _Value:
     DEFAULT_VALUE_FOR_FLOAT_NUMBER = 0.0
     BOOLEAN_TRUTHY_VALUES = ['1', 'true', 't', 'yes', 'y', 'on']
 
-    def __init__(self, source: ValueSource, value: str = DEFAULT_VALUE_FOR_STRING):
+    def __init__(self, source: ValueSource, value: str = DEFAULT_VALUE_FOR_STRING) -> None:
         """Initializes a Value instance.
 
         Args:
@@ -726,7 +796,7 @@ class _Value:
           "remote" indicates the value was defined by config produced by evaluating a template.
           value: The string value.
         """
-        self.source = source
+        self.source: ValueSource = source
         self.value = value
 
     def as_string(self) -> str:
@@ -741,7 +811,7 @@ class _Value:
             return self.DEFAULT_VALUE_FOR_BOOLEAN
         return str(self.value).lower() in self.BOOLEAN_TRUTHY_VALUES
 
-    def as_int(self) -> float:
+    def as_int(self) -> int:
         """Returns the value as a number."""
         if self.source == 'static':
             return self.DEFAULT_VALUE_FOR_INTEGER

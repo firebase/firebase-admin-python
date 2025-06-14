@@ -171,7 +171,7 @@ class HttpClient(typing.Generic[_AnyT]):
         method: str,
         url: str,
         **kwargs: typing.Any,
-    ) -> typing.Tuple[requests.structures.CaseInsensitiveDict[str], _AnyT]:
+    ) -> typing.Tuple['requests.structures.CaseInsensitiveDict[str]', _AnyT]:
         resp = self.request(method, url, **kwargs)
         return resp.headers, self.parse_body(resp)
 

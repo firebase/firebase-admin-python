@@ -826,13 +826,13 @@ def _validate_model_id(model_id: str) -> None:
         raise ValueError('Model ID format is invalid.')
 
 
-def _validate_operation_name(op_name: str) -> str:
+def _validate_operation_name(op_name: typing.Any) -> str:
     if not _OPERATION_NAME_PATTERN.match(op_name):
         raise ValueError('Operation name format is invalid.')
     return op_name
 
 
-def _validate_display_name(display_name: str) -> str:
+def _validate_display_name(display_name: typing.Any) -> str:
     if not _DISPLAY_NAME_PATTERN.match(display_name):
         raise ValueError('Display name format is invalid.')
     return display_name
@@ -971,7 +971,7 @@ class _MLService:
                 raise _utils.handle_operation_error(error)
             raise exceptions.UnknownError(message='Internal Error: Malformed Operation.')
 
-        op_name = _validate_operation_name(typing.cast(str, operation['name']))
+        op_name = _validate_operation_name(operation.get('name'))
         metadata = typing.cast(typing.Dict[str, typing.Any], operation.get('metadata', {}))
         metadata_type = metadata.get('@type', '')
         if not metadata_type.endswith('ModelOperationMetadata'):

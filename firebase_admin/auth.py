@@ -49,6 +49,7 @@ __all__ = [
     'ImportUserRecord',
     'InsufficientPermissionError',
     'InvalidDynamicLinkDomainError',
+    'InvalidHostingLinkDomainError',
     'InvalidIdTokenError',
     'InvalidSessionCookieError',
     'ListProviderConfigsPage',
@@ -125,6 +126,7 @@ GetUsersResult = _user_mgt.GetUsersResult
 ImportUserRecord = _user_import.ImportUserRecord
 InsufficientPermissionError = _auth_utils.InsufficientPermissionError
 InvalidDynamicLinkDomainError = _auth_utils.InvalidDynamicLinkDomainError
+InvalidHostingLinkDomainError = _auth_utils.InvalidHostingLinkDomainError
 InvalidIdTokenError = _auth_utils.InvalidIdTokenError
 InvalidSessionCookieError = _token_gen.InvalidSessionCookieError
 ListProviderConfigsPage = _auth_providers.ListProviderConfigsPage

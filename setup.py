@@ -44,6 +44,9 @@ install_requires = [
     'google-cloud-storage>=1.37.1',
     'pyjwt[crypto] >= 2.5.0',
     'httpx[http2] == 0.28.1',
+    'typing-extensions >= 4.12.0',
+    'types-requests',
+    'types-httplib2'
 ]
 
 setup(
@@ -74,5 +77,6 @@ setup(
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
         'License :: OSI Approved :: Apache Software License',
+        'Typing :: Typed',
     ],
 )

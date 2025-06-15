@@ -19,8 +19,12 @@ import json
 import math
 import numbers
 import re
+import typing
 
-import firebase_admin._messaging_utils as _messaging_utils
+from firebase_admin import _messaging_utils
+
+_K = typing.TypeVar("_K")
+_V = typing.TypeVar("_V")
 
 
 class Message:
@@ -35,7 +39,7 @@ class Message:
         notification: An instance of ``messaging.Notification`` (optional).
         android: An instance of ``messaging.AndroidConfig`` (optional).
         webpush: An instance of ``messaging.WebpushConfig`` (optional).
-        apns: An instance of ``messaging.ApnsConfig`` (optional).
+        apns: An instance of ``messaging.APNSConfig`` (optional).
         fcm_options: An instance of ``messaging.FCMOptions`` (optional).
         token: The registration token of the device to which the message should be sent (optional).
         topic: Name of the FCM topic to which the message should be sent (optional). Topic name
@@ -43,8 +47,18 @@ class Message:
         condition: The FCM condition to which the message should be sent (optional).
     """
 
-    def __init__(self, data=None, notification=None, android=None, webpush=None, apns=None,
-                 fcm_options=None, token=None, topic=None, condition=None):
+    def __init__(
+        self,
+        data: typing.Optional[typing.Dict[str, str]] = None,
+        notification: typing.Optional[_messaging_utils.Notification] = None,
+        android: typing.Optional[_messaging_utils.AndroidConfig] = None,
+        webpush: typing.Optional[_messaging_utils.WebpushConfig] = None,
+        apns: typing.Optional[_messaging_utils.APNSConfig] = None,
+        fcm_options: typing.Optional[_messaging_utils.FCMOptions] = None,
+        token: typing.Optional[str] = None,
+        topic: typing.Optional[str] = None,
+        condition: typing.Optional[str] = None,
+    ) -> None:
         self.data = data
         self.notification = notification
         self.android = android
@@ -55,7 +69,7 @@ class Message:
         self.topic = topic
         self.condition = condition
 
-    def __str__(self):
+    def __str__(self) -> str:
         return json.dumps(self, cls=MessageEncoder, sort_keys=True)
 
 
@@ -69,11 +83,19 @@ class MulticastMessage:
         notification: An instance of ``messaging.Notification`` (optional).
         android: An instance of ``messaging.AndroidConfig`` (optional).
         webpush: An instance of ``messaging.WebpushConfig`` (optional).
-        apns: An instance of ``messaging.ApnsConfig`` (optional).
+        apns: An instance of ``messaging.APNSConfig`` (optional).
         fcm_options: An instance of ``messaging.FCMOptions`` (optional).
     """
-    def __init__(self, tokens, data=None, notification=None, android=None, webpush=None, apns=None,
-                 fcm_options=None):
+    def __init__(
+        self,
+        tokens: typing.List[str],
+        data: typing.Optional[typing.Dict[str, str]] = None,
+        notification: typing.Optional[_messaging_utils.Notification] = None,
+        android: typing.Optional[_messaging_utils.AndroidConfig] = None,
+        webpush: typing.Optional[_messaging_utils.WebpushConfig] = None,
+        apns: typing.Optional[_messaging_utils.APNSConfig] = None,
+        fcm_options: typing.Optional[_messaging_utils.FCMOptions] = None,
+    ) -> None:
         _Validators.check_string_list('MulticastMessage.tokens', tokens)
         if len(tokens) > 500:
             raise ValueError('MulticastMessage.tokens must not contain more than 500 tokens.')
@@ -93,7 +115,7 @@ class _Validators:
     """
 
     @classmethod
-    def check_string(cls, label, value, non_empty=False):
+    def check_string(cls, label: str, value: typing.Any, non_empty: bool = False) -> typing.Optional[str]:
         """Checks if the given value is a string."""
         if value is None:
             return None
@@ -106,7 +128,7 @@ class _Validators:
         return value
 
     @classmethod
-    def check_number(cls, label, value):
+    def check_number(cls, label: str, value: typing.Any) -> typing.Optional[numbers.Number]:
         if value is None:
             return None
         if not isinstance(value, numbers.Number):
@@ -114,12 +136,17 @@ class _Validators:
         return value
 
     @classmethod
-    def check_string_dict(cls, label, value):
+    def check_string_dict(
+        cls,
+        label: str,
+        value: typing.Union[typing.Dict[typing.Any, typing.Any], typing.Any],
+    ) -> typing.Optional[typing.Dict[str, str]]:
         """Checks if the given value is a dictionary comprised only of string keys and values."""
         if value is None or value == {}:
             return None
         if not isinstance(value, dict):
             raise ValueError('{0} must be a dictionary.'.format(label))
+        value = typing.cast(typing.Dict[typing.Any, typing.Any], value)
         non_str = [k for k in value if not isinstance(k, str)]
         if non_str:
             raise ValueError('{0} must not contain non-string keys.'.format(label))
@@ -129,39 +156,45 @@ class _Validators:
         return value
 
     @classmethod
-    def check_string_list(cls, label, value):
+    def check_string_list(
+        cls,
+        label: str,
+        value: typing.Union[typing.List[typing.Any], typing.Any],
+    ) -> typing.Optional[typing.List[str]]:
         """Checks if the given value is a list comprised only of strings."""
         if value is None or value == []:
             return None
         if not isinstance(value, list):
             raise ValueError('{0} must be a list of strings.'.format(label))
+        value = typing.cast(typing.List[typing.Any], value)
         non_str = [k for k in value if not isinstance(k, str)]
         if non_str:
             raise ValueError('{0} must not contain non-string values.'.format(label))
         return value
 
     @classmethod
-    def check_number_list(cls, label, value):
+    def check_number_list(cls, label: str, value: typing.Any) -> typing.Optional[typing.List[numbers.Number]]:
         """Checks if the given value is a list comprised only of numbers."""
         if value is None or value == []:
             return None
         if not isinstance(value, list):
             raise ValueError('{0} must be a list of numbers.'.format(label))
+        value = typing.cast(typing.List[typing.Any], value)
         non_number = [k for k in value if not isinstance(k, numbers.Number)]
         if non_number:
             raise ValueError('{0} must not contain non-number values.'.format(label))
         return value
 
     @classmethod
-    def check_analytics_label(cls, label, value):
+    def check_analytics_label(cls, label: str, value: typing.Any) -> typing.Optional[str]:
         """Checks if the given value is a valid analytics label."""
-        value = _Validators.check_string(label, value)
+        value = cls.check_string(label, value)
         if value is not None and not re.match(r'^[a-zA-Z0-9-_.~%]{1,50}$', value):
             raise ValueError('Malformed {}.'.format(label))
         return value
 
     @classmethod
-    def check_boolean(cls, label, value):
+    def check_boolean(cls, label: str, value: typing.Any) -> typing.Optional[bool]:
         """Checks if the given value is boolean."""
         if value is None:
             return None
@@ -170,7 +203,7 @@ class _Validators:
         return value
 
     @classmethod
-    def check_datetime(cls, label, value):
+    def check_datetime(cls, label: str, value: typing.Any) -> typing.Optional[datetime.datetime]:
         """Checks if the given value is a datetime."""
         if value is None:
             return None
@@ -182,18 +215,21 @@ class _Validators:
 class MessageEncoder(json.JSONEncoder):
     """A custom ``JSONEncoder`` implementation for serializing Message instances into JSON."""
 
-    @classmethod
-    def remove_null_values(cls, dict_value):
-        return {k: v for k, v in dict_value.items() if v not in [None, [], {}]}
+    @staticmethod
+    def remove_null_values(dict_value: typing.Dict[_K, typing.Optional[_V]]) -> typing.Dict[_K, _V]:
+        return {k: typing.cast(_V, v) for k, v in dict_value.items() if v not in [None, [], {}]}
 
     @classmethod
-    def encode_android(cls, android):
+    def encode_android(
+        cls,
+        android: typing.Optional[_messaging_utils.AndroidConfig],
+    ) -> typing.Optional[typing.Dict[str, typing.Any]]:
         """Encodes an ``AndroidConfig`` instance into JSON."""
         if android is None:
             return None
         if not isinstance(android, _messaging_utils.AndroidConfig):
             raise ValueError('Message.android must be an instance of AndroidConfig class.')
-        result = {
+        result: typing.Dict[str, typing.Any] = {
             'collapse_key': _Validators.check_string(
                 'AndroidConfig.collapse_key', android.collapse_key),
             'data': _Validators.check_string_dict(
@@ -215,7 +251,10 @@ class MessageEncoder(json.JSONEncoder):
         return result
 
     @classmethod
-    def encode_android_fcm_options(cls, fcm_options):
+    def encode_android_fcm_options(
+        cls,
+        fcm_options: typing.Optional[_messaging_utils.AndroidFCMOptions],
+    ) -> typing.Optional[typing.Dict[str, str]]:
         """Encodes an ``AndroidFCMOptions`` instance into JSON."""
         if fcm_options is None:
             return None
@@ -230,12 +269,12 @@ class MessageEncoder(json.JSONEncoder):
         return result
 
     @classmethod
-    def encode_ttl(cls, ttl):
+    def encode_ttl(cls, ttl: typing.Optional[typing.Union[numbers.Real, datetime.timedelta]]) -> typing.Optional[str]:
         """Encodes an ``AndroidConfig`` ``TTL`` duration into a string."""
         if ttl is None:
             return None
-        if isinstance(ttl, numbers.Number):
-            ttl = datetime.timedelta(seconds=ttl)
+        if isinstance(ttl, numbers.Real):
+            ttl = datetime.timedelta(seconds=float(ttl))
         if not isinstance(ttl, datetime.timedelta):
             raise ValueError('AndroidConfig.ttl must be a duration in seconds or an instance of '
                              'datetime.timedelta.')
@@ -249,12 +288,16 @@ class MessageEncoder(json.JSONEncoder):
         return '{0}s'.format(seconds)
 
     @classmethod
-    def encode_milliseconds(cls, label, msec):
+    def encode_milliseconds(
+        cls,
+        label: str,
+        msec: typing.Optional[typing.Union[numbers.Real, datetime.timedelta]],
+    ) -> typing.Optional[str]:
         """Encodes a duration in milliseconds into a string."""
         if msec is None:
             return None
-        if isinstance(msec, numbers.Number):
-            msec = datetime.timedelta(milliseconds=msec)
+        if isinstance(msec, numbers.Real):
+            msec = datetime.timedelta(milliseconds=float(msec))
         if not isinstance(msec, datetime.timedelta):
             raise ValueError('{0} must be a duration in milliseconds or an instance of '
                              'datetime.timedelta.'.format(label))
@@ -268,14 +311,17 @@ class MessageEncoder(json.JSONEncoder):
         return '{0}s'.format(seconds)
 
     @classmethod
-    def encode_android_notification(cls, notification):
+    def encode_android_notification(
+        cls,
+        notification: typing.Optional[_messaging_utils.AndroidNotification],
+    ) -> typing.Optional[typing.Dict[str, typing.Any]]:
         """Encodes an ``AndroidNotification`` instance into JSON."""
         if notification is None:
             return None
         if not isinstance(notification, _messaging_utils.AndroidNotification):
             raise ValueError('AndroidConfig.notification must be an instance of '
                              'AndroidNotification class.')
-        result = {
+        result: typing.Dict[str, typing.Any] = {
             'body': _Validators.check_string(
                 'AndroidNotification.body', notification.body),
             'body_loc_args': _Validators.check_string_list(
@@ -324,7 +370,7 @@ class MessageEncoder(json.JSONEncoder):
                 'AndroidNotification.proxy', notification.proxy, non_empty=True)
         }
         result = cls.remove_null_values(result)
-        color = result.get('color')
+        color: typing.Optional[str] = result.get('color')
         if color and not re.match(r'^#[0-9a-fA-F]{6}$', color):
             raise ValueError(
                 'AndroidNotification.color must be in the form #RRGGBB.')
@@ -335,7 +381,7 @@ class MessageEncoder(json.JSONEncoder):
             raise ValueError(
                 'AndroidNotification.title_loc_key is required when specifying title_loc_args.')
 
-        event_time = result.get('event_time')
+        event_time: typing.Optional[datetime.datetime] = result.get('event_time')
         if event_time:
             # if the datetime instance is not naive (tzinfo is present), convert to UTC
             # otherwise (tzinfo is None) assume the datetime instance is already in UTC
@@ -357,9 +403,9 @@ class MessageEncoder(json.JSONEncoder):
                     'AndroidNotification.visibility must be "private", "public" or "secret".')
             result['visibility'] = visibility.upper()
 
-        vibrate_timings_millis = result.get('vibrate_timings')
+        vibrate_timings_millis: typing.Optional[typing.List[typing.Any]] = result.get('vibrate_timings')
         if vibrate_timings_millis:
-            vibrate_timing_strings = []
+            vibrate_timing_strings: typing.List[typing.Optional[str]] = []
             for msec in vibrate_timings_millis:
                 formated_string = cls.encode_milliseconds(
                     'AndroidNotification.vibrate_timings_millis', msec)
@@ -375,14 +421,17 @@ class MessageEncoder(json.JSONEncoder):
         return result
 
     @classmethod
-    def encode_light_settings(cls, light_settings):
+    def encode_light_settings(
+        cls,
+        light_settings: typing.Optional[_messaging_utils.LightSettings],
+    ) -> typing.Optional[typing.Dict[str, typing.Any]]:
         """Encodes a ``LightSettings`` instance into JSON."""
         if light_settings is None:
             return None
         if not isinstance(light_settings, _messaging_utils.LightSettings):
             raise ValueError(
                 'AndroidNotification.light_settings must be an instance of LightSettings class.')
-        result = {
+        result: typing.Dict[str, typing.Any] = {
             'color': _Validators.check_string(
                 'LightSettings.color', light_settings.color, non_empty=True),
             'light_on_duration': cls.encode_milliseconds(
@@ -416,7 +465,10 @@ class MessageEncoder(json.JSONEncoder):
         return result
 
     @classmethod
-    def encode_webpush(cls, webpush):
+    def encode_webpush(
+        cls,
+        webpush: typing.Optional[_messaging_utils.WebpushConfig],
+    ) -> typing.Optional[typing.Dict[str, typing.Any]]:
         """Encodes a ``WebpushConfig`` instance into JSON."""
         if webpush is None:
             return None
@@ -433,7 +485,10 @@ class MessageEncoder(json.JSONEncoder):
         return cls.remove_null_values(result)
 
     @classmethod
-    def encode_webpush_notification(cls, notification):
+    def encode_webpush_notification(
+        cls,
+        notification: typing.Optional[_messaging_utils.WebpushNotification],
+    ) -> typing.Optional[typing.Dict[str, typing.Any]]:
         """Encodes a ``WebpushNotification`` instance into JSON."""
         if notification is None:
             return None
@@ -441,7 +496,7 @@ class MessageEncoder(json.JSONEncoder):
             raise ValueError('WebpushConfig.notification must be an instance of '
                              'WebpushNotification class.')
         result = {
-            'actions': cls.encode_webpush_notification_actions(notification.actions),
+            'actions': MessageEncoder.encode_webpush_notification_actions(notification.actions),
             'badge': _Validators.check_string(
                 'WebpushNotification.badge', notification.badge),
             'body': _Validators.check_string(
@@ -477,17 +532,20 @@ class MessageEncoder(json.JSONEncoder):
                     raise ValueError(
                         'Multiple specifications for {0} in WebpushNotification.'.format(key))
                 result[key] = value
-        return cls.remove_null_values(result)
+        return MessageEncoder.remove_null_values(result)
 
     @classmethod
-    def encode_webpush_notification_actions(cls, actions):
+    def encode_webpush_notification_actions(
+        cls,
+        actions: typing.Optional[typing.List[_messaging_utils.WebpushNotificationAction]]
+    ) -> typing.Optional[typing.List[typing.Dict[str, str]]]:
         """Encodes a list of ``WebpushNotificationActions`` into JSON."""
         if actions is None:
             return None
         if not isinstance(actions, list):
             raise ValueError('WebpushConfig.notification.actions must be a list of '
                              'WebpushNotificationAction instances.')
-        results = []
+        results: typing.List[typing.Dict[str, str]] = []
         for action in actions:
             if not isinstance(action, _messaging_utils.WebpushNotificationAction):
                 raise ValueError('WebpushConfig.notification.actions must be a list of '
@@ -504,7 +562,10 @@ class MessageEncoder(json.JSONEncoder):
         return results
 
     @classmethod
-    def encode_webpush_fcm_options(cls, options):
+    def encode_webpush_fcm_options(
+        cls,
+        options: typing.Optional[_messaging_utils.WebpushFCMOptions],
+    ) -> typing.Optional[typing.Dict[str, str]]:
         """Encodes a ``WebpushFCMOptions`` instance into JSON."""
         if options is None:
             return None
@@ -518,7 +579,10 @@ class MessageEncoder(json.JSONEncoder):
         return result
 
     @classmethod
-    def encode_apns(cls, apns):
+    def encode_apns(
+        cls,
+        apns: typing.Optional[_messaging_utils.APNSConfig],
+    ) -> typing.Optional[typing.Dict[str, typing.Any]]:
         """Encodes an ``APNSConfig`` instance into JSON."""
         if apns is None:
             return None
@@ -535,13 +599,16 @@ class MessageEncoder(json.JSONEncoder):
         return cls.remove_null_values(result)
 
     @classmethod
-    def encode_apns_payload(cls, payload):
+    def encode_apns_payload(
+        cls,
+        payload: typing.Optional[_messaging_utils.APNSPayload],
+    ) -> typing.Optional[typing.Dict[str, typing.Any]]:
         """Encodes an ``APNSPayload`` instance into JSON."""
         if payload is None:
             return None
         if not isinstance(payload, _messaging_utils.APNSPayload):
             raise ValueError('APNSConfig.payload must be an instance of APNSPayload class.')
-        result = {
+        result: typing.Dict[str, typing.Any] = {
             'aps': cls.encode_aps(payload.aps)
         }
         for key, value in payload.custom_data.items():
@@ -549,7 +616,10 @@ class MessageEncoder(json.JSONEncoder):
         return cls.remove_null_values(result)
 
     @classmethod
-    def encode_apns_fcm_options(cls, fcm_options):
+    def encode_apns_fcm_options(
+        cls,
+        fcm_options: typing.Optional[_messaging_utils.APNSFCMOptions],
+    ) -> typing.Optional[typing.Dict[str, str]]:
         """Encodes an ``APNSFCMOptions`` instance into JSON."""
         if fcm_options is None:
             return None
@@ -564,11 +634,11 @@ class MessageEncoder(json.JSONEncoder):
         return result
 
     @classmethod
-    def encode_aps(cls, aps):
+    def encode_aps(cls, aps: _messaging_utils.Aps) -> typing.Dict[str, typing.Any]:
         """Encodes an ``Aps`` instance into JSON."""
         if not isinstance(aps, _messaging_utils.Aps):
             raise ValueError('APNSPayload.aps must be an instance of Aps class.')
-        result = {
+        result: typing.Dict[str, typing.Any] = {
             'alert': cls.encode_aps_alert(aps.alert),
             'badge': _Validators.check_number('Aps.badge', aps.badge),
             'sound': cls.encode_aps_sound(aps.sound),
@@ -590,7 +660,10 @@ class MessageEncoder(json.JSONEncoder):
         return cls.remove_null_values(result)
 
     @classmethod
-    def encode_aps_sound(cls, sound):
+    def encode_aps_sound(
+        cls,
+        sound: typing.Optional[typing.Union[str, _messaging_utils.CriticalSound]],
+    ) -> typing.Optional[typing.Union[str, typing.Dict[str, typing.Any]]]:
         """Encodes an APNs sound configuration into JSON."""
         if sound is None:
             return None
@@ -599,7 +672,7 @@ class MessageEncoder(json.JSONEncoder):
         if not isinstance(sound, _messaging_utils.CriticalSound):
             raise ValueError(
                 'Aps.sound must be a non-empty string or an instance of CriticalSound class.')
-        result = {
+        result: typing.Dict[str, typing.Any] = {
             'name': _Validators.check_string('CriticalSound.name', sound.name, non_empty=True),
             'volume': _Validators.check_number('CriticalSound.volume', sound.volume),
         }
@@ -613,7 +686,10 @@ class MessageEncoder(json.JSONEncoder):
         return cls.remove_null_values(result)
 
     @classmethod
-    def encode_aps_alert(cls, alert):
+    def encode_aps_alert(
+        cls,
+        alert: typing.Optional[typing.Union[_messaging_utils.ApsAlert, str]],
+    ) -> typing.Optional[typing.Union[str, typing.Dict[str, typing.Any]]]:
         """Encodes an ``ApsAlert`` instance into JSON."""
         if alert is None:
             return None
@@ -655,7 +731,10 @@ class MessageEncoder(json.JSONEncoder):
         return cls.remove_null_values(result)
 
     @classmethod
-    def encode_notification(cls, notification):
+    def encode_notification(
+        cls,
+        notification: typing.Optional[_messaging_utils.Notification],
+    ) -> typing.Optional[typing.Dict[str, str]]:
         """Encodes a ``Notification`` instance into JSON."""
         if notification is None:
             return None
@@ -669,7 +748,7 @@ class MessageEncoder(json.JSONEncoder):
         return cls.remove_null_values(result)
 
     @classmethod
-    def sanitize_topic_name(cls, topic):
+    def sanitize_topic_name(cls, topic: typing.Optional[str]) -> typing.Optional[str]:
         """Removes the /topics/ prefix from the topic name, if present."""
         if not topic:
             return None
@@ -681,10 +760,10 @@ class MessageEncoder(json.JSONEncoder):
             raise ValueError('Malformed topic name.')
         return topic
 
-    def default(self, o): # pylint: disable=method-hidden
+    def default(self, o: typing.Any) -> typing.Dict[str, typing.Any]: # pylint: disable=method-hidden
         if not isinstance(o, Message):
             return json.JSONEncoder.default(self, o)
-        result = {
+        result: typing.Dict[str, typing.Any] = {
             'android': MessageEncoder.encode_android(o.android),
             'apns': MessageEncoder.encode_apns(o.apns),
             'condition': _Validators.check_string(
@@ -704,7 +783,10 @@ class MessageEncoder(json.JSONEncoder):
         return result
 
     @classmethod
-    def encode_fcm_options(cls, fcm_options):
+    def encode_fcm_options(
+        cls,
+        fcm_options: typing.Optional[_messaging_utils.FCMOptions],
+    ) -> typing.Optional[typing.Dict[str, str]]:
         """Encodes an ``FCMOptions`` instance into JSON."""
         if fcm_options is None:
             return None

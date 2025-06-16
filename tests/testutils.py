@@ -183,7 +183,7 @@ class MockMultiRequestAdapter(adapters.HTTPAdapter):
 class MockAdapter(MockMultiRequestAdapter):
     """A mock HTTP adapter for the Python requests module."""
     def __init__(self, data, status, recorder):
-        super(MockAdapter, self).__init__([data], [status], recorder)
+        super().__init__([data], [status], recorder)
 
     @property
     def status(self):

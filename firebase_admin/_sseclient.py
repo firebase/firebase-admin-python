@@ -34,7 +34,7 @@ class KeepAuthSession(transport.requests.AuthorizedSession):
     """A session that does not drop authentication on redirects between domains."""
 
     def __init__(self, credential):
-        super(KeepAuthSession, self).__init__(credential)
+        super().__init__(credential)
 
     def rebuild_auth(self, prepared_request, response):
         pass

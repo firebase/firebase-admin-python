@@ -128,7 +128,7 @@ class UserRecord(UserInfo):
     """Contains metadata associated with a Firebase user account."""
 
     def __init__(self, data):
-        super(UserRecord, self).__init__()
+        super().__init__()
         if not isinstance(data, dict):
             raise ValueError('Invalid data argument: {0}. Must be a dictionary.'.format(data))
         if not data.get('localId'):
@@ -452,7 +452,7 @@ class ProviderUserInfo(UserInfo):
     """Contains metadata regarding how a user is known by a particular identity provider."""
 
     def __init__(self, data):
-        super(ProviderUserInfo, self).__init__()
+        super().__init__()
         if not isinstance(data, dict):
             raise ValueError('Invalid data argument: {0}. Must be a dictionary.'.format(data))
         if not data.get('rawId'):
@@ -518,8 +518,8 @@ def encode_action_code_settings(settings):
         if not parsed.netloc:
             raise ValueError('Malformed dynamic action links url: "{0}".'.format(settings.url))
         parameters['continueUrl'] = settings.url
-    except Exception:
-        raise ValueError('Malformed dynamic action links url: "{0}".'.format(settings.url))
+    except Exception as err:
+        raise ValueError('Malformed dynamic action links url: "{0}".'.format(settings.url)) from err
 
     # handle_code_in_app
     if settings.handle_code_in_app is not None:
@@ -788,13 +788,13 @@ class UserManager:
                 raise ValueError(
                     'Users must be a non-empty list with no more than {0} elements.'.format(
                         MAX_IMPORT_USERS_SIZE))
-            if any([not isinstance(u, _user_import.ImportUserRecord) for u in users]):
+            if any(not isinstance(u, _user_import.ImportUserRecord) for u in users):
                 raise ValueError('One or more user objects are invalid.')
-        except TypeError:
-            raise ValueError('users must be iterable')
+        except TypeError as err:
+            raise ValueError('users must be iterable') from err
 
         payload = {'users': [u.to_dict() for u in users]}
-        if any(['passwordHash' in u for u in payload['users']]):
+        if any('passwordHash' in u for u in payload['users']):
             if not isinstance(hash_alg, _user_import.UserImportHash):
                 raise ValueError('A UserImportHash is required to import users with passwords.')
             payload.update(hash_alg.to_dict())

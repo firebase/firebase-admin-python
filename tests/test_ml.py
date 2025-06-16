@@ -1094,7 +1094,7 @@ class TestListModels:
         assert models_page.next_page_token == ''
         assert models_page.has_next_page is False
         assert models_page.get_next_page() is None
-        models = [model for model in models_page.iterate_all()]
+        models = list(models_page.iterate_all())
         assert len(models) == 1
 
     def test_list_multiple_pages(self):
@@ -1140,7 +1140,7 @@ class TestListModels:
         assert len(recorder) == 1
         assert len(page.models) == 3
         iterator = page.iterate_all()
-        models = [model for model in iterator]
+        models = list(iterator)
         assert len(page.models) == 3
         with pytest.raises(StopIteration):
             next(iterator)
@@ -1151,5 +1151,5 @@ class TestListModels:
         page = ml.list_models()
         assert len(recorder) == 1
         assert len(page.models) == 0
-        models = [model for model in page.iterate_all()]
+        models = list(page.iterate_all())
         assert len(models) == 0

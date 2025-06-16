@@ -21,9 +21,9 @@ Firebase apps. This requires the ``google-cloud-storage`` Python module.
 # pylint: disable=import-error,no-name-in-module
 try:
     from google.cloud import storage
-except ImportError:
+except ImportError as exception:
     raise ImportError('Failed to import the Cloud Storage library for Python. Make sure '
-                      'to install the "google-cloud-storage" module.')
+                      'to install the "google-cloud-storage" module.') from exception
 
 from firebase_admin import _utils
 

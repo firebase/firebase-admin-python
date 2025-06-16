@@ -1881,8 +1881,8 @@ class TestSendEach():
         assert batch_response.failure_count == 0
         assert len(batch_response.responses) == 2
         assert [r.message_id for r in batch_response.responses] == ['message-id1', 'message-id2']
-        assert all([r.success for r in batch_response.responses])
-        assert not any([r.exception for r in batch_response.responses])
+        assert all(r.success for r in batch_response.responses)
+        assert not any(r.exception for r in batch_response.responses)
 
     @respx.mock
     @pytest.mark.asyncio
@@ -1907,8 +1907,8 @@ class TestSendEach():
         assert len(batch_response.responses) == 3
         assert [r.message_id for r in batch_response.responses] \
             == ['message-id1', 'message-id2', 'message-id3']
-        assert all([r.success for r in batch_response.responses])
-        assert not any([r.exception for r in batch_response.responses])
+        assert all(r.success for r in batch_response.responses)
+        assert not any(r.exception for r in batch_response.responses)
 
         assert route.call_count == 3
 
@@ -1976,8 +1976,8 @@ class TestSendEach():
         assert batch_response.failure_count == 0
         assert len(batch_response.responses) == 1
         assert [r.message_id for r in batch_response.responses] == ['message-id1']
-        assert all([r.success for r in batch_response.responses])
-        assert not any([r.exception for r in batch_response.responses])
+        assert all(r.success for r in batch_response.responses)
+        assert not any(r.exception for r in batch_response.responses)
 
     @respx.mock
     @pytest.mark.asyncio
@@ -2049,11 +2049,12 @@ class TestSendEach():
         assert batch_response.failure_count == 0
         assert len(batch_response.responses) == 1
         assert [r.message_id for r in batch_response.responses] == ['message-id1']
-        assert all([r.success for r in batch_response.responses])
-        assert not any([r.exception for r in batch_response.responses])
+        assert all(r.success for r in batch_response.responses)
+        assert not any(r.exception for r in batch_response.responses)
 
-    @respx.mock
+
     @pytest.mark.asyncio
+    @respx.mock
     async def test_send_each_async_request_error(self):
         responses = httpx.ConnectError("Test request error", request=httpx.Request(
             'POST',
@@ -2192,8 +2193,8 @@ class TestSendEachForMulticast(TestSendEach):
         assert batch_response.failure_count == 0
         assert len(batch_response.responses) == 2
         assert [r.message_id for r in batch_response.responses] == ['message-id1', 'message-id2']
-        assert all([r.success for r in batch_response.responses])
-        assert not any([r.exception for r in batch_response.responses])
+        assert all(r.success for r in batch_response.responses)
+        assert not any(r.exception for r in batch_response.responses)
 
     @pytest.mark.parametrize('status', HTTP_ERROR_CODES)
     def test_send_each_for_multicast_detailed_error(self, status):

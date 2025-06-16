@@ -317,12 +317,16 @@ def _clean_up_directory(save_dir):
 @pytest.fixture
 def keras_model():
     assert _TF_ENABLED
-    x_array = [-1, 0, 1, 2, 3, 4]
-    y_array = [-3, -1, 1, 3, 5, 7]
-    model = tf.keras.models.Sequential(
-        [tf.keras.layers.Dense(units=1, input_shape=[1])])
+    x_list = [-1, 0, 1, 2, 3, 4]
+    y_list = [-3, -1, 1, 3, 5, 7]
+    x_tensor = tf.convert_to_tensor(x_list, dtype=tf.float32)
+    y_tensor = tf.convert_to_tensor(y_list, dtype=tf.float32)
+    model = tf.keras.models.Sequential([
+        tf.keras.Input(shape=(1,)), 
+        tf.keras.layers.Dense(units=1)
+        ])
     model.compile(optimizer='sgd', loss='mean_squared_error')
-    model.fit(x_array, y_array, epochs=3)
+    model.fit(x_tensor, y_tensor, epochs=3)
     return model
 
 

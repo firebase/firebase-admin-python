@@ -157,7 +157,7 @@ def test_unsubscribe():
     resp = messaging.unsubscribe_from_topic(_REGISTRATION_TOKEN, 'mock-topic')
     assert resp.success_count + resp.failure_count == 1
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio(loop_scope="session")
 async def test_send_each_async():
     messages = [
         messaging.Message(
@@ -189,7 +189,7 @@ async def test_send_each_async():
     assert isinstance(response.exception, exceptions.InvalidArgumentError)
     assert response.message_id is None
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio(loop_scope="session")
 async def test_send_each_async_500():
     messages = []
     for msg_number in range(500):
@@ -206,7 +206,7 @@ async def test_send_each_async_500():
         assert response.exception is None
         assert re.match('^projects/.*/messages/.*$', response.message_id)
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio(loop_scope="session")
 async def test_send_each_for_multicast_async():
     multicast = messaging.MulticastMessage(
         notification=messaging.Notification('Title', 'Body'),

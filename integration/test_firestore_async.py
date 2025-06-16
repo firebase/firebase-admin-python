@@ -34,7 +34,7 @@ _MOVIE = {
     }
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio(loop_scope="session")
 async def test_firestore_async():
     client = firestore_async.client()
     expected = _CITY
@@ -48,7 +48,7 @@ async def test_firestore_async():
     data = await doc.get()
     assert data.exists is False
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio(loop_scope="session")
 async def test_firestore_async_explicit_database_id():
     client = firestore_async.client(database_id='testing-database')
     expected = _CITY
@@ -62,7 +62,7 @@ async def test_firestore_async_explicit_database_id():
     data = await doc.get()
     assert data.exists is False
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio(loop_scope="session")
 async def test_firestore_async_multi_db():
     city_client = firestore_async.client()
     movie_client = firestore_async.client(database_id='testing-database')
@@ -98,7 +98,7 @@ async def test_firestore_async_multi_db():
     assert data[0].exists is False
     assert data[1].exists is False
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio(loop_scope="session")
 async def test_server_timestamp():
     client = firestore_async.client()
     expected = {

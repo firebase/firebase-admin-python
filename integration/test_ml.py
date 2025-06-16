@@ -322,7 +322,7 @@ def keras_model():
     x_tensor = tf.convert_to_tensor(x_list, dtype=tf.float32)
     y_tensor = tf.convert_to_tensor(y_list, dtype=tf.float32)
     model = tf.keras.models.Sequential([
-        tf.keras.Input(shape=(1,)), 
+        tf.keras.Input(shape=(1,)),
         tf.keras.layers.Dense(units=1)
         ])
     model.compile(optimizer='sgd', loss='mean_squared_error')

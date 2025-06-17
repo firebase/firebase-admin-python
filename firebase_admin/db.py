@@ -926,7 +926,7 @@ class _Client(_http_client.JsonHttpClient):
         kwargs['params'] = query
 
         try:
-            return super(_Client, self).request(method, url, **kwargs)
+            return super().request(method, url, **kwargs)
         except requests.exceptions.RequestException as error:
             raise _Client.handle_rtdb_error(error)
 

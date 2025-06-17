@@ -338,7 +338,7 @@ class AndroidAppMetadata(_AppMetadata):
 
     def __init__(self, package_name, name, app_id, display_name, project_id):
         """Clients should not instantiate this class directly."""
-        super(AndroidAppMetadata, self).__init__(name, app_id, display_name, project_id)
+        super().__init__(name, app_id, display_name, project_id)
         self._package_name = _check_is_nonempty_string(package_name, 'package_name')
 
     @property
@@ -347,7 +347,7 @@ class AndroidAppMetadata(_AppMetadata):
         return self._package_name
 
     def __eq__(self, other):
-        return (super(AndroidAppMetadata, self).__eq__(other) and
+        return (super().__eq__(other) and
                 self.package_name == other.package_name)
 
     def __ne__(self, other):
@@ -363,7 +363,7 @@ class IOSAppMetadata(_AppMetadata):
 
     def __init__(self, bundle_id, name, app_id, display_name, project_id):
         """Clients should not instantiate this class directly."""
-        super(IOSAppMetadata, self).__init__(name, app_id, display_name, project_id)
+        super().__init__(name, app_id, display_name, project_id)
         self._bundle_id = _check_is_nonempty_string(bundle_id, 'bundle_id')
 
     @property
@@ -372,7 +372,7 @@ class IOSAppMetadata(_AppMetadata):
         return self._bundle_id
 
     def __eq__(self, other):
-        return super(IOSAppMetadata, self).__eq__(other) and self.bundle_id == other.bundle_id
+        return super().__eq__(other) and self.bundle_id == other.bundle_id
 
     def __ne__(self, other):
         return not self.__eq__(other)

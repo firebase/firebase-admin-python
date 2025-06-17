@@ -178,11 +178,12 @@ class _AppOptions:
                 with open(config_file, 'r') as json_file:
                     json_str = json_file.read()
             except Exception as err:
-                raise ValueError('Unable to read file {}. {}'.format(config_file, err))
+                raise ValueError('Unable to read file {}. {}'.format(config_file, err)) from err
         try:
             json_data = json.loads(json_str)
         except Exception as err:
-            raise ValueError('JSON string "{0}" is not valid json. {1}'.format(json_str, err))
+            raise ValueError(
+                'JSON string "{0}" is not valid json. {1}'.format(json_str, err)) from err
         return {k: v for k, v in json_data.items() if k in _CONFIG_VALID_KEYS}
 
 

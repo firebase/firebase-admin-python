@@ -63,7 +63,7 @@ class _ExternalCredentials(Base):
     """A wrapper for google.auth.credentials.Credentials typed credential instances"""
 
     def __init__(self, credential: GoogleAuthCredentials):
-        super(_ExternalCredentials, self).__init__()
+        super().__init__()
         self._g_credential = credential
 
     def get_credential(self):
@@ -92,7 +92,7 @@ class Certificate(Base):
           IOError: If the specified certificate file doesn't exist or cannot be read.
           ValueError: If the specified certificate is invalid.
         """
-        super(Certificate, self).__init__()
+        super().__init__()
         if _is_file_path(cert):
             with open(cert) as json_file:
                 json_data = json.load(json_file)
@@ -111,7 +111,7 @@ class Certificate(Base):
                 json_data, scopes=_scopes)
         except ValueError as error:
             raise ValueError('Failed to initialize a certificate credential. '
-                             'Caused by: "{0}"'.format(error))
+                             'Caused by: "{0}"'.format(error)) from error
 
     @property
     def project_id(self):
@@ -142,7 +142,7 @@ class ApplicationDefault(Base):
         The credentials will be lazily initialized when get_credential() or
         project_id() is called. See those methods for possible errors raised.
         """
-        super(ApplicationDefault, self).__init__()
+        super().__init__()
         self._g_credential = None  # Will be lazily-loaded via _load_credential().
 
     def get_credential(self):
@@ -193,7 +193,7 @@ class RefreshToken(Base):
           IOError: If the specified file doesn't exist or cannot be read.
           ValueError: If the refresh token configuration is invalid.
         """
-        super(RefreshToken, self).__init__()
+        super().__init__()
         if _is_file_path(refresh_token):
             with open(refresh_token) as json_file:
                 json_data = json.load(json_file)

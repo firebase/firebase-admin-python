@@ -830,7 +830,7 @@ class MockAdapter(testutils.MockAdapter):
         self._etag = etag
 
     def send(self, request, **kwargs):
-        resp = super(MockAdapter, self).send(request, **kwargs)
+        resp = super().send(request, **kwargs)
         resp.headers = {'etag': self._etag}
         return resp
 

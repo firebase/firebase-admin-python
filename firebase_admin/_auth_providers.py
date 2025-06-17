@@ -422,13 +422,13 @@ def _validate_url(url, label):
         if not parsed.netloc:
             raise ValueError('Malformed {0}: "{1}".'.format(label, url))
         return url
-    except Exception:
-        raise ValueError('Malformed {0}: "{1}".'.format(label, url))
+    except Exception as exception:
+        raise ValueError('Malformed {0}: "{1}".'.format(label, url)) from exception
 
 
 def _validate_x509_certificates(x509_certificates):
     if not isinstance(x509_certificates, list) or not x509_certificates:
         raise ValueError('x509_certificates must be a non-empty list.')
-    if not all([isinstance(cert, str) and cert for cert in x509_certificates]):
+    if not all(isinstance(cert, str) and cert for cert in x509_certificates):
         raise ValueError('x509_certificates must only contain non-empty strings.')
     return [{'x509Certificate': cert} for cert in x509_certificates]

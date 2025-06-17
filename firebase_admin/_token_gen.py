@@ -158,7 +158,7 @@ class TokenGenerator:
                     'Failed to determine service account: {0}. Make sure to initialize the SDK '
                     'with service account credentials or specify a service account ID with '
                     'iam.serviceAccounts.signBlob permission. Please refer to {1} for more '
-                    'details on creating custom tokens.'.format(error, url))
+                    'details on creating custom tokens.'.format(error, url)) from error
         return self._signing_provider
 
     def create_custom_token(self, uid, developer_claims=None, tenant_id=None):
@@ -203,7 +203,7 @@ class TokenGenerator:
             return jwt.encode(signing_provider.signer, payload, header=header)
         except google.auth.exceptions.TransportError as error:
             msg = 'Failed to sign custom token. {0}'.format(error)
-            raise TokenSignError(msg, error)
+            raise TokenSignError(msg, error) from error
 
 
     def create_session_cookie(self, id_token, expires_in):
@@ -403,7 +403,7 @@ class _JWTVerifier:
             verified_claims['uid'] = verified_claims['sub']
             return verified_claims
         except google.auth.exceptions.TransportError as error:
-            raise CertificateFetchError(str(error), cause=error)
+            raise CertificateFetchError(str(error), cause=error) from error
         except ValueError as error:
             if 'Token expired' in str(error):
                 raise self._expired_token_error(str(error), cause=error)

@@ -450,7 +450,7 @@ class TestListTenants:
         assert page.next_page_token == ''
         assert page.has_next_page is False
         assert page.get_next_page() is None
-        tenants = [tenant for tenant in page.iterate_all()]
+        tenants = list(page.iterate_all())
         assert len(tenants) == 2
         self._assert_request(recorder)
 
@@ -514,7 +514,7 @@ class TestListTenants:
         _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, LIST_TENANTS_RESPONSE)
         page = tenant_mgt.list_tenants(app=tenant_mgt_app)
         iterator = page.iterate_all()
-        tenants = [tenant for tenant in iterator]
+        tenants = list(iterator)
         assert len(tenants) == 2
 
         with pytest.raises(StopIteration):
@@ -526,7 +526,7 @@ class TestListTenants:
         _instrument_tenant_mgt(tenant_mgt_app, 200, json.dumps(response))
         page = tenant_mgt.list_tenants(app=tenant_mgt_app)
         assert len(page.tenants) == 0
-        tenants = [tenant for tenant in page.iterate_all()]
+        tenants = list(page.iterate_all())
         assert len(tenants) == 0
 
     def test_list_tenants_with_max_results(self, tenant_mgt_app):

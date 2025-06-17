@@ -417,7 +417,7 @@ class _TenantIterator:
         self._current_page = current_page
         self._index = 0
 
-    def next(self):
+    def __next__(self):
         if self._index == len(self._current_page.tenants):
             if self._current_page.has_next_page:
                 self._current_page = self._current_page.get_next_page()
@@ -427,9 +427,6 @@ class _TenantIterator:
             self._index += 1
             return result
         raise StopIteration
-
-    def __next__(self):
-        return self.next()
 
     def __iter__(self):
         return self

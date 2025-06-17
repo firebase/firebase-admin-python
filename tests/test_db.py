@@ -45,7 +45,7 @@ class MockAdapter(testutils.MockAdapter):
     def send(self, request, **kwargs):
         if_match = request.headers.get('if-match')
         if_none_match = request.headers.get('if-none-match')
-        resp = super(MockAdapter, self).send(request, **kwargs)
+        resp = super().send(request, **kwargs)
         resp.headers = {'ETag': self._etag}
         if if_match and if_match != MockAdapter.ETAG:
             resp.status_code = 412

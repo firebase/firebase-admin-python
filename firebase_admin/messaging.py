@@ -451,7 +451,7 @@ class _MessagingService:
         message_data = [self._message_data(message, dry_run) for message in messages]
         try:
             with concurrent.futures.ThreadPoolExecutor(max_workers=len(message_data)) as executor:
-                responses = [resp for resp in executor.map(send_data, message_data)]
+                responses = list(executor.map(send_data, message_data))
                 return BatchResponse(responses)
         except Exception as error:
             raise exceptions.UnknownError(
@@ -573,6 +573,7 @@ class _MessagingService:
         """Parses an error response from the FCM API and creates a FCM-specific exception if
         appropriate."""
         exc_type = cls._build_fcm_error(error_dict)
+        # pylint: disable=not-callable
         return exc_type(message, cause=error, http_response=error.response) if exc_type else None
 
     @classmethod
@@ -586,8 +587,10 @@ class _MessagingService:
         appropriate."""
         exc_type = cls._build_fcm_error(error_dict)
         if isinstance(error, httpx.HTTPStatusError):
+            # pylint: disable=not-callable
             return exc_type(
                 message, cause=error, http_response=error.response) if exc_type else None
+        # pylint: disable=not-callable
         return exc_type(message, cause=error) if exc_type else None
 
     @classmethod

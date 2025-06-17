@@ -36,7 +36,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: 3.8
+        python-version: 3.9
 
     - name: Install dependencies
       run: |
@@ -45,6 +45,7 @@ jobs:
         pip install setuptools wheel
         pip install tensorflow
         pip install keras
+        pip install build
 
     - name: Run unit tests
       run: pytest
@@ -57,7 +58,7 @@ jobs:
 
     # Build the Python Wheel and the source distribution.
     - name: Package release artifacts
-      run: python setup.py bdist_wheel sdist
+      run: python -m build
 
     # Attach the packaged artifacts to the workflow output. These can be manually
     # downloaded for later inspection if necessary.

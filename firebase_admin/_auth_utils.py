@@ -175,8 +175,8 @@ def validate_photo_url(photo_url, required=False):
         if not parsed.netloc:
             raise ValueError('Malformed photo URL: "{0}".'.format(photo_url))
         return photo_url
-    except Exception:
-        raise ValueError('Malformed photo URL: "{0}".'.format(photo_url))
+    except Exception as err:
+        raise ValueError('Malformed photo URL: "{0}".'.format(photo_url)) from err
 
 def validate_timestamp(timestamp, label, required=False):
     """Validates the given timestamp value. Timestamps must be positive integers."""
@@ -186,8 +186,8 @@ def validate_timestamp(timestamp, label, required=False):
         raise ValueError('Boolean value specified as timestamp.')
     try:
         timestamp_int = int(timestamp)
-    except TypeError:
-        raise ValueError('Invalid type for timestamp value: {0}.'.format(timestamp))
+    except TypeError as err:
+        raise ValueError('Invalid type for timestamp value: {0}.'.format(timestamp)) from err
     else:
         if timestamp_int != timestamp:
             raise ValueError('{0} must be a numeric value and a whole number.'.format(label))
@@ -207,8 +207,8 @@ def validate_int(value, label, low=None, high=None):
         raise ValueError('Invalid type for integer value: {0}.'.format(value))
     try:
         val_int = int(value)
-    except TypeError:
-        raise ValueError('Invalid type for integer value: {0}.'.format(value))
+    except TypeError as err:
+        raise ValueError('Invalid type for integer value: {0}.'.format(value)) from err
     else:
         if val_int != value:
             # This will be True for non-numeric values like '2' and non-whole numbers like 2.5.
@@ -246,8 +246,8 @@ def validate_custom_claims(custom_claims, required=False):
                 MAX_CLAIMS_PAYLOAD_SIZE))
     try:
         parsed = json.loads(claims_str)
-    except Exception:
-        raise ValueError('Failed to parse custom claims string as JSON.')
+    except Exception as err:
+        raise ValueError('Failed to parse custom claims string as JSON.') from err
 
     if not isinstance(parsed, dict):
         raise ValueError('Custom claims must be parseable as a JSON object.')

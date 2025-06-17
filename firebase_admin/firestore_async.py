@@ -18,12 +18,13 @@ This module contains utilities for asynchronusly accessing the Google Cloud Fire
 associated with Firebase apps. This requires the ``google-cloud-firestore`` Python module.
 """
 
-import typing
+from typing import Dict, Optional
 
 import firebase_admin
 from firebase_admin import _utils
 
 try:
+    import google.cloud.firestore
     # firestore defines __all__ for safe import *
     from google.cloud.firestore import *  # type: ignore[reportWildcardImportFromLibrary]
     from google.cloud.firestore_v1.base_client import DEFAULT_DATABASE
@@ -31,13 +32,16 @@ except ImportError as error:
     raise ImportError('Failed to import the Cloud Firestore library for Python. Make sure '
                       'to install the "google-cloud-firestore" module.') from error
 
+__all__ = ['client']
+__all__.extend(google.cloud.firestore.__all__)  # type: ignore[reportUnsupportedDunderAll]
+
 
 _FIRESTORE_ASYNC_ATTRIBUTE = '_firestore_async'
 
 
 def client(
-    app: typing.Optional[firebase_admin.App] = None,
-    database_id: typing.Optional[str] = None,
+    app: Optional[firebase_admin.App] = None,
+    database_id: Optional[str] = None,
 ) -> AsyncClient:
     """Returns an async client that can be used to interact with Google Cloud Firestore.
 
@@ -70,9 +74,9 @@ class _FirestoreAsyncService:
 
     def __init__(self, app: firebase_admin.App) -> None:
         self._app = app
-        self._clients: typing.Dict[str, AsyncClient] = {}
+        self._clients: Dict[str, AsyncClient] = {}
 
-    def get_client(self, database_id: typing.Optional[str]) -> AsyncClient:
+    def get_client(self, database_id: Optional[str]) -> AsyncClient:
         """Creates an async client based on the database_id. These clients are cached."""
         database_id = database_id or DEFAULT_DATABASE
         if database_id not in self._clients:

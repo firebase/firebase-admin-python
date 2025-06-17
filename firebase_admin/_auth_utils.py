@@ -17,7 +17,19 @@
 import json
 import os
 import re
-import typing
+from collections.abc import Iterator, Sequence
+from typing import (
+    Any,
+    Dict,
+    Generic,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    TypeVar,
+    cast,
+    overload,
+)
 from urllib import parse
 
 import requests
@@ -26,8 +38,50 @@ from firebase_admin import exceptions
 from firebase_admin import _typing
 from firebase_admin import _utils
 
+__all__ = (
+    'EMULATOR_HOST_ENV_VAR',
+    'MAX_CLAIMS_PAYLOAD_SIZE',
+    'RESERVED_CLAIMS',
+    'VALID_EMAIL_ACTION_TYPES',
+    'ConfigurationNotFoundError',
+    'EmailAlreadyExistsError',
+    'EmailNotFoundError',
+    'InsufficientPermissionError',
+    'InvalidDynamicLinkDomainError',
+    'InvalidIdTokenError',
+    'PhoneNumberAlreadyExistsError',
+    'ResetPasswordExceedLimitError',
+    'TenantNotFoundError',
+    'TenantIdMismatchError',
+    'TooManyAttemptsTryLaterError',
+    'UidAlreadyExistsError',
+    'UnexpectedResponseError',
+    'UserDisabledError',
+    'UserNotFoundError',
+    'PageIterator',
+    'build_update_mask',
+    'get_emulator_host',
+    'handle_auth_backend_error',
+    'is_emulated',
+    'validate_action_type',
+    'validate_boolean',
+    'validate_bytes',
+    'validate_custom_claims',
+    'validate_display_name',
+    'validate_email',
+    'validate_int',
+    'validate_password',
+    'validate_phone',
+    'validate_photo_url',
+    'validate_provider_id',
+    'validate_provider_ids',
+    'validate_provider_uid',
+    'validate_string',
+    'validate_timestamp',
+    'validate_uid',
+)
 
-_PageT = typing.TypeVar('_PageT', bound=_typing.Page)
+_PageT = TypeVar('_PageT', bound=_typing.Page)
 
 EMULATOR_HOST_ENV_VAR = 'FIREBASE_AUTH_EMULATOR_HOST'
 MAX_CLAIMS_PAYLOAD_SIZE = 1000
@@ -38,7 +92,7 @@ RESERVED_CLAIMS = set([
 VALID_EMAIL_ACTION_TYPES = set(['VERIFY_EMAIL', 'EMAIL_SIGNIN', 'PASSWORD_RESET'])
 
 
-class PageIterator(typing.Generic[_PageT]):
+class PageIterator(Generic[_PageT]):
     """An iterator that allows iterating over a sequence of items, one at a time.
 
     This implementation loads a page of items into memory, and iterates on them. When the whole
@@ -50,8 +104,8 @@ class PageIterator(typing.Generic[_PageT]):
         if not current_page:
             raise ValueError('Current page must not be None.')
 
-        self._current_page: typing.Optional[_PageT] = current_page
-        self._iter: typing.Optional[typing.Iterator[_PageT]] = None
+        self._current_page: Optional[_PageT] = current_page
+        self._iter: Optional['Iterator[_PageT]'] = None
 
     def __next__(self) -> _PageT:
         if self._iter is None:
@@ -68,11 +122,11 @@ class PageIterator(typing.Generic[_PageT]):
 
             raise
 
-    def __iter__(self) -> typing.Iterator[_PageT]:
+    def __iter__(self) -> 'Iterator[_PageT]':
         return self
 
     @property
-    def items(self) -> typing.Sequence[typing.Any]:
+    def items(self) -> 'Sequence[Any]':
         raise NotImplementedError
 
 
@@ -89,11 +143,11 @@ def is_emulated() -> bool:
     return get_emulator_host() != ''
 
 
-@typing.overload
-def validate_uid(uid: typing.Optional[typing.Any], required: typing.Literal[True]) -> str: ...
-@typing.overload
-def validate_uid(uid: typing.Optional[typing.Any], required: bool = False) -> typing.Optional[str]: ...
-def validate_uid(uid: typing.Optional[typing.Any], required: bool = False) -> typing.Optional[str]:
+@overload
+def validate_uid(uid: Optional[Any], required: Literal[True]) -> str: ...
+@overload
+def validate_uid(uid: Optional[Any], required: bool = False) -> Optional[str]: ...
+def validate_uid(uid: Optional[Any], required: bool = False) -> Optional[str]:
     if uid is None and not required:
         return None
     if not isinstance(uid, str) or not uid or len(uid) > 128:
@@ -103,11 +157,11 @@ def validate_uid(uid: typing.Optional[typing.Any], required: bool = False) -> ty
     return uid
 
 
-@typing.overload
-def validate_email(email: typing.Optional[typing.Any], required: typing.Literal[True]) -> str: ...
-@typing.overload
-def validate_email(email: typing.Optional[typing.Any], required: bool = False) -> typing.Optional[str]: ...
-def validate_email(email: typing.Optional[typing.Any], required: bool = False) -> typing.Optional[str]:
+@overload
+def validate_email(email: Optional[Any], required: Literal[True]) -> str: ...
+@overload
+def validate_email(email: Optional[Any], required: bool = False) -> Optional[str]: ...
+def validate_email(email: Optional[Any], required: bool = False) -> Optional[str]:
     if email is None and not required:
         return None
     if not isinstance(email, str) or not email:
@@ -119,11 +173,11 @@ def validate_email(email: typing.Optional[typing.Any], required: bool = False) -
     return email
 
 
-@typing.overload
-def validate_phone(phone: typing.Optional[typing.Any], required: typing.Literal[True]) -> str: ...
-@typing.overload
-def validate_phone(phone: typing.Optional[typing.Any], required: bool = False) -> typing.Optional[str]: ...
-def validate_phone(phone: typing.Optional[typing.Any], required: bool = False) -> typing.Optional[str]:
+@overload
+def validate_phone(phone: Optional[Any], required: Literal[True]) -> str: ...
+@overload
+def validate_phone(phone: Optional[Any], required: bool = False) -> Optional[str]: ...
+def validate_phone(phone: Optional[Any], required: bool = False) -> Optional[str]:
     """Validates the specified phone number.
 
     Phone number vlidation is very lax here. Backend will enforce E.164 spec compliance, and
@@ -141,11 +195,11 @@ def validate_phone(phone: typing.Optional[typing.Any], required: bool = False) -
     return phone
 
 
-@typing.overload
-def validate_password(password: typing.Optional[typing.Any], required: typing.Literal[True]) -> str: ...
-@typing.overload
-def validate_password(password: typing.Optional[typing.Any], required: bool = False) -> typing.Optional[str]: ...
-def validate_password(password: typing.Optional[typing.Any], required: bool = False) -> typing.Optional[str]:
+@overload
+def validate_password(password: Optional[Any], required: Literal[True]) -> str: ...
+@overload
+def validate_password(password: Optional[Any], required: bool = False) -> Optional[str]: ...
+def validate_password(password: Optional[Any], required: bool = False) -> Optional[str]:
     if password is None and not required:
         return None
     if not isinstance(password, str) or len(password) < 6:
@@ -154,11 +208,11 @@ def validate_password(password: typing.Optional[typing.Any], required: bool = Fa
     return password
 
 
-@typing.overload
-def validate_bytes(value: typing.Optional[typing.Any], label: typing.Any, required: typing.Literal[True]) -> bytes: ...
-@typing.overload
-def validate_bytes(value: typing.Optional[typing.Any], label: typing.Any, required: bool = False) -> typing.Optional[bytes]: ...
-def validate_bytes(value: typing.Optional[typing.Any], label: typing.Any, required: bool = False) -> typing.Optional[bytes]:
+@overload
+def validate_bytes(value: Optional[Any], label: Any, required: Literal[True]) -> bytes: ...
+@overload
+def validate_bytes(value: Optional[Any], label: Any, required: bool = False) -> Optional[bytes]: ...
+def validate_bytes(value: Optional[Any], label: Any, required: bool = False) -> Optional[bytes]:
     if value is None and not required:
         return None
     if not isinstance(value, bytes) or not value:
@@ -166,11 +220,11 @@ def validate_bytes(value: typing.Optional[typing.Any], label: typing.Any, requir
     return value
 
 
-@typing.overload
-def validate_display_name(display_name: typing.Optional[typing.Any], required: typing.Literal[True]) -> str: ...
-@typing.overload
-def validate_display_name(display_name: typing.Optional[typing.Any], required: bool = False) -> typing.Optional[str]: ...
-def validate_display_name(display_name: typing.Optional[typing.Any], required: bool = False) -> typing.Optional[str]:
+@overload
+def validate_display_name(display_name: Optional[Any], required: Literal[True]) -> str: ...
+@overload
+def validate_display_name(display_name: Optional[Any], required: bool = False) -> Optional[str]: ...
+def validate_display_name(display_name: Optional[Any], required: bool = False) -> Optional[str]:
     if display_name is None and not required:
         return None
     if not isinstance(display_name, str) or not display_name:
@@ -180,11 +234,11 @@ def validate_display_name(display_name: typing.Optional[typing.Any], required: b
     return display_name
 
 
-@typing.overload
-def validate_provider_id(provider_id: typing.Optional[typing.Any], required: typing.Literal[True]) -> str: ...
-@typing.overload
-def validate_provider_id(provider_id: typing.Optional[typing.Any], required: bool = True) -> typing.Optional[str]: ...
-def validate_provider_id(provider_id: typing.Optional[typing.Any], required: bool = True) -> typing.Optional[str]:
+@overload
+def validate_provider_id(provider_id: Optional[Any], required: Literal[True]) -> str: ...
+@overload
+def validate_provider_id(provider_id: Optional[Any], required: bool = True) -> Optional[str]: ...
+def validate_provider_id(provider_id: Optional[Any], required: bool = True) -> Optional[str]:
     if provider_id is None and not required:
         return None
     if not isinstance(provider_id, str) or not provider_id:
@@ -194,11 +248,11 @@ def validate_provider_id(provider_id: typing.Optional[typing.Any], required: boo
     return provider_id
 
 
-@typing.overload
-def validate_provider_uid(provider_uid: typing.Optional[typing.Any], required: typing.Literal[True] = True) -> str: ...
-@typing.overload
-def validate_provider_uid(provider_uid: typing.Optional[typing.Any], required: bool = True) -> typing.Optional[str]: ...
-def validate_provider_uid(provider_uid: typing.Optional[typing.Any], required: bool = True) -> typing.Optional[str]:
+@overload
+def validate_provider_uid(provider_uid: Optional[Any], required: Literal[True] = True) -> str: ...
+@overload
+def validate_provider_uid(provider_uid: Optional[Any], required: bool = True) -> Optional[str]: ...
+def validate_provider_uid(provider_uid: Optional[Any], required: bool = True) -> Optional[str]:
     if provider_uid is None and not required:
         return None
     if not isinstance(provider_uid, str) or not provider_uid:
@@ -208,11 +262,11 @@ def validate_provider_uid(provider_uid: typing.Optional[typing.Any], required: b
     return provider_uid
 
 
-@typing.overload
-def validate_photo_url(photo_url: typing.Optional[typing.Any], required: typing.Literal[True]) -> str: ...
-@typing.overload
-def validate_photo_url(photo_url: typing.Optional[typing.Any], required: bool = False) -> typing.Optional[str]: ...
-def validate_photo_url(photo_url: typing.Optional[typing.Any], required: bool = False) -> typing.Optional[str]:
+@overload
+def validate_photo_url(photo_url: Optional[Any], required: Literal[True]) -> str: ...
+@overload
+def validate_photo_url(photo_url: Optional[Any], required: bool = False) -> Optional[str]: ...
+def validate_photo_url(photo_url: Optional[Any], required: bool = False) -> Optional[str]:
     """Parses and validates the given URL string."""
     if photo_url is None and not required:
         return None
@@ -229,23 +283,23 @@ def validate_photo_url(photo_url: typing.Optional[typing.Any], required: bool = 
         raise ValueError('Malformed photo URL: "{0}".'.format(photo_url))
 
 
-@typing.overload
+@overload
 def validate_timestamp(
-    timestamp: typing.Optional[typing.Any],
-    label: typing.Any,
-    required: typing.Literal[True],
+    timestamp: Optional[Any],
+    label: Any,
+    required: Literal[True],
 ) -> int: ...
-@typing.overload
+@overload
 def validate_timestamp(
-    timestamp: typing.Optional[typing.Any],
-    label: typing.Any,
+    timestamp: Optional[Any],
+    label: Any,
     required: bool = False,
-) -> typing.Optional[int]: ...
+) -> Optional[int]: ...
 def validate_timestamp(
-    timestamp: typing.Optional[typing.Any],
-    label: typing.Any,
+    timestamp: Optional[Any],
+    label: Any,
     required: bool = False,
-) -> typing.Optional[int]:
+) -> Optional[int]:
     """Validates the given timestamp value. Timestamps must be positive integers."""
     if timestamp is None and not required:
         return None
@@ -264,10 +318,10 @@ def validate_timestamp(
 
 
 def validate_int(
-    value: typing.Any,
-    label: typing.Any,
-    low: typing.Optional[int] = None,
-    high: typing.Optional[int] = None,
+    value: Any,
+    label: Any,
+    low: Optional[int] = None,
+    high: Optional[int] = None,
 ) -> int:
     """Validates that the given value represents an integer.
 
@@ -293,25 +347,25 @@ def validate_int(
         return val_int
 
 
-def validate_string(value: typing.Any, label: typing.Any) -> str:
+def validate_string(value: Any, label: Any) -> str:
     """Validates that the given value is a string."""
     if not isinstance(value, str):
         raise ValueError('Invalid type for {0}: {1}.'.format(label, value))
     return value
 
 
-def validate_boolean(value: typing.Any, label: typing.Any) -> bool:
+def validate_boolean(value: Any, label: Any) -> bool:
     """Validates that the given value is a boolean."""
     if not isinstance(value, bool):
         raise ValueError('Invalid type for {0}: {1}.'.format(label, value))
     return value
 
 
-@typing.overload
-def validate_custom_claims(custom_claims: typing.Any, required: typing.Literal[True]) -> str: ...
-@typing.overload
-def validate_custom_claims(custom_claims: typing.Any, required: bool = False) -> typing.Optional[str]: ...
-def validate_custom_claims(custom_claims: typing.Any, required: bool = False) -> typing.Optional[str]:
+@overload
+def validate_custom_claims(custom_claims: Any, required: Literal[True]) -> str: ...
+@overload
+def validate_custom_claims(custom_claims: Any, required: bool = False) -> Optional[str]: ...
+def validate_custom_claims(custom_claims: Any, required: bool = False) -> Optional[str]:
     """Validates the specified custom claims.
 
     Custom claims must be specified as a JSON string. The string must not exceed 1000
@@ -341,14 +395,14 @@ def validate_custom_claims(custom_claims: typing.Any, required: bool = False) ->
     return claims_str
 
 
-def validate_action_type(action_type: typing.Any) -> _typing.EmailActionType:
+def validate_action_type(action_type: Any) -> _typing.EmailActionType:
     if action_type not in VALID_EMAIL_ACTION_TYPES:
         raise ValueError('Invalid action type provided action_type: {0}. \
             Valid values are {1}'.format(action_type, ', '.join(VALID_EMAIL_ACTION_TYPES)))
     return action_type
 
 
-def validate_provider_ids(provider_ids: typing.Any, required: bool = False) -> typing.List[str]:
+def validate_provider_ids(provider_ids: Any, required: bool = False) -> List[str]:
     if not provider_ids:
         if required:
             raise ValueError('Invalid provider IDs. Provider ids should be provided')
@@ -358,9 +412,9 @@ def validate_provider_ids(provider_ids: typing.Any, required: bool = False) -> t
     return provider_ids
 
 
-def build_update_mask(params: typing.Dict[str, typing.Any]) -> typing.List[str]:
+def build_update_mask(params: Dict[str, Any]) -> List[str]:
     """Creates an update mask list from the given dictionary."""
-    mask: typing.List[str] = []
+    mask: List[str] = []
     for key, value in params.items():
         if isinstance(value, dict):
             child_mask = build_update_mask(value)  # type: ignore[reportUnknownArgumentType]
@@ -380,8 +434,8 @@ class UidAlreadyExistsError(exceptions.AlreadyExistsError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception],
-        http_response: typing.Optional[requests.Response],
+        cause: Optional[Exception],
+        http_response: Optional[requests.Response],
     ) -> None:
         exceptions.AlreadyExistsError.__init__(self, message, cause, http_response)
 
@@ -394,8 +448,8 @@ class EmailAlreadyExistsError(exceptions.AlreadyExistsError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception],
-        http_response: typing.Optional[requests.Response],
+        cause: Optional[Exception],
+        http_response: Optional[requests.Response],
     ) -> None:
         exceptions.AlreadyExistsError.__init__(self, message, cause, http_response)
 
@@ -411,8 +465,8 @@ class InsufficientPermissionError(exceptions.PermissionDeniedError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception],
-        http_response: typing.Optional[requests.Response],
+        cause: Optional[Exception],
+        http_response: Optional[requests.Response],
     ) -> None:
         exceptions.PermissionDeniedError.__init__(self, message, cause, http_response)
 
@@ -425,8 +479,8 @@ class InvalidDynamicLinkDomainError(exceptions.InvalidArgumentError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception],
-        http_response: typing.Optional[requests.Response],
+        cause: Optional[Exception],
+        http_response: Optional[requests.Response],
     ) -> None:
         exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
 
@@ -439,8 +493,8 @@ class InvalidIdTokenError(exceptions.InvalidArgumentError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
 
@@ -453,8 +507,8 @@ class PhoneNumberAlreadyExistsError(exceptions.AlreadyExistsError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception],
-        http_response: typing.Optional[requests.Response],
+        cause: Optional[Exception],
+        http_response: Optional[requests.Response],
     ) -> None:
         exceptions.AlreadyExistsError.__init__(self, message, cause, http_response)
 
@@ -465,8 +519,8 @@ class UnexpectedResponseError(exceptions.UnknownError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         exceptions.UnknownError.__init__(self, message, cause, http_response)
 
@@ -479,8 +533,8 @@ class UserNotFoundError(exceptions.NotFoundError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         exceptions.NotFoundError.__init__(self, message, cause, http_response)
 
@@ -493,8 +547,8 @@ class EmailNotFoundError(exceptions.NotFoundError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         exceptions.NotFoundError.__init__(self, message, cause, http_response)
 
@@ -507,8 +561,8 @@ class TenantNotFoundError(exceptions.NotFoundError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         exceptions.NotFoundError.__init__(self, message, cause, http_response)
 
@@ -528,8 +582,8 @@ class ConfigurationNotFoundError(exceptions.NotFoundError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         exceptions.NotFoundError.__init__(self, message, cause, http_response)
 
@@ -542,8 +596,8 @@ class UserDisabledError(exceptions.InvalidArgumentError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
 
@@ -554,8 +608,8 @@ class TooManyAttemptsTryLaterError(exceptions.ResourceExhaustedError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         exceptions.ResourceExhaustedError.__init__(self, message, cause, http_response)
 
@@ -566,13 +620,13 @@ class ResetPasswordExceedLimitError(exceptions.ResourceExhaustedError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         exceptions.ResourceExhaustedError.__init__(self, message, cause, http_response)
 
 
-_CODE_TO_EXC_TYPE: typing.Dict[str, _typing.FirebaseErrorFactory] = {
+_CODE_TO_EXC_TYPE: Dict[str, _typing.FirebaseErrorFactory] = {
     'CONFIGURATION_NOT_FOUND': ConfigurationNotFoundError,
     'DUPLICATE_EMAIL': EmailAlreadyExistsError,
     'DUPLICATE_LOCAL_ID': UidAlreadyExistsError,
@@ -607,7 +661,7 @@ def handle_auth_backend_error(error: requests.RequestException) -> exceptions.Fi
     return exc_type(msg, cause=error, http_response=error.response)
 
 
-def _parse_error_body(response: requests.Response) -> typing.Tuple[typing.Optional[str], typing.Optional[str]]:
+def _parse_error_body(response: requests.Response) -> Tuple[Optional[str], Optional[str]]:
     """Parses the given error response to extract Auth error code and message."""
     parsed_body = None
     try:
@@ -619,11 +673,11 @@ def _parse_error_body(response: requests.Response) -> typing.Tuple[typing.Option
         return None, None
 
     # Auth error response format: {"error": {"message": "AUTH_ERROR_CODE: Optional text"}}
-    parsed_body = typing.cast(typing.Dict[str, typing.Any], parsed_body)
+    parsed_body = cast(Dict[str, Any], parsed_body)
     error_dict = parsed_body.get('error', {})
     if not isinstance(error_dict, dict):
         return None, None
-    error_dict = typing.cast(typing.Dict[str, str], error_dict)
+    error_dict = cast(Dict[str, str], error_dict)
     code, custom_message = error_dict.get('message'), None
     if code:
         separator = code.find(':')
@@ -636,8 +690,8 @@ def _parse_error_body(response: requests.Response) -> typing.Tuple[typing.Option
 
 def _build_error_message(
     code: str,
-    exc_type: typing.Optional[_typing.FirebaseErrorFactory],
-    custom_message: typing.Optional[str],
+    exc_type: Optional[_typing.FirebaseErrorFactory],
+    custom_message: Optional[str],
 ) -> str:
     default_message: str = getattr(exc_type, 'default_message', 'Error while calling Auth service')
     ext = ' {0}'.format(custom_message) if custom_message else ''

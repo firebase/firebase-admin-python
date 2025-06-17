@@ -20,7 +20,8 @@ creating and managing user accounts in Firebase projects.
 """
 
 import datetime
-import typing
+from collections.abc import Sequence
+from typing import Any, Dict, List, Optional, Union
 
 import firebase_admin
 from firebase_admin import _auth_client
@@ -33,11 +34,7 @@ from firebase_admin import _user_import
 from firebase_admin import _user_mgt
 from firebase_admin import _utils
 
-
-_AUTH_ATTRIBUTE = '_auth'
-
-
-__all__ = [
+__all__ = (
     'ActionCodeSettings',
     'CertificateFetchError',
     'Client',
@@ -112,7 +109,9 @@ __all__ = [
     'update_user',
     'verify_id_token',
     'verify_session_cookie',
-]
+)
+
+_AUTH_ATTRIBUTE = '_auth'
 
 ActionCodeSettings = _user_mgt.ActionCodeSettings
 CertificateFetchError = _token_gen.CertificateFetchError
@@ -161,7 +160,7 @@ PhoneIdentifier = _user_identifier.PhoneIdentifier
 ProviderIdentifier = _user_identifier.ProviderIdentifier
 
 
-def _get_client(app: typing.Optional[firebase_admin.App]) -> Client:
+def _get_client(app: Optional[firebase_admin.App]) -> Client:
     """Returns a client instance for an App.
 
     If the App already has a client associated with it, simply returns
@@ -182,8 +181,8 @@ def _get_client(app: typing.Optional[firebase_admin.App]) -> Client:
 
 def create_custom_token(
     uid: str,
-    developer_claims: typing.Optional[typing.Dict[str, typing.Any]] = None,
-    app: typing.Optional[firebase_admin.App] = None,
+    developer_claims: Optional[Dict[str, Any]] = None,
+    app: Optional[firebase_admin.App] = None,
 ) -> bytes:
     """Builds and signs a Firebase custom auth token.
 
@@ -205,11 +204,11 @@ def create_custom_token(
 
 
 def verify_id_token(
-    id_token: typing.Union[bytes, str],
-    app: typing.Optional[firebase_admin.App] = None,
+    id_token: Union[bytes, str],
+    app: Optional[firebase_admin.App] = None,
     check_revoked: bool = False,
     clock_skew_seconds: int = 0,
-) -> typing.Dict[str, typing.Any]:
+) -> Dict[str, Any]:
     """Verifies the signature and data for the provided JWT.
 
     Accepts a signed token string, verifies that it is current, and issued
@@ -241,9 +240,9 @@ def verify_id_token(
 
 
 def create_session_cookie(
-    id_token: typing.Union[bytes, str],
-    expires_in: typing.Union[datetime.timedelta, int],
-    app: typing.Optional[firebase_admin.App] = None,
+    id_token: Union[bytes, str],
+    expires_in: Union[datetime.timedelta, int],
+    app: Optional[firebase_admin.App] = None,
 ) -> str:
     """Creates a new Firebase session cookie from the given ID token and options.
 
@@ -268,11 +267,11 @@ def create_session_cookie(
 
 
 def verify_session_cookie(
-    session_cookie: typing.Union[bytes, str],
+    session_cookie: Union[bytes, str],
     check_revoked: bool = False,
-    app: typing.Optional[firebase_admin.App] = None,
+    app: Optional[firebase_admin.App] = None,
     clock_skew_seconds: int = 0,
-) -> typing.Dict[str, typing.Any]:
+) -> Dict[str, Any]:
     """Verifies a Firebase session cookie.
 
     Accepts a session cookie string, verifies that it is current, and issued
@@ -308,7 +307,7 @@ def verify_session_cookie(
     return verified_claims
 
 
-def revoke_refresh_tokens(uid: str, app: typing.Optional[firebase_admin.App] = None) -> None:
+def revoke_refresh_tokens(uid: str, app: Optional[firebase_admin.App] = None) -> None:
     """Revokes all refresh tokens for an existing user.
 
     This function updates the user's ``tokens_valid_after_timestamp`` to the current UTC
@@ -332,7 +331,7 @@ def revoke_refresh_tokens(uid: str, app: typing.Optional[firebase_admin.App] = N
     client.revoke_refresh_tokens(uid)
 
 
-def get_user(uid: str, app: typing.Optional[firebase_admin.App] = None) -> _user_mgt.UserRecord:
+def get_user(uid: str, app: Optional[firebase_admin.App] = None) -> _user_mgt.UserRecord:
     """Gets the user data corresponding to the specified user ID.
 
     Args:
@@ -353,7 +352,7 @@ def get_user(uid: str, app: typing.Optional[firebase_admin.App] = None) -> _user
 
 def get_user_by_email(
     email: str,
-    app: typing.Optional[firebase_admin.App] = None,
+    app: Optional[firebase_admin.App] = None,
 ) -> _user_mgt.UserRecord:
     """Gets the user data corresponding to the specified user email.
 
@@ -375,7 +374,7 @@ def get_user_by_email(
 
 def get_user_by_phone_number(
     phone_number: str,
-    app: typing.Optional[firebase_admin.App] = None,
+    app: Optional[firebase_admin.App] = None,
 ) -> _user_mgt.UserRecord:
     """Gets the user data corresponding to the specified phone number.
 
@@ -396,8 +395,8 @@ def get_user_by_phone_number(
 
 
 def get_users(
-    identifiers: typing.Sequence[_user_identifier.UserIdentifier],
-    app: typing.Optional[firebase_admin.App] = None,
+    identifiers: 'Sequence[_user_identifier.UserIdentifier]',
+    app: Optional[firebase_admin.App] = None,
 ) -> _user_mgt.GetUsersResult:
     """Gets the user data corresponding to the specified identifiers.
 
@@ -427,9 +426,9 @@ def get_users(
 
 
 def list_users(
-    page_token: typing.Optional[str] = None,
+    page_token: Optional[str] = None,
     max_results: int = _user_mgt.MAX_LIST_USERS_RESULTS,
-    app: typing.Optional[firebase_admin.App] = None,
+    app: Optional[firebase_admin.App] = None,
 ) -> _user_mgt.ListUsersPage:
     """Retrieves a page of user accounts from a Firebase project.
 
@@ -457,16 +456,16 @@ def list_users(
 
 
 def create_user(
-    uid: typing.Optional[str] = None,
-    display_name: typing.Optional[str] = None,
-    email: typing.Optional[str] = None,
-    email_verified: typing.Optional[bool] = None,
-    phone_number: typing.Optional[str] = None,
-    photo_url: typing.Optional[str] = None,
-    password: typing.Optional[str] = None,
-    disabled: typing.Optional[bool] = None,
-    app: typing.Optional[firebase_admin.App] = None,
-    **kwargs: typing.Any,
+    uid: Optional[str] = None,
+    display_name: Optional[str] = None,
+    email: Optional[str] = None,
+    email_verified: Optional[bool] = None,
+    phone_number: Optional[str] = None,
+    photo_url: Optional[str] = None,
+    password: Optional[str] = None,
+    disabled: Optional[bool] = None,
+    app: Optional[firebase_admin.App] = None,
+    **kwargs: Any,
 ) -> _user_mgt.UserRecord: # pylint: disable=differing-param-doc
     """Creates a new user account with the specified properties.
 
@@ -501,18 +500,18 @@ def create_user(
 def update_user(
     uid: str,
     *,
-    display_name: typing.Optional[str] = None,
-    email: typing.Optional[str] = None,
-    email_verified: typing.Optional[bool] = None,
-    phone_number: typing.Optional[str] = None,
-    photo_url: typing.Optional[str] = None,
-    password: typing.Optional[str] = None,
-    disabled: typing.Optional[bool] = None,
-    custom_claims: typing.Optional[typing.Union[typing.Dict[str, typing.Any], str]] = None,
-    valid_since: typing.Optional[_typing.ConvertibleToInt] = None,
-    providers_to_delete: typing.Optional[typing.List[str]] = None,
-    app: typing.Optional[firebase_admin.App] = None,
-    **kwargs: typing.Any,
+    display_name: Optional[str] = None,
+    email: Optional[str] = None,
+    email_verified: Optional[bool] = None,
+    phone_number: Optional[str] = None,
+    photo_url: Optional[str] = None,
+    password: Optional[str] = None,
+    disabled: Optional[bool] = None,
+    custom_claims: Optional[Union[Dict[str, Any], str]] = None,
+    valid_since: Optional[_typing.ConvertibleToInt] = None,
+    providers_to_delete: Optional[List[str]] = None,
+    app: Optional[firebase_admin.App] = None,
+    **kwargs: Any,
 ) -> _user_mgt.UserRecord:
     """Updates an existing user account with the specified properties.
 
@@ -556,8 +555,8 @@ def update_user(
 
 def set_custom_user_claims(
     uid: str,
-    custom_claims: typing.Optional[typing.Union[typing.Dict[str, typing.Any], str]],
-    app: typing.Optional[firebase_admin.App] = None,
+    custom_claims: Optional[Union[Dict[str, Any], str]],
+    app: Optional[firebase_admin.App] = None,
 ) -> None:
     """Sets additional claims on an existing user account.
 
@@ -582,7 +581,7 @@ def set_custom_user_claims(
     client.set_custom_user_claims(uid, custom_claims=custom_claims)
 
 
-def delete_user(uid: str, app: typing.Optional[firebase_admin.App] = None) -> None:
+def delete_user(uid: str, app: Optional[firebase_admin.App] = None) -> None:
     """Deletes the user identified by the specified user ID.
 
     Args:
@@ -598,8 +597,8 @@ def delete_user(uid: str, app: typing.Optional[firebase_admin.App] = None) -> No
 
 
 def delete_users(
-    uids: typing.Sequence[str],
-    app: typing.Optional[firebase_admin.App] = None,
+    uids: 'Sequence[str]',
+    app: Optional[firebase_admin.App] = None,
 ) -> _user_mgt.DeleteUsersResult:
     """Deletes the users specified by the given identifiers.
 
@@ -628,9 +627,9 @@ def delete_users(
 
 
 def import_users(
-    users: typing.Sequence[_user_import.ImportUserRecord],
-    hash_alg: typing.Optional[_user_import.UserImportHash] = None,
-    app: typing.Optional[firebase_admin.App] = None,
+    users: 'Sequence[_user_import.ImportUserRecord]',
+    hash_alg: Optional[_user_import.UserImportHash] = None,
+    app: Optional[firebase_admin.App] = None,
 ) -> _user_import.UserImportResult:
     """Imports the specified list of users into Firebase Auth.
 
@@ -658,9 +657,9 @@ def import_users(
 
 
 def generate_password_reset_link(
-    email: typing.Optional[str],
-    action_code_settings: typing.Optional[_user_mgt.ActionCodeSettings] = None,
-    app: typing.Optional[firebase_admin.App] = None,
+    email: Optional[str],
+    action_code_settings: Optional[_user_mgt.ActionCodeSettings] = None,
+    app: Optional[firebase_admin.App] = None,
 ) -> str:
     """Generates the out-of-band email action link for password reset flows for the specified email
     address.
@@ -683,9 +682,9 @@ def generate_password_reset_link(
 
 
 def generate_email_verification_link(
-    email: typing.Optional[str],
-    action_code_settings: typing.Optional[_user_mgt.ActionCodeSettings] = None,
-    app: typing.Optional[firebase_admin.App] = None,
+    email: Optional[str],
+    action_code_settings: Optional[_user_mgt.ActionCodeSettings] = None,
+    app: Optional[firebase_admin.App] = None,
 ) -> str:
     """Generates the out-of-band email action link for email verification flows for the specified
     email address.
@@ -709,9 +708,9 @@ def generate_email_verification_link(
 
 
 def generate_sign_in_with_email_link(
-    email: typing.Optional[str],
-    action_code_settings: typing.Optional[_user_mgt.ActionCodeSettings],
-    app: typing.Optional[firebase_admin.App] = None,
+    email: Optional[str],
+    action_code_settings: Optional[_user_mgt.ActionCodeSettings],
+    app: Optional[firebase_admin.App] = None,
 ) -> str:
     """Generates the out-of-band email action link for email link sign-in flows, using the action
     code settings provided.
@@ -737,7 +736,7 @@ def generate_sign_in_with_email_link(
 
 def get_oidc_provider_config(
     provider_id: str,
-    app: typing.Optional[firebase_admin.App] = None,
+    app: Optional[firebase_admin.App] = None,
 ) -> _auth_providers.OIDCProviderConfig:
     """Returns the ``OIDCProviderConfig`` with the given ID.
 
@@ -761,12 +760,12 @@ def create_oidc_provider_config(
     provider_id: str,
     client_id: str,
     issuer: str,
-    display_name: typing.Optional[str] = None,
-    enabled: typing.Optional[bool] = None,
-    client_secret: typing.Optional[str] = None,
-    id_token_response_type: typing.Optional[bool] = None,
-    code_response_type: typing.Optional[bool] = None,
-    app: typing.Optional[firebase_admin.App] = None,
+    display_name: Optional[str] = None,
+    enabled: Optional[bool] = None,
+    client_secret: Optional[str] = None,
+    id_token_response_type: Optional[bool] = None,
+    code_response_type: Optional[bool] = None,
+    app: Optional[firebase_admin.App] = None,
 ) -> _auth_providers.OIDCProviderConfig:
     """Creates a new OIDC provider config from the given parameters.
 
@@ -808,14 +807,14 @@ def create_oidc_provider_config(
 
 def update_oidc_provider_config(
     provider_id: str,
-    client_id: typing.Optional[str] = None,
-    issuer: typing.Optional[str] = None,
-    display_name: typing.Optional[str] = None,
-    enabled: typing.Optional[bool] = None,
-    client_secret: typing.Optional[str] = None,
-    id_token_response_type: typing.Optional[bool] = None,
-    code_response_type: typing.Optional[bool] = None,
-    app: typing.Optional[firebase_admin.App] = None,
+    client_id: Optional[str] = None,
+    issuer: Optional[str] = None,
+    display_name: Optional[str] = None,
+    enabled: Optional[bool] = None,
+    client_secret: Optional[str] = None,
+    id_token_response_type: Optional[bool] = None,
+    code_response_type: Optional[bool] = None,
+    app: Optional[firebase_admin.App] = None,
 ) -> _auth_providers.OIDCProviderConfig:
     """Updates an existing OIDC provider config with the given parameters.
 
@@ -854,7 +853,7 @@ def update_oidc_provider_config(
 
 def delete_oidc_provider_config(
     provider_id: str,
-    app: typing.Optional[firebase_admin.App] = None,
+    app: Optional[firebase_admin.App] = None,
 ) -> None:
     """Deletes the ``OIDCProviderConfig`` with the given ID.
 
@@ -872,9 +871,9 @@ def delete_oidc_provider_config(
 
 
 def list_oidc_provider_configs(
-    page_token: typing.Optional[str] = None,
+    page_token: Optional[str] = None,
     max_results: int = _auth_providers.MAX_LIST_CONFIGS_RESULTS,
-    app: typing.Optional[firebase_admin.App] = None,
+    app: Optional[firebase_admin.App] = None,
 ) -> _auth_providers._ListOIDCProviderConfigsPage:
     """Retrieves a page of OIDC provider configs from a Firebase project.
 
@@ -904,7 +903,7 @@ def list_oidc_provider_configs(
 
 def get_saml_provider_config(
     provider_id: str,
-    app: typing.Optional[firebase_admin.App] = None,
+    app: Optional[firebase_admin.App] = None,
 ) -> _auth_providers.SAMLProviderConfig:
     """Returns the ``SAMLProviderConfig`` with the given ID.
 
@@ -928,12 +927,12 @@ def create_saml_provider_config(
     provider_id: str,
     idp_entity_id: str,
     sso_url: str,
-    x509_certificates: typing.List[str],
+    x509_certificates: List[str],
     rp_entity_id: str,
     callback_url: str,
-    display_name: typing.Optional[str] = None,
-    enabled: typing.Optional[bool] = None,
-    app: typing.Optional[firebase_admin.App] = None,
+    display_name: Optional[str] = None,
+    enabled: Optional[bool] = None,
+    app: Optional[firebase_admin.App] = None,
 ) -> _auth_providers.SAMLProviderConfig:
     """Creates a new SAML provider config from the given parameters.
 
@@ -976,14 +975,14 @@ def create_saml_provider_config(
 
 def update_saml_provider_config(
     provider_id: str,
-    idp_entity_id: typing.Optional[str] = None,
-    sso_url: typing.Optional[str] = None,
-    x509_certificates: typing.Optional[typing.List[str]] = None,
-    rp_entity_id: typing.Optional[str] = None,
-    callback_url: typing.Optional[str] = None,
-    display_name: typing.Optional[str] = None,
-    enabled: typing.Optional[bool] = None,
-    app: typing.Optional[firebase_admin.App] = None,
+    idp_entity_id: Optional[str] = None,
+    sso_url: Optional[str] = None,
+    x509_certificates: Optional[List[str]] = None,
+    rp_entity_id: Optional[str] = None,
+    callback_url: Optional[str] = None,
+    display_name: Optional[str] = None,
+    enabled: Optional[bool] = None,
+    app: Optional[firebase_admin.App] = None,
 ) -> _auth_providers.SAMLProviderConfig:
     """Updates an existing SAML provider config with the given parameters.
 
@@ -1017,7 +1016,7 @@ def update_saml_provider_config(
 
 def delete_saml_provider_config(
     provider_id: str,
-    app: typing.Optional[firebase_admin.App] = None,
+    app: Optional[firebase_admin.App] = None,
 ) -> None:
     """Deletes the ``SAMLProviderConfig`` with the given ID.
 
@@ -1035,9 +1034,9 @@ def delete_saml_provider_config(
 
 
 def list_saml_provider_configs(
-    page_token: typing.Optional[str] = None,
+    page_token: Optional[str] = None,
     max_results: int = _auth_providers.MAX_LIST_CONFIGS_RESULTS,
-    app: typing.Optional[firebase_admin.App] = None,
+    app: Optional[firebase_admin.App] = None,
 ) -> _auth_providers._ListSAMLProviderConfigsPage:
     """Retrieves a page of SAML provider configs from a Firebase project.
 

@@ -13,10 +13,11 @@
 # limitations under the License.
 
 """Firebase Admin SDK for Python."""
+
 import json
 import os
 import threading
-import typing
+from typing import Any, Dict, Optional, TypeVar, overload
 
 from google.auth.credentials import Credentials as GoogleAuthCredentials
 from google.auth.exceptions import DefaultCredentialsError
@@ -24,10 +25,16 @@ from firebase_admin import credentials
 from firebase_admin.__about__ import __version__
 from firebase_admin import _typing
 
+__all__ = (
+    'App',
+    'delete_app',
+    'get_app',
+    'initialize_app',
+)
 
-_T = typing.TypeVar('_T')
+_T = TypeVar('_T')
 
-_apps: typing.Dict[str, 'App'] = {}
+_apps: Dict[str, 'App'] = {}
 _apps_lock = threading.RLock()
 
 _DEFAULT_APP_NAME = '[DEFAULT]'
@@ -36,8 +43,8 @@ _CONFIG_VALID_KEYS = ['databaseAuthVariableOverride', 'databaseURL', 'httpTimeou
                       'storageBucket']
 
 def initialize_app(
-    credential: typing.Optional[_typing.CredentialLike] = None,
-    options: typing.Optional[typing.Dict[str, typing.Any]] = None,
+    credential: Optional[_typing.CredentialLike] = None,
+    options: Optional[Dict[str, Any]] = None,
     name: str = _DEFAULT_APP_NAME,
 ) -> 'App':
     """Initializes and returns a new App instance.
@@ -154,7 +161,7 @@ def get_app(name: str = _DEFAULT_APP_NAME) -> 'App':
 class _AppOptions:
     """A collection of configuration options for an App."""
 
-    def __init__(self, options: typing.Optional[typing.Dict[str, typing.Any]]) -> None:
+    def __init__(self, options: Optional[Dict[str, Any]]) -> None:
         if options is None:
             options = self._load_from_environment()
 
@@ -163,16 +170,16 @@ class _AppOptions:
                              'must be a dictionary.'.format(type(options)))
         self._options = options
 
-    @typing.overload
-    def get(self, key: str, default: None = None) -> typing.Optional[typing.Any]: ...
+    @overload
+    def get(self, key: str, default: None = None) -> Optional[Any]: ...
     # possible issue: needs return Any | _T ?
-    @typing.overload
+    @overload
     def get(self, key: str, default: _T) -> _T: ...
-    def get(self, key: str, default: typing.Any = None) -> typing.Optional[typing.Any]:
+    def get(self, key: str, default: Any = None) -> Optional[Any]:
         """Returns the option identified by the provided key."""
         return self._options.get(key, default)
 
-    def _load_from_environment(self) -> typing.Dict[str, typing.Any]:
+    def _load_from_environment(self) -> Dict[str, Any]:
         """Invoked when no options are passed to __init__, loads options from FIREBASE_CONFIG.
 
         If the value of the FIREBASE_CONFIG environment variable starts with "{" an attempt is made
@@ -208,7 +215,7 @@ class App:
         self,
         name: str,
         credential: _typing.CredentialLike,
-        options: typing.Optional[typing.Dict[str, typing.Any]],
+        options: Optional[Dict[str, Any]],
     ) -> None:
         """Constructs a new App using the provided name and options.
 
@@ -234,13 +241,13 @@ class App:
                              'with a valid credential instance.')
         self._options = _AppOptions(options)
         self._lock = threading.RLock()
-        self._services: typing.Optional[typing.Dict[str, typing.Any]] = {}
+        self._services: Optional[Dict[str, Any]] = {}
 
         App._validate_project_id(self._options.get('projectId'))
         self._project_id_initialized = False
 
     @classmethod
-    def _validate_project_id(cls, project_id: typing.Optional[str]) -> None:
+    def _validate_project_id(cls, project_id: Optional[str]) -> None:
         if project_id is not None and not isinstance(project_id, str):
             raise ValueError(
                 'Invalid project ID: "{0}". project ID must be a string.'.format(project_id))
@@ -258,13 +265,13 @@ class App:
         return self._options
 
     @property
-    def project_id(self) -> typing.Optional[str]:
+    def project_id(self) -> Optional[str]:
         if not self._project_id_initialized:
             self._project_id = self._lookup_project_id()
             self._project_id_initialized = True
         return self._project_id
 
-    def _lookup_project_id(self) -> typing.Optional[str]:
+    def _lookup_project_id(self) -> Optional[str]:
         """Looks up the Firebase project ID associated with an App.
 
         If a ``projectId`` is specified in app options, it is returned. Then tries to
@@ -275,7 +282,7 @@ class App:
         Returns:
             str: A project ID string or None.
         """
-        project_id: typing.Optional[str] = self._options.get('projectId')
+        project_id: Optional[str] = self._options.get('projectId')
         if not project_id:
             try:
                 project_id = getattr(self._credential, 'project_id')

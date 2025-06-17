@@ -17,7 +17,8 @@
 import base64
 import collections
 import json
-import typing
+from collections.abc import Callable, Sequence
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 from urllib import parse
 
 import requests
@@ -30,6 +31,25 @@ from firebase_admin import _user_identifier
 from firebase_admin import _user_import
 from firebase_admin._user_import import ErrorInfo
 
+__all__ = (
+    'B64_REDACTED',
+    'DELETE_ATTRIBUTE',
+    'MAX_IMPORT_USERS_SIZE',
+    'MAX_LIST_USERS_RESULTS', 
+    'ActionCodeSettings',
+    'BatchDeleteAccountsResponse',
+    'DeleteUsersResult',
+    'ExportedUserRecord',
+    'GetUsersResult',
+    'ListUsersPage',
+    'ProviderUserInfo',
+    'Sentinel',
+    'UserInfo',
+    'UserManager',
+    'UserMetadata',
+    'UserRecord',
+    'encode_action_code_settings',
+)
 
 MAX_LIST_USERS_RESULTS = 1000
 MAX_IMPORT_USERS_SIZE = 1000
@@ -41,7 +61,7 @@ class Sentinel:
         self.description = description
 
 
-DELETE_ATTRIBUTE: typing.Any = Sentinel('Value used to delete an attribute from a user profile')
+DELETE_ATTRIBUTE: Any = Sentinel('Value used to delete an attribute from a user profile')
 
 
 class UserMetadata:
@@ -49,9 +69,9 @@ class UserMetadata:
 
     def __init__(
         self,
-        creation_timestamp: typing.Optional[typing.Any] = None,
-        last_sign_in_timestamp: typing.Optional[typing.Any] = None,
-        last_refresh_timestamp: typing.Optional[typing.Any] = None,
+        creation_timestamp: Optional[Any] = None,
+        last_sign_in_timestamp: Optional[Any] = None,
+        last_refresh_timestamp: Optional[Any] = None,
     ) -> None:
         self._creation_timestamp = _auth_utils.validate_timestamp(
             creation_timestamp, 'creation_timestamp')
@@ -61,7 +81,7 @@ class UserMetadata:
             last_refresh_timestamp, 'last_refresh_timestamp')
 
     @property
-    def creation_timestamp(self) -> typing.Optional[int]:
+    def creation_timestamp(self) -> Optional[int]:
         """ Creation timestamp in milliseconds since the epoch.
 
         Returns:
@@ -70,7 +90,7 @@ class UserMetadata:
         return self._creation_timestamp
 
     @property
-    def last_sign_in_timestamp(self) -> typing.Optional[int]:
+    def last_sign_in_timestamp(self) -> Optional[int]:
         """ Last sign in timestamp in milliseconds since the epoch.
 
         Returns:
@@ -79,7 +99,7 @@ class UserMetadata:
         return self._last_sign_in_timestamp
 
     @property
-    def last_refresh_timestamp(self) -> typing.Optional[int]:
+    def last_refresh_timestamp(self) -> Optional[int]:
         """The time at which the user was last active (ID token refreshed).
 
         Returns:
@@ -101,22 +121,22 @@ class UserInfo:
         raise NotImplementedError
 
     @property
-    def display_name(self) -> typing.Optional[str]:
+    def display_name(self) -> Optional[str]:
         """Returns the display name of this user."""
         raise NotImplementedError
 
     @property
-    def email(self) -> typing.Optional[str]:
+    def email(self) -> Optional[str]:
         """Returns the email address associated with this user."""
         raise NotImplementedError
 
     @property
-    def phone_number(self) -> typing.Optional[str]:
+    def phone_number(self) -> Optional[str]:
         """Returns the phone number associated with this user."""
         raise NotImplementedError
 
     @property
-    def photo_url(self) -> typing.Optional[str]:
+    def photo_url(self) -> Optional[str]:
         """Returns the photo URL of this user."""
         raise NotImplementedError
 
@@ -133,7 +153,7 @@ class UserInfo:
 class UserRecord(UserInfo):
     """Contains metadata associated with a Firebase user account."""
 
-    def __init__(self, data: typing.Dict[str, typing.Any]) -> None:
+    def __init__(self, data: Dict[str, Any]) -> None:
         super(UserRecord, self).__init__()
         if not isinstance(data, dict):
             raise ValueError('Invalid data argument: {0}. Must be a dictionary.'.format(data))
@@ -151,7 +171,7 @@ class UserRecord(UserInfo):
         return self._data['localId']
 
     @property
-    def display_name(self) -> typing.Optional[str]:
+    def display_name(self) -> Optional[str]:
         """Returns the display name of this user.
 
         Returns:
@@ -160,7 +180,7 @@ class UserRecord(UserInfo):
         return self._data.get('displayName')
 
     @property
-    def email(self) -> typing.Optional[str]:
+    def email(self) -> Optional[str]:
         """Returns the email address associated with this user.
 
         Returns:
@@ -169,7 +189,7 @@ class UserRecord(UserInfo):
         return self._data.get('email')
 
     @property
-    def phone_number(self) -> typing.Optional[str]:
+    def phone_number(self) -> Optional[str]:
         """Returns the phone number associated with this user.
 
         Returns:
@@ -178,7 +198,7 @@ class UserRecord(UserInfo):
         return self._data.get('phoneNumber')
 
     @property
-    def photo_url(self) -> typing.Optional[str]:
+    def photo_url(self) -> Optional[str]:
         """Returns the photo URL of this user.
 
         Returns:
@@ -235,7 +255,7 @@ class UserRecord(UserInfo):
         Returns:
           UserMetadata: A UserMetadata instance. Does not return None.
         """
-        def _int_or_none(key: str) -> typing.Optional[int]:
+        def _int_or_none(key: str) -> Optional[int]:
             if key in self._data:
                 return int(self._data[key])
             return None
@@ -248,7 +268,7 @@ class UserRecord(UserInfo):
             _int_or_none('createdAt'), _int_or_none('lastLoginAt'), last_refresh_at_millis)
 
     @property
-    def provider_data(self) -> typing.List['ProviderUserInfo']:
+    def provider_data(self) -> List['ProviderUserInfo']:
         """Returns a list of UserInfo instances.
 
         Each object represents an identity from an identity provider that is linked to this user.
@@ -260,7 +280,7 @@ class UserRecord(UserInfo):
         return [ProviderUserInfo(entry) for entry in providers]
 
     @property
-    def custom_claims(self) -> typing.Optional[typing.Dict[str, typing.Any]]:
+    def custom_claims(self) -> Optional[Dict[str, Any]]:
         """Returns any custom claims set on this user account.
 
         Returns:
@@ -274,7 +294,7 @@ class UserRecord(UserInfo):
         return None
 
     @property
-    def tenant_id(self) -> typing.Optional[str]:
+    def tenant_id(self) -> Optional[str]:
         """Returns the tenant ID of this user.
 
         Returns:
@@ -287,7 +307,7 @@ class ExportedUserRecord(UserRecord):
     """Contains metadata associated with a user including password hash and salt."""
 
     @property
-    def password_hash(self) -> typing.Optional[str]:
+    def password_hash(self) -> Optional[str]:
         """The user's password hash as a base64-encoded string.
 
         If the Firebase Auth hashing algorithm (SCRYPT) was used to create the user account, this
@@ -306,7 +326,7 @@ class ExportedUserRecord(UserRecord):
         return password_hash
 
     @property
-    def password_salt(self) -> typing.Optional[str]:
+    def password_salt(self) -> Optional[str]:
         """The user's password salt as a base64-encoded string.
 
         If the Firebase Auth hashing algorithm (SCRYPT) was used to create the user account, this
@@ -321,7 +341,7 @@ class ExportedUserRecord(UserRecord):
 class GetUsersResult:
     """Represents the result of the ``auth.get_users()`` API."""
 
-    def __init__(self, users: typing.List[UserRecord], not_found: typing.List[_user_identifier.UserIdentifier]) -> None:
+    def __init__(self, users: List[UserRecord], not_found: List[_user_identifier.UserIdentifier]) -> None:
         """Constructs a `GetUsersResult` object.
 
         Args:
@@ -332,7 +352,7 @@ class GetUsersResult:
         self._not_found = not_found
 
     @property
-    def users(self) -> typing.List[UserRecord]:
+    def users(self) -> List[UserRecord]:
         """Set of `UserRecord` instances, corresponding to the set of users
         that were requested. Only users that were found are listed here. The
         result set is unordered.
@@ -340,7 +360,7 @@ class GetUsersResult:
         return self._users
 
     @property
-    def not_found(self) -> typing.List[_user_identifier.UserIdentifier]:
+    def not_found(self) -> List[_user_identifier.UserIdentifier]:
         """Set of `UserIdentifier` instances that were requested, but not
         found.
         """
@@ -357,8 +377,8 @@ class ListUsersPage:
 
     def __init__(
         self,
-        download: typing.Callable[[typing.Optional[str], int], typing.Dict[str, _typing.Json]],
-        page_token: typing.Optional[str],
+        download: 'Callable[[Optional[str], int], Dict[str, _typing.Json]]',
+        page_token: Optional[str],
         max_results: int,
     ) -> None:
         self._download = download
@@ -366,12 +386,12 @@ class ListUsersPage:
         self._current = download(page_token, max_results)
 
     @property
-    def users(self) -> typing.List[ExportedUserRecord]:
+    def users(self) -> List[ExportedUserRecord]:
         """A list of ``ExportedUserRecord`` instances available in this page."""
         return [
             ExportedUserRecord(user)
-            for user in typing.cast(
-                typing.List[typing.Dict[str, _typing.Json]],
+            for user in cast(
+                List[Dict[str, _typing.Json]],
                 self._current.get('users', []),
             )
         ]
@@ -379,14 +399,14 @@ class ListUsersPage:
     @property
     def next_page_token(self) -> str:
         """Page token string for the next page (empty string indicates no more pages)."""
-        return typing.cast(str, self._current.get('nextPageToken', ''))
+        return cast(str, self._current.get('nextPageToken', ''))
 
     @property
     def has_next_page(self) -> bool:
         """A boolean indicating whether more pages are available."""
         return bool(self.next_page_token)
 
-    def get_next_page(self) -> typing.Optional['ListUsersPage']:
+    def get_next_page(self) -> Optional['ListUsersPage']:
         """Retrieves the next page of user accounts, if available.
 
         Returns:
@@ -443,7 +463,7 @@ class DeleteUsersResult:
         return self._failure_count
 
     @property
-    def errors(self) -> typing.List[ErrorInfo]:
+    def errors(self) -> List[ErrorInfo]:
         """A list of `auth.ErrorInfo` instances describing the errors that
         were encountered during the deletion. Length of this list is equal to
         `failure_count`.
@@ -454,7 +474,7 @@ class DeleteUsersResult:
 class BatchDeleteAccountsResponse:
     """Represents the results of a `delete_users()` call."""
 
-    def __init__(self, errors: typing.Optional[typing.List[typing.Dict[str, _typing.Json]]] = None) -> None:
+    def __init__(self, errors: Optional[List[Dict[str, _typing.Json]]] = None) -> None:
         """Constructs a `BatchDeleteAccountsResponse` instance, corresponding to
         the JSON representing the `BatchDeleteAccountsResponse` proto.
 
@@ -469,7 +489,7 @@ class BatchDeleteAccountsResponse:
 class ProviderUserInfo(UserInfo):
     """Contains metadata regarding how a user is known by a particular identity provider."""
 
-    def __init__(self, data: typing.Dict[str, typing.Any]) -> None:
+    def __init__(self, data: Dict[str, Any]) -> None:
         if not isinstance(data, dict):
             raise ValueError('Invalid data argument: {0}. Must be a dictionary.'.format(data))
         if not data.get('rawId'):
@@ -481,19 +501,19 @@ class ProviderUserInfo(UserInfo):
         return self._data['rawId']
 
     @property
-    def display_name(self) -> typing.Optional[str]:
+    def display_name(self) -> Optional[str]:
         return self._data.get('displayName')
 
     @property
-    def email(self) -> typing.Optional[str]:
+    def email(self) -> Optional[str]:
         return self._data.get('email')
 
     @property
-    def phone_number(self) -> typing.Optional[str]:
+    def phone_number(self) -> Optional[str]:
         return self._data.get('phoneNumber')
 
     @property
-    def photo_url(self) -> typing.Optional[str]:
+    def photo_url(self) -> Optional[str]:
         return self._data.get('photoUrl')
 
     @property
@@ -510,12 +530,12 @@ class ActionCodeSettings:
     def __init__(
         self,
         url: str,
-        handle_code_in_app: typing.Optional[bool] = None,
-        dynamic_link_domain: typing.Optional[str] = None,
-        ios_bundle_id: typing.Optional[str] = None,
-        android_package_name: typing.Optional[str] = None,
-        android_install_app: typing.Optional[bool] = None,
-        android_minimum_version: typing.Optional[str] = None,
+        handle_code_in_app: Optional[bool] = None,
+        dynamic_link_domain: Optional[str] = None,
+        ios_bundle_id: Optional[str] = None,
+        android_package_name: Optional[str] = None,
+        android_install_app: Optional[bool] = None,
+        android_minimum_version: Optional[str] = None,
     ) -> None:
         self.url = url
         self.handle_code_in_app = handle_code_in_app
@@ -526,7 +546,7 @@ class ActionCodeSettings:
         self.android_minimum_version = android_minimum_version
 
 
-def encode_action_code_settings(settings: ActionCodeSettings) -> typing.Dict[str, typing.Any]:
+def encode_action_code_settings(settings: ActionCodeSettings) -> Dict[str, Any]:
     """ Validates the provided action code settings for email link generation and
     populates the REST api parameters.
 
@@ -534,7 +554,7 @@ def encode_action_code_settings(settings: ActionCodeSettings) -> typing.Dict[str
     returns  - dict of parameters to be passed for link gereration.
     """
 
-    parameters: typing.Dict[str, typing.Any] = {}
+    parameters: Dict[str, Any] = {}
     # url
     if not settings.url:
         raise ValueError("Dynamic action links url is mandatory")
@@ -601,10 +621,10 @@ class UserManager:
 
     def __init__(
         self,
-        http_client: _http_client.HttpClient[typing.Dict[str, _typing.Json]],
+        http_client: _http_client.HttpClient[Dict[str, _typing.Json]],
         project_id: str,
-        tenant_id: typing.Optional[str] = None,
-        url_override: typing.Optional[str] = None,
+        tenant_id: Optional[str] = None,
+        url_override: Optional[str] = None,
     ) -> None:
         self.http_client = http_client
         url_prefix = url_override or self.ID_TOOLKIT_URL
@@ -612,7 +632,7 @@ class UserManager:
         if tenant_id:
             self.base_url += '/tenants/{0}'.format(tenant_id)
 
-    def get_user(self, **kwargs: typing.Any) -> typing.Dict[str, _typing.Json]:
+    def get_user(self, **kwargs: Any) -> Dict[str, _typing.Json]:
         """Gets the user data corresponding to the provided key."""
         if 'uid' in kwargs:
             key, key_type = kwargs.pop('uid'), 'user ID'
@@ -631,12 +651,12 @@ class UserManager:
             raise _auth_utils.UserNotFoundError(
                 'No user record found for the provided {0}: {1}.'.format(key_type, key),
                 http_response=http_resp)
-        return typing.cast(typing.List[typing.Dict[str, _typing.Json]], body['users'])[0]
+        return cast(List[Dict[str, _typing.Json]], body['users'])[0]
 
     def get_users(
         self,
-        identifiers: typing.Sequence[_user_identifier.UserIdentifier],
-    ) -> typing.List[typing.Dict[str, _typing.Json]]:
+        identifiers: 'Sequence[_user_identifier.UserIdentifier]',
+    ) -> List[Dict[str, _typing.Json]]:
         """Looks up multiple users by their identifiers (uid, email, etc.)
 
         Args:
@@ -658,7 +678,7 @@ class UserManager:
         if len(identifiers) > 100:
             raise ValueError('`identifiers` parameter must have <= 100 entries.')
 
-        payload: typing.Dict[str, typing.List[typing.Any]] = collections.defaultdict(list)
+        payload: Dict[str, List[Any]] = collections.defaultdict(list)
         for identifier in identifiers:
             if isinstance(identifier, _user_identifier.UidIdentifier):
                 payload['localId'].append(identifier.uid)
@@ -681,13 +701,13 @@ class UserManager:
         if not http_resp.ok:
             raise _auth_utils.UnexpectedResponseError(
                 'Failed to get users.', http_response=http_resp)
-        return typing.cast(typing.List[typing.Dict[str, _typing.Json]], body.get('users', []))
+        return cast(List[Dict[str, _typing.Json]], body.get('users', []))
 
     def list_users(
         self,
-        page_token: typing.Optional[str] = None,
+        page_token: Optional[str] = None,
         max_results: int = MAX_LIST_USERS_RESULTS,
-    ) -> typing.Dict[str, _typing.Json]:
+    ) -> Dict[str, _typing.Json]:
         """Retrieves a batch of users."""
         if page_token is not None:
             if not isinstance(page_token, str) or not page_token:
@@ -699,7 +719,7 @@ class UserManager:
                 'Max results must be a positive integer less than '
                 '{0}.'.format(MAX_LIST_USERS_RESULTS))
 
-        payload: typing.Dict[str, typing.Any] = {'maxResults': max_results}
+        payload: Dict[str, Any] = {'maxResults': max_results}
         if page_token:
             payload['nextPageToken'] = page_token
         body, _ = self._make_request('get', '/accounts:batchGet', params=payload)
@@ -707,14 +727,14 @@ class UserManager:
 
     def create_user(
         self,
-        uid: typing.Optional[str] = None,
-        display_name: typing.Optional[str] = None,
-        email: typing.Optional[str] = None,
-        phone_number: typing.Optional[str] = None,
-        photo_url: typing.Optional[str] = None,
-        password: typing.Optional[str] = None,
-        disabled: typing.Optional[bool] = None,
-        email_verified: typing.Optional[bool] = None,
+        uid: Optional[str] = None,
+        display_name: Optional[str] = None,
+        email: Optional[str] = None,
+        phone_number: Optional[str] = None,
+        photo_url: Optional[str] = None,
+        password: Optional[str] = None,
+        disabled: Optional[bool] = None,
+        email_verified: Optional[bool] = None,
     ) -> str:
         """Creates a new user account with the specified properties."""
         payload = {
@@ -732,24 +752,24 @@ class UserManager:
         if not body or not body.get('localId'):
             raise _auth_utils.UnexpectedResponseError(
                 'Failed to create new user.', http_response=http_resp)
-        return typing.cast(str, body['localId'])
+        return cast(str, body['localId'])
 
     def update_user(
         self,
         uid: str,
-        display_name: typing.Optional[str] = None,
-        email: typing.Optional[str] = None,
-        phone_number: typing.Optional[str] = None,
-        photo_url: typing.Optional[str] = None,
-        password: typing.Optional[str] = None,
-        disabled: typing.Optional[bool] = None,
-        email_verified: typing.Optional[bool] = None,
-        valid_since: typing.Optional[_typing.ConvertibleToInt] = None,
-        custom_claims: typing.Optional[typing.Union[typing.Dict[str, typing.Any], str]] = None,
-        providers_to_delete: typing.Optional[typing.List[str]] = None,
+        display_name: Optional[str] = None,
+        email: Optional[str] = None,
+        phone_number: Optional[str] = None,
+        photo_url: Optional[str] = None,
+        password: Optional[str] = None,
+        disabled: Optional[bool] = None,
+        email_verified: Optional[bool] = None,
+        valid_since: Optional[_typing.ConvertibleToInt] = None,
+        custom_claims: Optional[Union[Dict[str, Any], str]] = None,
+        providers_to_delete: Optional[List[str]] = None,
     ) -> str:
         """Updates an existing user account with the specified properties"""
-        payload: typing.Dict[str, typing.Any] = {
+        payload: Dict[str, Any] = {
             'localId': _auth_utils.validate_uid(uid, required=True),
             'email': _auth_utils.validate_email(email),
             'password': _auth_utils.validate_password(password),
@@ -758,7 +778,7 @@ class UserManager:
             'disableUser': bool(disabled) if disabled is not None else None,
         }
 
-        remove: typing.List[str] = []
+        remove: List[str] = []
         remove_provider = _auth_utils.validate_provider_ids(providers_to_delete)
         if display_name is not None:
             if display_name is DELETE_ATTRIBUTE:
@@ -794,7 +814,7 @@ class UserManager:
         if not body or not body.get('localId'):
             raise _auth_utils.UnexpectedResponseError(
                 'Failed to update user: {0}.'.format(uid), http_response=http_resp)
-        return typing.cast(str, body['localId'])
+        return cast(str, body['localId'])
 
     def delete_user(self, uid: str) -> None:
         """Deletes the user identified by the specified user ID."""
@@ -804,7 +824,7 @@ class UserManager:
             raise _auth_utils.UnexpectedResponseError(
                 'Failed to delete user: {0}.'.format(uid), http_response=http_resp)
 
-    def delete_users(self, uids: typing.Sequence[str], force_delete: bool = False) -> BatchDeleteAccountsResponse:
+    def delete_users(self, uids: 'Sequence[str]', force_delete: bool = False) -> BatchDeleteAccountsResponse:
         """Deletes the users identified by the specified user ids.
 
         Args:
@@ -838,14 +858,14 @@ class UserManager:
             raise _auth_utils.UnexpectedResponseError(
                 'Unexpected response from server while attempting to delete users.',
                 http_response=http_resp)
-        return BatchDeleteAccountsResponse(typing.cast(typing.List[typing.Dict[str, _typing.Json]],
+        return BatchDeleteAccountsResponse(cast(List[Dict[str, _typing.Json]],
             body.get('errors', [])))
 
     def import_users(
         self,
-        users: typing.Sequence[_user_import.ImportUserRecord],
-        hash_alg: typing.Optional[_user_import.UserImportHash] = None,
-    ) -> typing.Dict[str, typing.Any]:
+        users: 'Sequence[_user_import.ImportUserRecord]',
+        hash_alg: Optional[_user_import.UserImportHash] = None,
+    ) -> Dict[str, Any]:
         """Imports the given list of users to Firebase Auth."""
         try:
             if not users or len(users) > MAX_IMPORT_USERS_SIZE:
@@ -871,8 +891,8 @@ class UserManager:
     def generate_email_action_link(
         self,
         action_type: _typing.EmailActionType,
-        email: typing.Optional[str],
-        action_code_settings: typing.Optional[ActionCodeSettings] = None,
+        email: Optional[str],
+        action_code_settings: Optional[ActionCodeSettings] = None,
     ) -> str:
         """Fetches the email action links for types
 
@@ -903,14 +923,14 @@ class UserManager:
         if not body or not body.get('oobLink'):
             raise _auth_utils.UnexpectedResponseError(
                 'Failed to generate email action link.', http_response=http_resp)
-        return typing.cast(str, body['oobLink'])
+        return cast(str, body['oobLink'])
 
     def _make_request(
         self,
         method: str,
         path: str,
-        **kwargs: typing.Any,
-    ) -> typing.Tuple[typing.Dict[str, _typing.Json], requests.Response]:
+        **kwargs: Any,
+    ) -> Tuple[Dict[str, _typing.Json], requests.Response]:
         url = '{0}{1}'.format(self.base_url, path)
         try:
             return self.http_client.body_and_response(method, url, **kwargs)
@@ -920,5 +940,5 @@ class UserManager:
 
 class _UserIterator(_auth_utils.PageIterator[ListUsersPage]):
     @property
-    def items(self) -> typing.List[ExportedUserRecord]:
+    def items(self) -> List[ExportedUserRecord]:
         return self._current_page.users if self._current_page else []

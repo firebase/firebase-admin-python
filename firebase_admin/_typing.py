@@ -18,8 +18,22 @@
 # This allows the annotations to be valid at runtime without requiring the immediate
 # loading of the referenced symbols.
 
-import typing
-import typing_extensions
+from collections.abc import Iterable
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Protocol,
+    SupportsFloat,
+    SupportsIndex,
+    SupportsInt,
+    Tuple,
+    Union,
+)
+from typing_extensions import Buffer, Self, TypeAlias, TypeVar
 
 import google.auth.credentials
 import requests
@@ -29,124 +43,140 @@ from firebase_admin import credentials
 from firebase_admin import exceptions
 from firebase_admin import project_management
 
+__all__ = (
+    'AppMetadataSubclass',
+    'ConvertibleToFloat',
+    'ConvertibleToInt',
+    'CredentialLike',
+    'EmailActionType',
+    'FirebaseErrorFactory',
+    'FirebaseErrorFactoryNoHttp',
+    'FirebaseErrorFactoryNoHttpWithDefaults',
+    'FirebaseErrorFactoryWithDefaults',
+    'GoogleAPIErrorHandler',
+    'HeadersLike',
+    'Json',
+    'Page',
+    'ProjectApp',
+    'RequestErrorHandler',
+    'ServiceInitializer',
+    'SupportsKeysAndGetItem',
+)
 
-_KT = typing.TypeVar('_KT')
-_VT_co = typing.TypeVar('_VT_co', covariant=True)
-_AnyT = typing_extensions.TypeVar('_AnyT', default=typing.Any)
-_AnyT_co = typing_extensions.TypeVar('_AnyT_co', covariant=True, default=typing.Any)
-_FirebaseErrorT_co = typing_extensions.TypeVar(
+_KT = TypeVar('_KT')
+_VT_co = TypeVar('_VT_co', covariant=True)
+_AnyT = TypeVar('_AnyT', default=Any)
+_AnyT_co = TypeVar('_AnyT_co', covariant=True, default=Any)
+_FirebaseErrorT_co = TypeVar(
     '_FirebaseErrorT_co', covariant=True, default='exceptions.FirebaseError')
-_AppMetadataT_co = typing_extensions.TypeVar(
+_AppMetadataT_co = TypeVar(
     '_AppMetadataT_co', covariant=True, default='project_management._AppMetadata')
 
 
-class SupportsKeysAndGetItem(typing.Protocol[_KT, _VT_co]):
+class SupportsKeysAndGetItem(Protocol[_KT, _VT_co]):
     # Equivalent to _typeshed.SupportsKeysAndGetItem, but works at runtime
-    def keys(self) -> typing.Iterable[_KT]: ...
+    def keys(self) -> 'Iterable[_KT]': ...
     def __getitem__(self, __key: _KT) -> _VT_co: ...
 
 
-class _SupportsTrunc(typing.Protocol):
+class _SupportsTrunc(Protocol):
     def __trunc__(self) -> int: ...
 
 
-ConvertibleToInt = typing.Union[
+ConvertibleToInt = Union[
     str,
-    typing_extensions.Buffer,
-    typing.SupportsInt,
-    typing.SupportsIndex,
+    Buffer,
+    SupportsInt,
+    SupportsIndex,
     _SupportsTrunc,
 ]
-ConvertibleToFloat: typing_extensions.TypeAlias = typing.Union[
+ConvertibleToFloat: TypeAlias = Union[
     str,
-    typing_extensions.Buffer,
-    typing.SupportsFloat,
-    typing.SupportsIndex,
+    Buffer,
+    SupportsFloat,
+    SupportsIndex,
 ]
-CredentialLike = typing.Union['credentials.Base', google.auth.credentials.Credentials]
-HeadersLike = typing.Union[
-    SupportsKeysAndGetItem[str, typing.Union[bytes, str]],
-    typing.Iterable[typing.Tuple[
-        str,
-        typing.Union[bytes, str]
-    ]],
+CredentialLike = Union['credentials.Base', google.auth.credentials.Credentials]
+HeadersLike = Union[
+    SupportsKeysAndGetItem[str, Union[bytes, str]],
+    'Iterable[Tuple[str, Union[bytes, str]]]',
 ]
-ServiceInitializer = typing.Callable[['firebase_admin.App'], _AnyT]
-RequestErrorHandler = typing.Callable[
+ServiceInitializer: TypeAlias = Callable[['firebase_admin.App'], _AnyT]
+RequestErrorHandler: TypeAlias = Callable[
     [
         requests.RequestException,
         str,
-        typing.Dict[str, typing.Any]
+        Dict[str, Any]
     ],
-    typing.Optional['exceptions.FirebaseError'],
+    Optional['exceptions.FirebaseError'],
 ]
-GoogleAPIErrorHandler = typing.Callable[
+GoogleAPIErrorHandler: TypeAlias = Callable[
     [
         Exception,
         str,
-        typing.Dict[str, typing.Any],
+        Dict[str, Any],
         requests.Response,
     ],
-    typing.Optional['exceptions.FirebaseError'],
+    Optional['exceptions.FirebaseError'],
 ]
-Json = typing.Optional[typing.Union[
-    typing.Dict[str, 'Json'],
-    typing.List['Json'],
+Json = Optional[Union[
+    Dict[str, 'Json'],
+    List['Json'],
     str,
     float,
 ]]
-EmailActionType = typing.Literal[
+EmailActionType = Literal[
     'VERIFY_EMAIL',
     'EMAIL_SIGNIN',
     'PASSWORD_RESET',
 ]
 
-class FirebaseErrorFactory(typing.Protocol[_FirebaseErrorT_co]):
+class FirebaseErrorFactory(Protocol[_FirebaseErrorT_co]):
     def __call__(
         self,
         message: str,
-        cause: typing.Optional[Exception],
-        http_response: typing.Optional[requests.Response],
+        cause: Optional[Exception],
+        http_response: Optional[requests.Response],
     ) -> _FirebaseErrorT_co: ...
 
 
-class FirebaseErrorFactoryNoHttp(typing.Protocol[_FirebaseErrorT_co]):
+class FirebaseErrorFactoryNoHttp(Protocol[_FirebaseErrorT_co]):
     def __call__(
         self,
         message: str,
-        cause: typing.Optional[Exception],
+        cause: Optional[Exception],
     ) -> _FirebaseErrorT_co: ...
 
 
-class FirebaseErrorFactoryWithDefaults(typing.Protocol[_FirebaseErrorT_co]):
+class FirebaseErrorFactoryWithDefaults(Protocol[_FirebaseErrorT_co]):
     def __call__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> _FirebaseErrorT_co: ...
 
 
-class FirebaseErrorFactoryNoHttpWithDefaults(typing.Protocol[_FirebaseErrorT_co]):
+class FirebaseErrorFactoryNoHttpWithDefaults(Protocol[_FirebaseErrorT_co]):
     def __call__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
+        cause: Optional[Exception] = None,
     ) -> _FirebaseErrorT_co: ...
 
 
-class AppMetadataSubclass(typing.Protocol[_AppMetadataT_co]):
+class AppMetadataSubclass(Protocol[_AppMetadataT_co]):
     def __call__(
         self,
         __identifier: str,
         name: str,
         app_id: str,
-        display_name: typing.Optional[str],
+        display_name: Optional[str],
         project_id: str
     ) -> _AppMetadataT_co: ...
 
 
-class ProjectApp(typing.Protocol[_AnyT_co]):
+class ProjectApp(Protocol[_AnyT_co]):
     def __call__(
         self,
         app_id: str,
@@ -154,8 +184,8 @@ class ProjectApp(typing.Protocol[_AnyT_co]):
     ) -> _AnyT_co: ...
 
 
-class Page(typing.Protocol):
+class Page(Protocol):
     @property
     def has_next_page(self) -> bool: ...
 
-    def get_next_page(self) -> typing.Optional[typing_extensions.Self]: ...
+    def get_next_page(self) -> Optional[Self]: ...

@@ -24,12 +24,16 @@ import firebase_admin
 from firebase_admin import _utils
 
 try:
+    import google.cloud.firestore
     # firestore defines __all__ for safe import *
     from google.cloud.firestore import *  # type: ignore[reportWildcardImportFromLibrary]
     from google.cloud.firestore_v1.base_client import DEFAULT_DATABASE
 except ImportError as error:
     raise ImportError('Failed to import the Cloud Firestore library for Python. Make sure '
                       'to install the "google-cloud-firestore" module.') from error
+
+__all__ = ['client']
+__all__.extend(google.cloud.firestore.__all__)  # type: ignore[reportUnsupportedDunderAll]
 
 
 _FIRESTORE_ATTRIBUTE = '_firestore'

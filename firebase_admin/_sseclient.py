@@ -19,14 +19,20 @@ Based on a similar implementation from Pyrebase.
 
 import re
 import time
-import typing
-import typing_extensions
 import warnings
+from collections.abc import Iterator
+from typing import Any, List, Optional
+from typing_extensions import Self
 
 import google.auth.credentials
 import google.auth.transport.requests
 import requests
 
+__all__ = (
+    'Event',
+    'KeepAuthSession',
+    'SSEClient',
+)
 
 # Technically, we should support streams that mix line endings.  This regex,
 # however, assumes that a system will provide consistent line endings.
@@ -36,7 +42,7 @@ end_of_field = re.compile(r'\r\n\r\n|\r\r|\n\n')
 class KeepAuthSession(google.auth.transport.requests.AuthorizedSession):
     """A session that does not drop authentication on redirects between domains."""
 
-    def __init__(self, credential: typing.Optional[google.auth.credentials.Credentials]) -> None:
+    def __init__(self, credential: Optional[google.auth.credentials.Credentials]) -> None:
         super(KeepAuthSession, self).__init__(credential)  # type: ignore[reportUnknownMemberType]
 
     def rebuild_auth(self, prepared_request: requests.PreparedRequest, response: requests.Response) -> None:
@@ -47,7 +53,7 @@ class _EventBuffer:
     """A helper class for buffering and parsing raw SSE data."""
 
     def __init__(self) -> None:
-        self._buffer: typing.List[str] = []
+        self._buffer: List[str] = []
         self._tail = ''
 
     def append(self, char: str) -> None:
@@ -74,7 +80,7 @@ class _EventBuffer:
 class SSEClient:
     """SSE client implementation."""
 
-    def __init__(self, url: str, session: requests.Session, retry: int = 3000, **kwargs: typing.Any) -> None:
+    def __init__(self, url: str, session: requests.Session, retry: int = 3000, **kwargs: Any) -> None:
         """Initializes the SSEClient.
 
         Args:
@@ -88,7 +94,7 @@ class SSEClient:
         self.retry = retry
         self.requests_kwargs = kwargs
         self.should_connect = True
-        self.last_id: typing.Optional[str] = None
+        self.last_id: Optional[str] = None
         self.buf = u'' # Keep data here as it streams in
 
         headers = self.requests_kwargs.get('headers', {})
@@ -116,10 +122,10 @@ class SSEClient:
         else:
             raise StopIteration()
 
-    def __iter__(self) -> typing.Iterator[typing.Optional['Event']]:
+    def __iter__(self) -> 'Iterator[Optional[Event]]':
         return self
 
-    def __next__(self) -> typing.Optional['Event']:
+    def __next__(self) -> Optional['Event']:
         if not re.search(end_of_field, self.buf):
             temp_buffer = _EventBuffer()
             while not temp_buffer.is_end_of_field:
@@ -156,7 +162,7 @@ class SSEClient:
             self.last_id = event.event_id
         return event
 
-    def next(self) -> typing.Optional["Event"]:
+    def next(self) -> Optional["Event"]:
         return self.__next__()
 
 
@@ -169,8 +175,8 @@ class Event:
         self,
         data: str = '',
         event_type: str = 'message',
-        event_id: typing.Optional[str] = None,
-        retry: typing.Optional[int] = None,
+        event_id: Optional[str] = None,
+        retry: Optional[int] = None,
     ) -> None:
         self.data = data
         self.event_type = event_type
@@ -178,7 +184,7 @@ class Event:
         self.retry = retry
 
     @classmethod
-    def parse(cls, raw: str) -> typing_extensions.Self:
+    def parse(cls, raw: str) -> Self:
         """Given a possibly-multiline string representing an SSE message, parses it
         and returns an Event object.
 

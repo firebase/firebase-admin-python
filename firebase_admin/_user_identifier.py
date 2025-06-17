@@ -16,6 +16,15 @@
 
 from firebase_admin import _auth_utils
 
+__all__ = (
+    'EmailIdentifier',
+    'PhoneIdentifier',
+    'ProviderIdentifier',
+    'UidIdentifier',
+    'UserIdentifier',
+)
+
+
 class UserIdentifier:
     """Identifies a user to be looked up."""
 

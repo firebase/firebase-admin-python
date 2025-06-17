@@ -18,7 +18,7 @@ This module contains utilities for accessing Google Cloud Storage buckets associ
 Firebase apps. This requires the ``google-cloud-storage`` Python module.
 """
 
-import typing
+from typing import Optional
 
 # pylint: disable=import-error,no-name-in-module
 try:
@@ -31,10 +31,11 @@ from google.auth import credentials
 
 from firebase_admin import App, _utils
 
+__all__ = ('bucket',)
 
 _STORAGE_ATTRIBUTE = '_storage'
 
-def bucket(name: typing.Optional[str] = None, app: typing.Optional[App] = None) -> storage.Bucket:
+def bucket(name: Optional[str] = None, app: Optional[App] = None) -> storage.Bucket:
     """Returns a handle to a Google Cloud Storage bucket.
 
     If the name argument is not provided, uses the 'storageBucket' option specified when
@@ -66,8 +67,8 @@ class _StorageClient:
     def __init__(
         self,
         credentials: credentials.Credentials,
-        project: typing.Optional[str],
-        default_bucket: typing.Optional[str],
+        project: Optional[str],
+        default_bucket: Optional[str],
     ) -> None:
         self._client = storage.Client(
             credentials=credentials, project=project, extra_headers=self.STORAGE_HEADERS)
@@ -81,7 +82,7 @@ class _StorageClient:
         # significantly speeds up the initialization of the storage client.
         return _StorageClient(credentials, app.project_id, default_bucket)
 
-    def bucket(self, name: typing.Optional[str] = None) -> storage.Bucket:
+    def bucket(self, name: Optional[str] = None) -> storage.Bucket:
         """Returns a handle to the specified Cloud Storage Bucket."""
         bucket_name = name if name is not None else self._default_bucket
         if bucket_name is None:

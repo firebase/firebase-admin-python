@@ -14,24 +14,27 @@
 
 """Firebase App Check module."""
 
-import typing
+from typing import Any, Dict, Optional, cast
 
 import jwt
 
 import firebase_admin
 from firebase_admin import _utils
 
+__all__ = ('verify_token',)
+
 
 _APP_CHECK_ATTRIBUTE = '_app_check'
 
 
-def _get_app_check_service(app: typing.Optional[firebase_admin.App]) -> '_AppCheckService':
+def _get_app_check_service(app: Optional[firebase_admin.App]) -> '_AppCheckService':
     return _utils.get_app_service(app, _APP_CHECK_ATTRIBUTE, _AppCheckService)
 
 
 def verify_token(
-    token: str, app: typing.Optional[firebase_admin.App] = None,
-) -> typing.Dict[str, typing.Any]:
+    token: str,
+    app: Optional[firebase_admin.App] = None,
+) -> Dict[str, Any]:
     """Verifies a Firebase App Check token.
 
     Args:
@@ -73,7 +76,7 @@ class _AppCheckService:
         self._jwks_client = jwt.PyJWKClient(
             self._JWKS_URL, lifespan=21600, headers=self._APP_CHECK_HEADERS)
 
-    def verify_token(self, token: str) -> typing.Dict[str, typing.Any]:
+    def verify_token(self, token: str) -> Dict[str, Any]:
         """Verifies a Firebase App Check token."""
         _Validators.check_string("app check token", token)
 
@@ -92,7 +95,7 @@ class _AppCheckService:
         verified_claims['app_id'] = verified_claims.get('sub')
         return verified_claims
 
-    def _has_valid_token_headers(self, headers: typing.Dict[str, typing.Any]) -> None:
+    def _has_valid_token_headers(self, headers: Dict[str, Any]) -> None:
         """Checks whether the token has valid headers for App Check."""
         # Ensure the token's header has type JWT
         if headers.get('typ') != 'JWT':
@@ -105,9 +108,9 @@ class _AppCheckService:
                 f'Expected RS256 but got {algorithm}.'
                 )
 
-    def _decode_and_verify(self, token: str, signing_key: str) -> typing.Dict[str, typing.Any]:
+    def _decode_and_verify(self, token: str, signing_key: str) -> Dict[str, Any]:
         """Decodes and verifies the token from App Check."""
-        payload: typing.Dict[str, typing.Any] = {}
+        payload: Dict[str, Any] = {}
         try:
             payload = jwt.decode(
                 token,
@@ -141,7 +144,7 @@ class _AppCheckService:
         audience = payload.get('aud')
         if not isinstance(audience, list) or self._scoped_project_id not in audience:
             raise ValueError('Firebase App Check token has incorrect "aud" (audience) claim.')
-        if not typing.cast(str, payload['iss']).startswith(self._APP_CHECK_ISSUER):
+        if not cast(str, payload['iss']).startswith(self._APP_CHECK_ISSUER):
             raise ValueError('Token does not contain the correct "iss" (issuer).')
         _Validators.check_string(
             'The provided App Check token "sub" (subject) claim',
@@ -157,7 +160,7 @@ class _Validators:
     """
 
     @classmethod
-    def check_string(cls, label: str, value: typing.Any) -> None:
+    def check_string(cls, label: str, value: Any) -> None:
         """Checks if the given value is a string."""
         if value is None:
             raise ValueError('{0} "{1}" must be a non-empty string.'.format(label, value))

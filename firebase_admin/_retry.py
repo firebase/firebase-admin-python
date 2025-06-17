@@ -30,6 +30,8 @@ import typing_extensions
 
 import httpx
 
+__all__ = ('HttpxRetry', 'HttpxRetryTransport')
+
 logger = logging.getLogger(__name__)
 
 

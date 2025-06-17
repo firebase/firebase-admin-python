@@ -19,9 +19,10 @@ import dataclasses
 import datetime
 import json
 import re
-import typing
-import typing_extensions
 import urllib.parse
+from typing import Any, Dict, Optional, cast
+from typing_extensions import TypeGuard
+
 
 import requests
 from google.auth.credentials import Credentials as GoogleAuthCredentials
@@ -36,8 +37,10 @@ from firebase_admin import exceptions
 _FUNCTIONS_ATTRIBUTE = '_functions'
 
 __all__ = [
+    'Resource',
+    'Task', 
     'TaskOptions',
-
+    'TaskQueue',
     'task_queue',
 ]
 
@@ -57,13 +60,13 @@ _FUNCTIONS_HEADERS = {
 # Default canonical location ID of the task queue.
 _DEFAULT_LOCATION = 'us-central1'
 
-def _get_functions_service(app: typing.Optional[firebase_admin.App]) -> '_FunctionsService':
+def _get_functions_service(app: Optional[firebase_admin.App]) -> '_FunctionsService':
     return _utils.get_app_service(app, _FUNCTIONS_ATTRIBUTE, _FunctionsService)
 
 def task_queue(
     function_name: str,
-    extension_id: typing.Optional[str] = None,
-    app: typing.Optional[firebase_admin.App] = None,
+    extension_id: Optional[str] = None,
+    app: Optional[firebase_admin.App] = None,
 ) -> 'TaskQueue':
     """Creates a reference to a TaskQueue for a given function name.
 
@@ -106,7 +109,7 @@ class _FunctionsService:
         self._credential = app.credential.get_credential()
         self._http_client = _http_client.JsonHttpClient(credential=self._credential)
 
-    def task_queue(self, function_name: str, extension_id: typing.Optional[str] = None) -> 'TaskQueue':
+    def task_queue(self, function_name: str, extension_id: Optional[str] = None) -> 'TaskQueue':
         """Creates a TaskQueue instance."""
         return TaskQueue(
             function_name, extension_id, self._project_id, self._credential, self._http_client)
@@ -122,10 +125,10 @@ class TaskQueue:
     def __init__(
         self,
         function_name: str,
-        extension_id: typing.Optional[str],
-        project_id: typing.Optional[str],
+        extension_id: Optional[str],
+        project_id: Optional[str],
         credential: GoogleAuthCredentials,
-        http_client: _http_client.HttpClient[typing.Dict[str, _typing.Json]],
+        http_client: _http_client.HttpClient[Dict[str, _typing.Json]],
     ) -> None:
         # Validate function_name
         _Validators.check_non_empty_string('function_name', function_name)
@@ -147,7 +150,7 @@ class TaskQueue:
             _Validators.check_non_empty_string('extension_id', self._extension_id)
             self._resource.resource_id = f'ext-{self._extension_id}-{self._resource.resource_id}'
 
-    def enqueue(self, task_data: typing.Any, opts: typing.Optional['TaskOptions'] = None) -> str:
+    def enqueue(self, task_data: Any, opts: Optional['TaskOptions'] = None) -> str:
         """Creates a task and adds it to the queue. Tasks cannot be updated after creation.
 
         This action requires `cloudtasks.tasks.create` IAM permission on the service account.
@@ -174,7 +177,7 @@ class TaskQueue:
                 headers=_FUNCTIONS_HEADERS,
                 json={'task': task_payload.__dict__}
             )
-            task_name = typing.cast(str, resp['name'])
+            task_name = cast(str, resp['name'])
             task_resource = \
                 self._parse_resource_name(task_name, f'queues/{self._resource.resource_id}/tasks')
             return task_resource.resource_id
@@ -225,9 +228,9 @@ class TaskQueue:
 
     def _validate_task_options(
         self,
-        data: typing.Dict[str, typing.Any],
+        data: Dict[str, Any],
         resource: 'Resource',
-        opts: typing.Optional['TaskOptions'] = None,
+        opts: Optional['TaskOptions'] = None,
     ) -> 'Task':
         """Validate and create a Task from optional ``TaskOptions``."""
         task_http_request = {
@@ -285,7 +288,7 @@ class TaskQueue:
         self,
         task: 'Task',
         resource: 'Resource',
-        extension_id: typing.Optional[str],
+        extension_id: Optional[str],
     ) -> 'Task':
         """Prepares task to be sent with credentials."""
         # Get function url from task or generate from resources
@@ -296,7 +299,7 @@ class TaskQueue:
         if _Validators.is_non_empty_string(extension_id) and \
             isinstance(self._credential, ComputeEngineCredentials):
 
-            id_token = typing.cast(str, self._credential.token)  # type: ignore[reportUnknownMemberType]
+            id_token = cast(str, self._credential.token)  # type: ignore[reportUnknownMemberType]
             task.http_request['headers'] = \
                 {**task.http_request['headers'], 'Authorization': f'Bearer ${id_token}'}
             # Delete oidc token
@@ -311,7 +314,7 @@ class TaskQueue:
 class _Validators:
     """A collection of data validation utilities."""
     @staticmethod
-    def check_non_empty_string(label: str, value: typing.Any) -> None:
+    def check_non_empty_string(label: str, value: Any) -> None:
         """Checks if given value is a non-empty string and throws error if not."""
         if not isinstance(value, str):
             raise ValueError('{0} "{1}" must be a string.'.format(label, value))
@@ -319,7 +322,7 @@ class _Validators:
             raise ValueError('{0} "{1}" must be a non-empty string.'.format(label, value))
 
     @staticmethod
-    def is_non_empty_string(value: typing.Any) -> typing_extensions.TypeGuard[str]:
+    def is_non_empty_string(value: Any) -> TypeGuard[str]:
         """Checks if given value is a non-empty string and returns bool."""
         if not isinstance(value, str) or value == '':
             return False
@@ -334,7 +337,7 @@ class _Validators:
         return False
 
     @staticmethod
-    def is_url(url: typing.Any) -> typing_extensions.TypeGuard[str]:
+    def is_url(url: Any) -> TypeGuard[str]:
         """Checks if given value is a valid url."""
         if not isinstance(url, str):
             return False
@@ -405,12 +408,12 @@ class TaskOptions:
         uri: The full URL that the request will be sent to. Must be a valid RFC3986 https or
             http URL.
     """
-    schedule_delay_seconds: typing.Optional[int] = None
-    schedule_time: typing.Optional[datetime.datetime] = None
-    dispatch_deadline_seconds: typing.Optional[int] = None
-    task_id: typing.Optional[str] = None
-    headers: typing.Optional[typing.Dict[str, str]] = None
-    uri: typing.Optional[str] = None
+    schedule_delay_seconds: Optional[int] = None
+    schedule_time: Optional[datetime.datetime] = None
+    dispatch_deadline_seconds: Optional[int] = None
+    task_id: Optional[str] = None
+    headers: Optional[Dict[str, str]] = None
+    uri: Optional[str] = None
 
 
 @dataclasses.dataclass
@@ -427,10 +430,10 @@ class Task:
         schedule_time: The time when the task is scheduled to be attempted or retried.
         dispatch_deadline: The deadline for requests sent to the worker.
     """
-    http_request: typing.Dict[str, typing.Any]
-    name: typing.Optional[str] = None
-    schedule_time: typing.Optional[str] = None
-    dispatch_deadline: typing.Optional[str] = None
+    http_request: Dict[str, Any]
+    name: Optional[str] = None
+    schedule_time: Optional[str] = None
+    dispatch_deadline: Optional[str] = None
 
 
 @dataclasses.dataclass
@@ -443,5 +446,5 @@ class Resource:
         location_id: The location ID of the resource.
     """
     resource_id: str
-    project_id: typing.Optional[str] = None
-    location_id: typing.Optional[str] = None
+    project_id: Optional[str] = None
+    location_id: Optional[str] = None

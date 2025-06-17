@@ -17,6 +17,8 @@
 import datetime
 import re
 
+__all__ = ('parse_to_epoch',)
+
 
 def parse_to_epoch(datestr: str) -> float:
     """Parse an RFC3339 date string and return the number of seconds since the

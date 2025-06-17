@@ -16,7 +16,7 @@
 
 This module enables deleting instance IDs associated with Firebase projects.
 """
-import typing
+from typing import Dict, Optional
 
 import requests
 
@@ -24,16 +24,17 @@ import firebase_admin
 from firebase_admin import _http_client
 from firebase_admin import _utils
 
+__all__ = ('delete_instance_id',)
 
 _IID_SERVICE_URL = 'https://console.firebase.google.com/v1/'
 _IID_ATTRIBUTE = '_iid'
 
 
-def _get_iid_service(app: typing.Optional[firebase_admin.App]) -> '_InstanceIdService':
+def _get_iid_service(app: Optional[firebase_admin.App]) -> '_InstanceIdService':
     return _utils.get_app_service(app, _IID_ATTRIBUTE, _InstanceIdService)
 
 
-def delete_instance_id(instance_id: str, app: typing.Optional[firebase_admin.App] = None) -> None:
+def delete_instance_id(instance_id: str, app: Optional[firebase_admin.App] = None) -> None:
     """Deletes the specified instance ID and the associated data from Firebase.
 
     Note that Google Analytics for Firebase uses its own form of Instance ID to
@@ -57,7 +58,7 @@ def delete_instance_id(instance_id: str, app: typing.Optional[firebase_admin.App
 class _InstanceIdService:
     """Provides methods for interacting with the remote instance ID service."""
 
-    error_codes: typing.Dict[int, str] = {
+    error_codes: Dict[int, str] = {
         400: 'Malformed instance ID argument.',
         401: 'Request not authorized.',
         403: 'Project does not match instance ID or the client does not have '
@@ -90,7 +91,7 @@ class _InstanceIdService:
             msg = self._extract_message(instance_id, error)
             raise _utils.handle_requests_error(error, msg)
 
-    def _extract_message(self, instance_id: str, error: requests.RequestException) -> typing.Optional[str]:
+    def _extract_message(self, instance_id: str, error: requests.RequestException) -> Optional[str]:
         if error.response is None:
             return None
         status = error.response.status_code

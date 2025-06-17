@@ -18,7 +18,16 @@ This module provides utilities for making HTTP calls using the requests library.
 """
 
 import logging
-import typing
+from collections.abc import Generator
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Generic,
+    Optional,
+    Tuple,
+    Union,
+)
 
 import httpx
 import google.auth.transport.requests
@@ -31,17 +40,28 @@ from firebase_admin import _typing
 from firebase_admin import _utils
 from firebase_admin import _retry
 
-if typing.TYPE_CHECKING:
+if TYPE_CHECKING:
     from urllib3.util import retry
 else:
     from requests.packages.urllib3.util import retry # pylint: disable=import-error
 
+__all__ = (
+    'DEFAULT_HTTPX_RETRY_CONFIG',
+    'DEFAULT_RETRY_CONFIG',
+    'DEFAULT_TIMEOUT_SECONDS',
+    'METRICS_HEADERS',
+    'GoogleAuthCredentialFlow',
+    'HttpClient',
+    'HttpxAsyncClient',
+    'JsonHttpClient',
+)
+
 logger = logging.getLogger(__name__)
 
-_AnyT = typing_extensions.TypeVar('_AnyT', default=typing.Any)
+_AnyT = typing_extensions.TypeVar('_AnyT', default=Any)
 
 if hasattr(retry.Retry.DEFAULT, 'allowed_methods'):
-    _ANY_METHOD: typing.Dict[str, typing.Any] = {'allowed_methods': None}
+    _ANY_METHOD: Dict[str, Any] = {'allowed_methods': None}
 else:
     _ANY_METHOD = {'method_whitelist': None}  # type: ignore[reportConstantRedefinition]
 
@@ -61,7 +81,7 @@ METRICS_HEADERS = {
     'x-goog-api-client': _utils.get_metrics_header(),
 }
 
-class HttpClient(typing.Generic[_AnyT]):
+class HttpClient(Generic[_AnyT]):
     """Base HTTP client used to make HTTP calls.
 
     HttpClient maintains an HTTP session, and handles request authentication and retries if
@@ -70,10 +90,10 @@ class HttpClient(typing.Generic[_AnyT]):
 
     def __init__(
         self,
-        credential: typing.Optional[google.auth.credentials.Credentials] = None,
-        session: typing.Optional[requests.Session] = None,
+        credential: Optional[google.auth.credentials.Credentials] = None,
+        session: Optional[requests.Session] = None,
         base_url: str = '',
-        headers: typing.Optional['_typing.HeadersLike'] = None,
+        headers: Optional['_typing.HeadersLike'] = None,
         retries: retry.Retry = DEFAULT_RETRY_CONFIG,
         timeout: int = DEFAULT_TIMEOUT_SECONDS,
     ) -> None:
@@ -93,7 +113,7 @@ class HttpClient(typing.Generic[_AnyT]):
           timeout: HTTP timeout in seconds. Defaults to 120 seconds when not specified. Set to
               None to disable timeouts (optional).
         """
-        self._session: typing.Optional[requests.Session]
+        self._session: Optional[requests.Session]
         if credential:
             self._session = google.auth.transport.requests.AuthorizedSession(credential)
         elif session:
@@ -110,7 +130,7 @@ class HttpClient(typing.Generic[_AnyT]):
         self._timeout = timeout
 
     @property
-    def session(self) -> typing.Optional[requests.Session]:
+    def session(self) -> Optional[requests.Session]:
         return self._session
 
     @property
@@ -124,7 +144,7 @@ class HttpClient(typing.Generic[_AnyT]):
     def parse_body(self, resp: requests.Response) -> _AnyT:
         raise NotImplementedError
 
-    def request(self, method: str, url: str, **kwargs: typing.Any) -> requests.Response:
+    def request(self, method: str, url: str, **kwargs: Any) -> requests.Response:
         """Makes an HTTP call using the Python requests library.
 
         This is the sole entry point to the requests library. All other helper methods in this
@@ -152,15 +172,15 @@ class HttpClient(typing.Generic[_AnyT]):
         resp.raise_for_status()
         return resp
 
-    def headers(self, method: str, url: str, **kwargs: typing.Any) -> 'requests.structures.CaseInsensitiveDict[str]':
+    def headers(self, method: str, url: str, **kwargs: Any) -> 'requests.structures.CaseInsensitiveDict[str]':
         resp = self.request(method, url, **kwargs)
         return resp.headers
 
-    def body_and_response(self, method: str, url: str, **kwargs: typing.Any) -> typing.Tuple[_AnyT, requests.Response]:
+    def body_and_response(self, method: str, url: str, **kwargs: Any) -> Tuple[_AnyT, requests.Response]:
         resp = self.request(method, url, **kwargs)
         return self.parse_body(resp), resp
 
-    def body(self, method: str, url: str, **kwargs: typing.Any) -> _AnyT:
+    def body(self, method: str, url: str, **kwargs: Any) -> _AnyT:
         resp = self.request(method, url, **kwargs)
         return self.parse_body(resp)
 
@@ -168,8 +188,8 @@ class HttpClient(typing.Generic[_AnyT]):
         self,
         method: str,
         url: str,
-        **kwargs: typing.Any,
-    ) -> typing.Tuple['requests.structures.CaseInsensitiveDict[str]', _AnyT]:
+        **kwargs: Any,
+    ) -> Tuple['requests.structures.CaseInsensitiveDict[str]', _AnyT]:
         resp = self.request(method, url, **kwargs)
         return resp.headers, self.parse_body(resp)
 
@@ -179,9 +199,9 @@ class HttpClient(typing.Generic[_AnyT]):
             self._session = None
 
 
-class JsonHttpClient(HttpClient[typing.Dict[str, '_typing.Json']]):
+class JsonHttpClient(HttpClient[Dict[str, '_typing.Json']]):
     """An HTTP client that parses response messages as JSON."""
-    def parse_body(self, resp: requests.Response) -> typing.Dict[str, '_typing.Json']:
+    def parse_body(self, resp: requests.Response) -> Dict[str, '_typing.Json']:
         return resp.json()
 
 
@@ -210,7 +230,7 @@ class GoogleAuthCredentialFlow(httpx.Auth):
         )
         logger.debug('Auth headers applied. Credential validity after: %s', self._credential.valid)
 
-    def auth_flow(self, request: httpx.Request) -> typing.Generator[httpx.Request, httpx.Response, None]:
+    def auth_flow(self, request: httpx.Request) -> 'Generator[httpx.Request, httpx.Response, None]':
         _original_headers = request.headers.copy()
         _credential_refresh_attempt = 0
 
@@ -268,9 +288,9 @@ class HttpxAsyncClient:
 
     def __init__(
         self,
-        credential: typing.Optional[google.auth.credentials.Credentials] = None,
+        credential: Optional[google.auth.credentials.Credentials] = None,
         base_url: str = '',
-        headers: typing.Optional[typing.Union[httpx.Headers, typing.Dict[str, str]]] = None,
+        headers: Optional[Union[httpx.Headers, Dict[str, str]]] = None,
         retry_config: _retry.HttpxRetry = DEFAULT_HTTPX_RETRY_CONFIG,
         timeout: int = DEFAULT_TIMEOUT_SECONDS,
         http2: bool = True,
@@ -329,7 +349,7 @@ class HttpxAsyncClient:
     def async_client(self) -> httpx.AsyncClient:
         return self._async_client
 
-    async def request(self, method: str, url: str, **kwargs: typing.Any) -> httpx.Response:
+    async def request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
         """Makes an HTTP call using the HTTPX library.
 
         This is the sole entry point to the HTTPX library. All other helper methods in this
@@ -355,7 +375,7 @@ class HttpxAsyncClient:
         resp = await self._async_client.request(method, self.base_url + url, **kwargs)
         return resp.raise_for_status()
 
-    async def headers(self, method: str, url: str, **kwargs: typing.Any) -> httpx.Headers:
+    async def headers(self, method: str, url: str, **kwargs: Any) -> httpx.Headers:
         resp = await self.request(method, url, **kwargs)
         return resp.headers
 
@@ -363,12 +383,12 @@ class HttpxAsyncClient:
         self,
         method: str,
         url: str,
-        **kwargs: typing.Any,
-    ) -> typing.Tuple[typing.Any, httpx.Response]:
+        **kwargs: Any,
+    ) -> Tuple[Any, httpx.Response]:
         resp = await self.request(method, url, **kwargs)
         return self.parse_body(resp), resp
 
-    async def body(self, method: str, url: str, **kwargs: typing.Any) -> typing.Any:
+    async def body(self, method: str, url: str, **kwargs: Any) -> Any:
         resp = await self.request(method, url, **kwargs)
         return self.parse_body(resp)
 
@@ -376,12 +396,12 @@ class HttpxAsyncClient:
         self,
         method: str,
         url: str,
-        **kwargs: typing.Any,
-    ) -> typing.Tuple[httpx.Headers, typing.Any]:
+        **kwargs: Any,
+    ) -> Tuple[httpx.Headers, Any]:
         resp = await self.request(method, url, **kwargs)
         return resp.headers, self.parse_body(resp)
 
-    def parse_body(self, resp: httpx.Response) -> typing.Any:
+    def parse_body(self, resp: httpx.Response) -> Any:
         return resp.json()
 
     async def aclose(self) -> None:

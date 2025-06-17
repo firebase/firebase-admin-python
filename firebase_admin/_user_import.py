@@ -16,11 +16,20 @@
 
 import base64
 import json
-import typing
+from typing import Any, Dict, List, Optional, cast
 
 from firebase_admin import _auth_utils
 from firebase_admin import _user_mgt
 from firebase_admin import _typing
+
+__all__ = (
+    'ErrorInfo',
+    'ImportUserRecord',
+    'UserImportHash',
+    'UserImportResult',
+    'UserProvider',
+    'b64_encode',
+)
 
 
 def b64_encode(bytes_value: bytes) -> str:
@@ -46,9 +55,9 @@ class UserProvider:
         self,
         uid: str,
         provider_id: str,
-        email: typing.Optional[str] = None,
-        display_name: typing.Optional[str] = None,
-        photo_url: typing.Optional[str] = None,
+        email: Optional[str] = None,
+        display_name: Optional[str] = None,
+        photo_url: Optional[str] = None,
     ) -> None:
         self.uid = uid
         self.provider_id = provider_id
@@ -73,30 +82,30 @@ class UserProvider:
         self._provider_id = _auth_utils.validate_provider_id(provider_id, required=True)
 
     @property
-    def email(self) -> typing.Optional[str]:
+    def email(self) -> Optional[str]:
         return self._email
 
     @email.setter
-    def email(self, email: typing.Optional[str]) -> None:
+    def email(self, email: Optional[str]) -> None:
         self._email = _auth_utils.validate_email(email)
 
     @property
-    def display_name(self) -> typing.Optional[str]:
+    def display_name(self) -> Optional[str]:
         return self._display_name
 
     @display_name.setter
-    def display_name(self, display_name: typing.Optional[str]) -> None:
+    def display_name(self, display_name: Optional[str]) -> None:
         self._display_name = _auth_utils.validate_display_name(display_name)
 
     @property
-    def photo_url(self) -> typing.Optional[str]:
+    def photo_url(self) -> Optional[str]:
         return self._photo_url
 
     @photo_url.setter
-    def photo_url(self, photo_url: typing.Optional[str]):
+    def photo_url(self, photo_url: Optional[str]):
         self._photo_url = _auth_utils.validate_photo_url(photo_url)
 
-    def to_dict(self) -> typing.Dict[str, str]:
+    def to_dict(self) -> Dict[str, str]:
         payload = {
             'rawId': self.uid,
             'providerId': self.provider_id,
@@ -136,17 +145,17 @@ class ImportUserRecord:
     def __init__(
         self,
         uid: str,
-        email: typing.Optional[str] = None,
-        email_verified: typing.Optional[bool] = None,
-        display_name: typing.Optional[str] = None,
-        phone_number: typing.Optional[str] = None,
-        photo_url: typing.Optional[str] = None,
-        disabled: typing.Optional[bool] = None,
-        user_metadata: typing.Optional['_user_mgt.UserMetadata'] = None,
-        provider_data: typing.Optional[typing.List[UserProvider]] = None,
-        custom_claims: typing.Optional[typing.Dict[str, typing.Any]] = None,
-        password_hash: typing.Optional[bytes] = None,
-        password_salt: typing.Optional[bytes] = None,
+        email: Optional[str] = None,
+        email_verified: Optional[bool] = None,
+        display_name: Optional[str] = None,
+        phone_number: Optional[str] = None,
+        photo_url: Optional[str] = None,
+        disabled: Optional[bool] = None,
+        user_metadata: Optional['_user_mgt.UserMetadata'] = None,
+        provider_data: Optional[List[UserProvider]] = None,
+        custom_claims: Optional[Dict[str, Any]] = None,
+        password_hash: Optional[bytes] = None,
+        password_salt: Optional[bytes] = None,
     ) -> None:
         self.uid = uid
         self.email = email
@@ -170,59 +179,59 @@ class ImportUserRecord:
         self._uid = _auth_utils.validate_uid(uid, required=True)
 
     @property
-    def email(self) -> typing.Optional[str]:
+    def email(self) -> Optional[str]:
         return self._email
 
     @email.setter
-    def email(self, email: typing.Optional[str]) -> None:
+    def email(self, email: Optional[str]) -> None:
         self._email = _auth_utils.validate_email(email)
 
     @property
-    def display_name(self) -> typing.Optional[str]:
+    def display_name(self) -> Optional[str]:
         return self._display_name
 
     @display_name.setter
-    def display_name(self, display_name: typing.Optional[str]) -> None:
+    def display_name(self, display_name: Optional[str]) -> None:
         self._display_name = _auth_utils.validate_display_name(display_name)
 
     @property
-    def phone_number(self) -> typing.Optional[str]:
+    def phone_number(self) -> Optional[str]:
         return self._phone_number
 
     @phone_number.setter
-    def phone_number(self, phone_number: typing.Optional[str]) -> None:
+    def phone_number(self, phone_number: Optional[str]) -> None:
         self._phone_number = _auth_utils.validate_phone(phone_number)
 
     @property
-    def photo_url(self) -> typing.Optional[str]:
+    def photo_url(self) -> Optional[str]:
         return self._photo_url
 
     @photo_url.setter
-    def photo_url(self, photo_url: typing.Optional[str]) -> None:
+    def photo_url(self, photo_url: Optional[str]) -> None:
         self._photo_url = _auth_utils.validate_photo_url(photo_url)
 
     @property
-    def password_hash(self) -> typing.Optional[bytes]:
+    def password_hash(self) -> Optional[bytes]:
         return self._password_hash
 
     @password_hash.setter
-    def password_hash(self, password_hash: typing.Optional[bytes]) -> None:
+    def password_hash(self, password_hash: Optional[bytes]) -> None:
         self._password_hash = _auth_utils.validate_bytes(password_hash, 'password_hash')
 
     @property
-    def password_salt(self) -> typing.Optional[bytes]:
+    def password_salt(self) -> Optional[bytes]:
         return self._password_salt
 
     @password_salt.setter
-    def password_salt(self, password_salt: typing.Optional[bytes]) -> None:
+    def password_salt(self, password_salt: Optional[bytes]) -> None:
         self._password_salt = _auth_utils.validate_bytes(password_salt, 'password_salt')
 
     @property
-    def user_metadata(self) -> typing.Optional['_user_mgt.UserMetadata']:
+    def user_metadata(self) -> Optional['_user_mgt.UserMetadata']:
         return self._user_metadata
 
     @user_metadata.setter
-    def user_metadata(self, user_metadata: typing.Optional['_user_mgt.UserMetadata']) -> None:
+    def user_metadata(self, user_metadata: Optional['_user_mgt.UserMetadata']) -> None:
         created_at = user_metadata.creation_timestamp if user_metadata is not None else None
         last_login_at = user_metadata.last_sign_in_timestamp if user_metadata is not None else None
         self._created_at = _auth_utils.validate_timestamp(created_at, 'creation_timestamp')
@@ -231,11 +240,11 @@ class ImportUserRecord:
         self._user_metadata = user_metadata
 
     @property
-    def provider_data(self) -> typing.Optional[typing.List[UserProvider]]:
+    def provider_data(self) -> Optional[List[UserProvider]]:
         return self._provider_data
 
     @provider_data.setter
-    def provider_data(self, provider_data: typing.Optional[typing.List[UserProvider]]) -> None:
+    def provider_data(self, provider_data: Optional[List[UserProvider]]) -> None:
         if provider_data is not None:
             try:
                 if any([not isinstance(p, UserProvider) for p in provider_data]):
@@ -245,19 +254,19 @@ class ImportUserRecord:
         self._provider_data = provider_data
 
     @property
-    def custom_claims(self) -> typing.Optional[typing.Dict[str, typing.Any]]:
+    def custom_claims(self) -> Optional[Dict[str, Any]]:
         return self._custom_claims
 
     @custom_claims.setter
-    def custom_claims(self, custom_claims: typing.Optional[typing.Dict[str, typing.Any]]) -> None:
+    def custom_claims(self, custom_claims: Optional[Dict[str, Any]]) -> None:
         json_claims = json.dumps(custom_claims) if isinstance(
             custom_claims, dict) else custom_claims
         self._custom_claims_str = _auth_utils.validate_custom_claims(json_claims)
         self._custom_claims = custom_claims
 
-    def to_dict(self) -> typing.Dict[str, typing.Any]:
+    def to_dict(self) -> Dict[str, Any]:
         """Returns a dict representation of the user. For internal use only."""
-        payload: typing.Dict[str, typing.Any] = {
+        payload: Dict[str, Any] = {
             'localId': self.uid,
             'email': self.email,
             'displayName': self.display_name,
@@ -287,12 +296,12 @@ class UserImportHash:
     .. _documentation: https://firebase.google.com/docs/auth/admin/import-users
     """
 
-    def __init__(self, name: str, data: typing.Optional[typing.Dict[str, typing.Any]] = None) -> None:
+    def __init__(self, name: str, data: Optional[Dict[str, Any]] = None) -> None:
         self._name = name
         self._data = data
 
-    def to_dict(self) -> typing.Dict[str, typing.Any]:
-        payload: typing.Dict[str, typing.Any] = {'hashAlgorithm': self._name}
+    def to_dict(self) -> Dict[str, Any]:
+        payload: Dict[str, Any] = {'hashAlgorithm': self._name}
         if self._data:
             payload.update(self._data)
         return payload
@@ -442,7 +451,7 @@ class UserImportHash:
         key: bytes,
         rounds: int,
         memory_cost: int,
-        salt_separator: typing.Optional[bytes] = None,
+        salt_separator: Optional[bytes] = None,
     ) -> 'UserImportHash':
         """Creates a new Scrypt algorithm instance.
 
@@ -458,7 +467,7 @@ class UserImportHash:
         Returns:
             UserImportHash: A new ``UserImportHash``.
         """
-        data: typing.Dict[str, typing.Any] = {
+        data: Dict[str, Any] = {
             'signerKey': b64_encode(_auth_utils.validate_bytes(key, 'key', required=True)),
             'rounds': _auth_utils.validate_int(rounds, 'rounds', 1, 8),
             'memoryCost': _auth_utils.validate_int(memory_cost, 'memory_cost', 1, 14),
@@ -513,9 +522,9 @@ class ErrorInfo:
     # it's home in _user_import.py). It's now also used by bulk deletion of
     # users. Move this to a more common location.
 
-    def __init__(self, error: typing.Dict[str, _typing.Json]) -> None:
-        self._index = typing.cast(int, error['index'])
-        self._reason = typing.cast(str, error['message'])
+    def __init__(self, error: Dict[str, _typing.Json]) -> None:
+        self._index = cast(int, error['index'])
+        self._reason = cast(str, error['message'])
 
     @property
     def index(self) -> int:
@@ -532,7 +541,7 @@ class UserImportResult:
     See ``auth.import_users()`` API for more details.
     """
 
-    def __init__(self, result: typing.Dict[str, typing.Any], total: int) -> None:
+    def __init__(self, result: Dict[str, Any], total: int) -> None:
         errors = result.get('error', [])
         self._success_count = total - len(errors)
         self._failure_count = len(errors)
@@ -549,6 +558,6 @@ class UserImportResult:
         return self._failure_count
 
     @property
-    def errors(self) -> typing.List[ErrorInfo]:
+    def errors(self) -> List[ErrorInfo]:
         """Returns a list of ``auth.ErrorInfo`` instances describing the errors encountered."""
         return self._errors

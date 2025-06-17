@@ -16,7 +16,7 @@
 
 import io
 import socket
-import typing
+from typing import Any, Dict, Optional, cast
 
 import googleapiclient.errors
 import httplib2
@@ -26,10 +26,15 @@ from firebase_admin import exceptions
 from firebase_admin import _typing
 from firebase_admin import _utils
 
+__all__ = (
+    'handle_googleapiclient_error',
+    'handle_platform_error_from_googleapiclient',
+)
+
 
 def handle_platform_error_from_googleapiclient(
     error: Exception,
-    handle_func: typing.Optional[_typing.GoogleAPIErrorHandler] = None,
+    handle_func: Optional[_typing.GoogleAPIErrorHandler] = None,
 ) -> exceptions.FirebaseError:
     """Constructs a ``FirebaseError`` from the given googleapiclient error.
 
@@ -48,7 +53,7 @@ def handle_platform_error_from_googleapiclient(
         return handle_googleapiclient_error(error)
 
     content = error.content.decode()
-    status_code = typing.cast(int, error.resp.status)  # type: ignore[reportUnknownMemberType]
+    status_code = cast(int, error.resp.status)  # type: ignore[reportUnknownMemberType]
     error_dict, message = _utils._parse_platform_error(content, status_code) # pylint: disable=protected-access
     http_response = _http_response_from_googleapiclient_error(error)
     exc = None
@@ -61,7 +66,7 @@ def handle_platform_error_from_googleapiclient(
 def _handle_func_googleapiclient(
     error: Exception,
     message: str,
-    error_dict: typing.Dict[str, typing.Any],
+    error_dict: Dict[str, Any],
     http_response: requests.Response,
 ) -> exceptions.FirebaseError:
     """Constructs a ``FirebaseError`` from the given GCP error.
@@ -81,9 +86,9 @@ def _handle_func_googleapiclient(
 
 def handle_googleapiclient_error(
     error: Exception,
-    message: typing.Optional[str] = None,
-    code: typing.Optional[str] = None,
-    http_response: typing.Optional[requests.Response] = None,
+    message: Optional[str] = None,
+    code: Optional[str] = None,
+    http_response: Optional[requests.Response] = None,
 ) -> exceptions.FirebaseError:
     """Constructs a ``FirebaseError`` from the given googleapiclient error.
 
@@ -133,5 +138,5 @@ def _http_response_from_googleapiclient_error(error: googleapiclient.errors.Http
     """Creates a requests HTTP Response object from the given googleapiclient error."""
     resp = requests.Response()
     resp.raw = io.BytesIO(error.content)
-    resp.status_code = typing.cast(int, error.resp.status)  # type: ignore[reportUnknownMemberType]
+    resp.status_code = cast(int, error.resp.status)  # type: ignore[reportUnknownMemberType]
     return resp

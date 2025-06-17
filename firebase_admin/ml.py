@@ -22,9 +22,11 @@ import datetime
 import os
 import re
 import time
-import typing
 import urllib.parse
 import warnings
+from collections.abc import Callable, Iterator
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union, cast
+from typing_extensions import TypeAlias
 
 import requests
 
@@ -35,13 +37,13 @@ from firebase_admin import _utils
 from firebase_admin import exceptions
 
 # pylint: disable=import-error,no-name-in-module
-if typing.TYPE_CHECKING:
+if TYPE_CHECKING:
     from _typeshed import Incomplete
     from firebase_admin import storage
 
     _GCS_ENABLED: bool
 else:
-    Incomplete = typing.Any
+    Incomplete = Any
 
     try:
         from firebase_admin import storage
@@ -50,7 +52,7 @@ else:
         _GCS_ENABLED = False
 
 # pylint: disable=import-error,no-name-in-module
-if typing.TYPE_CHECKING:
+if TYPE_CHECKING:
     import tensorflow as tf
 
     _TF_ENABLED: bool
@@ -61,15 +63,31 @@ else:
     except ImportError:
         _TF_ENABLED = False  # type: ignore[reportConstantRedefinition]
 
+__all__ = (
+    'ListModelsPage',
+    'Model',
+    'ModelFormat',
+    'TFLiteAutoMlSource',
+    'TFLiteFormat',
+    'TFLiteGCSModelSource',
+    'TFLiteModelSource',
+    'create_model',
+    'delete_model',
+    'get_model',
+    'list_models',
+    'publish_model',
+    'unpublish_model',
+    'update_model',
+)
 
-_DownloadCallback = typing.Callable[
+_DownloadCallback: TypeAlias = '''Callable[
     [
-        typing.Optional[str],
-        typing.Optional[int],
-        typing.Optional[str]
+        Optional[str],
+        Optional[int],
+        Optional[str]
     ],
-    typing.Dict[str, _typing.Json]
-]
+    Dict[str, _typing.Json]
+]'''
 
 
 _ML_ATTRIBUTE = '_ml'
@@ -88,7 +106,7 @@ _OPERATION_NAME_PATTERN = re.compile(
     r'^projects/(?P<project_id>[a-z0-9-]{6,30})/operations/[^/]+$')
 
 
-def _get_ml_service(app: typing.Optional[firebase_admin.App]) -> '_MLService':
+def _get_ml_service(app: Optional[firebase_admin.App]) -> '_MLService':
     """ Returns an _MLService instance for an App.
 
     Args:
@@ -103,7 +121,7 @@ def _get_ml_service(app: typing.Optional[firebase_admin.App]) -> '_MLService':
     return _utils.get_app_service(app, _ML_ATTRIBUTE, _MLService)
 
 
-def create_model(model: 'Model', app: typing.Optional[firebase_admin.App] = None) -> 'Model':
+def create_model(model: 'Model', app: Optional[firebase_admin.App] = None) -> 'Model':
     """Creates a model in the current Firebase project.
 
     Args:
@@ -117,7 +135,7 @@ def create_model(model: 'Model', app: typing.Optional[firebase_admin.App] = None
     return Model.from_dict(ml_service.create_model(model), app=app)
 
 
-def update_model(model: 'Model', app: typing.Optional[firebase_admin.App] = None) -> 'Model':
+def update_model(model: 'Model', app: Optional[firebase_admin.App] = None) -> 'Model':
     """Updates a model's metadata or model file.
 
     Args:
@@ -131,7 +149,7 @@ def update_model(model: 'Model', app: typing.Optional[firebase_admin.App] = None
     return Model.from_dict(ml_service.update_model(model), app=app)
 
 
-def publish_model(model_id: str, app: typing.Optional[firebase_admin.App] = None) -> 'Model':
+def publish_model(model_id: str, app: Optional[firebase_admin.App] = None) -> 'Model':
     """Publishes a Firebase ML model.
 
     A published model can be downloaded to client apps.
@@ -147,7 +165,7 @@ def publish_model(model_id: str, app: typing.Optional[firebase_admin.App] = None
     return Model.from_dict(ml_service.set_published(model_id, publish=True), app=app)
 
 
-def unpublish_model(model_id: str, app: typing.Optional[firebase_admin.App] = None) -> 'Model':
+def unpublish_model(model_id: str, app: Optional[firebase_admin.App] = None) -> 'Model':
     """Unpublishes a Firebase ML model.
 
     Args:
@@ -161,7 +179,7 @@ def unpublish_model(model_id: str, app: typing.Optional[firebase_admin.App] = No
     return Model.from_dict(ml_service.set_published(model_id, publish=False), app=app)
 
 
-def get_model(model_id: str, app: typing.Optional[firebase_admin.App] = None) -> 'Model':
+def get_model(model_id: str, app: Optional[firebase_admin.App] = None) -> 'Model':
     """Gets the model specified by the given ID.
 
     Args:
@@ -176,10 +194,10 @@ def get_model(model_id: str, app: typing.Optional[firebase_admin.App] = None) ->
 
 
 def list_models(
-    list_filter: typing.Optional[str] = None,
-    page_size: typing.Optional[int] = None,
-    page_token: typing.Optional[str] = None,
-    app: typing.Optional[firebase_admin.App] = None,
+    list_filter: Optional[str] = None,
+    page_size: Optional[int] = None,
+    page_token: Optional[str] = None,
+    app: Optional[firebase_admin.App] = None,
 ) -> 'ListModelsPage':
     """Lists the current project's models.
 
@@ -199,7 +217,7 @@ def list_models(
         ml_service.list_models, list_filter, page_size, page_token, app=app)
 
 
-def delete_model(model_id: str, app: typing.Optional[firebase_admin.App] = None) -> None:
+def delete_model(model_id: str, app: Optional[firebase_admin.App] = None) -> None:
     """Deletes a model from the current project.
 
     Args:
@@ -220,12 +238,12 @@ class Model:
     """
     def __init__(
         self,
-        display_name: typing.Optional[str] = None,
-        tags: typing.Optional[typing.List[str]] = None,
-        model_format: typing.Optional['ModelFormat'] = None,
+        display_name: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        model_format: Optional['ModelFormat'] = None,
     ) -> None:
-        self._app: typing.Optional[firebase_admin.App] = None  # Only needed for wait_for_unlo
-        self._data: typing.Dict[str, typing.Any] = {}
+        self._app: Optional[firebase_admin.App] = None  # Only needed for wait_for_unlo
+        self._data: Dict[str, Any] = {}
         self._model_format = None
 
         if display_name is not None:
@@ -238,8 +256,8 @@ class Model:
     @classmethod
     def from_dict(
         cls,
-        data: typing.Dict[str, typing.Any],
-        app: typing.Optional[firebase_admin.App] = None,
+        data: Dict[str, Any],
+        app: Optional[firebase_admin.App] = None,
     ) -> 'Model':
         """Create an instance of the object from a dict."""
         data_copy = dict(data)
@@ -253,7 +271,7 @@ class Model:
         model._app = app # pylint: disable=protected-access
         return model
 
-    def _update_from_dict(self, data: typing.Dict[str, typing.Any]) -> None:
+    def _update_from_dict(self, data: Dict[str, Any]) -> None:
         copy = Model.from_dict(data)
         self.model_format = copy.model_format
         self._data = copy._data # pylint: disable=protected-access
@@ -268,7 +286,7 @@ class Model:
         return not self.__eq__(other)
 
     @property
-    def model_id(self) -> typing.Optional[str]:
+    def model_id(self) -> Optional[str]:
         """The model's ID, unique to the project."""
         if not self._data.get('name'):
             return None
@@ -276,7 +294,7 @@ class Model:
         return model_id
 
     @property
-    def display_name(self) -> typing.Optional[str]:
+    def display_name(self) -> Optional[str]:
         """The model's display name, used to refer to the model in code and in
         the Firebase console."""
         return self._data.get('displayName')
@@ -286,7 +304,7 @@ class Model:
         self._data['displayName'] = _validate_display_name(display_name)
 
     @staticmethod
-    def _convert_to_millis(date_string: typing.Optional[str]) -> typing.Optional[int]:
+    def _convert_to_millis(date_string: Optional[str]) -> Optional[int]:
         if not date_string:
             return None
         format_str = '%Y-%m-%dT%H:%M:%S.%fZ'
@@ -296,17 +314,17 @@ class Model:
         return millis
 
     @property
-    def create_time(self) -> typing.Optional[int]:
+    def create_time(self) -> Optional[int]:
         """The time the model was created."""
         return Model._convert_to_millis(self._data.get('createTime', None))
 
     @property
-    def update_time(self) -> typing.Optional[int]:
+    def update_time(self) -> Optional[int]:
         """The time the model was last updated."""
         return Model._convert_to_millis(self._data.get('updateTime', None))
 
     @property
-    def validation_error(self) -> typing.Optional[str]:
+    def validation_error(self) -> Optional[str]:
         """Validation error message."""
         return self._data.get('state', {}).get('validationError', {}).get('message')
 
@@ -317,22 +335,22 @@ class Model:
         return bool(self._data.get('state', {}).get('published'))
 
     @property
-    def etag(self) -> typing.Optional[Incomplete]:
+    def etag(self) -> Optional[Incomplete]:
         """The entity tag (ETag) of the model resource."""
         return self._data.get('etag')
 
     @property
-    def model_hash(self) -> typing.Optional[Incomplete]:
+    def model_hash(self) -> Optional[Incomplete]:
         """SHA256 hash of the model binary."""
         return self._data.get('modelHash')
 
     @property
-    def tags(self) -> typing.Optional[typing.List[str]]:
+    def tags(self) -> Optional[List[str]]:
         """Tag strings, used for filtering query results."""
         return self._data.get('tags')
 
     @tags.setter
-    def tags(self, tags: typing.List[str]) -> None:
+    def tags(self, tags: List[str]) -> None:
         self._data['tags'] = _validate_tags(tags)
 
     @property
@@ -341,7 +359,7 @@ class Model:
         return bool(self._data.get('activeOperations') and
                     len(self._data['activeOperations']) > 0)
 
-    def wait_for_unlocked(self, max_time_seconds: typing.Optional[float] = None) -> None:
+    def wait_for_unlocked(self, max_time_seconds: Optional[float] = None) -> None:
         """Waits for the model to be unlocked. (All active operations complete)
 
         Args:
@@ -362,18 +380,18 @@ class Model:
         self._update_from_dict(model_dict)
 
     @property
-    def model_format(self) -> typing.Optional['ModelFormat']:
+    def model_format(self) -> Optional['ModelFormat']:
         """The model's ``ModelFormat`` object, which represents the model's
         format and storage location."""
         return self._model_format
 
     @model_format.setter
-    def model_format(self, model_format: typing.Optional['ModelFormat']) -> None:
+    def model_format(self, model_format: Optional['ModelFormat']) -> None:
         if model_format is not None:
             _validate_model_format(model_format)
         self._model_format = model_format  #Can be None
 
-    def as_dict(self, for_upload: bool = False) -> typing.Dict[str, typing.Any]:
+    def as_dict(self, for_upload: bool = False) -> Dict[str, Any]:
         """Returns a serializable representation of the object."""
         copy = dict(self._data)
         if self._model_format:
@@ -383,7 +401,7 @@ class Model:
 
 class ModelFormat:
     """Abstract base class representing a Model Format such as TFLite."""
-    def as_dict(self, for_upload: bool = False) -> typing.Dict[str, typing.Any]:
+    def as_dict(self, for_upload: bool = False) -> Dict[str, Any]:
         """Returns a serializable representation of the object."""
         raise NotImplementedError
 
@@ -394,15 +412,15 @@ class TFLiteFormat(ModelFormat):
     Args:
         model_source: A TFLiteModelSource sub class. Specifies the details of the model source.
     """
-    def __init__(self, model_source: typing.Optional['TFLiteModelSource'] = None) -> None:
-        self._data: typing.Dict[str, typing.Any] = {}
-        self._model_source: typing.Optional[TFLiteModelSource] = None
+    def __init__(self, model_source: Optional['TFLiteModelSource'] = None) -> None:
+        self._data: Dict[str, Any] = {}
+        self._model_source: Optional[TFLiteModelSource] = None
 
         if model_source is not None:
             self.model_source = model_source
 
     @classmethod
-    def from_dict(cls, data: typing.Dict[str, typing.Any]) -> 'TFLiteFormat':
+    def from_dict(cls, data: Dict[str, Any]) -> 'TFLiteFormat':
         """Create an instance of the object from a dict."""
         data_copy = dict(data)
         tflite_format = TFLiteFormat(model_source=cls._init_model_source(data_copy))
@@ -419,7 +437,7 @@ class TFLiteFormat(ModelFormat):
         return not self.__eq__(other)
 
     @staticmethod
-    def _init_model_source(data: typing.Dict[str, typing.Any]) -> typing.Optional['TFLiteModelSource']:
+    def _init_model_source(data: Dict[str, Any]) -> Optional['TFLiteModelSource']:
         """Initialize the ML model source."""
         gcs_tflite_uri = data.pop('gcsTfliteUri', None)
         if gcs_tflite_uri:
@@ -432,23 +450,23 @@ class TFLiteFormat(ModelFormat):
         return None
 
     @property
-    def model_source(self) -> typing.Optional['TFLiteModelSource']:
+    def model_source(self) -> Optional['TFLiteModelSource']:
         """The TF Lite model's location."""
         return self._model_source
 
     @model_source.setter
-    def model_source(self, model_source: typing.Optional['TFLiteModelSource']) -> None:
+    def model_source(self, model_source: Optional['TFLiteModelSource']) -> None:
         if model_source is not None:
             if not isinstance(model_source, TFLiteModelSource):
                 raise TypeError('Model source must be a TFLiteModelSource object.')
         self._model_source = model_source # Can be None
 
     @property
-    def size_bytes(self) -> typing.Optional[Incomplete]:
+    def size_bytes(self) -> Optional[Incomplete]:
         """The size in bytes of the TF Lite model."""
         return self._data.get('sizeBytes')
 
-    def as_dict(self, for_upload: bool = False) -> typing.Dict[str, typing.Any]:
+    def as_dict(self, for_upload: bool = False) -> Dict[str, Any]:
         """Returns a serializable representation of the object."""
         copy = dict(self._data)
         if self._model_source:
@@ -458,7 +476,7 @@ class TFLiteFormat(ModelFormat):
 
 class TFLiteModelSource:
     """Abstract base class representing a model source for TFLite format models."""
-    def as_dict(self, for_upload: bool = False) -> typing.Dict[str, typing.Any]:
+    def as_dict(self, for_upload: bool = False) -> Dict[str, Any]:
         """Returns a serializable representation of the object."""
         raise NotImplementedError
 
@@ -476,7 +494,7 @@ class _CloudStorageClient:
                               'to install the "google-cloud-storage" module.')
 
     @staticmethod
-    def _parse_gcs_tflite_uri(uri: str) -> typing.Tuple[str, str]:
+    def _parse_gcs_tflite_uri(uri: str) -> Tuple[str, str]:
         # GCS Bucket naming rules are complex. The regex is not comprehensive.
         # See https://cloud.google.com/storage/docs/naming for full details.
         matcher = _GCS_TFLITE_URI_PATTERN.match(uri)
@@ -486,9 +504,9 @@ class _CloudStorageClient:
 
     @staticmethod
     def upload(
-        bucket_name: typing.Optional[str],
-        model_file_name: typing.Union[str, 'os.PathLike[str]'],
-        app: typing.Optional[firebase_admin.App],
+        bucket_name: Optional[str],
+        model_file_name: Union[str, 'os.PathLike[str]'],
+        app: Optional[firebase_admin.App],
     ) -> str:
         """Upload a model file to the specified Storage bucket."""
         _CloudStorageClient._assert_gcs_enabled()
@@ -500,7 +518,7 @@ class _CloudStorageClient:
         return _CloudStorageClient.GCS_URI.format(bucket.name, blob_name)  # type: ignore[reportUnknownMemberType]
 
     @staticmethod
-    def sign_uri(gcs_tflite_uri: str, app: typing.Optional[firebase_admin.App]) -> str:
+    def sign_uri(gcs_tflite_uri: str, app: Optional[firebase_admin.App]) -> str:
         """Makes the gcs_tflite_uri readable for GET for 10 minutes via signed_uri."""
         _CloudStorageClient._assert_gcs_enabled()
         bucket_name, blob_name = _CloudStorageClient._parse_gcs_tflite_uri(gcs_tflite_uri)
@@ -521,7 +539,7 @@ class TFLiteGCSModelSource(TFLiteModelSource):
     def __init__(
         self,
         gcs_tflite_uri: str,
-        app: typing.Optional[firebase_admin.App] = None,
+        app: Optional[firebase_admin.App] = None,
     ) -> None:
         self._app = app
         self._gcs_tflite_uri = _validate_gcs_tflite_uri(gcs_tflite_uri)
@@ -537,9 +555,9 @@ class TFLiteGCSModelSource(TFLiteModelSource):
     @classmethod
     def from_tflite_model_file(
         cls,
-        model_file_name: typing.Union[str, 'os.PathLike[str]'],
-        bucket_name: typing.Optional[str] = None,
-        app: typing.Optional[firebase_admin.App] = None,
+        model_file_name: Union[str, 'os.PathLike[str]'],
+        bucket_name: Optional[str] = None,
+        app: Optional[firebase_admin.App] = None,
     ) -> "TFLiteGCSModelSource":
         """Uploads the model file to an existing Google Cloud Storage bucket.
 
@@ -590,9 +608,9 @@ class TFLiteGCSModelSource(TFLiteModelSource):
     def from_saved_model(
         cls,
         saved_model_dir: Incomplete,
-        model_file_name: typing.Union[str, 'os.PathLike[str]'] = 'firebase_ml_model.tflite',
-        bucket_name: typing.Optional[str] = None,
-        app: typing.Optional[firebase_admin.App] = None,
+        model_file_name: Union[str, 'os.PathLike[str]'] = 'firebase_ml_model.tflite',
+        bucket_name: Optional[str] = None,
+        app: Optional[firebase_admin.App] = None,
     ) -> 'TFLiteGCSModelSource':
         """Creates a Tensor Flow Lite model from the saved model, and uploads the model to GCS.
 
@@ -620,8 +638,8 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         cls,
         keras_model: 'os.PathLike[str]',
         model_file_name: str = 'firebase_ml_model.tflite',
-        bucket_name: typing.Optional[str] = None,
-        app: typing.Optional[firebase_admin.App] = None,
+        bucket_name: Optional[str] = None,
+        app: Optional[firebase_admin.App] = None,
     ) -> 'TFLiteGCSModelSource':
         """Creates a Tensor Flow Lite model from the keras model, and uploads the model to GCS.
 
@@ -657,7 +675,7 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         """Signs the GCS uri, so the model file can be uploaded to Firebase ML and verified."""
         return TFLiteGCSModelSource._STORAGE_CLIENT.sign_uri(self._gcs_tflite_uri, self._app)
 
-    def as_dict(self, for_upload: bool = False) -> typing.Dict[str, typing.Any]:
+    def as_dict(self, for_upload: bool = False) -> Dict[str, Any]:
         """Returns a serializable representation of the object."""
         if for_upload:
             return {'gcsTfliteUri': self._get_signed_gcs_tflite_uri()}
@@ -671,7 +689,7 @@ class TFLiteAutoMlSource(TFLiteModelSource):
     AutoML model support is deprecated and will be removed in the next major version.
     """
 
-    def __init__(self, auto_ml_model: str, app: typing.Optional[firebase_admin.App] = None) -> None:
+    def __init__(self, auto_ml_model: str, app: Optional[firebase_admin.App] = None) -> None:
         warnings.warn('AutoML model support is deprecated and will be removed in the next '
                       'major version.', DeprecationWarning)
         self._app = app
@@ -694,7 +712,7 @@ class TFLiteAutoMlSource(TFLiteModelSource):
     def auto_ml_model(self, auto_ml_model: str) -> None:
         self._auto_ml_model = _validate_auto_ml_model(auto_ml_model)
 
-    def as_dict(self, for_upload: bool = False) -> typing.Dict[str, typing.Any]:
+    def as_dict(self, for_upload: bool = False) -> Dict[str, Any]:
         """Returns a serializable representation of the object."""
         # Upload is irrelevant for auto_ml models
         return {'automlModel': self._auto_ml_model}
@@ -711,10 +729,10 @@ class ListModelsPage:
     def __init__(
         self,
         list_models_func: _DownloadCallback,
-        list_filter: typing.Optional[str],
-        page_size: typing.Optional[int],
-        page_token: typing.Optional[str],
-        app: typing.Optional[firebase_admin.App],
+        list_filter: Optional[str],
+        page_size: Optional[int],
+        page_token: Optional[str],
+        app: Optional[firebase_admin.App],
     ) -> None:
         self._list_models_func = list_models_func
         self._list_filter = list_filter
@@ -724,32 +742,32 @@ class ListModelsPage:
         self._list_response = list_models_func(list_filter, page_size, page_token)
 
     @property
-    def models(self) -> typing.List[Model]:
+    def models(self) -> List[Model]:
         """A list of Models from this page."""
         return [
             Model.from_dict(model, app=self._app)
-            for model in typing.cast(
-                typing.List[typing.Dict[str, _typing.Json]],
+            for model in cast(
+                List[Dict[str, _typing.Json]],
                 self._list_response.get('models', []),
             )
         ]
 
     @property
-    def list_filter(self) -> typing.Optional[str]:
+    def list_filter(self) -> Optional[str]:
         """The filter string used to filter the models."""
         return self._list_filter
 
     @property
     def next_page_token(self) -> str:
         """Token identifying the next page of results."""
-        return typing.cast(str, self._list_response.get('nextPageToken', ''))
+        return cast(str, self._list_response.get('nextPageToken', ''))
 
     @property
     def has_next_page(self) -> bool:
         """True if more pages are available."""
         return bool(self.next_page_token)
 
-    def get_next_page(self) -> typing.Optional['ListModelsPage']:
+    def get_next_page(self) -> Optional['ListModelsPage']:
         """Retrieves the next page of models if available.
 
         Returns:
@@ -793,7 +811,7 @@ class _ModelIterator:
     def next(self) -> Model:
         if self._index == len(self._current_page.models):
             if self._current_page.has_next_page:
-                self._current_page = typing.cast(ListModelsPage, self._current_page.get_next_page())
+                self._current_page = cast(ListModelsPage, self._current_page.get_next_page())
                 self._index = 0
         if self._index < len(self._current_page.models):
             result = self._current_page.models[self._index]
@@ -804,11 +822,11 @@ class _ModelIterator:
     def __next__(self) -> Model:
         return self.next()
 
-    def __iter__(self) -> typing.Iterator[Model]:
+    def __iter__(self) -> 'Iterator[Model]':
         return self
 
 
-def _validate_and_parse_name(name: str) -> typing.Tuple[str, str]:
+def _validate_and_parse_name(name: str) -> Tuple[str, str]:
     # The resource name is added automatically from API call responses.
     # The only way it could be invalid is if someone tries to
     # create a model from a dictionary manually and does it incorrectly.
@@ -818,7 +836,7 @@ def _validate_and_parse_name(name: str) -> typing.Tuple[str, str]:
     return matcher.group('project_id'), matcher.group('model_id')
 
 
-def _validate_model(model: Model, update_mask: typing.Optional[str] = None) -> None:
+def _validate_model(model: Model, update_mask: Optional[str] = None) -> None:
     if not isinstance(model, Model):
         raise TypeError('Model must be an ml.Model.')
     if update_mask is None and not model.display_name:
@@ -830,23 +848,23 @@ def _validate_model_id(model_id: str) -> None:
         raise ValueError('Model ID format is invalid.')
 
 
-def _validate_operation_name(op_name: typing.Any) -> str:
+def _validate_operation_name(op_name: Any) -> str:
     if not _OPERATION_NAME_PATTERN.match(op_name):
         raise ValueError('Operation name format is invalid.')
     return op_name
 
 
-def _validate_display_name(display_name: typing.Any) -> str:
+def _validate_display_name(display_name: Any) -> str:
     if not _DISPLAY_NAME_PATTERN.match(display_name):
         raise ValueError('Display name format is invalid.')
     return display_name
 
 
-def _validate_tags(tags: typing.Any) -> typing.List[str]:
+def _validate_tags(tags: Any) -> List[str]:
     if not isinstance(tags, list) or not \
         all(isinstance(tag, str) for tag in tags):  # type: ignore[reportUnknownVariableType]
         raise TypeError('Tags must be a list of strings.')
-    tags = typing.cast(typing.List[str], tags)
+    tags = cast(List[str], tags)
     if not all(_TAG_PATTERN.match(tag) for tag in tags):
         raise ValueError('Tag format is invalid.')
     return tags
@@ -865,19 +883,19 @@ def _validate_auto_ml_model(model: str) -> str:
     return model
 
 
-def _validate_model_format(model_format: typing.Any) -> ModelFormat:
+def _validate_model_format(model_format: Any) -> ModelFormat:
     if not isinstance(model_format, ModelFormat):
         raise TypeError('Model format must be a ModelFormat object.')
     return model_format
 
 
-def _validate_list_filter(list_filter: typing.Optional[str]) -> None:
+def _validate_list_filter(list_filter: Optional[str]) -> None:
     if list_filter is not None:
         if not isinstance(list_filter, str):
             raise TypeError('List filter must be a string or None.')
 
 
-def _validate_page_size(page_size: typing.Optional[int]) -> None:
+def _validate_page_size(page_size: Optional[int]) -> None:
     if page_size is not None:
         if type(page_size) is not int: # pylint: disable=unidiomatic-typecheck
             # Specifically type() to disallow boolean which is a subtype of int
@@ -887,7 +905,7 @@ def _validate_page_size(page_size: typing.Optional[int]) -> None:
                              '1 and {0}'.format(_MAX_PAGE_SIZE))
 
 
-def _validate_page_token(page_token: typing.Optional[str]) -> None:
+def _validate_page_token(page_token: Optional[str]) -> None:
     if page_token is not None:
         if not isinstance(page_token, str):
             raise TypeError('Page token must be a string or None.')
@@ -920,14 +938,14 @@ class _MLService:
             headers=ml_headers,
             base_url=_MLService.OPERATION_URL)
 
-    def get_operation(self, op_name: str) -> typing.Dict[str, _typing.Json]:
+    def get_operation(self, op_name: str) -> Dict[str, _typing.Json]:
         _validate_operation_name(op_name)
         try:
             return self._operation_client.body('get', url=op_name)
         except requests.exceptions.RequestException as error:
             raise _utils.handle_platform_error_from_requests(error)
 
-    def _exponential_backoff(self, current_attempt: int, stop_time: typing.Optional[datetime.datetime]) -> None:
+    def _exponential_backoff(self, current_attempt: int, stop_time: Optional[datetime.datetime]) -> None:
         """Sleeps for the appropriate amount of time. Or throws deadline exceeded."""
         delay_factor = pow(_MLService.POLL_EXPONENTIAL_BACKOFF_FACTOR, current_attempt)
         wait_time_seconds = delay_factor * _MLService.POLL_BASE_WAIT_TIME_SECONDS
@@ -941,10 +959,10 @@ class _MLService:
 
     def handle_operation(
         self,
-        operation: typing.Dict[str, _typing.Json],
+        operation: Dict[str, _typing.Json],
         wait_for_operation: bool = False,
-        max_time_seconds: typing.Optional[float] = None,
-    ) -> typing.Dict[str, typing.Any]:
+        max_time_seconds: Optional[float] = None,
+    ) -> Dict[str, Any]:
         """Handles long running operations.
 
         Args:
@@ -969,14 +987,14 @@ class _MLService:
         if operation.get('done'):
             # Operations which are immediately done don't have an operation name
             if operation.get('response'):
-                return typing.cast(typing.Dict[str, _typing.Json], operation['response'])
+                return cast(Dict[str, _typing.Json], operation['response'])
             if operation.get('error'):
-                error = typing.cast(typing.Dict[str, typing.Any], operation['error'])
+                error = cast(Dict[str, Any], operation['error'])
                 raise _utils.handle_operation_error(error)
             raise exceptions.UnknownError(message='Internal Error: Malformed Operation.')
 
         op_name = _validate_operation_name(operation.get('name'))
-        metadata = typing.cast(typing.Dict[str, typing.Any], operation.get('metadata', {}))
+        metadata = cast(Dict[str, Any], operation.get('metadata', {}))
         metadata_type = metadata.get('@type', '')
         if not metadata_type.endswith('ModelOperationMetadata'):
             raise TypeError('Unknown type of operation metadata.')
@@ -994,16 +1012,16 @@ class _MLService:
 
         if operation.get('done'):
             if operation.get('response'):
-                return typing.cast(typing.Dict[str, _typing.Json], operation['response'])
+                return cast(Dict[str, _typing.Json], operation['response'])
             if operation.get('error'):
-                error = typing.cast(typing.Dict[str, typing.Any], operation['error'])
+                error = cast(Dict[str, Any], operation['error'])
                 raise _utils.handle_operation_error(error)
 
         # If the operation is not complete or timed out, return a (locked) model instead
         return get_model(model_id).as_dict()
 
 
-    def create_model(self, model: Model) -> typing.Dict[str, typing.Any]:
+    def create_model(self, model: Model) -> Dict[str, Any]:
         _validate_model(model)
         try:
             return self.handle_operation(
@@ -1011,7 +1029,7 @@ class _MLService:
         except requests.exceptions.RequestException as error:
             raise _utils.handle_platform_error_from_requests(error)
 
-    def update_model(self, model: Model, update_mask: typing.Optional[str] = None) -> typing.Dict[str, typing.Any]:
+    def update_model(self, model: Model, update_mask: Optional[str] = None) -> Dict[str, Any]:
         _validate_model(model, update_mask)
         path = 'models/{0}'.format(model.model_id)
         if update_mask is not None:
@@ -1022,7 +1040,7 @@ class _MLService:
         except requests.exceptions.RequestException as error:
             raise _utils.handle_platform_error_from_requests(error)
 
-    def set_published(self, model_id: str, publish: bool) -> typing.Dict[str, typing.Any]:
+    def set_published(self, model_id: str, publish: bool) -> Dict[str, Any]:
         _validate_model_id(model_id)
         model_name = 'projects/{0}/models/{1}'.format(self._project_id, model_id)
         model = Model.from_dict({
@@ -1033,7 +1051,7 @@ class _MLService:
         })
         return self.update_model(model, update_mask='state.published')
 
-    def get_model(self, model_id: str) -> typing.Dict[str, _typing.Json]:
+    def get_model(self, model_id: str) -> Dict[str, _typing.Json]:
         _validate_model_id(model_id)
         try:
             return self._client.body('get', url='models/{0}'.format(model_id))
@@ -1042,15 +1060,15 @@ class _MLService:
 
     def list_models(
         self,
-        list_filter: typing.Optional[str],
-        page_size: typing.Optional[int],
-        page_token: typing.Optional[str],
-    ) -> typing.Dict[str, _typing.Json]:
+        list_filter: Optional[str],
+        page_size: Optional[int],
+        page_token: Optional[str],
+    ) -> Dict[str, _typing.Json]:
         """ lists Firebase ML models."""
         _validate_list_filter(list_filter)
         _validate_page_size(page_size)
         _validate_page_token(page_token)
-        params: typing.Dict[str, typing.Any] = {}
+        params: Dict[str, Any] = {}
         if list_filter:
             params['filter'] = list_filter
         if page_size:

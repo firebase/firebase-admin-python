@@ -16,16 +16,47 @@
 
 import datetime
 import numbers
-import typing
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Union,
+)
 
 import requests
 
 from firebase_admin import exceptions
 
-if typing.TYPE_CHECKING:
+if TYPE_CHECKING:
     from _typeshed import Incomplete
 else:
-    Incomplete = typing.Any
+    Incomplete = Any
+
+__all__ = (
+    'APNSConfig',
+    'APNSFCMOptions',
+    'APNSPayload',
+    'AndroidConfig',
+    'AndroidFCMOptions',
+    'AndroidNotification',
+    'Aps',
+    'ApsAlert',
+    'CriticalSound',
+    'FCMOptions',
+    'LightSettings',
+    'Notification',
+    'QuotaExceededError',
+    'SenderIdMismatchError',
+    'ThirdPartyAuthError',
+    'UnregisteredError',
+    'WebpushConfig',
+    'WebpushFCMOptions',
+    'WebpushNotification',
+    'WebpushNotificationAction',
+)
 
 
 class Notification:
@@ -39,9 +70,9 @@ class Notification:
 
     def __init__(
         self,
-        title: typing.Optional[str] = None,
-        body: typing.Optional[str] = None,
-        image: typing.Optional[str] = None,
+        title: Optional[str] = None,
+        body: Optional[str] = None,
+        image: Optional[str] = None,
     ) -> None:
         self.title = title
         self.body = body
@@ -71,14 +102,14 @@ class AndroidConfig:
 
     def __init__(
         self,
-        collapse_key: typing.Optional[str] = None,
-        priority: typing.Optional[typing.Literal['high', 'normal']] = None,
-        ttl: typing.Optional[typing.Union[numbers.Real, datetime.timedelta]] = None,
-        restricted_package_name: typing.Optional[str] = None,
-        data: typing.Optional[typing.Dict[str, str]] = None,
-        notification: typing.Optional['AndroidNotification'] = None,
-        fcm_options: typing.Optional['AndroidFCMOptions'] = None,
-        direct_boot_ok: typing.Optional[bool] = None,
+        collapse_key: Optional[str] = None,
+        priority: Optional[Literal['high', 'normal']] = None,
+        ttl: Optional[Union[numbers.Real, datetime.timedelta]] = None,
+        restricted_package_name: Optional[str] = None,
+        data: Optional[Dict[str, str]] = None,
+        notification: Optional['AndroidNotification'] = None,
+        fcm_options: Optional['AndroidFCMOptions'] = None,
+        direct_boot_ok: Optional[bool] = None,
     ) -> None:
         self.collapse_key = collapse_key
         self.priority = priority
@@ -180,32 +211,32 @@ class AndroidNotification:
 
     def __init__(
         self,
-        title: typing.Optional[str] = None,
-        body: typing.Optional[str] = None,
-        icon: typing.Optional[str] = None,
-        color: typing.Optional[str] = None,
-        sound: typing.Optional[str] = None,
-        tag: typing.Optional[str] = None,
-        click_action: typing.Optional[Incomplete] = None,
-        body_loc_key: typing.Optional[str] = None,
-        body_loc_args: typing.Optional[typing.List[str]] = None,
-        title_loc_key: typing.Optional[str] = None,
-        title_loc_args: typing.Optional[typing.List[str]] = None,
-        channel_id: typing.Optional[Incomplete] = None,
-        image: typing.Optional[str] = None,
-        ticker: typing.Optional[Incomplete] = None,
-        sticky: typing.Optional[bool] = None,
-        event_timestamp: typing.Optional[datetime.datetime] = None,
-        local_only: typing.Optional[Incomplete] = None,
-        priority: typing.Optional[typing.Literal['default', 'min', 'low', 'high', 'max', 'normal']] = None,
-        vibrate_timings_millis: typing.Optional[float] = None,
-        default_vibrate_timings: typing.Optional[bool] = None,
-        default_sound: typing.Optional[bool] = None,
-        light_settings: typing.Optional['LightSettings'] = None,
-        default_light_settings: typing.Optional[bool] = None,
-        visibility: typing.Optional[typing.Literal['private', 'public', 'secret']] = None,
-        notification_count: typing.Optional[int] = None,
-        proxy: typing.Optional[typing.Literal['allow', 'deny']] = None,
+        title: Optional[str] = None,
+        body: Optional[str] = None,
+        icon: Optional[str] = None,
+        color: Optional[str] = None,
+        sound: Optional[str] = None,
+        tag: Optional[str] = None,
+        click_action: Optional[Incomplete] = None,
+        body_loc_key: Optional[str] = None,
+        body_loc_args: Optional[List[str]] = None,
+        title_loc_key: Optional[str] = None,
+        title_loc_args: Optional[List[str]] = None,
+        channel_id: Optional[Incomplete] = None,
+        image: Optional[str] = None,
+        ticker: Optional[Incomplete] = None,
+        sticky: Optional[bool] = None,
+        event_timestamp: Optional[datetime.datetime] = None,
+        local_only: Optional[Incomplete] = None,
+        priority: Optional[Literal['default', 'min', 'low', 'high', 'max', 'normal']] = None,
+        vibrate_timings_millis: Optional[float] = None,
+        default_vibrate_timings: Optional[bool] = None,
+        default_sound: Optional[bool] = None,
+        light_settings: Optional['LightSettings'] = None,
+        default_light_settings: Optional[bool] = None,
+        visibility: Optional[Literal['private', 'public', 'secret']] = None,
+        notification_count: Optional[int] = None,
+        proxy: Optional[Literal['allow', 'deny']] = None,
     ) -> None:
         self.title = title
         self.body = body
@@ -249,8 +280,8 @@ class LightSettings:
     def __init__(
         self,
         color: str,
-        light_on_duration_millis: typing.Union[numbers.Real, datetime.timedelta],
-        light_off_duration_millis: typing.Union[numbers.Real, datetime.timedelta],
+        light_on_duration_millis: Union[numbers.Real, datetime.timedelta],
+        light_off_duration_millis: Union[numbers.Real, datetime.timedelta],
     ) -> None:
         self.color = color
         self.light_on_duration_millis = light_on_duration_millis
@@ -265,7 +296,7 @@ class AndroidFCMOptions:
             (optional).
     """
 
-    def __init__(self, analytics_label: typing.Optional[Incomplete] = None) -> None:
+    def __init__(self, analytics_label: Optional[Incomplete] = None) -> None:
         self.analytics_label = analytics_label
 
 
@@ -286,10 +317,10 @@ class WebpushConfig:
 
     def __init__(
         self,
-        headers: typing.Optional[typing.Dict[str, str]] = None,
-        data: typing.Optional[typing.Dict[str, str]] = None,
-        notification: typing.Optional['WebpushNotification'] = None,
-        fcm_options: typing.Optional['WebpushFCMOptions'] = None,
+        headers: Optional[Dict[str, str]] = None,
+        data: Optional[Dict[str, str]] = None,
+        notification: Optional['WebpushNotification'] = None,
+        fcm_options: Optional['WebpushFCMOptions'] = None,
     ) -> None:
         self.headers = headers
         self.data = data
@@ -306,7 +337,7 @@ class WebpushNotificationAction:
         icon: Icon URL for the action (optional).
     """
 
-    def __init__(self, action: str, title: str, icon: typing.Optional[str] = None) -> None:
+    def __init__(self, action: str, title: str, icon: Optional[str] = None) -> None:
         self.action = action
         self.title = title
         self.icon = icon
@@ -349,22 +380,22 @@ class WebpushNotification:
 
     def __init__(
         self,
-        title: typing.Optional[str] = None,
-        body: typing.Optional[str] = None,
-        icon: typing.Optional[str] = None,
-        actions: typing.Optional[typing.List[WebpushNotificationAction]] = None,
-        badge: typing.Optional[str] = None,
-        data: typing.Optional[typing.Any] = None,
-        direction: typing.Optional[typing.Literal['auto', 'ltr', 'rtl']] = None,
-        image: typing.Optional[str] = None,
-        language: typing.Optional[str] = None,
-        renotify: typing.Optional[bool] = None,
-        require_interaction: typing.Optional[bool] = None,
-        silent: typing.Optional[bool] = None,
-        tag: typing.Optional[str] = None,
-        timestamp_millis: typing.Optional[int] = None,
-        vibrate: typing.Optional[typing.List[int]] = None,
-        custom_data: typing.Optional[typing.Dict[str, typing.Any]] = None,
+        title: Optional[str] = None,
+        body: Optional[str] = None,
+        icon: Optional[str] = None,
+        actions: Optional[List[WebpushNotificationAction]] = None,
+        badge: Optional[str] = None,
+        data: Optional[Any] = None,
+        direction: Optional[Literal['auto', 'ltr', 'rtl']] = None,
+        image: Optional[str] = None,
+        language: Optional[str] = None,
+        renotify: Optional[bool] = None,
+        require_interaction: Optional[bool] = None,
+        silent: Optional[bool] = None,
+        tag: Optional[str] = None,
+        timestamp_millis: Optional[int] = None,
+        vibrate: Optional[List[int]] = None,
+        custom_data: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.title = title
         self.body = body
@@ -392,7 +423,7 @@ class WebpushFCMOptions:
             (optional).
     """
 
-    def __init__(self, link: typing.Optional[str] = None) -> None:
+    def __init__(self, link: Optional[str] = None) -> None:
         self.link = link
 
 
@@ -414,10 +445,10 @@ class APNSConfig:
 
     def __init__(
         self,
-        headers: typing.Optional[typing.Dict[str, str]] = None,
-        payload: typing.Optional['APNSPayload'] = None,
-        fcm_options: typing.Optional['APNSFCMOptions'] = None,
-        live_activity_token: typing.Optional[str] = None,
+        headers: Optional[Dict[str, str]] = None,
+        payload: Optional['APNSPayload'] = None,
+        fcm_options: Optional['APNSFCMOptions'] = None,
+        live_activity_token: Optional[str] = None,
     ) -> None:
         self.headers = headers
         self.payload = payload
@@ -434,7 +465,7 @@ class APNSPayload:
             (optional).
     """
 
-    def __init__(self, aps: 'Aps', **kwargs: typing.Any) -> None:
+    def __init__(self, aps: 'Aps', **kwargs: Any) -> None:
         self.aps = aps
         self.custom_data = kwargs
 
@@ -459,14 +490,14 @@ class Aps:
 
     def __init__(
         self,
-        alert: typing.Optional[typing.Union['ApsAlert', str]] = None,
-        badge: typing.Optional[float] = None,  # should it be int?
-        sound: typing.Optional[typing.Union[str, 'CriticalSound']] = None,
-        content_available: typing.Optional[bool] = None,
-        category: typing.Optional[str] = None,
-        thread_id: typing.Optional[str] = None,
-        mutable_content: typing.Optional[bool] = None,
-        custom_data: typing.Optional[typing.Dict[str, typing.Any]] = None,
+        alert: Optional[Union['ApsAlert', str]] = None,
+        badge: Optional[float] = None,  # should it be int?
+        sound: Optional[Union[str, 'CriticalSound']] = None,
+        content_available: Optional[bool] = None,
+        category: Optional[str] = None,
+        thread_id: Optional[str] = None,
+        mutable_content: Optional[bool] = None,
+        custom_data: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.alert = alert
         self.badge = badge
@@ -494,8 +525,8 @@ class CriticalSound:
     def __init__(
         self,
         name: str,
-        critical: typing.Optional[bool] = None,
-        volume: typing.Optional[float] = None,
+        critical: Optional[bool] = None,
+        volume: Optional[float] = None,
     ) -> None:
         self.name = name
         self.critical = critical
@@ -528,16 +559,16 @@ class ApsAlert:
 
     def __init__(
         self,
-        title: typing.Optional[str] = None,
-        subtitle: typing.Optional[str] = None,
-        body: typing.Optional[str] = None,
-        loc_key: typing.Optional[str] = None,
-        loc_args: typing.Optional[typing.List[str]] = None,
-        title_loc_key: typing.Optional[str] = None,
-        title_loc_args: typing.Optional[typing.List[str]] = None,
-        action_loc_key: typing.Optional[str] = None,
-        launch_image: typing.Optional[str] = None,
-        custom_data: typing.Optional[typing.Dict[str, typing.Any]] = None,
+        title: Optional[str] = None,
+        subtitle: Optional[str] = None,
+        body: Optional[str] = None,
+        loc_key: Optional[str] = None,
+        loc_args: Optional[List[str]] = None,
+        title_loc_key: Optional[str] = None,
+        title_loc_args: Optional[List[str]] = None,
+        action_loc_key: Optional[str] = None,
+        launch_image: Optional[str] = None,
+        custom_data: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.title = title
         self.subtitle = subtitle
@@ -563,8 +594,8 @@ class APNSFCMOptions:
 
     def __init__(
         self,
-        analytics_label: typing.Optional[Incomplete] = None,
-        image: typing.Optional[str] = None,
+        analytics_label: Optional[Incomplete] = None,
+        image: Optional[str] = None,
     ) -> None:
         self.analytics_label = analytics_label
         self.image = image
@@ -577,7 +608,7 @@ class FCMOptions:
         analytics_label: contains additional options to use across all platforms (optional).
     """
 
-    def __init__(self, analytics_label: typing.Optional[Incomplete] = None) -> None:
+    def __init__(self, analytics_label: Optional[Incomplete] = None) -> None:
         self.analytics_label = analytics_label
 
 
@@ -587,8 +618,8 @@ class ThirdPartyAuthError(exceptions.UnauthenticatedError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         exceptions.UnauthenticatedError.__init__(self, message, cause, http_response)
 
@@ -599,8 +630,8 @@ class QuotaExceededError(exceptions.ResourceExhaustedError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         exceptions.ResourceExhaustedError.__init__(self, message, cause, http_response)
 
@@ -611,8 +642,8 @@ class SenderIdMismatchError(exceptions.PermissionDeniedError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         exceptions.PermissionDeniedError.__init__(self, message, cause, http_response)
 
@@ -625,7 +656,7 @@ class UnregisteredError(exceptions.NotFoundError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         exceptions.NotFoundError.__init__(self, message, cause, http_response)

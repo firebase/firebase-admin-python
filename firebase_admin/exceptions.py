@@ -31,9 +31,45 @@ Therefore it is always a good idea to have a handler specified for ``FirebaseErr
 subtype error handlers.
 """
 
-import typing
+from typing import Optional
 
 import requests
+
+__all__ = (
+    'ABORTED',
+    'ALREADY_EXISTS',
+    'CANCELLED',
+    'CONFLICT',
+    'DATA_LOSS',
+    'DEADLINE_EXCEEDED',
+    'FAILED_PRECONDITION',
+    'INTERNAL',
+    'INVALID_ARGUMENT',
+    'NOT_FOUND',
+    'OUT_OF_RANGE',
+    'PERMISSION_DENIED',
+    'RESOURCE_EXHAUSTED',
+    'UNAUTHENTICATED',
+    'UNAVAILABLE',
+    'UNKNOWN',
+    'AbortedError',
+    'AlreadyExistsError',
+    'CancelledError',
+    'ConflictError',
+    'DataLossError',
+    'DeadlineExceededError',
+    'FailedPreconditionError',
+    'FirebaseError',
+    'InternalError',
+    'InvalidArgumentError',
+    'NotFoundError',
+    'OutOfRangeError',
+    'PermissionDeniedError',
+    'ResourceExhaustedError',
+    'UnauthenticatedError',
+    'UnavailableError',
+    'UnknownError',
+)
 
 #: Error code for ``InvalidArgumentError`` type.
 INVALID_ARGUMENT = 'INVALID_ARGUMENT'
@@ -102,8 +138,8 @@ class FirebaseError(Exception):
         self,
         code: str,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         Exception.__init__(self, message)
         self._code = code
@@ -129,8 +165,8 @@ class InvalidArgumentError(FirebaseError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         FirebaseError.__init__(self, INVALID_ARGUMENT, message, cause, http_response)
 
@@ -142,8 +178,8 @@ class FailedPreconditionError(FirebaseError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         FirebaseError.__init__(self, FAILED_PRECONDITION, message, cause, http_response)
 
@@ -154,8 +190,8 @@ class OutOfRangeError(FirebaseError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         FirebaseError.__init__(self, OUT_OF_RANGE, message, cause, http_response)
 
@@ -166,8 +202,8 @@ class UnauthenticatedError(FirebaseError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         FirebaseError.__init__(self, UNAUTHENTICATED, message, cause, http_response)
 
@@ -182,8 +218,8 @@ class PermissionDeniedError(FirebaseError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         FirebaseError.__init__(self, PERMISSION_DENIED, message, cause, http_response)
 
@@ -195,8 +231,8 @@ class NotFoundError(FirebaseError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         FirebaseError.__init__(self, NOT_FOUND, message, cause, http_response)
 
@@ -207,8 +243,8 @@ class ConflictError(FirebaseError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         FirebaseError.__init__(self, CONFLICT, message, cause, http_response)
 
@@ -219,8 +255,8 @@ class AbortedError(FirebaseError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         FirebaseError.__init__(self, ABORTED, message, cause, http_response)
 
@@ -231,8 +267,8 @@ class AlreadyExistsError(FirebaseError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         FirebaseError.__init__(self, ALREADY_EXISTS, message, cause, http_response)
 
@@ -243,8 +279,8 @@ class ResourceExhaustedError(FirebaseError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         FirebaseError.__init__(self, RESOURCE_EXHAUSTED, message, cause, http_response)
 
@@ -255,8 +291,8 @@ class CancelledError(FirebaseError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         FirebaseError.__init__(self, CANCELLED, message, cause, http_response)
 
@@ -267,8 +303,8 @@ class DataLossError(FirebaseError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         FirebaseError.__init__(self, DATA_LOSS, message, cause, http_response)
 
@@ -279,8 +315,8 @@ class UnknownError(FirebaseError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         FirebaseError.__init__(self, UNKNOWN, message, cause, http_response)
 
@@ -291,8 +327,8 @@ class InternalError(FirebaseError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         FirebaseError.__init__(self, INTERNAL, message, cause, http_response)
 
@@ -303,8 +339,8 @@ class UnavailableError(FirebaseError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         FirebaseError.__init__(self, UNAVAILABLE, message, cause, http_response)
 
@@ -320,7 +356,7 @@ class DeadlineExceededError(FirebaseError):
     def __init__(
         self,
         message: str,
-        cause: typing.Optional[Exception] = None,
-        http_response: typing.Optional[requests.Response] = None,
+        cause: Optional[Exception] = None,
+        http_response: Optional[requests.Response] = None,
     ) -> None:
         FirebaseError.__init__(self, DEADLINE_EXCEEDED, message, cause, http_response)

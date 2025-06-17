@@ -1,0 +1,45 @@
+[build-system]
+requires = ['setuptools >= 77.0.3']
+build-backend = 'setuptools.build_meta'
+
+[project]
+name = 'firebase_admin'
+dynamic = ['version']
+description = 'Firebase Admin Python SDK'
+readme = 'README.md'
+requires-python = '>=3.9'
+license = 'Apache-2.0'
+keywords = ['firebase', 'cloud', 'development']
+authors = [ { name = 'Firebase' }]
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'Intended Audience :: Developers',
+    'Topic :: Software Development :: Build Tools',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3 :: Only',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+]
+
+dependencies = [
+    'cachecontrol>=0.12.14',
+    'google-api-core[grpc] >= 1.22.1, < 3.0.0dev; platform.python_implementation != "PyPy"',
+    'google-cloud-firestore>=2.19.0; platform.python_implementation != "PyPy"',
+    'google-cloud-storage>=1.37.1',
+    'pyjwt[crypto] >= 2.5.0',
+    'httpx[http2] == 0.28.1',
+]
+
+[project.urls]
+'Homepage' = 'https://firebase.google.com/docs/admin/setup/'
+'Release Notes' = 'https://firebase.google.com/support/release-notes/admin/python'
+'Source' = 'https://github.com/firebase/firebase-admin-python'
+
+[tool.setuptools]
+packages = ['firebase_admin']
+
+[tool.setuptools.dynamic]
+version = { attr = 'firebase_admin.__about__.__version__' }

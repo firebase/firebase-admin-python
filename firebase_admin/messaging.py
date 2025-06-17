@@ -173,10 +173,10 @@ def send_each(
 
 
 async def send_each_async(
-        messages: typing.List[Message],
-        dry_run: bool = False,
-        app: typing.Optional[firebase_admin.App] = None
-    ) -> 'BatchResponse':
+    messages: typing.List[Message],
+    dry_run: bool = False,
+    app: typing.Optional[firebase_admin.App] = None,
+) -> 'BatchResponse':
     """Sends each message in the given list asynchronously via Firebase Cloud Messaging.
 
     If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
@@ -579,7 +579,7 @@ class _MessagingService:
         if len(messages) > 500:
             raise ValueError('messages must not contain more than 500 elements.')
 
-        async def send_data(data):
+        async def send_data(data: typing.Dict[str, typing.Any]) -> SendResponse:
             try:
                 resp = await self._async_client.request(
                     'post',
@@ -751,7 +751,7 @@ class _MessagingService:
         cls,
         error: httpx.HTTPError,
         message: str,
-        error_dict: typing.Optional[typing.Dict[str, typing.Any]]
+        error_dict: typing.Optional[typing.Dict[str, typing.Any]],
     ) -> typing.Optional[exceptions.FirebaseError]:
         """Parses a httpx error response from the FCM API and creates a FCM-specific exception if
         appropriate."""
@@ -775,7 +775,10 @@ class _MessagingService:
         return exc_type(message, cause=error, http_response=http_response) if exc_type else None
 
     @classmethod
-    def _build_fcm_error(cls, error_dict: typing.Dict[str, typing.Any]) -> typing.Optional[_typing.FirebaseErrorFactory]:
+    def _build_fcm_error(
+        cls,
+        error_dict: typing.Optional[typing.Dict[str, typing.Any]],
+    ) -> typing.Optional[_typing.FirebaseErrorFactoryWithDefaults]:
         """Parses an error response to determine the appropriate FCM-specific error type."""
         if not error_dict:
             return None

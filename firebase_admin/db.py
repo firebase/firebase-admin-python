@@ -40,9 +40,9 @@ from firebase_admin import _sseclient
 from firebase_admin import _utils
 
 
-_K = typing_extensions.TypeVar("_K", default=typing.Any)
-_V = typing_extensions.TypeVar("_V", default=typing.Any)
-_JsonT = typing_extensions.TypeVar("_JsonT", bound=_typing.Json, default=_typing.Json)
+_K = typing_extensions.TypeVar('_K', default=typing.Any)
+_V = typing_extensions.TypeVar('_V', default=typing.Any)
+_JsonT = typing_extensions.TypeVar('_JsonT', bound=_typing.Json, default=_typing.Json)
 
 _DB_ATTRIBUTE = '_database'
 _INVALID_PATH_CHARACTERS = '[].?#$'
@@ -57,7 +57,7 @@ def reference(
     path: str = '/',
     app: typing.Optional[firebase_admin.App] = None,
     url: typing.Optional[str] = None,
-) -> "Reference":
+) -> 'Reference':
     """Returns a database ``Reference`` representing the node at the specified path.
 
     If no path is specified, this function returns a ``Reference`` that represents the database
@@ -161,7 +161,7 @@ class Reference:
         self,
         *,
         segments: typing.List[str],
-        client: typing.Optional["_Client"] = None,
+        client: typing.Optional['_Client'] = None,
         **kwargs: typing.Any,
     ) -> None: ...
     @typing.overload
@@ -169,7 +169,7 @@ class Reference:
         self,
         *,
         path: str,
-        client: typing.Optional["_Client"] = None,
+        client: typing.Optional['_Client'] = None,
         **kwargs: typing.Any,
     ) -> None: ...
     def __init__(
@@ -177,7 +177,7 @@ class Reference:
         *,
         path: typing.Optional[str] = None,
         segments: typing.Optional[typing.List[str]] = None,
-        client: typing.Optional["_Client"] = None,
+        client: typing.Optional['_Client'] = None,
         **kwargs: typing.Any,
     ) -> None:
         """Creates a new Reference using the provided parameters.
@@ -203,12 +203,12 @@ class Reference:
         return self._pathurl
 
     @property
-    def parent(self) -> typing.Optional["Reference"]:
+    def parent(self) -> typing.Optional['Reference']:
         if self._segments:
             return Reference(client=self._client, segments=self._segments[:-1])
         return None
 
-    def child(self, path: typing.Optional[str]) -> "Reference":
+    def child(self, path: typing.Optional[str]) -> 'Reference':
         """Returns a Reference to the specified child node.
 
         The path may point to an immediate child of the current Reference, or a deeply nested
@@ -361,7 +361,7 @@ class Reference:
 
             raise error
 
-    def push(self, value: _typing.Json = '') -> "Reference":
+    def push(self, value: _typing.Json = '') -> 'Reference':
         """Creates a new child node.
 
         The optional value argument can be used to provide an initial value for the child node. If
@@ -477,7 +477,7 @@ class Reference:
 
         raise TransactionAbortedError('Transaction aborted after failed retries.')
 
-    def order_by_child(self, path: str) -> "Query":
+    def order_by_child(self, path: str) -> 'Query':
         """Returns a Query that orders data by child values.
 
         Returned Query can be used to set additional parameters, and execute complex database
@@ -496,7 +496,7 @@ class Reference:
             raise ValueError('Illegal child path: {0}'.format(path))
         return Query(order_by=path, client=self._client, pathurl=self._add_suffix())
 
-    def order_by_key(self) -> "Query":
+    def order_by_key(self) -> 'Query':
         """Creates a Query that orderes data by key.
 
         Returned Query can be used to set additional parameters, and execute complex database
@@ -507,7 +507,7 @@ class Reference:
         """
         return Query(order_by='$key', client=self._client, pathurl=self._add_suffix())
 
-    def order_by_value(self) -> "Query":
+    def order_by_value(self) -> 'Query':
         """Creates a Query that orderes data by value.
 
         Returned Query can be used to set additional parameters, and execute complex database
@@ -550,7 +550,7 @@ class Query:
     OrderedDict.
     """
 
-    def __init__(self, *, client: "_Client", order_by: str, pathurl: str, **kwargs: typing.Any) -> None:
+    def __init__(self, *, client: '_Client', order_by: str, pathurl: str, **kwargs: typing.Any) -> None:
         if not order_by or not isinstance(order_by, str):
             raise ValueError('order_by field must be a non-empty string')
         if order_by not in _RESERVED_FILTERS:
@@ -862,7 +862,7 @@ class _DatabaseService:
         else:
             self._emulator_host = None
 
-    def get_client(self, db_url: typing.Optional[str] = None) -> "_Client":
+    def get_client(self, db_url: typing.Optional[str] = None) -> '_Client':
         """Creates a client based on the db_url. Clients may be cached."""
         if db_url is None:
             db_url = self._db_url

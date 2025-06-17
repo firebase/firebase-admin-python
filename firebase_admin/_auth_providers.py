@@ -26,7 +26,7 @@ from firebase_admin import _typing
 from firebase_admin import _user_mgt
 
 
-_ProviderConfigT = typing_extensions.TypeVar("_ProviderConfigT", bound="ProviderConfig", default="ProviderConfig")
+_ProviderConfigT = typing_extensions.TypeVar('_ProviderConfigT', bound='ProviderConfig', default='ProviderConfig')
 
 
 MAX_LIST_CONFIGS_RESULTS = 100
@@ -119,7 +119,7 @@ class ListProviderConfigsPage(typing.Generic[_ProviderConfigT]):
         self,
         download: typing.Callable[[typing.Optional[str], int], typing.Dict[str, _typing.Json]],
         page_token: typing.Optional[str],
-        max_results: int
+        max_results: int,
     ) -> None:
         self._download = download
         self._max_results = max_results
@@ -151,7 +151,7 @@ class ListProviderConfigsPage(typing.Generic[_ProviderConfigT]):
             return self.__class__(self._download, self.next_page_token, self._max_results)
         return None
 
-    def iterate_all(self) -> "_ProviderConfigIterator[_ProviderConfigT]":
+    def iterate_all(self) -> '_ProviderConfigIterator[_ProviderConfigT]':
         """Retrieves an iterator for provider configs.
 
         Returned iterator will iterate through all the provider configs in the Firebase project

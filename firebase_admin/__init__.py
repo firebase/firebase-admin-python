@@ -13,7 +13,6 @@
 # limitations under the License.
 
 """Firebase Admin SDK for Python."""
-import datetime
 import json
 import os
 import threading
@@ -26,11 +25,10 @@ from firebase_admin.__about__ import __version__
 from firebase_admin import _typing
 
 
-_T = typing.TypeVar("_T")
+_T = typing.TypeVar('_T')
 
-_apps: typing.Dict[str, "App"] = {}
+_apps: typing.Dict[str, 'App'] = {}
 _apps_lock = threading.RLock()
-_clock = lambda: datetime.datetime.now(datetime.timezone.utc)
 
 _DEFAULT_APP_NAME = '[DEFAULT]'
 _FIREBASE_CONFIG_ENV_VAR = 'FIREBASE_CONFIG'
@@ -40,8 +38,8 @@ _CONFIG_VALID_KEYS = ['databaseAuthVariableOverride', 'databaseURL', 'httpTimeou
 def initialize_app(
     credential: typing.Optional[_typing.CredentialLike] = None,
     options: typing.Optional[typing.Dict[str, typing.Any]] = None,
-    name: str = _DEFAULT_APP_NAME
-) -> "App":
+    name: str = _DEFAULT_APP_NAME,
+) -> 'App':
     """Initializes and returns a new App instance.
 
     Creates a new App instance using the specified options
@@ -94,7 +92,7 @@ def initialize_app(
         'you call initialize_app().').format(name))
 
 
-def delete_app(app: "App") -> None:
+def delete_app(app: 'App') -> None:
     """Gracefully deletes an App instance.
 
     Args:
@@ -122,7 +120,7 @@ def delete_app(app: "App") -> None:
          'second argument.').format(app.name))
 
 
-def get_app(name: str = _DEFAULT_APP_NAME) -> "App":
+def get_app(name: str = _DEFAULT_APP_NAME) -> 'App':
     """Retrieves an App instance by name.
 
     Args:
@@ -280,7 +278,7 @@ class App:
         project_id: typing.Optional[str] = self._options.get('projectId')
         if not project_id:
             try:
-                project_id = getattr(self._credential, "project_id")
+                project_id = getattr(self._credential, 'project_id')
             except (AttributeError, DefaultCredentialsError):
                 pass
         if not project_id:

@@ -110,7 +110,7 @@ class _SigningProvider:
     def from_credential(
         cls,
         google_cred: typing.Union[google.oauth2.service_account.Credentials, credentials.Signing]
-    ) -> "_SigningProvider":
+    ) -> '_SigningProvider':
         return _SigningProvider(google_cred.signer, google_cred.signer_email)  # type: ignore[reportUnknownMemberType]
 
     @classmethod
@@ -119,12 +119,12 @@ class _SigningProvider:
         request: google.auth.transport.Request,
         google_cred: credentials.Credentials,
         service_account: str,
-    ) -> "_SigningProvider":
+    ) -> '_SigningProvider':
         signer = iam.Signer(request, google_cred, service_account)
         return _SigningProvider(signer, service_account)
 
     @classmethod
-    def for_emulator(cls) -> "_SigningProvider":
+    def for_emulator(cls) -> '_SigningProvider':
         return _SigningProvider(_EmulatedSigner(), AUTH_EMULATOR_EMAIL, ALGORITHM_NONE)
 
 
@@ -136,7 +136,7 @@ class TokenGenerator:
     def __init__(
         self,
         app: firebase_admin.App,
-        http_client: _http_client.HttpClient[typing.Dict[str, "_typing.Json"]],
+        http_client: _http_client.HttpClient[typing.Dict[str, '_typing.Json']],
         url_override: typing.Optional[str] = None,
     ) -> None:
         self.app = app
@@ -194,8 +194,8 @@ class TokenGenerator:
         self,
         uid: str,
         developer_claims: typing.Optional[typing.Dict[str, typing.Any]] = None,
-        tenant_id: typing.Optional[str] = None
-    ):
+        tenant_id: typing.Optional[str] = None,
+    ) -> bytes:
         """Builds and signs a Firebase custom auth token."""
         if developer_claims is not None:
             if not isinstance(developer_claims, dict):
@@ -243,7 +243,7 @@ class TokenGenerator:
     def create_session_cookie(
         self,
         id_token: typing.Union[bytes, str],
-        expires_in: typing.Union[datetime.timedelta, int]
+        expires_in: typing.Union[datetime.timedelta, int],
     ) -> str:
         """Creates a session cookie from the provided ID token."""
         id_token = id_token.decode('utf-8') if isinstance(id_token, bytes) else id_token
@@ -305,7 +305,7 @@ class CertificateFetchRequest(google.auth.transport.Request):
         body: typing.Optional[Incomplete] = None,
         headers: typing.Optional[typing.Mapping[str, str]] = None,
         timeout: typing.Optional[float] = None,
-        **kwargs: Incomplete
+        **kwargs: Incomplete,
     ) -> google.auth.transport.Response:
         timeout = timeout or self.timeout_seconds
         return self._delegate(
@@ -335,10 +335,18 @@ class TokenVerifier:
             invalid_token_error=InvalidSessionCookieError,
             expired_token_error=ExpiredSessionCookieError)
 
-    def verify_id_token(self, id_token: typing.Union[bytes, str], clock_skew_seconds: int = 0):
+    def verify_id_token(
+        self,
+        id_token: typing.Union[bytes, str],
+        clock_skew_seconds: int = 0,
+    ) -> typing.Dict[str, typing.Any]:
         return self.id_token_verifier.verify(id_token, self.request, clock_skew_seconds)
 
-    def verify_session_cookie(self, cookie: typing.Union[bytes, str], clock_skew_seconds: int = 0):
+    def verify_session_cookie(
+        self,
+        cookie: typing.Union[bytes, str],
+        clock_skew_seconds: int = 0,
+    ) -> typing.Dict[str, typing.Any]:
         return self.cookie_verifier.verify(cookie, self.request, clock_skew_seconds)
 
 

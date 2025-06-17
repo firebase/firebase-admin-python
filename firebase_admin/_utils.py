@@ -27,9 +27,9 @@ import firebase_admin
 from firebase_admin import exceptions
 from firebase_admin import _typing
 
-_T = typing.TypeVar("_T")
+_T = typing.TypeVar('_T')
 
-_ERROR_CODE_TO_EXCEPTION_TYPE: typing.Dict[str, "_typing.FirebaseErrorFactoryWithDefaults"] = {
+_ERROR_CODE_TO_EXCEPTION_TYPE: typing.Dict[str, '_typing.FirebaseErrorFactoryWithDefaults'] = {
     exceptions.INVALID_ARGUMENT: exceptions.InvalidArgumentError,
     exceptions.FAILED_PRECONDITION: exceptions.FailedPreconditionError,
     exceptions.OUT_OF_RANGE: exceptions.OutOfRangeError,
@@ -84,7 +84,7 @@ _RPC_CODE_TO_ERROR_CODE: typing.Dict[int, str] = {
 def get_metrics_header() -> str:
     return f'gl-python/{python_version()} fire-admin/{firebase_admin.__version__}'
 
-def _get_initialized_app(app: typing.Optional["firebase_admin.App"]) -> "firebase_admin.App":
+def _get_initialized_app(app: typing.Optional['firebase_admin.App']) -> 'firebase_admin.App':
     """Returns a reference to an initialized App instance."""
     if app is None:
         return firebase_admin.get_app()
@@ -101,9 +101,9 @@ def _get_initialized_app(app: typing.Optional["firebase_admin.App"]) -> "firebas
 
 
 def get_app_service(
-    app: typing.Optional["firebase_admin.App"],
+    app: typing.Optional['firebase_admin.App'],
     name: str,
-    initializer: "_typing.ServiceInitializer[_T]",
+    initializer: '_typing.ServiceInitializer[_T]',
 ) -> _T:
     app = _get_initialized_app(app)
     return app._get_service(name, initializer) # pylint: disable=protected-access
@@ -111,7 +111,7 @@ def get_app_service(
 
 def handle_platform_error_from_requests(
     error: requests.RequestException,
-    handle_func: typing.Optional["_typing.RequestErrorHandler"] = None,
+    handle_func: typing.Optional['_typing.RequestErrorHandler'] = None,
 ) -> exceptions.FirebaseError:
     """Constructs a ``FirebaseError`` from the given requests error.
 
@@ -329,7 +329,7 @@ def _rpc_code_to_error_code(rpc_code: int) -> str:
     """Maps an RPC code to a platform error code."""
     return _RPC_CODE_TO_ERROR_CODE.get(rpc_code, exceptions.UNKNOWN)
 
-def _error_code_to_exception_type(code: str) -> "_typing.FirebaseErrorFactoryWithDefaults":
+def _error_code_to_exception_type(code: str) -> '_typing.FirebaseErrorFactoryWithDefaults':
     """Maps a platform error code to an exception type."""
     return _ERROR_CODE_TO_EXCEPTION_TYPE.get(code, exceptions.UnknownError)
 

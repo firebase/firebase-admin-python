@@ -23,8 +23,8 @@ import typing
 
 from firebase_admin import _messaging_utils
 
-_K = typing.TypeVar("_K")
-_V = typing.TypeVar("_V")
+_K = typing.TypeVar('_K')
+_V = typing.TypeVar('_V')
 
 
 class Message:
@@ -537,7 +537,7 @@ class MessageEncoder(json.JSONEncoder):
     @classmethod
     def encode_webpush_notification_actions(
         cls,
-        actions: typing.Optional[typing.List[_messaging_utils.WebpushNotificationAction]]
+        actions: typing.Optional[typing.List[_messaging_utils.WebpushNotificationAction]],
     ) -> typing.Optional[typing.List[typing.Dict[str, str]]]:
         """Encodes a list of ``WebpushNotificationActions`` into JSON."""
         if actions is None:

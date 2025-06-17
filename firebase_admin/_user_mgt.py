@@ -248,7 +248,7 @@ class UserRecord(UserInfo):
             _int_or_none('createdAt'), _int_or_none('lastLoginAt'), last_refresh_at_millis)
 
     @property
-    def provider_data(self) -> typing.List["ProviderUserInfo"]:
+    def provider_data(self) -> typing.List['ProviderUserInfo']:
         """Returns a list of UserInfo instances.
 
         Each object represents an identity from an identity provider that is linked to this user.
@@ -386,7 +386,7 @@ class ListUsersPage:
         """A boolean indicating whether more pages are available."""
         return bool(self.next_page_token)
 
-    def get_next_page(self) -> typing.Optional["ListUsersPage"]:
+    def get_next_page(self) -> typing.Optional['ListUsersPage']:
         """Retrieves the next page of user accounts, if available.
 
         Returns:
@@ -396,7 +396,7 @@ class ListUsersPage:
             return ListUsersPage(self._download, self.next_page_token, self._max_results)
         return None
 
-    def iterate_all(self) -> "_UserIterator":
+    def iterate_all(self) -> '_UserIterator':
         """Retrieves an iterator for user accounts.
 
         Returned iterator will iterate through all the user accounts in the Firebase project
@@ -412,7 +412,7 @@ class ListUsersPage:
 class DeleteUsersResult:
     """Represents the result of the ``auth.delete_users()`` API."""
 
-    def __init__(self, result: "BatchDeleteAccountsResponse", total: int) -> None:
+    def __init__(self, result: 'BatchDeleteAccountsResponse', total: int) -> None:
         """Constructs a `DeleteUsersResult` object.
 
         Args:
@@ -515,7 +515,7 @@ class ActionCodeSettings:
         ios_bundle_id: typing.Optional[str] = None,
         android_package_name: typing.Optional[str] = None,
         android_install_app: typing.Optional[bool] = None,
-        android_minimum_version: typing.Optional[str] = None
+        android_minimum_version: typing.Optional[str] = None,
     ) -> None:
         self.url = url
         self.handle_code_in_app = handle_code_in_app
@@ -687,7 +687,7 @@ class UserManager:
         self,
         page_token: typing.Optional[str] = None,
         max_results: int = MAX_LIST_USERS_RESULTS,
-    ):
+    ) -> typing.Dict[str, _typing.Json]:
         """Retrieves a batch of users."""
         if page_token is not None:
             if not isinstance(page_token, str) or not page_token:
@@ -747,7 +747,7 @@ class UserManager:
         valid_since: typing.Optional[_typing.ConvertibleToInt] = None,
         custom_claims: typing.Optional[typing.Union[typing.Dict[str, typing.Any], str]] = None,
         providers_to_delete: typing.Optional[typing.List[str]] = None,
-    ):
+    ) -> str:
         """Updates an existing user account with the specified properties"""
         payload: typing.Dict[str, typing.Any] = {
             'localId': _auth_utils.validate_uid(uid, required=True),
@@ -794,7 +794,7 @@ class UserManager:
         if not body or not body.get('localId'):
             raise _auth_utils.UnexpectedResponseError(
                 'Failed to update user: {0}.'.format(uid), http_response=http_resp)
-        return body.get('localId')
+        return typing.cast(str, body['localId'])
 
     def delete_user(self, uid: str) -> None:
         """Deletes the user identified by the specified user ID."""
@@ -872,7 +872,7 @@ class UserManager:
         self,
         action_type: _typing.EmailActionType,
         email: typing.Optional[str],
-        action_code_settings: typing.Optional[ActionCodeSettings] = None
+        action_code_settings: typing.Optional[ActionCodeSettings] = None,
     ) -> str:
         """Fetches the email action links for types
 

@@ -67,14 +67,14 @@ class _StorageClient:
         self,
         credentials: credentials.Credentials,
         project: typing.Optional[str],
-        default_bucket: typing.Optional[str]
+        default_bucket: typing.Optional[str],
     ) -> None:
         self._client = storage.Client(
             credentials=credentials, project=project, extra_headers=self.STORAGE_HEADERS)
         self._default_bucket = default_bucket
 
     @classmethod
-    def from_app(cls, app: App) -> "_StorageClient":
+    def from_app(cls, app: App) -> '_StorageClient':
         credentials = app.credential.get_credential()
         default_bucket = app.options.get('storageBucket')
         # Specifying project ID is not required, but providing it when available

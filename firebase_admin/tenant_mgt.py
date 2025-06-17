@@ -72,7 +72,7 @@ def auth_for_tenant(tenant_id: str, app: typing.Optional[firebase_admin.App] = N
     return tenant_mgt_service.auth_for_tenant(tenant_id)
 
 
-def get_tenant(tenant_id: str, app: typing.Optional[firebase_admin.App] = None) -> "Tenant":
+def get_tenant(tenant_id: str, app: typing.Optional[firebase_admin.App] = None) -> 'Tenant':
     """Gets the tenant corresponding to the given ``tenant_id``.
 
     Args:
@@ -95,8 +95,8 @@ def create_tenant(
     display_name: str,
     allow_password_sign_up: typing.Optional[bool] = None,
     enable_email_link_sign_in: typing.Optional[bool] = None,
-    app: typing.Optional[firebase_admin.App] = None
-) -> "Tenant":
+    app: typing.Optional[firebase_admin.App] = None,
+) -> 'Tenant':
     """Creates a new tenant from the given options.
 
     Args:
@@ -127,7 +127,7 @@ def update_tenant(
     allow_password_sign_up: typing.Optional[bool] = None,
     enable_email_link_sign_in: typing.Optional[bool] = None,
     app: typing.Optional[firebase_admin.App] = None,
-) -> "Tenant":
+) -> 'Tenant':
     """Updates an existing tenant with the given options.
 
     Args:
@@ -172,8 +172,8 @@ def delete_tenant(tenant_id: str, app: typing.Optional[firebase_admin.App] = Non
 def list_tenants(
     page_token: typing.Optional[str] = None,
     max_results: int = _MAX_LIST_TENANTS_RESULTS,
-    app: typing.Optional[firebase_admin.App] = None
-) -> "ListTenantsPage":
+    app: typing.Optional[firebase_admin.App] = None,
+) -> 'ListTenantsPage':
     """Retrieves a page of tenants from a Firebase project.
 
     The ``page_token`` argument governs the starting point of the page. The ``max_results``
@@ -201,7 +201,7 @@ def list_tenants(
     return ListTenantsPage(download, page_token, max_results)
 
 
-def _get_tenant_mgt_service(app: typing.Optional[firebase_admin.App]) -> "_TenantManagementService":
+def _get_tenant_mgt_service(app: typing.Optional[firebase_admin.App]) -> '_TenantManagementService':
     return _utils.get_app_service(app, _TENANT_MGT_ATTRIBUTE, _TenantManagementService)
 
 
@@ -230,7 +230,7 @@ class Tenant:
         return name.split('/')[-1]
 
     @property
-    def display_name(self):
+    def display_name(self) -> typing.Optional[str]:
         return self._data.get('displayName')
 
     @property
@@ -288,8 +288,8 @@ class _TenantManagementService:
         self,
         display_name: str,
         allow_password_sign_up: typing.Optional[bool] = None,
-        enable_email_link_sign_in: typing.Optional[bool] = None
-    ):
+        enable_email_link_sign_in: typing.Optional[bool] = None,
+    ) -> Tenant:
         """Creates a new tenant from the given parameters."""
 
         payload: typing.Dict[str, typing.Any] = {'displayName': _validate_display_name(display_name)}
@@ -313,7 +313,7 @@ class _TenantManagementService:
         display_name: typing.Optional[str] = None,
         allow_password_sign_up: typing.Optional[bool] = None,
         enable_email_link_sign_in: typing.Optional[bool] = None
-    ):
+    ) -> Tenant:
         """Updates the specified tenant with the given parameters."""
         if not isinstance(tenant_id, str) or not tenant_id:
             raise ValueError('Tenant ID must be a non-empty string.')
@@ -410,7 +410,7 @@ class ListTenantsPage:
         """A boolean indicating whether more pages are available."""
         return bool(self.next_page_token)
 
-    def get_next_page(self) -> typing.Optional["ListTenantsPage"]:
+    def get_next_page(self) -> typing.Optional['ListTenantsPage']:
         """Retrieves the next page of tenants, if available.
 
         Returns:

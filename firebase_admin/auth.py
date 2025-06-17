@@ -351,7 +351,10 @@ def get_user(uid: str, app: typing.Optional[firebase_admin.App] = None) -> _user
     return client.get_user(uid=uid)
 
 
-def get_user_by_email(email: str, app: typing.Optional[firebase_admin.App] = None) -> _user_mgt.UserRecord:
+def get_user_by_email(
+    email: str,
+    app: typing.Optional[firebase_admin.App] = None,
+) -> _user_mgt.UserRecord:
     """Gets the user data corresponding to the specified user email.
 
     Args:
@@ -497,19 +500,20 @@ def create_user(
 
 def update_user(
     uid: str,
+    *,
     display_name: typing.Optional[str] = None,
     email: typing.Optional[str] = None,
+    email_verified: typing.Optional[bool] = None,
     phone_number: typing.Optional[str] = None,
     photo_url: typing.Optional[str] = None,
     password: typing.Optional[str] = None,
     disabled: typing.Optional[bool] = None,
-    email_verified: typing.Optional[bool] = None,
-    valid_since: typing.Optional[_typing.ConvertibleToInt] = None,
     custom_claims: typing.Optional[typing.Union[typing.Dict[str, typing.Any], str]] = None,
+    valid_since: typing.Optional[_typing.ConvertibleToInt] = None,
     providers_to_delete: typing.Optional[typing.List[str]] = None,
     app: typing.Optional[firebase_admin.App] = None,
     **kwargs: typing.Any,
-) -> _user_mgt.UserRecord: # pylint: disable=differing-param-doc
+) -> _user_mgt.UserRecord:
     """Updates an existing user account with the specified properties.
 
     Args:
@@ -532,6 +536,8 @@ def update_user(
             user account (optional). To remove all custom claims, pass ``auth.DELETE_ATTRIBUTE``.
         valid_since: An integer signifying the seconds since the epoch (optional). This field is
             set by ``revoke_refresh_tokens`` and it is discouraged to set this field directly.
+        providers_to_delete: The list of provider IDs to unlink,
+            eg: 'google.com', 'password', etc.
         app: An App instance (optional).
 
     Returns:
@@ -542,9 +548,10 @@ def update_user(
         FirebaseError: If an error occurs while updating the user account.
     """
     client = _get_client(app)
-    return client.update_user(uid, display_name=display_name, email=email, phone_number=phone_number,
-        photo_url=photo_url, password=password, disabled=disabled, email_verified=email_verified,
-        valid_since=valid_since, custom_claims=custom_claims, providers_to_delete=providers_to_delete, **kwargs)
+    return client.update_user(uid, display_name=display_name, email=email,
+        phone_number=phone_number, photo_url=photo_url, password=password, disabled=disabled,
+        email_verified=email_verified, valid_since=valid_since, custom_claims=custom_claims,
+        providers_to_delete=providers_to_delete, **kwargs)
 
 
 def set_custom_user_claims(
@@ -845,7 +852,10 @@ def update_oidc_provider_config(
         code_response_type=code_response_type)
 
 
-def delete_oidc_provider_config(provider_id: str, app: typing.Optional[firebase_admin.App] = None) -> None:
+def delete_oidc_provider_config(
+    provider_id: str,
+    app: typing.Optional[firebase_admin.App] = None,
+) -> None:
     """Deletes the ``OIDCProviderConfig`` with the given ID.
 
     Args:
@@ -1005,7 +1015,10 @@ def update_saml_provider_config(
         callback_url=callback_url, display_name=display_name, enabled=enabled)
 
 
-def delete_saml_provider_config(provider_id: str, app: typing.Optional[firebase_admin.App] = None) -> None:
+def delete_saml_provider_config(
+    provider_id: str,
+    app: typing.Optional[firebase_admin.App] = None,
+) -> None:
     """Deletes the ``SAMLProviderConfig`` with the given ID.
 
     Args:

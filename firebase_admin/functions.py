@@ -57,14 +57,14 @@ _FUNCTIONS_HEADERS = {
 # Default canonical location ID of the task queue.
 _DEFAULT_LOCATION = 'us-central1'
 
-def _get_functions_service(app: typing.Optional[firebase_admin.App]) -> "_FunctionsService":
+def _get_functions_service(app: typing.Optional[firebase_admin.App]) -> '_FunctionsService':
     return _utils.get_app_service(app, _FUNCTIONS_ATTRIBUTE, _FunctionsService)
 
 def task_queue(
     function_name: str,
     extension_id: typing.Optional[str] = None,
     app: typing.Optional[firebase_admin.App] = None,
-) -> "TaskQueue":
+) -> 'TaskQueue':
     """Creates a reference to a TaskQueue for a given function name.
 
     The function name can be either:
@@ -106,7 +106,7 @@ class _FunctionsService:
         self._credential = app.credential.get_credential()
         self._http_client = _http_client.JsonHttpClient(credential=self._credential)
 
-    def task_queue(self, function_name: str, extension_id: typing.Optional[str] = None) -> "TaskQueue":
+    def task_queue(self, function_name: str, extension_id: typing.Optional[str] = None) -> 'TaskQueue':
         """Creates a TaskQueue instance."""
         return TaskQueue(
             function_name, extension_id, self._project_id, self._credential, self._http_client)
@@ -125,7 +125,7 @@ class TaskQueue:
         extension_id: typing.Optional[str],
         project_id: typing.Optional[str],
         credential: GoogleAuthCredentials,
-        http_client: _http_client.HttpClient[typing.Dict[str, _typing.Json]]
+        http_client: _http_client.HttpClient[typing.Dict[str, _typing.Json]],
     ) -> None:
         # Validate function_name
         _Validators.check_non_empty_string('function_name', function_name)
@@ -147,7 +147,7 @@ class TaskQueue:
             _Validators.check_non_empty_string('extension_id', self._extension_id)
             self._resource.resource_id = f'ext-{self._extension_id}-{self._resource.resource_id}'
 
-    def enqueue(self, task_data: typing.Any, opts: typing.Optional["TaskOptions"] = None) -> str:
+    def enqueue(self, task_data: typing.Any, opts: typing.Optional['TaskOptions'] = None) -> str:
         """Creates a task and adds it to the queue. Tasks cannot be updated after creation.
 
         This action requires `cloudtasks.tasks.create` IAM permission on the service account.
@@ -205,7 +205,7 @@ class TaskQueue:
         except requests.exceptions.RequestException as error:
             raise _FunctionsService.handle_functions_error(error)
 
-    def _parse_resource_name(self, resource_name: str, resource_id_key: str) -> "Resource":
+    def _parse_resource_name(self, resource_name: str, resource_id_key: str) -> 'Resource':
         """Parses a full or partial resource path into a ``Resource``."""
         if '/' not in resource_name:
             return Resource(resource_id=resource_name)
@@ -216,7 +216,7 @@ class TaskQueue:
             raise ValueError('Invalid resource name format.')
         return Resource(project_id=match[2], location_id=match[3], resource_id=match[4])
 
-    def _get_url(self, resource: "Resource", url_format: str) -> str:
+    def _get_url(self, resource: 'Resource', url_format: str) -> str:
         """Generates url path from a ``Resource`` and url format string."""
         return url_format.format(
             project_id=resource.project_id,
@@ -226,9 +226,9 @@ class TaskQueue:
     def _validate_task_options(
         self,
         data: typing.Dict[str, typing.Any],
-        resource: "Resource",
-        opts: typing.Optional["TaskOptions"] = None,
-    ) -> "Task":
+        resource: 'Resource',
+        opts: typing.Optional['TaskOptions'] = None,
+    ) -> 'Task':
         """Validate and create a Task from optional ``TaskOptions``."""
         task_http_request = {
             'url': '',
@@ -283,10 +283,10 @@ class TaskQueue:
 
     def _update_task_payload(
         self,
-        task: "Task",
-        resource: "Resource",
+        task: 'Task',
+        resource: 'Resource',
         extension_id: typing.Optional[str],
-    ) -> "Task":
+    ) -> 'Task':
         """Prepares task to be sent with credentials."""
         # Get function url from task or generate from resources
         if not _Validators.is_non_empty_string(task.http_request['url']):

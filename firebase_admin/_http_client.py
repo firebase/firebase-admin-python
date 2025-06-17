@@ -38,7 +38,7 @@ else:
 
 logger = logging.getLogger(__name__)
 
-_AnyT = typing_extensions.TypeVar("_AnyT", default=typing.Any)
+_AnyT = typing_extensions.TypeVar('_AnyT', default=typing.Any)
 
 if hasattr(retry.Retry.DEFAULT, 'allowed_methods'):
     _ANY_METHOD: typing.Dict[str, typing.Any] = {'allowed_methods': None}
@@ -54,8 +54,6 @@ DEFAULT_RETRY_CONFIG = retry.Retry(
 
 DEFAULT_HTTPX_RETRY_CONFIG = _retry.HttpxRetry(
     max_retries=4, status_forcelist=[500, 503], backoff_factor=0.5)
-
-
 
 DEFAULT_TIMEOUT_SECONDS = 120
 
@@ -75,7 +73,7 @@ class HttpClient(typing.Generic[_AnyT]):
         credential: typing.Optional[google.auth.credentials.Credentials] = None,
         session: typing.Optional[requests.Session] = None,
         base_url: str = '',
-        headers: typing.Optional["_typing.HeadersLike"] = None,
+        headers: typing.Optional['_typing.HeadersLike'] = None,
         retries: retry.Retry = DEFAULT_RETRY_CONFIG,
         timeout: int = DEFAULT_TIMEOUT_SECONDS,
     ) -> None:
@@ -181,9 +179,9 @@ class HttpClient(typing.Generic[_AnyT]):
             self._session = None
 
 
-class JsonHttpClient(HttpClient[typing.Dict[str ,"_typing.Json"]]):
+class JsonHttpClient(HttpClient[typing.Dict[str, '_typing.Json']]):
     """An HTTP client that parses response messages as JSON."""
-    def parse_body(self, resp: requests.Response) -> typing.Dict[str ,"_typing.Json"]:
+    def parse_body(self, resp: requests.Response) -> typing.Dict[str, '_typing.Json']:
         return resp.json()
 
 

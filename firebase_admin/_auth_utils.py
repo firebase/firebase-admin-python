@@ -27,7 +27,7 @@ from firebase_admin import _typing
 from firebase_admin import _utils
 
 
-_PageT = typing.TypeVar("_PageT", bound=_typing.Page)
+_PageT = typing.TypeVar('_PageT', bound=_typing.Page)
 
 EMULATOR_HOST_ENV_VAR = 'FIREBASE_AUTH_EMULATOR_HOST'
 MAX_CLAIMS_PAYLOAD_SIZE = 1000
@@ -381,7 +381,7 @@ class UidAlreadyExistsError(exceptions.AlreadyExistsError):
         self,
         message: str,
         cause: typing.Optional[Exception],
-        http_response: typing.Optional[requests.Response]
+        http_response: typing.Optional[requests.Response],
     ) -> None:
         exceptions.AlreadyExistsError.__init__(self, message, cause, http_response)
 
@@ -395,7 +395,7 @@ class EmailAlreadyExistsError(exceptions.AlreadyExistsError):
         self,
         message: str,
         cause: typing.Optional[Exception],
-        http_response: typing.Optional[requests.Response]
+        http_response: typing.Optional[requests.Response],
     ) -> None:
         exceptions.AlreadyExistsError.__init__(self, message, cause, http_response)
 
@@ -412,7 +412,7 @@ class InsufficientPermissionError(exceptions.PermissionDeniedError):
         self,
         message: str,
         cause: typing.Optional[Exception],
-        http_response: typing.Optional[requests.Response]
+        http_response: typing.Optional[requests.Response],
     ) -> None:
         exceptions.PermissionDeniedError.__init__(self, message, cause, http_response)
 
@@ -426,7 +426,7 @@ class InvalidDynamicLinkDomainError(exceptions.InvalidArgumentError):
         self,
         message: str,
         cause: typing.Optional[Exception],
-        http_response: typing.Optional[requests.Response]
+        http_response: typing.Optional[requests.Response],
     ) -> None:
         exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
 
@@ -637,7 +637,7 @@ def _parse_error_body(response: requests.Response) -> typing.Tuple[typing.Option
 def _build_error_message(
     code: str,
     exc_type: typing.Optional[_typing.FirebaseErrorFactory],
-    custom_message: typing.Optional[str]
+    custom_message: typing.Optional[str],
 ) -> str:
     default_message: str = getattr(exc_type, 'default_message', 'Error while calling Auth service')
     ext = ' {0}'.format(custom_message) if custom_message else ''

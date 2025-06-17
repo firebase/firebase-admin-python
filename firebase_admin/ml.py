@@ -88,7 +88,7 @@ _OPERATION_NAME_PATTERN = re.compile(
     r'^projects/(?P<project_id>[a-z0-9-]{6,30})/operations/[^/]+$')
 
 
-def _get_ml_service(app: typing.Optional[firebase_admin.App]) -> "_MLService":
+def _get_ml_service(app: typing.Optional[firebase_admin.App]) -> '_MLService':
     """ Returns an _MLService instance for an App.
 
     Args:
@@ -103,7 +103,7 @@ def _get_ml_service(app: typing.Optional[firebase_admin.App]) -> "_MLService":
     return _utils.get_app_service(app, _ML_ATTRIBUTE, _MLService)
 
 
-def create_model(model: "Model", app: typing.Optional[firebase_admin.App] = None) -> "Model":
+def create_model(model: 'Model', app: typing.Optional[firebase_admin.App] = None) -> 'Model':
     """Creates a model in the current Firebase project.
 
     Args:
@@ -117,7 +117,7 @@ def create_model(model: "Model", app: typing.Optional[firebase_admin.App] = None
     return Model.from_dict(ml_service.create_model(model), app=app)
 
 
-def update_model(model: "Model", app: typing.Optional[firebase_admin.App] = None) -> "Model":
+def update_model(model: 'Model', app: typing.Optional[firebase_admin.App] = None) -> 'Model':
     """Updates a model's metadata or model file.
 
     Args:
@@ -131,7 +131,7 @@ def update_model(model: "Model", app: typing.Optional[firebase_admin.App] = None
     return Model.from_dict(ml_service.update_model(model), app=app)
 
 
-def publish_model(model_id: str, app: typing.Optional[firebase_admin.App] = None) -> "Model":
+def publish_model(model_id: str, app: typing.Optional[firebase_admin.App] = None) -> 'Model':
     """Publishes a Firebase ML model.
 
     A published model can be downloaded to client apps.
@@ -147,7 +147,7 @@ def publish_model(model_id: str, app: typing.Optional[firebase_admin.App] = None
     return Model.from_dict(ml_service.set_published(model_id, publish=True), app=app)
 
 
-def unpublish_model(model_id: str, app: typing.Optional[firebase_admin.App] = None) -> "Model":
+def unpublish_model(model_id: str, app: typing.Optional[firebase_admin.App] = None) -> 'Model':
     """Unpublishes a Firebase ML model.
 
     Args:
@@ -161,7 +161,7 @@ def unpublish_model(model_id: str, app: typing.Optional[firebase_admin.App] = No
     return Model.from_dict(ml_service.set_published(model_id, publish=False), app=app)
 
 
-def get_model(model_id: str, app: typing.Optional[firebase_admin.App] = None) -> "Model":
+def get_model(model_id: str, app: typing.Optional[firebase_admin.App] = None) -> 'Model':
     """Gets the model specified by the given ID.
 
     Args:
@@ -180,7 +180,7 @@ def list_models(
     page_size: typing.Optional[int] = None,
     page_token: typing.Optional[str] = None,
     app: typing.Optional[firebase_admin.App] = None,
-) -> "ListModelsPage":
+) -> 'ListModelsPage':
     """Lists the current project's models.
 
     Args:
@@ -222,7 +222,7 @@ class Model:
         self,
         display_name: typing.Optional[str] = None,
         tags: typing.Optional[typing.List[str]] = None,
-        model_format: typing.Optional["ModelFormat"] = None,
+        model_format: typing.Optional['ModelFormat'] = None,
     ) -> None:
         self._app: typing.Optional[firebase_admin.App] = None  # Only needed for wait_for_unlo
         self._data: typing.Dict[str, typing.Any] = {}
@@ -236,7 +236,11 @@ class Model:
             self.model_format = model_format
 
     @classmethod
-    def from_dict(cls, data: typing.Dict[str, typing.Any], app: typing.Optional[firebase_admin.App] = None) -> "Model":
+    def from_dict(
+        cls,
+        data: typing.Dict[str, typing.Any],
+        app: typing.Optional[firebase_admin.App] = None,
+    ) -> 'Model':
         """Create an instance of the object from a dict."""
         data_copy = dict(data)
         tflite_format = None
@@ -358,13 +362,13 @@ class Model:
         self._update_from_dict(model_dict)
 
     @property
-    def model_format(self) -> typing.Optional["ModelFormat"]:
+    def model_format(self) -> typing.Optional['ModelFormat']:
         """The model's ``ModelFormat`` object, which represents the model's
         format and storage location."""
         return self._model_format
 
     @model_format.setter
-    def model_format(self, model_format: typing.Optional["ModelFormat"]) -> None:
+    def model_format(self, model_format: typing.Optional['ModelFormat']) -> None:
         if model_format is not None:
             _validate_model_format(model_format)
         self._model_format = model_format  #Can be None
@@ -390,7 +394,7 @@ class TFLiteFormat(ModelFormat):
     Args:
         model_source: A TFLiteModelSource sub class. Specifies the details of the model source.
     """
-    def __init__(self, model_source: typing.Optional["TFLiteModelSource"] = None) -> None:
+    def __init__(self, model_source: typing.Optional['TFLiteModelSource'] = None) -> None:
         self._data: typing.Dict[str, typing.Any] = {}
         self._model_source: typing.Optional[TFLiteModelSource] = None
 
@@ -398,7 +402,7 @@ class TFLiteFormat(ModelFormat):
             self.model_source = model_source
 
     @classmethod
-    def from_dict(cls, data: typing.Dict[str, typing.Any]) -> "TFLiteFormat":
+    def from_dict(cls, data: typing.Dict[str, typing.Any]) -> 'TFLiteFormat':
         """Create an instance of the object from a dict."""
         data_copy = dict(data)
         tflite_format = TFLiteFormat(model_source=cls._init_model_source(data_copy))
@@ -415,7 +419,7 @@ class TFLiteFormat(ModelFormat):
         return not self.__eq__(other)
 
     @staticmethod
-    def _init_model_source(data: typing.Dict[str, typing.Any]) -> typing.Optional["TFLiteModelSource"]:
+    def _init_model_source(data: typing.Dict[str, typing.Any]) -> typing.Optional['TFLiteModelSource']:
         """Initialize the ML model source."""
         gcs_tflite_uri = data.pop('gcsTfliteUri', None)
         if gcs_tflite_uri:
@@ -428,12 +432,12 @@ class TFLiteFormat(ModelFormat):
         return None
 
     @property
-    def model_source(self) -> typing.Optional["TFLiteModelSource"]:
+    def model_source(self) -> typing.Optional['TFLiteModelSource']:
         """The TF Lite model's location."""
         return self._model_source
 
     @model_source.setter
-    def model_source(self, model_source: typing.Optional["TFLiteModelSource"]) -> None:
+    def model_source(self, model_source: typing.Optional['TFLiteModelSource']) -> None:
         if model_source is not None:
             if not isinstance(model_source, TFLiteModelSource):
                 raise TypeError('Model source must be a TFLiteModelSource object.')
@@ -483,7 +487,7 @@ class _CloudStorageClient:
     @staticmethod
     def upload(
         bucket_name: typing.Optional[str],
-        model_file_name: typing.Union[str, os.PathLike[str]],
+        model_file_name: typing.Union[str, 'os.PathLike[str]'],
         app: typing.Optional[firebase_admin.App],
     ) -> str:
         """Upload a model file to the specified Storage bucket."""
@@ -533,7 +537,7 @@ class TFLiteGCSModelSource(TFLiteModelSource):
     @classmethod
     def from_tflite_model_file(
         cls,
-        model_file_name: typing.Union[str, os.PathLike[str]],
+        model_file_name: typing.Union[str, 'os.PathLike[str]'],
         bucket_name: typing.Optional[str] = None,
         app: typing.Optional[firebase_admin.App] = None,
     ) -> "TFLiteGCSModelSource":
@@ -586,10 +590,10 @@ class TFLiteGCSModelSource(TFLiteModelSource):
     def from_saved_model(
         cls,
         saved_model_dir: Incomplete,
-        model_file_name: typing.Union[str, os.PathLike[str]] = 'firebase_ml_model.tflite',
+        model_file_name: typing.Union[str, 'os.PathLike[str]'] = 'firebase_ml_model.tflite',
         bucket_name: typing.Optional[str] = None,
         app: typing.Optional[firebase_admin.App] = None,
-    ) -> "TFLiteGCSModelSource":
+    ) -> 'TFLiteGCSModelSource':
         """Creates a Tensor Flow Lite model from the saved model, and uploads the model to GCS.
 
         Args:
@@ -614,11 +618,11 @@ class TFLiteGCSModelSource(TFLiteModelSource):
     @classmethod
     def from_keras_model(
         cls,
-        keras_model: os.PathLike[str],
+        keras_model: 'os.PathLike[str]',
         model_file_name: str = 'firebase_ml_model.tflite',
         bucket_name: typing.Optional[str] = None,
         app: typing.Optional[firebase_admin.App] = None,
-    ) -> "TFLiteGCSModelSource":
+    ) -> 'TFLiteGCSModelSource':
         """Creates a Tensor Flow Lite model from the keras model, and uploads the model to GCS.
 
         Args:
@@ -745,7 +749,7 @@ class ListModelsPage:
         """True if more pages are available."""
         return bool(self.next_page_token)
 
-    def get_next_page(self) -> typing.Optional["ListModelsPage"]:
+    def get_next_page(self) -> typing.Optional['ListModelsPage']:
         """Retrieves the next page of models if available.
 
         Returns:
@@ -760,7 +764,7 @@ class ListModelsPage:
                 self._app)
         return None
 
-    def iterate_all(self) -> "_ModelIterator":
+    def iterate_all(self) -> '_ModelIterator':
         """Retrieves an iterator for Models.
 
         Returned iterator will iterate through all the models in the Firebase

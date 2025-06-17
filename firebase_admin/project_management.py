@@ -31,17 +31,17 @@ from firebase_admin import _typing
 from firebase_admin import _utils
 
 
-_T = typing.TypeVar("_T")
-_AppMetadataT = typing.TypeVar("_AppMetadataT", bound="_AppMetadata")
+_T = typing.TypeVar('_T')
+_AppMetadataT = typing.TypeVar('_AppMetadataT', bound='_AppMetadata')
 
 _PROJECT_MANAGEMENT_ATTRIBUTE = '_project_management'
 
 
-def _get_project_management_service(app: typing.Optional["firebase_admin.App"]) -> "_ProjectManagementService":
+def _get_project_management_service(app: typing.Optional['firebase_admin.App']) -> '_ProjectManagementService':
     return _utils.get_app_service(app, _PROJECT_MANAGEMENT_ATTRIBUTE, _ProjectManagementService)
 
 
-def android_app(app_id: str, app: typing.Optional["firebase_admin.App"] = None) -> "AndroidApp":
+def android_app(app_id: str, app: typing.Optional['firebase_admin.App'] = None) -> 'AndroidApp':
     """Obtains a reference to an Android app in the associated Firebase project.
 
     Args:
@@ -54,7 +54,7 @@ def android_app(app_id: str, app: typing.Optional["firebase_admin.App"] = None) 
     return AndroidApp(app_id=app_id, service=_get_project_management_service(app))
 
 
-def ios_app(app_id: str, app: typing.Optional["firebase_admin.App"] = None) -> "IOSApp":
+def ios_app(app_id: str, app: typing.Optional['firebase_admin.App'] = None) -> 'IOSApp':
     """Obtains a reference to an iOS app in the associated Firebase project.
 
     Args:
@@ -67,7 +67,7 @@ def ios_app(app_id: str, app: typing.Optional["firebase_admin.App"] = None) -> "
     return IOSApp(app_id=app_id, service=_get_project_management_service(app))
 
 
-def list_android_apps(app: typing.Optional["firebase_admin.App"] = None) -> typing.List["AndroidApp"]:
+def list_android_apps(app: typing.Optional['firebase_admin.App'] = None) -> typing.List['AndroidApp']:
     """Lists all Android apps in the associated Firebase project.
 
     Args:
@@ -80,7 +80,7 @@ def list_android_apps(app: typing.Optional["firebase_admin.App"] = None) -> typi
     return _get_project_management_service(app).list_android_apps()
 
 
-def list_ios_apps(app: typing.Optional["firebase_admin.App"] = None) -> typing.List["IOSApp"]:
+def list_ios_apps(app: typing.Optional['firebase_admin.App'] = None) -> typing.List['IOSApp']:
     """Lists all iOS apps in the associated Firebase project.
 
     Args:
@@ -95,8 +95,8 @@ def list_ios_apps(app: typing.Optional["firebase_admin.App"] = None) -> typing.L
 def create_android_app(
     package_name: str,
     display_name: typing.Optional[str] = None,
-    app: typing.Optional["firebase_admin.App"] = None,
-) -> "AndroidApp":
+    app: typing.Optional['firebase_admin.App'] = None,
+) -> 'AndroidApp':
     """Creates a new Android app in the associated Firebase project.
 
     Args:
@@ -113,8 +113,8 @@ def create_android_app(
 def create_ios_app(
     bundle_id: str,
     display_name: typing.Optional[str] = None,
-    app: typing.Optional["firebase_admin.App"] = None,
-) -> "IOSApp":
+    app: typing.Optional['firebase_admin.App'] = None,
+) -> 'IOSApp':
     """Creates a new iOS app in the associated Firebase project.
 
     Args:
@@ -165,7 +165,7 @@ class AndroidApp:
     instead of instantiating it directly.
     """
 
-    def __init__(self, app_id: str, service: "_ProjectManagementService") -> None:
+    def __init__(self, app_id: str, service: '_ProjectManagementService') -> None:
         self._app_id = app_id
         self._service = service
 
@@ -180,7 +180,7 @@ class AndroidApp:
         """
         return self._app_id
 
-    def get_metadata(self) -> "AndroidAppMetadata":
+    def get_metadata(self) -> 'AndroidAppMetadata':
         """Retrieves detailed information about this Android app.
 
         Returns:
@@ -211,7 +211,7 @@ class AndroidApp:
         """Retrieves the configuration artifact associated with this Android app."""
         return self._service.get_android_app_config(self._app_id)
 
-    def get_sha_certificates(self) -> typing.List["SHACertificate"]:
+    def get_sha_certificates(self) -> typing.List['SHACertificate']:
         """Retrieves the entire list of SHA certificates associated with this Android app.
 
         Returns:
@@ -223,7 +223,7 @@ class AndroidApp:
         """
         return self._service.get_sha_certificates(self._app_id)
 
-    def add_sha_certificate(self, certificate_to_add: "SHACertificate") -> None:
+    def add_sha_certificate(self, certificate_to_add: 'SHACertificate') -> None:
         """Adds a SHA certificate to this Android app.
 
         Args:
@@ -238,7 +238,7 @@ class AndroidApp:
         """
         self._service.add_sha_certificate(self._app_id, certificate_to_add)
 
-    def delete_sha_certificate(self, certificate_to_delete: "SHACertificate") -> None:
+    def delete_sha_certificate(self, certificate_to_delete: 'SHACertificate') -> None:
         """Removes a SHA certificate from this Android app.
 
         Args:
@@ -263,7 +263,7 @@ class IOSApp:
     instead of instantiating it directly.
     """
 
-    def __init__(self, app_id: str, service: "_ProjectManagementService") -> None:
+    def __init__(self, app_id: str, service: '_ProjectManagementService') -> None:
         self._app_id = app_id
         self._service = service
 
@@ -278,7 +278,7 @@ class IOSApp:
         """
         return self._app_id
 
-    def get_metadata(self) -> "IOSAppMetadata":
+    def get_metadata(self) -> 'IOSAppMetadata':
         """Retrieves detailed information about this iOS app.
 
         Returns:
@@ -500,7 +500,7 @@ class _ProjectManagementService:
     IOS_APPS_RESOURCE_NAME = 'iosApps'
     IOS_APP_IDENTIFIER_NAME = 'bundleId'
 
-    def __init__(self, app: "firebase_admin.App") -> None:
+    def __init__(self, app: 'firebase_admin.App') -> None:
         project_id = app.project_id
         if not project_id:
             raise ValueError(
@@ -534,7 +534,7 @@ class _ProjectManagementService:
         self,
         platform_resource_name: str,
         identifier_name: str,
-        metadata_class: "_typing.AppMetadataSubclass[_AppMetadataT]",
+        metadata_class: '_typing.AppMetadataSubclass[_AppMetadataT]',
         app_id: str,
     ) -> _AppMetadataT:
         """Retrieves detailed information about an Android or iOS app."""
@@ -577,7 +577,7 @@ class _ProjectManagementService:
             platform_resource_name=_ProjectManagementService.IOS_APPS_RESOURCE_NAME,
             app_class=IOSApp)
 
-    def _list_apps(self, platform_resource_name: str, app_class: "_typing.ProjectApp[_T]") -> typing.List[_T]:
+    def _list_apps(self, platform_resource_name: str, app_class: '_typing.ProjectApp[_T]') -> typing.List[_T]:
         """Lists all the Android or iOS apps within the Firebase project."""
         path = '/v1beta1/projects/{0}/{1}?pageSize={2}'.format(
             self._project_id,
@@ -624,7 +624,7 @@ class _ProjectManagementService:
         identifier_name: str,
         identifier: str,
         display_name: typing.Optional[str],
-        app_class: "_typing.ProjectApp[_T]",
+        app_class: '_typing.ProjectApp[_T]',
     ) -> _T:
         """Creates an Android or iOS app."""
         _check_is_string_or_none(display_name, 'display_name')

@@ -222,7 +222,7 @@ class ServerTemplate:
 
 class ServerConfig:
     """Represents a Remote Config Server Side Config."""
-    def __init__(self, config_values: typing.Dict[str, "_Value"]):
+    def __init__(self, config_values: typing.Dict[str, '_Value']):
         self._config_values = config_values # dictionary of param key to values
 
     def get_boolean(self, key: str) -> bool:
@@ -304,14 +304,14 @@ class _ConditionEvaluator:
         conditions: typing.List[typing.Dict[str, typing.Any]],
         parameters: typing.Dict[str, typing.Dict[str, typing.Any]],
         context: typing.Dict[str, typing.Any],
-        config_values: typing.Dict[str, "_Value"],
+        config_values: typing.Dict[str, '_Value'],
     ) -> None:
         self._context = context
         self._conditions = conditions
         self._parameters = parameters
         self._config_values = config_values
 
-    def evaluate(self) -> typing.Dict[str, "_Value"]:
+    def evaluate(self) -> typing.Dict[str, '_Value']:
         """Internal function that evaluates the cached server template to produce
         a ServerConfig"""
         evaluated_conditions = self.evaluate_conditions(self._conditions, self._context)
@@ -737,7 +737,7 @@ class _ConditionEvaluator:
 
 async def get_server_template(
     app: typing.Optional[firebase_admin.App] = None,
-    default_config: typing.Optional[typing.Dict[str, str]] = None
+    default_config: typing.Optional[typing.Dict[str, str]] = None,
 ) -> ServerTemplate:
     """Initializes a new ServerTemplate instance and fetches the server template.
 

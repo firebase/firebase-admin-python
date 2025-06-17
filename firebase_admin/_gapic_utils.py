@@ -26,9 +26,10 @@ from firebase_admin import exceptions
 from firebase_admin import _typing
 from firebase_admin import _utils
 
+
 def handle_platform_error_from_googleapiclient(
     error: Exception,
-    handle_func: typing.Optional[_typing.GoogleAPIErrorHandler] = None
+    handle_func: typing.Optional[_typing.GoogleAPIErrorHandler] = None,
 ) -> exceptions.FirebaseError:
     """Constructs a ``FirebaseError`` from the given googleapiclient error.
 
@@ -61,7 +62,7 @@ def _handle_func_googleapiclient(
     error: Exception,
     message: str,
     error_dict: typing.Dict[str, typing.Any],
-    http_response: requests.Response
+    http_response: requests.Response,
 ) -> exceptions.FirebaseError:
     """Constructs a ``FirebaseError`` from the given GCP error.
 

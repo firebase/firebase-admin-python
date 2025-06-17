@@ -25,11 +25,13 @@ from firebase_admin import _utils
 _APP_CHECK_ATTRIBUTE = '_app_check'
 
 
-def _get_app_check_service(app: typing.Optional[firebase_admin.App]) -> "_AppCheckService":
+def _get_app_check_service(app: typing.Optional[firebase_admin.App]) -> '_AppCheckService':
     return _utils.get_app_service(app, _APP_CHECK_ATTRIBUTE, _AppCheckService)
 
 
-def verify_token(token: str, app: typing.Optional[firebase_admin.App] = None) -> typing.Dict[str, typing.Any]:
+def verify_token(
+    token: str, app: typing.Optional[firebase_admin.App] = None,
+) -> typing.Dict[str, typing.Any]:
     """Verifies a Firebase App Check token.
 
     Args:

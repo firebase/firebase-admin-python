@@ -17,15 +17,17 @@
 This module provides utilities for adding retry logic to HTTPX requests
 """
 
-from __future__ import annotations
 import copy
 import email.utils
 import random
 import re
 import time
-from typing import Any, Callable, List, Optional, Tuple, Coroutine
 import logging
+from typing import Any, Callable, List, Optional, Tuple, Coroutine
+
 import asyncio
+import typing_extensions
+
 import httpx
 
 logger = logging.getLogger(__name__)
@@ -40,18 +42,18 @@ class HttpxRetry:
     DEFAULT_BACKOFF_MAX = 120
 
     def __init__(
-            self,
-            max_retries: int = 10,
-            status_forcelist: Optional[List[int]] = None,
-            backoff_factor: float = 0,
-            backoff_max: float = DEFAULT_BACKOFF_MAX,
-            backoff_jitter: float = 0,
-            history: Optional[List[Tuple[
-                httpx.Request,
-                Optional[httpx.Response],
-                Optional[Exception]
-            ]]] = None,
-            respect_retry_after_header: bool = False,
+        self,
+        max_retries: int = 10,
+        status_forcelist: Optional[List[int]] = None,
+        backoff_factor: float = 0,
+        backoff_max: float = DEFAULT_BACKOFF_MAX,
+        backoff_jitter: float = 0,
+        history: Optional[List[Tuple[
+            httpx.Request,
+            Optional[httpx.Response],
+            Optional[Exception]
+        ]]] = None,
+        respect_retry_after_header: bool = False,
     ) -> None:
         self.retries_left = max_retries
         self.status_forcelist = status_forcelist
@@ -64,7 +66,7 @@ class HttpxRetry:
             self.history = []
         self.respect_retry_after_header = respect_retry_after_header
 
-    def copy(self) -> HttpxRetry:
+    def copy(self) -> typing_extensions.Self:
         """Creates a deep copy of this instance."""
         return copy.deepcopy(self)
 
@@ -89,7 +91,7 @@ class HttpxRetry:
         return self.retries_left < 0
 
     # Identical implementation of `urllib3.Retry.parse_retry_after()`
-    def _parse_retry_after(self, retry_after_header: str) -> float | None:
+    def _parse_retry_after(self, retry_after_header: str) -> Optional[float]:
         """Parses Retry-After string into a float with unit seconds."""
         seconds: float
         # Whitespace: https://tools.ietf.org/html/rfc7230#section-3.2.4
@@ -107,7 +109,7 @@ class HttpxRetry:
 
         return seconds
 
-    def get_retry_after(self, response: httpx.Response) -> float | None:
+    def get_retry_after(self, response: httpx.Response) -> Optional[float]:
         """Determine the Retry-After time needed before sending the next request."""
         retry_after_header = response.headers.get('Retry-After', None)
         if retry_after_header:
@@ -115,7 +117,7 @@ class HttpxRetry:
             return self._parse_retry_after(retry_after_header)
         return None
 
-    def get_backoff_time(self):
+    def get_backoff_time(self) -> float:
         """Determine the backoff time needed before sending the next request."""
         # attempt_count is the number of previous request attempts
         attempt_count = len(self.history)
@@ -147,10 +149,10 @@ class HttpxRetry:
         await self.sleep_for_backoff()
 
     def increment(
-            self,
-            request: httpx.Request,
-            response: Optional[httpx.Response] = None,
-            error: Optional[Exception] = None
+        self,
+        request: httpx.Request,
+        response: Optional[httpx.Response] = None,
+        error: Optional[Exception] = None,
     ) -> None:
         """Update the retry state based on request attempt."""
         self.retries_left -= 1
@@ -177,9 +179,9 @@ class HttpxRetryTransport(httpx.AsyncBaseTransport):
             request, self._wrapped_transport.handle_async_request)
 
     async def _dispatch_with_retry(
-            self,
-            request: httpx.Request,
-            dispatch_method: Callable[[httpx.Request], Coroutine[Any, Any, httpx.Response]]
+        self,
+        request: httpx.Request,
+        dispatch_method: Callable[[httpx.Request], Coroutine[Any, Any, httpx.Response]],
     ) -> httpx.Response:
         """Sends a request with retry logic using a provided dispatch method."""
         # This request config is used across all requests that use this transport and therefore

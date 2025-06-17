@@ -298,14 +298,14 @@ class UserImportHash:
         return payload
 
     @classmethod
-    def _hmac(cls, name: str, key: bytes) -> "UserImportHash":
+    def _hmac(cls, name: str, key: bytes) -> 'UserImportHash':
         data = {
             'signerKey': b64_encode(_auth_utils.validate_bytes(key, 'key', required=True))
         }
         return UserImportHash(name, data)
 
     @classmethod
-    def hmac_sha512(cls, key: bytes) -> "UserImportHash":
+    def hmac_sha512(cls, key: bytes) -> 'UserImportHash':
         """Creates a new HMAC SHA512 algorithm instance.
 
         Args:
@@ -317,7 +317,7 @@ class UserImportHash:
         return cls._hmac('HMAC_SHA512', key)
 
     @classmethod
-    def hmac_sha256(cls, key: bytes) -> "UserImportHash":
+    def hmac_sha256(cls, key: bytes) -> 'UserImportHash':
         """Creates a new HMAC SHA256 algorithm instance.
 
         Args:
@@ -329,7 +329,7 @@ class UserImportHash:
         return cls._hmac('HMAC_SHA256', key)
 
     @classmethod
-    def hmac_sha1(cls, key: bytes) -> "UserImportHash":
+    def hmac_sha1(cls, key: bytes) -> 'UserImportHash':
         """Creates a new HMAC SHA1 algorithm instance.
 
         Args:
@@ -341,7 +341,7 @@ class UserImportHash:
         return cls._hmac('HMAC_SHA1', key)
 
     @classmethod
-    def hmac_md5(cls, key: bytes) -> "UserImportHash":
+    def hmac_md5(cls, key: bytes) -> 'UserImportHash':
         """Creates a new HMAC MD5 algorithm instance.
 
         Args:
@@ -353,7 +353,7 @@ class UserImportHash:
         return cls._hmac('HMAC_MD5', key)
 
     @classmethod
-    def md5(cls, rounds: int) -> "UserImportHash":
+    def md5(cls, rounds: int) -> 'UserImportHash':
         """Creates a new MD5 algorithm instance.
 
         Args:
@@ -367,7 +367,7 @@ class UserImportHash:
             {'rounds': _auth_utils.validate_int(rounds, 'rounds', 0, 8192)})
 
     @classmethod
-    def sha1(cls, rounds: int) -> "UserImportHash":
+    def sha1(cls, rounds: int) -> 'UserImportHash':
         """Creates a new SHA1 algorithm instance.
 
         Args:
@@ -381,7 +381,7 @@ class UserImportHash:
             {'rounds': _auth_utils.validate_int(rounds, 'rounds', 1, 8192)})
 
     @classmethod
-    def sha256(cls, rounds: int) -> "UserImportHash":
+    def sha256(cls, rounds: int) -> 'UserImportHash':
         """Creates a new SHA256 algorithm instance.
 
         Args:
@@ -395,7 +395,7 @@ class UserImportHash:
             {'rounds': _auth_utils.validate_int(rounds, 'rounds', 1, 8192)})
 
     @classmethod
-    def sha512(cls, rounds: int) -> "UserImportHash":
+    def sha512(cls, rounds: int) -> 'UserImportHash':
         """Creates a new SHA512 algorithm instance.
 
         Args:
@@ -409,7 +409,7 @@ class UserImportHash:
             {'rounds': _auth_utils.validate_int(rounds, 'rounds', 1, 8192)})
 
     @classmethod
-    def pbkdf_sha1(cls, rounds: int) -> "UserImportHash":
+    def pbkdf_sha1(cls, rounds: int) -> 'UserImportHash':
         """Creates a new PBKDF SHA1 algorithm instance.
 
         Args:
@@ -423,7 +423,7 @@ class UserImportHash:
             {'rounds': _auth_utils.validate_int(rounds, 'rounds', 0, 120000)})
 
     @classmethod
-    def pbkdf2_sha256(cls, rounds: int) -> "UserImportHash":
+    def pbkdf2_sha256(cls, rounds: int) -> 'UserImportHash':
         """Creates a new PBKDF2 SHA256 algorithm instance.
 
         Args:
@@ -443,7 +443,7 @@ class UserImportHash:
         rounds: int,
         memory_cost: int,
         salt_separator: typing.Optional[bytes] = None,
-    ) -> "UserImportHash":
+    ) -> 'UserImportHash':
         """Creates a new Scrypt algorithm instance.
 
         This is the modified Scrypt algorithm used by Firebase Auth. See ``standard_scrypt()``
@@ -469,7 +469,7 @@ class UserImportHash:
         return UserImportHash('SCRYPT', data)
 
     @classmethod
-    def bcrypt(cls) -> "UserImportHash":
+    def bcrypt(cls) -> 'UserImportHash':
         """Creates a new Bcrypt algorithm instance.
 
         Returns:
@@ -484,7 +484,7 @@ class UserImportHash:
         parallelization: int,
         block_size: int,
         derived_key_length: int,
-    ) -> "UserImportHash":
+    ) -> 'UserImportHash':
         """Creates a new standard Scrypt algorithm instance.
 
         Args:

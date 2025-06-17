@@ -116,10 +116,10 @@ class SSEClient:
         else:
             raise StopIteration()
 
-    def __iter__(self) -> typing.Iterator[typing.Optional["Event"]]:
+    def __iter__(self) -> typing.Iterator[typing.Optional['Event']]:
         return self
 
-    def __next__(self) -> typing.Optional["Event"]:
+    def __next__(self) -> typing.Optional['Event']:
         if not re.search(end_of_field, self.buf):
             temp_buffer = _EventBuffer()
             while not temp_buffer.is_end_of_field:

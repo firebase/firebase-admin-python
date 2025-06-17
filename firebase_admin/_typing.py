@@ -30,16 +30,23 @@ from firebase_admin import exceptions
 from firebase_admin import project_management
 
 
-_KT = typing.TypeVar("_KT")
-_VT_co = typing.TypeVar("_VT_co", covariant=True)
+_KT = typing.TypeVar('_KT')
+_VT_co = typing.TypeVar('_VT_co', covariant=True)
+_AnyT = typing_extensions.TypeVar('_AnyT', default=typing.Any)
+_AnyT_co = typing_extensions.TypeVar('_AnyT_co', covariant=True, default=typing.Any)
+_FirebaseErrorT_co = typing_extensions.TypeVar(
+    '_FirebaseErrorT_co', covariant=True, default='exceptions.FirebaseError')
+_AppMetadataT_co = typing_extensions.TypeVar(
+    '_AppMetadataT_co', covariant=True, default='project_management._AppMetadata')
 
 
 class SupportsKeysAndGetItem(typing.Protocol[_KT, _VT_co]):
+    # Equivalent to _typeshed.SupportsKeysAndGetItem, but works at runtime
     def keys(self) -> typing.Iterable[_KT]: ...
     def __getitem__(self, __key: _KT) -> _VT_co: ...
 
 
-class SupportsTrunc(typing.Protocol):
+class _SupportsTrunc(typing.Protocol):
     def __trunc__(self) -> int: ...
 
 
@@ -48,36 +55,30 @@ ConvertibleToInt = typing.Union[
     typing_extensions.Buffer,
     typing.SupportsInt,
     typing.SupportsIndex,
-    SupportsTrunc
+    _SupportsTrunc,
 ]
 ConvertibleToFloat: typing_extensions.TypeAlias = typing.Union[
     str,
     typing_extensions.Buffer,
     typing.SupportsFloat,
-    typing.SupportsIndex
+    typing.SupportsIndex,
 ]
-
-_AnyT = typing_extensions.TypeVar("_AnyT", default=typing.Any)
-_AnyT_co = typing_extensions.TypeVar("_AnyT_co", covariant=True, default=typing.Any)
-
-_FirebaseErrorT_co = typing_extensions.TypeVar(
-    "_FirebaseErrorT_co", covariant=True, default="exceptions.FirebaseError")
-_AppMetadataT_co = typing_extensions.TypeVar(
-    "_AppMetadataT_co", covariant=True, default="project_management._AppMetadata")
-
-CredentialLike = typing.Union["credentials.Base", google.auth.credentials.Credentials]
+CredentialLike = typing.Union['credentials.Base', google.auth.credentials.Credentials]
 HeadersLike = typing.Union[
     SupportsKeysAndGetItem[str, typing.Union[bytes, str]],
-    typing.Iterable[typing.Tuple[str, typing.Union[bytes, str]]]
+    typing.Iterable[typing.Tuple[
+        str,
+        typing.Union[bytes, str]
+    ]],
 ]
-ServiceInitializer = typing.Callable[["firebase_admin.App"], _AnyT]
+ServiceInitializer = typing.Callable[['firebase_admin.App'], _AnyT]
 RequestErrorHandler = typing.Callable[
     [
         requests.RequestException,
         str,
         typing.Dict[str, typing.Any]
     ],
-    typing.Optional["exceptions.FirebaseError"]
+    typing.Optional['exceptions.FirebaseError'],
 ]
 GoogleAPIErrorHandler = typing.Callable[
     [
@@ -86,13 +87,13 @@ GoogleAPIErrorHandler = typing.Callable[
         typing.Dict[str, typing.Any],
         requests.Response,
     ],
-    typing.Optional["exceptions.FirebaseError"],
+    typing.Optional['exceptions.FirebaseError'],
 ]
 Json = typing.Optional[typing.Union[
-    typing.Dict[str, "Json"],
-    typing.List["Json"],
+    typing.Dict[str, 'Json'],
+    typing.List['Json'],
     str,
-    float
+    float,
 ]]
 EmailActionType = typing.Literal[
     'VERIFY_EMAIL',
@@ -149,7 +150,7 @@ class ProjectApp(typing.Protocol[_AnyT_co]):
     def __call__(
         self,
         app_id: str,
-        service: "project_management._ProjectManagementService",
+        service: 'project_management._ProjectManagementService',
     ) -> _AnyT_co: ...
 
 

@@ -29,7 +29,7 @@ _IID_SERVICE_URL = 'https://console.firebase.google.com/v1/'
 _IID_ATTRIBUTE = '_iid'
 
 
-def _get_iid_service(app: typing.Optional[firebase_admin.App]) -> "_InstanceIdService":
+def _get_iid_service(app: typing.Optional[firebase_admin.App]) -> '_InstanceIdService':
     return _utils.get_app_service(app, _IID_ATTRIBUTE, _InstanceIdService)
 
 

@@ -72,12 +72,12 @@ class AndroidConfig:
     def __init__(
         self,
         collapse_key: typing.Optional[str] = None,
-        priority: typing.Optional[typing.Literal["high", "normal"]] = None,
+        priority: typing.Optional[typing.Literal['high', 'normal']] = None,
         ttl: typing.Optional[typing.Union[numbers.Real, datetime.timedelta]] = None,
         restricted_package_name: typing.Optional[str] = None,
         data: typing.Optional[typing.Dict[str, str]] = None,
-        notification: typing.Optional["AndroidNotification"] = None,
-        fcm_options: typing.Optional["AndroidFCMOptions"] = None,
+        notification: typing.Optional['AndroidNotification'] = None,
+        fcm_options: typing.Optional['AndroidFCMOptions'] = None,
         direct_boot_ok: typing.Optional[bool] = None,
     ) -> None:
         self.collapse_key = collapse_key
@@ -197,15 +197,15 @@ class AndroidNotification:
         sticky: typing.Optional[bool] = None,
         event_timestamp: typing.Optional[datetime.datetime] = None,
         local_only: typing.Optional[Incomplete] = None,
-        priority: typing.Optional[typing.Literal["default", "min", "low", "high", "max", "normal"]] = None,
+        priority: typing.Optional[typing.Literal['default', 'min', 'low', 'high', 'max', 'normal']] = None,
         vibrate_timings_millis: typing.Optional[float] = None,
         default_vibrate_timings: typing.Optional[bool] = None,
         default_sound: typing.Optional[bool] = None,
-        light_settings: typing.Optional["LightSettings"] = None,
+        light_settings: typing.Optional['LightSettings'] = None,
         default_light_settings: typing.Optional[bool] = None,
-        visibility: typing.Optional[typing.Literal["private", "public", "secret"]] = None,
+        visibility: typing.Optional[typing.Literal['private', 'public', 'secret']] = None,
         notification_count: typing.Optional[int] = None,
-        proxy: typing.Optional[typing.Literal["allow", "deny"]] = None,
+        proxy: typing.Optional[typing.Literal['allow', 'deny']] = None,
     ) -> None:
         self.title = title
         self.body = body
@@ -288,8 +288,8 @@ class WebpushConfig:
         self,
         headers: typing.Optional[typing.Dict[str, str]] = None,
         data: typing.Optional[typing.Dict[str, str]] = None,
-        notification: typing.Optional["WebpushNotification"] = None,
-        fcm_options: typing.Optional["WebpushFCMOptions"] = None,
+        notification: typing.Optional['WebpushNotification'] = None,
+        fcm_options: typing.Optional['WebpushFCMOptions'] = None,
     ) -> None:
         self.headers = headers
         self.data = data
@@ -355,7 +355,7 @@ class WebpushNotification:
         actions: typing.Optional[typing.List[WebpushNotificationAction]] = None,
         badge: typing.Optional[str] = None,
         data: typing.Optional[typing.Any] = None,
-        direction: typing.Optional[typing.Literal["auto", "ltr", "rtl"]] = None,
+        direction: typing.Optional[typing.Literal['auto', 'ltr', 'rtl']] = None,
         image: typing.Optional[str] = None,
         language: typing.Optional[str] = None,
         renotify: typing.Optional[bool] = None,
@@ -415,8 +415,8 @@ class APNSConfig:
     def __init__(
         self,
         headers: typing.Optional[typing.Dict[str, str]] = None,
-        payload: typing.Optional["APNSPayload"] = None,
-        fcm_options: typing.Optional["APNSFCMOptions"] = None,
+        payload: typing.Optional['APNSPayload'] = None,
+        fcm_options: typing.Optional['APNSFCMOptions'] = None,
         live_activity_token: typing.Optional[str] = None,
     ) -> None:
         self.headers = headers
@@ -434,7 +434,7 @@ class APNSPayload:
             (optional).
     """
 
-    def __init__(self, aps: "Aps", **kwargs: typing.Any) -> None:
+    def __init__(self, aps: 'Aps', **kwargs: typing.Any) -> None:
         self.aps = aps
         self.custom_data = kwargs
 
@@ -459,9 +459,9 @@ class Aps:
 
     def __init__(
         self,
-        alert: typing.Optional[typing.Union["ApsAlert", str]] = None,
+        alert: typing.Optional[typing.Union['ApsAlert', str]] = None,
         badge: typing.Optional[float] = None,  # should it be int?
-        sound: typing.Optional[typing.Union[str, "CriticalSound"]] = None,
+        sound: typing.Optional[typing.Union[str, 'CriticalSound']] = None,
         content_available: typing.Optional[bool] = None,
         category: typing.Optional[str] = None,
         thread_id: typing.Optional[str] = None,

@@ -428,9 +428,6 @@ class _TenantIterator:
             return result
         raise StopIteration
 
-    # def __next__(self):
-    #     return self.next()
-
     def __iter__(self):
         return self
 

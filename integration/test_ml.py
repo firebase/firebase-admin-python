@@ -22,24 +22,17 @@ import tempfile
 
 import pytest
 
-import firebase_admin
 from firebase_admin import exceptions
 from firebase_admin import ml
 from tests import testutils
 
 
-# pylint: disable=import-error,no-name-in-module
+# pylint: disable=import-error, no-member
 try:
     import tensorflow as tf
     _TF_ENABLED = True
 except ImportError:
     _TF_ENABLED = False
-
-try:
-    from google.cloud import automl_v1
-    _AUTOML_ENABLED = True
-except ImportError:
-    _AUTOML_ENABLED = False
 
 def _random_identifier(prefix):
     #pylint: disable=unused-variable
@@ -157,14 +150,6 @@ def check_tflite_gcs_format(model, validation_error=None):
     else:
         assert model.model_format.size_bytes is not None
         assert model.model_hash is not None
-
-
-def check_tflite_automl_format(model):
-    assert model.validation_error is None
-    assert model.published is False
-    assert model.model_format.model_source.auto_ml_model.startswith('projects/')
-    # Automl models don't have validation errors since they are references
-    # to valid automl models.
 
 
 @pytest.mark.parametrize('firebase_model', [NAME_AND_TAGS_ARGS], indirect=True)
@@ -392,50 +377,3 @@ def test_from_saved_model(saved_model_dir):
         assert created_model.validation_error is None
     finally:
         _clean_up_model(created_model)
-
-
-# Test AutoML functionality if AutoML is enabled.
-#'pip install google-cloud-automl' in the environment if you want _AUTOML_ENABLED = True
-# You will also need a predefined AutoML model named 'admin_sdk_integ_test1' to run the
-# successful test. (Test is skipped otherwise)
-
-@pytest.fixture
-def automl_model():
-    assert _AUTOML_ENABLED
-
-    # It takes > 20 minutes to train a model, so we expect a predefined AutoMl
-    # model named 'admin_sdk_integ_test1' to exist in the project, or we skip
-    # the test.
-    automl_client = automl_v1.AutoMlClient()
-    project_id = firebase_admin.get_app().project_id
-    parent = automl_client.location_path(project_id, 'us-central1')
-    models = automl_client.list_models(parent, filter_="display_name=admin_sdk_integ_test1")
-    # Expecting exactly one. (Ok to use last one if somehow more than 1)
-    automl_ref = None
-    for model in models:
-        automl_ref = model.name
-
-    # Skip if no pre-defined model. (It takes min > 20 minutes to train a model)
-    if automl_ref is None:
-        pytest.skip("No pre-existing AutoML model found. Skipping test")
-
-    source = ml.TFLiteAutoMlSource(automl_ref)
-    tflite_format = ml.TFLiteFormat(model_source=source)
-    ml_model = ml.Model(
-        display_name=_random_identifier('TestModel_automl_'),
-        tags=['test_automl'],
-        model_format=tflite_format)
-    model = ml.create_model(model=ml_model)
-    yield model
-    _clean_up_model(model)
-
-@pytest.mark.skipif(not _AUTOML_ENABLED, reason='AutoML is required for this test.')
-def test_automl_model(automl_model):
-  # This test looks for a predefined automl model with display_name = 'admin_sdk_integ_test1'
-    automl_model.wait_for_unlocked()
-
-    check_model(automl_model, {
-        'display_name': automl_model.display_name,
-        'tags': ['test_automl'],
-    })
-    check_tflite_automl_format(automl_model)

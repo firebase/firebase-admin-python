@@ -24,7 +24,6 @@ import re
 import time
 import os
 from urllib import parse
-import warnings
 
 import requests
 
@@ -33,14 +32,14 @@ from firebase_admin import _http_client
 from firebase_admin import _utils
 from firebase_admin import exceptions
 
-# pylint: disable=import-error,no-name-in-module
+# pylint: disable=import-error,no-member
 try:
     from firebase_admin import storage
     _GCS_ENABLED = True
 except ImportError:
     _GCS_ENABLED = False
 
-# pylint: disable=import-error,no-name-in-module
+# pylint: disable=import-error,no-member
 try:
     import tensorflow as tf
     _TF_ENABLED = True
@@ -54,9 +53,6 @@ _DISPLAY_NAME_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,32}$')
 _TAG_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,32}$')
 _GCS_TFLITE_URI_PATTERN = re.compile(
     r'^gs://(?P<bucket_name>[a-z0-9_.-]{3,63})/(?P<blob_name>.+)$')
-_AUTO_ML_MODEL_PATTERN = re.compile(
-    r'^projects/(?P<project_id>[a-z0-9-]{6,30})/locations/(?P<location_id>[^/]+)/' +
-    r'models/(?P<model_id>[A-Za-z0-9]+)$')
 _RESOURCE_NAME_PATTERN = re.compile(
     r'^projects/(?P<project_id>[a-z0-9-]{6,30})/models/(?P<model_id>[A-Za-z0-9_-]{1,60})$')
 _OPERATION_NAME_PATTERN = re.compile(
@@ -388,11 +384,6 @@ class TFLiteFormat(ModelFormat):
         gcs_tflite_uri = data.pop('gcsTfliteUri', None)
         if gcs_tflite_uri:
             return TFLiteGCSModelSource(gcs_tflite_uri=gcs_tflite_uri)
-        auto_ml_model = data.pop('automlModel', None)
-        if auto_ml_model:
-            warnings.warn('AutoML model support is deprecated and will be removed in the next '
-                          'major version.', DeprecationWarning)
-            return TFLiteAutoMlSource(auto_ml_model=auto_ml_model)
         return None
 
     @property
@@ -606,42 +597,6 @@ class TFLiteGCSModelSource(TFLiteModelSource):
 
         return {'gcsTfliteUri': self._gcs_tflite_uri}
 
-
-class TFLiteAutoMlSource(TFLiteModelSource):
-    """TFLite model source representing a tflite model created with AutoML.
-
-    AutoML model support is deprecated and will be removed in the next major version.
-    """
-
-    def __init__(self, auto_ml_model, app=None):
-        warnings.warn('AutoML model support is deprecated and will be removed in the next '
-                      'major version.', DeprecationWarning)
-        self._app = app
-        self.auto_ml_model = auto_ml_model
-
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return self.auto_ml_model == other.auto_ml_model
-        return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    @property
-    def auto_ml_model(self):
-        """Resource name of the model, created by the AutoML API or Cloud console."""
-        return self._auto_ml_model
-
-    @auto_ml_model.setter
-    def auto_ml_model(self, auto_ml_model):
-        self._auto_ml_model = _validate_auto_ml_model(auto_ml_model)
-
-    def as_dict(self, for_upload=False):
-        """Returns a serializable representation of the object."""
-        # Upload is irrelevant for auto_ml models
-        return {'automlModel': self._auto_ml_model}
-
-
 class ListModelsPage:
     """Represents a page of models in a Firebase project.
 
@@ -785,11 +740,6 @@ def _validate_gcs_tflite_uri(uri):
     if not _GCS_TFLITE_URI_PATTERN.match(uri):
         raise ValueError('GCS TFLite URI format is invalid.')
     return uri
-
-def _validate_auto_ml_model(model):
-    if not _AUTO_ML_MODEL_PATTERN.match(model):
-        raise ValueError('Model resource name format is invalid.')
-    return model
 
 
 def _validate_model_format(model_format):

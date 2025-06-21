@@ -156,6 +156,6 @@ class _Validators:
     def check_string(cls, label: str, value: Any):
         """Checks if the given value is a string."""
         if value is None:
-            raise ValueError('{0} "{1}" must be a non-empty string.'.format(label, value))
+            raise ValueError(f'{label} "{value}" must be a non-empty string.')
         if not isinstance(value, str):
-            raise ValueError('{0} "{1}" must be a string.'.format(label, value))
+            raise ValueError(f'{label} "{value}" must be a string.')

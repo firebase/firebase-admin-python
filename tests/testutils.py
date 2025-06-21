@@ -33,7 +33,7 @@ def resource_filename(filename):
 
 def resource(filename):
     """Returns the contents of a test resource."""
-    with open(resource_filename(filename), 'r') as file_obj:
+    with open(resource_filename(filename), 'r', encoding='utf-8') as file_obj:
         return file_obj.read()
 
 

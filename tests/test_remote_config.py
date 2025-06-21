@@ -865,7 +865,7 @@ class TestRemoteConfigService:
 
         template = await rc_instance.get_server_template()
 
-        assert template.parameters == dict(test_key="test_value")
+        assert template.parameters == {"test_key": 'test_value'}
         assert str(template.version) == 'test'
         assert str(template.etag) == 'etag'
 

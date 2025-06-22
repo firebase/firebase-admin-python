@@ -161,6 +161,15 @@ class _Validators:
         return value
 
     @classmethod
+    def check_boolean(cls, label, value):
+        """Checks if the given value is boolean."""
+        if value is None:
+            return None
+        if not isinstance(value, bool):
+            raise ValueError('{0} must be a boolean.'.format(label))
+        return value
+
+    @classmethod
     def check_datetime(cls, label, value):
         """Checks if the given value is a datetime."""
         if value is None:
@@ -196,6 +205,8 @@ class MessageEncoder(json.JSONEncoder):
                 'AndroidConfig.restricted_package_name', android.restricted_package_name),
             'ttl': cls.encode_ttl(android.ttl),
             'fcm_options': cls.encode_android_fcm_options(android.fcm_options),
+            'direct_boot_ok': _Validators.check_boolean(
+                'AndroidConfig.direct_boot_ok', android.direct_boot_ok),
         }
         result = cls.remove_null_values(result)
         priority = result.get('priority')
@@ -308,7 +319,9 @@ class MessageEncoder(json.JSONEncoder):
             'visibility': _Validators.check_string(
                 'AndroidNotification.visibility', notification.visibility, non_empty=True),
             'notification_count': _Validators.check_number(
-                'AndroidNotification.notification_count', notification.notification_count)
+                'AndroidNotification.notification_count', notification.notification_count),
+            'proxy': _Validators.check_string(
+                'AndroidNotification.proxy', notification.proxy, non_empty=True)
         }
         result = cls.remove_null_values(result)
         color = result.get('color')
@@ -352,6 +365,13 @@ class MessageEncoder(json.JSONEncoder):
                     'AndroidNotification.vibrate_timings_millis', msec)
                 vibrate_timing_strings.append(formated_string)
             result['vibrate_timings'] = vibrate_timing_strings
+
+        proxy = result.get('proxy')
+        if proxy:
+            if proxy not in ('allow', 'deny', 'if_priority_lowered'):
+                raise ValueError(
+                    'AndroidNotification.proxy must be "allow", "deny" or "if_priority_lowered".')
+            result['proxy'] = proxy.upper()
         return result
 
     @classmethod
@@ -509,6 +529,8 @@ class MessageEncoder(json.JSONEncoder):
                 'APNSConfig.headers', apns.headers),
             'payload': cls.encode_apns_payload(apns.payload),
             'fcm_options': cls.encode_apns_fcm_options(apns.fcm_options),
+            'live_activity_token': _Validators.check_string(
+                'APNSConfig.live_activity_token', apns.live_activity_token),
         }
         return cls.remove_null_values(result)
 

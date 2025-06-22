@@ -56,10 +56,12 @@ __all__ = [
     'OIDCProviderConfig',
     'PhoneNumberAlreadyExistsError',
     'ProviderConfig',
+    'ResetPasswordExceedLimitError',
     'RevokedIdTokenError',
     'RevokedSessionCookieError',
     'SAMLProviderConfig',
     'TokenSignError',
+    'TooManyAttemptsTryLaterError',
     'UidAlreadyExistsError',
     'UnexpectedResponseError',
     'UserDisabledError',
@@ -130,10 +132,12 @@ ListUsersPage = _user_mgt.ListUsersPage
 OIDCProviderConfig = _auth_providers.OIDCProviderConfig
 PhoneNumberAlreadyExistsError = _auth_utils.PhoneNumberAlreadyExistsError
 ProviderConfig = _auth_providers.ProviderConfig
+ResetPasswordExceedLimitError = _auth_utils.ResetPasswordExceedLimitError
 RevokedIdTokenError = _token_gen.RevokedIdTokenError
 RevokedSessionCookieError = _token_gen.RevokedSessionCookieError
 SAMLProviderConfig = _auth_providers.SAMLProviderConfig
 TokenSignError = _token_gen.TokenSignError
+TooManyAttemptsTryLaterError = _auth_utils.TooManyAttemptsTryLaterError
 UidAlreadyExistsError = _auth_utils.UidAlreadyExistsError
 UnexpectedResponseError = _auth_utils.UnexpectedResponseError
 UserDisabledError = _auth_utils.UserDisabledError
@@ -191,7 +195,7 @@ def create_custom_token(uid, developer_claims=None, app=None):
     return client.create_custom_token(uid, developer_claims)
 
 
-def verify_id_token(id_token, app=None, check_revoked=False):
+def verify_id_token(id_token, app=None, check_revoked=False, clock_skew_seconds=0):
     """Verifies the signature and data for the provided JWT.
 
     Accepts a signed token string, verifies that it is current, and issued
@@ -202,7 +206,8 @@ def verify_id_token(id_token, app=None, check_revoked=False):
         app: An App instance (optional).
         check_revoked: Boolean, If true, checks whether the token has been revoked or
             the user disabled (optional).
-
+        clock_skew_seconds: The number of seconds to tolerate when checking the token.
+            Must be between 0-60. Defaults to 0.
     Returns:
         dict: A dictionary of key-value pairs parsed from the decoded JWT.
 
@@ -217,7 +222,8 @@ def verify_id_token(id_token, app=None, check_revoked=False):
             record is disabled.
     """
     client = _get_client(app)
-    return client.verify_id_token(id_token, check_revoked=check_revoked)
+    return client.verify_id_token(
+        id_token, check_revoked=check_revoked, clock_skew_seconds=clock_skew_seconds)
 
 
 def create_session_cookie(id_token, expires_in, app=None):
@@ -243,7 +249,7 @@ def create_session_cookie(id_token, expires_in, app=None):
     return client._token_generator.create_session_cookie(id_token, expires_in)
 
 
-def verify_session_cookie(session_cookie, check_revoked=False, app=None):
+def verify_session_cookie(session_cookie, check_revoked=False, app=None, clock_skew_seconds=0):
     """Verifies a Firebase session cookie.
 
     Accepts a session cookie string, verifies that it is current, and issued
@@ -254,6 +260,7 @@ def verify_session_cookie(session_cookie, check_revoked=False, app=None):
         check_revoked: Boolean, if true, checks whether the cookie has been revoked or the
             user disabled (optional).
         app: An App instance (optional).
+        clock_skew_seconds: The number of seconds to tolerate when checking the cookie.
 
     Returns:
         dict: A dictionary of key-value pairs parsed from the decoded JWT.
@@ -270,7 +277,8 @@ def verify_session_cookie(session_cookie, check_revoked=False, app=None):
     """
     client = _get_client(app)
     # pylint: disable=protected-access
-    verified_claims = client._token_verifier.verify_session_cookie(session_cookie)
+    verified_claims = client._token_verifier.verify_session_cookie(
+        session_cookie, clock_skew_seconds)
     if check_revoked:
         client._check_jwt_revoked_or_disabled(
             verified_claims, RevokedSessionCookieError, 'session cookie')

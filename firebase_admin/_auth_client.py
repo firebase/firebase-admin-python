@@ -92,7 +92,7 @@ class Client:
         return self._token_generator.create_custom_token(
             uid, developer_claims, tenant_id=self.tenant_id)
 
-    def verify_id_token(self, id_token, check_revoked=False):
+    def verify_id_token(self, id_token, check_revoked=False, clock_skew_seconds=0):
         """Verifies the signature and data for the provided JWT.
 
         Accepts a signed token string, verifies that it is current, was issued
@@ -102,6 +102,8 @@ class Client:
             id_token: A string of the encoded JWT.
             check_revoked: Boolean, If true, checks whether the token has been revoked or
                 the user disabled (optional).
+            clock_skew_seconds: The number of seconds to tolerate when checking the token.
+                Must be between 0-60. Defaults to 0.
 
         Returns:
             dict: A dictionary of key-value pairs parsed from the decoded JWT.
@@ -124,7 +126,7 @@ class Client:
             raise ValueError('Illegal check_revoked argument. Argument must be of type '
                              ' bool, but given "{0}".'.format(type(check_revoked)))
 
-        verified_claims = self._token_verifier.verify_id_token(id_token)
+        verified_claims = self._token_verifier.verify_id_token(id_token, clock_skew_seconds)
         if self.tenant_id:
             token_tenant_id = verified_claims.get('firebase', {}).get('tenant')
             if self.tenant_id != token_tenant_id:

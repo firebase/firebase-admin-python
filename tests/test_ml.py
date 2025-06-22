@@ -21,12 +21,11 @@ import pytest
 import firebase_admin
 from firebase_admin import exceptions
 from firebase_admin import ml
+from firebase_admin import _utils
 from tests import testutils
 
 
 BASE_URL = 'https://firebaseml.googleapis.com/v1beta2/'
-HEADER_CLIENT_KEY = 'X-FIREBASE-CLIENT'
-HEADER_CLIENT_VALUE = 'fire-admin-python/{0}'.format(firebase_admin.__version__)
 PROJECT_ID = 'my-project-1'
 
 PAGE_TOKEN = 'pageToken'
@@ -336,6 +335,13 @@ def instrument_ml_service(status=200, payload=None, operations=False, app=None):
             session_url, adapter(payload, status, recorder))
     return recorder
 
+def _assert_request(request, expected_method, expected_url):
+    assert request.method == expected_method
+    assert request.url == expected_url
+    assert request.headers['X-FIREBASE-CLIENT'] == f'fire-admin-python/{firebase_admin.__version__}'
+    expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
+    assert request.headers['x-goog-api-client'] == expected_metrics_header
+
 class _TestStorageClient:
     @staticmethod
     def upload(bucket_name, model_file_name, app):
@@ -599,9 +605,7 @@ class TestModel:
         model.wait_for_unlocked()
         assert model == FULL_MODEL_PUBLISHED
         assert len(recorder) == 1
-        assert recorder[0].method == 'GET'
-        assert recorder[0].url == TestModel._op_url(PROJECT_ID)
-        assert recorder[0].headers[HEADER_CLIENT_KEY] == HEADER_CLIENT_VALUE
+        _assert_request(recorder[0], 'GET', TestModel._op_url(PROJECT_ID))
 
     def test_wait_for_unlocked_timeout(self):
         recorder = instrument_ml_service(
@@ -653,12 +657,8 @@ class TestCreateModel:
 
         assert model == expected_model
         assert len(recorder) == 2
-        assert recorder[0].method == 'POST'
-        assert recorder[0].url == TestCreateModel._url(PROJECT_ID)
-        assert recorder[0].headers[HEADER_CLIENT_KEY] == HEADER_CLIENT_VALUE
-        assert recorder[1].method == 'GET'
-        assert recorder[1].url == TestCreateModel._get_url(PROJECT_ID, MODEL_ID_1)
-        assert recorder[1].headers[HEADER_CLIENT_KEY] == HEADER_CLIENT_VALUE
+        _assert_request(recorder[0], 'POST', TestCreateModel._url(PROJECT_ID))
+        _assert_request(recorder[1], 'GET', TestCreateModel._get_url(PROJECT_ID, MODEL_ID_1))
 
     def test_operation_error(self):
         instrument_ml_service(status=200, payload=OPERATION_ERROR_RESPONSE)
@@ -747,12 +747,8 @@ class TestUpdateModel:
 
         assert model == expected_model
         assert len(recorder) == 2
-        assert recorder[0].method == 'PATCH'
-        assert recorder[0].url == TestUpdateModel._url(PROJECT_ID, MODEL_ID_1)
-        assert recorder[0].headers[HEADER_CLIENT_KEY] == HEADER_CLIENT_VALUE
-        assert recorder[1].method == 'GET'
-        assert recorder[1].url == TestUpdateModel._url(PROJECT_ID, MODEL_ID_1)
-        assert recorder[1].headers[HEADER_CLIENT_KEY] == HEADER_CLIENT_VALUE
+        _assert_request(recorder[0], 'PATCH', TestUpdateModel._url(PROJECT_ID, MODEL_ID_1))
+        _assert_request(recorder[1], 'GET', TestUpdateModel._url(PROJECT_ID, MODEL_ID_1))
 
     def test_operation_error(self):
         instrument_ml_service(status=200, payload=OPERATION_ERROR_RESPONSE)
@@ -846,9 +842,8 @@ class TestPublishUnpublish:
         model = publish_function(MODEL_ID_1)
         assert model == CREATED_UPDATED_MODEL_1
         assert len(recorder) == 1
-        assert recorder[0].method == 'PATCH'
-        assert recorder[0].url == TestPublishUnpublish._update_url(PROJECT_ID, MODEL_ID_1)
-        assert recorder[0].headers[HEADER_CLIENT_KEY] == HEADER_CLIENT_VALUE
+        _assert_request(
+            recorder[0], 'PATCH', TestPublishUnpublish._update_url(PROJECT_ID, MODEL_ID_1))
         body = json.loads(recorder[0].body.decode())
         assert body.get('state', {}).get('published', None) is published
 
@@ -862,12 +857,10 @@ class TestPublishUnpublish:
 
         assert model == expected_model
         assert len(recorder) == 2
-        assert recorder[0].method == 'PATCH'
-        assert recorder[0].url == TestPublishUnpublish._update_url(PROJECT_ID, MODEL_ID_1)
-        assert recorder[0].headers[HEADER_CLIENT_KEY] == HEADER_CLIENT_VALUE
-        assert recorder[1].method == 'GET'
-        assert recorder[1].url == TestPublishUnpublish._get_url(PROJECT_ID, MODEL_ID_1)
-        assert recorder[1].headers[HEADER_CLIENT_KEY] == HEADER_CLIENT_VALUE
+        _assert_request(
+            recorder[0], 'PATCH', TestPublishUnpublish._update_url(PROJECT_ID, MODEL_ID_1))
+        _assert_request(
+            recorder[1], 'GET', TestPublishUnpublish._get_url(PROJECT_ID, MODEL_ID_1))
 
     @pytest.mark.parametrize('publish_function', PUBLISH_UNPUBLISH_FUNCS)
     def test_operation_error(self, publish_function):
@@ -918,9 +911,7 @@ class TestGetModel:
         recorder = instrument_ml_service(status=200, payload=DEFAULT_GET_RESPONSE)
         model = ml.get_model(MODEL_ID_1)
         assert len(recorder) == 1
-        assert recorder[0].method == 'GET'
-        assert recorder[0].url == TestGetModel._url(PROJECT_ID, MODEL_ID_1)
-        assert recorder[0].headers[HEADER_CLIENT_KEY] == HEADER_CLIENT_VALUE
+        _assert_request(recorder[0], 'GET', TestGetModel._url(PROJECT_ID, MODEL_ID_1))
         assert model == MODEL_1
         assert model.model_id == MODEL_ID_1
         assert model.display_name == DISPLAY_NAME_1
@@ -942,9 +933,7 @@ class TestGetModel:
             ERROR_MSG_NOT_FOUND
         )
         assert len(recorder) == 1
-        assert recorder[0].method == 'GET'
-        assert recorder[0].url == TestGetModel._url(PROJECT_ID, MODEL_ID_1)
-        assert recorder[0].headers[HEADER_CLIENT_KEY] == HEADER_CLIENT_VALUE
+        _assert_request(recorder[0], 'GET', TestGetModel._url(PROJECT_ID, MODEL_ID_1))
 
     def test_no_project_id(self):
         def evaluate():
@@ -973,9 +962,7 @@ class TestDeleteModel:
         recorder = instrument_ml_service(status=200, payload=EMPTY_RESPONSE)
         ml.delete_model(MODEL_ID_1) # no response for delete
         assert len(recorder) == 1
-        assert recorder[0].method == 'DELETE'
-        assert recorder[0].url == TestDeleteModel._url(PROJECT_ID, MODEL_ID_1)
-        assert recorder[0].headers[HEADER_CLIENT_KEY] == HEADER_CLIENT_VALUE
+        _assert_request(recorder[0], 'DELETE', TestDeleteModel._url(PROJECT_ID, MODEL_ID_1))
 
     @pytest.mark.parametrize('model_id, exc_type', INVALID_MODEL_ID_ARGS)
     def test_delete_model_validation_errors(self, model_id, exc_type):
@@ -994,9 +981,7 @@ class TestDeleteModel:
             ERROR_MSG_NOT_FOUND
         )
         assert len(recorder) == 1
-        assert recorder[0].method == 'DELETE'
-        assert recorder[0].url == self._url(PROJECT_ID, MODEL_ID_1)
-        assert recorder[0].headers[HEADER_CLIENT_KEY] == HEADER_CLIENT_VALUE
+        _assert_request(recorder[0], 'DELETE', self._url(PROJECT_ID, MODEL_ID_1))
 
     def test_no_project_id(self):
         def evaluate():
@@ -1032,9 +1017,7 @@ class TestListModels:
         recorder = instrument_ml_service(status=200, payload=DEFAULT_LIST_RESPONSE)
         models_page = ml.list_models()
         assert len(recorder) == 1
-        assert recorder[0].method == 'GET'
-        assert recorder[0].url == TestListModels._url(PROJECT_ID)
-        assert recorder[0].headers[HEADER_CLIENT_KEY] == HEADER_CLIENT_VALUE
+        _assert_request(recorder[0], 'GET', TestListModels._url(PROJECT_ID))
         TestListModels._check_page(models_page, 2)
         assert models_page.has_next_page
         assert models_page.next_page_token == NEXT_PAGE_TOKEN
@@ -1048,12 +1031,10 @@ class TestListModels:
             page_size=10,
             page_token=PAGE_TOKEN)
         assert len(recorder) == 1
-        assert recorder[0].method == 'GET'
-        assert recorder[0].url == (
+        _assert_request(recorder[0], 'GET', (
             TestListModels._url(PROJECT_ID) +
             '?filter=display_name%3DdisplayName3&page_size=10&page_token={0}'
-            .format(PAGE_TOKEN))
-        assert recorder[0].headers[HEADER_CLIENT_KEY] == HEADER_CLIENT_VALUE
+            .format(PAGE_TOKEN)))
         assert isinstance(models_page, ml.ListModelsPage)
         assert len(models_page.models) == 1
         assert models_page.models[0] == MODEL_3
@@ -1097,9 +1078,7 @@ class TestListModels:
             ERROR_MSG_BAD_REQUEST
         )
         assert len(recorder) == 1
-        assert recorder[0].method == 'GET'
-        assert recorder[0].url == TestListModels._url(PROJECT_ID)
-        assert recorder[0].headers[HEADER_CLIENT_KEY] == HEADER_CLIENT_VALUE
+        _assert_request(recorder[0], 'GET', TestListModels._url(PROJECT_ID))
 
     def test_no_project_id(self):
         def evaluate():

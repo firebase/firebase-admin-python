@@ -28,6 +28,7 @@ from firebase_admin import _auth_utils
 from firebase_admin import _http_client
 from firebase_admin import _user_import
 from firebase_admin import _user_mgt
+from firebase_admin import _utils
 from tests import testutils
 
 
@@ -135,6 +136,11 @@ def _check_request(recorder, want_url, want_body=None, want_timeout=None):
     req = recorder[0]
     assert req.method == 'POST'
     assert req.url == '{0}{1}'.format(USER_MGT_URLS['PREFIX'], want_url)
+    expected_metrics_header = [
+        _utils.get_metrics_header(),
+        _utils.get_metrics_header() + ' mock-cred-metric-tag'
+    ]
+    assert req.headers['x-goog-api-client'] in expected_metrics_header
     if want_body:
         body = json.loads(req.body.decode())
         assert body == want_body
@@ -1369,7 +1375,7 @@ class TestActionCodeSetting:
         assert parameters['continueUrl'] == data['url']
         assert parameters['canHandleCodeInApp'] == data['handle_code_in_app']
         assert parameters['dynamicLinkDomain'] == data['dynamic_link_domain']
-        assert parameters['iosBundleId'] == data['ios_bundle_id']
+        assert parameters['iOSBundleId'] == data['ios_bundle_id']
         assert parameters['androidPackageName'] == data['android_package_name']
         assert parameters['androidMinimumVersion'] == data['android_minimum_version']
         assert parameters['androidInstallApp'] == data['android_install_app']
@@ -1529,7 +1535,7 @@ class TestGenerateEmailActionLink:
             assert request['continueUrl'] == settings.url
             assert request['canHandleCodeInApp'] == settings.handle_code_in_app
             assert request['dynamicLinkDomain'] == settings.dynamic_link_domain
-            assert request['iosBundleId'] == settings.ios_bundle_id
+            assert request['iOSBundleId'] == settings.ios_bundle_id
             assert request['androidPackageName'] == settings.android_package_name
             assert request['androidMinimumVersion'] == settings.android_minimum_version
             assert request['androidInstallApp'] == settings.android_install_app

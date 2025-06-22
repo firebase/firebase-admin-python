@@ -617,6 +617,7 @@ def test_verify_session_cookie_revoked(new_user, api_key):
     claims = auth.verify_session_cookie(session_cookie, check_revoked=True)
     assert claims['iat'] * 1000 >= user.tokens_valid_after_timestamp
 
+
 def test_verify_session_cookie_disabled(new_user, api_key):
     custom_token = auth.create_custom_token(new_user.uid)
     id_token = _sign_in(custom_token, api_key)

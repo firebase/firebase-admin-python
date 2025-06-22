@@ -540,7 +540,7 @@ def encode_action_code_settings(settings):
         if not isinstance(settings.ios_bundle_id, str):
             raise ValueError('Invalid value provided for ios_bundle_id: {0}'
                              .format(settings.ios_bundle_id))
-        parameters['iosBundleId'] = settings.ios_bundle_id
+        parameters['iOSBundleId'] = settings.ios_bundle_id
 
     # android_* attributes
     if (settings.android_minimum_version or settings.android_install_app) \

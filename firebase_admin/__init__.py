@@ -18,6 +18,8 @@ import json
 import os
 import threading
 
+from google.auth.credentials import Credentials as GoogleAuthCredentials
+from google.auth.exceptions import DefaultCredentialsError
 from firebase_admin import credentials
 from firebase_admin.__about__ import __version__
 
@@ -49,8 +51,9 @@ def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
           Google Application Default Credentials are used.
       options: A dictionary of configuration options (optional). Supported options include
           ``databaseURL``, ``storageBucket``, ``projectId``, ``databaseAuthVariableOverride``,
-          ``serviceAccountId`` and ``httpTimeout``. If ``httpTimeout`` is not set, the SDK
-          uses a default timeout of 120 seconds.
+          ``serviceAccountId`` and ``httpTimeout``. If ``httpTimeout`` is not set, the SDK uses
+          a default timeout of 120 seconds.
+
       name: Name of the app (optional).
     Returns:
       App: A newly initialized instance of App.
@@ -206,10 +209,13 @@ class App:
                              'non-empty string.'.format(name))
         self._name = name
 
-        if not isinstance(credential, credentials.Base):
+        if isinstance(credential, GoogleAuthCredentials):
+            self._credential = credentials._ExternalCredentials(credential) # pylint: disable=protected-access
+        elif isinstance(credential, credentials.Base):
+            self._credential = credential
+        else:
             raise ValueError('Illegal Firebase credential provided. App must be initialized '
                              'with a valid credential instance.')
-        self._credential = credential
         self._options = _AppOptions(options)
         self._lock = threading.RLock()
         self._services = {}
@@ -257,7 +263,7 @@ class App:
         if not project_id:
             try:
                 project_id = self._credential.project_id
-            except AttributeError:
+            except (AttributeError, DefaultCredentialsError):
                 pass
         if not project_id:
             project_id = os.environ.get('GOOGLE_CLOUD_PROJECT',

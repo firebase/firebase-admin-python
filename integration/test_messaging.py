@@ -121,7 +121,7 @@ def test_send_each():
 def test_send_each_500():
     messages = []
     for msg_number in range(500):
-        topic = 'foo-bar-{0}'.format(msg_number % 10)
+        topic = f'foo-bar-{msg_number % 10}'
         messages.append(messaging.Message(topic=topic))
 
     batch_response = messaging.send_each(messages, dry_run=True)
@@ -193,7 +193,7 @@ async def test_send_each_async():
 async def test_send_each_async_500():
     messages = []
     for msg_number in range(500):
-        topic = 'foo-bar-{0}'.format(msg_number % 10)
+        topic = f'foo-bar-{msg_number % 10}'
         messages.append(messaging.Message(topic=topic))
 
     batch_response = await messaging.send_each_async(messages, dry_run=True)

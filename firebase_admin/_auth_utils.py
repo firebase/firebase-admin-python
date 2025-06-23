@@ -257,8 +257,9 @@ def validate_custom_claims(custom_claims, required=False):
 
 def validate_action_type(action_type):
     if action_type not in VALID_EMAIL_ACTION_TYPES:
-        raise ValueError(f'Invalid action type provided action_type: {action_type}. \
-            Valid values are {", ".join(VALID_EMAIL_ACTION_TYPES)}')
+        raise ValueError(
+            f'Invalid action type provided action_type: {action_type}. Valid values are '
+            f'{", ".join(VALID_EMAIL_ACTION_TYPES)}')
     return action_type
 
 def validate_provider_ids(provider_ids, required=False):

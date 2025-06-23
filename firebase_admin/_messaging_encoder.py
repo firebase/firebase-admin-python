@@ -265,7 +265,7 @@ class MessageEncoder(json.JSONEncoder):
         nanos = int((total_seconds - seconds) * 1e9)
         if nanos:
             return f'{seconds}.{str(nanos).zfill(9)}s'
-        return f'{seconds}s'.format(seconds)
+        return f'{seconds}s'
 
     @classmethod
     def encode_android_notification(cls, notification):

@@ -43,7 +43,7 @@ class KeepAuthSession(google.auth.transport.requests.AuthorizedSession):
     """A session that does not drop authentication on redirects between domains."""
 
     def __init__(self, credential: Optional[google.auth.credentials.Credentials]) -> None:
-        super(KeepAuthSession, self).__init__(credential)  # type: ignore[reportUnknownMemberType]
+        super(KeepAuthSession, self).__init__(credential)
 
     def rebuild_auth(self, prepared_request: requests.PreparedRequest, response: requests.Response) -> None:
         pass

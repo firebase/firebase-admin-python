@@ -255,7 +255,7 @@ class Reference:
         return Reference(client=self._client, path=full_path)
 
     @overload
-    def get(  # type: ignore[reportOverlappingOverload]
+    def get(  # pyright: ignore[reportOverlappingOverload]
         self,
         etag: Literal[True],
         shallow: bool = False,
@@ -722,7 +722,7 @@ class _Sorter(Generic[_K, _V]):
     @overload
     def __init__(self, results: Dict[_K, _V], order_by: str) -> None: ...
     @overload
-    def __init__(self: '_Sorter[int, _V]', results: List[_V], order_by: str) -> None: ...  # type: ignore[reportInvalidTypeVarUse]
+    def __init__(self: '_Sorter[int, _V]', results: List[_V], order_by: str) -> None: ...  # pyright: ignore[reportInvalidTypeVarUse]
     def __init__(self, results: Union[Dict[_K, _V], List[_V]], order_by: str) -> None:
         if isinstance(results, dict):
             self.dict_input = True
@@ -825,9 +825,9 @@ class _SortEntry(Generic[_K, _V]):
             else:
                 self_key, other_key = self.key, other.key
 
-        if self_key < other_key:  # type: ignore[reportOperatorIssue]
+        if self_key < other_key:  # pyright: ignore[reportOperatorIssue]
             return -1
-        if self_key > other_key:  # type: ignore[reportOperatorIssue]
+        if self_key > other_key:  # pyright: ignore[reportOperatorIssue]
             return 1
 
         return 0
@@ -844,7 +844,7 @@ class _SortEntry(Generic[_K, _V]):
     def __ge__(self, other: '_SortEntry') -> bool:
         return self._compare(other) >= 0
 
-    def __eq__(self, other: '_SortEntry') -> bool:  # type: ignore[reportIncompatibleMethodOverride]
+    def __eq__(self, other: '_SortEntry') -> bool:  # pyright: ignore[reportIncompatibleMethodOverride]
         return self._compare(other) == 0
 
 

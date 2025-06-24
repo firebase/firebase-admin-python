@@ -26,5 +26,8 @@
 
     // Warn when a previously ignored type check is no longer needed
     "reportUnnecessaryTypeIgnoreComment": "warning",
-    "reportMissingParameterType": "warning"
+    "reportMissingParameterType": "warning",
+    "reportUnknownArgumentType": "warning",
+    "reportUnknownMemberType": "warning",
+    "reportUnknownVariableType": "warning"
 }

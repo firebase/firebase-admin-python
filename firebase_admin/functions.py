@@ -299,7 +299,7 @@ class TaskQueue:
         if _Validators.is_non_empty_string(extension_id) and \
             isinstance(self._credential, ComputeEngineCredentials):
 
-            id_token = cast(str, self._credential.token)  # type: ignore[reportUnknownMemberType]
+            id_token = cast(str, self._credential.token)
             task.http_request['headers'] = \
                 {**task.http_request['headers'], 'Authorization': f'Bearer ${id_token}'}
             # Delete oidc token
@@ -307,7 +307,7 @@ class TaskQueue:
         else:
             # possible issue: _credential needs more specific annotation
             task.http_request['oidc_token'] = \
-                {'service_account_email': self._credential.service_account_email}  # type: ignore[reportUnknownMemberType]
+                {'service_account_email': self._credential.service_account_email}  # pyright: ignore[reportAttributeAccessIssue]
         return task
 
 

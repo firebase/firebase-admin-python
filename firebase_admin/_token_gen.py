@@ -145,7 +145,7 @@ class _SigningProvider:
         cls,
         google_cred: Union[google.oauth2.service_account.Credentials, credentials.Signing]
     ) -> '_SigningProvider':
-        return _SigningProvider(google_cred.signer, google_cred.signer_email)  # type: ignore[reportUnknownMemberType]
+        return _SigningProvider(google_cred.signer, google_cred.signer_email)
 
     @classmethod
     def from_iam(
@@ -203,10 +203,10 @@ class TokenGenerator:
         # Attempt to discover a service account email from the local Metadata service. Use it
         # with the IAM service to sign bytes.
         resp = self.request(url=METADATA_SERVICE_URL, headers={'Metadata-Flavor': 'Google'})
-        if resp.status != 200:  # type: ignore[reportUnknownMemberType]
+        if resp.status != 200:
             raise ValueError(
-                'Failed to contact the local metadata service: {0}.'.format(resp.data.decode()))  # type: ignore[reportUnknownMemberType]
-        service_account = cast(str, resp.data.decode())  # type: ignore[reportUnknownMemberType]
+                'Failed to contact the local metadata service: {0}.'.format(resp.data.decode()))
+        service_account = cast(str, resp.data.decode())
         return _SigningProvider.from_iam(self.request, google_cred, service_account)
 
     @property
@@ -268,7 +268,7 @@ class TokenGenerator:
 
         header = {'alg': signing_provider.alg}
         try:
-            return jwt.encode(signing_provider.signer, payload, header=header)  # type: ignore[reportUnknownMemberType]
+            return jwt.encode(signing_provider.signer, payload, header=header)
         except google.auth.exceptions.TransportError as error:
             msg = 'Failed to sign custom token. {0}'.format(error)
             raise TokenSignError(msg, error)
@@ -343,7 +343,8 @@ class CertificateFetchRequest(google.auth.transport.Request):
     ) -> google.auth.transport.Response:
         timeout = timeout or self.timeout_seconds
         return self._delegate(
-            url, method=method, body=body, headers=headers, timeout=timeout, **kwargs)  # type: ignore[reportArgumentType]
+            url, method=method, body=body, headers=headers,
+            timeout=timeout, **kwargs)  # pyright: ignore[reportArgumentType]
 
 
 class TokenVerifier:
@@ -497,14 +498,15 @@ class _JWTVerifier:
 
         try:
             if emulated:
-                verified_claims: Dict[str, Any] = payload
+                verified_claims = payload
             else:
-                verified_claims = google.oauth2.id_token.verify_token(  # type: ignore[reportUnknownMemberType]
+                verified_claims = google.oauth2.id_token.verify_token(
                     token,
                     request=request,
                     audience=self.project_id,
                     certs_url=self.cert_url,
                     clock_skew_in_seconds=clock_skew_seconds)
+                verified_claims = cast(Dict[str, Any], verified_claims)
             verified_claims['uid'] = verified_claims['sub']
             return verified_claims
         except google.auth.exceptions.TransportError as error:
@@ -519,8 +521,8 @@ class _JWTVerifier:
         token: Union[bytes, str],
     ) -> Tuple[Dict[str, str], Dict[str, Any]]:
         try:
-            header = cast('Mapping[str, str]', jwt.decode_header(token))  # type: ignore[reportUnknownMemberType]
-            payload = cast('Mapping[str, Any]', jwt.decode(token, verify=False))  # type: ignore[reportUnknownMemberType]
+            header = cast('Mapping[str, str]', jwt.decode_header(token))
+            payload = cast('Mapping[str, Any]', jwt.decode(token, verify=False))
             return dict(header), dict(payload)
         except ValueError as error:
             raise self._invalid_token_error(str(error), error)

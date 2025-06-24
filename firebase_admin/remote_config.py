@@ -348,7 +348,7 @@ class _ConditionEvaluator:
                 if parameter_value_wrapper:
                     # possible issue: Is `None` a valid value for `_Value`?
                     parameter_value = parameter_value_wrapper.get('value')
-                    self._config_values[key] = _Value('remote', parameter_value)  # type: ignore[reportArgumentType]
+                    self._config_values[key] = _Value('remote', parameter_value)  # pyright: ignore[reportArgumentType]
                     continue
 
                 if not default_value:
@@ -358,7 +358,7 @@ class _ConditionEvaluator:
                 if default_value.get('useInAppDefault'):
                     logger.info("Using in-app default value for key '%s'", key)
                     continue
-                self._config_values[key] = _Value('remote', default_value.get('value'))  # type: ignore[reportArgumentType]
+                self._config_values[key] = _Value('remote', default_value.get('value'))  # pyright: ignore[reportArgumentType]
         return self._config_values
 
     def evaluate_conditions(

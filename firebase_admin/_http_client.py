@@ -63,7 +63,7 @@ _AnyT = typing_extensions.TypeVar('_AnyT', default=Any)
 if hasattr(retry.Retry.DEFAULT, 'allowed_methods'):
     _ANY_METHOD: Dict[str, Any] = {'allowed_methods': None}
 else:
-    _ANY_METHOD = {'method_whitelist': None}  # type: ignore[reportConstantRedefinition]
+    _ANY_METHOD = {'method_whitelist': None}  # pyright: ignore[reportConstantRedefinition]
 
 # Default retry configuration: Retries once on low-level connection and socket read errors.
 # Retries up to 4 times on HTTP 500 and 503 errors, with exponential backoff. Returns the
@@ -168,7 +168,7 @@ class HttpClient(Generic[_AnyT]):
             kwargs['timeout'] = self.timeout
         kwargs.setdefault('headers', {}).update(METRICS_HEADERS)
         # possible issue: _session can be None
-        resp = self._session.request(method, self.base_url + url, **kwargs)  # type: ignore[reportOptionalMemberAccess]
+        resp = self._session.request(method, self.base_url + url, **kwargs)
         resp.raise_for_status()
         return resp
 
@@ -225,7 +225,7 @@ class GoogleAuthCredentialFlow(httpx.Auth):
             'Attempting to apply auth headers. Credential validity before: %s',
             self._credential.valid
         )
-        self._credential.before_request(  # type: ignore[reportUnknownMemberType]
+        self._credential.before_request(
             auth_request, request.method, str(request.url), request.headers
         )
         logger.debug('Auth headers applied. Credential validity after: %s', self._credential.valid)
@@ -260,7 +260,7 @@ class GoogleAuthCredentialFlow(httpx.Auth):
                         self._max_refresh_attempts
                     )
                     # Explicitly force a credentials refresh
-                    self._credential.refresh(auth_request)  # type: ignore[reportUnknownMemberType]
+                    self._credential.refresh(auth_request)
                     _credential_refresh_attempt += 1
                 else:
                     logger.debug(

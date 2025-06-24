@@ -61,7 +61,7 @@ else:
         import tensorflow as tf
         _TF_ENABLED = True
     except ImportError:
-        _TF_ENABLED = False  # type: ignore[reportConstantRedefinition]
+        _TF_ENABLED = False  # pyright: ignore[reportConstantRedefinition]
 
 __all__ = (
     'ListModelsPage',
@@ -513,9 +513,9 @@ class _CloudStorageClient:
         file_name = os.path.basename(model_file_name)
         bucket = storage.bucket(bucket_name, app=app)
         blob_name = _CloudStorageClient.BLOB_NAME.format(file_name)
-        blob = bucket.blob(blob_name)  # type: ignore[reportUnknownMemberType]
-        blob.upload_from_filename(model_file_name)  # type: ignore[reportUnknownMemberType]
-        return _CloudStorageClient.GCS_URI.format(bucket.name, blob_name)  # type: ignore[reportUnknownMemberType]
+        blob = bucket.blob(blob_name)
+        blob.upload_from_filename(model_file_name)
+        return _CloudStorageClient.GCS_URI.format(bucket.name, blob_name)
 
     @staticmethod
     def sign_uri(gcs_tflite_uri: str, app: Optional[firebase_admin.App]) -> str:
@@ -523,8 +523,8 @@ class _CloudStorageClient:
         _CloudStorageClient._assert_gcs_enabled()
         bucket_name, blob_name = _CloudStorageClient._parse_gcs_tflite_uri(gcs_tflite_uri)
         bucket = storage.bucket(bucket_name, app=app)
-        blob = bucket.blob(blob_name)  # type: ignore[reportUnknownMemberType]
-        return blob.generate_signed_url(  # type: ignore[reportUnknownMemberType]
+        blob = bucket.blob(blob_name)
+        return blob.generate_signed_url(
             version='v4',
             expiration=datetime.timedelta(minutes=10),
             method='GET'
@@ -588,8 +588,8 @@ class TFLiteGCSModelSource(TFLiteModelSource):
     @staticmethod
     def _tf_convert_from_saved_model(saved_model_dir: Incomplete) -> Incomplete:
         # Same for both v1.x and v2.x
-        converter = tf.lite.TFLiteConverter.from_saved_model(saved_model_dir)  # type: ignore[reportUnknownMemberType]
-        return converter.convert()  # type: ignore[reportUnknownMemberType]
+        converter = tf.lite.TFLiteConverter.from_saved_model(saved_model_dir)
+        return converter.convert()
 
     @staticmethod
     def _tf_convert_from_keras_model(keras_model: Incomplete) -> Incomplete:
@@ -597,12 +597,12 @@ class TFLiteGCSModelSource(TFLiteModelSource):
         # Version 1.x conversion function takes a model file. Version 2.x takes the model itself.
         if tf.version.VERSION.startswith('1.'):
             keras_file = 'firebase_keras_model.h5'
-            tf.keras.models.save_model(keras_model, keras_file)  # type: ignore[reportUnknownMemberType]
-            converter = tf.lite.TFLiteConverter.from_keras_model_file(keras_file)  # type: ignore[reportUnknownMemberType]
+            tf.keras.models.save_model(keras_model, keras_file)
+            converter = tf.lite.TFLiteConverter.from_keras_model_file(keras_file)
         else:
-            converter = tf.lite.TFLiteConverter.from_keras_model(keras_model)  # type: ignore[reportUnknownMemberType]
+            converter = tf.lite.TFLiteConverter.from_keras_model(keras_model)
 
-        return converter.convert()  # type: ignore[reportUnknownMemberType]
+        return converter.convert()
 
     @classmethod
     def from_saved_model(
@@ -862,7 +862,7 @@ def _validate_display_name(display_name: Any) -> str:
 
 def _validate_tags(tags: Any) -> List[str]:
     if not isinstance(tags, list) or not \
-        all(isinstance(tag, str) for tag in tags):  # type: ignore[reportUnknownVariableType]
+        all(isinstance(tag, str) for tag in tags):
         raise TypeError('Tags must be a list of strings.')
     tags = cast(List[str], tags)
     if not all(_TAG_PATTERN.match(tag) for tag in tags):

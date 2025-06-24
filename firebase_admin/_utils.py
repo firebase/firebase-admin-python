@@ -326,7 +326,10 @@ def handle_httpx_error(
 
         err_type = _error_code_to_exception_type(code)
         # possible issue: FirebaseError needs accept httpx.Response?
-        return err_type(message=message, cause=error, http_response=error.response)  # type: ignore[reportArgumentType]
+        return err_type(
+            message=message, cause=error,
+            http_response=error.response  # pyright: ignore[reportArgumentType]
+        )
 
     return exceptions.UnknownError(
         message='Unknown error while making a remote service call: {0}'.format(error),

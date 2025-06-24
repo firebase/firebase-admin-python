@@ -81,7 +81,7 @@ class Base:
           AccessTokenInfo: An access token obtained using the credential.
         """
         google_cred = self.get_credential()
-        google_cred.refresh(_request)  # type: ignore[reportUnknownMemberType]
+        google_cred.refresh(_request)
         return AccessTokenInfo(google_cred.token, google_cred.expiry)
 
     def get_credential(self) -> GoogleAuthCredentials:
@@ -138,7 +138,7 @@ class Certificate(Base):
             raise ValueError('Invalid service account certificate. Certificate must contain a '
                              '"type" field set to "{0}".'.format(self._CREDENTIAL_TYPE))
         try:
-            self._g_credential = service_account.Credentials.from_service_account_info(  # type: ignore[reportUnknownMemberType]
+            self._g_credential = service_account.Credentials.from_service_account_info(
                 json_data, scopes=_scopes)
         except ValueError as error:
             raise ValueError('Failed to initialize a certificate credential. '
@@ -146,7 +146,7 @@ class Certificate(Base):
 
     @property
     def project_id(self) -> Optional[str]:
-        return self._g_credential.project_id  # type: ignore[reportUnknownMemberType]
+        return self._g_credential.project_id
 
     @property
     def signer(self) -> crypt.Signer:
@@ -174,7 +174,8 @@ class ApplicationDefault(Base):
         project_id() is called. See those methods for possible errors raised.
         """
         super(ApplicationDefault, self).__init__()
-        self._g_credential: Optional[GoogleAuthCredentials] = None  # Will be lazily-loaded via _load_credential().
+        # Will be lazily-loaded via _load_credential().
+        self._g_credential: Optional[GoogleAuthCredentials] = None
         self._project_id: Optional[str]
 
     def get_credential(self) -> GoogleAuthCredentials:
@@ -202,7 +203,7 @@ class ApplicationDefault(Base):
 
     def _load_credential(self) -> None:
         if not self._g_credential:
-            self._g_credential, self._project_id = google.auth.default(scopes=_scopes)  # type: ignore[reportUnknownMemberType]
+            self._g_credential, self._project_id = google.auth.default(scopes=_scopes)
 
 
 class RefreshToken(Base):
@@ -240,20 +241,19 @@ class RefreshToken(Base):
         if json_data.get('type') != self._CREDENTIAL_TYPE:
             raise ValueError('Invalid refresh token configuration. JSON must contain a '
                              '"type" field set to "{0}".'.format(self._CREDENTIAL_TYPE))
-        self._g_credential = credentials.Credentials.from_authorized_user_info(  # type: ignore[reportUnknownMemberType]
-            json_data, _scopes)
+        self._g_credential = credentials.Credentials.from_authorized_user_info(json_data, _scopes)
 
     @property
     def client_id(self) -> Optional[str]:
-        return self._g_credential.client_id  # type: ignore[reportUnknownMemberType]
+        return self._g_credential.client_id
 
     @property
     def client_secret(self) -> Optional[str]:
-        return self._g_credential.client_secret  # type: ignore[reportUnknownMemberType]
+        return self._g_credential.client_secret
 
     @property
     def refresh_token(self) -> Optional[str]:
-        return self._g_credential.refresh_token  # type: ignore[reportUnknownMemberType]
+        return self._g_credential.refresh_token
 
     def get_credential(self) -> GoogleAuthCredentials:
         """Returns the underlying Google credential.

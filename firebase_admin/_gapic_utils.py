@@ -53,7 +53,7 @@ def handle_platform_error_from_googleapiclient(
         return handle_googleapiclient_error(error)
 
     content = error.content.decode()
-    status_code = cast(int, error.resp.status)  # type: ignore[reportUnknownMemberType]
+    status_code = cast(int, error.resp.status)
     error_dict, message = _utils._parse_platform_error(content, status_code) # pylint: disable=protected-access
     http_response = _http_response_from_googleapiclient_error(error)
     exc = None
@@ -124,7 +124,7 @@ def handle_googleapiclient_error(
             cause=error)
 
     if not code:
-        code = _utils._http_status_to_error_code(error.resp.status)  # pylint: disable=protected-access # type: ignore[reportUnknownMemberType]
+        code = _utils._http_status_to_error_code(error.resp.status)  # pylint: disable=protected-access
     if not message:
         message = str(error)
     if not http_response:
@@ -138,5 +138,5 @@ def _http_response_from_googleapiclient_error(error: googleapiclient.errors.Http
     """Creates a requests HTTP Response object from the given googleapiclient error."""
     resp = requests.Response()
     resp.raw = io.BytesIO(error.content)
-    resp.status_code = cast(int, error.resp.status)  # type: ignore[reportUnknownMemberType]
+    resp.status_code = cast(int, error.resp.status)
     return resp

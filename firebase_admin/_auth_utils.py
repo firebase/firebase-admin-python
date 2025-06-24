@@ -306,7 +306,7 @@ def validate_timestamp(
     if isinstance(timestamp, bool):
         raise ValueError('Boolean value specified as timestamp.')
     try:
-        timestamp_int = int(timestamp)  # type: ignore[reportArgumentType, arg-type]
+        timestamp_int = int(timestamp)  # pyright: ignore[reportArgumentType]
     except TypeError:
         raise ValueError('Invalid type for timestamp value: {0}.'.format(timestamp))
     else:
@@ -385,7 +385,7 @@ def validate_custom_claims(custom_claims: Any, required: bool = False) -> Option
 
     if not isinstance(parsed, dict):
         raise ValueError('Custom claims must be parseable as a JSON object.')
-    invalid_claims = RESERVED_CLAIMS.intersection(set(parsed.keys()))  # type: ignore[reportUnknownArgumentType]
+    invalid_claims = RESERVED_CLAIMS.intersection(set(parsed.keys()))
     if len(invalid_claims) > 1:
         joined = ', '.join(sorted(invalid_claims))
         raise ValueError('Claims "{0}" are reserved, and must not be set.'.format(joined))
@@ -417,7 +417,7 @@ def build_update_mask(params: Dict[str, Any]) -> List[str]:
     mask: List[str] = []
     for key, value in params.items():
         if isinstance(value, dict):
-            child_mask = build_update_mask(value)  # type: ignore[reportUnknownArgumentType]
+            child_mask = build_update_mask(value)
             for child in child_mask:
                 mask.append('{0}.{1}'.format(key, child))
         else:

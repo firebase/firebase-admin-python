@@ -520,7 +520,7 @@ class _MessagingService:
         self._client = _http_client.JsonHttpClient(credential=self._credential, timeout=timeout)
         self._async_client = _http_client.HttpxAsyncClient(
             credential=self._credential, timeout=timeout)
-        self._build_transport: _TransportBuilder = _auth.authorized_http  # type: ignore[reportUnknownMemberType]
+        self._build_transport: _TransportBuilder = _auth.authorized_http  # pyright: ignore[reportAttributeAccessIssue]
 
     @classmethod
     def encode_message(cls, message: Message) -> Dict[str, Any]:
@@ -636,10 +636,10 @@ class _MessagingService:
                 body=body,
                 headers=self._fcm_headers
             )
-            batch.add(req)  # type: ignore[reportUnknownMemberType]
+            batch.add(req)
 
         try:
-            batch.execute()  # type: ignore[reportUnknownMemberType]
+            batch.execute()
         except Exception as error:
             raise self._handle_batch_error(error)
         else:

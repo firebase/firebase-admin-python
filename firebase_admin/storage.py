@@ -94,4 +94,4 @@ class _StorageClient:
             raise ValueError(
                 'Invalid storage bucket name: "{0}". Bucket name must be a non-empty '
                 'string.'.format(bucket_name))
-        return self._client.bucket(bucket_name)  # type: ignore[reportUnknownMemberType]
+        return self._client.bucket(bucket_name)

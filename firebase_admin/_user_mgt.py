@@ -519,7 +519,7 @@ class ProviderUserInfo(UserInfo):
     @property
     def provider_id(self) -> str:
         # possible issue: can providerId be `None`?
-        return self._data.get('providerId')  # type: ignore[reportReturnType]
+        return self._data.get('providerId')  # pyright: ignore[reportReturnType]
 
 
 class ActionCodeSettings:

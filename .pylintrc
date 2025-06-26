@@ -1,4 +1,4 @@
-[MASTER]
+[MAIN]
 
 # Specify a configuration file.
 #rcfile=
@@ -20,7 +20,9 @@ persistent=no
 
 # List of plugins (as comma separated values of python modules names) to load,
 # usually to register additional checkers.
-load-plugins=pylint.extensions.docparams,pylint.extensions.docstyle
+load-plugins=pylint.extensions.docparams,
+             pylint.extensions.docstyle,
+             pylint.extensions.bad_builtin,
 
 # Use multiple processes to speed up Pylint.
 jobs=1
@@ -177,10 +179,7 @@ logging-modules=logging
 good-names=main,_
 
 # Bad variable names which should always be refused, separated by a comma
-bad-names=input,
-          apply,
-          reduce,
-          foo,
+bad-names=foo,
           bar,
           baz,
           toto,
@@ -377,3 +376,10 @@ exclude-protected=_asdict,_fields,_replace,_source,_make
 
 # Exceptions that will emit a warning when caught.
 overgeneral-exceptions=builtins.BaseException,builtins.Exception
+
+[DEPRECATED_BUILTINS]
+
+# List of builtins function names that should not be used, separated by a comma
+bad-functions=input,
+              apply,
+              reduce

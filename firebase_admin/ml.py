@@ -507,8 +507,8 @@ class TFLiteGCSModelSource(TFLiteModelSource):
             raise ImportError('Failed to import the tensorflow library for Python. Make sure '
                               'to install the tensorflow module.')
         if not tf.version.VERSION.startswith('1.') and not tf.version.VERSION.startswith('2.'):
-            raise ImportError('Expected tensorflow version 1.x or 2.x, but found {0}'
-                              .format(tf.version.VERSION))
+            raise ImportError(
+                f'Expected tensorflow version 1.x or 2.x, but found {tf.version.VERSION}')
 
     @staticmethod
     def _tf_convert_from_saved_model(saved_model_dir):
@@ -760,8 +760,8 @@ def _validate_page_size(page_size):
             # Specifically type() to disallow boolean which is a subtype of int
             raise TypeError('Page size must be a number or None.')
         if page_size < 1 or page_size > _MAX_PAGE_SIZE:
-            raise ValueError('Page size must be a positive integer between '
-                             '1 and {0}'.format(_MAX_PAGE_SIZE))
+            raise ValueError(
+                f'Page size must be a positive integer between 1 and {_MAX_PAGE_SIZE}')
 
 
 def _validate_page_token(page_token):
@@ -786,7 +786,7 @@ class _MLService:
                 'projectId option, or use service account credentials.')
         self._project_url = _MLService.PROJECT_URL.format(self._project_id)
         ml_headers = {
-            'X-FIREBASE-CLIENT': 'fire-admin-python/{0}'.format(firebase_admin.__version__),
+            'X-FIREBASE-CLIENT': f'fire-admin-python/{firebase_admin.__version__}',
         }
         self._client = _http_client.JsonHttpClient(
             credential=app.credential.get_credential(),
@@ -883,9 +883,9 @@ class _MLService:
 
     def update_model(self, model, update_mask=None):
         _validate_model(model, update_mask)
-        path = 'models/{0}'.format(model.model_id)
+        path = f'models/{model.model_id}'
         if update_mask is not None:
-            path = path + '?updateMask={0}'.format(update_mask)
+            path = path + f'?updateMask={update_mask}'
         try:
             return self.handle_operation(
                 self._client.body('patch', url=path, json=model.as_dict(for_upload=True)))
@@ -894,7 +894,7 @@ class _MLService:
 
     def set_published(self, model_id, publish):
         _validate_model_id(model_id)
-        model_name = 'projects/{0}/models/{1}'.format(self._project_id, model_id)
+        model_name = f'projects/{self._project_id}/models/{model_id}'
         model = Model.from_dict({
             'name': model_name,
             'state': {
@@ -906,7 +906,7 @@ class _MLService:
     def get_model(self, model_id):
         _validate_model_id(model_id)
         try:
-            return self._client.body('get', url='models/{0}'.format(model_id))
+            return self._client.body('get', url=f'models/{model_id}')
         except requests.exceptions.RequestException as error:
             raise _utils.handle_platform_error_from_requests(error)
 
@@ -934,6 +934,6 @@ class _MLService:
     def delete_model(self, model_id):
         _validate_model_id(model_id)
         try:
-            self._client.body('delete', url='models/{0}'.format(model_id))
+            self._client.body('delete', url=f'models/{model_id}')
         except requests.exceptions.RequestException as error:
             raise _utils.handle_platform_error_from_requests(error)

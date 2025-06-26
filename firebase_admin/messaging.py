@@ -301,7 +301,7 @@ class TopicManagementResponse:
 
     def __init__(self, resp):
         if not isinstance(resp, dict) or 'results' not in resp:
-            raise ValueError('Unexpected topic management response: {0}.'.format(resp))
+            raise ValueError(f'Unexpected topic management response: {resp}.')
         self._success_count = 0
         self._failure_count = 0
         self._errors = []
@@ -400,7 +400,7 @@ class _MessagingService:
         self._fcm_url = _MessagingService.FCM_URL.format(project_id)
         self._fcm_headers = {
             'X-GOOG-API-FORMAT-VERSION': '2',
-            'X-FIREBASE-CLIENT': 'fire-admin-python/{0}'.format(firebase_admin.__version__),
+            'X-FIREBASE-CLIENT': f'fire-admin-python/{firebase_admin.__version__}',
         }
         timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
         self._credential = app.credential.get_credential()
@@ -426,8 +426,7 @@ class _MessagingService:
             )
         except requests.exceptions.RequestException as error:
             raise self._handle_fcm_error(error)
-        else:
-            return cast(str, resp['name'])
+        return cast(str, resp['name'])
 
     def send_each(self, messages: List[Message], dry_run: bool = False) -> BatchResponse:
         """Sends the given messages to FCM via the FCM v1 API."""
@@ -445,8 +444,7 @@ class _MessagingService:
                     json=data)
             except requests.exceptions.RequestException as exception:
                 return SendResponse(resp=None, exception=self._handle_fcm_error(exception))
-            else:
-                return SendResponse(resp, exception=None)
+            return SendResponse(resp, exception=None)
 
         message_data = [self._message_data(message, dry_run) for message in messages]
         try:
@@ -455,7 +453,7 @@ class _MessagingService:
                 return BatchResponse(responses)
         except Exception as error:
             raise exceptions.UnknownError(
-                message='Unknown error while making remote service calls: {0}'.format(error),
+                message=f'Unknown error while making remote service calls: {error}',
                 cause=error)
 
     async def send_each_async(self, messages: List[Message], dry_run: bool = True) -> BatchResponse:
@@ -477,8 +475,7 @@ class _MessagingService:
             # Catch errors caused by the requests library during authorization
             except requests.exceptions.RequestException as exception:
                 return SendResponse(resp=None, exception=self._handle_fcm_error(exception))
-            else:
-                return SendResponse(resp.json(), exception=None)
+            return SendResponse(resp.json(), exception=None)
 
         message_data = [self._message_data(message, dry_run) for message in messages]
         try:
@@ -486,7 +483,7 @@ class _MessagingService:
             return BatchResponse(responses)
         except Exception as error:
             raise exceptions.UnknownError(
-                message='Unknown error while making remote service calls: {0}'.format(error),
+                message=f'Unknown error while making remote service calls: {error}',
                 cause=error)
 
     def make_topic_management_request(self, tokens, topic, operation):
@@ -502,12 +499,12 @@ class _MessagingService:
         if not isinstance(topic, str) or not topic:
             raise ValueError('Topic must be a non-empty string.')
         if not topic.startswith('/topics/'):
-            topic = '/topics/{0}'.format(topic)
+            topic = f'/topics/{topic}'
         data = {
             'to': topic,
             'registration_tokens': tokens,
         }
-        url = '{0}/{1}'.format(_MessagingService.IID_URL, operation)
+        url = f'{_MessagingService.IID_URL}/{operation}'
         try:
             resp = self._client.body(
                 'post',
@@ -517,8 +514,7 @@ class _MessagingService:
             )
         except requests.exceptions.RequestException as error:
             raise self._handle_iid_error(error)
-        else:
-            return TopicManagementResponse(resp)
+        return TopicManagementResponse(resp)
 
     def _message_data(self, message, dry_run):
         data = {'message': _MessagingService.encode_message(message)}
@@ -558,10 +554,12 @@ class _MessagingService:
         code = data.get('error')
         msg = None
         if code:
-            msg = 'Error while calling the IID service: {0}'.format(code)
+            msg = f'Error while calling the IID service: {code}'
         else:
-            msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(
-                error.response.status_code, error.response.content.decode())
+            msg = (
+                f'Unexpected HTTP response with status: {error.response.status_code}; body: '
+                f'{error.response.content.decode()}'
+            )
 
         return _utils.handle_requests_error(error, msg)
 

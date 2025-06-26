@@ -20,10 +20,10 @@ from firebase_admin import storage
 
 def test_default_bucket(project_id):
     bucket = storage.bucket()
-    _verify_bucket(bucket, '{0}.appspot.com'.format(project_id))
+    _verify_bucket(bucket, f'{project_id}.appspot.com')
 
 def test_custom_bucket(project_id):
-    bucket_name = '{0}.appspot.com'.format(project_id)
+    bucket_name = f'{project_id}.appspot.com'
     bucket = storage.bucket(bucket_name)
     _verify_bucket(bucket, bucket_name)
 
@@ -33,7 +33,7 @@ def test_non_existing_bucket():
 
 def _verify_bucket(bucket, expected_name):
     assert bucket.name == expected_name
-    file_name = 'data_{0}.txt'.format(int(time.time()))
+    file_name = f'data_{int(time.time())}.txt'
     blob = bucket.blob(file_name)
     blob.upload_from_string('Hello World')
 

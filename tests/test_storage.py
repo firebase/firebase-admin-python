@@ -33,7 +33,7 @@ def test_invalid_config():
     with pytest.raises(ValueError):
         storage.bucket()
 
-@pytest.mark.parametrize('name', [None, '', 0, 1, True, False, list(), tuple(), dict()])
+@pytest.mark.parametrize('name', [None, '', 0, 1, True, False, [], tuple(), {}])
 def test_invalid_name(name):
     with pytest.raises(ValueError):
         storage.bucket(name)

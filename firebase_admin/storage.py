@@ -82,6 +82,6 @@ class _StorageClient:
                 'name explicitly when calling the storage.bucket() function.')
         if not bucket_name or not isinstance(bucket_name, str):
             raise ValueError(
-                'Invalid storage bucket name: "{0}". Bucket name must be a non-empty '
-                'string.'.format(bucket_name))
+                f'Invalid storage bucket name: "{bucket_name}". Bucket name must be a non-empty '
+                'string.')
         return self._client.bucket(bucket_name)

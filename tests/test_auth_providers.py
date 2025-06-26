@@ -27,8 +27,7 @@ from tests import testutils
 ID_TOOLKIT_URL = 'https://identitytoolkit.googleapis.com/v2'
 EMULATOR_HOST_ENV_VAR = 'FIREBASE_AUTH_EMULATOR_HOST'
 AUTH_EMULATOR_HOST = 'localhost:9099'
-EMULATED_ID_TOOLKIT_URL = 'http://{}/identitytoolkit.googleapis.com/v2'.format(
-    AUTH_EMULATOR_HOST)
+EMULATED_ID_TOOLKIT_URL = f'http://{AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v2'
 URL_PROJECT_SUFFIX = '/projects/mock-project-id'
 USER_MGT_URLS = {
     'ID_TOOLKIT': ID_TOOLKIT_URL,
@@ -45,7 +44,7 @@ CONFIG_NOT_FOUND_RESPONSE = """{
     }
 }"""
 
-INVALID_PROVIDER_IDS = [None, True, False, 1, 0, list(), tuple(), dict(), '']
+INVALID_PROVIDER_IDS = [None, True, False, 1, 0, [], tuple(), {}, '']
 
 
 @pytest.fixture(scope='module', params=[{'emulated': False}, {'emulated': True}])
@@ -282,12 +281,12 @@ class TestOIDCProviderConfig:
         _assert_request(recorder[0], 'DELETE',
                         f'{USER_MGT_URLS["PREFIX"]}/oauthIdpConfigs/oidc.provider')
 
-    @pytest.mark.parametrize('arg', [None, 'foo', list(), dict(), 0, -1, 101, False])
+    @pytest.mark.parametrize('arg', [None, 'foo', [], {}, 0, -1, 101, False])
     def test_invalid_max_results(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
             auth.list_oidc_provider_configs(max_results=arg, app=user_mgt_app)
 
-    @pytest.mark.parametrize('arg', ['', list(), dict(), 0, -1, 101, False])
+    @pytest.mark.parametrize('arg', ['', [], {}, 0, -1, 101, False])
     def test_invalid_page_token(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
             auth.list_oidc_provider_configs(page_token=arg, app=user_mgt_app)
@@ -346,7 +345,7 @@ class TestOIDCProviderConfig:
 
         for index in range(2):
             provider_config = next(iterator)
-            assert provider_config.provider_id == 'oidc.provider{0}'.format(index)
+            assert provider_config.provider_id == f'oidc.provider{index}'
         assert len(recorder) == 1
         _assert_request(recorder[0], 'GET',
                         f'{USER_MGT_URLS["PREFIX"]}/oauthIdpConfigs?pageSize=100')
@@ -403,7 +402,7 @@ class TestOIDCProviderConfig:
         index = start
         assert len(page.provider_configs) == count
         for provider_config in page.provider_configs:
-            self._assert_provider_config(provider_config, want_id='oidc.provider{0}'.format(index))
+            self._assert_provider_config(provider_config, want_id=f'oidc.provider{index}')
             index += 1
 
         if next_page_token:
@@ -621,12 +620,12 @@ class TestSAMLProviderConfig:
         assert excinfo.value.http_response is not None
         assert excinfo.value.cause is not None
 
-    @pytest.mark.parametrize('arg', [None, 'foo', list(), dict(), 0, -1, 101, False])
+    @pytest.mark.parametrize('arg', [None, 'foo', [], {}, 0, -1, 101, False])
     def test_invalid_max_results(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
             auth.list_saml_provider_configs(max_results=arg, app=user_mgt_app)
 
-    @pytest.mark.parametrize('arg', ['', list(), dict(), 0, -1, 101, False])
+    @pytest.mark.parametrize('arg', ['', [], {}, 0, -1, 101, False])
     def test_invalid_page_token(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
             auth.list_saml_provider_configs(page_token=arg, app=user_mgt_app)
@@ -686,7 +685,7 @@ class TestSAMLProviderConfig:
 
         for index in range(2):
             provider_config = next(iterator)
-            assert provider_config.provider_id == 'saml.provider{0}'.format(index)
+            assert provider_config.provider_id == f'saml.provider{index}'
         assert len(recorder) == 1
         _assert_request(
             recorder[0], 'GET', f'{USER_MGT_URLS["PREFIX"]}/inboundSamlConfigs?pageSize=100')
@@ -735,7 +734,7 @@ class TestSAMLProviderConfig:
         index = start
         assert len(page.provider_configs) == count
         for provider_config in page.provider_configs:
-            self._assert_provider_config(provider_config, want_id='saml.provider{0}'.format(index))
+            self._assert_provider_config(provider_config, want_id=f'saml.provider{index}')
             index += 1
 
         if next_page_token:

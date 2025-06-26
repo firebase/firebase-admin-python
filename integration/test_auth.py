@@ -30,6 +30,7 @@ import requests
 import firebase_admin
 from firebase_admin import auth
 from firebase_admin import credentials
+from firebase_admin._http_client import DEFAULT_TIMEOUT_SECONDS as timeout
 
 
 _verify_token_url = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyCustomToken'
@@ -67,14 +68,14 @@ X509_CERTIFICATES = [
 def _sign_in(custom_token, api_key):
     body = {'token' : custom_token.decode(), 'returnSecureToken' : True}
     params = {'key' : api_key}
-    resp = requests.request('post', _verify_token_url, params=params, json=body)
+    resp = requests.request('post', _verify_token_url, params=params, json=body, timeout=timeout)
     resp.raise_for_status()
     return resp.json().get('idToken')
 
 def _sign_in_with_password(email, password, api_key):
     body = {'email': email, 'password': password, 'returnSecureToken': True}
     params = {'key' : api_key}
-    resp = requests.request('post', _verify_password_url, params=params, json=body)
+    resp = requests.request('post', _verify_password_url, params=params, json=body, timeout=timeout)
     resp.raise_for_status()
     return resp.json().get('idToken')
 
@@ -84,7 +85,7 @@ def _random_string(length=10):
 
 def _random_id():
     random_id = str(uuid.uuid4()).lower().replace('-', '')
-    email = 'test{0}@example.{1}.com'.format(random_id[:12], random_id[12:])
+    email = f'test{random_id[:12]}@example.{random_id[12:]}.com'
     return random_id, email
 
 def _random_phone():
@@ -93,21 +94,21 @@ def _random_phone():
 def _reset_password(oob_code, new_password, api_key):
     body = {'oobCode': oob_code, 'newPassword': new_password}
     params = {'key' : api_key}
-    resp = requests.request('post', _password_reset_url, params=params, json=body)
+    resp = requests.request('post', _password_reset_url, params=params, json=body, timeout=timeout)
     resp.raise_for_status()
     return resp.json().get('email')
 
 def _verify_email(oob_code, api_key):
     body = {'oobCode': oob_code}
     params = {'key' : api_key}
-    resp = requests.request('post', _verify_email_url, params=params, json=body)
+    resp = requests.request('post', _verify_email_url, params=params, json=body, timeout=timeout)
     resp.raise_for_status()
     return resp.json().get('email')
 
 def _sign_in_with_email_link(email, oob_code, api_key):
     body = {'oobCode': oob_code, 'email': email}
     params = {'key' : api_key}
-    resp = requests.request('post', _email_sign_in_url, params=params, json=body)
+    resp = requests.request('post', _email_sign_in_url, params=params, json=body, timeout=timeout)
     resp.raise_for_status()
     return resp.json().get('idToken')
 
@@ -870,7 +871,7 @@ def test_delete_saml_provider_config():
 
 
 def _create_oidc_provider_config():
-    provider_id = 'oidc.{0}'.format(_random_string())
+    provider_id = f'oidc.{_random_string()}'
     return auth.create_oidc_provider_config(
         provider_id=provider_id,
         client_id='OIDC_CLIENT_ID',
@@ -882,7 +883,7 @@ def _create_oidc_provider_config():
 
 
 def _create_saml_provider_config():
-    provider_id = 'saml.{0}'.format(_random_string())
+    provider_id = f'saml.{_random_string()}'
     return auth.create_saml_provider_config(
         provider_id=provider_id,
         idp_entity_id='IDP_ENTITY_ID',

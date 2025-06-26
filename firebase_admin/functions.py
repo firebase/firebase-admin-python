@@ -48,7 +48,7 @@ _FIREBASE_FUNCTION_URL_FORMAT = \
 
 _FUNCTIONS_HEADERS = {
     'X-GOOG-API-FORMAT-VERSION': '2',
-    'X-FIREBASE-CLIENT': 'fire-admin-python/{0}'.format(firebase_admin.__version__),
+    'X-FIREBASE-CLIENT': f'fire-admin-python/{firebase_admin.__version__}',
 }
 
 # Default canonical location ID of the task queue.
@@ -306,9 +306,9 @@ class _Validators:
     def check_non_empty_string(cls, label: str, value: Any):
         """Checks if given value is a non-empty string and throws error if not."""
         if not isinstance(value, str):
-            raise ValueError('{0} "{1}" must be a string.'.format(label, value))
+            raise ValueError(f'{label} "{value}" must be a string.')
         if value == '':
-            raise ValueError('{0} "{1}" must be a non-empty string.'.format(label, value))
+            raise ValueError(f'{label} "{value}" must be a non-empty string.')
 
     @classmethod
     def is_non_empty_string(cls, value: Any):

@@ -37,7 +37,7 @@ except ImportError:
 def _random_identifier(prefix):
     #pylint: disable=unused-variable
     suffix = ''.join([random.choice(string.ascii_letters + string.digits) for n in range(8)])
-    return '{0}_{1}'.format(prefix, suffix)
+    return f'{prefix}_{suffix}'
 
 
 NAME_ONLY_ARGS = {
@@ -170,7 +170,7 @@ def test_create_already_existing_fails(firebase_model):
         ml.create_model(model=firebase_model)
     check_operation_error(
         excinfo,
-        'Model \'{0}\' already exists'.format(firebase_model.display_name))
+        f'Model \'{firebase_model.display_name}\' already exists')
 
 
 @pytest.mark.parametrize('firebase_model', [INVALID_FULL_MODEL_ARGS], indirect=True)
@@ -219,7 +219,7 @@ def test_update_non_existing_model(firebase_model):
         ml.update_model(firebase_model)
     check_operation_error(
         excinfo,
-        'Model \'{0}\' was not found'.format(firebase_model.as_dict().get('name')))
+        f'Model \'{firebase_model.as_dict().get("name")}\' was not found')
 
 
 @pytest.mark.parametrize('firebase_model', [FULL_MODEL_ARGS], indirect=True)
@@ -252,18 +252,17 @@ def test_publish_unpublish_non_existing_model(firebase_model):
         ml.publish_model(firebase_model.model_id)
     check_operation_error(
         excinfo,
-        'Model \'{0}\' was not found'.format(firebase_model.as_dict().get('name')))
+        f'Model \'{firebase_model.as_dict().get("name")}\' was not found')
 
     with pytest.raises(exceptions.NotFoundError) as excinfo:
         ml.unpublish_model(firebase_model.model_id)
     check_operation_error(
         excinfo,
-        'Model \'{0}\' was not found'.format(firebase_model.as_dict().get('name')))
+        f'Model \'{firebase_model.as_dict().get("name")}\' was not found')
 
 
 def test_list_models(model_list):
-    filter_str = 'displayName={0} OR tags:{1}'.format(
-        model_list[0].display_name, model_list[1].tags[0])
+    filter_str = f'displayName={model_list[0].display_name} OR tags:{model_list[1].tags[0]}'
 
     all_models = ml.list_models(list_filter=filter_str)
     all_model_ids = [mdl.model_id for mdl in all_models.iterate_all()]

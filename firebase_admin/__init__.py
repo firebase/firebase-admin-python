@@ -79,11 +79,11 @@ def initialize_app(credential=None, options=None, name=_DEFAULT_APP_NAME):
             'apps, pass a second argument to initialize_app() to give each app '
             'a unique name.'))
 
-    raise ValueError((
-        'Firebase app named "{0}" already exists. This means you called '
+    raise ValueError(
+        f'Firebase app named "{name}" already exists. This means you called '
         'initialize_app() more than once with the same app name as the '
         'second argument. Make sure you provide a unique name every time '
-        'you call initialize_app().').format(name))
+        'you call initialize_app().')
 
 
 def delete_app(app):
@@ -96,8 +96,7 @@ def delete_app(app):
       ValueError: If the app is not initialized.
     """
     if not isinstance(app, App):
-        raise ValueError('Illegal app argument type: "{}". Argument must be of '
-                         'type App.'.format(type(app)))
+        raise ValueError(f'Illegal app argument type: "{type(app)}". Argument must be of type App.')
     with _apps_lock:
         if _apps.get(app.name) is app:
             del _apps[app.name]
@@ -109,9 +108,9 @@ def delete_app(app):
             'the default app by calling initialize_app().')
 
     raise ValueError(
-        ('Firebase app named "{0}" is not initialized. Make sure to initialize '
-         'the app by calling initialize_app() with your app name as the '
-         'second argument.').format(app.name))
+        f'Firebase app named "{app.name}" is not initialized. Make sure to initialize '
+        'the app by calling initialize_app() with your app name as the '
+        'second argument.')
 
 
 def get_app(name=_DEFAULT_APP_NAME):
@@ -128,8 +127,8 @@ def get_app(name=_DEFAULT_APP_NAME):
           app does not exist.
     """
     if not isinstance(name, str):
-        raise ValueError('Illegal app name argument type: "{}". App name '
-                         'must be a string.'.format(type(name)))
+        raise ValueError(
+            f'Illegal app name argument type: "{type(name)}". App name must be a string.')
     with _apps_lock:
         if name in _apps:
             return _apps[name]
@@ -140,9 +139,9 @@ def get_app(name=_DEFAULT_APP_NAME):
             'the SDK by calling initialize_app().')
 
     raise ValueError(
-        ('Firebase app named "{0}" does not exist. Make sure to initialize '
-         'the SDK by calling initialize_app() with your app name as the '
-         'second argument.').format(name))
+        f'Firebase app named "{name}" does not exist. Make sure to initialize '
+        'the SDK by calling initialize_app() with your app name as the '
+        'second argument.')
 
 
 class _AppOptions:
@@ -153,8 +152,9 @@ class _AppOptions:
             options = self._load_from_environment()
 
         if not isinstance(options, dict):
-            raise ValueError('Illegal Firebase app options type: {0}. Options '
-                             'must be a dictionary.'.format(type(options)))
+            raise ValueError(
+                f'Illegal Firebase app options type: {type(options)}. '
+                'Options must be a dictionary.')
         self._options = options
 
     def get(self, key, default=None):
@@ -175,15 +175,15 @@ class _AppOptions:
             json_str = config_file
         else:
             try:
-                with open(config_file, 'r') as json_file:
+                with open(config_file, 'r', encoding='utf-8') as json_file:
                     json_str = json_file.read()
             except Exception as err:
-                raise ValueError('Unable to read file {}. {}'.format(config_file, err)) from err
+                raise ValueError(f'Unable to read file {config_file}. {err}') from err
         try:
             json_data = json.loads(json_str)
         except Exception as err:
             raise ValueError(
-                'JSON string "{0}" is not valid json. {1}'.format(json_str, err)) from err
+                f'JSON string "{json_str}" is not valid json. {err}') from err
         return {k: v for k, v in json_data.items() if k in _CONFIG_VALID_KEYS}
 
 
@@ -206,8 +206,9 @@ class App:
           ValueError: If an argument is None or invalid.
         """
         if not name or not isinstance(name, str):
-            raise ValueError('Illegal Firebase app name "{0}" provided. App name must be a '
-                             'non-empty string.'.format(name))
+            raise ValueError(
+                f'Illegal Firebase app name "{name}" provided. App name must be a '
+                'non-empty string.')
         self._name = name
 
         if isinstance(credential, GoogleAuthCredentials):
@@ -228,7 +229,7 @@ class App:
     def _validate_project_id(cls, project_id):
         if project_id is not None and not isinstance(project_id, str):
             raise ValueError(
-                'Invalid project ID: "{0}". project ID must be a string.'.format(project_id))
+                f'Invalid project ID: "{project_id}". project ID must be a string.')
 
     @property
     def name(self):
@@ -293,11 +294,11 @@ class App:
         """
         if not name or not isinstance(name, str):
             raise ValueError(
-                'Illegal name argument: "{0}". Name must be a non-empty string.'.format(name))
+                f'Illegal name argument: "{name}". Name must be a non-empty string.')
         with self._lock:
             if self._services is None:
                 raise ValueError(
-                    'Service requested from deleted Firebase App: "{0}".'.format(self._name))
+                    f'Service requested from deleted Firebase App: "{self._name}".')
             if name not in self._services:
                 self._services[name] = initializer(self)
             return self._services[name]

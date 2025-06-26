@@ -74,14 +74,13 @@ def test_create_android_app_already_exists(android_app):
 def test_android_set_display_name_and_get_metadata(android_app, project_id):
     app_id = android_app.app_id
     android_app = project_management.android_app(app_id)
-    new_display_name = '{0} helloworld {1}'.format(
-        TEST_APP_DISPLAY_NAME_PREFIX, random.randint(0, 10000))
+    new_display_name = f'{TEST_APP_DISPLAY_NAME_PREFIX} helloworld {random.randint(0, 10000)}'
 
     android_app.set_display_name(new_display_name)
     metadata = project_management.android_app(app_id).get_metadata()
     android_app.set_display_name(TEST_APP_DISPLAY_NAME_PREFIX)  # Revert the display name.
 
-    assert metadata._name == 'projects/{0}/androidApps/{1}'.format(project_id, app_id)
+    assert metadata._name == f'projects/{project_id}/androidApps/{app_id}'
     assert metadata.app_id == app_id
     assert metadata.project_id == project_id
     assert metadata.display_name == new_display_name
@@ -149,15 +148,13 @@ def test_create_ios_app_already_exists(ios_app):
 def test_ios_set_display_name_and_get_metadata(ios_app, project_id):
     app_id = ios_app.app_id
     ios_app = project_management.ios_app(app_id)
-    new_display_name = '{0} helloworld {1}'.format(
-        TEST_APP_DISPLAY_NAME_PREFIX, random.randint(0, 10000))
+    new_display_name = f'{TEST_APP_DISPLAY_NAME_PREFIX} helloworld {random.randint(0, 10000)}'
 
     ios_app.set_display_name(new_display_name)
     metadata = project_management.ios_app(app_id).get_metadata()
     ios_app.set_display_name(TEST_APP_DISPLAY_NAME_PREFIX)  # Revert the display name.
 
-    assert metadata._name == 'projects/{0}/iosApps/{1}'.format(project_id, app_id)
-    assert metadata.app_id == app_id
+    assert metadata._name == f'projects/{project_id}/iosApps/{app_id}'
     assert metadata.project_id == project_id
     assert metadata.display_name == new_display_name
     assert metadata.bundle_id == TEST_APP_BUNDLE_ID

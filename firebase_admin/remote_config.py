@@ -251,7 +251,7 @@ class _RemoteConfigService:
         self._project_id = app.project_id
         app_credential = app.credential.get_credential()
         rc_headers = {
-            'X-FIREBASE-CLIENT': 'fire-admin-python/{0}'.format(firebase_admin.__version__), }
+            'X-FIREBASE-CLIENT': f'fire-admin-python/{firebase_admin.__version__}', }
         timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
 
         self._client = _http_client.JsonHttpClient(credential=app_credential,
@@ -268,14 +268,12 @@ class _RemoteConfigService:
                                                                 'get', self._get_url())
         except requests.exceptions.RequestException as error:
             raise self._handle_remote_config_error(error)
-        else:
-            template_data['etag'] = headers.get('etag')
-            return _ServerTemplateData(template_data)
+        template_data['etag'] = headers.get('etag')
+        return _ServerTemplateData(template_data)
 
     def _get_url(self):
         """Returns project prefix for url, in the format of /v1/projects/${projectId}"""
-        return "/v1/projects/{0}/namespaces/firebase-server/serverRemoteConfig".format(
-            self._project_id)
+        return f"/v1/projects/{self._project_id}/namespaces/firebase-server/serverRemoteConfig"
 
     @classmethod
     def _handle_remote_config_error(cls, error: Any):

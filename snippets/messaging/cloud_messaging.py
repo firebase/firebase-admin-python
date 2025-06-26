@@ -241,7 +241,7 @@ def send_each():
     response = messaging.send_each(messages)
     # See the BatchResponse reference documentation
     # for the contents of response.
-    print('{0} messages were sent successfully'.format(response.success_count))
+    print(f'{response.success_count} messages were sent successfully')
     # [END send_each]
 
 
@@ -262,7 +262,7 @@ def send_each_for_multicast():
     response = messaging.send_each_for_multicast(message)
     # See the BatchResponse reference documentation
     # for the contents of response.
-    print('{0} messages were sent successfully'.format(response.success_count))
+    print(f'{response.success_count} messages were sent successfully')
     # [END send_each_for_multicast]
 
 
@@ -287,5 +287,5 @@ def send_each_for_multicast_and_handle_errors():
             if not resp.success:
                 # The order of responses corresponds to the order of the registration tokens.
                 failed_tokens.append(registration_tokens[idx])
-        print('List of tokens that caused failures: {0}'.format(failed_tokens))
+        print(f'List of tokens that caused failures: {failed_tokens}')
     # [END send_each_for_multicast_error]

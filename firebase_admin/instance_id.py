@@ -81,7 +81,7 @@ class _InstanceIdService:
     def delete_instance_id(self, instance_id):
         if not isinstance(instance_id, str) or not instance_id:
             raise ValueError('Instance ID must be a non-empty string.')
-        path = 'project/{0}/instanceId/{1}'.format(self._project_id, instance_id)
+        path = f'project/{self._project_id}/instanceId/{instance_id}'
         try:
             self._client.request('delete', path)
         except requests.exceptions.RequestException as error:
@@ -94,6 +94,6 @@ class _InstanceIdService:
         status = error.response.status_code
         msg = self.error_codes.get(status)
         if msg:
-            return 'Instance ID "{0}": {1}'.format(instance_id, msg)
+            return f'Instance ID "{instance_id}": {msg}'
 
-        return 'Instance ID "{0}": {1}'.format(instance_id, error)
+        return f'Instance ID "{instance_id}": {error}'

@@ -74,8 +74,8 @@ def get_emulator_host():
     emulator_host = os.getenv(EMULATOR_HOST_ENV_VAR, '')
     if emulator_host and '//' in emulator_host:
         raise ValueError(
-            'Invalid {0}: "{1}". It must follow format "host:port".'.format(
-                EMULATOR_HOST_ENV_VAR, emulator_host))
+            f'Invalid {EMULATOR_HOST_ENV_VAR}: "{emulator_host}". '
+            'It must follow format "host:port".')
     return emulator_host
 
 
@@ -88,8 +88,8 @@ def validate_uid(uid, required=False):
         return None
     if not isinstance(uid, str) or not uid or len(uid) > 128:
         raise ValueError(
-            'Invalid uid: "{0}". The uid must be a non-empty string with no more than 128 '
-            'characters.'.format(uid))
+            f'Invalid uid: "{uid}". The uid must be a non-empty string with no more than 128 '
+            'characters.')
     return uid
 
 def validate_email(email, required=False):
@@ -97,10 +97,10 @@ def validate_email(email, required=False):
         return None
     if not isinstance(email, str) or not email:
         raise ValueError(
-            'Invalid email: "{0}". Email must be a non-empty string.'.format(email))
+            f'Invalid email: "{email}". Email must be a non-empty string.')
     parts = email.split('@')
     if len(parts) != 2 or not parts[0] or not parts[1]:
-        raise ValueError('Malformed email address string: "{0}".'.format(email))
+        raise ValueError(f'Malformed email address string: "{email}".')
     return email
 
 def validate_phone(phone, required=False):
@@ -113,11 +113,12 @@ def validate_phone(phone, required=False):
     if phone is None and not required:
         return None
     if not isinstance(phone, str) or not phone:
-        raise ValueError('Invalid phone number: "{0}". Phone number must be a non-empty '
-                         'string.'.format(phone))
+        raise ValueError(
+            f'Invalid phone number: "{phone}". Phone number must be a non-empty string.')
     if not phone.startswith('+') or not re.search('[a-zA-Z0-9]', phone):
-        raise ValueError('Invalid phone number: "{0}". Phone number must be a valid, E.164 '
-                         'compliant identifier.'.format(phone))
+        raise ValueError(
+            f'Invalid phone number: "{phone}". Phone number must be a valid, E.164 '
+            'compliant identifier.')
     return phone
 
 def validate_password(password, required=False):
@@ -132,7 +133,7 @@ def validate_bytes(value, label, required=False):
     if value is None and not required:
         return None
     if not isinstance(value, bytes) or not value:
-        raise ValueError('{0} must be a non-empty byte sequence.'.format(label))
+        raise ValueError(f'{label} must be a non-empty byte sequence.')
     return value
 
 def validate_display_name(display_name, required=False):
@@ -140,8 +141,8 @@ def validate_display_name(display_name, required=False):
         return None
     if not isinstance(display_name, str) or not display_name:
         raise ValueError(
-            'Invalid display name: "{0}". Display name must be a non-empty '
-            'string.'.format(display_name))
+            f'Invalid display name: "{display_name}". Display name must be a non-empty '
+            'string.')
     return display_name
 
 def validate_provider_id(provider_id, required=True):
@@ -149,8 +150,7 @@ def validate_provider_id(provider_id, required=True):
         return None
     if not isinstance(provider_id, str) or not provider_id:
         raise ValueError(
-            'Invalid provider ID: "{0}". Provider ID must be a non-empty '
-            'string.'.format(provider_id))
+            f'Invalid provider ID: "{provider_id}". Provider ID must be a non-empty string.')
     return provider_id
 
 def validate_provider_uid(provider_uid, required=True):
@@ -158,8 +158,7 @@ def validate_provider_uid(provider_uid, required=True):
         return None
     if not isinstance(provider_uid, str) or not provider_uid:
         raise ValueError(
-            'Invalid provider UID: "{0}". Provider UID must be a non-empty '
-            'string.'.format(provider_uid))
+            f'Invalid provider UID: "{provider_uid}". Provider UID must be a non-empty string.')
     return provider_uid
 
 def validate_photo_url(photo_url, required=False):
@@ -168,15 +167,14 @@ def validate_photo_url(photo_url, required=False):
         return None
     if not isinstance(photo_url, str) or not photo_url:
         raise ValueError(
-            'Invalid photo URL: "{0}". Photo URL must be a non-empty '
-            'string.'.format(photo_url))
+            f'Invalid photo URL: "{photo_url}". Photo URL must be a non-empty string.')
     try:
         parsed = parse.urlparse(photo_url)
         if not parsed.netloc:
-            raise ValueError('Malformed photo URL: "{0}".'.format(photo_url))
+            raise ValueError(f'Malformed photo URL: "{photo_url}".')
         return photo_url
     except Exception as err:
-        raise ValueError('Malformed photo URL: "{0}".'.format(photo_url)) from err
+        raise ValueError(f'Malformed photo URL: "{photo_url}".') from err
 
 def validate_timestamp(timestamp, label, required=False):
     """Validates the given timestamp value. Timestamps must be positive integers."""
@@ -187,13 +185,12 @@ def validate_timestamp(timestamp, label, required=False):
     try:
         timestamp_int = int(timestamp)
     except TypeError as err:
-        raise ValueError('Invalid type for timestamp value: {0}.'.format(timestamp)) from err
-    else:
-        if timestamp_int != timestamp:
-            raise ValueError('{0} must be a numeric value and a whole number.'.format(label))
-        if timestamp_int <= 0:
-            raise ValueError('{0} timestamp must be a positive interger.'.format(label))
-        return timestamp_int
+        raise ValueError(f'Invalid type for timestamp value: {timestamp}.') from err
+    if timestamp_int != timestamp:
+        raise ValueError(f'{label} must be a numeric value and a whole number.')
+    if timestamp_int <= 0:
+        raise ValueError(f'{label} timestamp must be a positive interger.')
+    return timestamp_int
 
 def validate_int(value, label, low=None, high=None):
     """Validates that the given value represents an integer.
@@ -204,31 +201,30 @@ def validate_int(value, label, low=None, high=None):
     a developer error.
     """
     if value is None or isinstance(value, bool):
-        raise ValueError('Invalid type for integer value: {0}.'.format(value))
+        raise ValueError(f'Invalid type for integer value: {value}.')
     try:
         val_int = int(value)
     except TypeError as err:
-        raise ValueError('Invalid type for integer value: {0}.'.format(value)) from err
-    else:
-        if val_int != value:
-            # This will be True for non-numeric values like '2' and non-whole numbers like 2.5.
-            raise ValueError('{0} must be a numeric value and a whole number.'.format(label))
-        if low is not None and val_int < low:
-            raise ValueError('{0} must not be smaller than {1}.'.format(label, low))
-        if high is not None and val_int > high:
-            raise ValueError('{0} must not be larger than {1}.'.format(label, high))
-        return val_int
+        raise ValueError(f'Invalid type for integer value: {value}.') from err
+    if val_int != value:
+        # This will be True for non-numeric values like '2' and non-whole numbers like 2.5.
+        raise ValueError(f'{label} must be a numeric value and a whole number.')
+    if low is not None and val_int < low:
+        raise ValueError(f'{label} must not be smaller than {low}.')
+    if high is not None and val_int > high:
+        raise ValueError(f'{label} must not be larger than {high}.')
+    return val_int
 
 def validate_string(value, label):
     """Validates that the given value is a string."""
     if not isinstance(value, str):
-        raise ValueError('Invalid type for {0}: {1}.'.format(label, value))
+        raise ValueError(f'Invalid type for {label}: {value}.')
     return value
 
 def validate_boolean(value, label):
     """Validates that the given value is a boolean."""
     if not isinstance(value, bool):
-        raise ValueError('Invalid type for {0}: {1}.'.format(label, value))
+        raise ValueError(f'Invalid type for {label}: {value}.')
     return value
 
 def validate_custom_claims(custom_claims, required=False):
@@ -242,8 +238,7 @@ def validate_custom_claims(custom_claims, required=False):
     claims_str = str(custom_claims)
     if len(claims_str) > MAX_CLAIMS_PAYLOAD_SIZE:
         raise ValueError(
-            'Custom claims payload must not exceed {0} characters.'.format(
-                MAX_CLAIMS_PAYLOAD_SIZE))
+            f'Custom claims payload must not exceed {MAX_CLAIMS_PAYLOAD_SIZE} characters.')
     try:
         parsed = json.loads(claims_str)
     except Exception as err:
@@ -254,16 +249,17 @@ def validate_custom_claims(custom_claims, required=False):
     invalid_claims = RESERVED_CLAIMS.intersection(set(parsed.keys()))
     if len(invalid_claims) > 1:
         joined = ', '.join(sorted(invalid_claims))
-        raise ValueError('Claims "{0}" are reserved, and must not be set.'.format(joined))
+        raise ValueError(f'Claims "{joined}" are reserved, and must not be set.')
     if len(invalid_claims) == 1:
         raise ValueError(
-            'Claim "{0}" is reserved, and must not be set.'.format(invalid_claims.pop()))
+            f'Claim "{invalid_claims.pop()}" is reserved, and must not be set.')
     return claims_str
 
 def validate_action_type(action_type):
     if action_type not in VALID_EMAIL_ACTION_TYPES:
-        raise ValueError('Invalid action type provided action_type: {0}. \
-            Valid values are {1}'.format(action_type, ', '.join(VALID_EMAIL_ACTION_TYPES)))
+        raise ValueError(
+            f'Invalid action type provided action_type: {action_type}. Valid values are '
+            f'{", ".join(VALID_EMAIL_ACTION_TYPES)}')
     return action_type
 
 def validate_provider_ids(provider_ids, required=False):
@@ -282,7 +278,7 @@ def build_update_mask(params):
         if isinstance(value, dict):
             child_mask = build_update_mask(value)
             for child in child_mask:
-                mask.append('{0}.{1}'.format(key, child))
+                mask.append(f'{key}.{child}')
         else:
             mask.append(key)
 
@@ -443,7 +439,7 @@ def handle_auth_backend_error(error):
 
     code, custom_message = _parse_error_body(error.response)
     if not code:
-        msg = 'Unexpected error response: {0}'.format(error.response.content.decode())
+        msg = f'Unexpected error response: {error.response.content.decode()}'
         return _utils.handle_requests_error(error, message=msg)
 
     exc_type = _CODE_TO_EXC_TYPE.get(code)
@@ -479,5 +475,5 @@ def _parse_error_body(response):
 def _build_error_message(code, exc_type, custom_message):
     default_message = exc_type.default_message if (
         exc_type and hasattr(exc_type, 'default_message')) else 'Error while calling Auth service'
-    ext = ' {0}'.format(custom_message) if custom_message else ''
-    return '{0} ({1}).{2}'.format(default_message, code, ext)
+    ext = f' {custom_message}' if custom_message else ''
+    return f'{default_message} ({code}).{ext}'

@@ -49,7 +49,7 @@ TAGS = [TAG_1, TAG_2]
 TAGS_2 = [TAG_1, TAG_3]
 
 MODEL_ID_1 = 'modelId1'
-MODEL_NAME_1 = 'projects/{0}/models/{1}'.format(PROJECT_ID, MODEL_ID_1)
+MODEL_NAME_1 = f'projects/{PROJECT_ID}/models/{MODEL_ID_1}'
 DISPLAY_NAME_1 = 'displayName1'
 MODEL_JSON_1 = {
     'name': MODEL_NAME_1,
@@ -58,7 +58,7 @@ MODEL_JSON_1 = {
 MODEL_1 = ml.Model.from_dict(MODEL_JSON_1)
 
 MODEL_ID_2 = 'modelId2'
-MODEL_NAME_2 = 'projects/{0}/models/{1}'.format(PROJECT_ID, MODEL_ID_2)
+MODEL_NAME_2 = f'projects/{PROJECT_ID}/models/{MODEL_ID_2}'
 DISPLAY_NAME_2 = 'displayName2'
 MODEL_JSON_2 = {
     'name': MODEL_NAME_2,
@@ -67,7 +67,7 @@ MODEL_JSON_2 = {
 MODEL_2 = ml.Model.from_dict(MODEL_JSON_2)
 
 MODEL_ID_3 = 'modelId3'
-MODEL_NAME_3 = 'projects/{0}/models/{1}'.format(PROJECT_ID, MODEL_ID_3)
+MODEL_NAME_3 = f'projects/{PROJECT_ID}/models/{MODEL_ID_3}'
 DISPLAY_NAME_3 = 'displayName3'
 MODEL_JSON_3 = {
     'name': MODEL_NAME_3,
@@ -79,7 +79,7 @@ MODEL_STATE_PUBLISHED_JSON = {
     'published': True
 }
 VALIDATION_ERROR_CODE = 400
-VALIDATION_ERROR_MSG = 'No model format found for {0}.'.format(MODEL_ID_1)
+VALIDATION_ERROR_MSG = f'No model format found for {MODEL_ID_1}.'
 MODEL_STATE_ERROR_JSON = {
     'validationError': {
         'code': VALIDATION_ERROR_CODE,
@@ -87,19 +87,19 @@ MODEL_STATE_ERROR_JSON = {
     }
 }
 
-OPERATION_NAME_1 = 'projects/{0}/operations/123'.format(PROJECT_ID)
+OPERATION_NAME_1 = f'projects/{PROJECT_ID}/operations/123'
 OPERATION_NOT_DONE_JSON_1 = {
     'name': OPERATION_NAME_1,
     'metadata': {
         '@type': 'type.googleapis.com/google.firebase.ml.v1beta2.ModelOperationMetadata',
-        'name': 'projects/{0}/models/{1}'.format(PROJECT_ID, MODEL_ID_1),
+        'name': f'projects/{PROJECT_ID}/models/{MODEL_ID_1}',
         'basic_operation_status': 'BASIC_OPERATION_STATUS_UPLOADING'
     }
 }
 
 GCS_BUCKET_NAME = 'my_bucket'
 GCS_BLOB_NAME = 'mymodel.tflite'
-GCS_TFLITE_URI = 'gs://{0}/{1}'.format(GCS_BUCKET_NAME, GCS_BLOB_NAME)
+GCS_TFLITE_URI = f'gs://{GCS_BUCKET_NAME}/{GCS_BLOB_NAME}'
 GCS_TFLITE_URI_JSON = {'gcsTfliteUri': GCS_TFLITE_URI}
 GCS_TFLITE_MODEL_SOURCE = ml.TFLiteGCSModelSource(GCS_TFLITE_URI)
 TFLITE_FORMAT_JSON = {
@@ -257,8 +257,8 @@ INVALID_MODEL_ID_ARGS = [
 INVALID_MODEL_ARGS = [
     'abc',
     4.2,
-    list(),
-    dict(),
+    [],
+    {},
     True,
     -1,
     0,
@@ -272,9 +272,10 @@ INVALID_OP_NAME_ARGS = [
     'projects/$#@/operations/123',
     'projects/1234/operations/123/extrathing',
 ]
-PAGE_SIZE_VALUE_ERROR_MSG = 'Page size must be a positive integer between ' \
-                            '1 and {0}'.format(ml._MAX_PAGE_SIZE)
-INVALID_STRING_OR_NONE_ARGS = [0, -1, 4.2, 0x10, False, list(), dict()]
+PAGE_SIZE_VALUE_ERROR_MSG = (
+    f'Page size must be a positive integer between 1 and {ml._MAX_PAGE_SIZE}'
+)
+INVALID_STRING_OR_NONE_ARGS = [0, -1, 4.2, 0x10, False, [], {}]
 
 
 # For validation type errors
@@ -358,8 +359,7 @@ class TestModel:
 
     @staticmethod
     def _op_url(project_id):
-        return BASE_URL + \
-            'projects/{0}/operations/123'.format(project_id)
+        return BASE_URL + f'projects/{project_id}/operations/123'
 
     def test_model_success_err_state_lro(self):
         model = ml.Model.from_dict(FULL_MODEL_ERR_STATE_LRO_JSON)
@@ -569,16 +569,15 @@ class TestCreateModel:
 
     @staticmethod
     def _url(project_id):
-        return BASE_URL + 'projects/{0}/models'.format(project_id)
+        return BASE_URL + f'projects/{project_id}/models'
 
     @staticmethod
     def _op_url(project_id):
-        return BASE_URL + \
-            'projects/{0}/operations/123'.format(project_id)
+        return BASE_URL + f'projects/{project_id}/operations/123'
 
     @staticmethod
     def _get_url(project_id, model_id):
-        return BASE_URL + 'projects/{0}/models/{1}'.format(project_id, model_id)
+        return BASE_URL + f'projects/{project_id}/models/{model_id}'
 
     def test_immediate_done(self):
         instrument_ml_service(status=200, payload=OPERATION_DONE_RESPONSE)
@@ -663,12 +662,11 @@ class TestUpdateModel:
 
     @staticmethod
     def _url(project_id, model_id):
-        return BASE_URL + 'projects/{0}/models/{1}'.format(project_id, model_id)
+        return BASE_URL + f'projects/{project_id}/models/{model_id}'
 
     @staticmethod
     def _op_url(project_id):
-        return BASE_URL + \
-            'projects/{0}/operations/123'.format(project_id)
+        return BASE_URL + f'projects/{project_id}/operations/123'
 
     def test_immediate_done(self):
         instrument_ml_service(status=200, payload=OPERATION_DONE_RESPONSE)
@@ -760,18 +758,16 @@ class TestPublishUnpublish:
 
     @staticmethod
     def _update_url(project_id, model_id):
-        update_url = 'projects/{0}/models/{1}?updateMask=state.published'.format(
-            project_id, model_id)
+        update_url = f'projects/{project_id}/models/{model_id}?updateMask=state.published'
         return BASE_URL + update_url
 
     @staticmethod
     def _get_url(project_id, model_id):
-        return BASE_URL + 'projects/{0}/models/{1}'.format(project_id, model_id)
+        return BASE_URL + f'projects/{project_id}/models/{model_id}'
 
     @staticmethod
     def _op_url(project_id):
-        return BASE_URL + \
-            'projects/{0}/operations/123'.format(project_id)
+        return BASE_URL + f'projects/{project_id}/operations/123'
 
     @pytest.mark.parametrize('publish_function, published', PUBLISH_UNPUBLISH_WITH_ARGS)
     def test_immediate_done(self, publish_function, published):
@@ -842,7 +838,7 @@ class TestGetModel:
 
     @staticmethod
     def _url(project_id, model_id):
-        return BASE_URL + 'projects/{0}/models/{1}'.format(project_id, model_id)
+        return BASE_URL + f'projects/{project_id}/models/{model_id}'
 
     def test_get_model(self):
         recorder = instrument_ml_service(status=200, payload=DEFAULT_GET_RESPONSE)
@@ -893,7 +889,7 @@ class TestDeleteModel:
 
     @staticmethod
     def _url(project_id, model_id):
-        return BASE_URL + 'projects/{0}/models/{1}'.format(project_id, model_id)
+        return BASE_URL + f'projects/{project_id}/models/{model_id}'
 
     def test_delete_model(self):
         recorder = instrument_ml_service(status=200, payload=EMPTY_RESPONSE)
@@ -941,7 +937,7 @@ class TestListModels:
 
     @staticmethod
     def _url(project_id):
-        return BASE_URL + 'projects/{0}/models'.format(project_id)
+        return BASE_URL + f'projects/{project_id}/models'
 
     @staticmethod
     def _check_page(page, model_count):
@@ -970,8 +966,8 @@ class TestListModels:
         assert len(recorder) == 1
         _assert_request(recorder[0], 'GET', (
             TestListModels._url(PROJECT_ID) +
-            '?filter=display_name%3DdisplayName3&page_size=10&page_token={0}'
-            .format(PAGE_TOKEN)))
+            f'?filter=display_name%3DdisplayName3&page_size=10&page_token={PAGE_TOKEN}'
+            ))
         assert isinstance(models_page, ml.ListModelsPage)
         assert len(models_page.models) == 1
         assert models_page.models[0] == MODEL_3
@@ -986,8 +982,8 @@ class TestListModels:
     @pytest.mark.parametrize('page_size, exc_type, error_message', [
         ('abc', TypeError, 'Page size must be a number or None.'),
         (4.2, TypeError, 'Page size must be a number or None.'),
-        (list(), TypeError, 'Page size must be a number or None.'),
-        (dict(), TypeError, 'Page size must be a number or None.'),
+        ([], TypeError, 'Page size must be a number or None.'),
+        ({}, TypeError, 'Page size must be a number or None.'),
         (True, TypeError, 'Page size must be a number or None.'),
         (-1, ValueError, PAGE_SIZE_VALUE_ERROR_MSG),
         (0, ValueError, PAGE_SIZE_VALUE_ERROR_MSG),
@@ -1061,7 +1057,7 @@ class TestListModels:
         iterator = page.iterate_all()
         for index in range(2):
             model = next(iterator)
-            assert model.display_name == 'displayName{0}'.format(index+1)
+            assert model.display_name == f'displayName{index+1}'
         assert len(recorder) == 1
 
         # Page 2

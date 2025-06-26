@@ -30,12 +30,12 @@ from firebase_admin import _utils
 from tests import testutils
 
 
-NON_STRING_ARGS = [list(), tuple(), dict(), True, False, 1, 0]
-NON_DICT_ARGS = ['', list(), tuple(), True, False, 1, 0, {1: 'foo'}, {'foo': 1}]
-NON_OBJECT_ARGS = [list(), tuple(), dict(), 'foo', 0, 1, True, False]
-NON_LIST_ARGS = ['', tuple(), dict(), True, False, 1, 0, [1], ['foo', 1]]
-NON_UINT_ARGS = ['1.23s', list(), tuple(), dict(), -1.23]
-NON_BOOL_ARGS = ['', list(), tuple(), dict(), 1, 0, [1], ['foo', 1], {1: 'foo'}, {'foo': 1}]
+NON_STRING_ARGS = [[], tuple(), {}, True, False, 1, 0]
+NON_DICT_ARGS = ['', [], tuple(), True, False, 1, 0, {1: 'foo'}, {'foo': 1}]
+NON_OBJECT_ARGS = [[], tuple(), {}, 'foo', 0, 1, True, False]
+NON_LIST_ARGS = ['', tuple(), {}, True, False, 1, 0, [1], ['foo', 1]]
+NON_UINT_ARGS = ['1.23s', [], tuple(), {}, -1.23]
+NON_BOOL_ARGS = ['', [], tuple(), {}, 1, 0, [1], ['foo', 1], {1: 'foo'}, {'foo': 1}]
 HTTP_ERROR_CODES = {
     400: exceptions.InvalidArgumentError,
     403: exceptions.PermissionDeniedError,
@@ -501,7 +501,7 @@ class TestAndroidNotificationEncoder:
         excinfo = self._check_notification(notification)
         assert str(excinfo.value) == 'AndroidNotification.channel_id must be a string.'
 
-    @pytest.mark.parametrize('timestamp', [100, '', 'foo', {}, [], list(), dict()])
+    @pytest.mark.parametrize('timestamp', [100, '', 'foo', {}, []])
     def test_invalid_event_timestamp(self, timestamp):
         notification = messaging.AndroidNotification(event_timestamp=timestamp)
         excinfo = self._check_notification(notification)
@@ -568,7 +568,7 @@ class TestAndroidNotificationEncoder:
         expected = 'AndroidNotification.vibrate_timings_millis must not be negative.'
         assert str(excinfo.value) == expected
 
-    @pytest.mark.parametrize('notification_count', ['', 'foo', list(), tuple(), dict()])
+    @pytest.mark.parametrize('notification_count', ['', 'foo', [], tuple(), {}])
     def test_invalid_notification_count(self, notification_count):
         notification = messaging.AndroidNotification(notification_count=notification_count)
         excinfo = self._check_notification(notification)
@@ -939,19 +939,19 @@ class TestWebpushNotificationEncoder:
         excinfo = self._check_notification(notification)
         assert str(excinfo.value) == 'WebpushNotification.tag must be a string.'
 
-    @pytest.mark.parametrize('data', ['', 'foo', list(), tuple(), dict()])
+    @pytest.mark.parametrize('data', ['', 'foo', [], tuple(), {}])
     def test_invalid_timestamp(self, data):
         notification = messaging.WebpushNotification(timestamp_millis=data)
         excinfo = self._check_notification(notification)
         assert str(excinfo.value) == 'WebpushNotification.timestamp_millis must be a number.'
 
-    @pytest.mark.parametrize('data', ['', list(), tuple(), True, False, 1, 0])
+    @pytest.mark.parametrize('data', ['', [], tuple(), True, False, 1, 0])
     def test_invalid_custom_data(self, data):
         notification = messaging.WebpushNotification(custom_data=data)
         excinfo = self._check_notification(notification)
         assert str(excinfo.value) == 'WebpushNotification.custom_data must be a dict.'
 
-    @pytest.mark.parametrize('data', ['', dict(), tuple(), True, False, 1, 0, [1, 2]])
+    @pytest.mark.parametrize('data', ['', {}, tuple(), True, False, 1, 0, [1, 2]])
     def test_invalid_actions(self, data):
         notification = messaging.WebpushNotification(actions=data)
         excinfo = self._check_notification(notification)
@@ -1172,7 +1172,7 @@ class TestApsEncoder:
         expected = 'Aps.alert must be a string or an instance of ApsAlert class.'
         assert str(excinfo.value) == expected
 
-    @pytest.mark.parametrize('data', [list(), tuple(), dict(), 'foo'])
+    @pytest.mark.parametrize('data', [[], tuple(), {}, 'foo'])
     def test_invalid_badge(self, data):
         aps = messaging.Aps(badge=data)
         with pytest.raises(ValueError) as excinfo:
@@ -1204,7 +1204,7 @@ class TestApsEncoder:
         expected = 'Aps.thread_id must be a string.'
         assert str(excinfo.value) == expected
 
-    @pytest.mark.parametrize('data', ['', list(), tuple(), True, False, 1, 0, ])
+    @pytest.mark.parametrize('data', ['', [], tuple(), True, False, 1, 0, ])
     def test_invalid_custom_data_dict(self, data):
         if isinstance(data, dict):
             return
@@ -1309,7 +1309,7 @@ class TestApsSoundEncoder:
         expected = 'CriticalSound.name must be a non-empty string.'
         assert str(excinfo.value) == expected
 
-    @pytest.mark.parametrize('data', [list(), tuple(), dict(), 'foo'])
+    @pytest.mark.parametrize('data', [[], tuple(), {}, 'foo'])
     def test_invalid_volume(self, data):
         sound = messaging.CriticalSound(name='default', volume=data)
         excinfo = self._check_sound(sound)
@@ -1659,7 +1659,7 @@ class TestTimeout:
 class TestSend:
 
     _DEFAULT_RESPONSE = json.dumps({'name': 'message-id'})
-    _CLIENT_VERSION = 'fire-admin-python/{0}'.format(firebase_admin.__version__)
+    _CLIENT_VERSION = f'fire-admin-python/{firebase_admin.__version__}'
 
     @classmethod
     def setup_class(cls):
@@ -1736,7 +1736,7 @@ class TestSend:
         msg = messaging.Message(topic='foo')
         with pytest.raises(exc_type) as excinfo:
             messaging.send(msg)
-        expected = 'Unexpected HTTP response with status: {0}; body: {{}}'.format(status)
+        expected = f'Unexpected HTTP response with status: {status}; body: {{}}'
         check_exception(excinfo.value, expected, status)
         assert len(recorder) == 1
         body = {'message': messaging._MessagingService.JSON_ENCODER.default(msg)}
@@ -2332,9 +2332,9 @@ class TestTopicManagement:
         assert request.headers['x-goog-api-client'] == expected_metrics_header
 
     def _get_url(self, path):
-        return '{0}/{1}'.format(messaging._MessagingService.IID_URL, path)
+        return f'{messaging._MessagingService.IID_URL}/{path}'
 
-    @pytest.mark.parametrize('tokens', [None, '', list(), dict(), tuple()])
+    @pytest.mark.parametrize('tokens', [None, '', [], {}, tuple()])
     def test_invalid_tokens(self, tokens):
         expected = 'Tokens must be a string or a non-empty list of strings.'
         if isinstance(tokens, str):
@@ -2383,7 +2383,7 @@ class TestTopicManagement:
         _, recorder = self._instrument_iid_service(status=status, payload='not json')
         with pytest.raises(exc_type) as excinfo:
             messaging.subscribe_to_topic('foo', 'test-topic')
-        reason = 'Unexpected HTTP response with status: {0}; body: not json'.format(status)
+        reason = f'Unexpected HTTP response with status: {status}; body: not json'
         assert str(excinfo.value) == reason
         assert len(recorder) == 1
         self._assert_request(recorder[0], 'POST', self._get_url('iid/v1:batchAdd'))
@@ -2412,7 +2412,7 @@ class TestTopicManagement:
         _, recorder = self._instrument_iid_service(status=status, payload='not json')
         with pytest.raises(exc_type) as excinfo:
             messaging.unsubscribe_from_topic('foo', 'test-topic')
-        reason = 'Unexpected HTTP response with status: {0}; body: not json'.format(status)
+        reason = f'Unexpected HTTP response with status: {status}; body: not json'
         assert str(excinfo.value) == reason
         assert len(recorder) == 1
         self._assert_request(recorder[0], 'POST', self._get_url('iid/v1:batchRemove'))

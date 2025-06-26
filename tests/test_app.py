@@ -215,11 +215,11 @@ def revert_config_env(config_old):
 class TestFirebaseApp:
     """Test cases for App initialization and life cycle."""
 
-    invalid_credentials = ['', 'foo', 0, 1, dict(), list(), tuple(), True, False]
-    invalid_options = ['', 0, 1, list(), tuple(), True, False]
-    invalid_names = [None, '', 0, 1, dict(), list(), tuple(), True, False]
+    invalid_credentials = ['', 'foo', 0, 1, {}, [], tuple(), True, False]
+    invalid_options = ['', 0, 1, [], tuple(), True, False]
+    invalid_names = [None, '', 0, 1, {}, [], tuple(), True, False]
     invalid_apps = [
-        None, '', 0, 1, dict(), list(), tuple(), True, False,
+        None, '', 0, 1, {}, [], tuple(), True, False,
         firebase_admin.App('uninitialized', CREDENTIAL, {})
     ]
 
@@ -308,11 +308,11 @@ class TestFirebaseApp:
         variables = ['GOOGLE_CLOUD_PROJECT', 'GCLOUD_PROJECT']
         for idx, var in enumerate(variables):
             old_project_id = os.environ.get(var)
-            new_project_id = 'env-project-{0}'.format(idx)
+            new_project_id = f'env-project-{idx}'
             os.environ[var] = new_project_id
             try:
                 app = firebase_admin.initialize_app(
-                    testutils.MockCredential(), name='myApp{0}'.format(var))
+                    testutils.MockCredential(), name=f'myApp{var}')
                 assert app.project_id == new_project_id
             finally:
                 if old_project_id:
@@ -388,7 +388,7 @@ class TestFirebaseApp:
         with pytest.raises(ValueError):
             _utils.get_app_service(init_app, 'test.service', AppService)
 
-    @pytest.mark.parametrize('arg', [0, 1, True, False, 'str', list(), dict(), tuple()])
+    @pytest.mark.parametrize('arg', [0, 1, True, False, 'str', [], {}, tuple()])
     def test_app_services_invalid_arg(self, arg):
         with pytest.raises(ValueError):
             _utils.get_app_service(arg, 'test.service', AppService)

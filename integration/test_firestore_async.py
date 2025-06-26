@@ -20,16 +20,16 @@ import pytest
 from firebase_admin import firestore_async
 
 _CITY = {
-        'name': u'Mountain View',
-        'country': u'USA',
+        'name': 'Mountain View',
+        'country': 'USA',
         'population': 77846,
         'capital': False
     }
 
 _MOVIE = {
-        'Name': u'Interstellar',
+        'Name': 'Interstellar',
         'Year': 2014,
-        'Runtime': u'2h 49m',
+        'Runtime': '2h 49m',
         'Academy Award Winner': True
     }
 
@@ -102,7 +102,7 @@ async def test_firestore_async_multi_db():
 async def test_server_timestamp():
     client = firestore_async.client()
     expected = {
-        'name': u'Mountain View',
+        'name': 'Mountain View',
         'timestamp': firestore_async.SERVER_TIMESTAMP # pylint: disable=no-member
     }
     doc = client.collection('cities').document()

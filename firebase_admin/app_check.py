@@ -14,18 +14,27 @@
 
 """Firebase App Check module."""
 
-from typing import Any, Dict
+from typing import Any, Optional, cast
+
 import jwt
-from jwt import PyJWKClient, ExpiredSignatureError, InvalidTokenError, DecodeError
-from jwt import InvalidAudienceError, InvalidIssuerError, InvalidSignatureError
+
+import firebase_admin
 from firebase_admin import _utils
+
+__all__ = ('verify_token',)
+
 
 _APP_CHECK_ATTRIBUTE = '_app_check'
 
-def _get_app_check_service(app) -> Any:
+
+def _get_app_check_service(app: Optional[firebase_admin.App]) -> '_AppCheckService':
     return _utils.get_app_service(app, _APP_CHECK_ATTRIBUTE, _AppCheckService)
 
-def verify_token(token: str, app=None) -> Dict[str, Any]:
+
+def verify_token(
+    token: str,
+    app: Optional[firebase_admin.App] = None,
+) -> dict[str, Any]:
     """Verifies a Firebase App Check token.
 
     Args:
@@ -42,20 +51,18 @@ def verify_token(token: str, app=None) -> Dict[str, Any]:
     """
     return _get_app_check_service(app).verify_token(token)
 
+
 class _AppCheckService:
     """Service class that implements Firebase App Check functionality."""
 
     _APP_CHECK_ISSUER = 'https://firebaseappcheck.googleapis.com/'
     _JWKS_URL = 'https://firebaseappcheck.googleapis.com/v1/jwks'
-    _project_id = None
-    _scoped_project_id = None
-    _jwks_client = None
 
     _APP_CHECK_HEADERS = {
         'x-goog-api-client': _utils.get_metrics_header(),
     }
 
-    def __init__(self, app):
+    def __init__(self, app: firebase_admin.App) -> None:
         # Validate and store the project_id to validate the JWT claims
         self._project_id = app.project_id
         if not self._project_id:
@@ -64,13 +71,12 @@ class _AppCheckService:
                 'service. Either set the projectId option, use service '
                 'account credentials, or set the '
                 'GOOGLE_CLOUD_PROJECT environment variable.')
-        self._scoped_project_id = 'projects/' + app.project_id
+        self._scoped_project_id = 'projects/' + self._project_id
         # Default lifespan is 300 seconds (5 minutes) so we change it to 21600 seconds (6 hours).
-        self._jwks_client = PyJWKClient(
+        self._jwks_client = jwt.PyJWKClient(
             self._JWKS_URL, lifespan=21600, headers=self._APP_CHECK_HEADERS)
 
-
-    def verify_token(self, token: str) -> Dict[str, Any]:
+    def verify_token(self, token: str) -> dict[str, Any]:
         """Verifies a Firebase App Check token."""
         _Validators.check_string("app check token", token)
 
@@ -81,7 +87,7 @@ class _AppCheckService:
             signing_key = self._jwks_client.get_signing_key_from_jwt(token)
             self._has_valid_token_headers(jwt.get_unverified_header(token))
             verified_claims = self._decode_and_verify(token, signing_key.key)
-        except (InvalidTokenError, DecodeError) as exception:
+        except (jwt.InvalidTokenError, jwt.DecodeError) as exception:
             raise ValueError(
                 f'Verifying App Check token failed. Error: {exception}'
                 ) from exception
@@ -89,7 +95,7 @@ class _AppCheckService:
         verified_claims['app_id'] = verified_claims.get('sub')
         return verified_claims
 
-    def _has_valid_token_headers(self, headers: Any) -> None:
+    def _has_valid_token_headers(self, headers: dict[str, Any]) -> None:
         """Checks whether the token has valid headers for App Check."""
         # Ensure the token's header has type JWT
         if headers.get('typ') != 'JWT':
@@ -102,9 +108,9 @@ class _AppCheckService:
                 f'Expected RS256 but got {algorithm}.'
                 )
 
-    def _decode_and_verify(self, token: str, signing_key: str):
+    def _decode_and_verify(self, token: str, signing_key: str) -> dict[str, Any]:
         """Decodes and verifies the token from App Check."""
-        payload = {}
+        payload: dict[str, Any] = {}
         try:
             payload = jwt.decode(
                 token,
@@ -112,25 +118,25 @@ class _AppCheckService:
                 algorithms=["RS256"],
                 audience=self._scoped_project_id
             )
-        except InvalidSignatureError as exception:
+        except jwt.InvalidSignatureError as exception:
             raise ValueError(
                 'The provided App Check token has an invalid signature.'
                 ) from exception
-        except InvalidAudienceError as exception:
+        except jwt.InvalidAudienceError as exception:
             raise ValueError(
                 'The provided App Check token has an incorrect "aud" (audience) claim. '
                 f'Expected payload to include {self._scoped_project_id}.'
                 ) from exception
-        except InvalidIssuerError as exception:
+        except jwt.InvalidIssuerError as exception:
             raise ValueError(
                 'The provided App Check token has an incorrect "iss" (issuer) claim. '
                 f'Expected claim to include {self._APP_CHECK_ISSUER}'
                 ) from exception
-        except ExpiredSignatureError as exception:
+        except jwt.ExpiredSignatureError as exception:
             raise ValueError(
                 'The provided App Check token has expired.'
                 ) from exception
-        except InvalidTokenError as exception:
+        except jwt.InvalidTokenError as exception:
             raise ValueError(
                 f'Decoding App Check token failed. Error: {exception}'
                 ) from exception
@@ -138,13 +144,14 @@ class _AppCheckService:
         audience = payload.get('aud')
         if not isinstance(audience, list) or self._scoped_project_id not in audience:
             raise ValueError('Firebase App Check token has incorrect "aud" (audience) claim.')
-        if not payload.get('iss').startswith(self._APP_CHECK_ISSUER):
+        if not cast(str, payload['iss']).startswith(self._APP_CHECK_ISSUER):
             raise ValueError('Token does not contain the correct "iss" (issuer).')
         _Validators.check_string(
             'The provided App Check token "sub" (subject) claim',
             payload.get('sub'))
 
         return payload
+
 
 class _Validators:
     """A collection of data validation utilities.
@@ -153,7 +160,7 @@ class _Validators:
     """
 
     @classmethod
-    def check_string(cls, label: str, value: Any):
+    def check_string(cls, label: str, value: Any) -> None:
         """Checks if the given value is a string."""
         if value is None:
             raise ValueError(f'{label} "{value}" must be a non-empty string.')

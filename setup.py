@@ -21,8 +21,7 @@ import sys
 from setuptools import setup
 
 
-(major, minor) = (sys.version_info.major, sys.version_info.minor)
-if major != 3 or minor < 7:
+if sys.version_info < (3, 9):
     print('firebase_admin requires python >= 3.9', file=sys.stderr)
     sys.exit(1)
 
@@ -43,6 +42,9 @@ install_requires = [
     'google-cloud-storage>=1.37.1',
     'pyjwt[crypto] >= 2.5.0',
     'httpx[http2] == 0.28.1',
+    'typing-extensions >= 4.12.0'
+    'types-requests'
+    'types-httplib2'
 ]
 
 setup(
@@ -72,5 +74,6 @@ setup(
         'Programming Language :: Python :: 3.12',
         'Programming Language :: Python :: 3.13',
         'License :: OSI Approved :: Apache Software License',
+        'Typing :: Typed',
     ],
 )

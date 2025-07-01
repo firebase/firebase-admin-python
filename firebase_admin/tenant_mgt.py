@@ -340,7 +340,7 @@ class _TenantManagementService:
         """Deletes the tenant corresponding to the given ``tenant_id``."""
         if not isinstance(tenant_id, str) or not tenant_id:
             raise ValueError(
-                'Invalid tenant ID: {0}. Tenant ID must be a non-empty string.'.format(tenant_id))
+                f'Invalid tenant ID: {tenant_id}. Tenant ID must be a non-empty string.')
 
         try:
             self.client.request('delete', f'/tenants/{tenant_id}')

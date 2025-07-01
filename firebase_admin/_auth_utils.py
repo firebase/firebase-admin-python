@@ -24,13 +24,11 @@ from typing import (
     Literal,
     Optional,
     Protocol,
-    Union,
     cast,
     overload,
 )
 from urllib import parse
 
-import httpx
 import requests
 from typing_extensions import Self, TypeVar
 
@@ -476,27 +474,11 @@ class UidAlreadyExistsError(exceptions.AlreadyExistsError):
 
     default_message = 'The user with the provided uid already exists'
 
-    def __init__(
-        self,
-        message: str,
-        cause: Optional[Exception],
-        http_response: Optional[Union[httpx.Response, requests.Response]],
-    ) -> None:
-        super().__init__(message, cause, http_response)
-
 
 class EmailAlreadyExistsError(exceptions.AlreadyExistsError):
     """The user with the provided email already exists."""
 
     default_message = 'The user with the provided email already exists'
-
-    def __init__(
-        self,
-        message: str,
-        cause: Optional[Exception],
-        http_response: Optional[Union[httpx.Response, requests.Response]],
-    ) -> None:
-        super().__init__(message, cause, http_response)
 
 
 class InsufficientPermissionError(exceptions.PermissionDeniedError):
@@ -507,27 +489,11 @@ class InsufficientPermissionError(exceptions.PermissionDeniedError):
                        'https://firebase.google.com/docs/admin/setup for details '
                        'on how to initialize the Admin SDK with appropriate permissions')
 
-    def __init__(
-        self,
-        message: str,
-        cause: Optional[Exception],
-        http_response: Optional[Union[httpx.Response, requests.Response]],
-    ) -> None:
-        super().__init__(message, cause, http_response)
-
 
 class InvalidDynamicLinkDomainError(exceptions.InvalidArgumentError):
     """Dynamic link domain in ActionCodeSettings is not authorized."""
 
     default_message = 'Dynamic link domain specified in ActionCodeSettings is not authorized'
-
-    def __init__(
-        self,
-        message: str,
-        cause: Optional[Exception],
-        http_response: Optional[Union[httpx.Response, requests.Response]],
-    ) -> None:
-        super().__init__(message, cause, http_response)
 
 
 class InvalidIdTokenError(exceptions.InvalidArgumentError):
@@ -535,39 +501,15 @@ class InvalidIdTokenError(exceptions.InvalidArgumentError):
 
     default_message = 'The provided ID token is invalid'
 
-    def __init__(
-        self,
-        message: str,
-        cause: Optional[Exception] = None,
-        http_response: Optional[Union[httpx.Response, requests.Response]] = None,
-    ) -> None:
-        super().__init__(message, cause, http_response)
-
 
 class PhoneNumberAlreadyExistsError(exceptions.AlreadyExistsError):
     """The user with the provided phone number already exists."""
 
     default_message = 'The user with the provided phone number already exists'
 
-    def __init__(
-        self,
-        message: str,
-        cause: Optional[Exception],
-        http_response: Optional[Union[httpx.Response, requests.Response]],
-    ) -> None:
-        super().__init__(message, cause, http_response)
-
 
 class UnexpectedResponseError(exceptions.UnknownError):
     """Backend service responded with an unexpected or malformed response."""
-
-    def __init__(
-        self,
-        message: str,
-        cause: Optional[Exception] = None,
-        http_response: Optional[Union[httpx.Response, requests.Response]] = None,
-    ) -> None:
-        super().__init__(message, cause, http_response)
 
 
 class UserNotFoundError(exceptions.NotFoundError):
@@ -575,27 +517,11 @@ class UserNotFoundError(exceptions.NotFoundError):
 
     default_message = 'No user record found for the given identifier'
 
-    def __init__(
-        self,
-        message: str,
-        cause: Optional[Exception] = None,
-        http_response: Optional[Union[httpx.Response, requests.Response]] = None,
-    ) -> None:
-        super().__init__(message, cause, http_response)
-
 
 class EmailNotFoundError(exceptions.NotFoundError):
     """No user record found for the specified email."""
 
     default_message = 'No user record found for the given email'
-
-    def __init__(
-        self,
-        message: str,
-        cause: Optional[Exception] = None,
-        http_response: Optional[Union[httpx.Response, requests.Response]] = None,
-    ) -> None:
-        super().__init__(message, cause, http_response)
 
 
 class TenantNotFoundError(exceptions.NotFoundError):
@@ -603,20 +529,9 @@ class TenantNotFoundError(exceptions.NotFoundError):
 
     default_message = 'No tenant found for the given identifier'
 
-    def __init__(
-        self,
-        message: str,
-        cause: Optional[Exception] = None,
-        http_response: Optional[Union[httpx.Response, requests.Response]] = None,
-    ) -> None:
-        super().__init__(message, cause, http_response)
-
 
 class TenantIdMismatchError(exceptions.InvalidArgumentError):
     """Missing or invalid tenant ID field in the given JWT."""
-
-    def __init__(self, message: str) -> None:
-        super().__init__(message)
 
 
 class ConfigurationNotFoundError(exceptions.NotFoundError):
@@ -624,51 +539,19 @@ class ConfigurationNotFoundError(exceptions.NotFoundError):
 
     default_message = 'No auth provider found for the given identifier'
 
-    def __init__(
-        self,
-        message: str,
-        cause: Optional[Exception] = None,
-        http_response: Optional[Union[httpx.Response, requests.Response]] = None,
-    ) -> None:
-        super().__init__(message, cause, http_response)
-
 
 class UserDisabledError(exceptions.InvalidArgumentError):
     """An operation failed due to a user record being disabled."""
 
     default_message = 'The user record is disabled'
 
-    def __init__(
-        self,
-        message: str,
-        cause: Optional[Exception] = None,
-        http_response: Optional[Union[httpx.Response, requests.Response]] = None,
-    ) -> None:
-        super().__init__(message, cause, http_response)
-
 
 class TooManyAttemptsTryLaterError(exceptions.ResourceExhaustedError):
     """Rate limited because of too many attempts."""
 
-    def __init__(
-        self,
-        message: str,
-        cause: Optional[Exception] = None,
-        http_response: Optional[Union[httpx.Response, requests.Response]] = None,
-    ) -> None:
-        super().__init__(message, cause, http_response)
-
 
 class ResetPasswordExceedLimitError(exceptions.ResourceExhaustedError):
     """Reset password emails exceeded their limits."""
-
-    def __init__(
-        self,
-        message: str,
-        cause: Optional[Exception] = None,
-        http_response: Optional[Union[httpx.Response, requests.Response]] = None,
-    ) -> None:
-        super().__init__(message, cause, http_response)
 
 
 _CODE_TO_EXC_TYPE = {

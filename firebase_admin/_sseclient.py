@@ -163,7 +163,7 @@ class SSEClient:
         return event
 
     def next(self) -> Optional['Event']:
-        return self.__next__()
+        return next(self)
 
 
 class Event:

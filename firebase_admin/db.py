@@ -36,11 +36,12 @@ from typing import (
     cast,
     overload,
 )
-from typing_extensions import Self, TypeVar
 from urllib import parse
 
 import google.auth.credentials
 import requests
+from typing_extensions import Self, TypeVar
+
 
 import firebase_admin
 from firebase_admin import exceptions
@@ -849,7 +850,10 @@ class _SortEntry(Generic[_K, _V]):
     def __ge__(self, other: '_SortEntry') -> bool:
         return self._compare(other) >= 0
 
-    def __eq__(self, other: '_SortEntry') -> bool:  # pyright: ignore[reportIncompatibleMethodOverride]
+    def __eq__(  # pyright: ignore[reportIncompatibleMethodOverride]
+        self,
+        other: '_SortEntry',
+    ) -> bool:
         return self._compare(other) == 0
 
 

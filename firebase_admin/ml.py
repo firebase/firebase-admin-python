@@ -290,7 +290,8 @@ class Model:
             return None
         format_str = '%Y-%m-%dT%H:%M:%S.%fZ'
         epoch = datetime.datetime.fromtimestamp(0, datetime.timezone.utc)
-        datetime_object = datetime.datetime.strptime(date_string, format_str).replace(tzinfo=datetime.timezone.utc)
+        datetime_object = datetime.datetime.strptime(
+            date_string, format_str).replace(tzinfo=datetime.timezone.utc)
         millis = int((datetime_object - epoch).total_seconds() * 1000)
         return millis
 
@@ -881,7 +882,11 @@ class _MLService:
         except requests.exceptions.RequestException as error:
             raise _utils.handle_platform_error_from_requests(error)
 
-    def _exponential_backoff(self, current_attempt: int, stop_time: Optional[datetime.datetime]) -> None:
+    def _exponential_backoff(
+        self,
+        current_attempt: int,
+        stop_time: Optional[datetime.datetime],
+    ) -> None:
         """Sleeps for the appropriate amount of time. Or throws deadline exceeded."""
         delay_factor = pow(_MLService.POLL_EXPONENTIAL_BACKOFF_FACTOR, current_attempt)
         wait_time_seconds = delay_factor * _MLService.POLL_BASE_WAIT_TIME_SECONDS

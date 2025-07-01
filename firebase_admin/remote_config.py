@@ -302,7 +302,10 @@ class _RemoteConfigService:
         return f"/v1/projects/{self._project_id}/namespaces/firebase-server/serverRemoteConfig"
 
     @classmethod
-    def _handle_remote_config_error(cls, error: requests.RequestException) -> exceptions.FirebaseError:
+    def _handle_remote_config_error(
+        cls,
+        error: requests.RequestException,
+    ) -> exceptions.FirebaseError:
         """Handles errors received from the Cloud Functions API."""
         return _utils.handle_platform_error_from_requests(error)
 

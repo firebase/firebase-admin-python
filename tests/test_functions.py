@@ -14,7 +14,7 @@
 
 """Test cases for the firebase_admin.functions module."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 import time
 import pytest
@@ -33,8 +33,6 @@ _DEFAULT_REQUEST_URL = \
     _CLOUD_TASKS_URL + 'projects/test-project/locations/us-central1/queues/test-function-name/tasks'
 _DEFAULT_TASK_URL = _CLOUD_TASKS_URL + _DEFAULT_TASK_PATH
 _DEFAULT_RESPONSE = json.dumps({'name': _DEFAULT_TASK_PATH})
-_ENQUEUE_TIME = datetime.utcnow()
-_SCHEDULE_TIME = _ENQUEUE_TIME + timedelta(seconds=100)
 
 class TestTaskQueue:
     @classmethod
@@ -185,27 +183,18 @@ class TestTaskQueueOptions:
             testutils.MockAdapter(payload, status, recorder))
         return functions_service, recorder
 
-
-    @pytest.mark.parametrize('task_opts_params', [
-        {
+    def test_task_options_delay_seconds(self):
+        _, recorder = self._instrument_functions_service()
+        enqueue_time = datetime.now(timezone.utc)
+        expected_schedule_time = enqueue_time + timedelta(seconds=100)
+        task_opts_params = {
             'schedule_delay_seconds': 100,
             'schedule_time': None,
             'dispatch_deadline_seconds': 200,
             'task_id': 'test-task-id',
             'headers': {'x-test-header': 'test-header-value'},
             'uri': 'https://google.com'
-        },
-        {
-            'schedule_delay_seconds': None,
-            'schedule_time': _SCHEDULE_TIME,
-            'dispatch_deadline_seconds': 200,
-            'task_id': 'test-task-id',
-            'headers': {'x-test-header': 'test-header-value'},
-            'uri': 'http://google.com'
-        },
-    ])
-    def test_task_options(self, task_opts_params):
-        _, recorder = self._instrument_functions_service()
+        }
         queue = functions.task_queue('test-function-name')
         task_opts = functions.TaskOptions(**task_opts_params)
         queue.enqueue(_DEFAULT_DATA, task_opts)
@@ -213,19 +202,46 @@ class TestTaskQueueOptions:
         assert len(recorder) == 1
         task = json.loads(recorder[0].body.decode())['task']
 
-        schedule_time = datetime.fromisoformat(task['schedule_time'][:-1])
-        delta = abs(schedule_time - _SCHEDULE_TIME)
-        assert delta <= timedelta(seconds=15)
+        task_schedule_time = datetime.fromisoformat(task['schedule_time'].replace('Z', '+00:00'))
+        delta = abs(task_schedule_time - expected_schedule_time)
+        assert delta <= timedelta(seconds=1)
 
         assert task['dispatch_deadline'] == '200s'
         assert task['http_request']['headers']['x-test-header'] == 'test-header-value'
         assert task['http_request']['url'] in ['http://google.com', 'https://google.com']
         assert task['name'] == _DEFAULT_TASK_PATH
 
+    def test_task_options_utc_time(self):
+        _, recorder = self._instrument_functions_service()
+        enqueue_time = datetime.now(timezone.utc)
+        expected_schedule_time = enqueue_time + timedelta(seconds=100)
+        task_opts_params = {
+            'schedule_delay_seconds': None,
+            'schedule_time': expected_schedule_time,
+            'dispatch_deadline_seconds': 200,
+            'task_id': 'test-task-id',
+            'headers': {'x-test-header': 'test-header-value'},
+            'uri': 'http://google.com'
+        }
+        queue = functions.task_queue('test-function-name')
+        task_opts = functions.TaskOptions(**task_opts_params)
+        queue.enqueue(_DEFAULT_DATA, task_opts)
+
+        assert len(recorder) == 1
+        task = json.loads(recorder[0].body.decode())['task']
+
+        task_schedule_time = datetime.fromisoformat(task['schedule_time'].replace('Z', '+00:00'))
+        assert task_schedule_time == expected_schedule_time
+
+        assert task['dispatch_deadline'] == '200s'
+        assert task['http_request']['headers']['x-test-header'] == 'test-header-value'
+        assert task['http_request']['url'] in ['http://google.com', 'https://google.com']
+        assert task['name'] == _DEFAULT_TASK_PATH
 
     def test_schedule_set_twice_error(self):
         _, recorder = self._instrument_functions_service()
-        opts = functions.TaskOptions(schedule_delay_seconds=100, schedule_time=datetime.utcnow())
+        opts = functions.TaskOptions(
+            schedule_delay_seconds=100, schedule_time=datetime.now(timezone.utc))
         queue = functions.task_queue('test-function-name')
         with pytest.raises(ValueError) as excinfo:
             queue.enqueue(_DEFAULT_DATA, opts)
@@ -236,9 +252,9 @@ class TestTaskQueueOptions:
 
     @pytest.mark.parametrize('schedule_time', [
         time.time(),
-        str(datetime.utcnow()),
-        datetime.utcnow().isoformat(),
-        datetime.utcnow().isoformat() + 'Z',
+        str(datetime.now(timezone.utc)),
+        datetime.now(timezone.utc).isoformat(),
+        datetime.now(timezone.utc).isoformat() + 'Z',
         '', ' '
     ])
     def test_invalid_schedule_time_error(self, schedule_time):

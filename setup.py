@@ -22,7 +22,7 @@ from setuptools import setup
 
 
 (major, minor) = (sys.version_info.major, sys.version_info.minor)
-if major != 3 or minor < 7:
+if major != 3 or minor < 9:
     print('firebase_admin requires python >= 3.9', file=sys.stderr)
     sys.exit(1)
 
@@ -37,11 +37,11 @@ with open(about_path) as fp:
 long_description = ('The Firebase Admin Python SDK enables server-side (backend) Python developers '
                     'to integrate Firebase into their services and applications.')
 install_requires = [
-    'cachecontrol>=0.12.14',
-    'google-api-core[grpc] >= 1.22.1, < 3.0.0dev; platform.python_implementation != "PyPy"',
-    'google-cloud-firestore>=2.19.0; platform.python_implementation != "PyPy"',
-    'google-cloud-storage>=1.37.1',
-    'pyjwt[crypto] >= 2.5.0',
+    'cachecontrol>=0.14.3',
+    'google-api-core[grpc] >= 2.25.1, < 3.0.0dev; platform.python_implementation != "PyPy"',
+    'google-cloud-firestore>=2.21.0; platform.python_implementation != "PyPy"',
+    'google-cloud-storage>=3.1.1',
+    'pyjwt[crypto] >= 2.10.1',
     'httpx[http2] == 0.28.1',
 ]
 

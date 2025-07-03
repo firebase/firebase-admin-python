@@ -295,6 +295,24 @@ class TestFirebaseApp:
         app = firebase_admin.initialize_app(CREDENTIAL, options=env_test_case.init_options)
         assert app.options._options == env_test_case.want_options
 
+    def test_default_app_is_initialized(self, app_credential):
+        firebase_admin.initialize_app(app_credential)
+        assert firebase_admin.is_app_initialized()
+
+    def test_no_app_is_initialized(self):
+        assert firebase_admin.is_app_initialized() is False
+
+    def test_correct_app_is_initialized(self):
+        app_name = 'myApp'
+        firebase_admin.initialize_app(CREDENTIAL, name=app_name)
+        assert firebase_admin.is_app_initialized(app_name)
+
+    def test_correct_app_is_not_initialized(self):
+        app_name = 'myApp'
+        other_app_name = 'otherApp'
+        firebase_admin.initialize_app(CREDENTIAL, name=app_name)
+        assert firebase_admin.is_app_initialized(other_app_name) is False
+
     def test_project_id_from_options(self, app_credential):
         app = firebase_admin.initialize_app(
             app_credential, options={'projectId': 'test-project'}, name='myApp')

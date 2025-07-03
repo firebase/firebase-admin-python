@@ -111,7 +111,7 @@ class Certificate(Base):
                 json_data, scopes=_scopes)
         except ValueError as error:
             raise ValueError('Failed to initialize a certificate credential. '
-                             'Caused by: "{0}"'.format(error))
+                             'Caused by: "{0}"'.format(error)) from error
 
     @property
     def project_id(self):

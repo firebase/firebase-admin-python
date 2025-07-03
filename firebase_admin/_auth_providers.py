@@ -379,7 +379,7 @@ class ProviderConfigClient:
         try:
             return self.http_client.body(method, url, **kwargs)
         except requests.exceptions.RequestException as error:
-            raise _auth_utils.handle_auth_backend_error(error)
+            raise _auth_utils.handle_auth_backend_error(error) from error
 
 
 def _validate_oidc_provider_id(provider_id):

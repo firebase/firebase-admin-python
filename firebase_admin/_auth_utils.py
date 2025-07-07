@@ -331,10 +331,10 @@ class InvalidDynamicLinkDomainError(exceptions.InvalidArgumentError):
 class InvalidHostingLinkDomainError(exceptions.InvalidArgumentError):
     """The provided hosting link domain is not configured in Firebase Hosting
     or is not owned by the current project."""
-        
+
     default_message = ('The provided hosting link domain is not configured in Firebase '
-                       'Hosting or is not owned by the current project.')
-        
+                       'Hosting or is not owned by the current project')
+
     def __init__(self, message, cause, http_response):
         exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
 

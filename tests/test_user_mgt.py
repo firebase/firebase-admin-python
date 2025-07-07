@@ -1512,7 +1512,7 @@ class TestGenerateEmailActionLink:
             func('test@test.com', MOCK_ACTION_CODE_SETTINGS, app=user_mgt_app)
         assert isinstance(excinfo.value, exceptions.InvalidArgumentError)
         assert str(excinfo.value) == ('The provided hosting link domain is not configured in '
-                                      'Firebase Hosting or is not owned by the current project. '
+                                      'Firebase Hosting or is not owned by the current project '
                                       '(INVALID_HOSTING_LINK_DOMAIN). Because of this reason.')
         assert excinfo.value.http_response is not None
         assert excinfo.value.cause is not None

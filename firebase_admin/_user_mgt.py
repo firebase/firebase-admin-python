@@ -494,7 +494,10 @@ class ActionCodeSettings:
                  android_package_name=None, android_install_app=None, android_minimum_version=None,
                  link_domain=None):
         if dynamic_link_domain is not None:
-            warnings.warn('dynamic_link_domain is deprecated, use link_domain instead', DeprecationWarning)
+            warnings.warn(
+                'dynamic_link_domain is deprecated, use link_domain instead',
+                DeprecationWarning
+            )
         self.url = url
         self.handle_code_in_app = handle_code_in_app
         self.dynamic_link_domain = dynamic_link_domain

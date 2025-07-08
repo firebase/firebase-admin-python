@@ -15,7 +15,7 @@
 """Firebase Functions module."""
 
 from __future__ import annotations
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from urllib import parse
 import re
 import json
@@ -255,7 +255,8 @@ class TaskQueue:
                 if not isinstance(opts.schedule_delay_seconds, int) \
                 or opts.schedule_delay_seconds < 0:
                     raise ValueError('schedule_delay_seconds should be positive int.')
-                schedule_time = datetime.utcnow() + timedelta(seconds=opts.schedule_delay_seconds)
+                schedule_time = (
+                    datetime.now(timezone.utc) + timedelta(seconds=opts.schedule_delay_seconds))
                 task.schedule_time = schedule_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
             if opts.dispatch_deadline_seconds is not None:
                 if not isinstance(opts.dispatch_deadline_seconds, int) \

@@ -244,28 +244,6 @@ def send_each():
     print(f'{response.success_count} messages were sent successfully')
     # [END send_each]
 
-
-def send_each_for_multicast():
-    # [START send_each_for_multicast]
-    # Create a list containing up to 500 registration tokens.
-    # These registration tokens come from the client FCM SDKs.
-    registration_tokens = [
-        'YOUR_REGISTRATION_TOKEN_1',
-        # ...
-        'YOUR_REGISTRATION_TOKEN_N',
-    ]
-
-    message = messaging.MulticastMessage(
-        data={'score': '850', 'time': '2:45'},
-        tokens=registration_tokens,
-    )
-    response = messaging.send_each_for_multicast(message)
-    # See the BatchResponse reference documentation
-    # for the contents of response.
-    print(f'{response.success_count} messages were sent successfully')
-    # [END send_each_for_multicast]
-
-
 def send_each_for_multicast_and_handle_errors():
     # [START send_each_for_multicast_error]
     # These registration tokens come from the client FCM SDKs.

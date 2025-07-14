@@ -205,7 +205,7 @@ class Tenant:
 
     def __init__(self, data):
         if not isinstance(data, dict):
-            raise ValueError('Invalid data argument in Tenant constructor: {0}'.format(data))
+            raise ValueError(f'Invalid data argument in Tenant constructor: {data}')
         if not 'name' in data:
             raise ValueError('Tenant response missing required keys.')
 
@@ -236,8 +236,8 @@ class _TenantManagementService:
 
     def __init__(self, app):
         credential = app.credential.get_credential()
-        version_header = 'Python/Admin/{0}'.format(firebase_admin.__version__)
-        base_url = '{0}/projects/{1}'.format(self.TENANT_MGT_URL, app.project_id)
+        version_header = f'Python/Admin/{firebase_admin.__version__}'
+        base_url = f'{self.TENANT_MGT_URL}/projects/{app.project_id}'
         self.app = app
         self.client = _http_client.JsonHttpClient(
             credential=credential, base_url=base_url, headers={'X-Client-Version': version_header})
@@ -248,7 +248,7 @@ class _TenantManagementService:
         """Gets an Auth Client instance scoped to the given tenant ID."""
         if not isinstance(tenant_id, str) or not tenant_id:
             raise ValueError(
-                'Invalid tenant ID: {0}. Tenant ID must be a non-empty string.'.format(tenant_id))
+                f'Invalid tenant ID: {tenant_id}. Tenant ID must be a non-empty string.')
 
         with self.lock:
             if tenant_id in self.tenant_clients:
@@ -262,14 +262,13 @@ class _TenantManagementService:
         """Gets the tenant corresponding to the given ``tenant_id``."""
         if not isinstance(tenant_id, str) or not tenant_id:
             raise ValueError(
-                'Invalid tenant ID: {0}. Tenant ID must be a non-empty string.'.format(tenant_id))
+                f'Invalid tenant ID: {tenant_id}. Tenant ID must be a non-empty string.')
 
         try:
-            body = self.client.body('get', '/tenants/{0}'.format(tenant_id))
+            body = self.client.body('get', f'/tenants/{tenant_id}')
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)
-        else:
-            return Tenant(body)
+        return Tenant(body)
 
     def create_tenant(
             self, display_name, allow_password_sign_up=None, enable_email_link_sign_in=None):
@@ -287,8 +286,7 @@ class _TenantManagementService:
             body = self.client.body('post', '/tenants', json=payload)
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)
-        else:
-            return Tenant(body)
+        return Tenant(body)
 
     def update_tenant(
             self, tenant_id, display_name=None, allow_password_sign_up=None,
@@ -310,24 +308,23 @@ class _TenantManagementService:
         if not payload:
             raise ValueError('At least one parameter must be specified for update.')
 
-        url = '/tenants/{0}'.format(tenant_id)
+        url = f'/tenants/{tenant_id}'
         update_mask = ','.join(_auth_utils.build_update_mask(payload))
-        params = 'updateMask={0}'.format(update_mask)
+        params = f'updateMask={update_mask}'
         try:
             body = self.client.body('patch', url, json=payload, params=params)
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)
-        else:
-            return Tenant(body)
+        return Tenant(body)
 
     def delete_tenant(self, tenant_id):
         """Deletes the tenant corresponding to the given ``tenant_id``."""
         if not isinstance(tenant_id, str) or not tenant_id:
             raise ValueError(
-                'Invalid tenant ID: {0}. Tenant ID must be a non-empty string.'.format(tenant_id))
+                f'Invalid tenant ID: {tenant_id}. Tenant ID must be a non-empty string.')
 
         try:
-            self.client.request('delete', '/tenants/{0}'.format(tenant_id))
+            self.client.request('delete', f'/tenants/{tenant_id}')
         except requests.exceptions.RequestException as error:
             raise _auth_utils.handle_auth_backend_error(error)
 
@@ -341,7 +338,7 @@ class _TenantManagementService:
         if max_results < 1 or max_results > _MAX_LIST_TENANTS_RESULTS:
             raise ValueError(
                 'Max results must be a positive integer less than or equal to '
-                '{0}.'.format(_MAX_LIST_TENANTS_RESULTS))
+                f'{_MAX_LIST_TENANTS_RESULTS}.')
 
         payload = {'pageSize': max_results}
         if page_token:
@@ -417,7 +414,7 @@ class _TenantIterator:
         self._current_page = current_page
         self._index = 0
 
-    def next(self):
+    def __next__(self):
         if self._index == len(self._current_page.tenants):
             if self._current_page.has_next_page:
                 self._current_page = self._current_page.get_next_page()
@@ -427,9 +424,6 @@ class _TenantIterator:
             self._index += 1
             return result
         raise StopIteration
-
-    def __next__(self):
-        return self.next()
 
     def __iter__(self):
         return self

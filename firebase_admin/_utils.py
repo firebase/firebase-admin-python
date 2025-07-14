@@ -93,8 +93,9 @@ def _get_initialized_app(app):
                              'initialized via the firebase module.')
         return app
 
-    raise ValueError('Illegal app argument. Argument must be of type '
-                     ' firebase_admin.App, but given "{0}".'.format(type(app)))
+    raise ValueError(
+        'Illegal app argument. Argument must be of type firebase_admin.App, but given '
+        f'"{type(app)}".')
 
 
 
@@ -172,7 +173,7 @@ def handle_operation_error(error):
     """
     if not isinstance(error, dict):
         return exceptions.UnknownError(
-            message='Unknown error while making a remote service call: {0}'.format(error),
+            message=f'Unknown error while making a remote service call: {error}',
             cause=error)
 
     rpc_code = error.get('code')
@@ -217,15 +218,15 @@ def handle_requests_error(error, message=None, code=None):
     """
     if isinstance(error, requests.exceptions.Timeout):
         return exceptions.DeadlineExceededError(
-            message='Timed out while making an API call: {0}'.format(error),
+            message=f'Timed out while making an API call: {error}',
             cause=error)
     if isinstance(error, requests.exceptions.ConnectionError):
         return exceptions.UnavailableError(
-            message='Failed to establish a connection: {0}'.format(error),
+            message=f'Failed to establish a connection: {error}',
             cause=error)
     if error.response is None:
         return exceptions.UnknownError(
-            message='Unknown error while making a remote service call: {0}'.format(error),
+            message=f'Unknown error while making a remote service call: {error}',
             cause=error)
 
     if not code:
@@ -271,11 +272,11 @@ def handle_httpx_error(error: httpx.HTTPError, message=None, code=None) -> excep
     """
     if isinstance(error, httpx.TimeoutException):
         return exceptions.DeadlineExceededError(
-            message='Timed out while making an API call: {0}'.format(error),
+            message=f'Timed out while making an API call: {error}',
             cause=error)
     if isinstance(error, httpx.ConnectError):
         return exceptions.UnavailableError(
-            message='Failed to establish a connection: {0}'.format(error),
+            message=f'Failed to establish a connection: {error}',
             cause=error)
     if isinstance(error, httpx.HTTPStatusError):
         print("printing status error", error)
@@ -288,7 +289,7 @@ def handle_httpx_error(error: httpx.HTTPError, message=None, code=None) -> excep
         return err_type(message=message, cause=error, http_response=error.response)
 
     return exceptions.UnknownError(
-        message='Unknown error while making a remote service call: {0}'.format(error),
+        message=f'Unknown error while making a remote service call: {error}',
         cause=error)
 
 def _http_status_to_error_code(status):
@@ -326,7 +327,7 @@ def _parse_platform_error(content, status_code):
     error_dict = data.get('error', {})
     msg = error_dict.get('message')
     if not msg:
-        msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(status_code, content)
+        msg = f'Unexpected HTTP response with status: {status_code}; body: {content}'
     return error_dict, msg
 
 

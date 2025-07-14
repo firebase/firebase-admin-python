@@ -24,7 +24,6 @@ import re
 import time
 import os
 from urllib import parse
-import warnings
 
 import requests
 
@@ -33,14 +32,14 @@ from firebase_admin import _http_client
 from firebase_admin import _utils
 from firebase_admin import exceptions
 
-# pylint: disable=import-error,no-name-in-module
+# pylint: disable=import-error,no-member
 try:
     from firebase_admin import storage
     _GCS_ENABLED = True
 except ImportError:
     _GCS_ENABLED = False
 
-# pylint: disable=import-error,no-name-in-module
+# pylint: disable=import-error,no-member
 try:
     import tensorflow as tf
     _TF_ENABLED = True
@@ -54,9 +53,6 @@ _DISPLAY_NAME_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,32}$')
 _TAG_PATTERN = re.compile(r'^[A-Za-z0-9_-]{1,32}$')
 _GCS_TFLITE_URI_PATTERN = re.compile(
     r'^gs://(?P<bucket_name>[a-z0-9_.-]{3,63})/(?P<blob_name>.+)$')
-_AUTO_ML_MODEL_PATTERN = re.compile(
-    r'^projects/(?P<project_id>[a-z0-9-]{6,30})/locations/(?P<location_id>[^/]+)/' +
-    r'models/(?P<model_id>[A-Za-z0-9]+)$')
 _RESOURCE_NAME_PATTERN = re.compile(
     r'^projects/(?P<project_id>[a-z0-9-]{6,30})/models/(?P<model_id>[A-Za-z0-9_-]{1,60})$')
 _OPERATION_NAME_PATTERN = re.compile(
@@ -388,11 +384,6 @@ class TFLiteFormat(ModelFormat):
         gcs_tflite_uri = data.pop('gcsTfliteUri', None)
         if gcs_tflite_uri:
             return TFLiteGCSModelSource(gcs_tflite_uri=gcs_tflite_uri)
-        auto_ml_model = data.pop('automlModel', None)
-        if auto_ml_model:
-            warnings.warn('AutoML model support is deprecated and will be removed in the next '
-                          'major version.', DeprecationWarning)
-            return TFLiteAutoMlSource(auto_ml_model=auto_ml_model)
         return None
 
     @property
@@ -516,8 +507,8 @@ class TFLiteGCSModelSource(TFLiteModelSource):
             raise ImportError('Failed to import the tensorflow library for Python. Make sure '
                               'to install the tensorflow module.')
         if not tf.version.VERSION.startswith('1.') and not tf.version.VERSION.startswith('2.'):
-            raise ImportError('Expected tensorflow version 1.x or 2.x, but found {0}'
-                              .format(tf.version.VERSION))
+            raise ImportError(
+                f'Expected tensorflow version 1.x or 2.x, but found {tf.version.VERSION}')
 
     @staticmethod
     def _tf_convert_from_saved_model(saved_model_dir):
@@ -606,42 +597,6 @@ class TFLiteGCSModelSource(TFLiteModelSource):
 
         return {'gcsTfliteUri': self._gcs_tflite_uri}
 
-
-class TFLiteAutoMlSource(TFLiteModelSource):
-    """TFLite model source representing a tflite model created with AutoML.
-
-    AutoML model support is deprecated and will be removed in the next major version.
-    """
-
-    def __init__(self, auto_ml_model, app=None):
-        warnings.warn('AutoML model support is deprecated and will be removed in the next '
-                      'major version.', DeprecationWarning)
-        self._app = app
-        self.auto_ml_model = auto_ml_model
-
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return self.auto_ml_model == other.auto_ml_model
-        return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    @property
-    def auto_ml_model(self):
-        """Resource name of the model, created by the AutoML API or Cloud console."""
-        return self._auto_ml_model
-
-    @auto_ml_model.setter
-    def auto_ml_model(self, auto_ml_model):
-        self._auto_ml_model = _validate_auto_ml_model(auto_ml_model)
-
-    def as_dict(self, for_upload=False):
-        """Returns a serializable representation of the object."""
-        # Upload is irrelevant for auto_ml models
-        return {'automlModel': self._auto_ml_model}
-
-
 class ListModelsPage:
     """Represents a page of models in a Firebase project.
 
@@ -721,7 +676,7 @@ class _ModelIterator:
         self._current_page = current_page
         self._index = 0
 
-    def next(self):
+    def __next__(self):
         if self._index == len(self._current_page.models):
             if self._current_page.has_next_page:
                 self._current_page = self._current_page.get_next_page()
@@ -731,9 +686,6 @@ class _ModelIterator:
             self._index += 1
             return result
         raise StopIteration
-
-    def __next__(self):
-        return self.next()
 
     def __iter__(self):
         return self
@@ -789,11 +741,6 @@ def _validate_gcs_tflite_uri(uri):
         raise ValueError('GCS TFLite URI format is invalid.')
     return uri
 
-def _validate_auto_ml_model(model):
-    if not _AUTO_ML_MODEL_PATTERN.match(model):
-        raise ValueError('Model resource name format is invalid.')
-    return model
-
 
 def _validate_model_format(model_format):
     if not isinstance(model_format, ModelFormat):
@@ -813,8 +760,8 @@ def _validate_page_size(page_size):
             # Specifically type() to disallow boolean which is a subtype of int
             raise TypeError('Page size must be a number or None.')
         if page_size < 1 or page_size > _MAX_PAGE_SIZE:
-            raise ValueError('Page size must be a positive integer between '
-                             '1 and {0}'.format(_MAX_PAGE_SIZE))
+            raise ValueError(
+                f'Page size must be a positive integer between 1 and {_MAX_PAGE_SIZE}')
 
 
 def _validate_page_token(page_token):
@@ -839,7 +786,7 @@ class _MLService:
                 'projectId option, or use service account credentials.')
         self._project_url = _MLService.PROJECT_URL.format(self._project_id)
         ml_headers = {
-            'X-FIREBASE-CLIENT': 'fire-admin-python/{0}'.format(firebase_admin.__version__),
+            'X-FIREBASE-CLIENT': f'fire-admin-python/{firebase_admin.__version__}',
         }
         self._client = _http_client.JsonHttpClient(
             credential=app.credential.get_credential(),
@@ -936,9 +883,9 @@ class _MLService:
 
     def update_model(self, model, update_mask=None):
         _validate_model(model, update_mask)
-        path = 'models/{0}'.format(model.model_id)
+        path = f'models/{model.model_id}'
         if update_mask is not None:
-            path = path + '?updateMask={0}'.format(update_mask)
+            path = path + f'?updateMask={update_mask}'
         try:
             return self.handle_operation(
                 self._client.body('patch', url=path, json=model.as_dict(for_upload=True)))
@@ -947,7 +894,7 @@ class _MLService:
 
     def set_published(self, model_id, publish):
         _validate_model_id(model_id)
-        model_name = 'projects/{0}/models/{1}'.format(self._project_id, model_id)
+        model_name = f'projects/{self._project_id}/models/{model_id}'
         model = Model.from_dict({
             'name': model_name,
             'state': {
@@ -959,7 +906,7 @@ class _MLService:
     def get_model(self, model_id):
         _validate_model_id(model_id)
         try:
-            return self._client.body('get', url='models/{0}'.format(model_id))
+            return self._client.body('get', url=f'models/{model_id}')
         except requests.exceptions.RequestException as error:
             raise _utils.handle_platform_error_from_requests(error)
 
@@ -987,6 +934,6 @@ class _MLService:
     def delete_model(self, model_id):
         _validate_model_id(model_id)
         try:
-            self._client.body('delete', url='models/{0}'.format(model_id))
+            self._client.body('delete', url=f'models/{model_id}')
         except requests.exceptions.RequestException as error:
             raise _utils.handle_platform_error_from_requests(error)

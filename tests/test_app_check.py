@@ -22,7 +22,7 @@ import firebase_admin
 from firebase_admin import app_check
 from tests import testutils
 
-NON_STRING_ARGS = [list(), tuple(), dict(), True, False, 1, 0]
+NON_STRING_ARGS = [[], tuple(), {}, True, False, 1, 0]
 
 APP_ID = "1234567890"
 PROJECT_ID = "1334"
@@ -71,7 +71,7 @@ class TestVerifyToken(TestBatch):
     def test_verify_token_with_non_string_raises_error(self, token):
         with pytest.raises(ValueError) as excinfo:
             app_check.verify_token(token)
-        expected = 'app check token "{0}" must be a string.'.format(token)
+        expected = f'app check token "{token}" must be a string.'
         assert str(excinfo.value) == expected
 
     def test_has_valid_token_headers(self):

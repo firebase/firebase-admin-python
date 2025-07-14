@@ -33,7 +33,7 @@ def resource_filename(filename):
 
 def resource(filename):
     """Returns the contents of a test resource."""
-    with open(resource_filename(filename), 'r') as file_obj:
+    with open(resource_filename(filename), 'r', encoding='utf-8') as file_obj:
         return file_obj.read()
 
 
@@ -183,7 +183,7 @@ class MockMultiRequestAdapter(adapters.HTTPAdapter):
 class MockAdapter(MockMultiRequestAdapter):
     """A mock HTTP adapter for the Python requests module."""
     def __init__(self, data, status, recorder):
-        super(MockAdapter, self).__init__([data], [status], recorder)
+        super().__init__([data], [status], recorder)
 
     @property
     def status(self):

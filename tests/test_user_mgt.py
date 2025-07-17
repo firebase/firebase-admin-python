@@ -43,7 +43,8 @@ MOCK_LIST_USERS_RESPONSE = testutils.resource('list_users.json')
 MOCK_ACTION_CODE_DATA = {
     'url': 'http://localhost',
     'handle_code_in_app': True,
-    'dynamic_link_domain': 'http://testly',
+    'dynamic_link_domain': 'http://dynamic-link-domain',
+    'link_domain': 'http://link-domain',
     'ios_bundle_id': 'test.bundle',
     'android_package_name': 'test.bundle',
     'android_minimum_version': '7',
@@ -1363,7 +1364,8 @@ class TestActionCodeSetting:
         data = {
             'url': 'http://localhost',
             'handle_code_in_app': True,
-            'dynamic_link_domain': 'http://testly',
+            'dynamic_link_domain': 'http://dynamic-link-domain',
+            'link_domain': 'http://link-domain',
             'ios_bundle_id': 'test.bundle',
             'android_package_name': 'test.bundle',
             'android_minimum_version': '7',
@@ -1374,6 +1376,7 @@ class TestActionCodeSetting:
         assert parameters['continueUrl'] == data['url']
         assert parameters['canHandleCodeInApp'] == data['handle_code_in_app']
         assert parameters['dynamicLinkDomain'] == data['dynamic_link_domain']
+        assert parameters['linkDomain'] == data['link_domain']
         assert parameters['iOSBundleId'] == data['ios_bundle_id']
         assert parameters['androidPackageName'] == data['android_package_name']
         assert parameters['androidMinimumVersion'] == data['android_minimum_version']
@@ -1501,6 +1504,23 @@ class TestGenerateEmailActionLink:
         auth.generate_email_verification_link,
         auth.generate_password_reset_link,
     ])
+    def test_invalid_hosting_link(self, user_mgt_app, func):
+        resp = '{"error":{"message": "INVALID_HOSTING_LINK_DOMAIN: Because of this reason."}}'
+        _instrument_user_manager(user_mgt_app, 500, resp)
+        with pytest.raises(auth.InvalidHostingLinkDomainError) as excinfo:
+            func('test@test.com', MOCK_ACTION_CODE_SETTINGS, app=user_mgt_app)
+        assert isinstance(excinfo.value, exceptions.InvalidArgumentError)
+        assert str(excinfo.value) == ('The provided hosting link domain is not configured in '
+                                      'Firebase Hosting or is not owned by the current project '
+                                      '(INVALID_HOSTING_LINK_DOMAIN). Because of this reason.')
+        assert excinfo.value.http_response is not None
+        assert excinfo.value.cause is not None
+
+    @pytest.mark.parametrize('func', [
+        auth.generate_sign_in_with_email_link,
+        auth.generate_email_verification_link,
+        auth.generate_password_reset_link,
+    ])
     def test_api_call_no_link(self, user_mgt_app, func):
         _instrument_user_manager(user_mgt_app, 200, '{}')
         with pytest.raises(auth.UnexpectedResponseError) as excinfo:
@@ -1534,6 +1554,7 @@ class TestGenerateEmailActionLink:
             assert request['continueUrl'] == settings.url
             assert request['canHandleCodeInApp'] == settings.handle_code_in_app
             assert request['dynamicLinkDomain'] == settings.dynamic_link_domain
+            assert request['linkDomain'] == settings.link_domain
             assert request['iOSBundleId'] == settings.ios_bundle_id
             assert request['androidPackageName'] == settings.android_package_name
             assert request['androidMinimumVersion'] == settings.android_minimum_version

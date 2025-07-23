@@ -324,6 +324,17 @@ class InvalidDynamicLinkDomainError(exceptions.InvalidArgumentError):
         exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
 
 
+class InvalidHostingLinkDomainError(exceptions.InvalidArgumentError):
+    """The provided hosting link domain is not configured in Firebase Hosting
+    or is not owned by the current project."""
+
+    default_message = ('The provided hosting link domain is not configured in Firebase '
+                       'Hosting or is not owned by the current project')
+
+    def __init__(self, message, cause, http_response):
+        exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
+
+
 class InvalidIdTokenError(exceptions.InvalidArgumentError):
     """The provided ID token is not a valid Firebase ID token."""
 
@@ -423,6 +434,7 @@ _CODE_TO_EXC_TYPE = {
     'EMAIL_NOT_FOUND': EmailNotFoundError,
     'INSUFFICIENT_PERMISSION': InsufficientPermissionError,
     'INVALID_DYNAMIC_LINK_DOMAIN': InvalidDynamicLinkDomainError,
+    'INVALID_HOSTING_LINK_DOMAIN': InvalidHostingLinkDomainError,
     'INVALID_ID_TOKEN': InvalidIdTokenError,
     'PHONE_NUMBER_EXISTS': PhoneNumberAlreadyExistsError,
     'TENANT_NOT_FOUND': TenantNotFoundError,

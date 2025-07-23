@@ -17,7 +17,9 @@
 import base64
 from collections import defaultdict
 import json
+from typing import Optional
 from urllib import parse
+import warnings
 
 import requests
 
@@ -489,8 +491,22 @@ class ActionCodeSettings:
     Used when invoking the email action link generation APIs.
     """
 
-    def __init__(self, url, handle_code_in_app=None, dynamic_link_domain=None, ios_bundle_id=None,
-                 android_package_name=None, android_install_app=None, android_minimum_version=None):
+    def __init__(
+        self,
+        url: str,
+        handle_code_in_app: Optional[bool] = None,
+        dynamic_link_domain: Optional[str] = None,
+        ios_bundle_id: Optional[str] = None,
+        android_package_name: Optional[str] = None,
+        android_install_app: Optional[str] = None,
+        android_minimum_version: Optional[str] = None,
+        link_domain: Optional[str] = None,
+    ):
+        if dynamic_link_domain is not None:
+            warnings.warn(
+                'dynamic_link_domain is deprecated, use link_domain instead',
+                DeprecationWarning
+            )
         self.url = url
         self.handle_code_in_app = handle_code_in_app
         self.dynamic_link_domain = dynamic_link_domain
@@ -498,6 +514,7 @@ class ActionCodeSettings:
         self.android_package_name = android_package_name
         self.android_install_app = android_install_app
         self.android_minimum_version = android_minimum_version
+        self.link_domain = link_domain
 
 
 def encode_action_code_settings(settings):
@@ -534,6 +551,13 @@ def encode_action_code_settings(settings):
             raise ValueError(
                 f'Invalid value provided for dynamic_link_domain: {settings.dynamic_link_domain}')
         parameters['dynamicLinkDomain'] = settings.dynamic_link_domain
+
+    # link_domain
+    if settings.link_domain is not None:
+        if not isinstance(settings.link_domain, str):
+            raise ValueError(
+                f'Invalid value provided for link_domain: {settings.link_domain}')
+        parameters['linkDomain'] = settings.link_domain
 
     # ios_bundle_id
     if settings.ios_bundle_id is not None:

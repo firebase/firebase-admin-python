@@ -533,37 +533,37 @@ def encode_action_code_settings(settings):
     try:
         parsed = parse.urlparse(settings.url)
         if not parsed.netloc:
-            raise ValueError('Malformed dynamic action links url: "{0}".'.format(settings.url))
+            raise ValueError(f'Malformed dynamic action links url: "{settings.url}".')
         parameters['continueUrl'] = settings.url
-    except Exception:
-        raise ValueError('Malformed dynamic action links url: "{0}".'.format(settings.url))
+    except Exception as exc:
+        raise ValueError(f'Malformed dynamic action links url: "{settings.url}".') from exc
 
     # handle_code_in_app
     if settings.handle_code_in_app is not None:
         if not isinstance(settings.handle_code_in_app, bool):
-            raise ValueError('Invalid value provided for handle_code_in_app: {0}'
-                             .format(settings.handle_code_in_app))
+            raise ValueError(
+                f'Invalid value provided for handle_code_in_app: {settings.handle_code_in_app}')
         parameters['canHandleCodeInApp'] = settings.handle_code_in_app
 
     # dynamic_link_domain
     if settings.dynamic_link_domain is not None:
         if not isinstance(settings.dynamic_link_domain, str):
-            raise ValueError('Invalid value provided for dynamic_link_domain: {0}'
-                             .format(settings.dynamic_link_domain))
+            raise ValueError(
+                f'Invalid value provided for dynamic_link_domain: {settings.dynamic_link_domain}')
         parameters['dynamicLinkDomain'] = settings.dynamic_link_domain
 
     # link_domain
     if settings.link_domain is not None:
         if not isinstance(settings.link_domain, str):
-            raise ValueError('Invalid value provided for link_domain: {0}'
-                             .format(settings.link_domain))
+            raise ValueError(
+                f'Invalid value provided for link_domain: {settings.link_domain}')
         parameters['linkDomain'] = settings.link_domain
 
     # ios_bundle_id
     if settings.ios_bundle_id is not None:
         if not isinstance(settings.ios_bundle_id, str):
-            raise ValueError('Invalid value provided for ios_bundle_id: {0}'
-                             .format(settings.ios_bundle_id))
+            raise ValueError(
+                f'Invalid value provided for ios_bundle_id: {settings.ios_bundle_id}')
         parameters['iOSBundleId'] = settings.ios_bundle_id
 
     # android_* attributes
@@ -573,20 +573,21 @@ def encode_action_code_settings(settings):
 
     if settings.android_package_name is not None:
         if not isinstance(settings.android_package_name, str):
-            raise ValueError('Invalid value provided for android_package_name: {0}'
-                             .format(settings.android_package_name))
+            raise ValueError(
+                f'Invalid value provided for android_package_name: {settings.android_package_name}')
         parameters['androidPackageName'] = settings.android_package_name
 
     if settings.android_minimum_version is not None:
         if not isinstance(settings.android_minimum_version, str):
-            raise ValueError('Invalid value provided for android_minimum_version: {0}'
-                             .format(settings.android_minimum_version))
+            raise ValueError(
+                f'Invalid value provided for '
+                f'android_minimum_version: {settings.android_minimum_version}')
         parameters['androidMinimumVersion'] = settings.android_minimum_version
 
     if settings.android_install_app is not None:
         if not isinstance(settings.android_install_app, bool):
-            raise ValueError('Invalid value provided for android_install_app: {0}'
-                             .format(settings.android_install_app))
+            raise ValueError(
+                f'Invalid value provided for android_install_app: {settings.android_install_app}')
         parameters['androidInstallApp'] = settings.android_install_app
 
     return parameters

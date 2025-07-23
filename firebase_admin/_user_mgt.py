@@ -130,9 +130,9 @@ class UserRecord(UserInfo):
     """Contains metadata associated with a Firebase user account."""
 
     def __init__(self, data):
-        super(UserRecord, self).__init__()
+        super().__init__()
         if not isinstance(data, dict):
-            raise ValueError('Invalid data argument: {0}. Must be a dictionary.'.format(data))
+            raise ValueError(f'Invalid data argument: {data}. Must be a dictionary.')
         if not data.get('localId'):
             raise ValueError('User ID must not be None or empty.')
         self._data = data
@@ -454,9 +454,9 @@ class ProviderUserInfo(UserInfo):
     """Contains metadata regarding how a user is known by a particular identity provider."""
 
     def __init__(self, data):
-        super(ProviderUserInfo, self).__init__()
+        super().__init__()
         if not isinstance(data, dict):
-            raise ValueError('Invalid data argument: {0}. Must be a dictionary.'.format(data))
+            raise ValueError(f'Invalid data argument: {data}. Must be a dictionary.')
         if not data.get('rawId'):
             raise ValueError('User ID must not be None or empty.')
         self._data = data
@@ -535,8 +535,8 @@ def encode_action_code_settings(settings):
         if not parsed.netloc:
             raise ValueError(f'Malformed dynamic action links url: "{settings.url}".')
         parameters['continueUrl'] = settings.url
-    except Exception as exc:
-        raise ValueError(f'Malformed dynamic action links url: "{settings.url}".') from exc
+    except Exception as err:
+        raise ValueError(f'Malformed dynamic action links url: "{settings.url}".') from err
 
     # handle_code_in_app
     if settings.handle_code_in_app is not None:
@@ -580,8 +580,8 @@ def encode_action_code_settings(settings):
     if settings.android_minimum_version is not None:
         if not isinstance(settings.android_minimum_version, str):
             raise ValueError(
-                f'Invalid value provided for '
-                f'android_minimum_version: {settings.android_minimum_version}')
+                'Invalid value provided for android_minimum_version: '
+                f'{settings.android_minimum_version}')
         parameters['androidMinimumVersion'] = settings.android_minimum_version
 
     if settings.android_install_app is not None:
@@ -601,9 +601,9 @@ class UserManager:
     def __init__(self, http_client, project_id, tenant_id=None, url_override=None):
         self.http_client = http_client
         url_prefix = url_override or self.ID_TOOLKIT_URL
-        self.base_url = '{0}/projects/{1}'.format(url_prefix, project_id)
+        self.base_url = f'{url_prefix}/projects/{project_id}'
         if tenant_id:
-            self.base_url += '/tenants/{0}'.format(tenant_id)
+            self.base_url += f'/tenants/{tenant_id}'
 
     def get_user(self, **kwargs):
         """Gets the user data corresponding to the provided key."""
@@ -617,12 +617,12 @@ class UserManager:
             key, key_type = kwargs.pop('phone_number'), 'phone number'
             payload = {'phoneNumber' : [_auth_utils.validate_phone(key, required=True)]}
         else:
-            raise TypeError('Unsupported keyword arguments: {0}.'.format(kwargs))
+            raise TypeError(f'Unsupported keyword arguments: {kwargs}.')
 
         body, http_resp = self._make_request('post', '/accounts:lookup', json=payload)
         if not body or not body.get('users'):
             raise _auth_utils.UserNotFoundError(
-                'No user record found for the provided {0}: {1}.'.format(key_type, key),
+                f'No user record found for the provided {key_type}: {key}.',
                 http_response=http_resp)
         return body['users'][0]
 
@@ -663,8 +663,7 @@ class UserManager:
                 })
             else:
                 raise ValueError(
-                    'Invalid entry in "identifiers" list. Unsupported type: {}'
-                    .format(type(identifier)))
+                    f'Invalid entry in "identifiers" list. Unsupported type: {type(identifier)}')
 
         body, http_resp = self._make_request(
             'post', '/accounts:lookup', json=payload)
@@ -682,8 +681,7 @@ class UserManager:
             raise ValueError('Max results must be an integer.')
         if max_results < 1 or max_results > MAX_LIST_USERS_RESULTS:
             raise ValueError(
-                'Max results must be a positive integer less than '
-                '{0}.'.format(MAX_LIST_USERS_RESULTS))
+                f'Max results must be a positive integer less than {MAX_LIST_USERS_RESULTS}.')
 
         payload = {'maxResults': max_results}
         if page_token:
@@ -759,7 +757,7 @@ class UserManager:
         body, http_resp = self._make_request('post', '/accounts:update', json=payload)
         if not body or not body.get('localId'):
             raise _auth_utils.UnexpectedResponseError(
-                'Failed to update user: {0}.'.format(uid), http_response=http_resp)
+                f'Failed to update user: {uid}.', http_response=http_resp)
         return body.get('localId')
 
     def delete_user(self, uid):
@@ -768,7 +766,7 @@ class UserManager:
         body, http_resp = self._make_request('post', '/accounts:delete', json={'localId' : uid})
         if not body or not body.get('kind'):
             raise _auth_utils.UnexpectedResponseError(
-                'Failed to delete user: {0}.'.format(uid), http_response=http_resp)
+                f'Failed to delete user: {uid}.', http_response=http_resp)
 
     def delete_users(self, uids, force_delete=False):
         """Deletes the users identified by the specified user ids.
@@ -811,15 +809,15 @@ class UserManager:
         try:
             if not users or len(users) > MAX_IMPORT_USERS_SIZE:
                 raise ValueError(
-                    'Users must be a non-empty list with no more than {0} elements.'.format(
-                        MAX_IMPORT_USERS_SIZE))
-            if any([not isinstance(u, _user_import.ImportUserRecord) for u in users]):
+                    'Users must be a non-empty list with no more than '
+                    f'{MAX_IMPORT_USERS_SIZE} elements.')
+            if any(not isinstance(u, _user_import.ImportUserRecord) for u in users):
                 raise ValueError('One or more user objects are invalid.')
-        except TypeError:
-            raise ValueError('users must be iterable')
+        except TypeError as err:
+            raise ValueError('users must be iterable') from err
 
         payload = {'users': [u.to_dict() for u in users]}
-        if any(['passwordHash' in u for u in payload['users']]):
+        if any('passwordHash' in u for u in payload['users']):
             if not isinstance(hash_alg, _user_import.UserImportHash):
                 raise ValueError('A UserImportHash is required to import users with passwords.')
             payload.update(hash_alg.to_dict())
@@ -862,7 +860,7 @@ class UserManager:
         return body.get('oobLink')
 
     def _make_request(self, method, path, **kwargs):
-        url = '{0}{1}'.format(self.base_url, path)
+        url = f'{self.base_url}{path}'
         try:
             return self.http_client.body_and_response(method, url, **kwargs)
         except requests.exceptions.RequestException as error:

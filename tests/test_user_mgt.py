@@ -32,10 +32,10 @@ from firebase_admin import _utils
 from tests import testutils
 
 
-INVALID_STRINGS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
-INVALID_DICTS = [None, 'foo', 0, 1, True, False, list(), tuple()]
-INVALID_INTS = [None, 'foo', '1', -1, 1.1, True, False, list(), tuple(), dict()]
-INVALID_TIMESTAMPS = ['foo', '1', 0, -1, 1.1, True, False, list(), tuple(), dict()]
+INVALID_STRINGS = [None, '', 0, 1, True, False, [], tuple(), {}]
+INVALID_DICTS = [None, 'foo', 0, 1, True, False, [], tuple()]
+INVALID_INTS = [None, 'foo', '1', -1, 1.1, True, False, [], tuple(), {}]
+INVALID_TIMESTAMPS = ['foo', '1', 0, -1, 1.1, True, False, [], tuple(), {}]
 
 MOCK_GET_USER_RESPONSE = testutils.resource('get_user.json')
 MOCK_LIST_USERS_RESPONSE = testutils.resource('list_users.json')
@@ -57,7 +57,7 @@ TEST_TIMEOUT = 42
 ID_TOOLKIT_URL = 'https://identitytoolkit.googleapis.com/v1'
 EMULATOR_HOST_ENV_VAR = 'FIREBASE_AUTH_EMULATOR_HOST'
 AUTH_EMULATOR_HOST = 'localhost:9099'
-EMULATED_ID_TOOLKIT_URL = 'http://{}/identitytoolkit.googleapis.com/v1'.format(AUTH_EMULATOR_HOST)
+EMULATED_ID_TOOLKIT_URL = f'http://{AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1'
 URL_PROJECT_SUFFIX = '/projects/mock-project-id'
 USER_MGT_URLS = {
     'ID_TOOLKIT': ID_TOOLKIT_URL,
@@ -136,7 +136,7 @@ def _check_request(recorder, want_url, want_body=None, want_timeout=None):
     assert len(recorder) == 1
     req = recorder[0]
     assert req.method == 'POST'
-    assert req.url == '{0}{1}'.format(USER_MGT_URLS['PREFIX'], want_url)
+    assert req.url == f'{USER_MGT_URLS["PREFIX"]}{want_url}'
     expected_metrics_header = [
         _utils.get_metrics_header(),
         _utils.get_metrics_header() + ' mock-cred-metric-tag'
@@ -539,7 +539,7 @@ class TestCreateUser:
         with pytest.raises(exc_type) as excinfo:
             auth.create_user(app=user_mgt_app)
         assert isinstance(excinfo.value, exceptions.AlreadyExistsError)
-        assert str(excinfo.value) == '{0} ({1}).'.format(exc_type.default_message, error_code)
+        assert str(excinfo.value) == f'{exc_type.default_message} ({error_code}).'
         assert excinfo.value.http_response is not None
         assert excinfo.value.cause is not None
 
@@ -705,15 +705,14 @@ class TestSetCustomUserClaims:
         claims = {key : 'value'}
         with pytest.raises(ValueError) as excinfo:
             auth.set_custom_user_claims('user', claims, app=user_mgt_app)
-        assert str(excinfo.value) == 'Claim "{0}" is reserved, and must not be set.'.format(key)
+        assert str(excinfo.value) == f'Claim "{key}" is reserved, and must not be set.'
 
     def test_multiple_reserved_claims(self, user_mgt_app):
         claims = {key : 'value' for key in _auth_utils.RESERVED_CLAIMS}
         with pytest.raises(ValueError) as excinfo:
             auth.set_custom_user_claims('user', claims, app=user_mgt_app)
         joined = ', '.join(sorted(claims.keys()))
-        assert str(excinfo.value) == ('Claims "{0}" are reserved, and must not be '
-                                      'set.'.format(joined))
+        assert str(excinfo.value) == f'Claims "{joined}" are reserved, and must not be set.'
 
     def test_large_claims_payload(self, user_mgt_app):
         claims = {'key' : 'A'*1000}
@@ -831,12 +830,12 @@ class TestDeleteUsers:
 
 class TestListUsers:
 
-    @pytest.mark.parametrize('arg', [None, 'foo', list(), dict(), 0, -1, 1001, False])
+    @pytest.mark.parametrize('arg', [None, 'foo', [], {}, 0, -1, 1001, False])
     def test_invalid_max_results(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
             auth.list_users(max_results=arg, app=user_mgt_app)
 
-    @pytest.mark.parametrize('arg', ['', list(), dict(), 0, -1, 1001, False])
+    @pytest.mark.parametrize('arg', ['', [], {}, 0, -1, 1001, False])
     def test_invalid_page_token(self, user_mgt_app, arg):
         with pytest.raises(ValueError):
             auth.list_users(page_token=arg, app=user_mgt_app)
@@ -888,7 +887,7 @@ class TestListUsers:
         iterator = page.iterate_all()
         for index in range(3):
             user = next(iterator)
-            assert user.uid == 'user{0}'.format(index+1)
+            assert user.uid == f'user{index+1}'
         assert len(recorder) == 1
         self._check_rpc_calls(recorder)
 
@@ -913,7 +912,7 @@ class TestListUsers:
         iterator = page.iterate_all()
         for user in iterator:
             index += 1
-            assert user.uid == 'user{0}'.format(index)
+            assert user.uid == f'user{index}'
             if index == 2:
                 break
 
@@ -987,7 +986,7 @@ class TestListUsers:
         assert len(page.users) == 2
         for user in page.users:
             assert isinstance(user, auth.ExportedUserRecord)
-            _check_user_record(user, 'testuser{0}'.format(index))
+            _check_user_record(user, f'testuser{index}')
             assert user.password_hash == 'passwordHash'
             assert user.password_salt == 'passwordSalt'
             index += 1
@@ -1062,8 +1061,8 @@ class TestImportUserRecord:
         [{'email': arg} for arg in INVALID_STRINGS[1:] + ['not-an-email']] +
         [{'photo_url': arg} for arg in INVALID_STRINGS[1:] + ['not-a-url']] +
         [{'phone_number': arg} for arg in INVALID_STRINGS[1:] + ['not-a-phone']] +
-        [{'password_hash': arg} for arg in INVALID_STRINGS[1:] + [u'test']] +
-        [{'password_salt': arg} for arg in INVALID_STRINGS[1:] + [u'test']] +
+        [{'password_hash': arg} for arg in INVALID_STRINGS[1:] + ['test']] +
+        [{'password_salt': arg} for arg in INVALID_STRINGS[1:] + ['test']] +
         [{'custom_claims': arg} for arg in INVALID_DICTS[1:] + ['"json"', {'key': 'a'*1000}]] +
         [{'provider_data': arg} for arg in ['foo', 1, True]]
     )
@@ -1246,13 +1245,13 @@ class TestUserImportHash:
 
 class TestImportUsers:
 
-    @pytest.mark.parametrize('arg', [None, list(), tuple(), dict(), 0, 1, 'foo'])
+    @pytest.mark.parametrize('arg', [None, [], tuple(), {}, 0, 1, 'foo'])
     def test_invalid_users(self, user_mgt_app, arg):
         with pytest.raises(Exception):
             auth.import_users(arg, app=user_mgt_app)
 
     def test_too_many_users(self, user_mgt_app):
-        users = [auth.ImportUserRecord(uid='test{0}'.format(i)) for i in range(1001)]
+        users = [auth.ImportUserRecord(uid=f'test{i}') for i in range(1001)]
         with pytest.raises(ValueError):
             auth.import_users(users, app=user_mgt_app)
 
@@ -1387,7 +1386,7 @@ class TestActionCodeSetting:
                                       {'android_install_app':'nonboolean'},
                                       {'dynamic_link_domain': False},
                                       {'ios_bundle_id':11},
-                                      {'android_package_name':dict()},
+                                      {'android_package_name':{}},
                                       {'android_minimum_version':tuple()},
                                       {'android_minimum_version':'7'},
                                       {'android_install_app': True}])

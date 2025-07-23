@@ -235,7 +235,7 @@ def order_by_child():
     ref = db.reference('dinosaurs')
     snapshot = ref.order_by_child('height').get()
     for key, val in snapshot.items():
-        print('{0} was {1} meters tall'.format(key, val))
+        print(f'{key} was {val} meters tall')
     # [END order_by_child]
 
 def order_by_nested_child():
@@ -243,7 +243,7 @@ def order_by_nested_child():
     ref = db.reference('dinosaurs')
     snapshot = ref.order_by_child('dimensions/height').get()
     for key, val in snapshot.items():
-        print('{0} was {1} meters tall'.format(key, val))
+        print(f'{key} was {val} meters tall')
     # [END order_by_nested_child]
 
 def order_by_key():
@@ -258,7 +258,7 @@ def order_by_value():
     ref = db.reference('scores')
     snapshot = ref.order_by_value().get()
     for key, val in snapshot.items():
-        print('The {0} dinosaur\'s score is {1}'.format(key, val))
+        print(f'The {key} dinosaur\'s score is {val}')
     # [END order_by_value]
 
 def limit_query():
@@ -280,7 +280,7 @@ def limit_query():
     scores_ref = db.reference('scores')
     snapshot = scores_ref.order_by_value().limit_to_last(3).get()
     for key, val in snapshot.items():
-        print('The {0} dinosaur\'s score is {1}'.format(key, val))
+        print(f'The {key} dinosaur\'s score is {val}')
     # [END limit_query_3]
 
 def range_query():
@@ -300,7 +300,7 @@ def range_query():
 
     # [START range_query_3]
     ref = db.reference('dinosaurs')
-    snapshot = ref.order_by_key().start_at('b').end_at(u'b\uf8ff').get()
+    snapshot = ref.order_by_key().start_at('b').end_at('b\uf8ff').get()
     for key in snapshot:
         print(key)
     # [END range_query_3]
@@ -322,7 +322,7 @@ def complex_query():
         # Data is ordered by increasing height, so we want the first entry.
         # Second entry is stegosarus.
         for key in snapshot:
-            print('The dinosaur just shorter than the stegosaurus is {0}'.format(key))
+            print(f'The dinosaur just shorter than the stegosaurus is {key}')
             return
     else:
         print('The stegosaurus is the shortest dino')

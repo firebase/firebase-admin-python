@@ -84,7 +84,7 @@ class _AppCheckService:
         except (InvalidTokenError, DecodeError) as exception:
             raise ValueError(
                 f'Verifying App Check token failed. Error: {exception}'
-                )
+                ) from exception
 
         verified_claims['app_id'] = verified_claims.get('sub')
         return verified_claims
@@ -112,28 +112,28 @@ class _AppCheckService:
                 algorithms=["RS256"],
                 audience=self._scoped_project_id
             )
-        except InvalidSignatureError:
+        except InvalidSignatureError as exception:
             raise ValueError(
                 'The provided App Check token has an invalid signature.'
-                )
-        except InvalidAudienceError:
+                ) from exception
+        except InvalidAudienceError as exception:
             raise ValueError(
                 'The provided App Check token has an incorrect "aud" (audience) claim. '
                 f'Expected payload to include {self._scoped_project_id}.'
-                )
-        except InvalidIssuerError:
+                ) from exception
+        except InvalidIssuerError as exception:
             raise ValueError(
                 'The provided App Check token has an incorrect "iss" (issuer) claim. '
                 f'Expected claim to include {self._APP_CHECK_ISSUER}'
-                )
-        except ExpiredSignatureError:
+                ) from exception
+        except ExpiredSignatureError as exception:
             raise ValueError(
                 'The provided App Check token has expired.'
-                )
+                ) from exception
         except InvalidTokenError as exception:
             raise ValueError(
                 f'Decoding App Check token failed. Error: {exception}'
-                )
+                ) from exception
 
         audience = payload.get('aud')
         if not isinstance(audience, list) or self._scoped_project_id not in audience:
@@ -156,6 +156,6 @@ class _Validators:
     def check_string(cls, label: str, value: Any):
         """Checks if the given value is a string."""
         if value is None:
-            raise ValueError('{0} "{1}" must be a non-empty string.'.format(label, value))
+            raise ValueError(f'{label} "{value}" must be a non-empty string.')
         if not isinstance(value, str):
-            raise ValueError('{0} "{1}" must be a string.'.format(label, value))
+            raise ValueError(f'{label} "{value}" must be a string.')

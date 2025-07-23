@@ -17,6 +17,7 @@
 import base64
 from collections import defaultdict
 import json
+from typing import Optional
 from urllib import parse
 import warnings
 
@@ -490,9 +491,17 @@ class ActionCodeSettings:
     Used when invoking the email action link generation APIs.
     """
 
-    def __init__(self, url, handle_code_in_app=None, dynamic_link_domain=None, ios_bundle_id=None,
-                 android_package_name=None, android_install_app=None, android_minimum_version=None,
-                 link_domain=None):
+    def __init__(
+        self,
+        url: str,
+        handle_code_in_app: Optional[bool] = None,
+        dynamic_link_domain: Optional[str] = None,
+        ios_bundle_id: Optional[str] = None,
+        android_package_name: Optional[str] = None,
+        android_install_app: Optional[str] = None,
+        android_minimum_version: Optional[str] = None,
+        link_domain: Optional[str] = None,
+    ):
         if dynamic_link_domain is not None:
             warnings.warn(
                 'dynamic_link_domain is deprecated, use link_domain instead',

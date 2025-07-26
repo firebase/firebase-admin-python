@@ -20,6 +20,15 @@ This module enables management of resources in Firebase projects, such as Androi
 import base64
 import re
 import time
+from collections.abc import Callable
+from typing import (
+    Any,
+    Optional,
+    NoReturn,
+    TypeVar,
+    cast,
+    overload,
+)
 
 import requests
 
@@ -28,15 +37,31 @@ from firebase_admin import exceptions
 from firebase_admin import _http_client
 from firebase_admin import _utils
 
+__all__ = (
+    'AndroidApp',
+    'AndroidAppMetadata',
+    'IOSApp',
+    'IOSAppMetadata',
+    'SHACertificate',
+    'android_app',
+    'create_android_app',
+    'create_ios_app',
+    'ios_app',
+    'list_android_apps',
+    'list_ios_apps',
+)
+
+_T = TypeVar('_T')
+_AppMetadataT = TypeVar('_AppMetadataT', bound='_AppMetadata')
 
 _PROJECT_MANAGEMENT_ATTRIBUTE = '_project_management'
 
 
-def _get_project_management_service(app):
+def _get_project_management_service(app: Optional[firebase_admin.App]) -> '_ProjectManagementService':
     return _utils.get_app_service(app, _PROJECT_MANAGEMENT_ATTRIBUTE, _ProjectManagementService)
 
 
-def android_app(app_id, app=None):
+def android_app(app_id: str, app: Optional[firebase_admin.App] = None) -> 'AndroidApp':
     """Obtains a reference to an Android app in the associated Firebase project.
 
     Args:
@@ -49,7 +74,7 @@ def android_app(app_id, app=None):
     return AndroidApp(app_id=app_id, service=_get_project_management_service(app))
 
 
-def ios_app(app_id, app=None):
+def ios_app(app_id: str, app: Optional[firebase_admin.App] = None) -> 'IOSApp':
     """Obtains a reference to an iOS app in the associated Firebase project.
 
     Args:
@@ -62,7 +87,7 @@ def ios_app(app_id, app=None):
     return IOSApp(app_id=app_id, service=_get_project_management_service(app))
 
 
-def list_android_apps(app=None):
+def list_android_apps(app: Optional[firebase_admin.App] = None) -> list['AndroidApp']:
     """Lists all Android apps in the associated Firebase project.
 
     Args:
@@ -75,7 +100,7 @@ def list_android_apps(app=None):
     return _get_project_management_service(app).list_android_apps()
 
 
-def list_ios_apps(app=None):
+def list_ios_apps(app: Optional[firebase_admin.App] = None) -> list['IOSApp']:
     """Lists all iOS apps in the associated Firebase project.
 
     Args:
@@ -87,7 +112,11 @@ def list_ios_apps(app=None):
     return _get_project_management_service(app).list_ios_apps()
 
 
-def create_android_app(package_name, display_name=None, app=None):
+def create_android_app(
+    package_name: str,
+    display_name: Optional[str] = None,
+    app: Optional[firebase_admin.App] = None,
+) -> 'AndroidApp':
     """Creates a new Android app in the associated Firebase project.
 
     Args:
@@ -101,7 +130,11 @@ def create_android_app(package_name, display_name=None, app=None):
     return _get_project_management_service(app).create_android_app(package_name, display_name)
 
 
-def create_ios_app(bundle_id, display_name=None, app=None):
+def create_ios_app(
+    bundle_id: str,
+    display_name: Optional[str] = None,
+    app: Optional[firebase_admin.App] = None,
+) -> 'IOSApp':
     """Creates a new iOS app in the associated Firebase project.
 
     Args:
@@ -115,25 +148,29 @@ def create_ios_app(bundle_id, display_name=None, app=None):
     return _get_project_management_service(app).create_ios_app(bundle_id, display_name)
 
 
-def _check_is_string_or_none(obj, field_name):
+def _check_is_string_or_none(obj: Any, field_name: str) -> Optional[str]:
     if obj is None or isinstance(obj, str):
         return obj
     raise ValueError(f'{field_name} must be a string.')
 
 
-def _check_is_nonempty_string(obj, field_name):
+def _check_is_nonempty_string(obj: Any, field_name: str) -> str:
     if isinstance(obj, str) and obj:
         return obj
     raise ValueError(f'{field_name} must be a non-empty string.')
 
 
-def _check_is_nonempty_string_or_none(obj, field_name):
+def _check_is_nonempty_string_or_none(obj: Any, field_name: str) -> Optional[str]:
     if obj is None:
         return None
     return _check_is_nonempty_string(obj, field_name)
 
 
-def _check_not_none(obj, field_name):
+@overload
+def _check_not_none(obj: None, field_name: str) -> NoReturn: ...
+@overload
+def _check_not_none(obj: _T, field_name: str) -> _T: ...
+def _check_not_none(obj: Optional[_T], field_name: str) -> _T:
     if obj is None:
         raise ValueError(f'{field_name} cannot be None.')
     return obj
@@ -148,12 +185,12 @@ class AndroidApp:
     instead of instantiating it directly.
     """
 
-    def __init__(self, app_id, service):
+    def __init__(self, app_id: str, service: '_ProjectManagementService') -> None:
         self._app_id = app_id
         self._service = service
 
     @property
-    def app_id(self):
+    def app_id(self) -> str:
         """Returns the app ID of the Android app to which this instance refers.
 
         Note: This method does not make an RPC.
@@ -163,7 +200,7 @@ class AndroidApp:
         """
         return self._app_id
 
-    def get_metadata(self):
+    def get_metadata(self) -> 'AndroidAppMetadata':
         """Retrieves detailed information about this Android app.
 
         Returns:
@@ -175,7 +212,7 @@ class AndroidApp:
         """
         return self._service.get_android_app_metadata(self._app_id)
 
-    def set_display_name(self, new_display_name):
+    def set_display_name(self, new_display_name: Optional[str]) -> None:
         """Updates the display name attribute of this Android app to the one given.
 
         Args:
@@ -188,13 +225,13 @@ class AndroidApp:
             FirebaseError: If an error occurs while communicating with the Firebase Project
                 Management Service.
         """
-        return self._service.set_android_app_display_name(self._app_id, new_display_name)
+        self._service.set_android_app_display_name(self._app_id, new_display_name)
 
-    def get_config(self):
+    def get_config(self) -> str:
         """Retrieves the configuration artifact associated with this Android app."""
         return self._service.get_android_app_config(self._app_id)
 
-    def get_sha_certificates(self):
+    def get_sha_certificates(self) -> list['SHACertificate']:
         """Retrieves the entire list of SHA certificates associated with this Android app.
 
         Returns:
@@ -206,7 +243,7 @@ class AndroidApp:
         """
         return self._service.get_sha_certificates(self._app_id)
 
-    def add_sha_certificate(self, certificate_to_add):
+    def add_sha_certificate(self, certificate_to_add: 'SHACertificate') -> None:
         """Adds a SHA certificate to this Android app.
 
         Args:
@@ -219,9 +256,9 @@ class AndroidApp:
             FirebaseError: If an error occurs while communicating with the Firebase Project
                 Management Service. (For example, if the certificate_to_add already exists.)
         """
-        return self._service.add_sha_certificate(self._app_id, certificate_to_add)
+        self._service.add_sha_certificate(self._app_id, certificate_to_add)
 
-    def delete_sha_certificate(self, certificate_to_delete):
+    def delete_sha_certificate(self, certificate_to_delete: 'SHACertificate') -> None:
         """Removes a SHA certificate from this Android app.
 
         Args:
@@ -234,7 +271,7 @@ class AndroidApp:
             FirebaseError: If an error occurs while communicating with the Firebase Project
                 Management Service. (For example, if the certificate_to_delete is not found.)
         """
-        return self._service.delete_sha_certificate(certificate_to_delete)
+        self._service.delete_sha_certificate(certificate_to_delete)
 
 
 class IOSApp:
@@ -246,12 +283,12 @@ class IOSApp:
     instead of instantiating it directly.
     """
 
-    def __init__(self, app_id, service):
+    def __init__(self, app_id: str, service: '_ProjectManagementService') -> None:
         self._app_id = app_id
         self._service = service
 
     @property
-    def app_id(self):
+    def app_id(self) -> str:
         """Returns the app ID of the iOS app to which this instance refers.
 
         Note: This method does not make an RPC.
@@ -261,7 +298,7 @@ class IOSApp:
         """
         return self._app_id
 
-    def get_metadata(self):
+    def get_metadata(self) -> 'IOSAppMetadata':
         """Retrieves detailed information about this iOS app.
 
         Returns:
@@ -273,7 +310,7 @@ class IOSApp:
         """
         return self._service.get_ios_app_metadata(self._app_id)
 
-    def set_display_name(self, new_display_name):
+    def set_display_name(self, new_display_name: Optional[str]) -> None:
         """Updates the display name attribute of this iOS app to the one given.
 
         Args:
@@ -286,9 +323,9 @@ class IOSApp:
             FirebaseError: If an error occurs while communicating with the Firebase Project
                 Management Service.
         """
-        return self._service.set_ios_app_display_name(self._app_id, new_display_name)
+        self._service.set_ios_app_display_name(self._app_id, new_display_name)
 
-    def get_config(self):
+    def get_config(self) -> str:
         """Retrieves the configuration artifact associated with this iOS app."""
         return self._service.get_ios_app_config(self._app_id)
 
@@ -296,7 +333,7 @@ class IOSApp:
 class _AppMetadata:
     """Detailed information about a Firebase Android or iOS app."""
 
-    def __init__(self, name, app_id, display_name, project_id):
+    def __init__(self, name: str, app_id: str, display_name: Optional[str], project_id: str) -> None:
         # _name is the fully qualified resource name of this Android or iOS app; currently it is not
         # exposed to client code.
         self._name = _check_is_nonempty_string(name, 'name')
@@ -305,7 +342,7 @@ class _AppMetadata:
         self._project_id = _check_is_nonempty_string(project_id, 'project_id')
 
     @property
-    def app_id(self):
+    def app_id(self) -> str:
         """The globally unique, Firebase-assigned identifier of this Android or iOS app.
 
         This ID is unique even across apps of different platforms.
@@ -313,18 +350,18 @@ class _AppMetadata:
         return self._app_id
 
     @property
-    def display_name(self):
+    def display_name(self) -> Optional[str]:
         """The user-assigned display name of this Android or iOS app.
 
         Note that the display name can be None if it has never been set by the user."""
         return self._display_name
 
     @property
-    def project_id(self):
+    def project_id(self) -> str:
         """The permanent, globally unique, user-assigned ID of the parent Firebase project."""
         return self._project_id
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, type(self)):
             return False
         # pylint: disable=protected-access
@@ -336,24 +373,31 @@ class _AppMetadata:
 class AndroidAppMetadata(_AppMetadata):
     """Android-specific information about an Android Firebase app."""
 
-    def __init__(self, package_name, name, app_id, display_name, project_id):
+    def __init__(
+        self,
+        package_name: str,
+        name: str,
+        app_id: str,
+        display_name: Optional[str],
+        project_id: str,
+    ) -> None:
         """Clients should not instantiate this class directly."""
         super().__init__(name, app_id, display_name, project_id)
         self._package_name = _check_is_nonempty_string(package_name, 'package_name')
 
     @property
-    def package_name(self):
+    def package_name(self) -> str:
         """The canonical package name of this Android app as it would appear in the Play Store."""
         return self._package_name
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         return (super().__eq__(other) and
                 self.package_name == other.package_name)
 
-    def __ne__(self, other):
+    def __ne__(self, other: object) -> bool:
         return not self.__eq__(other)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(
             (self._name, self.app_id, self.display_name, self.project_id, self.package_name))
 
@@ -361,23 +405,30 @@ class AndroidAppMetadata(_AppMetadata):
 class IOSAppMetadata(_AppMetadata):
     """iOS-specific information about an iOS Firebase app."""
 
-    def __init__(self, bundle_id, name, app_id, display_name, project_id):
+    def __init__(
+        self,
+        bundle_id: str,
+        name: str,
+        app_id: str,
+        display_name: Optional[str],
+        project_id: str,
+    ) -> None:
         """Clients should not instantiate this class directly."""
         super().__init__(name, app_id, display_name, project_id)
         self._bundle_id = _check_is_nonempty_string(bundle_id, 'bundle_id')
 
     @property
-    def bundle_id(self):
+    def bundle_id(self) -> str:
         """The canonical bundle ID of this iOS app as it would appear in the iOS AppStore."""
         return self._bundle_id
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         return super().__eq__(other) and self.bundle_id == other.bundle_id
 
-    def __ne__(self, other):
+    def __ne__(self, other: object) -> bool:
         return not self.__eq__(other)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash((self._name, self.app_id, self.display_name, self.project_id, self.bundle_id))
 
 
@@ -390,7 +441,7 @@ class SHACertificate:
     _SHA_1_RE = re.compile('^[0-9A-Fa-f]{40}$')
     _SHA_256_RE = re.compile('^[0-9A-Fa-f]{64}$')
 
-    def __init__(self, sha_hash, name=None):
+    def __init__(self, sha_hash: str, name: Optional[str] = None) -> None:
         """Creates a new SHACertificate instance.
 
         Args:
@@ -415,7 +466,7 @@ class SHACertificate:
                 'The supplied certificate hash is neither a valid SHA-1 nor SHA_256 hash.')
 
     @property
-    def name(self):
+    def name(self) -> Optional[str]:
         """Returns the fully qualified resource name of this certificate, if known.
 
         Returns:
@@ -425,7 +476,7 @@ class SHACertificate:
         return self._name
 
     @property
-    def sha_hash(self):
+    def sha_hash(self) -> str:
         """Returns the certificate hash.
 
         Returns:
@@ -434,7 +485,7 @@ class SHACertificate:
         return self._sha_hash
 
     @property
-    def cert_type(self):
+    def cert_type(self) -> str:
         """Returns the type of the SHA certificate encoded in the hash.
 
         Returns:
@@ -442,16 +493,16 @@ class SHACertificate:
         """
         return self._cert_type
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, SHACertificate):
             return False
         return (self.name == other.name and self.sha_hash == other.sha_hash and
                 self.cert_type == other.cert_type)
 
-    def __ne__(self, other):
+    def __ne__(self, other: object) -> bool:
         return not self.__eq__(other)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash((self.name, self.sha_hash, self.cert_type))
 
 
@@ -469,7 +520,7 @@ class _ProjectManagementService:
     IOS_APPS_RESOURCE_NAME = 'iosApps'
     IOS_APP_IDENTIFIER_NAME = 'bundleId'
 
-    def __init__(self, app):
+    def __init__(self, app: firebase_admin.App) -> None:
         project_id = app.project_id
         if not project_id:
             raise ValueError(
@@ -485,73 +536,83 @@ class _ProjectManagementService:
             headers={'X-Client-Version': version_header},
             timeout=timeout)
 
-    def get_android_app_metadata(self, app_id):
+    def get_android_app_metadata(self, app_id: str) -> AndroidAppMetadata:
         return self._get_app_metadata(
             platform_resource_name=_ProjectManagementService.ANDROID_APPS_RESOURCE_NAME,
             identifier_name=_ProjectManagementService.ANDROID_APP_IDENTIFIER_NAME,
             metadata_class=AndroidAppMetadata,
             app_id=app_id)
 
-    def get_ios_app_metadata(self, app_id):
+    def get_ios_app_metadata(self, app_id: str) -> IOSAppMetadata:
         return self._get_app_metadata(
             platform_resource_name=_ProjectManagementService.IOS_APPS_RESOURCE_NAME,
             identifier_name=_ProjectManagementService.IOS_APP_IDENTIFIER_NAME,
             metadata_class=IOSAppMetadata,
             app_id=app_id)
 
-    def _get_app_metadata(self, platform_resource_name, identifier_name, metadata_class, app_id):
+    def _get_app_metadata(
+        self,
+        platform_resource_name: str,
+        identifier_name: str,
+        metadata_class: Callable[[str, str, str, Optional[str], str], _AppMetadataT],
+        app_id: str,
+    ) -> _AppMetadataT:
         """Retrieves detailed information about an Android or iOS app."""
         _check_is_nonempty_string(app_id, 'app_id')
         path = f'/v1beta1/projects/-/{platform_resource_name}/{app_id}'
         response = self._make_request('get', path)
         return metadata_class(
             response[identifier_name],
-            name=response['name'],
-            app_id=response['appId'],
-            display_name=response.get('displayName') or None,
-            project_id=response['projectId'])
+            response['name'],
+            response['appId'],
+            response.get('displayName') or None,
+            response['projectId'])
 
-    def set_android_app_display_name(self, app_id, new_display_name):
+    def set_android_app_display_name(self, app_id: str, new_display_name: Optional[str]) -> None:
         self._set_display_name(
             app_id=app_id,
             new_display_name=new_display_name,
             platform_resource_name=_ProjectManagementService.ANDROID_APPS_RESOURCE_NAME)
 
-    def set_ios_app_display_name(self, app_id, new_display_name):
+    def set_ios_app_display_name(self, app_id: str, new_display_name: Optional[str]) -> None:
         self._set_display_name(
             app_id=app_id,
             new_display_name=new_display_name,
             platform_resource_name=_ProjectManagementService.IOS_APPS_RESOURCE_NAME)
 
-    def _set_display_name(self, app_id, new_display_name, platform_resource_name):
+    def _set_display_name(self, app_id: str, new_display_name: Optional[str], platform_resource_name: str) -> None:
         """Sets the display name of an Android or iOS app."""
         path = f'/v1beta1/projects/-/{platform_resource_name}/{app_id}?updateMask=displayName'
         request_body = {'displayName': new_display_name}
         self._make_request('patch', path, json=request_body)
 
-    def list_android_apps(self):
+    def list_android_apps(self) -> list[AndroidApp]:
         return self._list_apps(
             platform_resource_name=_ProjectManagementService.ANDROID_APPS_RESOURCE_NAME,
             app_class=AndroidApp)
 
-    def list_ios_apps(self):
+    def list_ios_apps(self) -> list[IOSApp]:
         return self._list_apps(
             platform_resource_name=_ProjectManagementService.IOS_APPS_RESOURCE_NAME,
             app_class=IOSApp)
 
-    def _list_apps(self, platform_resource_name, app_class):
+    def _list_apps(
+        self,
+        platform_resource_name: str,
+        app_class: Callable[[str, '_ProjectManagementService'], _T],
+    ) -> list[_T]:
         """Lists all the Android or iOS apps within the Firebase project."""
         path = (
             f'/v1beta1/projects/{self._project_id}/{platform_resource_name}?pageSize='
             f'{_ProjectManagementService.MAXIMUM_LIST_APPS_PAGE_SIZE}'
         )
         response = self._make_request('get', path)
-        apps_list = []
+        apps_list: list[_T] = []
         while True:
-            apps = response.get('apps')
+            apps = cast(list[dict[str, Any]], response.get('apps', []))
             if not apps:
                 break
-            apps_list.extend(app_class(app_id=app['appId'], service=self) for app in apps)
+            apps_list.extend(app_class(app['appId'], self) for app in apps)
             next_page_token = response.get('nextPageToken')
             if not next_page_token:
                 break
@@ -564,7 +625,7 @@ class _ProjectManagementService:
             response = self._make_request('get', path)
         return apps_list
 
-    def create_android_app(self, package_name, display_name=None):
+    def create_android_app(self, package_name: str, display_name: Optional[str] = None) -> AndroidApp:
         return self._create_app(
             platform_resource_name=_ProjectManagementService.ANDROID_APPS_RESOURCE_NAME,
             identifier_name=_ProjectManagementService.ANDROID_APP_IDENTIFIER_NAME,
@@ -572,7 +633,7 @@ class _ProjectManagementService:
             display_name=display_name,
             app_class=AndroidApp)
 
-    def create_ios_app(self, bundle_id, display_name=None):
+    def create_ios_app(self, bundle_id: str, display_name: Optional[str] = None) -> IOSApp:
         return self._create_app(
             platform_resource_name=_ProjectManagementService.IOS_APPS_RESOURCE_NAME,
             identifier_name=_ProjectManagementService.IOS_APP_IDENTIFIER_NAME,
@@ -581,12 +642,13 @@ class _ProjectManagementService:
             app_class=IOSApp)
 
     def _create_app(
-            self,
-            platform_resource_name,
-            identifier_name,
-            identifier,
-            display_name,
-            app_class):
+        self,
+        platform_resource_name: str,
+        identifier_name: str,
+        identifier: str,
+        display_name: Optional[str],
+        app_class: Callable[[str, '_ProjectManagementService'], _T],
+    ) -> _T:
         """Creates an Android or iOS app."""
         _check_is_string_or_none(display_name, 'display_name')
         path = f'/v1beta1/projects/{self._project_id}/{platform_resource_name}'
@@ -596,9 +658,9 @@ class _ProjectManagementService:
         response = self._make_request('post', path, json=request_body)
         operation_name = response['name']
         poll_response = self._poll_app_creation(operation_name)
-        return app_class(app_id=poll_response['appId'], service=self)
+        return app_class(poll_response['appId'], self)
 
-    def _poll_app_creation(self, operation_name):
+    def _poll_app_creation(self, operation_name: object) -> dict[str, Any]:
         """Polls the Long-Running Operation repeatedly until it is done with exponential backoff."""
         for current_attempt in range(_ProjectManagementService.MAXIMUM_POLLING_ATTEMPTS):
             delay_factor = pow(
@@ -609,7 +671,7 @@ class _ProjectManagementService:
             poll_response, http_response = self._body_and_response('get', path)
             done = poll_response.get('done')
             if done:
-                response = poll_response.get('response')
+                response: Optional[dict[str, Any]] = poll_response.get('response')
                 if response:
                     return response
 
@@ -618,45 +680,55 @@ class _ProjectManagementService:
                     http_response=http_response)
         raise exceptions.DeadlineExceededError('Polling deadline exceeded.')
 
-    def get_android_app_config(self, app_id):
+    def get_android_app_config(self, app_id: str) -> str:
         return self._get_app_config(
             platform_resource_name=_ProjectManagementService.ANDROID_APPS_RESOURCE_NAME,
             app_id=app_id)
 
-    def get_ios_app_config(self, app_id):
+    def get_ios_app_config(self, app_id: str) -> str:
         return self._get_app_config(
             platform_resource_name=_ProjectManagementService.IOS_APPS_RESOURCE_NAME, app_id=app_id)
 
-    def _get_app_config(self, platform_resource_name, app_id):
+    def _get_app_config(self, platform_resource_name: str, app_id: str) -> str:
         path = f'/v1beta1/projects/-/{platform_resource_name}/{app_id}/config'
         response = self._make_request('get', path)
         # In Python 2.7, the base64 module works with strings, while in Python 3, it works with
         # bytes objects. This line works in both versions.
         return base64.standard_b64decode(response['configFileContents']).decode(encoding='utf-8')
 
-    def get_sha_certificates(self, app_id):
+    def get_sha_certificates(self, app_id: str) -> list[SHACertificate]:
         path = f'/v1beta1/projects/-/androidApps/{app_id}/sha'
-        response = self._make_request('get', path)
-        cert_list = response.get('certificates') or []
+        response: dict[str, Any] = self._make_request('get', path)
+        cert_list: list[dict[str, Any]] = response.get('certificates') or []
         return [SHACertificate(sha_hash=cert['shaHash'], name=cert['name']) for cert in cert_list]
 
-    def add_sha_certificate(self, app_id, certificate_to_add):
+    def add_sha_certificate(self, app_id: str, certificate_to_add: SHACertificate) -> None:
         path = f'/v1beta1/projects/-/androidApps/{app_id}/sha'
         sha_hash = _check_not_none(certificate_to_add, 'certificate_to_add').sha_hash
         cert_type = certificate_to_add.cert_type
         request_body = {'shaHash': sha_hash, 'certType': cert_type}
         self._make_request('post', path, json=request_body)
 
-    def delete_sha_certificate(self, certificate_to_delete):
+    def delete_sha_certificate(self, certificate_to_delete: SHACertificate) -> None:
         name = _check_not_none(certificate_to_delete, 'certificate_to_delete').name
         path = f'/v1beta1/{name}'
         self._make_request('delete', path)
 
-    def _make_request(self, method, url, json=None):
+    def _make_request(
+        self,
+        method: str,
+        url: str,
+        json: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         body, _ = self._body_and_response(method, url, json)
         return body
 
-    def _body_and_response(self, method, url, json=None):
+    def _body_and_response(
+        self,
+        method: str,
+        url: str,
+        json: Optional[dict[str, Any]] = None,
+    ) -> tuple[dict[str, Any], requests.Response]:
         try:
             return self._client.body_and_response(method=method, url=url, json=json)
         except requests.exceptions.RequestException as error:

@@ -31,6 +31,46 @@ Therefore it is always a good idea to have a handler specified for ``FirebaseErr
 subtype error handlers.
 """
 
+from typing import Optional, Union
+
+import httpx
+import requests
+
+__all__ = (
+    'ABORTED',
+    'ALREADY_EXISTS',
+    'CANCELLED',
+    'CONFLICT',
+    'DATA_LOSS',
+    'DEADLINE_EXCEEDED',
+    'FAILED_PRECONDITION',
+    'INTERNAL',
+    'INVALID_ARGUMENT',
+    'NOT_FOUND',
+    'OUT_OF_RANGE',
+    'PERMISSION_DENIED',
+    'RESOURCE_EXHAUSTED',
+    'UNAUTHENTICATED',
+    'UNAVAILABLE',
+    'UNKNOWN',
+    'AbortedError',
+    'AlreadyExistsError',
+    'CancelledError',
+    'ConflictError',
+    'DataLossError',
+    'DeadlineExceededError',
+    'FailedPreconditionError',
+    'FirebaseError',
+    'InternalError',
+    'InvalidArgumentError',
+    'NotFoundError',
+    'OutOfRangeError',
+    'PermissionDeniedError',
+    'ResourceExhaustedError',
+    'UnauthenticatedError',
+    'UnavailableError',
+    'UnknownError',
+)
 
 #: Error code for ``InvalidArgumentError`` type.
 INVALID_ARGUMENT = 'INVALID_ARGUMENT'
@@ -95,52 +135,78 @@ class FirebaseError(Exception):
             this object.
     """
 
-    def __init__(self, code, message, cause=None, http_response=None):
-        Exception.__init__(self, message)
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        cause: Optional[Exception] = None,
+        http_response: Optional[Union[httpx.Response, requests.Response]] = None,
+    ) -> None:
+        super().__init__(message)
         self._code = code
         self._cause = cause
         self._http_response = http_response
 
     @property
-    def code(self):
+    def code(self) -> str:
         return self._code
 
     @property
-    def cause(self):
+    def cause(self) -> Optional[Exception]:
         return self._cause
 
     @property
-    def http_response(self):
+    def http_response(self) -> Optional[Union[httpx.Response, requests.Response]]:
         return self._http_response
 
 
 class InvalidArgumentError(FirebaseError):
     """Client specified an invalid argument."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        FirebaseError.__init__(self, INVALID_ARGUMENT, message, cause, http_response)
+    def __init__(
+        self,
+        message: str,
+        cause: Optional[Exception] = None,
+        http_response: Optional[Union[httpx.Response, requests.Response]] = None,
+    ) -> None:
+        super().__init__(INVALID_ARGUMENT, message, cause, http_response)
 
 
 class FailedPreconditionError(FirebaseError):
     """Request can not be executed in the current system state, such as deleting a non-empty
     directory."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        FirebaseError.__init__(self, FAILED_PRECONDITION, message, cause, http_response)
+    def __init__(
+        self,
+        message: str,
+        cause: Optional[Exception] = None,
+        http_response: Optional[Union[httpx.Response, requests.Response]] = None,
+    ) -> None:
+        super().__init__(FAILED_PRECONDITION, message, cause, http_response)
 
 
 class OutOfRangeError(FirebaseError):
     """Client specified an invalid range."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        FirebaseError.__init__(self, OUT_OF_RANGE, message, cause, http_response)
+    def __init__(
+        self,
+        message: str,
+        cause: Optional[Exception] = None,
+        http_response: Optional[Union[httpx.Response, requests.Response]] = None,
+    ) -> None:
+        super().__init__(OUT_OF_RANGE, message, cause, http_response)
 
 
 class UnauthenticatedError(FirebaseError):
     """Request not authenticated due to missing, invalid, or expired OAuth token."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        FirebaseError.__init__(self, UNAUTHENTICATED, message, cause, http_response)
+    def __init__(
+        self,
+        message: str,
+        cause: Optional[Exception] = None,
+        http_response: Optional[Union[httpx.Response, requests.Response]] = None,
+    ) -> None:
+        super().__init__(UNAUTHENTICATED, message, cause, http_response)
 
 
 class PermissionDeniedError(FirebaseError):
@@ -150,79 +216,134 @@ class PermissionDeniedError(FirebaseError):
     have permission, or the API has not been enabled for the client project.
     """
 
-    def __init__(self, message, cause=None, http_response=None):
-        FirebaseError.__init__(self, PERMISSION_DENIED, message, cause, http_response)
+    def __init__(
+        self,
+        message: str,
+        cause: Optional[Exception] = None,
+        http_response: Optional[Union[httpx.Response, requests.Response]] = None,
+    ) -> None:
+        super().__init__(PERMISSION_DENIED, message, cause, http_response)
 
 
 class NotFoundError(FirebaseError):
     """A specified resource is not found, or the request is rejected by undisclosed reasons, such
     as whitelisting."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        FirebaseError.__init__(self, NOT_FOUND, message, cause, http_response)
+    def __init__(
+        self,
+        message: str,
+        cause: Optional[Exception] = None,
+        http_response: Optional[Union[httpx.Response, requests.Response]] = None,
+    ) -> None:
+        super().__init__(NOT_FOUND, message, cause, http_response)
 
 
 class ConflictError(FirebaseError):
     """Concurrency conflict, such as read-modify-write conflict."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        FirebaseError.__init__(self, CONFLICT, message, cause, http_response)
+    def __init__(
+        self,
+        message: str,
+        cause: Optional[Exception] = None,
+        http_response: Optional[Union[httpx.Response, requests.Response]] = None,
+    ) -> None:
+        super().__init__(CONFLICT, message, cause, http_response)
 
 
 class AbortedError(FirebaseError):
     """Concurrency conflict, such as read-modify-write conflict."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        FirebaseError.__init__(self, ABORTED, message, cause, http_response)
+    def __init__(
+        self,
+        message: str,
+        cause: Optional[Exception] = None,
+        http_response: Optional[Union[httpx.Response, requests.Response]] = None,
+    ) -> None:
+        super().__init__(ABORTED, message, cause, http_response)
 
 
 class AlreadyExistsError(FirebaseError):
     """The resource that a client tried to create already exists."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        FirebaseError.__init__(self, ALREADY_EXISTS, message, cause, http_response)
+    def __init__(
+        self,
+        message: str,
+        cause: Optional[Exception] = None,
+        http_response: Optional[Union[httpx.Response, requests.Response]] = None,
+    ) -> None:
+        super().__init__(ALREADY_EXISTS, message, cause, http_response)
 
 
 class ResourceExhaustedError(FirebaseError):
     """Either out of resource quota or reaching rate limiting."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        FirebaseError.__init__(self, RESOURCE_EXHAUSTED, message, cause, http_response)
+    def __init__(
+        self,
+        message: str,
+        cause: Optional[Exception] = None,
+        http_response: Optional[Union[httpx.Response, requests.Response]] = None,
+    ) -> None:
+        super().__init__(RESOURCE_EXHAUSTED, message, cause, http_response)
 
 
 class CancelledError(FirebaseError):
     """Request cancelled by the client."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        FirebaseError.__init__(self, CANCELLED, message, cause, http_response)
+    def __init__(
+        self,
+        message: str,
+        cause: Optional[Exception] = None,
+        http_response: Optional[Union[httpx.Response, requests.Response]] = None,
+    ) -> None:
+        super().__init__(CANCELLED, message, cause, http_response)
 
 
 class DataLossError(FirebaseError):
     """Unrecoverable data loss or data corruption."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        FirebaseError.__init__(self, DATA_LOSS, message, cause, http_response)
+    def __init__(
+        self,
+        message: str,
+        cause: Optional[Exception] = None,
+        http_response: Optional[Union[httpx.Response, requests.Response]] = None,
+    ) -> None:
+        super().__init__(DATA_LOSS, message, cause, http_response)
 
 
 class UnknownError(FirebaseError):
     """Unknown server error."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        FirebaseError.__init__(self, UNKNOWN, message, cause, http_response)
+    def __init__(
+        self,
+        message: str,
+        cause: Optional[Exception] = None,
+        http_response: Optional[Union[httpx.Response, requests.Response]] = None,
+    ) -> None:
+        super().__init__(UNKNOWN, message, cause, http_response)
 
 
 class InternalError(FirebaseError):
     """Internal server error."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        FirebaseError.__init__(self, INTERNAL, message, cause, http_response)
+    def __init__(
+        self,
+        message: str,
+        cause: Optional[Exception] = None,
+        http_response: Optional[Union[httpx.Response, requests.Response]] = None,
+    ) -> None:
+        super().__init__(INTERNAL, message, cause, http_response)
 
 
 class UnavailableError(FirebaseError):
     """Service unavailable. Typically the server is down."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        FirebaseError.__init__(self, UNAVAILABLE, message, cause, http_response)
+    def __init__(
+        self,
+        message: str,
+        cause: Optional[Exception] = None,
+        http_response: Optional[Union[httpx.Response, requests.Response]] = None,
+    ) -> None:
+        super().__init__(UNAVAILABLE, message, cause, http_response)
 
 
 class DeadlineExceededError(FirebaseError):
@@ -233,5 +354,10 @@ class DeadlineExceededError(FirebaseError):
     request) and the request did not finish within the deadline.
     """
 
-    def __init__(self, message, cause=None, http_response=None):
-        FirebaseError.__init__(self, DEADLINE_EXCEEDED, message, cause, http_response)
+    def __init__(
+        self,
+        message: str,
+        cause: Optional[Exception] = None,
+        http_response: Optional[Union[httpx.Response, requests.Response]] = None,
+    ) -> None:
+        super().__init__(DEADLINE_EXCEEDED, message, cause, http_response)

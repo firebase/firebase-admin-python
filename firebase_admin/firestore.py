@@ -18,27 +18,28 @@ This module contains utilities for accessing the Google Cloud Firestore database
 Firebase apps. This requires the ``google-cloud-firestore`` Python module.
 """
 
-from __future__ import annotations
-from typing import Optional, Dict
-from firebase_admin import App
+from typing import Optional
+
+import firebase_admin
 from firebase_admin import _utils
 
 try:
-    from google.cloud import firestore
+    import google.cloud.firestore
+    # firestore defines __all__ for safe import *
+    from google.cloud.firestore import *  # pyright: ignore[reportWildcardImportFromLibrary]
     from google.cloud.firestore_v1.base_client import DEFAULT_DATABASE
-    existing = globals().keys()
-    for key, value in firestore.__dict__.items():
-        if not key.startswith('_') and key not in existing:
-            globals()[key] = value
 except ImportError as error:
     raise ImportError('Failed to import the Cloud Firestore library for Python. Make sure '
                       'to install the "google-cloud-firestore" module.') from error
+
+__all__ = ['client']
+__all__.extend(google.cloud.firestore.__all__)  # pyright: ignore[reportUnsupportedDunderAll]
 
 
 _FIRESTORE_ATTRIBUTE = '_firestore'
 
 
-def client(app: Optional[App] = None, database_id: Optional[str] = None) -> firestore.Client:
+def client(app: Optional[firebase_admin.App] = None, database_id: Optional[str] = None) -> Client:
     """Returns a client that can be used to interact with Google Cloud Firestore.
 
     Args:
@@ -68,11 +69,11 @@ def client(app: Optional[App] = None, database_id: Optional[str] = None) -> fire
 class _FirestoreService:
     """Service that maintains a collection of firestore clients."""
 
-    def __init__(self, app: App) -> None:
-        self._app: App = app
-        self._clients: Dict[str, firestore.Client] = {}
+    def __init__(self, app: firebase_admin.App) -> None:
+        self._app = app
+        self._clients: dict[str, Client] = {}
 
-    def get_client(self, database_id: Optional[str]) -> firestore.Client:
+    def get_client(self, database_id: Optional[str]) -> Client:
         """Creates a client based on the database_id. These clients are cached."""
         database_id = database_id or DEFAULT_DATABASE
         if database_id not in self._clients:
@@ -85,7 +86,7 @@ class _FirestoreService:
                     'or use service account credentials. Alternatively, set the '
                     'GOOGLE_CLOUD_PROJECT environment variable.')
 
-            fs_client = firestore.Client(
+            fs_client = Client(
                 credentials=credentials, project=project, database=database_id)
             self._clients[database_id] = fs_client
 

@@ -25,9 +25,23 @@ import json
 import os
 import sys
 import threading
+from collections.abc import Callable
+from typing import (
+    Any,
+    Generic,
+    Literal,
+    NamedTuple,
+    Optional,
+    Union,
+    cast,
+    overload,
+)
 from urllib import parse
 
+import google.auth.credentials
 import requests
+from typing_extensions import Self, TypeVar
+
 
 import firebase_admin
 from firebase_admin import exceptions
@@ -35,6 +49,19 @@ from firebase_admin import _http_client
 from firebase_admin import _sseclient
 from firebase_admin import _utils
 
+__all__ = (
+    'EmulatorConfig',
+    'Event',
+    'ListenerRegistration',
+    'Query',
+    'Reference',
+    'TransactionAbortedError',
+    'reference',
+)
+
+_K = TypeVar('_K', default=Any)
+_V = TypeVar('_V', default=Any)
+_JsonT = TypeVar('_JsonT', bound='_Json', default='_Json')
 
 _DB_ATTRIBUTE = '_database'
 _INVALID_PATH_CHARACTERS = '[].?#$'
@@ -45,9 +72,19 @@ _USER_AGENT = (
 )
 _TRANSACTION_MAX_RETRIES = 25
 _EMULATOR_HOST_ENV_VAR = 'FIREBASE_DATABASE_EMULATOR_HOST'
+_Json = Optional[Union[
+    dict[str, '_Json'],
+    list['_Json'],
+    str,
+    float,
+]]
 
 
-def reference(path='/', app=None, url=None):
+def reference(
+    path: str = '/',
+    app: Optional[firebase_admin.App] = None,
+    url: Optional[str] = None,
+) -> 'Reference':
     """Returns a database ``Reference`` representing the node at the specified path.
 
     If no path is specified, this function returns a ``Reference`` that represents the database
@@ -71,7 +108,8 @@ def reference(path='/', app=None, url=None):
     client = service.get_client(url)
     return Reference(client=client, path=path)
 
-def _parse_path(path):
+
+def _parse_path(path: Any) -> list[str]:
     """Parses a path string into a set of segments."""
     if not isinstance(path, str):
         raise ValueError(f'Invalid path: "{path}". Path must be a string.')
@@ -83,7 +121,7 @@ def _parse_path(path):
 class Event:
     """Represents a realtime update event received from the database."""
 
-    def __init__(self, sse_event):
+    def __init__(self, sse_event: _sseclient.Event) -> None:
         self._sse_event = sse_event
         self._data = json.loads(sse_event.data)
 
@@ -98,7 +136,7 @@ class Event:
         return self._data['path']
 
     @property
-    def event_type(self):
+    def event_type(self) -> str:
         """Event type string (put, patch)."""
         return self._sse_event.event_type
 
@@ -106,7 +144,11 @@ class Event:
 class ListenerRegistration:
     """Represents the addition of an event listener to a database reference."""
 
-    def __init__(self, callback, sse):
+    def __init__(
+        self,
+        callback: Callable[[Event], None],
+        sse: _sseclient.SSEClient,
+    ) -> None:
         """Initializes a new listener with given parameters.
 
         This is an internal API. Use the ``db.Reference.listen()`` method to start a
@@ -121,14 +163,14 @@ class ListenerRegistration:
         self._thread = threading.Thread(target=self._start_listen)
         self._thread.start()
 
-    def _start_listen(self):
+    def _start_listen(self) -> None:
         # iterate the sse client's generator
         for sse_event in self._sse:
             # only inject data events
             if sse_event:
                 self._callback(Event(sse_event))
 
-    def close(self):
+    def close(self) -> None:
         """Stops the event listener represented by this registration
 
         This closes the SSE HTTP connection, and joins the background thread.
@@ -140,36 +182,59 @@ class ListenerRegistration:
 class Reference:
     """Reference represents a node in the Firebase realtime database."""
 
-    def __init__(self, **kwargs):
+    @overload
+    def __init__(
+        self,
+        *,
+        segments: list[str],
+        client: Optional['_Client'] = None,
+        **kwargs: Any,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        *,
+        path: str,
+        client: Optional['_Client'] = None,
+        **kwargs: Any,
+    ) -> None: ...
+    def __init__(
+        self,
+        *,
+        path: Optional[str] = None,
+        segments: Optional[list[str]] = None,
+        client: Optional['_Client'] = None,
+        **kwargs: Any,
+    ) -> None:
         """Creates a new Reference using the provided parameters.
 
         This method is for internal use only. Use db.reference() to obtain an instance of
         Reference.
         """
-        self._client = kwargs.get('client')
-        if 'segments' in kwargs:
-            self._segments = kwargs.get('segments')
+        self._client = client
+        if segments is not None:
+            self._segments = segments
         else:
-            self._segments = _parse_path(kwargs.get('path'))
+            self._segments = _parse_path(path)
         self._pathurl = '/' + '/'.join(self._segments)
 
     @property
-    def key(self):
+    def key(self) -> Optional[str]:
         if self._segments:
             return self._segments[-1]
         return None
 
     @property
-    def path(self):
+    def path(self) -> str:
         return self._pathurl
 
     @property
-    def parent(self):
+    def parent(self) -> Optional['Reference']:
         if self._segments:
             return Reference(client=self._client, segments=self._segments[:-1])
         return None
 
-    def child(self, path):
+    def child(self, path: Optional[str]) -> 'Reference':
         """Returns a Reference to the specified child node.
 
         The path may point to an immediate child of the current Reference, or a deeply nested
@@ -191,7 +256,23 @@ class Reference:
         full_path = self._pathurl + '/' + path
         return Reference(client=self._client, path=full_path)
 
-    def get(self, etag=False, shallow=False):
+    @overload
+    def get(  # pyright: ignore[reportOverlappingOverload]
+        self,
+        etag: Literal[True],
+        shallow: bool = False,
+    ) -> tuple[_Json, str]: ...
+    @overload
+    def get(
+        self,
+        etag: bool = False,
+        shallow: bool = False,
+    ) -> _Json: ...
+    def get(
+        self,
+        etag: bool = False,
+        shallow: bool = False,
+    ) -> Union[tuple[_Json, str], _Json]:
         """Returns the value, and optionally the ETag, at the current location of the database.
 
         Args:
@@ -214,12 +295,12 @@ class Reference:
                 raise ValueError('etag and shallow cannot both be set to True.')
             headers, data = self._client.headers_and_body(
                 'get', self._add_suffix(), headers={'X-Firebase-ETag' : 'true'})
-            return data, headers.get('ETag')
+            return data, cast(str, headers.get('ETag'))
 
         params = 'shallow=true' if shallow else None
         return self._client.body('get', self._add_suffix(), params=params)
 
-    def get_if_changed(self, etag):
+    def get_if_changed(self, etag: str) -> tuple[bool, Optional[Any], Optional[str]]:
         """Gets data in this location only if the specified ETag does not match.
 
         Args:
@@ -245,7 +326,7 @@ class Reference:
 
         return True, resp.json(), resp.headers.get('ETag')
 
-    def set(self, value):
+    def set(self, value: _Json) -> None:
         """Sets the data at this location to the given value.
 
         The value must be JSON-serializable and not None.
@@ -262,7 +343,11 @@ class Reference:
             raise ValueError('Value must not be None.')
         self._client.request('put', self._add_suffix(), json=value, params='print=silent')
 
-    def set_if_unchanged(self, expected_etag, value):
+    def set_if_unchanged(
+        self,
+        expected_etag: str,
+        value: _JsonT
+    ) -> tuple[bool, _JsonT, str]:
         """Conditonally sets the data at this location to the given value.
 
         Sets the data at this location to the given value only if ``expected_etag`` is same as the
@@ -290,7 +375,7 @@ class Reference:
         try:
             headers = self._client.headers(
                 'put', self._add_suffix(), json=value, headers={'if-match': expected_etag})
-            return True, value, headers.get('ETag')
+            return True, value, cast(str, headers.get('ETag'))
         except exceptions.FailedPreconditionError as error:
             http_response = error.http_response
             if http_response is not None and 'ETag' in http_response.headers:
@@ -300,7 +385,7 @@ class Reference:
 
             raise error
 
-    def push(self, value=''):
+    def push(self, value: _Json = '') -> 'Reference':
         """Creates a new child node.
 
         The optional value argument can be used to provide an initial value for the child node. If
@@ -320,10 +405,10 @@ class Reference:
         if value is None:
             raise ValueError('Value must not be None.')
         output = self._client.body('post', self._add_suffix(), json=value)
-        push_id = output.get('name')
+        push_id = cast(Optional[str], output.get('name'))
         return self.child(push_id)
 
-    def update(self, value):
+    def update(self, value: _Json) -> None:
         """Updates the specified child keys of this Reference to the provided values.
 
         Args:
@@ -339,7 +424,7 @@ class Reference:
             raise ValueError('Dictionary must not contain None keys.')
         self._client.request('patch', self._add_suffix(), json=value, params='print=silent')
 
-    def delete(self):
+    def delete(self) -> None:
         """Deletes this node from the database.
 
         Raises:
@@ -347,7 +432,7 @@ class Reference:
         """
         self._client.request('delete', self._add_suffix())
 
-    def listen(self, callback):
+    def listen(self, callback: Callable[[Event], None]) -> ListenerRegistration:
         """Registers the ``callback`` function to receive realtime updates.
 
         The specified callback function will get invoked with ``db.Event`` objects for each
@@ -373,7 +458,7 @@ class Reference:
         """
         return self._listen_with_session(callback)
 
-    def transaction(self, transaction_update):
+    def transaction(self, transaction_update: Callable[[_Json], _Json]) -> _Json:
         """Atomically modifies the data at this location.
 
         Unlike a normal ``set()``, which just overwrites the data regardless of its previous state,
@@ -416,7 +501,7 @@ class Reference:
 
         raise TransactionAbortedError('Transaction aborted after failed retries.')
 
-    def order_by_child(self, path):
+    def order_by_child(self, path: str) -> 'Query':
         """Returns a Query that orders data by child values.
 
         Returned Query can be used to set additional parameters, and execute complex database
@@ -435,7 +520,7 @@ class Reference:
             raise ValueError(f'Illegal child path: {path}')
         return Query(order_by=path, client=self._client, pathurl=self._add_suffix())
 
-    def order_by_key(self):
+    def order_by_key(self) -> 'Query':
         """Creates a Query that orderes data by key.
 
         Returned Query can be used to set additional parameters, and execute complex database
@@ -446,7 +531,7 @@ class Reference:
         """
         return Query(order_by='$key', client=self._client, pathurl=self._add_suffix())
 
-    def order_by_value(self):
+    def order_by_value(self) -> 'Query':
         """Creates a Query that orderes data by value.
 
         Returned Query can be used to set additional parameters, and execute complex database
@@ -457,16 +542,20 @@ class Reference:
         """
         return Query(order_by='$value', client=self._client, pathurl=self._add_suffix())
 
-    def _add_suffix(self, suffix='.json'):
+    def _add_suffix(self, suffix: str = '.json') -> str:
         return self._pathurl + suffix
 
-    def _listen_with_session(self, callback, session=None):
+    def _listen_with_session(
+        self,
+        callback: Callable[[Event], None],
+        session: Optional[requests.Session] = None,
+    ) -> ListenerRegistration:
         url = self._client.base_url + self._add_suffix()
         if not session:
             session = self._client.create_listener_session()
 
         try:
-            sse = _sseclient.SSEClient(url, session, **{"params": self._client.params})
+            sse = _sseclient.SSEClient(url, session, params=self._client.params)
             return ListenerRegistration(callback, sse)
         except requests.exceptions.RequestException as error:
             raise _Client.handle_rtdb_error(error)
@@ -485,8 +574,7 @@ class Query:
     OrderedDict.
     """
 
-    def __init__(self, **kwargs):
-        order_by = kwargs.pop('order_by')
+    def __init__(self, *, client: '_Client', order_by: str, pathurl: str, **kwargs: Any) -> None:
         if not order_by or not isinstance(order_by, str):
             raise ValueError('order_by field must be a non-empty string')
         if order_by not in _RESERVED_FILTERS:
@@ -495,14 +583,14 @@ class Query:
                     f'Invalid path argument: "{order_by}". Child path must not start with "/"')
             segments = _parse_path(order_by)
             order_by = '/'.join(segments)
-        self._client = kwargs.pop('client')
-        self._pathurl = kwargs.pop('pathurl')
+        self._client = client
+        self._pathurl = pathurl
         self._order_by = order_by
-        self._params = {'orderBy' : json.dumps(order_by)}
+        self._params: dict[str, Any] = {'orderBy' : json.dumps(order_by)}
         if kwargs:
             raise ValueError(f'Unexpected keyword arguments: {kwargs}')
 
-    def limit_to_first(self, limit):
+    def limit_to_first(self, limit: int) -> Self:
         """Creates a query with limit, and anchors it to the start of the window.
 
         Args:
@@ -521,7 +609,7 @@ class Query:
         self._params['limitToFirst'] = limit
         return self
 
-    def limit_to_last(self, limit):
+    def limit_to_last(self, limit: int) -> Self:
         """Creates a query with limit, and anchors it to the end of the window.
 
         Args:
@@ -540,7 +628,7 @@ class Query:
         self._params['limitToLast'] = limit
         return self
 
-    def start_at(self, start):
+    def start_at(self, start: _Json) -> Self:
         """Sets the lower bound for a range query.
 
         The Query will only return child nodes with a value greater than or equal to the specified
@@ -560,7 +648,7 @@ class Query:
         self._params['startAt'] = json.dumps(start)
         return self
 
-    def end_at(self, end):
+    def end_at(self, end: _Json) -> Self:
         """Sets the upper bound for a range query.
 
         The Query will only return child nodes with a value less than or equal to the specified
@@ -580,7 +668,7 @@ class Query:
         self._params['endAt'] = json.dumps(end)
         return self
 
-    def equal_to(self, value):
+    def equal_to(self, value: _Json) -> Self:
         """Sets an equals constraint on the Query.
 
         The Query will only return child nodes whose value is equal to the specified value.
@@ -600,13 +688,13 @@ class Query:
         return self
 
     @property
-    def _querystr(self):
-        params = []
+    def _querystr(self) -> str:
+        params: list[str] = []
         for key in sorted(self._params):
             params.append(f'{key}={self._params[key]}')
         return '&'.join(params)
 
-    def get(self):
+    def get(self) -> Union[dict[str, _Json], list[_Json]]:
         """Executes this Query and returns the results.
 
         The results will be returned as a sorted list or an OrderedDict.
@@ -626,32 +714,40 @@ class Query:
 class TransactionAbortedError(exceptions.AbortedError):
     """A transaction was aborted aftr exceeding the maximum number of retries."""
 
-    def __init__(self, message):
-        exceptions.AbortedError.__init__(self, message)
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
 
 
-class _Sorter:
+class _Sorter(Generic[_K, _V]):
     """Helper class for sorting query results."""
 
-    def __init__(self, results, order_by):
+    @overload
+    def __init__(self, results: dict[_K, _V], order_by: str) -> None: ...
+    @overload
+    def __init__(
+        self: '_Sorter[int, _V]',  # pyright: ignore[reportInvalidTypeVarUse]
+        results: list[_V],
+        order_by: str,
+    ) -> None: ...
+    def __init__(self, results: Union[dict[_K, _V], list[_V]], order_by: str) -> None:
         if isinstance(results, dict):
             self.dict_input = True
             entries = [_SortEntry(k, v, order_by) for k, v in results.items()]
         elif isinstance(results, list):
             self.dict_input = False
-            entries = [_SortEntry(k, v, order_by) for k, v in enumerate(results)]
+            entries = [_SortEntry(cast(_K, k), v, order_by) for k, v in enumerate(results)]
         else:
             raise ValueError(f'Sorting not supported for "{type(results)}" object.')
         self.sort_entries = sorted(entries)
 
-    def get(self):
+    def get(self) -> Union[collections.OrderedDict[_K, _V], list[_V]]:
         if self.dict_input:
             return collections.OrderedDict([(e.key, e.value) for e in self.sort_entries])
 
         return [e.value for e in self.sort_entries]
 
 
-class _SortEntry:
+class _SortEntry(Generic[_K, _V]):
     """A wrapper that is capable of sorting items in a dictionary."""
 
     _type_none = 0
@@ -661,7 +757,7 @@ class _SortEntry:
     _type_string = 4
     _type_object = 5
 
-    def __init__(self, key, value, order_by):
+    def __init__(self, key: _K, value: _V, order_by: str) -> None:
         self._key = key
         self._value = value
         if order_by in ('$key', '$priority'):
@@ -673,23 +769,23 @@ class _SortEntry:
         self._index_type = _SortEntry._get_index_type(self._index)
 
     @property
-    def key(self):
+    def key(self) -> _K:
         return self._key
 
     @property
-    def index(self):
+    def index(self) -> Optional[Any]:
         return self._index
 
     @property
-    def index_type(self):
+    def index_type(self) -> int:
         return self._index_type
 
     @property
-    def value(self):
+    def value(self) -> _V:
         return self._value
 
     @classmethod
-    def _get_index_type(cls, index):
+    def _get_index_type(cls, index: Any) -> int:
         """Assigns an integer code to the type of the index.
 
         The index type determines how differently typed values are sorted. This ordering is based
@@ -709,17 +805,18 @@ class _SortEntry:
         return cls._type_object
 
     @classmethod
-    def _extract_child(cls, value, path):
+    def _extract_child(cls, value: Any, path: str) -> Optional[Any]:
         segments = path.split('/')
         current = value
         for segment in segments:
             if isinstance(current, dict):
+                current = cast(dict[str, Any], current)
                 current = current.get(segment)
             else:
                 return None
         return current
 
-    def _compare(self, other):
+    def _compare(self, other: '_SortEntry') -> Literal[-1, 0, 1]:
         """Compares two _SortEntry instances.
 
         If the indices have the same numeric or string type, compare them directly. Ties are
@@ -734,27 +831,42 @@ class _SortEntry:
             else:
                 self_key, other_key = self.key, other.key
 
-        if self_key < other_key:
+        if self_key < other_key:  # pyright: ignore[reportOperatorIssue]
             return -1
-        if self_key > other_key:
+        if self_key > other_key:  # pyright: ignore[reportOperatorIssue]
             return 1
 
         return 0
 
-    def __lt__(self, other):
+    def __lt__(self, other: object) -> bool:
+        if not isinstance(other, _SortEntry):
+            return NotImplemented
         return self._compare(other) < 0
 
-    def __le__(self, other):
+    def __le__(self, other: object) -> bool:
+        if not isinstance(other, _SortEntry):
+            return NotImplemented
         return self._compare(other) <= 0
 
-    def __gt__(self, other):
+    def __gt__(self, other: object) -> bool:
+        if not isinstance(other, _SortEntry):
+            return NotImplemented
         return self._compare(other) > 0
 
-    def __ge__(self, other):
+    def __ge__(self, other: object) -> bool:
+        if not isinstance(other, _SortEntry):
+            return NotImplemented
         return self._compare(other) >= 0
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, _SortEntry):
+            return NotImplemented
         return self._compare(other) == 0
+
+
+class EmulatorConfig(NamedTuple):
+    base_url: str
+    namespace: str
 
 
 class _DatabaseService:
@@ -762,11 +874,11 @@ class _DatabaseService:
 
     _DEFAULT_AUTH_OVERRIDE = '_admin_'
 
-    def __init__(self, app):
+    def __init__(self, app: firebase_admin.App) -> None:
         self._credential = app.credential
         db_url = app.options.get('databaseURL')
         if db_url:
-            self._db_url = db_url
+            self._db_url: Optional[str] = db_url
         else:
             self._db_url = None
 
@@ -776,7 +888,7 @@ class _DatabaseService:
         else:
             self._auth_override = None
         self._timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
-        self._clients = {}
+        self._clients: dict[tuple[str, str], _Client] = {}
 
         emulator_host = os.environ.get(_EMULATOR_HOST_ENV_VAR)
         if emulator_host:
@@ -788,7 +900,7 @@ class _DatabaseService:
         else:
             self._emulator_host = None
 
-    def get_client(self, db_url=None):
+    def get_client(self, db_url: Optional[str] = None) -> '_Client':
         """Creates a client based on the db_url. Clients may be cached."""
         if db_url is None:
             db_url = self._db_url
@@ -813,7 +925,6 @@ class _DatabaseService:
             base_url = f'https://{parsed_url.netloc}'
             params = {}
 
-
         if self._auth_override:
             params['auth_variable_override'] = self._auth_override
 
@@ -823,9 +934,8 @@ class _DatabaseService:
             self._clients[client_cache_key] = client
         return self._clients[client_cache_key]
 
-    def _get_emulator_config(self, parsed_url):
+    def _get_emulator_config(self, parsed_url: parse.ParseResult) -> Optional[EmulatorConfig]:
         """Checks whether the SDK should connect to the RTDB emulator."""
-        EmulatorConfig = collections.namedtuple('EmulatorConfig', ['base_url', 'namespace'])
         if parsed_url.scheme != 'https':
             # Emulator mode enabled by passing http URL via AppOptions
             base_url, namespace = _DatabaseService._parse_emulator_url(parsed_url)
@@ -839,7 +949,7 @@ class _DatabaseService:
         return None
 
     @classmethod
-    def _parse_emulator_url(cls, parsed_url):
+    def _parse_emulator_url(cls, parsed_url: parse.ParseResult) -> tuple[str, str]:
         """Parses emulator URL like http://localhost:8080/?ns=foo-bar"""
         query_ns = parse.parse_qs(parsed_url.query).get('ns')
         if parsed_url.scheme != 'http' or (not query_ns or len(query_ns) != 1 or not query_ns[0]):
@@ -852,9 +962,10 @@ class _DatabaseService:
         return base_url, namespace
 
     @classmethod
-    def _get_auth_override(cls, app):
+    def _get_auth_override(cls, app: firebase_admin.App) -> Optional[Union[dict[str, Any], str]]:
         """Gets and validates the database auth override to be used."""
-        auth_override = app.options.get('databaseAuthVariableOverride', cls._DEFAULT_AUTH_OVERRIDE)
+        auth_override = cast(Optional[str], app.options.get(
+            'databaseAuthVariableOverride', cls._DEFAULT_AUTH_OVERRIDE))
         if auth_override == cls._DEFAULT_AUTH_OVERRIDE or auth_override is None:
             return auth_override
         if not isinstance(auth_override, dict):
@@ -864,7 +975,7 @@ class _DatabaseService:
 
         return auth_override
 
-    def close(self):
+    def close(self) -> None:
         for value in self._clients.values():
             value.close()
         self._clients = {}
@@ -877,7 +988,13 @@ class _Client(_http_client.JsonHttpClient):
     marshalling and unmarshalling of JSON data.
     """
 
-    def __init__(self, credential, base_url, timeout, params=None):
+    def __init__(
+        self,
+        credential: Optional[google.auth.credentials.Credentials],
+        base_url: str,
+        timeout: int,
+        params: Optional[dict[str, Any]] = None,
+    ) -> None:
         """Creates a new _Client from the given parameters.
 
         This exists primarily to enable testing. For regular use, obtain _Client instances by
@@ -897,7 +1014,7 @@ class _Client(_http_client.JsonHttpClient):
         self.credential = credential
         self.params = params if params else {}
 
-    def request(self, method, url, **kwargs):
+    def request(self, method: str, url: str, **kwargs: Any) -> requests.Response:
         """Makes an HTTP call using the Python requests library.
 
         Extends the request() method of the parent JsonHttpClient class. Handles default
@@ -929,11 +1046,11 @@ class _Client(_http_client.JsonHttpClient):
         except requests.exceptions.RequestException as error:
             raise _Client.handle_rtdb_error(error)
 
-    def create_listener_session(self):
+    def create_listener_session(self) -> _sseclient.KeepAuthSession:
         return _sseclient.KeepAuthSession(self.credential)
 
     @classmethod
-    def handle_rtdb_error(cls, error):
+    def handle_rtdb_error(cls, error: requests.RequestException) -> exceptions.FirebaseError:
         """Converts an error encountered while calling RTDB into a FirebaseError."""
         if error.response is None:
             return _utils.handle_requests_error(error)
@@ -942,7 +1059,7 @@ class _Client(_http_client.JsonHttpClient):
         return _utils.handle_requests_error(error, message=message)
 
     @classmethod
-    def _extract_error_message(cls, response):
+    def _extract_error_message(cls, response: requests.Response) -> str:
         """Extracts an error message from an error response.
 
         If the server has sent a JSON response with an 'error' field, which is the typical
@@ -953,7 +1070,7 @@ class _Client(_http_client.JsonHttpClient):
         message = None
         try:
             # RTDB error format: {"error": "text message"}
-            data = response.json()
+            data: dict[str, str] = response.json()
             if isinstance(data, dict):
                 message = data.get('error')
         except ValueError:

@@ -22,8 +22,9 @@ import json
 from base64 import b64encode
 from typing import Any, Optional, Dict
 from dataclasses import dataclass
-from google.auth.compute_engine import Credentials as ComputeEngineCredentials
 
+from google.auth.compute_engine import Credentials as ComputeEngineCredentials
+from google.auth.transport import requests as google_auth_requests
 import requests
 import firebase_admin
 from firebase_admin import App
@@ -289,10 +290,10 @@ class TaskQueue:
         # Meaning that it's credential should be a Compute Engine Credential.
         if _Validators.is_non_empty_string(extension_id) and \
             isinstance(self._credential, ComputeEngineCredentials):
-
+            self._credential.refresh(google_auth_requests.Request())
             id_token = self._credential.token
             task.http_request['headers'] = \
-                {**task.http_request['headers'], 'Authorization': f'Bearer ${id_token}'}
+                {**task.http_request['headers'], 'Authorization': f'Bearer {id_token}'}
             # Delete oidc token
             del task.http_request['oidc_token']
         else:

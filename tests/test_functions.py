@@ -17,6 +17,7 @@
 from datetime import datetime, timedelta, timezone
 import json
 import time
+from unittest import mock
 import pytest
 
 import firebase_admin
@@ -151,6 +152,37 @@ class TestTaskQueue:
         assert recorder[0].url == _DEFAULT_TASK_URL
         expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
         assert recorder[0].headers['x-goog-api-client'] == expected_metrics_header
+
+    @mock.patch('firebase_admin.functions.isinstance')
+    def test_task_enqueue_with_extension_refreshes_credential(self, mock_isinstance):
+        # Force the code to take the ComputeEngineCredentials path
+        mock_isinstance.return_value = True
+
+        # Create a custom response with the extension ID in the resource name
+        resource_name = (
+            'projects/test-project/locations/us-central1/queues/'
+            'ext-test-extension-id-test-function-name/tasks'
+        )
+        extension_response = json.dumps({'name': resource_name + '/test-task-id'})
+
+        # Instrument the service and get the underlying credential mock
+        functions_service, recorder = self._instrument_functions_service(payload=extension_response)
+        mock_credential = functions_service._credential
+        mock_credential.token = 'mock-id-token'
+        mock_credential.refresh = mock.MagicMock()
+
+        # Create a TaskQueue with an extension ID
+        queue = functions_service.task_queue('test-function-name', 'test-extension-id')
+
+        # Enqueue a task
+        queue.enqueue(_DEFAULT_DATA)
+
+        # Assert that the credential was refreshed
+        mock_credential.refresh.assert_called_once()
+
+        # Assert that the correct token was used in the header
+        assert len(recorder) == 1
+        assert recorder[0].headers['Authorization'] == 'Bearer mock-id-token'
 
 class TestTaskQueueOptions:
 

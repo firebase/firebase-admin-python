@@ -17,7 +17,6 @@
 from datetime import datetime, timedelta, timezone
 import json
 import time
-from unittest import mock
 import pytest
 
 import firebase_admin
@@ -125,6 +124,10 @@ class TestTaskQueue:
         assert recorder[0].headers['x-goog-api-client'] == expected_metrics_header
         assert task_id == 'test-task-id'
 
+        task = json.loads(recorder[0].body.decode())['task']
+        assert task['http_request']['oidc_token'] == {'service_account_email': 'mock-email'}
+        assert task['http_request']['headers'] == {'Content-Type': 'application/json'}
+
     def test_task_enqueue_with_extension(self):
         resource_name = (
             'projects/test-project/locations/us-central1/queues/'
@@ -143,6 +146,59 @@ class TestTaskQueue:
         assert recorder[0].headers['x-goog-api-client'] == expected_metrics_header
         assert task_id == 'test-task-id'
 
+        task = json.loads(recorder[0].body.decode())['task']
+        assert task['http_request']['oidc_token'] == {'service_account_email': 'mock-email'}
+        assert task['http_request']['headers'] == {'Content-Type': 'application/json'}
+
+    def test_task_enqueue_compute_engine(self):
+        app = firebase_admin.initialize_app(
+            testutils.MockComputeEngineCredential(),
+            options={'projectId': 'test-project'},
+            name='test-project-gce')
+        _, recorder = self._instrument_functions_service(app)
+        queue = functions.task_queue('test-function-name', app=app)
+        task_id = queue.enqueue(_DEFAULT_DATA)
+        assert len(recorder) == 1
+        assert recorder[0].method == 'POST'
+        assert recorder[0].url == _DEFAULT_REQUEST_URL
+        assert recorder[0].headers['Content-Type'] == 'application/json'
+        assert recorder[0].headers['Authorization'] == 'Bearer mock-compute-engine-token'
+        expected_metrics_header = _utils.get_metrics_header() + ' mock-gce-cred-metric-tag'
+        assert recorder[0].headers['x-goog-api-client'] == expected_metrics_header
+        assert task_id == 'test-task-id'
+
+        task = json.loads(recorder[0].body.decode())['task']
+        assert task['http_request']['oidc_token'] == {'service_account_email': 'mock-gce-email'}
+        assert task['http_request']['headers'] == {'Content-Type': 'application/json'}
+
+    def test_task_enqueue_with_extension_compute_engine(self):
+        resource_name = (
+            'projects/test-project/locations/us-central1/queues/'
+            'ext-test-extension-id-test-function-name/tasks'
+        )
+        extension_response = json.dumps({'name': resource_name + '/test-task-id'})
+        app = firebase_admin.initialize_app(
+            testutils.MockComputeEngineCredential(),
+            options={'projectId': 'test-project'},
+            name='test-project-gce-extensions')
+        _, recorder = self._instrument_functions_service(app, payload=extension_response)
+        queue = functions.task_queue('test-function-name', 'test-extension-id', app)
+        task_id = queue.enqueue(_DEFAULT_DATA)
+        assert len(recorder) == 1
+        assert recorder[0].method == 'POST'
+        assert recorder[0].url == _CLOUD_TASKS_URL + resource_name
+        assert recorder[0].headers['Content-Type'] == 'application/json'
+        assert recorder[0].headers['Authorization'] == 'Bearer mock-compute-engine-token'
+        expected_metrics_header = _utils.get_metrics_header() + ' mock-gce-cred-metric-tag'
+        assert recorder[0].headers['x-goog-api-client'] == expected_metrics_header
+        assert task_id == 'test-task-id'
+
+        task = json.loads(recorder[0].body.decode())['task']
+        assert 'oidc_token' not in task['http_request']
+        assert task['http_request']['headers'] == {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer mock-compute-engine-token'}
+
     def test_task_delete(self):
         _, recorder = self._instrument_functions_service()
         queue = functions.task_queue('test-function-name')
@@ -152,37 +208,6 @@ class TestTaskQueue:
         assert recorder[0].url == _DEFAULT_TASK_URL
         expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
         assert recorder[0].headers['x-goog-api-client'] == expected_metrics_header
-
-    @mock.patch('firebase_admin.functions.isinstance')
-    def test_task_enqueue_with_extension_refreshes_credential(self, mock_isinstance):
-        # Force the code to take the ComputeEngineCredentials path
-        mock_isinstance.return_value = True
-
-        # Create a custom response with the extension ID in the resource name
-        resource_name = (
-            'projects/test-project/locations/us-central1/queues/'
-            'ext-test-extension-id-test-function-name/tasks'
-        )
-        extension_response = json.dumps({'name': resource_name + '/test-task-id'})
-
-        # Instrument the service and get the underlying credential mock
-        functions_service, recorder = self._instrument_functions_service(payload=extension_response)
-        mock_credential = functions_service._credential
-        mock_credential.token = 'mock-id-token'
-        mock_credential.refresh = mock.MagicMock()
-
-        # Create a TaskQueue with an extension ID
-        queue = functions_service.task_queue('test-function-name', 'test-extension-id')
-
-        # Enqueue a task
-        queue.enqueue(_DEFAULT_DATA)
-
-        # Assert that the credential was refreshed
-        mock_credential.refresh.assert_called_once()
-
-        # Assert that the correct token was used in the header
-        assert len(recorder) == 1
-        assert recorder[0].headers['Authorization'] == 'Bearer mock-id-token'
 
 class TestTaskQueueOptions:
 

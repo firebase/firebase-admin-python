@@ -24,7 +24,9 @@ from typing import Any, Optional, Dict
 from dataclasses import dataclass
 
 from google.auth.compute_engine import Credentials as ComputeEngineCredentials
+from google.auth.exceptions import RefreshError
 from google.auth.transport import requests as google_auth_requests
+
 import requests
 import firebase_admin
 from firebase_admin import App
@@ -101,6 +103,12 @@ class _FunctionsService:
                 'GOOGLE_CLOUD_PROJECT environment variable.')
 
         self._credential = app.credential.get_credential()
+        try:
+            # Refresh the credential to ensure all attributes (e.g. service_account_email)
+            # are populated, preventing cold start errors.
+            self._credential.refresh(google_auth_requests.Request())
+        except RefreshError as err:
+            raise ValueError(f'Initial credential refresh failed: {err}') from err
         self._http_client = _http_client.JsonHttpClient(credential=self._credential)
 
     def task_queue(self, function_name: str, extension_id: Optional[str] = None) -> TaskQueue:
@@ -290,7 +298,6 @@ class TaskQueue:
         # Meaning that it's credential should be a Compute Engine Credential.
         if _Validators.is_non_empty_string(extension_id) and \
             isinstance(self._credential, ComputeEngineCredentials):
-            self._credential.refresh(google_auth_requests.Request())
             id_token = self._credential.token
             task.http_request['headers'] = \
                 {**task.http_request['headers'], 'Authorization': f'Bearer {id_token}'}

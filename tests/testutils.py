@@ -118,10 +118,11 @@ class MockGoogleCredential(credentials.Credentials):
     """A mock Google authentication credential."""
     def refresh(self, request):
         self.token = 'mock-token'
+        self._service_account_email = "mock-email"
 
     @property
     def service_account_email(self):
-        return 'mock-email'
+        return self._service_account_email
 
     # Simulate x-goog-api-client modification in credential refresh
     def _metric_header_for_usage(self):
@@ -141,6 +142,10 @@ class MockGoogleComputeEngineCredential(compute_engine.Credentials):
     """A mock Compute Engine credential"""
     def refresh(self, request):
         self.token = 'mock-compute-engine-token'
+        self._service_account_email = 'mock-gce-email'
+
+    def _metric_header_for_usage(self):
+        return 'mock-gce-cred-metric-tag'
 
 class MockComputeEngineCredential(firebase_admin.credentials.Base):
     """A mock Firebase credential implementation."""

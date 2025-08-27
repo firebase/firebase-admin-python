@@ -24,6 +24,7 @@ from typing import Any, Optional, Dict
 from dataclasses import dataclass
 
 from google.auth.compute_engine import Credentials as ComputeEngineCredentials
+from google.auth.credentials import TokenState
 from google.auth.exceptions import RefreshError
 from google.auth.transport import requests as google_auth_requests
 
@@ -103,12 +104,6 @@ class _FunctionsService:
                 'GOOGLE_CLOUD_PROJECT environment variable.')
 
         self._credential = app.credential.get_credential()
-        try:
-            # Refresh the credential to ensure all attributes (e.g. service_account_email)
-            # are populated, preventing cold start errors.
-            self._credential.refresh(google_auth_requests.Request())
-        except RefreshError as err:
-            raise ValueError(f'Initial credential refresh failed: {err}') from err
         self._http_client = _http_client.JsonHttpClient(credential=self._credential)
 
     def task_queue(self, function_name: str, extension_id: Optional[str] = None) -> TaskQueue:
@@ -294,6 +289,15 @@ class TaskQueue:
         # Get function url from task or generate from resources
         if not _Validators.is_non_empty_string(task.http_request['url']):
             task.http_request['url'] = self._get_url(resource, _FIREBASE_FUNCTION_URL_FORMAT)
+
+        # Refresh the credential to ensure all attributes (e.g. service_account_email, id_token)
+        # are populated, preventing cold start errors.
+        if self._credential.token_state != TokenState.FRESH:
+            try:
+                self._credential.refresh(google_auth_requests.Request())
+            except RefreshError as err:
+                raise ValueError(f'Initial task payload credential refresh failed: {err}') from err
+
         # If extension id is provided, it emplies that it is being run from a deployed extension.
         # Meaning that it's credential should be a Compute Engine Credential.
         if _Validators.is_non_empty_string(extension_id) and \

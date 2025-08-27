@@ -116,9 +116,21 @@ class MockFailedRequest(transport.Request):
 # pylint: disable=abstract-method
 class MockGoogleCredential(credentials.Credentials):
     """A mock Google authentication credential."""
+
+    def __init__(self):
+        super().__init__()
+        self.token = None
+        self._service_account_email = None
+        self._token_state = credentials.TokenState.INVALID
+
     def refresh(self, request):
         self.token = 'mock-token'
-        self._service_account_email = "mock-email"
+        self._service_account_email = 'mock-email'
+        self._token_state = credentials.TokenState.FRESH
+
+    @property
+    def token_state(self):
+        return self._token_state
 
     @property
     def service_account_email(self):
@@ -140,9 +152,21 @@ class MockCredential(firebase_admin.credentials.Base):
 
 class MockGoogleComputeEngineCredential(compute_engine.Credentials):
     """A mock Compute Engine credential"""
+
+    def __init__(self):
+        super().__init__()
+        self.token = None
+        self._service_account_email = None
+        self._token_state = credentials.TokenState.INVALID
+
     def refresh(self, request):
         self.token = 'mock-compute-engine-token'
         self._service_account_email = 'mock-gce-email'
+        self._token_state = credentials.TokenState.FRESH
+
+    @property
+    def token_state(self):
+        return self._token_state
 
     def _metric_header_for_usage(self):
         return 'mock-gce-cred-metric-tag'

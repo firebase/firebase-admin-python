@@ -16,21 +16,53 @@
 
 import datetime
 import time
+from collections.abc import Callable, Mapping
+from typing import TYPE_CHECKING, Any, Optional, Union, cast
 
 import cachecontrol
 import requests
 from google.auth import credentials
 from google.auth import iam
 from google.auth import jwt
-from google.auth import transport
+import google.auth.transport.requests
+import google.auth.crypt
 import google.auth.exceptions
 import google.oauth2.id_token
 import google.oauth2.service_account
 
+import firebase_admin
 from firebase_admin import exceptions
 from firebase_admin import _auth_utils
 from firebase_admin import _http_client
 
+if TYPE_CHECKING:
+    from _typeshed import Incomplete
+
+__all__ = (
+    'ALGORITHM_NONE',
+    'ALGORITHM_RS256',
+    'AUTH_EMULATOR_EMAIL',
+    'COOKIE_CERT_URI',
+    'COOKIE_ISSUER_PREFIX',
+    'FIREBASE_AUDIENCE',
+    'ID_TOKEN_CERT_URI',
+    'ID_TOKEN_ISSUER_PREFIX',
+    'MAX_SESSION_COOKIE_DURATION_SECONDS',
+    'MAX_TOKEN_LIFETIME_SECONDS',
+    'METADATA_SERVICE_URL',
+    'MIN_SESSION_COOKIE_DURATION_SECONDS',
+    'RESERVED_CLAIMS',
+    'CertificateFetchRequest',
+    'TokenGenerator',
+    'TokenSignError',
+    'TokenVerifier',
+    'CertificateFetchError',
+    'ExpiredIdTokenError',
+    'ExpiredSessionCookieError',
+    'InvalidSessionCookieError',
+    'RevokedIdTokenError',
+    'RevokedSessionCookieError',
+)
 
 # ID token constants
 ID_TOKEN_ISSUER_PREFIX = 'https://securetoken.google.com/'
@@ -61,46 +93,61 @@ AUTH_EMULATOR_EMAIL = 'firebase-auth-emulator@example.com'
 
 
 class _EmulatedSigner(google.auth.crypt.Signer):
-    key_id = None
+    @property
+    def key_id(self) -> Optional[str]:
+        return None
 
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
-    def sign(self, message):
+    def sign(self, message: Union[str, bytes]) -> bytes:
         return b''
 
 
 class _SigningProvider:
     """Stores a reference to a google.auth.crypto.Signer."""
 
-    def __init__(self, signer, signer_email, alg=ALGORITHM_RS256):
+    def __init__(
+        self,
+        signer: google.auth.crypt.Signer,
+        signer_email: Optional[str],
+        alg: str = ALGORITHM_RS256,
+    ) -> None:
         self._signer = signer
         self._signer_email = signer_email
         self._alg = alg
 
     @property
-    def signer(self):
+    def signer(self) -> google.auth.crypt.Signer:
         return self._signer
 
     @property
-    def signer_email(self):
+    def signer_email(self) -> Optional[str]:
         return self._signer_email
 
     @property
-    def alg(self):
+    def alg(self) -> str:
         return self._alg
 
     @classmethod
-    def from_credential(cls, google_cred):
+    def from_credential(
+        cls,
+        google_cred: Union[google.oauth2.service_account.Credentials, credentials.Signing]
+    ) -> '_SigningProvider':
         return _SigningProvider(google_cred.signer, google_cred.signer_email)
 
     @classmethod
-    def from_iam(cls, request, google_cred, service_account):
+    def from_iam(
+        cls,
+        request: google.auth.transport.Request,
+        google_cred: credentials.Credentials,
+        service_account: str,
+    ) -> '_SigningProvider':
         signer = iam.Signer(request, google_cred, service_account)
         return _SigningProvider(signer, service_account)
 
     @classmethod
-    def for_emulator(cls):
+    def for_emulator(cls) -> '_SigningProvider':
         return _SigningProvider(_EmulatedSigner(), AUTH_EMULATOR_EMAIL, ALGORITHM_NONE)
 
 
@@ -109,15 +156,20 @@ class TokenGenerator:
 
     ID_TOOLKIT_URL = 'https://identitytoolkit.googleapis.com/v1'
 
-    def __init__(self, app, http_client, url_override=None):
+    def __init__(
+        self,
+        app: firebase_admin.App,
+        http_client: _http_client.HttpClient[dict[str, Any]],
+        url_override: Optional[str] = None,
+    ) -> None:
         self.app = app
         self.http_client = http_client
-        self.request = transport.requests.Request()
+        self.request = google.auth.transport.requests.Request()
         url_prefix = url_override or self.ID_TOOLKIT_URL
         self.base_url = f'{url_prefix}/projects/{app.project_id}'
-        self._signing_provider = None
+        self._signing_provider: Optional[_SigningProvider] = None
 
-    def _init_signing_provider(self):
+    def _init_signing_provider(self) -> _SigningProvider:
         """Initializes a signing provider by following the go/firebase-admin-sign protocol."""
         if _auth_utils.is_emulated():
             return _SigningProvider.for_emulator()
@@ -143,11 +195,11 @@ class TokenGenerator:
         if resp.status != 200:
             raise ValueError(
                 f'Failed to contact the local metadata service: {resp.data.decode()}.')
-        service_account = resp.data.decode()
+        service_account = cast(str, resp.data.decode())
         return _SigningProvider.from_iam(self.request, google_cred, service_account)
 
     @property
-    def signing_provider(self):
+    def signing_provider(self) -> _SigningProvider:
         """Initializes and returns the SigningProvider instance to be used."""
         if not self._signing_provider:
             try:
@@ -161,7 +213,12 @@ class TokenGenerator:
                     'details on creating custom tokens.') from error
         return self._signing_provider
 
-    def create_custom_token(self, uid, developer_claims=None, tenant_id=None):
+    def create_custom_token(
+        self,
+        uid: str,
+        developer_claims: Optional[dict[str, Any]] = None,
+        tenant_id: Optional[str] = None,
+    ) -> bytes:
         """Builds and signs a Firebase custom auth token."""
         if developer_claims is not None:
             if not isinstance(developer_claims, dict):
@@ -184,7 +241,7 @@ class TokenGenerator:
 
         signing_provider = self.signing_provider
         now = int(time.time())
-        payload = {
+        payload: dict[str, Any] = {
             'iss': signing_provider.signer_email,
             'sub': signing_provider.signer_email,
             'aud': FIREBASE_AUDIENCE,
@@ -206,7 +263,11 @@ class TokenGenerator:
             raise TokenSignError(msg, error) from error
 
 
-    def create_session_cookie(self, id_token, expires_in):
+    def create_session_cookie(
+        self,
+        id_token: Union[bytes, str],
+        expires_in: Union[datetime.timedelta, int],
+    ) -> str:
         """Creates a session cookie from the provided ID token."""
         id_token = id_token.decode('utf-8') if isinstance(id_token, bytes) else id_token
         if not isinstance(id_token, str) or not id_token:
@@ -238,38 +299,47 @@ class TokenGenerator:
         if not body or not body.get('sessionCookie'):
             raise _auth_utils.UnexpectedResponseError(
                 'Failed to create session cookie.', http_response=http_resp)
-        return body.get('sessionCookie')
+        return cast(str, body['sessionCookie'])
 
 
-class CertificateFetchRequest(transport.Request):
+class CertificateFetchRequest(google.auth.transport.Request):
     """A google-auth transport that supports HTTP cache-control.
 
     Also injects a timeout to each outgoing HTTP request.
     """
 
-    def __init__(self, timeout_seconds=None):
+    def __init__(self, timeout_seconds: Optional[float] = None) -> None:
         self._session = cachecontrol.CacheControl(requests.Session())
-        self._delegate = transport.requests.Request(self.session)
+        self._delegate = google.auth.transport.requests.Request(self.session)
         self._timeout_seconds = timeout_seconds
 
     @property
-    def session(self):
+    def session(self) -> requests.Session:
         return self._session
 
     @property
-    def timeout_seconds(self):
+    def timeout_seconds(self) -> Optional[float]:
         return self._timeout_seconds
 
-    def __call__(self, url, method='GET', body=None, headers=None, timeout=None, **kwargs):
+    def __call__(
+        self,
+        url: str,
+        method: str = 'GET',
+        body: Optional['Incomplete'] = None,
+        headers: Optional[Mapping[str, str]] = None,
+        timeout: Optional[float] = None,
+        **kwargs: 'Incomplete',
+    ) -> google.auth.transport.Response:
         timeout = timeout or self.timeout_seconds
         return self._delegate(
-            url, method=method, body=body, headers=headers, timeout=timeout, **kwargs)
+            url, method=method, body=body, headers=headers,
+            timeout=timeout, **kwargs)  # pyright: ignore[reportArgumentType]
 
 
 class TokenVerifier:
     """Verifies ID tokens and session cookies."""
 
-    def __init__(self, app):
+    def __init__(self, app: firebase_admin.App) -> None:
         timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
         self.request = CertificateFetchRequest(timeout)
         self.id_token_verifier = _JWTVerifier(
@@ -289,31 +359,56 @@ class TokenVerifier:
             invalid_token_error=InvalidSessionCookieError,
             expired_token_error=ExpiredSessionCookieError)
 
-    def verify_id_token(self, id_token, clock_skew_seconds=0):
+    def verify_id_token(
+        self,
+        id_token: Union[bytes, str],
+        clock_skew_seconds: int = 0,
+    ) -> dict[str, Any]:
         return self.id_token_verifier.verify(id_token, self.request, clock_skew_seconds)
 
-    def verify_session_cookie(self, cookie, clock_skew_seconds=0):
+    def verify_session_cookie(
+        self,
+        cookie: Union[bytes, str],
+        clock_skew_seconds: int = 0,
+    ) -> dict[str, Any]:
         return self.cookie_verifier.verify(cookie, self.request, clock_skew_seconds)
 
 
 class _JWTVerifier:
     """Verifies Firebase JWTs (ID tokens or session cookies)."""
 
-    def __init__(self, **kwargs):
-        self.project_id = kwargs.pop('project_id')
-        self.short_name = kwargs.pop('short_name')
-        self.operation = kwargs.pop('operation')
-        self.url = kwargs.pop('doc_url')
-        self.cert_url = kwargs.pop('cert_url')
-        self.issuer = kwargs.pop('issuer')
+    def __init__(
+        self,
+        *,
+        project_id: Optional[str],
+        short_name: str,
+        operation: str,
+        doc_url: str,
+        cert_url: str,
+        issuer: str,
+        invalid_token_error: Callable[[str, Optional[Exception]], exceptions.FirebaseError],
+        expired_token_error: Callable[[str, Optional[Exception]], exceptions.FirebaseError],
+        **kwargs: Any,
+    ) -> None:
+        self.project_id = project_id
+        self.short_name = short_name
+        self.operation = operation
+        self.url = doc_url
+        self.cert_url = cert_url
+        self.issuer = issuer
         if self.short_name[0].lower() in 'aeiou':
             self.articled_short_name = f'an {self.short_name}'
         else:
             self.articled_short_name = f'a {self.short_name}'
-        self._invalid_token_error = kwargs.pop('invalid_token_error')
-        self._expired_token_error = kwargs.pop('expired_token_error')
+        self._invalid_token_error = invalid_token_error
+        self._expired_token_error = expired_token_error
 
-    def verify(self, token, request, clock_skew_seconds=0):
+    def verify(
+        self,
+        token: Union[bytes, str],
+        request: google.auth.transport.Request,
+        clock_skew_seconds: int = 0,
+    ) -> dict[str, Any]:
         """Verifies the signature and data for the provided JWT."""
         token = token.encode('utf-8') if isinstance(token, str) else token
         if not isinstance(token, bytes) or not token:
@@ -387,7 +482,7 @@ class _JWTVerifier:
                 f'characters. {verify_id_token_msg}')
 
         if error_message:
-            raise self._invalid_token_error(error_message)
+            raise self._invalid_token_error(error_message, None)
 
         try:
             if emulated:
@@ -399,68 +494,72 @@ class _JWTVerifier:
                     audience=self.project_id,
                     certs_url=self.cert_url,
                     clock_skew_in_seconds=clock_skew_seconds)
+                verified_claims = cast(dict[str, Any], verified_claims)
             verified_claims['uid'] = verified_claims['sub']
             return verified_claims
         except google.auth.exceptions.TransportError as error:
             raise CertificateFetchError(str(error), cause=error) from error
         except ValueError as error:
             if 'Token expired' in str(error):
-                raise self._expired_token_error(str(error), cause=error)
-            raise self._invalid_token_error(str(error), cause=error)
+                raise self._expired_token_error(str(error), error)
+            raise self._invalid_token_error(str(error), error)
 
-    def _decode_unverified(self, token):
+    def _decode_unverified(
+        self,
+        token: Union[bytes, str],
+    ) -> tuple[dict[str, str], dict[str, Any]]:
         try:
-            header = jwt.decode_header(token)
-            payload = jwt.decode(token, verify=False)
-            return header, payload
+            header = cast(Mapping[str, str], jwt.decode_header(token))
+            payload = cast(Mapping[str, Any], jwt.decode(token, verify=False))
+            return dict(header), dict(payload)
         except ValueError as error:
-            raise self._invalid_token_error(str(error), cause=error)
+            raise self._invalid_token_error(str(error), error)
 
 
 class TokenSignError(exceptions.UnknownError):
     """Unexpected error while signing a Firebase custom token."""
 
-    def __init__(self, message, cause):
-        exceptions.UnknownError.__init__(self, message, cause)
+    def __init__(self, message: str, cause: Optional[Exception]) -> None:
+        super().__init__(message, cause)
 
 
 class CertificateFetchError(exceptions.UnknownError):
     """Failed to fetch some public key certificates required to verify a token."""
 
-    def __init__(self, message, cause):
-        exceptions.UnknownError.__init__(self, message, cause)
+    def __init__(self, message: str, cause: Optional[Exception]) -> None:
+        super().__init__(message, cause)
 
 
 class ExpiredIdTokenError(_auth_utils.InvalidIdTokenError):
     """The provided ID token is expired."""
 
-    def __init__(self, message, cause):
-        _auth_utils.InvalidIdTokenError.__init__(self, message, cause)
+    def __init__(self, message: str, cause: Optional[Exception]) -> None:
+        super().__init__(message, cause)
 
 
 class RevokedIdTokenError(_auth_utils.InvalidIdTokenError):
     """The provided ID token has been revoked."""
 
-    def __init__(self, message):
-        _auth_utils.InvalidIdTokenError.__init__(self, message)
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
 
 
 class InvalidSessionCookieError(exceptions.InvalidArgumentError):
     """The provided string is not a valid Firebase session cookie."""
 
-    def __init__(self, message, cause=None):
-        exceptions.InvalidArgumentError.__init__(self, message, cause)
+    def __init__(self, message: str, cause: Optional[Exception] = None) -> None:
+        super().__init__(message, cause)
 
 
 class ExpiredSessionCookieError(InvalidSessionCookieError):
     """The provided session cookie is expired."""
 
-    def __init__(self, message, cause):
-        InvalidSessionCookieError.__init__(self, message, cause)
+    def __init__(self, message: str, cause: Optional[Exception]) -> None:
+        super().__init__(message, cause)
 
 
 class RevokedSessionCookieError(InvalidSessionCookieError):
     """The provided session cookie has been revoked."""
 
-    def __init__(self, message):
-        InvalidSessionCookieError.__init__(self, message)
+    def __init__(self, message: str) -> None:
+        super().__init__(message)

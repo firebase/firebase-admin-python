@@ -724,6 +724,19 @@ def test_email_sign_in_with_settings(new_user_email_unverified, api_key):
     assert id_token is not None and len(id_token) > 0
     assert auth.get_user(new_user_email_unverified.uid).email_verified
 
+def test_auth_error_parse(new_user_email_unverified):
+    action_code_settings = auth.ActionCodeSettings(
+        ACTION_LINK_CONTINUE_URL, handle_code_in_app=True, link_domain="cool.link")
+    with pytest.raises(auth.InvalidHostingLinkDomainError) as excinfo:
+        auth.generate_sign_in_with_email_link(new_user_email_unverified.email,
+                                            action_code_settings=action_code_settings)
+    assert str(excinfo.value) == ('The provided hosting link domain is not configured in Firebase '
+                                  'Hosting or is not owned by the current project '
+                                  '(INVALID_HOSTING_LINK_DOMAIN). The provided hosting link '
+                                  'domain is not configured in Firebase Hosting or is not owned '
+                                  'by the current project. This cannot be a default hosting domain '
+                                  '(web.app or firebaseapp.com).')
+
 
 @pytest.fixture(scope='module')
 def oidc_provider():

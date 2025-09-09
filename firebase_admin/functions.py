@@ -22,7 +22,11 @@ import json
 from base64 import b64encode
 from typing import Any, Optional, Dict
 from dataclasses import dataclass
+
 from google.auth.compute_engine import Credentials as ComputeEngineCredentials
+from google.auth.credentials import TokenState
+from google.auth.exceptions import RefreshError
+from google.auth.transport import requests as google_auth_requests
 
 import requests
 import firebase_admin
@@ -285,14 +289,22 @@ class TaskQueue:
         # Get function url from task or generate from resources
         if not _Validators.is_non_empty_string(task.http_request['url']):
             task.http_request['url'] = self._get_url(resource, _FIREBASE_FUNCTION_URL_FORMAT)
+
+        # Refresh the credential to ensure all attributes (e.g. service_account_email, id_token)
+        # are populated, preventing cold start errors.
+        if self._credential.token_state != TokenState.FRESH:
+            try:
+                self._credential.refresh(google_auth_requests.Request())
+            except RefreshError as err:
+                raise ValueError(f'Initial task payload credential refresh failed: {err}') from err
+
         # If extension id is provided, it emplies that it is being run from a deployed extension.
         # Meaning that it's credential should be a Compute Engine Credential.
         if _Validators.is_non_empty_string(extension_id) and \
             isinstance(self._credential, ComputeEngineCredentials):
-
             id_token = self._credential.token
             task.http_request['headers'] = \
-                {**task.http_request['headers'], 'Authorization': f'Bearer ${id_token}'}
+                {**task.http_request['headers'], 'Authorization': f'Bearer {id_token}'}
             # Delete oidc token
             del task.http_request['oidc_token']
         else:

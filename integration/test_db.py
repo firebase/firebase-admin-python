@@ -39,7 +39,7 @@ def integration_conf(request):
 def app(request):
     cred, project_id = integration_conf(request)
     ops = {
-        'databaseURL' : 'https://{0}.firebaseio.com'.format(project_id),
+        'databaseURL' : f'https://{project_id}.firebaseio.com',
     }
     return firebase_admin.initialize_app(cred, ops, name='integration-db')
 
@@ -53,7 +53,7 @@ def default_app():
 
 @pytest.fixture(scope='module')
 def update_rules(app):
-    with open(testutils.resource_filename('dinosaurs_index.json')) as rules_file:
+    with open(testutils.resource_filename('dinosaurs_index.json'), encoding='utf-8') as rules_file:
         new_rules = json.load(rules_file)
     client = db.reference('', app)._client
     rules = client.body('get', '/.settings/rules.json', params='format=strict')
@@ -64,7 +64,7 @@ def update_rules(app):
 
 @pytest.fixture(scope='module')
 def testdata():
-    with open(testutils.resource_filename('dinosaurs.json')) as dino_file:
+    with open(testutils.resource_filename('dinosaurs.json'), encoding='utf-8') as dino_file:
         return json.load(dino_file)
 
 @pytest.fixture(scope='module')
@@ -195,8 +195,8 @@ class TestWriteOperations:
         edward = python.child('users').push({'name' : 'Edward Cope', 'since' : 1800})
         jack = python.child('users').push({'name' : 'Jack Horner', 'since' : 1940})
         delta = {
-            '{0}/since'.format(edward.key) : 1840,
-            '{0}/since'.format(jack.key) : 1946
+            f'{edward.key}/since' : 1840,
+            f'{jack.key}/since' : 1946
         }
         python.child('users').update(delta)
         assert edward.get() == {'name' : 'Edward Cope', 'since' : 1840}
@@ -363,7 +363,7 @@ def override_app(request, update_rules):
     del update_rules
     cred, project_id = integration_conf(request)
     ops = {
-        'databaseURL' : 'https://{0}.firebaseio.com'.format(project_id),
+        'databaseURL' : f'https://{project_id}.firebaseio.com',
         'databaseAuthVariableOverride' : {'uid' : 'user1'}
     }
     app = firebase_admin.initialize_app(cred, ops, 'db-override')
@@ -375,7 +375,7 @@ def none_override_app(request, update_rules):
     del update_rules
     cred, project_id = integration_conf(request)
     ops = {
-        'databaseURL' : 'https://{0}.firebaseio.com'.format(project_id),
+        'databaseURL' : f'https://{project_id}.firebaseio.com',
         'databaseAuthVariableOverride' : None
     }
     app = firebase_admin.initialize_app(cred, ops, 'db-none-override')

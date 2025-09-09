@@ -18,16 +18,16 @@ import datetime
 from firebase_admin import firestore
 
 _CITY = {
-        'name': u'Mountain View',
-        'country': u'USA',
+        'name': 'Mountain View',
+        'country': 'USA',
         'population': 77846,
         'capital': False
     }
 
 _MOVIE = {
-        'Name': u'Interstellar',
+        'Name': 'Interstellar',
         'Year': 2014,
-        'Runtime': u'2h 49m',
+        'Runtime': '2h 49m',
         'Academy Award Winner': True
     }
 
@@ -35,8 +35,8 @@ _MOVIE = {
 def test_firestore():
     client = firestore.client()
     expected = {
-        'name': u'Mountain View',
-        'country': u'USA',
+        'name': 'Mountain View',
+        'country': 'USA',
         'population': 77846,
         'capital': False
     }
@@ -93,7 +93,7 @@ def test_firestore_multi_db():
 def test_server_timestamp():
     client = firestore.client()
     expected = {
-        'name': u'Mountain View',
+        'name': 'Mountain View',
         'timestamp': firestore.SERVER_TIMESTAMP # pylint: disable=no-member
     }
     doc = client.collection('cities').document()

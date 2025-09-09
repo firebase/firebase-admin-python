@@ -25,6 +25,7 @@ import pytest
 
 from firebase_admin import auth
 from firebase_admin import tenant_mgt
+from firebase_admin._http_client import DEFAULT_TIMEOUT_SECONDS as timeout
 from integration import test_auth
 
 
@@ -359,7 +360,7 @@ def test_delete_saml_provider_config(sample_tenant):
 
 
 def _create_oidc_provider_config(client):
-    provider_id = 'oidc.{0}'.format(_random_string())
+    provider_id = f'oidc.{_random_string()}'
     return client.create_oidc_provider_config(
         provider_id=provider_id,
         client_id='OIDC_CLIENT_ID',
@@ -369,7 +370,7 @@ def _create_oidc_provider_config(client):
 
 
 def _create_saml_provider_config(client):
-    provider_id = 'saml.{0}'.format(_random_string())
+    provider_id = f'saml.{_random_string()}'
     return client.create_saml_provider_config(
         provider_id=provider_id,
         idp_entity_id='IDP_ENTITY_ID',
@@ -387,7 +388,7 @@ def _random_uid():
 
 def _random_email():
     random_id = str(uuid.uuid4()).lower().replace('-', '')
-    return 'test{0}@example.{1}.com'.format(random_id[:12], random_id[12:])
+    return f'test{random_id[:12]}@example.{random_id[12:]}.com'
 
 
 def _random_phone():
@@ -412,6 +413,6 @@ def _sign_in(custom_token, tenant_id, api_key):
         'tenantId': tenant_id,
     }
     params = {'key' : api_key}
-    resp = requests.request('post', VERIFY_TOKEN_URL, params=params, json=body)
+    resp = requests.request('post', VERIFY_TOKEN_URL, params=params, json=body, timeout=timeout)
     resp.raise_for_status()
     return resp.json().get('idToken')

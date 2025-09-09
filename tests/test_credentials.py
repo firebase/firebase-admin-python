@@ -64,7 +64,7 @@ class TestCertificate:
         with pytest.raises(error):
             credentials.Certificate(testutils.resource_filename(file_name))
 
-    @pytest.mark.parametrize('arg', [None, 0, 1, True, False, list(), tuple(), dict()])
+    @pytest.mark.parametrize('arg', [None, 0, 1, True, False, [], tuple(), {}])
     def test_invalid_args(self, arg):
         with pytest.raises(ValueError):
             credentials.Certificate(arg)
@@ -156,7 +156,7 @@ class TestRefreshToken:
             credentials.RefreshToken(
                 testutils.resource_filename('service_account.json'))
 
-    @pytest.mark.parametrize('arg', [None, 0, 1, True, False, list(), tuple(), dict()])
+    @pytest.mark.parametrize('arg', [None, 0, 1, True, False, [], tuple(), {}])
     def test_invalid_args(self, arg):
         with pytest.raises(ValueError):
             credentials.RefreshToken(arg)

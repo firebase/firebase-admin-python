@@ -22,8 +22,8 @@ from setuptools import setup
 
 
 (major, minor) = (sys.version_info.major, sys.version_info.minor)
-if major != 3 or minor < 7:
-    print('firebase_admin requires python >= 3.7', file=sys.stderr)
+if major != 3 or minor < 9:
+    print('firebase_admin requires python >= 3.9', file=sys.stderr)
     sys.exit(1)
 
 # Read in the package metadata per recommendations from:
@@ -37,12 +37,12 @@ with open(about_path) as fp:
 long_description = ('The Firebase Admin Python SDK enables server-side (backend) Python developers '
                     'to integrate Firebase into their services and applications.')
 install_requires = [
-    'cachecontrol>=0.12.14',
-    'google-api-core[grpc] >= 1.22.1, < 3.0.0dev; platform.python_implementation != "PyPy"',
-    'google-api-python-client >= 1.7.8',
-    'google-cloud-firestore>=2.19.0; platform.python_implementation != "PyPy"',
-    'google-cloud-storage>=1.37.1',
-    'pyjwt[crypto] >= 2.5.0',
+    'cachecontrol>=0.14.3',
+    'google-api-core[grpc] >= 2.25.1, < 3.0.0dev; platform.python_implementation != "PyPy"',
+    'google-cloud-firestore>=2.21.0; platform.python_implementation != "PyPy"',
+    'google-cloud-storage>=3.1.1',
+    'pyjwt[crypto] >= 2.10.1',
+    'httpx[http2] == 0.28.1',
 ]
 
 setup(
@@ -60,18 +60,17 @@ setup(
     keywords='firebase cloud development',
     install_requires=install_requires,
     packages=['firebase_admin'],
-    python_requires='>=3.7',
+    python_requires='>=3.9',
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'Topic :: Software Development :: Build Tools',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
         'License :: OSI Approved :: Apache Software License',
     ],
 )

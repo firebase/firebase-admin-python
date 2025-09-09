@@ -15,6 +15,7 @@
 """Test cases for the firebase_admin.tenant_mgt module."""
 
 import json
+import unittest.mock
 from urllib import parse
 
 import pytest
@@ -29,6 +30,7 @@ from firebase_admin import _user_mgt
 from firebase_admin import _utils
 from tests import testutils
 from tests import test_token_gen
+from tests.test_token_gen import MOCK_CURRENT_TIME, MOCK_CURRENT_TIME_UTC
 
 
 GET_TENANT_RESPONSE = """{
@@ -105,8 +107,8 @@ SAML_PROVIDER_CONFIG_REQUEST = body = {
 LIST_OIDC_PROVIDER_CONFIGS_RESPONSE = testutils.resource('list_oidc_provider_configs.json')
 LIST_SAML_PROVIDER_CONFIGS_RESPONSE = testutils.resource('list_saml_provider_configs.json')
 
-INVALID_TENANT_IDS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
-INVALID_BOOLEANS = ['', 1, 0, list(), tuple(), dict()]
+INVALID_TENANT_IDS = [None, '', 0, 1, True, False, [], tuple(), {}]
+INVALID_BOOLEANS = ['', 1, 0, [], tuple(), {}]
 
 USER_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v1/projects/mock-project-id'
 PROVIDER_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v2/projects/mock-project-id'
@@ -150,7 +152,7 @@ def _instrument_provider_mgt(client, status, payload):
 
 class TestTenant:
 
-    @pytest.mark.parametrize('data', [None, 'foo', 0, 1, True, False, list(), tuple(), dict()])
+    @pytest.mark.parametrize('data', [None, 'foo', 0, 1, True, False, [], tuple(), {}])
     def test_invalid_data(self, data):
         with pytest.raises(ValueError):
             tenant_mgt.Tenant(data)
@@ -195,9 +197,10 @@ class TestGetTenant:
         assert len(recorder) == 1
         req = recorder[0]
         assert req.method == 'GET'
-        assert req.url == '{0}/tenants/tenant-id'.format(TENANT_MGT_URL_PREFIX)
+        assert req.url == f'{TENANT_MGT_URL_PREFIX}/tenants/tenant-id'
         assert req.headers['X-Client-Version'] == f'Python/Admin/{firebase_admin.__version__}'
-        assert req.headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
+        expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
+        assert req.headers['x-goog-api-client'] == expected_metrics_header
 
     def test_tenant_not_found(self, tenant_mgt_app):
         _instrument_tenant_mgt(tenant_mgt_app, 500, TENANT_NOT_FOUND_RESPONSE)
@@ -213,7 +216,7 @@ class TestGetTenant:
 
 class TestCreateTenant:
 
-    @pytest.mark.parametrize('display_name', [True, False, 1, 0, list(), tuple(), dict()])
+    @pytest.mark.parametrize('display_name', [True, False, 1, 0, [], tuple(), {}])
     def test_invalid_display_name_type(self, display_name, tenant_mgt_app):
         with pytest.raises(ValueError) as excinfo:
             tenant_mgt.create_tenant(display_name=display_name, app=tenant_mgt_app)
@@ -287,9 +290,10 @@ class TestCreateTenant:
         assert len(recorder) == 1
         req = recorder[0]
         assert req.method == 'POST'
-        assert req.url == '{0}/tenants'.format(TENANT_MGT_URL_PREFIX)
+        assert req.url == f'{TENANT_MGT_URL_PREFIX}/tenants'
         assert req.headers['X-Client-Version'] == f'Python/Admin/{firebase_admin.__version__}'
-        assert req.headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
+        expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
+        assert req.headers['x-goog-api-client'] == expected_metrics_header
         got = json.loads(req.body.decode())
         assert got == body
 
@@ -302,7 +306,7 @@ class TestUpdateTenant:
             tenant_mgt.update_tenant(tenant_id, display_name='My Tenant', app=tenant_mgt_app)
         assert str(excinfo.value).startswith('Tenant ID must be a non-empty string')
 
-    @pytest.mark.parametrize('display_name', [True, False, 1, 0, list(), tuple(), dict()])
+    @pytest.mark.parametrize('display_name', [True, False, 1, 0, [], tuple(), {}])
     def test_invalid_display_name_type(self, display_name, tenant_mgt_app):
         with pytest.raises(ValueError) as excinfo:
             tenant_mgt.update_tenant('tenant-id', display_name=display_name, app=tenant_mgt_app)
@@ -386,10 +390,10 @@ class TestUpdateTenant:
         assert len(recorder) == 1
         req = recorder[0]
         assert req.method == 'PATCH'
-        assert req.url == '{0}/tenants/tenant-id?updateMask={1}'.format(
-            TENANT_MGT_URL_PREFIX, ','.join(mask))
+        assert req.url == f'{TENANT_MGT_URL_PREFIX}/tenants/tenant-id?updateMask={",".join(mask)}'
         assert req.headers['X-Client-Version'] == f'Python/Admin/{firebase_admin.__version__}'
-        assert req.headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
+        expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
+        assert req.headers['x-goog-api-client'] == expected_metrics_header
         got = json.loads(req.body.decode())
         assert got == body
 
@@ -409,9 +413,10 @@ class TestDeleteTenant:
         assert len(recorder) == 1
         req = recorder[0]
         assert req.method == 'DELETE'
-        assert req.url == '{0}/tenants/tenant-id'.format(TENANT_MGT_URL_PREFIX)
+        assert req.url == f'{TENANT_MGT_URL_PREFIX}/tenants/tenant-id'
         assert req.headers['X-Client-Version'] == f'Python/Admin/{firebase_admin.__version__}'
-        assert req.headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
+        expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
+        assert req.headers['x-goog-api-client'] == expected_metrics_header
 
     def test_tenant_not_found(self, tenant_mgt_app):
         _instrument_tenant_mgt(tenant_mgt_app, 500, TENANT_NOT_FOUND_RESPONSE)
@@ -427,12 +432,12 @@ class TestDeleteTenant:
 
 class TestListTenants:
 
-    @pytest.mark.parametrize('arg', [None, 'foo', list(), dict(), 0, -1, 101, False])
+    @pytest.mark.parametrize('arg', [None, 'foo', [], {}, 0, -1, 101, False])
     def test_invalid_max_results(self, tenant_mgt_app, arg):
         with pytest.raises(ValueError):
             tenant_mgt.list_tenants(max_results=arg, app=tenant_mgt_app)
 
-    @pytest.mark.parametrize('arg', ['', list(), dict(), 0, -1, True, False])
+    @pytest.mark.parametrize('arg', ['', [], {}, 0, -1, True, False])
     def test_invalid_page_token(self, tenant_mgt_app, arg):
         with pytest.raises(ValueError):
             tenant_mgt.list_tenants(page_token=arg, app=tenant_mgt_app)
@@ -444,7 +449,7 @@ class TestListTenants:
         assert page.next_page_token == ''
         assert page.has_next_page is False
         assert page.get_next_page() is None
-        tenants = [tenant for tenant in page.iterate_all()]
+        tenants = list(page.iterate_all())
         assert len(tenants) == 2
         self._assert_request(recorder)
 
@@ -474,7 +479,7 @@ class TestListTenants:
         iterator = page.iterate_all()
         for index in range(3):
             tenant = next(iterator)
-            assert tenant.tenant_id == 'tenant{0}'.format(index)
+            assert tenant.tenant_id == f'tenant{index}'
         self._assert_request(recorder)
 
         # Page 2 (also the last page)
@@ -508,7 +513,7 @@ class TestListTenants:
         _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, LIST_TENANTS_RESPONSE)
         page = tenant_mgt.list_tenants(app=tenant_mgt_app)
         iterator = page.iterate_all()
-        tenants = [tenant for tenant in iterator]
+        tenants = list(iterator)
         assert len(tenants) == 2
 
         with pytest.raises(StopIteration):
@@ -520,7 +525,7 @@ class TestListTenants:
         _instrument_tenant_mgt(tenant_mgt_app, 200, json.dumps(response))
         page = tenant_mgt.list_tenants(app=tenant_mgt_app)
         assert len(page.tenants) == 0
-        tenants = [tenant for tenant in page.iterate_all()]
+        tenants = list(page.iterate_all())
         assert len(tenants) == 0
 
     def test_list_tenants_with_max_results(self, tenant_mgt_app):
@@ -545,7 +550,7 @@ class TestListTenants:
         assert isinstance(page, tenant_mgt.ListTenantsPage)
         assert len(page.tenants) == 2
         for idx, tenant in enumerate(page.tenants):
-            _assert_tenant(tenant, 'tenant{0}'.format(idx))
+            _assert_tenant(tenant, f'tenant{idx}')
 
     def _assert_request(self, recorder, expected=None):
         if expected is None:
@@ -555,7 +560,8 @@ class TestListTenants:
         req = recorder[0]
         assert req.method == 'GET'
         assert req.headers['X-Client-Version'] == f'Python/Admin/{firebase_admin.__version__}'
-        assert req.headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
+        expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
+        assert req.headers['x-goog-api-client'] == expected_metrics_header
         request = dict(parse.parse_qsl(parse.urlsplit(req.url).query))
         assert request == expected
 
@@ -664,8 +670,7 @@ class TestTenantAwareUserManagement:
         assert len(recorder) == 1
         req = recorder[0]
         assert req.method == 'POST'
-        assert req.url == '{0}/tenants/tenant-id/accounts:update'.format(
-            USER_MGT_URL_PREFIX)
+        assert req.url == f'{USER_MGT_URL_PREFIX}/tenants/tenant-id/accounts:update'
         body = json.loads(req.body.decode())
         assert body['localId'] == 'testuser'
         assert 'validSince' in body
@@ -686,8 +691,9 @@ class TestTenantAwareUserManagement:
         assert len(recorder) == 1
         req = recorder[0]
         assert req.method == 'GET'
-        assert req.url == '{0}/tenants/tenant-id/accounts:batchGet?maxResults=1000'.format(
-            USER_MGT_URL_PREFIX)
+        assert req.url == (
+            f'{USER_MGT_URL_PREFIX}/tenants/tenant-id/accounts:batchGet?maxResults=1000'
+        )
 
     def test_import_users(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
@@ -758,8 +764,9 @@ class TestTenantAwareUserManagement:
         assert len(recorder) == 1
         req = recorder[0]
         assert req.method == 'GET'
-        assert req.url == '{0}/tenants/tenant-id/oauthIdpConfigs/oidc.provider'.format(
-            PROVIDER_MGT_URL_PREFIX)
+        assert req.url == (
+            f'{PROVIDER_MGT_URL_PREFIX}/tenants/tenant-id/oauthIdpConfigs/oidc.provider'
+        )
 
     def test_create_oidc_provider_config(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
@@ -784,7 +791,7 @@ class TestTenantAwareUserManagement:
 
         self._assert_oidc_provider_config(provider_config)
         mask = ['clientId', 'displayName', 'enabled', 'issuer']
-        url = '/oauthIdpConfigs/oidc.provider?updateMask={0}'.format(','.join(mask))
+        url = f'/oauthIdpConfigs/oidc.provider?updateMask={",".join(mask)}'
         self._assert_request(
             recorder, url, OIDC_PROVIDER_CONFIG_REQUEST, method='PATCH',
             prefix=PROVIDER_MGT_URL_PREFIX)
@@ -798,8 +805,9 @@ class TestTenantAwareUserManagement:
         assert len(recorder) == 1
         req = recorder[0]
         assert req.method == 'DELETE'
-        assert req.url == '{0}/tenants/tenant-id/oauthIdpConfigs/oidc.provider'.format(
-            PROVIDER_MGT_URL_PREFIX)
+        assert req.url == (
+            f'{PROVIDER_MGT_URL_PREFIX}/tenants/tenant-id/oauthIdpConfigs/oidc.provider'
+        )
 
     def test_list_oidc_provider_configs(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
@@ -812,7 +820,7 @@ class TestTenantAwareUserManagement:
         assert len(page.provider_configs) == 2
         for provider_config in page.provider_configs:
             self._assert_oidc_provider_config(
-                provider_config, want_id='oidc.provider{0}'.format(index))
+                provider_config, want_id=f'oidc.provider{index}')
             index += 1
 
         assert page.next_page_token == ''
@@ -824,8 +832,9 @@ class TestTenantAwareUserManagement:
         assert len(recorder) == 1
         req = recorder[0]
         assert req.method == 'GET'
-        assert req.url == '{0}{1}'.format(
-            PROVIDER_MGT_URL_PREFIX, '/tenants/tenant-id/oauthIdpConfigs?pageSize=100')
+        assert req.url == (
+            f'{PROVIDER_MGT_URL_PREFIX}/tenants/tenant-id/oauthIdpConfigs?pageSize=100'
+        )
 
     def test_get_saml_provider_config(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
@@ -837,8 +846,9 @@ class TestTenantAwareUserManagement:
         assert len(recorder) == 1
         req = recorder[0]
         assert req.method == 'GET'
-        assert req.url == '{0}/tenants/tenant-id/inboundSamlConfigs/saml.provider'.format(
-            PROVIDER_MGT_URL_PREFIX)
+        assert req.url == (
+            f'{PROVIDER_MGT_URL_PREFIX}/tenants/tenant-id/inboundSamlConfigs/saml.provider'
+        )
 
     def test_create_saml_provider_config(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
@@ -870,7 +880,7 @@ class TestTenantAwareUserManagement:
             'displayName', 'enabled', 'idpConfig.idpCertificates', 'idpConfig.idpEntityId',
             'idpConfig.ssoUrl', 'spConfig.callbackUri', 'spConfig.spEntityId',
         ]
-        url = '/inboundSamlConfigs/saml.provider?updateMask={0}'.format(','.join(mask))
+        url = f'/inboundSamlConfigs/saml.provider?updateMask={",".join(mask)}'
         self._assert_request(
             recorder, url, SAML_PROVIDER_CONFIG_REQUEST, method='PATCH',
             prefix=PROVIDER_MGT_URL_PREFIX)
@@ -884,8 +894,9 @@ class TestTenantAwareUserManagement:
         assert len(recorder) == 1
         req = recorder[0]
         assert req.method == 'DELETE'
-        assert req.url == '{0}/tenants/tenant-id/inboundSamlConfigs/saml.provider'.format(
-            PROVIDER_MGT_URL_PREFIX)
+        assert req.url == (
+            f'{PROVIDER_MGT_URL_PREFIX}/tenants/tenant-id/inboundSamlConfigs/saml.provider'
+        )
 
     def test_list_saml_provider_configs(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
@@ -898,7 +909,7 @@ class TestTenantAwareUserManagement:
         assert len(page.provider_configs) == 2
         for provider_config in page.provider_configs:
             self._assert_saml_provider_config(
-                provider_config, want_id='saml.provider{0}'.format(index))
+                provider_config, want_id=f'saml.provider{index}')
             index += 1
 
         assert page.next_page_token == ''
@@ -910,8 +921,9 @@ class TestTenantAwareUserManagement:
         assert len(recorder) == 1
         req = recorder[0]
         assert req.method == 'GET'
-        assert req.url == '{0}{1}'.format(
-            PROVIDER_MGT_URL_PREFIX, '/tenants/tenant-id/inboundSamlConfigs?pageSize=100')
+        assert req.url == (
+            f'{PROVIDER_MGT_URL_PREFIX}/tenants/tenant-id/inboundSamlConfigs?pageSize=100'
+        )
 
     def test_tenant_not_found(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
@@ -930,9 +942,10 @@ class TestTenantAwareUserManagement:
         assert len(recorder) == 1
         req = recorder[0]
         assert req.method == method
-        assert req.url == '{0}/tenants/tenant-id{1}'.format(prefix, want_url)
+        assert req.url == f'{prefix}/tenants/tenant-id{want_url}'
         assert req.headers['X-Client-Version'] == f'Python/Admin/{firebase_admin.__version__}'
-        assert req.headers['X-GOOG-API-CLIENT'] == _utils.get_metrics_header()
+        expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
+        assert req.headers['x-goog-api-client'] == expected_metrics_header
         body = json.loads(req.body.decode())
         assert body == want_body
 
@@ -957,6 +970,17 @@ class TestTenantAwareUserManagement:
 
 
 class TestVerifyIdToken:
+
+    def setup_method(self):
+        self.time_patch = unittest.mock.patch('time.time', return_value=MOCK_CURRENT_TIME)
+        self.mock_time = self.time_patch.start()
+        self.utcnow_patch = unittest.mock.patch(
+            'google.auth.jwt._helpers.utcnow', return_value=MOCK_CURRENT_TIME_UTC)
+        self.mock_utcnow = self.utcnow_patch.start()
+
+    def teardown_method(self):
+        self.time_patch.stop()
+        self.utcnow_patch.stop()
 
     def test_valid_token(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('test-tenant', app=tenant_mgt_app)
@@ -990,6 +1014,17 @@ def tenant_aware_custom_token_app():
 
 
 class TestCreateCustomToken:
+
+    def setup_method(self):
+        self.time_patch = unittest.mock.patch('time.time', return_value=MOCK_CURRENT_TIME)
+        self.mock_time = self.time_patch.start()
+        self.utcnow_patch = unittest.mock.patch(
+            'google.auth.jwt._helpers.utcnow', return_value=MOCK_CURRENT_TIME_UTC)
+        self.mock_utcnow = self.utcnow_patch.start()
+
+    def teardown_method(self):
+        self.time_patch.stop()
+        self.utcnow_patch.stop()
 
     def test_custom_token(self, tenant_aware_custom_token_app):
         client = tenant_mgt.auth_for_tenant('test-tenant', app=tenant_aware_custom_token_app)

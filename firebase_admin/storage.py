@@ -21,9 +21,9 @@ Firebase apps. This requires the ``google-cloud-storage`` Python module.
 # pylint: disable=import-error,no-name-in-module
 try:
     from google.cloud import storage
-except ImportError:
+except ImportError as exception:
     raise ImportError('Failed to import the Cloud Storage library for Python. Make sure '
-                      'to install the "google-cloud-storage" module.')
+                      'to install the "google-cloud-storage" module.') from exception
 
 from firebase_admin import _utils
 
@@ -56,7 +56,7 @@ class _StorageClient:
     """Holds a Google Cloud Storage client instance."""
 
     STORAGE_HEADERS = {
-        'X-GOOG-API-CLIENT': _utils.get_metrics_header(),
+        'x-goog-api-client': _utils.get_metrics_header(),
     }
 
     def __init__(self, credentials, project, default_bucket):
@@ -82,6 +82,6 @@ class _StorageClient:
                 'name explicitly when calling the storage.bucket() function.')
         if not bucket_name or not isinstance(bucket_name, str):
             raise ValueError(
-                'Invalid storage bucket name: "{0}". Bucket name must be a non-empty '
-                'string.'.format(bucket_name))
+                f'Invalid storage bucket name: "{bucket_name}". Bucket name must be a non-empty '
+                'string.')
         return self._client.bucket(bucket_name)

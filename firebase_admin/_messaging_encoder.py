@@ -20,7 +20,7 @@ import math
 import numbers
 import re
 
-import firebase_admin._messaging_utils as _messaging_utils
+from firebase_admin import _messaging_utils
 
 
 class Message:
@@ -99,10 +99,10 @@ class _Validators:
             return None
         if not isinstance(value, str):
             if non_empty:
-                raise ValueError('{0} must be a non-empty string.'.format(label))
-            raise ValueError('{0} must be a string.'.format(label))
+                raise ValueError(f'{label} must be a non-empty string.')
+            raise ValueError(f'{label} must be a string.')
         if non_empty and not value:
-            raise ValueError('{0} must be a non-empty string.'.format(label))
+            raise ValueError(f'{label} must be a non-empty string.')
         return value
 
     @classmethod
@@ -110,7 +110,7 @@ class _Validators:
         if value is None:
             return None
         if not isinstance(value, numbers.Number):
-            raise ValueError('{0} must be a number.'.format(label))
+            raise ValueError(f'{label} must be a number.')
         return value
 
     @classmethod
@@ -119,13 +119,13 @@ class _Validators:
         if value is None or value == {}:
             return None
         if not isinstance(value, dict):
-            raise ValueError('{0} must be a dictionary.'.format(label))
+            raise ValueError(f'{label} must be a dictionary.')
         non_str = [k for k in value if not isinstance(k, str)]
         if non_str:
-            raise ValueError('{0} must not contain non-string keys.'.format(label))
+            raise ValueError(f'{label} must not contain non-string keys.')
         non_str = [v for v in value.values() if not isinstance(v, str)]
         if non_str:
-            raise ValueError('{0} must not contain non-string values.'.format(label))
+            raise ValueError(f'{label} must not contain non-string values.')
         return value
 
     @classmethod
@@ -134,10 +134,10 @@ class _Validators:
         if value is None or value == []:
             return None
         if not isinstance(value, list):
-            raise ValueError('{0} must be a list of strings.'.format(label))
+            raise ValueError(f'{label} must be a list of strings.')
         non_str = [k for k in value if not isinstance(k, str)]
         if non_str:
-            raise ValueError('{0} must not contain non-string values.'.format(label))
+            raise ValueError(f'{label} must not contain non-string values.')
         return value
 
     @classmethod
@@ -146,10 +146,10 @@ class _Validators:
         if value is None or value == []:
             return None
         if not isinstance(value, list):
-            raise ValueError('{0} must be a list of numbers.'.format(label))
+            raise ValueError(f'{label} must be a list of numbers.')
         non_number = [k for k in value if not isinstance(k, numbers.Number)]
         if non_number:
-            raise ValueError('{0} must not contain non-number values.'.format(label))
+            raise ValueError(f'{label} must not contain non-number values.')
         return value
 
     @classmethod
@@ -157,7 +157,7 @@ class _Validators:
         """Checks if the given value is a valid analytics label."""
         value = _Validators.check_string(label, value)
         if value is not None and not re.match(r'^[a-zA-Z0-9-_.~%]{1,50}$', value):
-            raise ValueError('Malformed {}.'.format(label))
+            raise ValueError(f'Malformed {label}.')
         return value
 
     @classmethod
@@ -166,7 +166,7 @@ class _Validators:
         if value is None:
             return None
         if not isinstance(value, bool):
-            raise ValueError('{0} must be a boolean.'.format(label))
+            raise ValueError(f'{label} must be a boolean.')
         return value
 
     @classmethod
@@ -175,7 +175,7 @@ class _Validators:
         if value is None:
             return None
         if not isinstance(value, datetime.datetime):
-            raise ValueError('{0} must be a datetime.'.format(label))
+            raise ValueError(f'{label} must be a datetime.')
         return value
 
 
@@ -245,8 +245,8 @@ class MessageEncoder(json.JSONEncoder):
         seconds = int(math.floor(total_seconds))
         nanos = int((total_seconds - seconds) * 1e9)
         if nanos:
-            return '{0}.{1}s'.format(seconds, str(nanos).zfill(9))
-        return '{0}s'.format(seconds)
+            return f'{seconds}.{str(nanos).zfill(9)}s'
+        return f'{seconds}s'
 
     @classmethod
     def encode_milliseconds(cls, label, msec):
@@ -256,16 +256,16 @@ class MessageEncoder(json.JSONEncoder):
         if isinstance(msec, numbers.Number):
             msec = datetime.timedelta(milliseconds=msec)
         if not isinstance(msec, datetime.timedelta):
-            raise ValueError('{0} must be a duration in milliseconds or an instance of '
-                             'datetime.timedelta.'.format(label))
+            raise ValueError(
+                f'{label} must be a duration in milliseconds or an instance of datetime.timedelta.')
         total_seconds = msec.total_seconds()
         if total_seconds < 0:
-            raise ValueError('{0} must not be negative.'.format(label))
+            raise ValueError(f'{label} must not be negative.')
         seconds = int(math.floor(total_seconds))
         nanos = int((total_seconds - seconds) * 1e9)
         if nanos:
-            return '{0}.{1}s'.format(seconds, str(nanos).zfill(9))
-        return '{0}s'.format(seconds)
+            return f'{seconds}.{str(nanos).zfill(9)}s'
+        return f'{seconds}s'
 
     @classmethod
     def encode_android_notification(cls, notification):
@@ -319,7 +319,9 @@ class MessageEncoder(json.JSONEncoder):
             'visibility': _Validators.check_string(
                 'AndroidNotification.visibility', notification.visibility, non_empty=True),
             'notification_count': _Validators.check_number(
-                'AndroidNotification.notification_count', notification.notification_count)
+                'AndroidNotification.notification_count', notification.notification_count),
+            'proxy': _Validators.check_string(
+                'AndroidNotification.proxy', notification.proxy, non_empty=True)
         }
         result = cls.remove_null_values(result)
         color = result.get('color')
@@ -363,6 +365,13 @@ class MessageEncoder(json.JSONEncoder):
                     'AndroidNotification.vibrate_timings_millis', msec)
                 vibrate_timing_strings.append(formated_string)
             result['vibrate_timings'] = vibrate_timing_strings
+
+        proxy = result.get('proxy')
+        if proxy:
+            if proxy not in ('allow', 'deny', 'if_priority_lowered'):
+                raise ValueError(
+                    'AndroidNotification.proxy must be "allow", "deny" or "if_priority_lowered".')
+            result['proxy'] = proxy.upper()
         return result
 
     @classmethod
@@ -400,7 +409,7 @@ class MessageEncoder(json.JSONEncoder):
             raise ValueError(
                 'LightSettings.color must be in the form #RRGGBB or #RRGGBBAA.')
         if len(color) == 7:
-            color = (color+'FF')
+            color = color+'FF'
         rgba = [int(color[i:i + 2], 16) / 255.0 for i in (1, 3, 5, 7)]
         result['color'] = {'red': rgba[0], 'green': rgba[1],
                            'blue': rgba[2], 'alpha': rgba[3]}
@@ -466,7 +475,7 @@ class MessageEncoder(json.JSONEncoder):
             for key, value in notification.custom_data.items():
                 if key in result:
                     raise ValueError(
-                        'Multiple specifications for {0} in WebpushNotification.'.format(key))
+                        f'Multiple specifications for {key} in WebpushNotification.')
                 result[key] = value
         return cls.remove_null_values(result)
 
@@ -520,6 +529,8 @@ class MessageEncoder(json.JSONEncoder):
                 'APNSConfig.headers', apns.headers),
             'payload': cls.encode_apns_payload(apns.payload),
             'fcm_options': cls.encode_apns_fcm_options(apns.fcm_options),
+            'live_activity_token': _Validators.check_string(
+                'APNSConfig.live_activity_token', apns.live_activity_token),
         }
         return cls.remove_null_values(result)
 
@@ -574,7 +585,7 @@ class MessageEncoder(json.JSONEncoder):
             for key, val in aps.custom_data.items():
                 _Validators.check_string('Aps.custom_data key', key)
                 if key in result:
-                    raise ValueError('Multiple specifications for {0} in Aps.'.format(key))
+                    raise ValueError(f'Multiple specifications for {key} in Aps.')
                 result[key] = val
         return cls.remove_null_values(result)
 
@@ -687,7 +698,7 @@ class MessageEncoder(json.JSONEncoder):
         }
         result['topic'] = MessageEncoder.sanitize_topic_name(result.get('topic'))
         result = MessageEncoder.remove_null_values(result)
-        target_count = sum([t in result for t in ['token', 'topic', 'condition']])
+        target_count = sum(t in result for t in ['token', 'topic', 'condition'])
         if target_count != 1:
             raise ValueError('Exactly one of token, topic or condition must be specified.')
         return result

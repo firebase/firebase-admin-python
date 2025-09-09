@@ -222,9 +222,9 @@ def unsubscribe_from_topic():
     # [END unsubscribe]
 
 
-def send_all():
+def send_each():
     registration_token = 'YOUR_REGISTRATION_TOKEN'
-    # [START send_all]
+    # [START send_each]
     # Create a list containing up to 500 messages.
     messages = [
         messaging.Message(
@@ -238,16 +238,14 @@ def send_all():
         ),
     ]
 
-    response = messaging.send_all(messages)
+    response = messaging.send_each(messages)
     # See the BatchResponse reference documentation
     # for the contents of response.
-    print('{0} messages were sent successfully'.format(response.success_count))
-    # [END send_all]
+    print(f'{response.success_count} messages were sent successfully')
+    # [END send_each]
 
-
-def send_multicast():
-    # [START send_multicast]
-    # Create a list containing up to 500 registration tokens.
+def send_each_for_multicast_and_handle_errors():
+    # [START send_each_for_multicast_error]
     # These registration tokens come from the client FCM SDKs.
     registration_tokens = [
         'YOUR_REGISTRATION_TOKEN_1',
@@ -259,27 +257,7 @@ def send_multicast():
         data={'score': '850', 'time': '2:45'},
         tokens=registration_tokens,
     )
-    response = messaging.send_multicast(message)
-    # See the BatchResponse reference documentation
-    # for the contents of response.
-    print('{0} messages were sent successfully'.format(response.success_count))
-    # [END send_multicast]
-
-
-def send_multicast_and_handle_errors():
-    # [START send_multicast_error]
-    # These registration tokens come from the client FCM SDKs.
-    registration_tokens = [
-        'YOUR_REGISTRATION_TOKEN_1',
-        # ...
-        'YOUR_REGISTRATION_TOKEN_N',
-    ]
-
-    message = messaging.MulticastMessage(
-        data={'score': '850', 'time': '2:45'},
-        tokens=registration_tokens,
-    )
-    response = messaging.send_multicast(message)
+    response = messaging.send_each_for_multicast(message)
     if response.failure_count > 0:
         responses = response.responses
         failed_tokens = []
@@ -287,5 +265,5 @@ def send_multicast_and_handle_errors():
             if not resp.success:
                 # The order of responses corresponds to the order of the registration tokens.
                 failed_tokens.append(registration_tokens[idx])
-        print('List of tokens that caused failures: {0}'.format(failed_tokens))
-    # [END send_multicast_error]
+        print(f'List of tokens that caused failures: {failed_tokens}')
+    # [END send_each_for_multicast_error]

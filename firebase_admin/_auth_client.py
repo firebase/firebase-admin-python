@@ -38,7 +38,7 @@ class Client:
             3. set the project ID via the GOOGLE_CLOUD_PROJECT environment variable.""")
 
         credential = None
-        version_header = 'Python/Admin/{0}'.format(firebase_admin.__version__)
+        version_header = f'Python/Admin/{firebase_admin.__version__}'
         timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
         # Non-default endpoint URLs for emulator support are set in this dict later.
         endpoint_urls = {}
@@ -48,7 +48,7 @@ class Client:
         # endpoint URLs to use the emulator. Additionally, use a fake credential.
         emulator_host = _auth_utils.get_emulator_host()
         if emulator_host:
-            base_url = 'http://{0}/identitytoolkit.googleapis.com'.format(emulator_host)
+            base_url = f'http://{emulator_host}/identitytoolkit.googleapis.com'
             endpoint_urls['v1'] = base_url + '/v1'
             endpoint_urls['v2'] = base_url + '/v2'
             credential = _utils.EmulatorAdminCredentials()
@@ -123,15 +123,16 @@ class Client:
         """
         if not isinstance(check_revoked, bool):
             # guard against accidental wrong assignment.
-            raise ValueError('Illegal check_revoked argument. Argument must be of type '
-                             ' bool, but given "{0}".'.format(type(check_revoked)))
+            raise ValueError(
+                'Illegal check_revoked argument. Argument must be of type bool, but given '
+                f'"{type(check_revoked)}".')
 
         verified_claims = self._token_verifier.verify_id_token(id_token, clock_skew_seconds)
         if self.tenant_id:
             token_tenant_id = verified_claims.get('firebase', {}).get('tenant')
             if self.tenant_id != token_tenant_id:
                 raise _auth_utils.TenantIdMismatchError(
-                    'Invalid tenant ID: {0}'.format(token_tenant_id))
+                    f'Invalid tenant ID: {token_tenant_id}')
 
         if check_revoked:
             self._check_jwt_revoked_or_disabled(
@@ -249,7 +250,7 @@ class Client:
                     if identifier.provider_id == user_info.provider_id
                     and identifier.provider_uid == user_info.uid
                 ), False)
-            raise TypeError("Unexpected type: {}".format(type(identifier)))
+            raise TypeError(f"Unexpected type: {type(identifier)}")
 
         def _is_user_found(identifier, user_records):
             return any(_matches(identifier, user_record) for user_record in user_records)
@@ -757,4 +758,4 @@ class Client:
         if user.disabled:
             raise _auth_utils.UserDisabledError('The user record is disabled.')
         if verified_claims.get('iat') * 1000 < user.tokens_valid_after_timestamp:
-            raise exc_type('The Firebase {0} has been revoked.'.format(label))
+            raise exc_type(f'The Firebase {label} has been revoked.')

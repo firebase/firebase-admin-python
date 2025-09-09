@@ -169,7 +169,7 @@ def revoke_refresh_token_uid():
     user = auth.get_user(uid)
     # Convert to seconds as the auth_time in the token claims is in seconds.
     revocation_second = user.tokens_valid_after_timestamp / 1000
-    print('Tokens revoked at: {0}'.format(revocation_second))
+    print(f'Tokens revoked at: {revocation_second}')
     # [END revoke_tokens]
     # [START save_revocation_in_db]
     metadata_ref = firebase_admin.db.reference("metadata/" + uid)
@@ -183,7 +183,7 @@ def get_user(uid):
     from firebase_admin import auth
 
     user = auth.get_user(uid)
-    print('Successfully fetched user data: {0}'.format(user.uid))
+    print(f'Successfully fetched user data: {user.uid}')
     # [END get_user]
 
 def get_user_by_email():
@@ -192,7 +192,7 @@ def get_user_by_email():
     from firebase_admin import auth
 
     user = auth.get_user_by_email(email)
-    print('Successfully fetched user data: {0}'.format(user.uid))
+    print(f'Successfully fetched user data: {user.uid}')
     # [END get_user_by_email]
 
 def bulk_get_users():
@@ -221,7 +221,7 @@ def get_user_by_phone_number():
     from firebase_admin import auth
 
     user = auth.get_user_by_phone_number(phone)
-    print('Successfully fetched user data: {0}'.format(user.uid))
+    print(f'Successfully fetched user data: {user.uid}')
     # [END get_user_by_phone]
 
 def create_user():
@@ -234,7 +234,7 @@ def create_user():
         display_name='John Doe',
         photo_url='http://www.example.com/12345678/photo.png',
         disabled=False)
-    print('Sucessfully created new user: {0}'.format(user.uid))
+    print(f'Sucessfully created new user: {user.uid}')
     # [END create_user]
     return user.uid
 
@@ -242,7 +242,7 @@ def create_user_with_id():
     # [START create_user_with_id]
     user = auth.create_user(
         uid='some-uid', email='user@example.com', phone_number='+15555550100')
-    print('Sucessfully created new user: {0}'.format(user.uid))
+    print(f'Sucessfully created new user: {user.uid}')
     # [END create_user_with_id]
 
 def update_user(uid):
@@ -256,7 +256,7 @@ def update_user(uid):
         display_name='John Doe',
         photo_url='http://www.example.com/12345678/photo.png',
         disabled=True)
-    print('Sucessfully updated user: {0}'.format(user.uid))
+    print(f'Sucessfully updated user: {user.uid}')
     # [END update_user]
 
 def delete_user(uid):
@@ -271,10 +271,10 @@ def bulk_delete_users():
 
     result = auth.delete_users(["uid1", "uid2", "uid3"])
 
-    print('Successfully deleted {0} users'.format(result.success_count))
-    print('Failed to delete {0} users'.format(result.failure_count))
+    print(f'Successfully deleted {result.success_count} users')
+    print(f'Failed to delete {result.failure_count} users')
     for err in result.errors:
-        print('error #{0}, reason: {1}'.format(result.index, result.reason))
+        print(f'error #{result.index}, reason: {result.reason}')
     # [END bulk_delete_users]
 
 def set_custom_user_claims(uid):
@@ -475,10 +475,11 @@ def import_users():
     hash_alg = auth.UserImportHash.hmac_sha256(key=b'secret_key')
     try:
         result = auth.import_users(users, hash_alg=hash_alg)
-        print('Successfully imported {0} users. Failed to import {1} users.'.format(
-            result.success_count, result.failure_count))
+        print(
+            f'Successfully imported {result.success_count} users. Failed to import '
+            f'{result.failure_count} users.')
         for err in result.errors:
-            print('Failed to import {0} due to {1}'.format(users[err.index].uid, err.reason))
+            print(f'Failed to import {users[err.index].uid} due to {err.reason}')
     except exceptions.FirebaseError:
         # Some unrecoverable error occurred that prevented the operation from running.
         pass
@@ -1012,7 +1013,7 @@ def revoke_refresh_tokens_tenant(tenant_client, uid):
     user = tenant_client.get_user(uid)
     # Convert to seconds as the auth_time in the token claims is in seconds.
     revocation_second = user.tokens_valid_after_timestamp / 1000
-    print('Tokens revoked at: {0}'.format(revocation_second))
+    print(f'Tokens revoked at: {revocation_second}')
 	# [END revoke_tokens_tenant]
 
 def verify_id_token_and_check_revoked_tenant(tenant_client, id_token):

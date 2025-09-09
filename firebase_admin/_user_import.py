@@ -216,10 +216,10 @@ class ImportUserRecord:
     def provider_data(self, provider_data):
         if provider_data is not None:
             try:
-                if any([not isinstance(p, UserProvider) for p in provider_data]):
+                if any(not isinstance(p, UserProvider) for p in provider_data):
                     raise ValueError('One or more provider data instances are invalid.')
-            except TypeError:
-                raise ValueError('provider_data must be iterable.')
+            except TypeError as err:
+                raise ValueError('provider_data must be iterable.') from err
         self._provider_data = provider_data
 
     @property

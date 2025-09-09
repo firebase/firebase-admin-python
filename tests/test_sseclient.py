@@ -25,10 +25,10 @@ from tests import testutils
 class MockSSEClientAdapter(testutils.MockAdapter):
 
     def __init__(self, payload, recorder):
-        super(MockSSEClientAdapter, self).__init__(payload, 200, recorder)
+        super().__init__(payload, 200, recorder)
 
     def send(self, request, **kwargs):
-        resp = super(MockSSEClientAdapter, self).send(request, **kwargs)
+        resp = super().send(request, **kwargs)
         resp.url = request.url
         resp.status_code = self.status
         resp.raw = io.BytesIO(self.data.encode())

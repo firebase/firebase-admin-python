@@ -118,13 +118,13 @@ def create_ios_app(bundle_id, display_name=None, app=None):
 def _check_is_string_or_none(obj, field_name):
     if obj is None or isinstance(obj, str):
         return obj
-    raise ValueError('{0} must be a string.'.format(field_name))
+    raise ValueError(f'{field_name} must be a string.')
 
 
 def _check_is_nonempty_string(obj, field_name):
     if isinstance(obj, str) and obj:
         return obj
-    raise ValueError('{0} must be a non-empty string.'.format(field_name))
+    raise ValueError(f'{field_name} must be a non-empty string.')
 
 
 def _check_is_nonempty_string_or_none(obj, field_name):
@@ -135,7 +135,7 @@ def _check_is_nonempty_string_or_none(obj, field_name):
 
 def _check_not_none(obj, field_name):
     if obj is None:
-        raise ValueError('{0} cannot be None.'.format(field_name))
+        raise ValueError(f'{field_name} cannot be None.')
     return obj
 
 
@@ -338,7 +338,7 @@ class AndroidAppMetadata(_AppMetadata):
 
     def __init__(self, package_name, name, app_id, display_name, project_id):
         """Clients should not instantiate this class directly."""
-        super(AndroidAppMetadata, self).__init__(name, app_id, display_name, project_id)
+        super().__init__(name, app_id, display_name, project_id)
         self._package_name = _check_is_nonempty_string(package_name, 'package_name')
 
     @property
@@ -347,7 +347,7 @@ class AndroidAppMetadata(_AppMetadata):
         return self._package_name
 
     def __eq__(self, other):
-        return (super(AndroidAppMetadata, self).__eq__(other) and
+        return (super().__eq__(other) and
                 self.package_name == other.package_name)
 
     def __ne__(self, other):
@@ -363,7 +363,7 @@ class IOSAppMetadata(_AppMetadata):
 
     def __init__(self, bundle_id, name, app_id, display_name, project_id):
         """Clients should not instantiate this class directly."""
-        super(IOSAppMetadata, self).__init__(name, app_id, display_name, project_id)
+        super().__init__(name, app_id, display_name, project_id)
         self._bundle_id = _check_is_nonempty_string(bundle_id, 'bundle_id')
 
     @property
@@ -372,7 +372,7 @@ class IOSAppMetadata(_AppMetadata):
         return self._bundle_id
 
     def __eq__(self, other):
-        return super(IOSAppMetadata, self).__eq__(other) and self.bundle_id == other.bundle_id
+        return super().__eq__(other) and self.bundle_id == other.bundle_id
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -477,7 +477,7 @@ class _ProjectManagementService:
                 'set the projectId option, or use service account credentials. Alternatively, set '
                 'the GOOGLE_CLOUD_PROJECT environment variable.')
         self._project_id = project_id
-        version_header = 'Python/Admin/{0}'.format(firebase_admin.__version__)
+        version_header = f'Python/Admin/{firebase_admin.__version__}'
         timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
         self._client = _http_client.JsonHttpClient(
             credential=app.credential.get_credential(),
@@ -502,7 +502,7 @@ class _ProjectManagementService:
     def _get_app_metadata(self, platform_resource_name, identifier_name, metadata_class, app_id):
         """Retrieves detailed information about an Android or iOS app."""
         _check_is_nonempty_string(app_id, 'app_id')
-        path = '/v1beta1/projects/-/{0}/{1}'.format(platform_resource_name, app_id)
+        path = f'/v1beta1/projects/-/{platform_resource_name}/{app_id}'
         response = self._make_request('get', path)
         return metadata_class(
             response[identifier_name],
@@ -525,8 +525,7 @@ class _ProjectManagementService:
 
     def _set_display_name(self, app_id, new_display_name, platform_resource_name):
         """Sets the display name of an Android or iOS app."""
-        path = '/v1beta1/projects/-/{0}/{1}?updateMask=displayName'.format(
-            platform_resource_name, app_id)
+        path = f'/v1beta1/projects/-/{platform_resource_name}/{app_id}?updateMask=displayName'
         request_body = {'displayName': new_display_name}
         self._make_request('patch', path, json=request_body)
 
@@ -542,10 +541,10 @@ class _ProjectManagementService:
 
     def _list_apps(self, platform_resource_name, app_class):
         """Lists all the Android or iOS apps within the Firebase project."""
-        path = '/v1beta1/projects/{0}/{1}?pageSize={2}'.format(
-            self._project_id,
-            platform_resource_name,
-            _ProjectManagementService.MAXIMUM_LIST_APPS_PAGE_SIZE)
+        path = (
+            f'/v1beta1/projects/{self._project_id}/{platform_resource_name}?pageSize='
+            f'{_ProjectManagementService.MAXIMUM_LIST_APPS_PAGE_SIZE}'
+        )
         response = self._make_request('get', path)
         apps_list = []
         while True:
@@ -557,11 +556,11 @@ class _ProjectManagementService:
             if not next_page_token:
                 break
             # Retrieve the next page of apps.
-            path = '/v1beta1/projects/{0}/{1}?pageToken={2}&pageSize={3}'.format(
-                self._project_id,
-                platform_resource_name,
-                next_page_token,
-                _ProjectManagementService.MAXIMUM_LIST_APPS_PAGE_SIZE)
+            path = (
+                f'/v1beta1/projects/{self._project_id}/{platform_resource_name}'
+                f'?pageToken={next_page_token}'
+                f'&pageSize={_ProjectManagementService.MAXIMUM_LIST_APPS_PAGE_SIZE}'
+            )
             response = self._make_request('get', path)
         return apps_list
 
@@ -590,7 +589,7 @@ class _ProjectManagementService:
             app_class):
         """Creates an Android or iOS app."""
         _check_is_string_or_none(display_name, 'display_name')
-        path = '/v1beta1/projects/{0}/{1}'.format(self._project_id, platform_resource_name)
+        path = f'/v1beta1/projects/{self._project_id}/{platform_resource_name}'
         request_body = {identifier_name: identifier}
         if display_name:
             request_body['displayName'] = display_name
@@ -606,7 +605,7 @@ class _ProjectManagementService:
                 _ProjectManagementService.POLL_EXPONENTIAL_BACKOFF_FACTOR, current_attempt)
             wait_time_seconds = delay_factor * _ProjectManagementService.POLL_BASE_WAIT_TIME_SECONDS
             time.sleep(wait_time_seconds)
-            path = '/v1/{0}'.format(operation_name)
+            path = f'/v1/{operation_name}'
             poll_response, http_response = self._body_and_response('get', path)
             done = poll_response.get('done')
             if done:
@@ -629,20 +628,20 @@ class _ProjectManagementService:
             platform_resource_name=_ProjectManagementService.IOS_APPS_RESOURCE_NAME, app_id=app_id)
 
     def _get_app_config(self, platform_resource_name, app_id):
-        path = '/v1beta1/projects/-/{0}/{1}/config'.format(platform_resource_name, app_id)
+        path = f'/v1beta1/projects/-/{platform_resource_name}/{app_id}/config'
         response = self._make_request('get', path)
         # In Python 2.7, the base64 module works with strings, while in Python 3, it works with
         # bytes objects. This line works in both versions.
         return base64.standard_b64decode(response['configFileContents']).decode(encoding='utf-8')
 
     def get_sha_certificates(self, app_id):
-        path = '/v1beta1/projects/-/androidApps/{0}/sha'.format(app_id)
+        path = f'/v1beta1/projects/-/androidApps/{app_id}/sha'
         response = self._make_request('get', path)
         cert_list = response.get('certificates') or []
         return [SHACertificate(sha_hash=cert['shaHash'], name=cert['name']) for cert in cert_list]
 
     def add_sha_certificate(self, app_id, certificate_to_add):
-        path = '/v1beta1/projects/-/androidApps/{0}/sha'.format(app_id)
+        path = f'/v1beta1/projects/-/androidApps/{app_id}/sha'
         sha_hash = _check_not_none(certificate_to_add, 'certificate_to_add').sha_hash
         cert_type = certificate_to_add.cert_type
         request_body = {'shaHash': sha_hash, 'certType': cert_type}
@@ -650,7 +649,7 @@ class _ProjectManagementService:
 
     def delete_sha_certificate(self, certificate_to_delete):
         name = _check_not_none(certificate_to_delete, 'certificate_to_delete').name
-        path = '/v1beta1/{0}'.format(name)
+        path = f'/v1beta1/{name}'
         self._make_request('delete', path)
 
     def _make_request(self, method, url, json=None):

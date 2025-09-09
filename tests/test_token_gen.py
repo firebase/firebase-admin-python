@@ -19,6 +19,7 @@ import datetime
 import json
 import os
 import time
+import unittest.mock
 
 from google.auth import crypt
 from google.auth import jwt
@@ -36,6 +37,9 @@ from firebase_admin import _token_gen
 from tests import testutils
 
 
+MOCK_CURRENT_TIME = 1500000000
+MOCK_CURRENT_TIME_UTC = datetime.datetime.fromtimestamp(
+    MOCK_CURRENT_TIME, tz=datetime.timezone.utc)
 MOCK_UID = 'user1'
 MOCK_CREDENTIAL = credentials.Certificate(
     testutils.resource_filename('service_account.json'))
@@ -44,8 +48,8 @@ MOCK_PRIVATE_KEY = testutils.resource('private_key.pem')
 MOCK_SERVICE_ACCOUNT_EMAIL = MOCK_CREDENTIAL.service_account_email
 MOCK_REQUEST = testutils.MockRequest(200, MOCK_PUBLIC_CERTS)
 
-INVALID_STRINGS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
-INVALID_BOOLS = [None, '', 'foo', 0, 1, list(), tuple(), dict()]
+INVALID_STRINGS = [None, '', 0, 1, True, False, [], tuple(), {}]
+INVALID_BOOLS = [None, '', 'foo', 0, 1, [], tuple(), {}]
 INVALID_JWT_ARGS = {
     'NoneToken': None,
     'EmptyToken': '',
@@ -59,7 +63,7 @@ INVALID_JWT_ARGS = {
 ID_TOOLKIT_URL = 'https://identitytoolkit.googleapis.com/v1'
 EMULATOR_HOST_ENV_VAR = 'FIREBASE_AUTH_EMULATOR_HOST'
 AUTH_EMULATOR_HOST = 'localhost:9099'
-EMULATED_ID_TOOLKIT_URL = 'http://{}/identitytoolkit.googleapis.com/v1'.format(AUTH_EMULATOR_HOST)
+EMULATED_ID_TOOLKIT_URL = f'http://{AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1'
 TOKEN_MGT_URLS = {
     'ID_TOOLKIT': ID_TOOLKIT_URL,
 }
@@ -105,16 +109,17 @@ def verify_custom_token(custom_token, expected_claims, tenant_id=None):
         for key, value in expected_claims.items():
             assert value == token['claims'][key]
 
-def _get_id_token(payload_overrides=None, header_overrides=None):
+def _get_id_token(payload_overrides=None, header_overrides=None, current_time=MOCK_CURRENT_TIME):
     signer = crypt.RSASigner.from_string(MOCK_PRIVATE_KEY)
     headers = {
         'kid': 'mock-key-id-1'
     }
+    now = int(current_time if current_time is not None else time.time())
     payload = {
         'aud': MOCK_CREDENTIAL.project_id,
         'iss': 'https://securetoken.google.com/' + MOCK_CREDENTIAL.project_id,
-        'iat': int(time.time()) - 100,
-        'exp': int(time.time()) + 3600,
+        'iat': now - 100,
+        'exp': now + 3600,
         'sub': '1234567890',
         'admin': True,
         'firebase': {
@@ -127,12 +132,14 @@ def _get_id_token(payload_overrides=None, header_overrides=None):
         payload = _merge_jwt_claims(payload, payload_overrides)
     return jwt.encode(signer, payload, header=headers)
 
-def _get_session_cookie(payload_overrides=None, header_overrides=None):
+def _get_session_cookie(
+        payload_overrides=None, header_overrides=None, current_time=MOCK_CURRENT_TIME):
     payload_overrides = payload_overrides or {}
     if 'iss' not in payload_overrides:
-        payload_overrides['iss'] = 'https://session.firebase.google.com/{0}'.format(
-            MOCK_CREDENTIAL.project_id)
-    return _get_id_token(payload_overrides, header_overrides)
+        payload_overrides['iss'] = (
+            f'https://session.firebase.google.com/{MOCK_CREDENTIAL.project_id}'
+        )
+    return _get_id_token(payload_overrides, header_overrides, current_time=current_time)
 
 def _instrument_user_manager(app, status, payload):
     client = auth._get_client(app)
@@ -205,7 +212,7 @@ def env_var_app(request):
 @pytest.fixture(scope='module')
 def revoked_tokens():
     mock_user = json.loads(testutils.resource('get_user.json'))
-    mock_user['users'][0]['validSince'] = str(int(time.time())+100)
+    mock_user['users'][0]['validSince'] = str(MOCK_CURRENT_TIME + 100)
     return json.dumps(mock_user)
 
 @pytest.fixture(scope='module')
@@ -218,7 +225,7 @@ def user_disabled():
 def user_disabled_and_revoked():
     mock_user = json.loads(testutils.resource('get_user.json'))
     mock_user['users'][0]['disabled'] = True
-    mock_user['users'][0]['validSince'] = str(int(time.time())+100)
+    mock_user['users'][0]['validSince'] = str(MOCK_CURRENT_TIME + 100)
     return json.dumps(mock_user)
 
 
@@ -276,7 +283,7 @@ class TestCreateCustomToken:
             testutils.MockCredential(), name='iam-signer-app', options=options)
         try:
             signature = base64.b64encode(b'test').decode()
-            iam_resp = '{{"signedBlob": "{0}"}}'.format(signature)
+            iam_resp = json.dumps({'signedBlob': signature})
             _overwrite_iam_request(app, testutils.MockRequest(200, iam_resp))
             custom_token = auth.create_custom_token(MOCK_UID, app=app).decode()
             assert custom_token.endswith('.' + signature.rstrip('='))
@@ -313,8 +320,7 @@ class TestCreateCustomToken:
 
             # Now invoke the IAM signer.
             signature = base64.b64encode(b'test').decode()
-            request.response = testutils.MockResponse(
-                200, '{{"signedBlob": "{0}"}}'.format(signature))
+            request.response = testutils.MockResponse(200, json.dumps({'signedBlob': signature}))
             custom_token = auth.create_custom_token(MOCK_UID, app=app).decode()
             assert custom_token.endswith('.' + signature.rstrip('='))
             self._verify_signer(custom_token, 'discovered-service-account')
@@ -348,13 +354,13 @@ class TestCreateCustomToken:
 
 class TestCreateSessionCookie:
 
-    @pytest.mark.parametrize('id_token', [None, '', 0, 1, True, False, list(), dict(), tuple()])
+    @pytest.mark.parametrize('id_token', [None, '', 0, 1, True, False, [], {}, tuple()])
     def test_invalid_id_token(self, user_mgt_app, id_token):
         with pytest.raises(ValueError):
             auth.create_session_cookie(id_token, expires_in=3600, app=user_mgt_app)
 
     @pytest.mark.parametrize('expires_in', [
-        None, '', True, False, list(), dict(), tuple(),
+        None, '', True, False, [], {}, tuple(),
         _token_gen.MIN_SESSION_COOKIE_DURATION_SECONDS - 1,
         _token_gen.MAX_SESSION_COOKIE_DURATION_SECONDS + 1,
     ])
@@ -420,6 +426,17 @@ TEST_SESSION_COOKIE = _get_session_cookie()
 
 class TestVerifyIdToken:
 
+    def setup_method(self):
+        self.time_patch = unittest.mock.patch('time.time', return_value=MOCK_CURRENT_TIME)
+        self.time_patch.start()
+        self.utcnow_patch = unittest.mock.patch(
+            'google.auth.jwt._helpers.utcnow', return_value=MOCK_CURRENT_TIME_UTC)
+        self.utcnow_patch.start()
+
+    def teardown_method(self):
+        self.time_patch.stop()
+        self.utcnow_patch.stop()
+
     valid_tokens = {
         'BinaryToken': TEST_ID_TOKEN,
         'TextToken': TEST_ID_TOKEN.decode('utf-8'),
@@ -435,14 +452,14 @@ class TestVerifyIdToken:
         'EmptySubject': _get_id_token({'sub': ''}),
         'IntSubject': _get_id_token({'sub': 10}),
         'LongStrSubject': _get_id_token({'sub': 'a' * 129}),
-        'FutureToken': _get_id_token({'iat': int(time.time()) + 1000}),
+        'FutureToken': _get_id_token({'iat': MOCK_CURRENT_TIME + 1000}),
         'ExpiredToken': _get_id_token({
-            'iat': int(time.time()) - 10000,
-            'exp': int(time.time()) - 3600
+            'iat': MOCK_CURRENT_TIME - 10000,
+            'exp': MOCK_CURRENT_TIME - 3600
         }),
         'ExpiredTokenShort': _get_id_token({
-            'iat': int(time.time()) - 10000,
-            'exp': int(time.time()) - 30
+            'iat': MOCK_CURRENT_TIME - 10000,
+            'exp': MOCK_CURRENT_TIME - 30
         }),
         'BadFormatToken': 'foobar'
     }
@@ -618,6 +635,17 @@ class TestVerifyIdToken:
 
 class TestVerifySessionCookie:
 
+    def setup_method(self):
+        self.time_patch = unittest.mock.patch('time.time', return_value=MOCK_CURRENT_TIME)
+        self.time_patch.start()
+        self.utcnow_patch = unittest.mock.patch(
+            'google.auth.jwt._helpers.utcnow', return_value=MOCK_CURRENT_TIME_UTC)
+        self.utcnow_patch.start()
+
+    def teardown_method(self):
+        self.time_patch.stop()
+        self.utcnow_patch.stop()
+
     valid_cookies = {
         'BinaryCookie': TEST_SESSION_COOKIE,
         'TextCookie': TEST_SESSION_COOKIE.decode('utf-8'),
@@ -633,14 +661,14 @@ class TestVerifySessionCookie:
         'EmptySubject': _get_session_cookie({'sub': ''}),
         'IntSubject': _get_session_cookie({'sub': 10}),
         'LongStrSubject': _get_session_cookie({'sub': 'a' * 129}),
-        'FutureCookie': _get_session_cookie({'iat': int(time.time()) + 1000}),
+        'FutureCookie': _get_session_cookie({'iat': MOCK_CURRENT_TIME + 1000}),
         'ExpiredCookie': _get_session_cookie({
-            'iat': int(time.time()) - 10000,
-            'exp': int(time.time()) - 3600
+            'iat': MOCK_CURRENT_TIME - 10000,
+            'exp': MOCK_CURRENT_TIME - 3600
         }),
         'ExpiredCookieShort': _get_session_cookie({
-            'iat': int(time.time()) - 10000,
-            'exp': int(time.time()) - 30
+            'iat': MOCK_CURRENT_TIME - 10000,
+            'exp': MOCK_CURRENT_TIME - 30
         }),
         'BadFormatCookie': 'foobar',
         'IDToken': TEST_ID_TOKEN,
@@ -792,6 +820,17 @@ class TestVerifySessionCookie:
 
 class TestCertificateCaching:
 
+    def setup_method(self):
+        self.time_patch = unittest.mock.patch('time.time', return_value=MOCK_CURRENT_TIME)
+        self.time_patch.start()
+        self.utcnow_patch = unittest.mock.patch(
+            'google.auth.jwt._helpers.utcnow', return_value=MOCK_CURRENT_TIME_UTC)
+        self.utcnow_patch.start()
+
+    def teardown_method(self):
+        self.time_patch.stop()
+        self.utcnow_patch.stop()
+
     def test_certificate_caching(self, user_mgt_app, httpserver):
         httpserver.serve_content(MOCK_PUBLIC_CERTS, 200, headers={'Cache-Control': 'max-age=3600'})
         verifier = _token_gen.TokenVerifier(user_mgt_app)
@@ -809,6 +848,18 @@ class TestCertificateCaching:
 
 
 class TestCertificateFetchTimeout:
+
+    def setup_method(self):
+        self.time_patch = unittest.mock.patch('time.time', return_value=MOCK_CURRENT_TIME)
+        self.time_patch.start()
+        self.utcnow_patch = unittest.mock.patch(
+            'google.auth.jwt._helpers.utcnow', return_value=MOCK_CURRENT_TIME_UTC)
+        self.utcnow_patch.start()
+
+    def teardown_method(self):
+        self.time_patch.stop()
+        self.utcnow_patch.stop()
+        testutils.cleanup_apps()
 
     timeout_configs = [
         ({'httpTimeout': 4}, 4),
@@ -852,6 +903,3 @@ class TestCertificateFetchTimeout:
         recorder = []
         request.session.mount('https://', testutils.MockAdapter(MOCK_PUBLIC_CERTS, 200, recorder))
         return recorder
-
-    def teardown_method(self):
-        testutils.cleanup_apps()

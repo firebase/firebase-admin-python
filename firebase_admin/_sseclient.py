@@ -34,7 +34,7 @@ class KeepAuthSession(transport.requests.AuthorizedSession):
     """A session that does not drop authentication on redirects between domains."""
 
     def __init__(self, credential):
-        super(KeepAuthSession, self).__init__(credential)
+        super().__init__(credential)
 
     def rebuild_auth(self, prepared_request, response):
         pass
@@ -86,7 +86,7 @@ class SSEClient:
         self.requests_kwargs = kwargs
         self.should_connect = True
         self.last_id = None
-        self.buf = u'' # Keep data here as it streams in
+        self.buf = '' # Keep data here as it streams in
 
         headers = self.requests_kwargs.get('headers', {})
         # The SSE spec requires making requests with Cache-Control: no-cache
@@ -153,9 +153,6 @@ class SSEClient:
             self.last_id = event.event_id
         return event
 
-    def next(self):
-        return self.__next__()
-
 
 class Event:
     """Event represents the events fired by SSE."""
@@ -184,7 +181,7 @@ class Event:
             match = cls.sse_line_pattern.match(line)
             if match is None:
                 # Malformed line.  Discard but warn.
-                warnings.warn('Invalid SSE line: "%s"' % line, SyntaxWarning)
+                warnings.warn(f'Invalid SSE line: "{line}"', SyntaxWarning)
                 continue
 
             name = match.groupdict()['name']
@@ -196,7 +193,7 @@ class Event:
                 # If we already have some data, then join to it with a newline.
                 # Else this is it.
                 if event.data:
-                    event.data = '%s\n%s' % (event.data, value)
+                    event.data = f'{event.data}\n{value}'
                 else:
                     event.data = value
             elif name == 'event':

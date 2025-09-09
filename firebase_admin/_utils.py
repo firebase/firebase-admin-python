@@ -16,9 +16,11 @@
 
 import json
 from platform import python_version
+from typing import Callable, Optional
 
 import google.auth
 import requests
+import httpx
 
 import firebase_admin
 from firebase_admin import exceptions
@@ -91,8 +93,9 @@ def _get_initialized_app(app):
                              'initialized via the firebase module.')
         return app
 
-    raise ValueError('Illegal app argument. Argument must be of type '
-                     ' firebase_admin.App, but given "{0}".'.format(type(app)))
+    raise ValueError(
+        'Illegal app argument. Argument must be of type firebase_admin.App, but given '
+        f'"{type(app)}".')
 
 
 
@@ -128,6 +131,36 @@ def handle_platform_error_from_requests(error, handle_func=None):
 
     return exc if exc else _handle_func_requests(error, message, error_dict)
 
+def handle_platform_error_from_httpx(
+        error: httpx.HTTPError,
+        handle_func: Optional[Callable[..., Optional[exceptions.FirebaseError]]] = None
+) -> exceptions.FirebaseError:
+    """Constructs a ``FirebaseError`` from the given httpx error.
+
+    This can be used to handle errors returned by Google Cloud Platform (GCP) APIs.
+
+    Args:
+        error: An error raised by the httpx module while making an HTTP call to a GCP API.
+        handle_func: A function that can be used to handle platform errors in a custom way. When
+            specified, this function will be called with three arguments. It has the same
+            signature as ```_handle_func_httpx``, but may return ``None``.
+
+    Returns:
+        FirebaseError: A ``FirebaseError`` that can be raised to the user code.
+    """
+
+    if isinstance(error, httpx.HTTPStatusError):
+        response = error.response
+        content = response.content.decode()
+        status_code = response.status_code
+        error_dict, message = _parse_platform_error(content, status_code)
+        exc = None
+        if handle_func:
+            exc = handle_func(error, message, error_dict)
+
+        return exc if exc else _handle_func_httpx(error, message, error_dict)
+    return handle_httpx_error(error)
+
 
 def handle_operation_error(error):
     """Constructs a ``FirebaseError`` from the given operation error.
@@ -140,7 +173,7 @@ def handle_operation_error(error):
     """
     if not isinstance(error, dict):
         return exceptions.UnknownError(
-            message='Unknown error while making a remote service call: {0}'.format(error),
+            message=f'Unknown error while making a remote service call: {error}',
             cause=error)
 
     rpc_code = error.get('code')
@@ -185,15 +218,15 @@ def handle_requests_error(error, message=None, code=None):
     """
     if isinstance(error, requests.exceptions.Timeout):
         return exceptions.DeadlineExceededError(
-            message='Timed out while making an API call: {0}'.format(error),
+            message=f'Timed out while making an API call: {error}',
             cause=error)
     if isinstance(error, requests.exceptions.ConnectionError):
         return exceptions.UnavailableError(
-            message='Failed to establish a connection: {0}'.format(error),
+            message=f'Failed to establish a connection: {error}',
             cause=error)
     if error.response is None:
         return exceptions.UnknownError(
-            message='Unknown error while making a remote service call: {0}'.format(error),
+            message=f'Unknown error while making a remote service call: {error}',
             cause=error)
 
     if not code:
@@ -204,6 +237,60 @@ def handle_requests_error(error, message=None, code=None):
     err_type = _error_code_to_exception_type(code)
     return err_type(message=message, cause=error, http_response=error.response)
 
+def _handle_func_httpx(error: httpx.HTTPError, message, error_dict) -> exceptions.FirebaseError:
+    """Constructs a ``FirebaseError`` from the given GCP error.
+
+    Args:
+        error: An error raised by the httpx module while making an HTTP call.
+        message: A message to be included in the resulting ``FirebaseError``.
+        error_dict: Parsed GCP error response.
+
+    Returns:
+        FirebaseError: A ``FirebaseError`` that can be raised to the user code or None.
+    """
+    code = error_dict.get('status')
+    return handle_httpx_error(error, message, code)
+
+
+def handle_httpx_error(error: httpx.HTTPError, message=None, code=None) -> exceptions.FirebaseError:
+    """Constructs a ``FirebaseError`` from the given httpx error.
+
+    This method is agnostic of the remote service that produced the error, whether it is a GCP
+    service or otherwise. Therefore, this method does not attempt to parse the error response in
+    any way.
+
+    Args:
+        error: An error raised by the httpx module while making an HTTP call.
+        message: A message to be included in the resulting ``FirebaseError`` (optional). If not
+            specified the string representation of the ``error`` argument is used as the message.
+        code: A GCP error code that will be used to determine the resulting error type (optional).
+            If not specified the HTTP status code on the error response is used to determine a
+            suitable error code.
+
+    Returns:
+        FirebaseError: A ``FirebaseError`` that can be raised to the user code.
+    """
+    if isinstance(error, httpx.TimeoutException):
+        return exceptions.DeadlineExceededError(
+            message=f'Timed out while making an API call: {error}',
+            cause=error)
+    if isinstance(error, httpx.ConnectError):
+        return exceptions.UnavailableError(
+            message=f'Failed to establish a connection: {error}',
+            cause=error)
+    if isinstance(error, httpx.HTTPStatusError):
+        print("printing status error", error)
+        if not code:
+            code = _http_status_to_error_code(error.response.status_code)
+        if not message:
+            message = str(error)
+
+        err_type = _error_code_to_exception_type(code)
+        return err_type(message=message, cause=error, http_response=error.response)
+
+    return exceptions.UnknownError(
+        message=f'Unknown error while making a remote service call: {error}',
+        cause=error)
 
 def _http_status_to_error_code(status):
     """Maps an HTTP status to a platform error code."""
@@ -240,7 +327,7 @@ def _parse_platform_error(content, status_code):
     error_dict = data.get('error', {})
     msg = error_dict.get('message')
     if not msg:
-        msg = 'Unexpected HTTP response with status: {0}; body: {1}'.format(status_code, content)
+        msg = f'Unexpected HTTP response with status: {status_code}; body: {content}'
     return error_dict, msg
 
 

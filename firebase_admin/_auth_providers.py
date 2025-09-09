@@ -181,13 +181,13 @@ class ProviderConfigClient:
     def __init__(self, http_client, project_id, tenant_id=None, url_override=None):
         self.http_client = http_client
         url_prefix = url_override or self.PROVIDER_CONFIG_URL
-        self.base_url = '{0}/projects/{1}'.format(url_prefix, project_id)
+        self.base_url = f'{url_prefix}/projects/{project_id}'
         if tenant_id:
-            self.base_url += '/tenants/{0}'.format(tenant_id)
+            self.base_url += f'/tenants/{tenant_id}'
 
     def get_oidc_provider_config(self, provider_id):
         _validate_oidc_provider_id(provider_id)
-        body = self._make_request('get', '/oauthIdpConfigs/{0}'.format(provider_id))
+        body = self._make_request('get', f'/oauthIdpConfigs/{provider_id}')
         return OIDCProviderConfig(body)
 
     def create_oidc_provider_config(
@@ -218,7 +218,7 @@ class ProviderConfigClient:
         if response_type:
             req['responseType'] = response_type
 
-        params = 'oauthIdpConfigId={0}'.format(provider_id)
+        params = f'oauthIdpConfigId={provider_id}'
         body = self._make_request('post', '/oauthIdpConfigs', json=req, params=params)
         return OIDCProviderConfig(body)
 
@@ -259,14 +259,14 @@ class ProviderConfigClient:
             raise ValueError('At least one parameter must be specified for update.')
 
         update_mask = _auth_utils.build_update_mask(req)
-        params = 'updateMask={0}'.format(','.join(update_mask))
-        url = '/oauthIdpConfigs/{0}'.format(provider_id)
+        params = f'updateMask={",".join(update_mask)}'
+        url = f'/oauthIdpConfigs/{provider_id}'
         body = self._make_request('patch', url, json=req, params=params)
         return OIDCProviderConfig(body)
 
     def delete_oidc_provider_config(self, provider_id):
         _validate_oidc_provider_id(provider_id)
-        self._make_request('delete', '/oauthIdpConfigs/{0}'.format(provider_id))
+        self._make_request('delete', f'/oauthIdpConfigs/{provider_id}')
 
     def list_oidc_provider_configs(self, page_token=None, max_results=MAX_LIST_CONFIGS_RESULTS):
         return _ListOIDCProviderConfigsPage(
@@ -277,7 +277,7 @@ class ProviderConfigClient:
 
     def get_saml_provider_config(self, provider_id):
         _validate_saml_provider_id(provider_id)
-        body = self._make_request('get', '/inboundSamlConfigs/{0}'.format(provider_id))
+        body = self._make_request('get', f'/inboundSamlConfigs/{provider_id}')
         return SAMLProviderConfig(body)
 
     def create_saml_provider_config(
@@ -301,7 +301,7 @@ class ProviderConfigClient:
         if enabled is not None:
             req['enabled'] = _auth_utils.validate_boolean(enabled, 'enabled')
 
-        params = 'inboundSamlConfigId={0}'.format(provider_id)
+        params = f'inboundSamlConfigId={provider_id}'
         body = self._make_request('post', '/inboundSamlConfigs', json=req, params=params)
         return SAMLProviderConfig(body)
 
@@ -341,14 +341,14 @@ class ProviderConfigClient:
             raise ValueError('At least one parameter must be specified for update.')
 
         update_mask = _auth_utils.build_update_mask(req)
-        params = 'updateMask={0}'.format(','.join(update_mask))
-        url = '/inboundSamlConfigs/{0}'.format(provider_id)
+        params = f'updateMask={",".join(update_mask)}'
+        url = f'/inboundSamlConfigs/{provider_id}'
         body = self._make_request('patch', url, json=req, params=params)
         return SAMLProviderConfig(body)
 
     def delete_saml_provider_config(self, provider_id):
         _validate_saml_provider_id(provider_id)
-        self._make_request('delete', '/inboundSamlConfigs/{0}'.format(provider_id))
+        self._make_request('delete', f'/inboundSamlConfigs/{provider_id}')
 
     def list_saml_provider_configs(self, page_token=None, max_results=MAX_LIST_CONFIGS_RESULTS):
         return _ListSAMLProviderConfigsPage(
@@ -367,15 +367,15 @@ class ProviderConfigClient:
         if max_results < 1 or max_results > MAX_LIST_CONFIGS_RESULTS:
             raise ValueError(
                 'Max results must be a positive integer less than or equal to '
-                '{0}.'.format(MAX_LIST_CONFIGS_RESULTS))
+                f'{MAX_LIST_CONFIGS_RESULTS}.')
 
-        params = 'pageSize={0}'.format(max_results)
+        params = f'pageSize={max_results}'
         if page_token:
-            params += '&pageToken={0}'.format(page_token)
+            params += f'&pageToken={page_token}'
         return self._make_request('get', path, params=params)
 
     def _make_request(self, method, path, **kwargs):
-        url = '{0}{1}'.format(self.base_url, path)
+        url = f'{self.base_url}{path}'
         try:
             return self.http_client.body(method, url, **kwargs)
         except requests.exceptions.RequestException as error:
@@ -385,29 +385,27 @@ class ProviderConfigClient:
 def _validate_oidc_provider_id(provider_id):
     if not isinstance(provider_id, str):
         raise ValueError(
-            'Invalid OIDC provider ID: {0}. Provider ID must be a non-empty string.'.format(
-                provider_id))
+            f'Invalid OIDC provider ID: {provider_id}. Provider ID must be a non-empty string.')
     if not provider_id.startswith('oidc.'):
-        raise ValueError('Invalid OIDC provider ID: {0}.'.format(provider_id))
+        raise ValueError(f'Invalid OIDC provider ID: {provider_id}.')
     return provider_id
 
 
 def _validate_saml_provider_id(provider_id):
     if not isinstance(provider_id, str):
         raise ValueError(
-            'Invalid SAML provider ID: {0}. Provider ID must be a non-empty string.'.format(
-                provider_id))
+            f'Invalid SAML provider ID: {provider_id}. Provider ID must be a non-empty string.')
     if not provider_id.startswith('saml.'):
-        raise ValueError('Invalid SAML provider ID: {0}.'.format(provider_id))
+        raise ValueError(f'Invalid SAML provider ID: {provider_id}.')
     return provider_id
 
 
 def _validate_non_empty_string(value, label):
     """Validates that the given value is a non-empty string."""
     if not isinstance(value, str):
-        raise ValueError('Invalid type for {0}: {1}.'.format(label, value))
+        raise ValueError(f'Invalid type for {label}: {value}.')
     if not value:
-        raise ValueError('{0} must not be empty.'.format(label))
+        raise ValueError(f'{label} must not be empty.')
     return value
 
 
@@ -415,20 +413,19 @@ def _validate_url(url, label):
     """Validates that the given value is a well-formed URL string."""
     if not isinstance(url, str) or not url:
         raise ValueError(
-            'Invalid photo URL: "{0}". {1} must be a non-empty '
-            'string.'.format(url, label))
+            f'Invalid photo URL: "{url}". {label} must be a non-empty string.')
     try:
         parsed = parse.urlparse(url)
         if not parsed.netloc:
-            raise ValueError('Malformed {0}: "{1}".'.format(label, url))
+            raise ValueError(f'Malformed {label}: "{url}".')
         return url
-    except Exception:
-        raise ValueError('Malformed {0}: "{1}".'.format(label, url))
+    except Exception as exception:
+        raise ValueError(f'Malformed {label}: "{url}".') from exception
 
 
 def _validate_x509_certificates(x509_certificates):
     if not isinstance(x509_certificates, list) or not x509_certificates:
         raise ValueError('x509_certificates must be a non-empty list.')
-    if not all([isinstance(cert, str) and cert for cert in x509_certificates]):
+    if not all(isinstance(cert, str) and cert for cert in x509_certificates):
         raise ValueError('x509_certificates must only contain non-empty strings.')
     return [{'x509Certificate': cert} for cert in x509_certificates]

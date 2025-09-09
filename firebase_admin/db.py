@@ -39,8 +39,10 @@ from firebase_admin import _utils
 _DB_ATTRIBUTE = '_database'
 _INVALID_PATH_CHARACTERS = '[].?#$'
 _RESERVED_FILTERS = ('$key', '$value', '$priority')
-_USER_AGENT = 'Firebase/HTTP/{0}/{1}.{2}/AdminPython'.format(
-    firebase_admin.__version__, sys.version_info.major, sys.version_info.minor)
+_USER_AGENT = (
+    f'Firebase/HTTP/{firebase_admin.__version__}/{sys.version_info.major}'
+    f'.{sys.version_info.minor}/AdminPython'
+)
 _TRANSACTION_MAX_RETRIES = 25
 _EMULATOR_HOST_ENV_VAR = 'FIREBASE_DATABASE_EMULATOR_HOST'
 
@@ -72,10 +74,9 @@ def reference(path='/', app=None, url=None):
 def _parse_path(path):
     """Parses a path string into a set of segments."""
     if not isinstance(path, str):
-        raise ValueError('Invalid path: "{0}". Path must be a string.'.format(path))
+        raise ValueError(f'Invalid path: "{path}". Path must be a string.')
     if any(ch in path for ch in _INVALID_PATH_CHARACTERS):
-        raise ValueError(
-            'Invalid path: "{0}". Path contains illegal characters.'.format(path))
+        raise ValueError(f'Invalid path: "{path}". Path contains illegal characters.')
     return [seg for seg in path.split('/') if seg]
 
 
@@ -184,11 +185,9 @@ class Reference:
           ValueError: If the child path is not a string, not well-formed or begins with '/'.
         """
         if not path or not isinstance(path, str):
-            raise ValueError(
-                'Invalid path argument: "{0}". Path must be a non-empty string.'.format(path))
+            raise ValueError(f'Invalid path argument: "{path}". Path must be a non-empty string.')
         if path.startswith('/'):
-            raise ValueError(
-                'Invalid path argument: "{0}". Child path must not start with "/"'.format(path))
+            raise ValueError(f'Invalid path argument: "{path}". Child path must not start with "/"')
         full_path = self._pathurl + '/' + path
         return Reference(client=self._client, path=full_path)
 
@@ -433,7 +432,7 @@ class Reference:
           ValueError: If the child path is not a string, not well-formed or None.
         """
         if path in _RESERVED_FILTERS:
-            raise ValueError('Illegal child path: {0}'.format(path))
+            raise ValueError(f'Illegal child path: {path}')
         return Query(order_by=path, client=self._client, pathurl=self._add_suffix())
 
     def order_by_key(self):
@@ -492,8 +491,8 @@ class Query:
             raise ValueError('order_by field must be a non-empty string')
         if order_by not in _RESERVED_FILTERS:
             if order_by.startswith('/'):
-                raise ValueError('Invalid path argument: "{0}". Child path must not start '
-                                 'with "/"'.format(order_by))
+                raise ValueError(
+                    f'Invalid path argument: "{order_by}". Child path must not start with "/"')
             segments = _parse_path(order_by)
             order_by = '/'.join(segments)
         self._client = kwargs.pop('client')
@@ -501,7 +500,7 @@ class Query:
         self._order_by = order_by
         self._params = {'orderBy' : json.dumps(order_by)}
         if kwargs:
-            raise ValueError('Unexpected keyword arguments: {0}'.format(kwargs))
+            raise ValueError(f'Unexpected keyword arguments: {kwargs}')
 
     def limit_to_first(self, limit):
         """Creates a query with limit, and anchors it to the start of the window.
@@ -604,7 +603,7 @@ class Query:
     def _querystr(self):
         params = []
         for key in sorted(self._params):
-            params.append('{0}={1}'.format(key, self._params[key]))
+            params.append(f'{key}={self._params[key]}')
         return '&'.join(params)
 
     def get(self):
@@ -642,7 +641,7 @@ class _Sorter:
             self.dict_input = False
             entries = [_SortEntry(k, v, order_by) for k, v in enumerate(results)]
         else:
-            raise ValueError('Sorting not supported for "{0}" object.'.format(type(results)))
+            raise ValueError(f'Sorting not supported for "{type(results)}" object.')
         self.sort_entries = sorted(entries)
 
     def get(self):
@@ -783,8 +782,8 @@ class _DatabaseService:
         if emulator_host:
             if '//' in emulator_host:
                 raise ValueError(
-                    'Invalid {0}: "{1}". It must follow format "host:port".'.format(
-                        _EMULATOR_HOST_ENV_VAR, emulator_host))
+                    f'Invalid {_EMULATOR_HOST_ENV_VAR}: "{emulator_host}". It must follow format '
+                    '"host:port".')
             self._emulator_host = emulator_host
         else:
             self._emulator_host = None
@@ -796,14 +795,12 @@ class _DatabaseService:
 
         if not db_url or not isinstance(db_url, str):
             raise ValueError(
-                'Invalid database URL: "{0}". Database URL must be a non-empty '
-                'URL string.'.format(db_url))
+                f'Invalid database URL: "{db_url}". Database URL must be a non-empty URL string.')
 
         parsed_url = parse.urlparse(db_url)
         if not parsed_url.netloc:
             raise ValueError(
-                'Invalid database URL: "{0}". Database URL must be a wellformed '
-                'URL string.'.format(db_url))
+                f'Invalid database URL: "{db_url}". Database URL must be a wellformed URL string.')
 
         emulator_config = self._get_emulator_config(parsed_url)
         if emulator_config:
@@ -813,7 +810,7 @@ class _DatabaseService:
         else:
             # Defer credential lookup until we are certain it's going to be prod connection.
             credential = self._credential.get_credential()
-            base_url = 'https://{0}'.format(parsed_url.netloc)
+            base_url = f'https://{parsed_url.netloc}'
             params = {}
 
 
@@ -835,7 +832,7 @@ class _DatabaseService:
             return EmulatorConfig(base_url, namespace)
         if self._emulator_host:
             # Emulator mode enabled via environment variable
-            base_url = 'http://{0}'.format(self._emulator_host)
+            base_url = f'http://{self._emulator_host}'
             namespace = parsed_url.netloc.split('.')[0]
             return EmulatorConfig(base_url, namespace)
 
@@ -847,21 +844,23 @@ class _DatabaseService:
         query_ns = parse.parse_qs(parsed_url.query).get('ns')
         if parsed_url.scheme != 'http' or (not query_ns or len(query_ns) != 1 or not query_ns[0]):
             raise ValueError(
-                'Invalid database URL: "{0}". Database URL must be a valid URL to a '
-                'Firebase Realtime Database instance.'.format(parsed_url.geturl()))
+                f'Invalid database URL: "{parsed_url.geturl()}". Database URL must be a valid URL '
+                'to a Firebase Realtime Database instance.')
 
         namespace = query_ns[0]
-        base_url = '{0}://{1}'.format(parsed_url.scheme, parsed_url.netloc)
+        base_url = f'{parsed_url.scheme}://{parsed_url.netloc}'
         return base_url, namespace
 
     @classmethod
     def _get_auth_override(cls, app):
+        """Gets and validates the database auth override to be used."""
         auth_override = app.options.get('databaseAuthVariableOverride', cls._DEFAULT_AUTH_OVERRIDE)
         if auth_override == cls._DEFAULT_AUTH_OVERRIDE or auth_override is None:
             return auth_override
         if not isinstance(auth_override, dict):
-            raise ValueError('Invalid databaseAuthVariableOverride option: "{0}". Override '
-                             'value must be a dict or None.'.format(auth_override))
+            raise ValueError(
+                f'Invalid databaseAuthVariableOverride option: "{auth_override}". Override '
+                'value must be a dict or None.')
 
         return auth_override
 
@@ -916,7 +915,7 @@ class _Client(_http_client.JsonHttpClient):
         Raises:
           FirebaseError: If an error occurs while making the HTTP call.
         """
-        query = '&'.join('{0}={1}'.format(key, self.params[key]) for key in self.params)
+        query = '&'.join(f'{key}={value}' for key, value in self.params.items())
         extra_params = kwargs.get('params')
         if extra_params:
             if query:
@@ -926,7 +925,7 @@ class _Client(_http_client.JsonHttpClient):
         kwargs['params'] = query
 
         try:
-            return super(_Client, self).request(method, url, **kwargs)
+            return super().request(method, url, **kwargs)
         except requests.exceptions.RequestException as error:
             raise _Client.handle_rtdb_error(error)
 
@@ -961,6 +960,6 @@ class _Client(_http_client.JsonHttpClient):
             pass
 
         if not message:
-            message = 'Unexpected response from database: {0}'.format(response.content.decode())
+            message = f'Unexpected response from database: {response.content.decode()}'
 
         return message

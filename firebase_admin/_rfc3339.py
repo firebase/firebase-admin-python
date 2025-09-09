@@ -84,4 +84,4 @@ def _parse_to_datetime(datestr):
     except ValueError:
         pass
 
-    raise ValueError('time data {0} does not match RFC3339 format'.format(datestr))
+    raise ValueError(f'time data {datestr} does not match RFC3339 format')

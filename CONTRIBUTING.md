@@ -85,7 +85,7 @@ information on using pull requests.
 
 ### Initial Setup
 
-You need Python 3.8+ to build and test the code in this repo.
+You need Python 3.9+ to build and test the code in this repo.
 
 We recommend using [pip](https://pypi.python.org/pypi/pip) for installing the necessary tools and
 project dependencies. Most recent versions of Python ship with pip. If your development environment

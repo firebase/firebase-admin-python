@@ -48,8 +48,8 @@ MOCK_PRIVATE_KEY = testutils.resource('private_key.pem')
 MOCK_SERVICE_ACCOUNT_EMAIL = MOCK_CREDENTIAL.service_account_email
 MOCK_REQUEST = testutils.MockRequest(200, MOCK_PUBLIC_CERTS)
 
-INVALID_STRINGS = [None, '', 0, 1, True, False, list(), tuple(), dict()]
-INVALID_BOOLS = [None, '', 'foo', 0, 1, list(), tuple(), dict()]
+INVALID_STRINGS = [None, '', 0, 1, True, False, [], tuple(), {}]
+INVALID_BOOLS = [None, '', 'foo', 0, 1, [], tuple(), {}]
 INVALID_JWT_ARGS = {
     'NoneToken': None,
     'EmptyToken': '',
@@ -63,7 +63,7 @@ INVALID_JWT_ARGS = {
 ID_TOOLKIT_URL = 'https://identitytoolkit.googleapis.com/v1'
 EMULATOR_HOST_ENV_VAR = 'FIREBASE_AUTH_EMULATOR_HOST'
 AUTH_EMULATOR_HOST = 'localhost:9099'
-EMULATED_ID_TOOLKIT_URL = 'http://{}/identitytoolkit.googleapis.com/v1'.format(AUTH_EMULATOR_HOST)
+EMULATED_ID_TOOLKIT_URL = f'http://{AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1'
 TOKEN_MGT_URLS = {
     'ID_TOOLKIT': ID_TOOLKIT_URL,
 }
@@ -136,8 +136,9 @@ def _get_session_cookie(
         payload_overrides=None, header_overrides=None, current_time=MOCK_CURRENT_TIME):
     payload_overrides = payload_overrides or {}
     if 'iss' not in payload_overrides:
-        payload_overrides['iss'] = 'https://session.firebase.google.com/{0}'.format(
-            MOCK_CREDENTIAL.project_id)
+        payload_overrides['iss'] = (
+            f'https://session.firebase.google.com/{MOCK_CREDENTIAL.project_id}'
+        )
     return _get_id_token(payload_overrides, header_overrides, current_time=current_time)
 
 def _instrument_user_manager(app, status, payload):
@@ -282,7 +283,7 @@ class TestCreateCustomToken:
             testutils.MockCredential(), name='iam-signer-app', options=options)
         try:
             signature = base64.b64encode(b'test').decode()
-            iam_resp = '{{"signedBlob": "{0}"}}'.format(signature)
+            iam_resp = json.dumps({'signedBlob': signature})
             _overwrite_iam_request(app, testutils.MockRequest(200, iam_resp))
             custom_token = auth.create_custom_token(MOCK_UID, app=app).decode()
             assert custom_token.endswith('.' + signature.rstrip('='))
@@ -319,8 +320,7 @@ class TestCreateCustomToken:
 
             # Now invoke the IAM signer.
             signature = base64.b64encode(b'test').decode()
-            request.response = testutils.MockResponse(
-                200, '{{"signedBlob": "{0}"}}'.format(signature))
+            request.response = testutils.MockResponse(200, json.dumps({'signedBlob': signature}))
             custom_token = auth.create_custom_token(MOCK_UID, app=app).decode()
             assert custom_token.endswith('.' + signature.rstrip('='))
             self._verify_signer(custom_token, 'discovered-service-account')
@@ -354,13 +354,13 @@ class TestCreateCustomToken:
 
 class TestCreateSessionCookie:
 
-    @pytest.mark.parametrize('id_token', [None, '', 0, 1, True, False, list(), dict(), tuple()])
+    @pytest.mark.parametrize('id_token', [None, '', 0, 1, True, False, [], {}, tuple()])
     def test_invalid_id_token(self, user_mgt_app, id_token):
         with pytest.raises(ValueError):
             auth.create_session_cookie(id_token, expires_in=3600, app=user_mgt_app)
 
     @pytest.mark.parametrize('expires_in', [
-        None, '', True, False, list(), dict(), tuple(),
+        None, '', True, False, [], {}, tuple(),
         _token_gen.MIN_SESSION_COOKIE_DURATION_SECONDS - 1,
         _token_gen.MAX_SESSION_COOKIE_DURATION_SECONDS + 1,
     ])

@@ -545,7 +545,7 @@ class TestTimeout(BaseProjectManagementTest):
             'projectId': 'test-project-id'
         }
         app = firebase_admin.initialize_app(
-            testutils.MockCredential(), options, 'timeout-{0}'.format(timeout))
+            testutils.MockCredential(), options, f'timeout-{timeout}')
         project_management_service = project_management._get_project_management_service(app)
         assert project_management_service._client.timeout == timeout
 
@@ -820,7 +820,7 @@ class TestListAndroidApps(BaseProjectManagementTest):
         assert len(recorder) == 1
 
     def test_list_android_apps_empty_list(self):
-        recorder = self._instrument_service(statuses=[200], responses=[json.dumps(dict())])
+        recorder = self._instrument_service(statuses=[200], responses=[json.dumps({})])
 
         android_apps = project_management.list_android_apps()
 
@@ -883,7 +883,7 @@ class TestListIOSApps(BaseProjectManagementTest):
         assert len(recorder) == 1
 
     def test_list_ios_apps_empty_list(self):
-        recorder = self._instrument_service(statuses=[200], responses=[json.dumps(dict())])
+        recorder = self._instrument_service(statuses=[200], responses=[json.dumps({})])
 
         ios_apps = project_management.list_ios_apps()
 

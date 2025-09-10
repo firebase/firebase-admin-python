@@ -14,10 +14,13 @@
 
 """Parse RFC3339 date strings"""
 
-from datetime import datetime, timezone
+import datetime
 import re
 
-def parse_to_epoch(datestr):
+__all__ = ('parse_to_epoch',)
+
+
+def parse_to_epoch(datestr: str) -> float:
     """Parse an RFC3339 date string and return the number of seconds since the
     epoch (as a float).
 
@@ -37,7 +40,7 @@ def parse_to_epoch(datestr):
     return _parse_to_datetime(datestr).timestamp()
 
 
-def _parse_to_datetime(datestr):
+def _parse_to_datetime(datestr: str) -> datetime.datetime:
     """Parse an RFC3339 date string and return a python datetime instance.
 
     Args:
@@ -55,16 +58,16 @@ def _parse_to_datetime(datestr):
     # This format is the one we actually expect to occur from our backend. The
     # others are only present because the spec says we *should* accept them.
     try:
-        return datetime.strptime(
+        return datetime.datetime.strptime(
             datestr_modified, '%Y-%m-%dT%H:%M:%S.%fZ'
-        ).replace(tzinfo=timezone.utc)
+        ).replace(tzinfo=datetime.timezone.utc)
     except ValueError:
         pass
 
     try:
-        return datetime.strptime(
+        return datetime.datetime.strptime(
             datestr_modified, '%Y-%m-%dT%H:%M:%SZ'
-        ).replace(tzinfo=timezone.utc)
+        ).replace(tzinfo=datetime.timezone.utc)
     except ValueError:
         pass
 
@@ -75,12 +78,12 @@ def _parse_to_datetime(datestr):
     datestr_modified = re.sub(r'(\d\d):(\d\d)$', r'\1\2', datestr_modified)
 
     try:
-        return datetime.strptime(datestr_modified, '%Y-%m-%dT%H:%M:%S.%f%z')
+        return datetime.datetime.strptime(datestr_modified, '%Y-%m-%dT%H:%M:%S.%f%z')
     except ValueError:
         pass
 
     try:
-        return datetime.strptime(datestr_modified, '%Y-%m-%dT%H:%M:%S%z')
+        return datetime.datetime.strptime(datestr_modified, '%Y-%m-%dT%H:%M:%S%z')
     except ValueError:
         pass
 

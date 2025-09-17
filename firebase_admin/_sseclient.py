@@ -20,58 +20,67 @@ Based on a similar implementation from Pyrebase.
 import re
 import time
 import warnings
+from collections.abc import Iterator
+from typing import Any, Optional
+from typing_extensions import Self
 
-from google.auth import transport
+import google.auth.credentials
+import google.auth.transport.requests
 import requests
 
+__all__ = (
+    'Event',
+    'KeepAuthSession',
+    'SSEClient',
+)
 
 # Technically, we should support streams that mix line endings.  This regex,
 # however, assumes that a system will provide consistent line endings.
 end_of_field = re.compile(r'\r\n\r\n|\r\r|\n\n')
 
 
-class KeepAuthSession(transport.requests.AuthorizedSession):
+class KeepAuthSession(google.auth.transport.requests.AuthorizedSession):
     """A session that does not drop authentication on redirects between domains."""
 
-    def __init__(self, credential):
+    def __init__(self, credential: Optional[google.auth.credentials.Credentials]) -> None:
         super().__init__(credential)
 
-    def rebuild_auth(self, prepared_request, response):
+    def rebuild_auth(self, prepared_request: requests.PreparedRequest, response: requests.Response) -> None:
         pass
 
 
 class _EventBuffer:
     """A helper class for buffering and parsing raw SSE data."""
 
-    def __init__(self):
-        self._buffer = []
+    def __init__(self) -> None:
+        self._buffer: list[str] = []
         self._tail = ''
 
-    def append(self, char):
+    def append(self, char: str) -> None:
         self._buffer.append(char)
         self._tail += char
         self._tail = self._tail[-4:]
 
-    def truncate(self):
+    def truncate(self) -> None:
         head, sep, _ = self.buffer_string.rpartition('\n')
         rem = head + sep
         self._buffer = list(rem)
         self._tail = rem[-4:]
 
     @property
-    def is_end_of_field(self):
+    def is_end_of_field(self) -> bool:
         last_two_chars = self._tail[-2:]
         return last_two_chars == '\n\n' or last_two_chars == '\r\r' or self._tail == '\r\n\r\n'
 
     @property
-    def buffer_string(self):
+    def buffer_string(self) -> str:
         return ''.join(self._buffer)
 
 
 class SSEClient:
     """SSE client implementation."""
 
-    def __init__(self, url, session, retry=3000, **kwargs):
+    def __init__(self, url: str, session: requests.Session, retry: int = 3000, **kwargs: Any) -> None:
         """Initializes the SSEClient.
 
         Args:
@@ -85,7 +94,7 @@ class SSEClient:
         self.retry = retry
         self.requests_kwargs = kwargs
         self.should_connect = True
-        self.last_id = None
+        self.last_id: Optional[str] = None
         self.buf = '' # Keep data here as it streams in
 
         headers = self.requests_kwargs.get('headers', {})
@@ -96,13 +105,13 @@ class SSEClient:
         self.requests_kwargs['headers'] = headers
         self._connect()
 
-    def close(self):
+    def close(self) -> None:
         """Closes the SSEClient instance."""
         self.should_connect = False
         self.retry = 0
         self.resp.close()
 
-    def _connect(self):
+    def _connect(self) -> None:
         """Connects to the server using requests."""
         if self.should_connect:
             if self.last_id:
@@ -113,10 +122,10 @@ class SSEClient:
         else:
             raise StopIteration()
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Optional['Event']]:
         return self
 
-    def __next__(self):
+    def __next__(self) -> Optional['Event']:
         if not re.search(end_of_field, self.buf):
             temp_buffer = _EventBuffer()
             while not temp_buffer.is_end_of_field:
@@ -153,20 +162,29 @@ class SSEClient:
             self.last_id = event.event_id
         return event
 
+    def next(self) -> Optional['Event']:
+        return next(self)
+
 
 class Event:
     """Event represents the events fired by SSE."""
 
     sse_line_pattern = re.compile('(?P<name>[^:]*):?( ?(?P<value>.*))?')
 
-    def __init__(self, data='', event_type='message', event_id=None, retry=None):
+    def __init__(
+        self,
+        data: str = '',
+        event_type: str = 'message',
+        event_id: Optional[str] = None,
+        retry: Optional[int] = None,
+    ) -> None:
         self.data = data
         self.event_type = event_type
         self.event_id = event_id
         self.retry = retry
 
     @classmethod
-    def parse(cls, raw):
+    def parse(cls, raw: str) -> Self:
         """Given a possibly-multiline string representing an SSE message, parses it
         and returns an Event object.
 

@@ -479,7 +479,7 @@ def _parse_error_body(response):
         separator = code.find(':')
         if separator != -1:
             custom_message = code[separator + 1:].strip()
-            code = code[:separator]
+            code = code[:separator].strip()
 
     return code, custom_message
 

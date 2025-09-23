@@ -37,7 +37,7 @@ _scopes = [
 AccessTokenInfo = collections.namedtuple('AccessTokenInfo', ['access_token', 'expiry'])
 """Data included in an OAuth2 access token.
 
-Contains the access token string and the expiry time. The expirty time is exposed as a
+Contains the access token string and the expiry time. The expiry time is exposed as a
 ``datetime`` value.
 """
 

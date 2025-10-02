@@ -651,7 +651,8 @@ def generate_sign_in_with_email_link(email, action_code_settings, app=None):
         email, action_code_settings=action_code_settings)
 
 
-def withdraw_mfa_enrollment(uid: str, mfa_enrollment_id: str, api_key: str, tenant_id: str | None = None, app=None) -> dict:
+def withdraw_mfa_enrollment(uid: str, mfa_enrollment_id: str, api_key: str,
+                            tenant_id: str | None = None, app=None) -> dict:
     """Withdraw (reset) a second factor for the given user.
 
     This performs an admin-initiated reset by minting a Custom Token for the user,
@@ -957,4 +958,4 @@ def list_saml_provider_configs(
     """
     client = _get_client(app)
     return client.list_saml_provider_configs(page_token, max_results)
-
+    

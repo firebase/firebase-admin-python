@@ -14,32 +14,41 @@
 
 """Firebase auth MFA management sub module."""
 
-import requests
 import typing as _t
-
+import requests
 from firebase_admin import _auth_client
 from firebase_admin import _utils
 from firebase_admin import exceptions
 
-_AUTH_ATTRIBUTE = '_auth'
+_AUTH_ATTRIBUTE = "_auth"
+
 
 class MfaError(exceptions.FirebaseError):
     """Represents an error related to MFA operations."""
+
     def __init__(self, message, cause=None, http_response=None):
-        exceptions.FirebaseError.__init__(self, 'MFA_ERROR', message, cause, http_response)
+        exceptions.FirebaseError.__init__(
+            self, "MFA_ERROR", message, cause, http_response
+        )
 
-def _to_text(b: _t.Union[str, bytes]) -> str:
-    return b.decode("utf-8") if isinstance(b, (bytes, bytearray)) else str(b)
+
+def _to_text(byte_or_str: _t.Union[str, bytes]) -> str:
+    if isinstance(byte_or_str, (bytes, bytearray)):
+        return byte_or_str.decode("utf-8")
+    return str(byte_or_str)
 
 
-def _signin_with_custom_token(*, api_key: str, custom_token: str, tenant_id: str | None) -> str:
-    """
-    Exchange a Custom Token for an ID token.
+def _signin_with_custom_token(
+    *, api_key: str, custom_token: str, tenant_id: str | None
+) -> str:
+    """Exchange a Custom Token for an ID token.
 
     Uses: POST https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=API_KEY
     """
     if not api_key:
-        raise ValueError("api_key must be provided (Web API key from Firebase project settings).")
+        raise ValueError(
+            "api_key must be provided (Web API key from Firebase project settings)."
+        )
 
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key={api_key}"
     payload = {
@@ -50,15 +59,15 @@ def _signin_with_custom_token(*, api_key: str, custom_token: str, tenant_id: str
         payload["tenantId"] = tenant_id
 
     try:
-        r = requests.post(url, json=payload, timeout=30)
-        r.raise_for_status()
-        data = r.json()
+        response = requests.post(url, json=payload, timeout=30)
+        response.raise_for_status()
+        data = response.json()
         if "idToken" not in data:
-            raise MfaError(f"Failed to exchange custom token for ID token: {data.get('error', 'Unknown error')}", http_response=r)
+            raise MfaError("Failed to exchange custom token", http_response=response)
         return data["idToken"]
-    except requests.exceptions.RequestException as e:
-        message = f"Failed to exchange custom token for ID token: {e}"
-        raise MfaError(message, cause=e, http_response=e.response) from e
+    except requests.exceptions.RequestException as error:
+        message = f"Failed to exchange custom token for ID token: {error}"
+        raise MfaError(message, cause=error, http_response=error.response) from error
 
 
 def withdraw_mfa_enrollment(
@@ -69,18 +78,17 @@ def withdraw_mfa_enrollment(
     tenant_id: str | None = None,
     app=None,
 ) -> dict:
-    """
-    Withdraw (reset) a user's enrolled second factor by enrollment ID.
+    """Withdraw (reset) a user's enrolled second factor by enrollment ID.
 
     Args:
-        uid:           Firebase Auth UID of the user to act on.
+        uid: Firebase Auth UID of the user to act on.
         mfa_enrollment_id: Enrollment ID of the second factor to revoke.
-        api_key:       Web API key (from Firebase console) used by signInWithCustomToken.
-        tenant_id:     Optional Tenant ID if using multi-tenancy.
-        app:           Optional firebase_admin App instance.
+        api_key: Web API key (from Firebase console) used by signInWithCustomToken.
+        tenant_id: Optional Tenant ID if using multi-tenancy.
+        app: Optional firebase_admin App instance.
 
     Returns:
-        dict response from accounts.mfaEnrollment:withdraw (typically contains updated user info).
+        dict response from accounts.mfaEnrollment:withdraw (contains updated user info).
 
     Raises:
         MfaError on failure.
@@ -95,21 +103,24 @@ def withdraw_mfa_enrollment(
     custom_token = _to_text(client.create_custom_token(uid))
 
     # 2) Exchange Custom Token → ID token (requires API key)
-    id_token = _signin_with_custom_token(api_key=api_key, custom_token=custom_token, tenant_id=tenant_id)
+    id_token = _signin_with_custom_token(
+        api_key=api_key, custom_token=custom_token, tenant_id=tenant_id
+    )
 
     # 3) Withdraw MFA with the ID token
-    withdraw_url = "https://identitytoolkit.googleapis.com/v2/accounts/mfaEnrollment:withdraw"
-    if api_key:
-        withdraw_url += f"?key={api_key}"  # optional, but fine to append
+    base_url = (
+        "https://identitytoolkit.googleapis.com/v2/accounts/mfaEnrollment:withdraw"
+    )
+    withdraw_url = f"{base_url}?key={api_key}" if api_key else base_url
 
     payload = {"idToken": id_token, "mfaEnrollmentId": mfa_enrollment_id}
     if tenant_id:
         payload["tenantId"] = tenant_id
 
     try:
-        r = requests.post(withdraw_url, json=payload, timeout=30)
-        r.raise_for_status()
-        return r.json()
-    except requests.exceptions.RequestException as e:
-        message = f"Failed to withdraw MFA enrollment: {e}"
-        raise MfaError(message, cause=e, http_response=e.response) from e
+        response = requests.post(withdraw_url, json=payload, timeout=30)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as error:
+        message = f"Failed to withdraw MFA enrollment: {error}"
+        raise MfaError(message, cause=error, http_response=error.response) from error

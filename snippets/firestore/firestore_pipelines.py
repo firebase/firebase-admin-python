@@ -46,7 +46,7 @@ def pipeline_concepts():
     # [START pipeline_concepts]
     pipeline = client.pipeline() \
         .collection("cities") \
-        .where(Field.of("population").greater_than(100000)) \
+        .where(Field.of("population").greater_than(100_000)) \
         .sort(Field.of("name").ascending()) \
         .limit(10)
     # [END pipeline_concepts]
@@ -56,7 +56,11 @@ def basic_read():
     # [START basic_read]
     pipeline = client.pipeline().collection("users")
     for result in pipeline.execute():
-        print(result.id + " => " + result.data)
+        print(f"{result.id} => {result.data()}")
+    # or, asynchronously
+    result_stream = pipeline.stream()
+    async for result in result_stream:
+        print(f"{result.id} => {result.data()}")
     # [END basic_read]
 
 def pipeline_initialization():
@@ -70,7 +74,7 @@ def field_vs_constants():
     # [START field_or_constant]
     pipeline = client.pipeline() \
         .collection("cities") \
-        .where(Field.of("name").equal(Constant("Toronto")))
+        .where(Field.of("name").equal(Constant.of("Toronto")))
     # [END field_or_constant]
     print(pipeline)
 
@@ -97,6 +101,8 @@ def input_stages():
 
 def where_pipeline():
     # [START pipeline_where]
+    from google.cloud.firestore_v1.pipeline_expressions import (And, Field)
+
     results = client.pipeline().collection("books") \
         .where(Field.of("rating").equal(5)) \
         .where(Field.of("published").less_than(1900)) \
@@ -106,53 +112,57 @@ def where_pipeline():
         .where(And(
             Field.of("rating").equal(5),
             Field.of("published").less_than(1900)
-        )) \
-        .execute()
+        )).execute()
     # [END pipeline_where]
     for result in results:
         print(result)
 
 def aggregate_groups():
     # [START aggregate_groups]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     results = client.pipeline() \
         .collection("books") \
         .aggregate(
             Field.of("rating").average().as_("avg_rating"),
             groups=[Field.of("genre")]
-        ) \
-        .execute()
+        ).execute()
     # [END aggregate_groups]
     for result in results:
         print(result)
 
 def aggregate_distinct():
     # [START aggregate_distinct]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     results = client.pipeline() \
         .collection("books") \
         .distinct(
             Field.of("author").to_upper().as_("author"),
             "genre"
-        ) \
-        .execute()
+        ).execute()
     # [END aggregate_distinct]
     for result in results:
         print(result)
 
 def sort():
     # [START sort]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     results = client.pipeline() \
         .collection("books") \
         .sort(
             Field.of("release_date").descending(),
             Field.of("author").ascending()
-        ) \
-        .execute()
+        ).execute()
     # [END sort]
     for result in results:
         print(result)
 
 def sort_comparison():
     # [START sort_comparison]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     query = client.collection("cities") \
         .order_by("state") \
         .order_by("population", direction=Query.DESCENDING)
@@ -169,13 +179,14 @@ def sort_comparison():
 
 def functions_example():
     # [START functions_example]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     # Type 1: Scalar (for use in non-aggregation stages)
     # Example: Return the min store price for each book.
     results = client.pipeline().collection("books") \
         .select(
             Field.of("current").logical_minimum(Field.of("updated")).as_("price_min")
-        ) \
-        .execute()
+        ).execute()
 
     # Type 2: Aggregation (for use in aggregate stages)
     # Example: Return the min price of all books.
@@ -188,6 +199,8 @@ def functions_example():
 
 def creating_indexes():
     # [START query_example]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     results = client.pipeline() \
         .collection("books") \
         .where(Field.of("published").less_than(1900)) \
@@ -201,6 +214,8 @@ def creating_indexes():
 
 def sparse_indexes():
     # [START sparse_index_example]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     results = client.pipeline() \
         .collection("books") \
         .where(Field.of("category").like("%fantasy%")) \
@@ -211,6 +226,8 @@ def sparse_indexes():
 
 def sparse_indexes2():
     # [START sparse_index_example_2]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     results = client.pipeline() \
         .collection("books") \
         .sort(Field.of("release_date").ascending()) \
@@ -221,6 +238,8 @@ def sparse_indexes2():
 
 def covered_query():
     # [START covered_query]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     results = client.pipeline() \
         .collection("books") \
         .where(Field.of("category").like("%fantasy%")) \
@@ -234,15 +253,17 @@ def covered_query():
 
 def pagination():
     # [START pagination_not_supported_preview]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     # Existing pagination via `start_at()`
     query = client.collection("cities").order_by("population").start_at({
-        "population": 1000000
+        "population": 1_000_000
     })
 
     # Private preview workaround using pipelines
     pipeline = client.pipeline() \
         .collection("cities") \
-        .where(Field.of("population").greater_than_or_equal(1000000)) \
+        .where(Field.of("population").greater_than_or_equal(1_000_000)) \
         .sort(Field.of("population").descending())
     # [END pagination_not_supported_preview]
     print(query)
@@ -250,6 +271,8 @@ def pagination():
 
 def collection_stage():
     # [START collection_example]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     results = client.pipeline() \
         .collection("users/bob/games") \
         .sort(Field.of("name").ascending()) \
@@ -260,6 +283,8 @@ def collection_stage():
 
 def collection_group_stage():
     # [START collection_group_example]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     results = client.pipeline() \
         .collection_group("games") \
         .sort(Field.of("name").ascending()) \
@@ -270,6 +295,8 @@ def collection_group_stage():
 
 def database_stage():
     # [START database_example]
+    from google.cloud.firestore_v1.pipeline_expressions import Count
+
     # Count all documents in the database
     results = client.pipeline() \
         .database() \
@@ -294,7 +321,7 @@ def replace_with_stage():
     # [START initial_data]
     client.collection("cities").document("SF").set({
         "name": "San Francisco",
-        "population": 800000,
+        "population": 800_000,
         "location": {
             "country": "USA",
             "state": "California"
@@ -302,7 +329,7 @@ def replace_with_stage():
     })
     client.collection("cities").document("TO").set({
         "name": "Toronto",
-        "population": 3000000,
+        "population": 3_000_000,
         "province": "ON",
         "location": {
             "country": "Canada",
@@ -311,6 +338,7 @@ def replace_with_stage():
     })
     client.collection("cities").document("NY").set({
         "name": "New York",
+        "population": 8_500_000,
         "location": {
             "country": "USA",
             "state": "New York"
@@ -322,6 +350,8 @@ def replace_with_stage():
     # [END initial_data]
 
     # [START full_replace]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     names = client.pipeline() \
         .collection("cities") \
         .replace_with(Field.of("location")) \
@@ -357,6 +387,8 @@ def sample_stage():
 
 def sample_percent():
     # [START sample_percent]
+    from google.cloud.firestore_v1.pipeline_stages import SampleOptions
+
     # Get a sample of on average 50% of the documents in the database
     results = client.pipeline() \
         .database() \
@@ -368,6 +400,8 @@ def sample_percent():
 
 def union_stage():
     # [START union_stage]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     results = client.pipeline() \
         .collection("cities/SF/restaurants") \
         .where(Field.of("type").equal("Chinese")) \
@@ -383,6 +417,8 @@ def union_stage():
 
 def union_stage_stable():
     # [START union_stage_stable]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     results = client.pipeline() \
         .collection("cities/SF/restaurants") \
         .where(Field.of("type").equal("Chinese")) \
@@ -398,6 +434,9 @@ def union_stage_stable():
 
 def unnest_stage():
     # [START unnest_stage]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+    from google.cloud.firestore_v1.pipeline_stages import UnnestOptions
+
     results = client.pipeline() \
         .database() \
         .unnest(Field.of("arrayField").as_("unnestedArrayField"), \
@@ -409,6 +448,9 @@ def unnest_stage():
 
 def unnest_stage_empty_or_non_array():
     # [START unnest_edge_cases]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+    from google.cloud.firestore_v1.pipeline_stages import UnnestOptions
+
     # Input
     # { "identifier" : 1, "neighbors": [ "Alice", "Cathy" ] }
     # { "identifier" : 2, "neighbors": []                   }
@@ -432,6 +474,8 @@ def unnest_stage_empty_or_non_array():
 
 def count_function():
     # [START count_function]
+    from google.cloud.firestore_v1.pipeline_expressions import Count
+
     # Total number of books in the collection
     count_all = client.pipeline() \
         .collection("books") \
@@ -451,18 +495,21 @@ def count_function():
 
 def count_if_function():
     # [START count_if]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .aggregate(
             Field.of("rating").greater_than(4).count_if().as_("filteredCount")
-        ) \
-        .execute()
+        ).execute()
     # [END count_if]
     for res in result:
         print(res)
 
 def count_distinct_function():
     # [START count_distinct]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .aggregate(Field.of("author").count_distinct().as_("unique_authors")) \
@@ -473,6 +520,8 @@ def count_distinct_function():
 
 def sum_function():
     # [START sum_function]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("cities") \
         .aggregate(Field.of("population").sum().as_("totalPopulation")) \
@@ -483,6 +532,8 @@ def sum_function():
 
 def avg_function():
     # [START avg_function]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("cities") \
         .aggregate(Field.of("population").average().as_("averagePopulation")) \
@@ -493,6 +544,8 @@ def avg_function():
 
 def min_function():
     # [START min_function]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .aggregate(Field.of("price").minimum().as_("minimumPrice")) \
@@ -503,6 +556,8 @@ def min_function():
 
 def max_function():
     # [START max_function]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .aggregate(Field.of("price").maximum().as_("maximumPrice")) \
@@ -513,6 +568,8 @@ def max_function():
 
 def add_function():
     # [START add_function]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(Field.of("soldBooks").add(Field.of("unsoldBooks")).as_("totalBooks")) \
@@ -523,6 +580,8 @@ def add_function():
 
 def subtract_function():
     # [START subtract_function]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     store_credit = 7
     result = client.pipeline() \
         .collection("books") \
@@ -534,6 +593,8 @@ def subtract_function():
 
 def multiply_function():
     # [START multiply_function]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(Field.of("price").multiply(Field.of("soldBooks")).as_("revenue")) \
@@ -544,6 +605,8 @@ def multiply_function():
 
 def divide_function():
     # [START divide_function]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(Field.of("ratings").divide(Field.of("soldBooks")).as_("reviewRate")) \
@@ -554,6 +617,8 @@ def divide_function():
 
 def mod_function():
     # [START mod_function]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     display_capacity = 1000
     result = client.pipeline() \
         .collection("books") \
@@ -565,31 +630,35 @@ def mod_function():
 
 def ceil_function():
     # [START ceil_function]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     books_per_shelf = 100
     result = client.pipeline() \
         .collection("books") \
         .select(
             Field.of("unsoldBooks").divide(books_per_shelf).ceil().as_("requiredShelves")
-        ) \
-        .execute()
+        ).execute()
     # [END ceil_function]
     for res in result:
         print(res)
 
 def floor_function():
     # [START floor_function]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .add_fields(
             Field.of("wordCount").divide(Field.of("pages")).floor().as_("wordsPerPage")
-        ) \
-        .execute()
+        ).execute()
     # [END floor_function]
     for res in result:
         print(res)
 
 def round_function():
     # [START round_function]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(Field.of("soldBooks").multiply(Field.of("price")).round().as_("partialRevenue")) \
@@ -601,6 +670,8 @@ def round_function():
 
 def pow_function():
     # [START pow_function]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     googleplexLat = 37.4221
     googleplexLng = -122.0853
     result = client.pipeline() \
@@ -619,14 +690,15 @@ def pow_function():
             Field.of("latitudeDifference").add(Field.of("longitudeDifference")).sqrt()
                 # Inaccurate for large distances or close to poles
                 .as_("approximateDistanceToGoogle")
-        ) \
-        .execute()
+        ).execute()
     # [END pow_function]
     for res in result:
         print(res)
 
 def sqrt_function():
     # [START sqrt_function]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     googleplexLat = 37.4221
     googleplexLng = -122.0853
     result = client.pipeline() \
@@ -645,14 +717,15 @@ def sqrt_function():
             Field.of("latitudeDifference").add(Field.of("longitudeDifference")).sqrt()
                 # Inaccurate for large distances or close to poles
                 .as_("approximateDistanceToGoogle")
-        ) \
-        .execute()
+        ).execute()
     # [END sqrt_function]
     for res in result:
         print(res)
 
 def exp_function():
     # [START exp_function]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(Field.of("rating").exp().as_("expRating")) \
@@ -663,6 +736,8 @@ def exp_function():
 
 def ln_function():
     # [START ln_function]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(Field.of("rating").ln().as_("lnRating")) \
@@ -673,12 +748,20 @@ def ln_function():
 
 def log_function():
     # [START log_function]
-    # Not supported on Python
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
+    result = client.pipeline() \
+        .collection("books") \
+        .select(Field.of("rating").log(2).as_("log2Rating")) \
+        .execute()
     # [END log_function]
-    pass
+    for res in result:
+        print(res)
 
 def array_concat():
     # [START array_concat]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(Field.of("genre").array_concat(Field.of("subGenre")).as_("allGenres")) \
@@ -689,6 +772,8 @@ def array_concat():
 
 def array_contains():
     # [START array_contains]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(Field.of("genre").array_contains("mystery").as_("isMystery")) \
@@ -699,34 +784,38 @@ def array_contains():
 
 def array_contains_all():
     # [START array_contains_all]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(
             Field.of("genre")
                 .array_contains_all(["fantasy", "adventure"])
                 .as_("isFantasyAdventure")
-        ) \
-        .execute()
+        ).execute()
     # [END array_contains_all]
     for res in result:
         print(res)
 
 def array_contains_any():
     # [START array_contains_any]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(
             Field.of("genre")
                 .array_contains_any(["fantasy", "nonfiction"])
                 .as_("isMysteryOrFantasy")
-        ) \
-        .execute()
+        ).execute()
     # [END array_contains_any]
     for res in result:
         print(res)
 
 def array_length():
     # [START array_length]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(Field.of("genre").array_length().as_("genreCount")) \
@@ -737,6 +826,8 @@ def array_length():
 
 def array_reverse():
     # [START array_reverse]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(Field.of("genre").array_reverse().as_("reversedGenres")) \
@@ -747,6 +838,8 @@ def array_reverse():
 
 def equal_function():
     # [START equal_function]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(Field.of("rating").equal(5).as_("hasPerfectRating")) \
@@ -757,6 +850,8 @@ def equal_function():
 
 def greater_than_function():
     # [START greater_than]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(Field.of("rating").greater_than(4).as_("hasHighRating")) \
@@ -767,6 +862,8 @@ def greater_than_function():
 
 def greater_than_or_equal_to_function():
     # [START greater_or_equal]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(Field.of("published").greater_than_or_equal(1900).as_("publishedIn20thCentury")) \
@@ -777,6 +874,8 @@ def greater_than_or_equal_to_function():
 
 def less_than_function():
     # [START less_than]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(Field.of("published").less_than(1923).as_("isPublicDomainProbably")) \
@@ -787,6 +886,8 @@ def less_than_function():
 
 def less_than_or_equal_to_function():
     # [START less_or_equal]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(Field.of("rating").less_than_or_equal(2).as_("hasBadRating")) \
@@ -797,6 +898,8 @@ def less_than_or_equal_to_function():
 
 def not_equal_function():
     # [START not_equal]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(Field.of("title").not_equal("1984").as_("not1984")) \
@@ -807,6 +910,8 @@ def not_equal_function():
 
 def exists_function():
     # [START exists_function]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(Field.of("rating").exists().as_("hasRating")) \
@@ -817,6 +922,8 @@ def exists_function():
 
 def and_function():
     # [START and_function]
+    from google.cloud.firestore_v1.pipeline_expressions import (Field, And)
+
     result = client.pipeline() \
         .collection("books") \
         .select(
@@ -824,14 +931,15 @@ def and_function():
                 Field.of("rating").greater_than(4),
                 Field.of("price").less_than(10)
             ).as_("under10Recommendation")
-        ) \
-        .execute()
+        ).execute()
     # [END and_function]
     for res in result:
         print(res)
 
 def or_function():
     # [START or_function]
+    from google.cloud.firestore_v1.pipeline_expressions import (Field, And)
+
     result = client.pipeline() \
         .collection("books") \
         .select(
@@ -839,14 +947,15 @@ def or_function():
                 Field.of("genre").equal("Fantasy"),
                 Field.of("tags").array_contains("adventure")
             ).as_("matchesSearchFilters")
-        ) \
-        .execute()
+        ).execute()
     # [END or_function]
     for res in result:
         print(res)
 
 def xor_function():
     # [START xor_function]
+    from google.cloud.firestore_v1.pipeline_expressions import (Field, Xor)
+
     result = client.pipeline() \
         .collection("books") \
         .select(
@@ -854,281 +963,301 @@ def xor_function():
                 Field.of("tags").array_contains("magic"),
                 Field.of("tags").array_contains("nonfiction")
             ]).as_("matchesSearchFilters")
-        ) \
-        .execute()
+        ).execute()
     # [END xor_function]
     for res in result:
         print(res)
 
 def not_function():
     # [START not_function]
+    from google.cloud.firestore_v1.pipeline_expressions import (Field, Not)
+
     result = client.pipeline() \
         .collection("books") \
         .select(
             Not(
                 Field.of("tags").array_contains("nonfiction")
             ).as_("isFiction")
-        ) \
-        .execute()
+        ).execute()
     # [END not_function]
     for res in result:
         print(res)
 
 def cond_function():
     # [START cond_function]
+    from google.cloud.firestore_v1.pipeline_expressions import (Field, Constant, Conditional)
+
     result = client.pipeline() \
         .collection("books") \
         .select(
             Field.of("tags").array_concat(
                 Conditional(
                     Field.of("pages").greater_than(100),
-                    Constant("longRead"),
-                    Constant("shortRead")
+                    Constant.of("longRead"),
+                    Constant.of("shortRead")
                 )
             ).as_("extendedTags")
-        ) \
-        .execute()
+        ).execute()
     # [END cond_function]
     for res in result:
         print(res)
 
 def equal_any_function():
     # [START eq_any]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(
             Field.of("genre").equal_any(["Science Fiction", "Psychological Thriller"])
                 .as_("matchesGenreFilters")
-        ) \
-        .execute()
+        ).execute()
     # [END eq_any]
     for res in result:
         print(res)
 
 def not_equal_any_function():
     # [START not_eq_any]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(
             Field.of("author").not_equal_any(["George Orwell", "F. Scott Fitzgerald"])
                 .as_("byExcludedAuthors")
-        ) \
-        .execute()
+        ).execute()
     # [END not_eq_any]
     for res in result:
         print(res)
 
 def max_logical_function():
     # [START max_logical_function]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(
             Field.of("rating").logical_maximum(1).as_("flooredRating")
-        ) \
-        .execute()
+        ).execute()
     # [END max_logical_function]
     for res in result:
         print(res)
 
 def min_logical_function():
     # [START min_logical_function]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(
             Field.of("rating").logical_minimum(5).as_("cappedRating")
-        ) \
-        .execute()
+        ).execute()
     # [END min_logical_function]
     for res in result:
         print(res)
 
 def map_get_function():
     # [START map_get]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(
             Field.of("awards").map_get("pulitzer").as_("hasPulitzerAward")
-        ) \
-        .execute()
+        ).execute()
     # [END map_get]
     for res in result:
         print(res)
 
 def byte_length_function():
     # [START byte_length]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(
             Field.of("title").byte_length().as_("titleByteLength")
-        ) \
-        .execute()
+        ).execute()
     # [END byte_length]
     for res in result:
         print(res)
 
 def char_length_function():
     # [START char_length]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(
             Field.of("title").char_length().as_("titleCharLength")
-        ) \
-        .execute()
+        ).execute()
     # [END char_length]
     for res in result:
         print(res)
 
 def starts_with_function():
     # [START starts_with]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(
             Field.of("title").starts_with("The")
                 .as_("needsSpecialAlphabeticalSort")
-        ) \
-        .execute()
+        ).execute()
     # [END starts_with]
     for res in result:
         print(res)
 
 def ends_with_function():
     # [START ends_with]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("inventory/devices/laptops") \
         .select(
             Field.of("name").ends_with("16 inch")
                 .as_("16InLaptops")
-        ) \
-        .execute()
+        ).execute()
     # [END ends_with]
     for res in result:
         print(res)
 
 def like_function():
     # [START like]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(
             Field.of("genre").like("%Fiction")
                 .as_("anyFiction")
-        ) \
-        .execute()
+        ).execute()
     # [END like]
     for res in result:
         print(res)
 
 def regex_contains_function():
     # [START regex_contains]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("documents") \
         .select(
             Field.of("title").regex_contains("Firestore (Enterprise|Standard)")
                 .as_("isFirestoreRelated")
-        ) \
-        .execute()
+        ).execute()
     # [END regex_contains]
     for res in result:
         print(res)
 
 def regex_match_function():
     # [START regex_match]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("documents") \
         .select(
             Field.of("title").regex_match("Firestore (Enterprise|Standard)")
                 .as_("isFirestoreExactly")
-        ) \
-        .execute()
+        ).execute()
     # [END regex_match]
     for res in result:
         print(res)
 
 def str_concat_function():
     # [START str_concat]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(
             Field.of("title").concat(" by ", Field.of("author"))
                 .as_("fullyQualifiedTitle")
-        ) \
-        .execute()
+        ).execute()
     # [END str_concat]
     for res in result:
         print(res)
 
 def str_contains_function():
     # [START string_contains]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("articles") \
         .select(
             Field.of("body").string_contains("Firestore")
                 .as_("isFirestoreRelated")
-        ) \
-        .execute()
+        ).execute()
     # [END string_contains]
     for res in result:
         print(res)
 
 def to_upper_function():
     # [START to_upper]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("authors") \
         .select(
             Field.of("name").to_upper()
                 .as_("uppercaseName")
-        ) \
-        .execute()
+        ).execute()
     # [END to_upper]
     for res in result:
         print(res)
 
 def to_lower_function():
     # [START to_lower]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("authors") \
         .select(
             Field.of("genre").to_lower().equal("fantasy")
                 .as_("isFantasy")
-        ) \
-        .execute()
+        ).execute()
     # [END to_lower]
     for res in result:
         print(res)
 
 def substr_function():
     # [START substr_function]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .where(Field.of("title").starts_with("The ")) \
         .select(
             Field.of("title").substring(4)
                 .as_("titleWithoutLeadingThe")
-        ) \
-        .execute()
+        ).execute()
     # [END substr_function]
     for res in result:
         print(res)
 
 def str_reverse_function():
     # [START str_reverse]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(
             Field.of("name").string_reverse().as_("reversedName")
-        ) \
-        .execute()
+        ).execute()
     # [END str_reverse]
     for res in result:
         print(res)
 
 def str_trim_function():
     # [START trim_function]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(
             Field.of("name").trim().as_("whitespaceTrimmedName")
-        ) \
-        .execute()
+        ).execute()
     # [END trim_function]
     for res in result:
         print(res)
@@ -1143,147 +1272,159 @@ def str_split_function():
 
 def unix_micros_to_timestamp_function():
     # [START unix_micros_timestamp]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("documents") \
         .select(
             Field.of("createdAtMicros").unix_micros_to_timestamp().as_("createdAtString")
-        ) \
-        .execute()
+        ).execute()
     # [END unix_micros_timestamp]
     for res in result:
         print(res)
 
 def unix_millis_to_timestamp_function():
     # [START unix_millis_timestamp]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("documents") \
         .select(
             Field.of("createdAtMillis").unix_millis_to_timestamp().as_("createdAtString")
-        ) \
-        .execute()
+        ).execute()
     # [END unix_millis_timestamp]
     for res in result:
         print(res)
 
 def unix_seconds_to_timestamp_function():
     # [START unix_seconds_timestamp]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("documents") \
         .select(
             Field.of("createdAtSeconds").unix_seconds_to_timestamp().as_("createdAtString")
-        ) \
-        .execute()
+        ).execute()
     # [END unix_seconds_timestamp]
     for res in result:
         print(res)
 
 def timestamp_add_function():
     # [START timestamp_add]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("documents") \
         .select(
             Field.of("createdAt").timestamp_add("day", 3653).as_("expiresAt")
-        ) \
-        .execute()
+        ).execute()
     # [END timestamp_add]
     for res in result:
         print(res)
 
 def timestamp_sub_function():
     # [START timestamp_sub]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("documents") \
         .select(
             Field.of("expiresAt").timestamp_subtract("day", 14).as_("sendWarningTimestamp")
-        ) \
-        .execute()
+        ).execute()
     # [END timestamp_sub]
     for res in result:
         print(res)
 
 def timestamp_to_unix_micros_function():
     # [START timestamp_unix_micros]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("documents") \
         .select(
             Field.of("dateString").timestamp_to_unix_micros().as_("unixMicros")
-        ) \
-        .execute()
+        ).execute()
     # [END timestamp_unix_micros]
     for res in result:
         print(res)
 
 def timestamp_to_unix_millis_function():
     # [START timestamp_unix_millis]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("documents") \
         .select(
             Field.of("dateString").timestamp_to_unix_millis().as_("unixMillis")
-        ) \
-        .execute()
+        ).execute()
     # [END timestamp_unix_millis]
     for res in result:
         print(res)
 
 def timestamp_to_unix_seconds_function():
     # [START timestamp_unix_seconds]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("documents") \
         .select(
             Field.of("dateString").timestamp_to_unix_seconds().as_("unixSeconds")
-        ) \
-        .execute()
+        ).execute()
     # [END timestamp_unix_seconds]
     for res in result:
         print(res)
 
 def cosine_distance_function():
     # [START cosine_distance]
-    sample_vector = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
+    sample_vector = Vector([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
     result = client.pipeline() \
         .collection("books") \
         .select(
             Field.of("embedding").cosine_distance(sample_vector).as_("cosineDistance")
-        ) \
-        .execute()
+        ).execute()
     # [END cosine_distance]
     for res in result:
         print(res)
 
 def dot_product_function():
     # [START dot_product]
-    sample_vector = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
+    sample_vector = Vector([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
     result = client.pipeline() \
         .collection("books") \
         .select(
             Field.of("embedding").dot_product(sample_vector).as_("dotProduct")
-        ) \
-        .execute()
+        ).execute()
     # [END dot_product]
     for res in result:
         print(res)
 
 def euclidean_distance_function():
     # [START euclidean_distance]
-    sample_vector = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
+    sample_vector = Vector([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
     result = client.pipeline() \
         .collection("books") \
         .select(
             Field.of("embedding").euclidean_distance(sample_vector).as_("euclideanDistance")
-        ) \
-        .execute()
+        ).execute()
     # [END euclidean_distance]
     for res in result:
         print(res)
 
 def vector_length_function():
     # [START vector_length]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     result = client.pipeline() \
         .collection("books") \
         .select(
             Field.of("embedding").vector_length().as_("vectorLength")
-        ) \
-        .execute()
+        ).execute()
     # [END vector_length]
     for res in result:
         print(res)

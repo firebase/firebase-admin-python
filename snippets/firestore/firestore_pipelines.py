@@ -65,10 +65,6 @@ def basic_read():
     pipeline = client.pipeline().collection("users")
     for result in pipeline.execute():
         print(f"{result.id} => {result.data()}")
-    # or, asynchronously
-    result_stream = pipeline.stream()
-    async for result in result_stream:
-        print(f"{result.id} => {result.data()}")
     # [END basic_read]
 
 

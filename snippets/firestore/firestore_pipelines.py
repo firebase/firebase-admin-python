@@ -12,33 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# from google.cloud.firestore import Query
-# from google.cloud.firestore_v1.pipeline import Pipeline
-# from google.cloud.firestore_v1.pipeline_source import PipelineSource
-# from google.cloud.firestore_v1.pipeline_expressions import (
-#     AggregateFunction,
-#     Constant,
-#     Expression,
-#     Field,
-#     Count,
-# )
-# from google.cloud.firestore_v1.pipeline_expressions import (
-#     And,
-#     Conditional,
-#     Or,
-#     Not,
-#     Xor,
-# )
-# from google.cloud.firestore_v1.pipeline_stages import (
-#     Aggregate,
-#     FindNearestOptions,
-#     SampleOptions,
-#     UnnestOptions,
-# )
-# from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
-# from google.cloud.firestore_v1.vector import Vector
-# from google.cloud.firestore_v1.client import Client
-
 import firebase_admin
 from firebase_admin import firestore
 
@@ -47,6 +20,19 @@ client = firestore.client(default_app, "your-new-enterprise-database")
 
 
 # pylint: disable=invalid-name
+
+def query_explain():
+    # [START query_explain]
+    from google.cloud.firestore import Query, FieldFilter, ExplainOptions
+
+    results = client.collection("cities") \
+        .where(filter=FieldFilter("capital", "==", True)) \
+        .execute(explain_options=ExplainOptions(analyze=False))
+    metrics = results.explain_metrics()
+    summary = metrics.plan_summary()
+    # [END query_explain]
+
+
 def pipeline_concepts():
     # [START pipeline_concepts]
     from google.cloud.firestore_v1.pipeline_expressions import Field
@@ -1764,7 +1750,7 @@ def vector_length_function():
 def stages_expressions_example():
     # [START stages_expressions_example]
     from google.cloud.firestore_v1.pipeline_expressions import Field, Constant
-    from firebase_admin import firestore
+    from google.cloud import firestore
 
     trailing_30_days = (
         Constant.of(firestore.SERVER_TIMESTAMP)
@@ -1995,9 +1981,10 @@ def unnest_empty_array_example():
 def unnest_preserve_empty_array_example():
     # [START unnest_preserve_empty_array]
     from google.cloud.firestore_v1.pipeline_expressions import (
-        Field,
+        Array,
         Conditional,
         Expression,
+        Field,
     )
     from google.cloud.firestore_v1.pipeline_stages import UnnestOptions
 
@@ -2006,8 +1993,8 @@ def unnest_preserve_empty_array_example():
         .collection("users")
         .unnest(
             Conditional(
-                Field.of("scores").equal(Expression.array([])),
-                Expression.array([Field.of("scores")]),
+                Field.of("scores").equal(Array([])),
+                Array([Field.of("scores")]),
                 Field.of("scores"),
             ).as_("userScore"),
             options=UnnestOptions(index_field="attempt"),

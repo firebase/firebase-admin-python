@@ -12,32 +12,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from google.cloud.firestore import Query
-from google.cloud.firestore_v1.pipeline import Pipeline
-from google.cloud.firestore_v1.pipeline_source import PipelineSource
-from google.cloud.firestore_v1.pipeline_expressions import (
-    AggregateFunction,
-    Constant,
-    Expression,
-    Field,
-    Count,
-)
-from google.cloud.firestore_v1.pipeline_expressions import (
-    And,
-    Conditional,
-    Or,
-    Not,
-    Xor,
-)
-from google.cloud.firestore_v1.pipeline_stages import (
-    Aggregate,
-    FindNearestOptions,
-    SampleOptions,
-    UnnestOptions,
-)
-from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
-from google.cloud.firestore_v1.vector import Vector
-from google.cloud.firestore_v1.client import Client
+# from google.cloud.firestore import Query
+# from google.cloud.firestore_v1.pipeline import Pipeline
+# from google.cloud.firestore_v1.pipeline_source import PipelineSource
+# from google.cloud.firestore_v1.pipeline_expressions import (
+#     AggregateFunction,
+#     Constant,
+#     Expression,
+#     Field,
+#     Count,
+# )
+# from google.cloud.firestore_v1.pipeline_expressions import (
+#     And,
+#     Conditional,
+#     Or,
+#     Not,
+#     Xor,
+# )
+# from google.cloud.firestore_v1.pipeline_stages import (
+#     Aggregate,
+#     FindNearestOptions,
+#     SampleOptions,
+#     UnnestOptions,
+# )
+# from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
+# from google.cloud.firestore_v1.vector import Vector
+# from google.cloud.firestore_v1.client import Client
 
 import firebase_admin
 from firebase_admin import firestore
@@ -49,6 +49,8 @@ client = firestore.client(default_app, "your-new-enterprise-database")
 # pylint: disable=invalid-name
 def pipeline_concepts():
     # [START pipeline_concepts]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
     pipeline = (
         client.pipeline()
         .collection("cities")
@@ -78,6 +80,8 @@ def pipeline_initialization():
 
 def field_vs_constants():
     # [START field_or_constant]
+    from google.cloud.firestore_v1.pipeline_expressions import Field, Constant
+
     pipeline = (
         client.pipeline()
         .collection("cities")
@@ -185,6 +189,7 @@ def sort():
 
 def sort_comparison():
     # [START sort_comparison]
+    from google.cloud.firestore import Query
     from google.cloud.firestore_v1.pipeline_expressions import Field
 
     query = (
@@ -1146,7 +1151,7 @@ def and_function():
 
 def or_function():
     # [START or_function]
-    from google.cloud.firestore_v1.pipeline_expressions import Field, And
+    from google.cloud.firestore_v1.pipeline_expressions import Field, And, Or
 
     result = (
         client.pipeline()
@@ -1687,6 +1692,7 @@ def timestamp_to_unix_seconds_function():
 def cosine_distance_function():
     # [START cosine_distance]
     from google.cloud.firestore_v1.pipeline_expressions import Field
+    from google.cloud.firestore_v1.vector import Vector
 
     sample_vector = Vector([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
     result = (
@@ -1705,6 +1711,7 @@ def cosine_distance_function():
 def dot_product_function():
     # [START dot_product]
     from google.cloud.firestore_v1.pipeline_expressions import Field
+    from google.cloud.firestore_v1.vector import Vector
 
     sample_vector = Vector([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
     result = (
@@ -1721,6 +1728,7 @@ def dot_product_function():
 def euclidean_distance_function():
     # [START euclidean_distance]
     from google.cloud.firestore_v1.pipeline_expressions import Field
+    from google.cloud.firestore_v1.vector import Vector
 
     sample_vector = Vector([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
     result = (
@@ -1751,3 +1759,1104 @@ def vector_length_function():
     # [END vector_length]
     for res in result:
         print(res)
+
+
+def stages_expressions_example():
+    # [START stages_expressions_example]
+    from google.cloud.firestore_v1.pipeline_expressions import Field, Constant
+    from firebase_admin import firestore
+
+    trailing_30_days = (
+        Constant.of(firestore.SERVER_TIMESTAMP)
+        .unix_millis_to_timestamp()
+        .timestamp_subtract("day", 30)
+    )
+    snapshot = (
+        client.pipeline()
+        .collection("productViews")
+        .where(Field.of("viewedAt").greater_than(trailing_30_days))
+        .aggregate(Field.of("productId").count_distinct().as_("uniqueProductViews"))
+        .execute()
+    )
+    # [END stages_expressions_example]
+    for result in snapshot:
+        print(result)
+
+
+# https://cloud.google.com/firestore/docs/pipeline/stages/transformation/where
+def create_where_data():
+    # [START create_where_data]
+    client.collection("cities").document("SF").set(
+        {"name": "San Francisco", "state": "CA", "country": "USA", "population": 870000}
+    )
+    client.collection("cities").document("LA").set(
+        {"name": "Los Angeles", "state": "CA", "country": "USA", "population": 3970000}
+    )
+    client.collection("cities").document("NY").set(
+        {"name": "New York", "state": "NY", "country": "USA", "population": 8530000}
+    )
+    client.collection("cities").document("TOR").set(
+        {"name": "Toronto", "state": None, "country": "Canada", "population": 2930000}
+    )
+    client.collection("cities").document("MEX").set(
+        {"name": "Mexico City", "state": None, "country": "Mexico", "population": 9200000}
+    )
+    # [END create_where_data]
+
+
+def where_equality_example():
+    # [START where_equality_example]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
+    cities = (
+        client.pipeline()
+        .collection("cities")
+        .where(Field.of("state").equal("CA"))
+        .execute()
+    )
+    # [END where_equality_example]
+    for city in cities:
+        print(city)
+
+
+def where_multiple_stages_example():
+    # [START where_multiple_stages]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
+    cities = (
+        client.pipeline()
+        .collection("cities")
+        .where(Field.of("location.country").equal("USA"))
+        .where(Field.of("population").greater_than(500000))
+        .execute()
+    )
+    # [END where_multiple_stages]
+    for city in cities:
+        print(city)
+
+
+def where_complex_example():
+    # [START where_complex]
+    from google.cloud.firestore_v1.pipeline_expressions import Field, Or, And
+
+    cities = (
+        client.pipeline()
+        .collection("cities")
+        .where(
+            Or(
+                Field.of("name").like("San%"),
+                And(
+                    Field.of("location.state").char_length().greater_than(7),
+                    Field.of("location.country").equal("USA"),
+                ),
+            )
+        )
+        .execute()
+    )
+    # [END where_complex]
+    for city in cities:
+        print(city)
+
+
+def where_stage_order_example():
+    # [START where_stage_order]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
+    cities = (
+        client.pipeline()
+        .collection("cities")
+        .limit(10)
+        .where(Field.of("location.country").equal("USA"))
+        .execute()
+    )
+    # [END where_stage_order]
+    for city in cities:
+        print(city)
+
+
+def where_having_example():
+    # [START where_having_example]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
+    cities = (
+        client.pipeline()
+        .collection("cities")
+        .aggregate(
+            Field.of("population").sum().as_("totalPopulation"),
+            groups=[Field.of("location.state")],
+        )
+        .where(Field.of("totalPopulation").greater_than(10000000))
+        .execute()
+    )
+    # [END where_having_example]
+    for city in cities:
+        print(city)
+
+
+# https://cloud.google.com/firestore/docs/pipeline/stages/transformation/unnest
+def unnest_syntax_example():
+    # [START unnest_syntax]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+    from google.cloud.firestore_v1.pipeline_stages import UnnestOptions
+
+    user_score = (
+        client.pipeline()
+        .collection("users")
+        .unnest(
+            Field.of("scores").as_("userScore"),
+            options=UnnestOptions(index_field="attempt"),
+        )
+        .execute()
+    )
+    # [END unnest_syntax]
+    for score in user_score:
+        print(score)
+
+
+def unnest_alias_index_data_example():
+    # [START unnest_alias_index_data]
+    client.collection("users").add({"name": "foo", "scores": [5, 4], "userScore": 0})
+    client.collection("users").add({"name": "bar", "scores": [1, 3], "attempt": 5})
+    # [END unnest_alias_index_data]
+
+
+def unnest_alias_index_example():
+    # [START unnest_alias_index]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+    from google.cloud.firestore_v1.pipeline_stages import UnnestOptions
+
+    user_score = (
+        client.pipeline()
+        .collection("users")
+        .unnest(
+            Field.of("scores").as_("userScore"),
+            options=UnnestOptions(index_field="attempt"),
+        )
+        .execute()
+    )
+    # [END unnest_alias_index]
+    for score in user_score:
+        print(score)
+
+
+def unnest_non_array_data_example():
+    # [START unnest_nonarray_data]
+    client.collection("users").add({"name": "foo", "scores": 1})
+    client.collection("users").add({"name": "bar", "scores": None})
+    client.collection("users").add({"name": "qux", "scores": {"backupScores": 1}})
+    # [END unnest_nonarray_data]
+
+
+def unnest_non_array_example():
+    # [START unnest_nonarray]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+    from google.cloud.firestore_v1.pipeline_stages import UnnestOptions
+
+    user_score = (
+        client.pipeline()
+        .collection("users")
+        .unnest(
+            Field.of("scores").as_("userScore"),
+            options=UnnestOptions(index_field="attempt"),
+        )
+        .execute()
+    )
+    # [END unnest_nonarray]
+    for score in user_score:
+        print(score)
+
+
+def unnest_empty_array_data_example():
+    # [START unnest_empty_array_data]
+    client.collection("users").add({"name": "foo", "scores": [5, 4]})
+    client.collection("users").add({"name": "bar", "scores": []})
+    # [END unnest_empty_array_data]
+
+
+def unnest_empty_array_example():
+    # [START unnest_empty_array]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+    from google.cloud.firestore_v1.pipeline_stages import UnnestOptions
+
+    user_score = (
+        client.pipeline()
+        .collection("users")
+        .unnest(
+            Field.of("scores").as_("userScore"),
+            options=UnnestOptions(index_field="attempt"),
+        )
+        .execute()
+    )
+    # [END unnest_empty_array]
+    for score in user_score:
+        print(score)
+
+
+def unnest_preserve_empty_array_example():
+    # [START unnest_preserve_empty_array]
+    from google.cloud.firestore_v1.pipeline_expressions import (
+        Field,
+        Conditional,
+        Expression,
+    )
+    from google.cloud.firestore_v1.pipeline_stages import UnnestOptions
+
+    user_score = (
+        client.pipeline()
+        .collection("users")
+        .unnest(
+            Conditional(
+                Field.of("scores").equal(Expression.array([])),
+                Expression.array([Field.of("scores")]),
+                Field.of("scores"),
+            ).as_("userScore"),
+            options=UnnestOptions(index_field="attempt"),
+        )
+        .execute()
+    )
+    # [END unnest_preserve_empty_array]
+    for score in user_score:
+        print(score)
+
+
+def unnest_nested_data_example():
+    # [START unnest_nested_data]
+    client.collection("users").add(
+        {
+            "name": "foo",
+            "record": [
+                {"scores": [5, 4], "avg": 4.5},
+                {"scores": [1, 3], "old_avg": 2},
+            ],
+        }
+    )
+    # [END unnest_nested_data]
+
+
+def unnest_nested_example():
+    # [START unnest_nested]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+    from google.cloud.firestore_v1.pipeline_stages import UnnestOptions
+
+    user_score = (
+        client.pipeline()
+        .collection("users")
+        .unnest(Field.of("record").as_("record"))
+        .unnest(
+            Field.of("record.scores").as_("userScore"),
+            options=UnnestOptions(index_field="attempt"),
+        )
+        .execute()
+    )
+    # [END unnest_nested]
+    for score in user_score:
+        print(score)
+
+
+# https://cloud.google.com/firestore/docs/pipeline/stages/transformation/sample
+def sample_syntax_example():
+    # [START sample_syntax]
+    from google.cloud.firestore_v1.pipeline_stages import SampleOptions
+
+    sampled = client.pipeline().database().sample(50).execute()
+
+    sampled = (
+        client.pipeline().database().sample(options=SampleOptions.percentage(0.5)).execute()
+    )
+    # [END sample_syntax]
+    for result in sampled:
+        print(result)
+
+
+def sample_documents_data_example():
+    # [START sample_documents_data]
+    client.collection("cities").document("SF").set(
+        {"name": "San Francisco", "state": "California"}
+    )
+    client.collection("cities").document("NYC").set(
+        {"name": "New York City", "state": "New York"}
+    )
+    client.collection("cities").document("CHI").set(
+        {"name": "Chicago", "state": "Illinois"}
+    )
+    # [END sample_documents_data]
+
+
+def sample_documents_example():
+    # [START sample_documents]
+    sampled = client.pipeline().collection("cities").sample(1).execute()
+    # [END sample_documents]
+    for result in sampled:
+        print(result)
+
+
+def sample_all_documents_example():
+    # [START sample_all_documents]
+    sampled = client.pipeline().collection("cities").sample(5).execute()
+    # [END sample_all_documents]
+    for result in sampled:
+        print(result)
+
+
+def sample_percentage_data_example():
+    # [START sample_percentage_data]
+    client.collection("cities").document("SF").set(
+        {"name": "San Francsico", "state": "California"}
+    )
+    client.collection("cities").document("NYC").set(
+        {"name": "New York City", "state": "New York"}
+    )
+    client.collection("cities").document("CHI").set(
+        {"name": "Chicago", "state": "Illinois"}
+    )
+    client.collection("cities").document("ATL").set(
+        {"name": "Atlanta", "state": "Georgia"}
+    )
+    # [END sample_percentage_data]
+
+
+def sample_percentage_example():
+    # [START sample_percentage]
+    from google.cloud.firestore_v1.pipeline_stages import SampleOptions
+
+    sampled = (
+        client.pipeline()
+        .collection("cities")
+        .sample(options=SampleOptions.percentage(0.5))
+        .execute()
+    )
+    # [END sample_percentage]
+    for result in sampled:
+        print(result)
+
+
+# https://cloud.google.com/firestore/docs/pipeline/stages/transformation/sort
+def sort_syntax_example():
+    # [START sort_syntax]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
+    results = (
+        client.pipeline()
+        .collection("cities")
+        .sort(Field.of("population").ascending())
+        .execute()
+    )
+    # [END sort_syntax]
+    for result in results:
+        print(result)
+
+
+def sort_syntax_example2():
+    # [START sort_syntax_2]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
+    results = (
+        client.pipeline()
+        .collection("cities")
+        .sort(Field.of("name").char_length().ascending())
+        .execute()
+    )
+    # [END sort_syntax_2]
+    for result in results:
+        print(result)
+
+
+def sort_document_id_example():
+    # [START sort_document_id]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
+    results = (
+        client.pipeline()
+        .collection("cities")
+        .sort(Field.of("country").ascending(), Field.of("__name__").ascending())
+        .execute()
+    )
+    # [END sort_document_id]
+    for result in results:
+        print(result)
+
+
+# https://cloud.google.com/firestore/docs/pipeline/stages/transformation/select
+def select_syntax_example():
+    # [START select_syntax]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
+    names = (
+        client.pipeline()
+        .collection("cities")
+        .select(
+            Field.of("name").string_concat(", ", Field.of("location.country")).as_("name"),
+            "population",
+        )
+        .execute()
+    )
+    # [END select_syntax]
+    for name in names:
+        print(name)
+
+
+def select_position_data_example():
+    # [START select_position_data]
+    client.collection("cities").document("SF").set(
+        {
+            "name": "San Francisco",
+            "population": 800000,
+            "location": {"country": "USA", "state": "California"},
+        }
+    )
+    client.collection("cities").document("TO").set(
+        {
+            "name": "Toronto",
+            "population": 3000000,
+            "location": {"country": "Canada", "province": "Ontario"},
+        }
+    )
+    # [END select_position_data]
+
+
+def select_position_example():
+    # [START select_position]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
+    names = (
+        client.pipeline()
+        .collection("cities")
+        .where(Field.of("location.country").equal("Canada"))
+        .select(
+            Field.of("name").string_concat(", ", Field.of("location.country")).as_("name"),
+            "population",
+        )
+        .execute()
+    )
+    # [END select_position]
+    for name in names:
+        print(name)
+
+
+def select_bad_position_example():
+    # [START select_bad_position]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
+    names = (
+        client.pipeline()
+        .collection("cities")
+        .select(
+            Field.of("name").string_concat(", ", Field.of("location.country")).as_("name"),
+            "population",
+        )
+        .where(Field.of("location.country").equal("Canada"))
+        .execute()
+    )
+    # [END select_bad_position]
+    for name in names:
+        print(name)
+
+
+def select_nested_data_example():
+    # [START select_nested_data]
+    client.collection("cities").document("SF").set(
+        {
+            "name": "San Francisco",
+            "population": 800000,
+            "location": {"country": "USA", "state": "California"},
+            "landmarks": ["Golden Gate Bridge", "Alcatraz"],
+        }
+    )
+    client.collection("cities").document("TO").set(
+        {
+            "name": "Toronto",
+            "population": 3000000,
+            "province": "ON",
+            "location": {"country": "Canada", "province": "Ontario"},
+            "landmarks": ["CN Tower", "Casa Loma"],
+        }
+    )
+    client.collection("cities").document("AT").set({"name": "Atlantis", "population": None})
+    # [END select_nested_data]
+
+
+def select_nested_example():
+    # [START select_nested]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
+    locations = (
+        client.pipeline()
+        .collection("cities")
+        .select(
+            Field.of("name").as_("city"),
+            Field.of("location.country").as_("country"),
+            Field.of("landmarks").array_get(0).as_("topLandmark"),
+        )
+        .execute()
+    )
+    # [END select_nested]
+    for location in locations:
+        print(location)
+
+
+# https://cloud.google.com/firestore/docs/pipeline/stages/transformation/remove_fields
+def remove_fields_syntax_example():
+    # [START remove_fields_syntax]
+    results = (
+        client.pipeline()
+        .collection("cities")
+        .remove_fields("population", "location.state")
+        .execute()
+    )
+    # [END remove_fields_syntax]
+    for result in results:
+        print(result)
+
+
+def remove_fields_nested_data_example():
+    # [START remove_fields_nested_data]
+    client.collection("cities").document("SF").set(
+        {"name": "San Francisco", "location": {"country": "USA", "state": "California"}}
+    )
+    client.collection("cities").document("TO").set(
+        {"name": "Toronto", "location": {"country": "Canada", "province": "Ontario"}}
+    )
+    # [END remove_fields_nested_data]
+
+
+def remove_fields_nested_example():
+    # [START remove_fields_nested]
+    results = (
+        client.pipeline().collection("cities").remove_fields("location.state").execute()
+    )
+    # [END remove_fields_nested]
+    for result in results:
+        print(result)
+
+
+# https://cloud.google.com/firestore/docs/pipeline/stages/transformation/limit
+def limit_syntax_example():
+    # [START limit_syntax]
+    results = client.pipeline().collection("cities").limit(10).execute()
+    # [END limit_syntax]
+    for result in results:
+        print(result)
+
+
+# https://cloud.google.com/firestore/docs/pipeline/stages/transformation/find_nearest
+def find_nearest_syntax_example():
+    # [START find_nearest_syntax]
+    from google.cloud.firestore_v1.vector import Vector
+    from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
+
+    results = (
+        client.pipeline()
+        .collection("cities")
+        .find_nearest(
+            field="embedding",
+            vector_value=Vector([1.5, 2.345]),
+            distance_measure=DistanceMeasure.EUCLIDEAN,
+        )
+        .execute()
+    )
+    # [END find_nearest_syntax]
+    for result in results:
+        print(result)
+
+
+def find_nearest_limit_example():
+    # [START find_nearest_limit]
+    from google.cloud.firestore_v1.vector import Vector
+    from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
+
+    results = (
+        client.pipeline()
+        .collection("cities")
+        .find_nearest(
+            field="embedding",
+            vector_value=Vector([1.5, 2.345]),
+            distance_measure=DistanceMeasure.EUCLIDEAN,
+            limit=10,
+        )
+        .execute()
+    )
+    # [END find_nearest_limit]
+    for result in results:
+        print(result)
+
+
+def find_nearest_distance_data_example():
+    # [START find_nearest_distance_data]
+    from google.cloud.firestore_v1.vector import Vector
+
+    client.collection("cities").document("SF").set(
+        {"name": "San Francisco", "embedding": Vector([1.0, -1.0])}
+    )
+    client.collection("cities").document("TO").set(
+        {"name": "Toronto", "embedding": Vector([5.0, -10.0])}
+    )
+    client.collection("cities").document("AT").set(
+        {"name": "Atlantis", "embedding": Vector([2.0, -4.0])}
+    )
+    # [END find_nearest_distance_data]
+
+
+def find_nearest_distance_example():
+    # [START find_nearest_distance]
+    from google.cloud.firestore_v1.vector import Vector
+    from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
+
+    results = (
+        client.pipeline()
+        .collection("cities")
+        .find_nearest(
+            field="embedding",
+            vector_value=Vector([1.3, 2.345]),
+            distance_measure=DistanceMeasure.EUCLIDEAN,
+            distance_field="computedDistance",
+        )
+        .execute()
+    )
+    # [END find_nearest_distance]
+    for result in results:
+        print(result)
+
+
+# https://cloud.google.com/firestore/docs/pipeline/stages/transformation/offset
+def offset_syntax_example():
+    # [START offset_syntax]
+    results = client.pipeline().collection("cities").offset(10).execute()
+    # [END offset_syntax]
+    for result in results:
+        print(result)
+
+
+# https://cloud.google.com/firestore/docs/pipeline/stages/transformation/add_fields
+def add_fields_syntax_example():
+    # [START add_fields_syntax]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
+    results = (
+        client.pipeline()
+        .collection("users")
+        .add_fields(
+            Field.of("firstName").string_concat(" ", Field.of("lastName")).as_("fullName")
+        )
+        .execute()
+    )
+    # [END add_fields_syntax]
+    for result in results:
+        print(result)
+
+
+def add_fields_overlap_example():
+    # [START add_fields_overlap]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
+    results = (
+        client.pipeline()
+        .collection("users")
+        .add_fields(Field.of("age").abs().as_("age"))
+        .add_fields(Field.of("age").add(10).as_("age"))
+        .execute()
+    )
+    # [END add_fields_overlap]
+    for result in results:
+        print(result)
+
+
+def add_fields_nesting_example():
+    # [START add_fields_nesting]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
+    results = (
+        client.pipeline()
+        .collection("users")
+        .add_fields(Field.of("address.city").to_lower().as_("address.city"))
+        .execute()
+    )
+    # [END add_fields_nesting]
+    for result in results:
+        print(result)
+
+
+# https://cloud.google.com/firestore/docs/pipeline/stages/input/collection
+def collection_input_syntax_example():
+    # [START collection_input_syntax]
+    results = client.pipeline().collection("cities/SF/departments").execute()
+    # [END collection_input_syntax]
+    for result in results:
+        print(result)
+
+
+def collection_input_example_data():
+    # [START collection_input_data]
+    client.collection("cities").document("SF").set(
+        {"name": "San Francsico", "state": "California"}
+    )
+    client.collection("cities").document("NYC").set(
+        {"name": "New York City", "state": "New York"}
+    )
+    client.collection("cities").document("CHI").set(
+        {"name": "Chicago", "state": "Illinois"}
+    )
+    client.collection("states").document("CA").set({"name": "California"})
+    # [END collection_input_data]
+
+
+def collection_input_example():
+    # [START collection_input]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
+    results = (
+        client.pipeline().collection("cities").sort(Field.of("name").ascending()).execute()
+    )
+    # [END collection_input]
+    for result in results:
+        print(result)
+
+
+def subcollection_input_example_data():
+    # [START subcollection_input_data]
+    client.collection("cities/SF/departments").document("building").set(
+        {"name": "SF Building Deparment", "employees": 750}
+    )
+    client.collection("cities/NY/departments").document("building").set(
+        {"name": "NY Building Deparment", "employees": 1000}
+    )
+    client.collection("cities/CHI/departments").document("building").set(
+        {"name": "CHI Building Deparment", "employees": 900}
+    )
+    client.collection("cities/NY/departments").document("finance").set(
+        {"name": "NY Finance Deparment", "employees": 1200}
+    )
+    # [END subcollection_input_data]
+
+
+def subcollection_input_example():
+    # [START subcollection_input]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
+    results = (
+        client.pipeline()
+        .collection("cities/NY/departments")
+        .sort(Field.of("employees").ascending())
+        .execute()
+    )
+    # [END subcollection_input]
+    for result in results:
+        print(result)
+
+
+# https://cloud.google.com/firestore/docs/pipeline/stages/input/collection_group
+def collection_group_input_syntax_example():
+    # [START collection_group_input_syntax]
+    results = client.pipeline().collection_group("departments").execute()
+    # [END collection_group_input_syntax]
+    for result in results:
+        print(result)
+
+
+def collection_group_input_example_data():
+    # [START collection_group_data]
+    client.collection("cities/SF/departments").document("building").set(
+        {"name": "SF Building Deparment", "employees": 750}
+    )
+    client.collection("cities/NY/departments").document("building").set(
+        {"name": "NY Building Deparment", "employees": 1000}
+    )
+    client.collection("cities/CHI/departments").document("building").set(
+        {"name": "CHI Building Deparment", "employees": 900}
+    )
+    client.collection("cities/NY/departments").document("finance").set(
+        {"name": "NY Finance Deparment", "employees": 1200}
+    )
+    # [END collection_group_data]
+
+
+def collection_group_input_example():
+    # [START collection_group_input]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
+    results = (
+        client.pipeline()
+        .collection_group("departments")
+        .sort(Field.of("employees").ascending())
+        .execute()
+    )
+    # [END collection_group_input]
+    for result in results:
+        print(result)
+
+
+# https://cloud.google.com/firestore/docs/pipeline/stages/input/database
+def database_input_syntax_example():
+    # [START database_syntax]
+    results = client.pipeline().database().execute()
+    # [END database_syntax]
+    for result in results:
+        print(result)
+
+
+def database_input_syntax_example_data():
+    # [START database_input_data]
+    client.collection("cities").document("SF").set(
+        {"name": "San Francsico", "state": "California", "population": 800000}
+    )
+    client.collection("states").document("CA").set(
+        {"name": "California", "population": 39000000}
+    )
+    client.collection("countries").document("USA").set(
+        {"name": "United States of America", "population": 340000000}
+    )
+    # [END database_input_data]
+
+
+def database_input_example():
+    # [START database_input]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
+    results = (
+        client.pipeline()
+        .database()
+        .sort(Field.of("population").ascending())
+        .execute()
+    )
+    # [END database_input]
+    for result in results:
+        print(result)
+
+
+# https://cloud.google.com/firestore/docs/pipeline/stages/input/documents
+def document_input_syntax_example():
+    # [START document_input_syntax]
+    results = (
+        client.pipeline()
+        .documents(
+            [
+                client.collection("cities").document("SF"),
+                client.collection("cities").document("NY"),
+            ]
+        )
+        .execute()
+    )
+    # [END document_input_syntax]
+    for result in results:
+        print(result)
+
+
+def document_input_example_data():
+    # [START document_input_data]
+    client.collection("cities").document("SF").set(
+        {"name": "San Francsico", "state": "California"}
+    )
+    client.collection("cities").document("NYC").set(
+        {"name": "New York City", "state": "New York"}
+    )
+    client.collection("cities").document("CHI").set(
+        {"name": "Chicago", "state": "Illinois"}
+    )
+    # [END document_input_data]
+
+
+def document_input_example():
+    # [START document_input]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
+    results = (
+        client.pipeline()
+        .documents(
+            [
+                client.collection("cities").document("SF"),
+                client.collection("cities").document("NYC"),
+            ]
+        )
+        .sort(Field.of("name").ascending())
+        .execute()
+    )
+    # [END document_input]
+    for result in results:
+        print(result)
+
+
+# https://cloud.google.com/firestore/docs/pipeline/stages/transformation/union
+def union_syntax_example():
+    # [START union_syntax]
+    results = (
+        client.pipeline()
+        .collection("cities/SF/restaurants")
+        .union(client.pipeline().collection("cities/NYC/restaurants"))
+        .execute()
+    )
+    # [END union_syntax]
+    for result in results:
+        print(result)
+
+
+# https://cloud.google.com/firestore/docs/pipeline/stages/transformation/aggregate
+def aggregate_syntax_example():
+    # [START aggregate_syntax]
+    from google.cloud.firestore_v1.pipeline_expressions import Count, Field
+
+    cities = (
+        client.pipeline()
+        .collection("cities")
+        .aggregate(
+            Count().as_("total"),
+            Field.of("population").average().as_("averagePopulation"),
+        )
+        .execute()
+    )
+    # [END aggregate_syntax]
+    for city in cities:
+        print(city)
+
+
+def aggregate_group_syntax():
+    # [START aggregate_group_syntax]
+    from google.cloud.firestore_v1.pipeline_expressions import Field, Count
+
+    result = (
+        client.pipeline()
+        .collection_group("cities")
+        .aggregate(
+            Count().as_("cities"),
+            Field.of("population").sum().as_("totalPopulation"),
+            groups=[Field.of("location.state").as_("state")],
+        )
+        .execute()
+    )
+    # [END aggregate_group_syntax]
+    for res in result:
+        print(res)
+
+
+def aggregate_example_data():
+    # [START aggregate_data]
+    client.collection("cities").document("SF").set(
+        {"name": "San Francisco", "state": "CA", "country": "USA", "population": 870000}
+    )
+    client.collection("cities").document("LA").set(
+        {"name": "Los Angeles", "state": "CA", "country": "USA", "population": 3970000}
+    )
+    client.collection("cities").document("NY").set(
+        {"name": "New York", "state": "NY", "country": "USA", "population": 8530000}
+    )
+    client.collection("cities").document("TOR").set(
+        {"name": "Toronto", "state": None, "country": "Canada", "population": 2930000}
+    )
+    client.collection("cities").document("MEX").set(
+        {"name": "Mexico City", "state": None, "country": "Mexico", "population": 9200000}
+    )
+    # [END aggregate_data]
+
+
+def aggregate_without_group_example():
+    # [START aggregate_without_group]
+    from google.cloud.firestore_v1.pipeline_expressions import Field, Count
+
+    cities = (
+        client.pipeline()
+        .collection("cities")
+        .aggregate(
+            Count().as_("total"),
+            Field.of("population").average().as_("averagePopulation"),
+        )
+        .execute()
+    )
+    # [END aggregate_without_group]
+    for city in cities:
+        print(city)
+
+
+def aggregate_group_example():
+    # [START aggregate_group_example]
+    from google.cloud.firestore_v1.pipeline_expressions import Field, Count
+
+    cities = (
+        client.pipeline()
+        .collection("cities")
+        .aggregate(
+            Count().as_("numberOfCities"),
+            Field.of("population").maximum().as_("maxPopulation"),
+            groups=["country", "state"],
+        )
+        .execute()
+    )
+    # [END aggregate_group_example]
+    for city in cities:
+        print(city)
+
+
+def aggregate_group_complex_example():
+    # [START aggregate_group_complex]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
+    cities = (
+        client.pipeline()
+        .collection("cities")
+        .aggregate(
+            Field.of("population").sum().as_("totalPopulation"),
+            groups=[Field.of("state").equal(None).as_("stateIsNull")],
+        )
+        .execute()
+    )
+    # [END aggregate_group_complex]
+    for city in cities:
+        print(city)
+
+
+# https://cloud.google.com/firestore/docs/pipeline/stages/transformation/distinct
+def distinct_syntax_example():
+    # [START distinct_syntax]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
+    cities = client.pipeline().collection("cities").distinct("country").execute()
+
+    cities = (
+        client.pipeline()
+        .collection("cities")
+        .distinct(Field.of("state").to_lower().as_("normalizedState"), "country")
+        .execute()
+    )
+    # [END distinct_syntax]
+    for city in cities:
+        print(city)
+
+
+def distinct_example_data():
+    # [START distinct_data]
+    client.collection("cities").document("SF").set(
+        {"name": "San Francisco", "state": "CA", "country": "USA"}
+    )
+    client.collection("cities").document("LA").set(
+        {"name": "Los Angeles", "state": "CA", "country": "USA"}
+    )
+    client.collection("cities").document("NY").set(
+        {"name": "New York", "state": "NY", "country": "USA"}
+    )
+    client.collection("cities").document("TOR").set(
+        {"name": "Toronto", "state": None, "country": "Canada"}
+    )
+    client.collection("cities").document("MEX").set(
+        {"name": "Mexico City", "state": None, "country": "Mexico"}
+    )
+    # [END distinct_data]
+
+
+def distinct_example():
+    # [START distinct_example]
+    cities = client.pipeline().collection("cities").distinct("country").execute()
+    # [END distinct_example]
+    for city in cities:
+        print(city)
+
+
+def distinct_expressions_example():
+    # [START distinct_expressions]
+    from google.cloud.firestore_v1.pipeline_expressions import Field
+
+    cities = (
+        client.pipeline()
+        .collection("cities")
+        .distinct(Field.of("state").to_lower().as_("normalizedState"), "country")
+        .execute()
+    )
+    # [END distinct_expressions]
+    for city in cities:
+        print(city)

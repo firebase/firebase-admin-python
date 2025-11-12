@@ -23,13 +23,14 @@ client = firestore.client(default_app, "your-new-enterprise-database")
 
 def query_explain():
     # [START query_explain]
-    from google.cloud.firestore import Query, FieldFilter, ExplainOptions
+    from google.cloud.firestore import Query, FieldFilter
+    from google.cloud.firestore_v1.query_profile import PipelineExplainOptions
 
     results = client.collection("cities") \
         .where(filter=FieldFilter("capital", "==", True)) \
-        .execute(explain_options=ExplainOptions(analyze=False))
-    metrics = results.explain_metrics()
-    summary = metrics.plan_summary()
+        .execute(explain_options=PipelineExplainOptions())
+    stats = results.explain_stats
+    print(stats.get_text())
     # [END query_explain]
 
 

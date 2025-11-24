@@ -255,13 +255,12 @@ class TestTaskQueue:
         assert len(recorder) == 0
 
     def test_get_emulator_url_invalid_format(self, monkeypatch):
-        _, recorder = self._instrument_functions_service()
         monkeypatch.setenv('CLOUD_TASKS_EMULATOR_HOST', 'http://localhost:8124')
-        queue = functions.task_queue('test-function-name')
+        app = firebase_admin.initialize_app(
+            testutils.MockCredential(), {'projectId': 'test-project'}, name='invalid-host-app')
         with pytest.raises(ValueError) as excinfo:
-            queue.enqueue(_DEFAULT_DATA)
+            functions.task_queue('test-function-name', app=app)
         assert 'Invalid CLOUD_TASKS_EMULATOR_HOST' in str(excinfo.value)
-        assert len(recorder) == 0
 
 class TestTaskQueueOptions:
 

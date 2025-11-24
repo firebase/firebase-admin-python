@@ -117,7 +117,8 @@ class _FunctionsService:
                 'projectId option, or use service account credentials. Alternatively, set the '
                 'GOOGLE_CLOUD_PROJECT environment variable.')
 
-        if _get_emulator_host():
+        self._emulator_host = _get_emulator_host()
+        if self._emulator_host:
             self._credential = _utils.EmulatorAdminCredentials()
         else:
             self._credential = app.credential.get_credential()
@@ -127,7 +128,8 @@ class _FunctionsService:
     def task_queue(self, function_name: str, extension_id: Optional[str] = None) -> TaskQueue:
         """Creates a TaskQueue instance."""
         return TaskQueue(
-            function_name, extension_id, self._project_id, self._credential, self._http_client)
+            function_name, extension_id, self._project_id, self._credential, self._http_client,
+            self._emulator_host)
 
     @classmethod
     def handle_functions_error(cls, error: Any):
@@ -143,7 +145,8 @@ class TaskQueue:
             extension_id: Optional[str],
             project_id,
             credential,
-            http_client
+            http_client,
+            emulator_host: Optional[str] = None
         ) -> None:
 
         # Validate function_name
@@ -152,6 +155,7 @@ class TaskQueue:
         self._project_id = project_id
         self._credential = credential
         self._http_client = http_client
+        self._emulator_host = emulator_host
         self._function_name = function_name
         self._extension_id = extension_id
         # Parse resources from function_name
@@ -198,7 +202,10 @@ class TaskQueue:
             if self._is_emulated():
                 # Emulator returns a response with format {task: {name: <task_name>}}
                 # The task name also has an extra '/' at the start compared to prod
-                task_name = resp.get('task').get('name')[1:]
+                task_info = resp.get('task') or {}
+                task_name = task_info.get('name')
+                if task_name:
+                    task_name = task_name[1:]
             else:
                 # Production returns a response with format {name: <task_name>}
                 task_name = resp.get('name')
@@ -221,6 +228,7 @@ class TaskQueue:
                 the Cloud Functions service.
             ValueError: If the input arguments are invalid.
         """
+        _Validators.check_non_empty_string('task_id', task_id)
         emulator_url = self._get_emulator_url(self._resource)
         if emulator_url:
             service_url = emulator_url + f'/{task_id}'
@@ -354,15 +362,14 @@ class TaskQueue:
         return task
 
     def _get_emulator_url(self, resource: Resource):
-        emulator_host = _get_emulator_host()
-        if emulator_host:
-            emulator_url_format = f'http://{emulator_host}/' + _CLOUD_TASKS_API_RESOURCE_PATH
+        if self._emulator_host:
+            emulator_url_format = f'http://{self._emulator_host}/' + _CLOUD_TASKS_API_RESOURCE_PATH
             url = self._get_url(resource, emulator_url_format)
             return url
         return None
 
     def _is_emulated(self):
-        return _get_emulator_host() is not None
+        return self._emulator_host is not None
 
 
 class _Validators:

@@ -193,7 +193,7 @@ class TaskQueue:
                 'post',
                 url=service_url,
                 headers=_FUNCTIONS_HEADERS,
-                json={'task': task_payload._to_api_dict()}
+                json={'task': task_payload.to_api_dict()}
             )
             if self._is_emulated():
                 # Emulator returns a response with format {task: {name: <task_name>}}
@@ -339,19 +339,20 @@ class TaskQueue:
             # Delete oidc token
             del task.http_request['oidcToken']
         else:
-            try: 
+            try:
                 task.http_request['oidcToken'] = \
                     {'serviceAccountEmail': self._credential.service_account_email}
-            except AttributeError as e:
+            except AttributeError as error:
                 if self._is_emulated():
                     task.http_request['oidcToken'] = \
                         {'serviceAccountEmail': _EMULATED_SERVICE_ACCOUNT_DEFAULT}
                 else:
                     raise ValueError(
-                        'Failed to determine service account. Initialize the SDK with service account '
-                        'credentials or set service account ID as an app option.') from e
+                        'Failed to determine service account. Initialize the SDK with service '
+                        'account credentials or set service account ID as an app option.'
+                        ) from error
         return task
-    
+
     def _get_emulator_url(self, resource: Resource):
         emulator_host = _get_emulator_host()
         if emulator_host:
@@ -359,7 +360,7 @@ class TaskQueue:
             url = self._get_url(resource, emulator_url_format)
             return url
         return None
-    
+
     def _is_emulated(self):
         return _get_emulator_host() is not None
 
@@ -487,7 +488,7 @@ class Task:
     schedule_time: Optional[str] = None
     dispatch_deadline: Optional[str] = None
 
-    def _to_api_dict(self) -> dict:
+    def to_api_dict(self) -> dict:
         """Converts the Task object to a dictionary suitable for the Cloud Tasks API."""
         return {
             'httpRequest': self.http_request,

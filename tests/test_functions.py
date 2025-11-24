@@ -16,7 +16,6 @@
 
 from datetime import datetime, timedelta, timezone
 import json
-import os
 import time
 import pytest
 
@@ -45,7 +44,8 @@ class TestTaskQueue:
     def teardown_class(cls):
         testutils.cleanup_apps()
 
-    def _instrument_functions_service(self, app=None, status=200, payload=_DEFAULT_RESPONSE, mounted_url=_CLOUD_TASKS_URL):
+    def _instrument_functions_service(
+        self, app=None, status=200, payload=_DEFAULT_RESPONSE, mounted_url=_CLOUD_TASKS_URL):
         if not app:
             app = firebase_admin.get_app()
         functions_service = functions._get_functions_service(app)
@@ -214,21 +214,27 @@ class TestTaskQueue:
         emulator_host = 'localhost:8124'
         emulator_url = f'http://{emulator_host}/'
         request_url = emulator_url + _DEFAULT_TASK_PATH.replace('/tasks/test-task-id', '/tasks')
-        
+
         monkeypatch.setenv('CLOUD_TASKS_EMULATOR_HOST', emulator_host)
-        app = firebase_admin.initialize_app(_utils.EmulatorAdminCredentials(), {'projectId': 'test-project'}, name='emulator-app')
-        
-        expected_response = json.dumps({'task': {'name': '/projects/test-project/locations/us-central1/queues/test-function-name/tasks/test-task-id'}})
-        _, recorder = self._instrument_functions_service(app, payload=expected_response, mounted_url=emulator_url)
+        app = firebase_admin.initialize_app(
+            _utils.EmulatorAdminCredentials(), {'projectId': 'test-project'}, name='emulator-app')
+
+        expected_task_name = (
+            '/projects/test-project/locations/us-central1'
+            '/queues/test-function-name/tasks/test-task-id'
+        )
+        expected_response = json.dumps({'task': {'name': expected_task_name}})
+        _, recorder = self._instrument_functions_service(
+            app, payload=expected_response, mounted_url=emulator_url)
 
         queue = functions.task_queue('test-function-name', app=app)
         task_id = queue.enqueue(_DEFAULT_DATA)
-        
+
         assert len(recorder) == 1
         assert recorder[0].method == 'POST'
         assert recorder[0].url == request_url
         assert recorder[0].headers['Content-Type'] == 'application/json'
-        
+
         task = json.loads(recorder[0].body.decode())['task']
         assert task['httpRequest']['oidcToken'] == {
             'serviceAccountEmail': 'emulated-service-acct@email.com'
@@ -236,15 +242,17 @@ class TestTaskQueue:
         assert task_id == 'test-task-id'
 
     def test_task_enqueue_without_emulator_host_error(self, monkeypatch):
-        app = firebase_admin.initialize_app(_utils.EmulatorAdminCredentials(), {'projectId': 'test-project'}, name='no-emulator-app')
-        
+        app = firebase_admin.initialize_app(
+            _utils.EmulatorAdminCredentials(),
+            {'projectId': 'test-project'}, name='no-emulator-app')
+
         _, recorder = self._instrument_functions_service(app)
         monkeypatch.delenv('CLOUD_TASKS_EMULATOR_HOST', raising=False)
         queue = functions.task_queue('test-function-name', app=app)
         with pytest.raises(ValueError) as excinfo:
             queue.enqueue(_DEFAULT_DATA)
         assert "Failed to determine service account" in str(excinfo.value)
-        assert len(recorder) == 0    
+        assert len(recorder) == 0
 
     def test_get_emulator_url_invalid_format(self, monkeypatch):
         _, recorder = self._instrument_functions_service()

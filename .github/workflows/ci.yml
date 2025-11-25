@@ -43,6 +43,7 @@ jobs:
       run: firebase emulators:exec --only database --project fake-project-id 'pytest integration/test_db.py'
     - name: Run Functions emulator tests
       run: firebase emulators:exec --config integration/emulators/firebase.json --only tasks,functions --project fake-project-id 'CLOUD_TASKS_EMULATOR_HOST=localhost:9499 pytest integration/test_functions.py'
+  lint:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4

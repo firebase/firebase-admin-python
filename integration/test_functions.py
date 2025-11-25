@@ -14,19 +14,35 @@
 
 """Integration tests for firebase_admin.functions module."""
 
+import os
 import pytest
 
 import firebase_admin
 from firebase_admin import functions
+from firebase_admin import _utils
 from integration import conftest
 
 
 _DEFAULT_DATA = {'data': {'city': 'Seattle'}}
+def integration_conf(request):
+    host_override = os.environ.get('CLOUD_TASKS_EMULATOR_HOST')
+    if host_override:
+        return _utils.EmulatorAdminCredentials(), 'fake-project-id'
+
+    return conftest.integration_conf(request)
 
 @pytest.fixture(scope='module')
 def app(request):
-    cred, _ = conftest.integration_conf(request)
-    return firebase_admin.initialize_app(cred, name='integration-functions')
+    cred, project_id = integration_conf(request)
+    return firebase_admin.initialize_app(
+        cred, options={'projectId': project_id}, name='integration-functions')
+
+@pytest.fixture(scope='module', autouse=True)
+def default_app(request):
+    cred, project_id = integration_conf(request)
+    app = firebase_admin.initialize_app(cred, options={'projectId': project_id})
+    yield app
+    firebase_admin.delete_app(app)
 
 
 class TestFunctions:
@@ -56,17 +72,21 @@ class TestFunctions:
         assert queue is not None
         assert callable(queue.enqueue)
         assert callable(queue.delete)
-    
-    def test_task_enqueue(self, app):
-        queue = functions.task_queue('testTaskQueue', app=app)
+
+    def test_task_enqueue(self):
+        queue = functions.task_queue('testTaskQueue')
         task_id = queue.enqueue(_DEFAULT_DATA)
         assert task_id is not None
-    
-    def test_task_delete(self, app):
+
+    @pytest.mark.skipif(
+        os.environ.get('CLOUD_TASKS_EMULATOR_HOST') is not None,
+        reason="Skipping test_task_delete against emulator due to bug in firebase-tools"
+    )
+    def test_task_delete(self):
         # Skip this test against the emulator since tasks can't be delayed there to verify deletion
         # See: https://github.com/firebase/firebase-tools/issues/8254
         task_options = functions.TaskOptions(schedule_delay_seconds=60)
-        queue = functions.task_queue('testTaskQueue', app=app)
+        queue = functions.task_queue('testTaskQueue')
         task_id = queue.enqueue(_DEFAULT_DATA, task_options)
         assert task_id is not None
         queue.delete(task_id)

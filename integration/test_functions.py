@@ -21,6 +21,8 @@ from firebase_admin import functions
 from integration import conftest
 
 
+_DEFAULT_DATA = {'data': {'city': 'Seattle'}}
+
 @pytest.fixture(scope='module')
 def app(request):
     cred, _ = conftest.integration_conf(request)
@@ -54,3 +56,21 @@ class TestFunctions:
         assert queue is not None
         assert callable(queue.enqueue)
         assert callable(queue.delete)
+    
+    def test_task_enqueue(self, app):
+        queue = functions.task_queue('testTaskQueue', app=app)
+        task_id = queue.enqueue(_DEFAULT_DATA)
+        assert task_id is not None
+    
+    def test_task_delete(self, app):
+        # Skip this test against the emulator since tasks can't be delayed there to verify deletion
+        # See: https://github.com/firebase/firebase-tools/issues/8254
+        task_options = functions.TaskOptions(schedule_delay_seconds=60)
+        queue = functions.task_queue('testTaskQueue', app=app)
+        task_id = queue.enqueue(_DEFAULT_DATA, task_options)
+        assert task_id is not None
+        queue.delete(task_id)
+        # We don't have a way to check the contents of the queue so we check that the deleted
+        # task is not found using the delete method again.
+        with pytest.raises(firebase_admin.exceptions.NotFoundError):
+            queue.delete(task_id)

@@ -38,7 +38,7 @@ def app(request):
         cred, options={'projectId': project_id}, name='integration-functions')
 
 @pytest.fixture(scope='module', autouse=True)
-def default_app(request):
+def default_app():
     # Overwrites the default_app fixture in conftest.py.
     # This test suite should not use the default app. Use the app fixture instead.
     pass
@@ -78,7 +78,7 @@ class TestFunctions:
         # Skip this test against the emulator since tasks can't be delayed there to verify deletion
         # See: https://github.com/firebase/firebase-tools/issues/8254
         task_options = functions.TaskOptions(schedule_delay_seconds=60)
-        queue = functions.task_queue('testTaskQueue', app=app)  
+        queue = functions.task_queue('testTaskQueue', app=app)
         task_id = queue.enqueue(_DEFAULT_DATA, task_options)
         assert task_id is not None
         queue.delete(task_id)

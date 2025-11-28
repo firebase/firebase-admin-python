@@ -59,6 +59,21 @@ class TestBatch:
     def teardown_class(cls):
         testutils.cleanup_apps()
 
+@pytest.fixture
+def app_check_mock(mocker):
+    """Fixture to mock JWT functions and provide a fresh app."""
+    mocker.patch("jwt.decode", return_value=JWT_PAYLOAD_SAMPLE)
+    mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value=PyJWK(signing_key))
+    mocker.patch("jwt.get_unverified_header", return_value=JWT_PAYLOAD_SAMPLE.get("headers"))
+    mock_http_client = mocker.patch("firebase_admin._http_client.JsonHttpClient")
+
+    cred = testutils.MockCredential()
+    app = firebase_admin.initialize_app(cred, {'projectId': PROJECT_ID}, name='test_consume_app')
+
+    yield mock_http_client, app
+
+    firebase_admin.delete_app(app)
+
 class TestVerifyToken(TestBatch):
 
     def test_no_project_id(self):
@@ -233,96 +248,53 @@ class TestVerifyToken(TestBatch):
         expected['app_id'] = APP_ID
         assert payload == expected
 
-    def test_verify_token_with_consume(self, mocker):
+    def test_verify_token_with_consume(self, app_check_mock):
         """Test verify_token with consume=True."""
-        mocker.patch("jwt.decode", return_value=JWT_PAYLOAD_SAMPLE)
-        mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value=PyJWK(signing_key))
-        mocker.patch("jwt.get_unverified_header", return_value=JWT_PAYLOAD_SAMPLE.get("headers"))
-        mock_http_client = mocker.patch("firebase_admin._http_client.JsonHttpClient")
+        mock_http_client, app = app_check_mock
         mock_http_client.return_value.body.return_value = {'alreadyConsumed': True}
 
-        # Use a fresh app to ensure _AppCheckService is re-initialized with the mock
-        cred = testutils.MockCredential()
-        app = firebase_admin.initialize_app(cred, {'projectId': PROJECT_ID}, name='test_consume')
+        payload = app_check.verify_token("encoded", app, consume=True)
+        expected = JWT_PAYLOAD_SAMPLE.copy()
+        expected['app_id'] = APP_ID
+        expected['already_consumed'] = True
+        assert payload == expected
+        mock_http_client.return_value.body.assert_called_once_with(
+            'post',
+            f'{SCOPED_PROJECT_ID}:verifyAppCheckToken',
+            json={'app_check_token': 'encoded'})
 
-        try:
-            payload = app_check.verify_token("encoded", app, consume=True)
-            expected = JWT_PAYLOAD_SAMPLE.copy()
-            expected['app_id'] = APP_ID
-            expected['already_consumed'] = True
-            assert payload == expected
-            mock_http_client.return_value.body.assert_called_once_with(
-                'post',
-                f'{SCOPED_PROJECT_ID}:verifyAppCheckToken',
-                json={'app_check_token': 'encoded'})
-        finally:
-            firebase_admin.delete_app(app)
-
-    def test_verify_token_with_consume_network_error(self, mocker):
+    def test_verify_token_with_consume_network_error(self, app_check_mock):
         """Test verify_token with consume=True handles network errors."""
-        mocker.patch("jwt.decode", return_value=JWT_PAYLOAD_SAMPLE)
-        mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value=PyJWK(signing_key))
-        mocker.patch("jwt.get_unverified_header", return_value=JWT_PAYLOAD_SAMPLE.get("headers"))
-        mock_http_client = mocker.patch("firebase_admin._http_client.JsonHttpClient")
+        mock_http_client, app = app_check_mock
         mock_http_client.return_value.body.side_effect = requests.exceptions.RequestException(
             "Network error")
 
-        # Use a fresh app to ensure _AppCheckService is re-initialized with the mock
-        cred = testutils.MockCredential()
-        app = firebase_admin.initialize_app(
-            cred, {'projectId': PROJECT_ID}, name='test_consume_error')
+        with pytest.raises(exceptions.UnknownError) as excinfo:
+            app_check.verify_token("encoded", app, consume=True)
+        assert str(excinfo.value) == (
+            "Unknown error while making a remote service call: Network error")
 
-        try:
-            with pytest.raises(exceptions.UnknownError) as excinfo:
-                app_check.verify_token("encoded", app, consume=True)
-            assert str(excinfo.value) == (
-                "Unknown error while making a remote service call: Network error")
-        finally:
-            firebase_admin.delete_app(app)
-
-    def test_verify_token_with_consume_non_dict_response(self, mocker):
+    def test_verify_token_with_consume_non_dict_response(self, app_check_mock):
         """Test verify_token with consume=True handles non-dict response."""
-        mocker.patch("jwt.decode", return_value=JWT_PAYLOAD_SAMPLE)
-        mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value=PyJWK(signing_key))
-        mocker.patch("jwt.get_unverified_header", return_value=JWT_PAYLOAD_SAMPLE.get("headers"))
-        mock_http_client = mocker.patch("firebase_admin._http_client.JsonHttpClient")
+        mock_http_client, app = app_check_mock
         mock_http_client.return_value.body.return_value = ["not", "a", "dict"]
 
-        # Use a fresh app to ensure _AppCheckService is re-initialized with the mock
-        cred = testutils.MockCredential()
-        app = firebase_admin.initialize_app(
-            cred, {'projectId': PROJECT_ID}, name='test_consume_non_dict')
+        with pytest.raises(exceptions.UnknownError) as excinfo:
+            app_check.verify_token("encoded", app, consume=True)
+        assert str(excinfo.value) == (
+            'Unexpected response from App Check service. '
+            'Expected a JSON object, but got list.')
 
-        try:
-            with pytest.raises(exceptions.UnknownError) as excinfo:
-                app_check.verify_token("encoded", app, consume=True)
-            assert str(excinfo.value) == (
-                'Unexpected response from App Check service. '
-                'Expected a JSON object, but got list.')
-        finally:
-            firebase_admin.delete_app(app)
-
-    def test_verify_token_with_consume_malformed_json(self, mocker):
+    def test_verify_token_with_consume_malformed_json(self, app_check_mock):
         """Test verify_token with consume=True handles malformed JSON response."""
-        mocker.patch("jwt.decode", return_value=JWT_PAYLOAD_SAMPLE)
-        mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value=PyJWK(signing_key))
-        mocker.patch("jwt.get_unverified_header", return_value=JWT_PAYLOAD_SAMPLE.get("headers"))
-        mock_http_client = mocker.patch("firebase_admin._http_client.JsonHttpClient")
+        mock_http_client, app = app_check_mock
         mock_http_client.return_value.body.side_effect = ValueError("Malformed JSON")
 
-        # Use a fresh app to ensure _AppCheckService is re-initialized with the mock
-        cred = testutils.MockCredential()
-        app = firebase_admin.initialize_app(
-            cred, {'projectId': PROJECT_ID}, name='test_consume_malformed_json')
-
-        try:
-            with pytest.raises(exceptions.UnknownError) as excinfo:
-                app_check.verify_token("encoded", app, consume=True)
-            assert str(excinfo.value) == (
-                'Unexpected response from App Check service. '
-                'Error: Malformed JSON')
-        finally:
-            firebase_admin.delete_app(app)
+        with pytest.raises(exceptions.UnknownError) as excinfo:
+            app_check.verify_token("encoded", app, consume=True)
+        assert str(excinfo.value) == (
+            'Unexpected response from App Check service. '
+            'Error: Malformed JSON')
 
     def test_verify_token_with_non_list_audience_raises_error(self, mocker):
         jwt_with_non_list_audience = JWT_PAYLOAD_SAMPLE.copy()

@@ -20,6 +20,7 @@ from jwt import PyJWKClient, ExpiredSignatureError, InvalidTokenError, DecodeErr
 from jwt import InvalidAudienceError, InvalidIssuerError, InvalidSignatureError
 from firebase_admin import _utils
 from firebase_admin import _http_client
+import requests
 
 _APP_CHECK_ATTRIBUTE = '_app_check'
 
@@ -49,6 +50,7 @@ class _AppCheckService:
 
     _APP_CHECK_ISSUER = 'https://firebaseappcheck.googleapis.com/'
     _JWKS_URL = 'https://firebaseappcheck.googleapis.com/v1/jwks'
+    _APP_CHECK_V1BETA_URL = 'https://firebaseappcheck.googleapis.com/v1beta'
     _project_id = None
     _scoped_project_id = None
     _jwks_client = None
@@ -73,7 +75,7 @@ class _AppCheckService:
             self._JWKS_URL, lifespan=21600, headers=self._APP_CHECK_HEADERS)
         self._http_client = _http_client.JsonHttpClient(
             credential=app.credential,
-            base_url='https://firebaseappcheck.googleapis.com/v1beta')
+            base_url=self._APP_CHECK_V1BETA_URL)
 
 
     def verify_token(self, token: str, consume: bool = False) -> Dict[str, Any]:
@@ -100,10 +102,13 @@ class _AppCheckService:
 
     def _verify_replay_protection(self, token: str) -> bool:
         """Verifies the token's consumption status."""
-        path = f'/{self._scoped_project_id}:verifyAppCheckToken'
+        path = f'{self._scoped_project_id}:verifyAppCheckToken'
         body = {'app_check_token': token}
-        response = self._http_client.body('post', path, json=body)
-        return response.get('alreadyConsumed', False)
+        try:
+            response = self._http_client.body('post', path, json=body)
+            return response.get('alreadyConsumed', False)
+        except requests.exceptions.RequestException as error:
+            raise _utils.handle_platform_error_from_requests(error)
 
     def _has_valid_token_headers(self, headers: Any) -> None:
         """Checks whether the token has valid headers for App Check."""

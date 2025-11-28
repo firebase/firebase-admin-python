@@ -19,18 +19,20 @@ import jwt
 from jwt import PyJWKClient, ExpiredSignatureError, InvalidTokenError, DecodeError
 from jwt import InvalidAudienceError, InvalidIssuerError, InvalidSignatureError
 from firebase_admin import _utils
+from firebase_admin import _http_client
 
 _APP_CHECK_ATTRIBUTE = '_app_check'
 
 def _get_app_check_service(app) -> Any:
     return _utils.get_app_service(app, _APP_CHECK_ATTRIBUTE, _AppCheckService)
 
-def verify_token(token: str, app=None) -> Dict[str, Any]:
+def verify_token(token: str, app=None, consume: bool = False) -> Dict[str, Any]:
     """Verifies a Firebase App Check token.
 
     Args:
         token: A token from App Check.
         app: An App instance (optional).
+        consume: A boolean indicating whether to consume the token (optional).
 
     Returns:
         Dict[str, Any]: The token's decoded claims.
@@ -40,7 +42,7 @@ def verify_token(token: str, app=None) -> Dict[str, Any]:
         or if the token's headers or payload are invalid.
         PyJWKClientError: If PyJWKClient fails to fetch a valid signing key.
     """
-    return _get_app_check_service(app).verify_token(token)
+    return _get_app_check_service(app).verify_token(token, consume)
 
 class _AppCheckService:
     """Service class that implements Firebase App Check functionality."""
@@ -50,6 +52,7 @@ class _AppCheckService:
     _project_id = None
     _scoped_project_id = None
     _jwks_client = None
+    _http_client = None
 
     _APP_CHECK_HEADERS = {
         'x-goog-api-client': _utils.get_metrics_header(),
@@ -68,9 +71,12 @@ class _AppCheckService:
         # Default lifespan is 300 seconds (5 minutes) so we change it to 21600 seconds (6 hours).
         self._jwks_client = PyJWKClient(
             self._JWKS_URL, lifespan=21600, headers=self._APP_CHECK_HEADERS)
+        self._http_client = _http_client.JsonHttpClient(
+            credential=app.credential,
+            base_url='https://firebaseappcheck.googleapis.com/v1beta')
 
 
-    def verify_token(self, token: str) -> Dict[str, Any]:
+    def verify_token(self, token: str, consume: bool = False) -> Dict[str, Any]:
         """Verifies a Firebase App Check token."""
         _Validators.check_string("app check token", token)
 
@@ -87,7 +93,17 @@ class _AppCheckService:
                 ) from exception
 
         verified_claims['app_id'] = verified_claims.get('sub')
+        if consume:
+            already_consumed = self._verify_replay_protection(token)
+            verified_claims['already_consumed'] = already_consumed
         return verified_claims
+
+    def _verify_replay_protection(self, token: str) -> bool:
+        """Verifies the token's consumption status."""
+        path = f'/{self._scoped_project_id}:verifyAppCheckToken'
+        body = {'app_check_token': token}
+        response = self._http_client.body('post', path, json=body)
+        return response.get('alreadyConsumed', False)
 
     def _has_valid_token_headers(self, headers: Any) -> None:
         """Checks whether the token has valid headers for App Check."""

@@ -232,6 +232,28 @@ class TestVerifyToken(TestBatch):
         expected['app_id'] = APP_ID
         assert payload == expected
 
+    def test_verify_token_with_consume(self, mocker):
+        mocker.patch("jwt.decode", return_value=JWT_PAYLOAD_SAMPLE)
+        mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value=PyJWK(signing_key))
+        mocker.patch("jwt.get_unverified_header", return_value=JWT_PAYLOAD_SAMPLE.get("headers"))
+        mock_http_client = mocker.patch("firebase_admin._http_client.JsonHttpClient")
+        mock_http_client.return_value.body.return_value = {'alreadyConsumed': True}
+        
+        # Use a fresh app to ensure _AppCheckService is re-initialized with the mock
+        cred = testutils.MockCredential()
+        app = firebase_admin.initialize_app(cred, {'projectId': PROJECT_ID}, name='test_consume')
+
+        try:
+            payload = app_check.verify_token("encoded", app, consume=True)
+            expected = JWT_PAYLOAD_SAMPLE.copy()
+            expected['app_id'] = APP_ID
+            expected['already_consumed'] = True
+            assert payload == expected
+            mock_http_client.return_value.body.assert_called_once_with(
+                'post', f'/{SCOPED_PROJECT_ID}:verifyAppCheckToken', json={'app_check_token': 'encoded'})
+        finally:
+            firebase_admin.delete_app(app)
+
     def test_verify_token_with_non_list_audience_raises_error(self, mocker):
         jwt_with_non_list_audience = JWT_PAYLOAD_SAMPLE.copy()
         jwt_with_non_list_audience["aud"] = '1234'

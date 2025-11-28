@@ -233,12 +233,13 @@ class TestVerifyToken(TestBatch):
         assert payload == expected
 
     def test_verify_token_with_consume(self, mocker):
+        """Test verify_token with consume=True."""
         mocker.patch("jwt.decode", return_value=JWT_PAYLOAD_SAMPLE)
         mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value=PyJWK(signing_key))
         mocker.patch("jwt.get_unverified_header", return_value=JWT_PAYLOAD_SAMPLE.get("headers"))
         mock_http_client = mocker.patch("firebase_admin._http_client.JsonHttpClient")
         mock_http_client.return_value.body.return_value = {'alreadyConsumed': True}
-        
+
         # Use a fresh app to ensure _AppCheckService is re-initialized with the mock
         cred = testutils.MockCredential()
         app = firebase_admin.initialize_app(cred, {'projectId': PROJECT_ID}, name='test_consume')
@@ -250,7 +251,9 @@ class TestVerifyToken(TestBatch):
             expected['already_consumed'] = True
             assert payload == expected
             mock_http_client.return_value.body.assert_called_once_with(
-                'post', f'/{SCOPED_PROJECT_ID}:verifyAppCheckToken', json={'app_check_token': 'encoded'})
+                'post',
+                f'/{SCOPED_PROJECT_ID}:verifyAppCheckToken',
+                json={'app_check_token': 'encoded'})
         finally:
             firebase_admin.delete_app(app)
 

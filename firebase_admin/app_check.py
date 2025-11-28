@@ -18,9 +18,10 @@ from typing import Any, Dict
 import jwt
 from jwt import PyJWKClient, ExpiredSignatureError, InvalidTokenError, DecodeError
 from jwt import InvalidAudienceError, InvalidIssuerError, InvalidSignatureError
+import requests
 from firebase_admin import _utils
 from firebase_admin import _http_client
-import requests
+from firebase_admin import exceptions
 
 _APP_CHECK_ATTRIBUTE = '_app_check'
 
@@ -106,9 +107,17 @@ class _AppCheckService:
         body = {'app_check_token': token}
         try:
             response = self._http_client.body('post', path, json=body)
+            if not isinstance(response, dict):
+                raise exceptions.UnknownError(
+                    'Unexpected response from App Check service. '
+                    f'Expected a JSON object, but got {type(response).__name__}.')
             return response.get('alreadyConsumed', False)
         except requests.exceptions.RequestException as error:
             raise _utils.handle_platform_error_from_requests(error)
+        except ValueError as error:
+            raise exceptions.UnknownError(
+                'Unexpected response from App Check service. '
+                f'Error: {error}')
 
     def _has_valid_token_headers(self, headers: Any) -> None:
         """Checks whether the token has valid headers for App Check."""

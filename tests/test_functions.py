@@ -44,13 +44,14 @@ class TestTaskQueue:
     def teardown_class(cls):
         testutils.cleanup_apps()
 
-    def _instrument_functions_service(self, app=None, status=200, payload=_DEFAULT_RESPONSE):
+    def _instrument_functions_service(
+        self, app=None, status=200, payload=_DEFAULT_RESPONSE, mounted_url=_CLOUD_TASKS_URL):
         if not app:
             app = firebase_admin.get_app()
         functions_service = functions._get_functions_service(app)
         recorder = []
         functions_service._http_client.session.mount(
-            _CLOUD_TASKS_URL,
+            mounted_url,
             testutils.MockAdapter(payload, status, recorder))
         return functions_service, recorder
 
@@ -125,8 +126,8 @@ class TestTaskQueue:
         assert task_id == 'test-task-id'
 
         task = json.loads(recorder[0].body.decode())['task']
-        assert task['http_request']['oidc_token'] == {'service_account_email': 'mock-email'}
-        assert task['http_request']['headers'] == {'Content-Type': 'application/json'}
+        assert task['httpRequest']['oidcToken'] == {'serviceAccountEmail': 'mock-email'}
+        assert task['httpRequest']['headers'] == {'Content-Type': 'application/json'}
 
     def test_task_enqueue_with_extension(self):
         resource_name = (
@@ -147,8 +148,8 @@ class TestTaskQueue:
         assert task_id == 'test-task-id'
 
         task = json.loads(recorder[0].body.decode())['task']
-        assert task['http_request']['oidc_token'] == {'service_account_email': 'mock-email'}
-        assert task['http_request']['headers'] == {'Content-Type': 'application/json'}
+        assert task['httpRequest']['oidcToken'] == {'serviceAccountEmail': 'mock-email'}
+        assert task['httpRequest']['headers'] == {'Content-Type': 'application/json'}
 
     def test_task_enqueue_compute_engine(self):
         app = firebase_admin.initialize_app(
@@ -168,8 +169,8 @@ class TestTaskQueue:
         assert task_id == 'test-task-id'
 
         task = json.loads(recorder[0].body.decode())['task']
-        assert task['http_request']['oidc_token'] == {'service_account_email': 'mock-gce-email'}
-        assert task['http_request']['headers'] == {'Content-Type': 'application/json'}
+        assert task['httpRequest']['oidcToken'] == {'serviceAccountEmail': 'mock-gce-email'}
+        assert task['httpRequest']['headers'] == {'Content-Type': 'application/json'}
 
     def test_task_enqueue_with_extension_compute_engine(self):
         resource_name = (
@@ -194,8 +195,8 @@ class TestTaskQueue:
         assert task_id == 'test-task-id'
 
         task = json.loads(recorder[0].body.decode())['task']
-        assert 'oidc_token' not in task['http_request']
-        assert task['http_request']['headers'] == {
+        assert 'oidcToken' not in task['httpRequest']
+        assert task['httpRequest']['headers'] == {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer mock-compute-engine-token'}
 
@@ -208,6 +209,58 @@ class TestTaskQueue:
         assert recorder[0].url == _DEFAULT_TASK_URL
         expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
         assert recorder[0].headers['x-goog-api-client'] == expected_metrics_header
+
+    def test_task_enqueue_with_emulator_host(self, monkeypatch):
+        emulator_host = 'localhost:8124'
+        emulator_url = f'http://{emulator_host}/'
+        request_url = emulator_url + _DEFAULT_TASK_PATH.replace('/tasks/test-task-id', '/tasks')
+
+        monkeypatch.setenv('CLOUD_TASKS_EMULATOR_HOST', emulator_host)
+        app = firebase_admin.initialize_app(
+            _utils.EmulatorAdminCredentials(), {'projectId': 'test-project'}, name='emulator-app')
+
+        expected_task_name = (
+            '/projects/test-project/locations/us-central1'
+            '/queues/test-function-name/tasks/test-task-id'
+        )
+        expected_response = json.dumps({'task': {'name': expected_task_name}})
+        _, recorder = self._instrument_functions_service(
+            app, payload=expected_response, mounted_url=emulator_url)
+
+        queue = functions.task_queue('test-function-name', app=app)
+        task_id = queue.enqueue(_DEFAULT_DATA)
+
+        assert len(recorder) == 1
+        assert recorder[0].method == 'POST'
+        assert recorder[0].url == request_url
+        assert recorder[0].headers['Content-Type'] == 'application/json'
+
+        task = json.loads(recorder[0].body.decode())['task']
+        assert task['httpRequest']['oidcToken'] == {
+            'serviceAccountEmail': 'emulated-service-acct@email.com'
+        }
+        assert task_id == 'test-task-id'
+
+    def test_task_enqueue_without_emulator_host_error(self, monkeypatch):
+        app = firebase_admin.initialize_app(
+            _utils.EmulatorAdminCredentials(),
+            {'projectId': 'test-project'}, name='no-emulator-app')
+
+        _, recorder = self._instrument_functions_service(app)
+        monkeypatch.delenv('CLOUD_TASKS_EMULATOR_HOST', raising=False)
+        queue = functions.task_queue('test-function-name', app=app)
+        with pytest.raises(ValueError) as excinfo:
+            queue.enqueue(_DEFAULT_DATA)
+        assert "Failed to determine service account" in str(excinfo.value)
+        assert len(recorder) == 0
+
+    def test_get_emulator_url_invalid_format(self, monkeypatch):
+        monkeypatch.setenv('CLOUD_TASKS_EMULATOR_HOST', 'http://localhost:8124')
+        app = firebase_admin.initialize_app(
+            testutils.MockCredential(), {'projectId': 'test-project'}, name='invalid-host-app')
+        with pytest.raises(ValueError) as excinfo:
+            functions.task_queue('test-function-name', app=app)
+        assert 'Invalid CLOUD_TASKS_EMULATOR_HOST' in str(excinfo.value)
 
 class TestTaskQueueOptions:
 
@@ -259,13 +312,13 @@ class TestTaskQueueOptions:
         assert len(recorder) == 1
         task = json.loads(recorder[0].body.decode())['task']
 
-        task_schedule_time = datetime.fromisoformat(task['schedule_time'].replace('Z', '+00:00'))
+        task_schedule_time = datetime.fromisoformat(task['scheduleTime'].replace('Z', '+00:00'))
         delta = abs(task_schedule_time - expected_schedule_time)
         assert delta <= timedelta(seconds=1)
 
-        assert task['dispatch_deadline'] == '200s'
-        assert task['http_request']['headers']['x-test-header'] == 'test-header-value'
-        assert task['http_request']['url'] in ['http://google.com', 'https://google.com']
+        assert task['dispatchDeadline'] == '200s'
+        assert task['httpRequest']['headers']['x-test-header'] == 'test-header-value'
+        assert task['httpRequest']['url'] in ['http://google.com', 'https://google.com']
         assert task['name'] == _DEFAULT_TASK_PATH
 
     def test_task_options_utc_time(self):
@@ -287,12 +340,12 @@ class TestTaskQueueOptions:
         assert len(recorder) == 1
         task = json.loads(recorder[0].body.decode())['task']
 
-        task_schedule_time = datetime.fromisoformat(task['schedule_time'].replace('Z', '+00:00'))
+        task_schedule_time = datetime.fromisoformat(task['scheduleTime'].replace('Z', '+00:00'))
         assert task_schedule_time == expected_schedule_time
 
-        assert task['dispatch_deadline'] == '200s'
-        assert task['http_request']['headers']['x-test-header'] == 'test-header-value'
-        assert task['http_request']['url'] in ['http://google.com', 'https://google.com']
+        assert task['dispatchDeadline'] == '200s'
+        assert task['httpRequest']['headers']['x-test-header'] == 'test-header-value'
+        assert task['httpRequest']['url'] in ['http://google.com', 'https://google.com']
         assert task['name'] == _DEFAULT_TASK_PATH
 
     def test_schedule_set_twice_error(self):
@@ -304,7 +357,7 @@ class TestTaskQueueOptions:
             queue.enqueue(_DEFAULT_DATA, opts)
         assert len(recorder) == 0
         assert str(excinfo.value) == \
-            'Both sechdule_delay_seconds and schedule_time cannot be set at the same time.'
+            'Both schedule_delay_seconds and schedule_time cannot be set at the same time.'
 
 
     @pytest.mark.parametrize('schedule_time', [

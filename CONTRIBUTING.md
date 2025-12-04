@@ -252,6 +252,17 @@ to ensure that exported user records contain the password hashes of the user acc
    3. Click **ADD ANOTHER ROLE** and choose **Firebase Authentication Admin**.
    4. Click **SAVE**.
 
+9. Enable Cloud Tasks:
+   1. Search for and enable **Cloud Run**.
+   2. Search for and enable **Cloud Tasks**.
+   3. Go to [Google Cloud console | IAM & admin](https://console.cloud.google.com/iam-admin)
+   and make sure your Firebase project is selected.
+   4. Ensure your service account has the following required roles:
+      * **Cloud Tasks Enqueuer** - `cloudtasks.taskEnqueuer`
+      * **Cloud Tasks Task Deleter** - `cloudtasks.taskDeleter`
+      * **Cloud Run Invoker** - `run.invoker`
+      * **Service Account User** - `iam.serviceAccountUser`
+
 
 Now you can invoke the integration test suite as follows:
 

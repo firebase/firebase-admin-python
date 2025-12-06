@@ -1,0 +1,35 @@
+{
+    "pythonVersion": "3.9",
+    "typeCheckingMode": "strict",
+
+    "include": ["firebase_admin"],
+
+    "ignore": [
+        "integration",
+        "snippets",
+        "tests",
+        "setup.py",
+    ],
+
+    // Suppress import cycle errors (using forward references as needed)
+    "reportImportCycles": "none",
+
+    // Allow dependencies without type annotations or stubs
+    "reportIncompleteStub": "none",
+    "reportMissingTypeStubs": "none",
+
+    // Permit usage of private members across modules
+    "reportPrivateUsage": "none",
+
+    // Allow `isinstance` checks even if redundant
+    "reportUnnecessaryIsInstance": "none",
+
+    // Warn when unused type: ignore
+    "reportUnnecessaryTypeIgnoreComment": "warning",
+
+    // Useful strict warnings
+    "reportMissingParameterType": "warning",
+    "reportUnknownArgumentType": "warning",
+    "reportUnknownMemberType": "warning",
+    "reportUnknownVariableType": "warning"
+}

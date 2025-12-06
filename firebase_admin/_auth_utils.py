@@ -17,22 +17,86 @@
 import json
 import os
 import re
+from collections.abc import Iterator, Sequence
+from typing import (
+    Any,
+    Generic,
+    Literal,
+    Optional,
+    Protocol,
+    cast,
+    overload,
+)
 from urllib import parse
+
+import requests
+from typing_extensions import Self, TypeVar
 
 from firebase_admin import exceptions
 from firebase_admin import _utils
 
+__all__ = (
+    'EMULATOR_HOST_ENV_VAR',
+    'MAX_CLAIMS_PAYLOAD_SIZE',
+    'RESERVED_CLAIMS',
+    'VALID_EMAIL_ACTION_TYPES',
+    'ConfigurationNotFoundError',
+    'EmailAlreadyExistsError',
+    'EmailNotFoundError',
+    'InsufficientPermissionError',
+    'InvalidDynamicLinkDomainError',
+    'InvalidIdTokenError',
+    'PhoneNumberAlreadyExistsError',
+    'ResetPasswordExceedLimitError',
+    'TenantNotFoundError',
+    'TenantIdMismatchError',
+    'TooManyAttemptsTryLaterError',
+    'UidAlreadyExistsError',
+    'UnexpectedResponseError',
+    'UserDisabledError',
+    'UserNotFoundError',
+    'PageIterator',
+    'build_update_mask',
+    'get_emulator_host',
+    'handle_auth_backend_error',
+    'is_emulated',
+    'validate_action_type',
+    'validate_boolean',
+    'validate_bytes',
+    'validate_custom_claims',
+    'validate_display_name',
+    'validate_email',
+    'validate_int',
+    'validate_password',
+    'validate_phone',
+    'validate_photo_url',
+    'validate_provider_id',
+    'validate_provider_ids',
+    'validate_provider_uid',
+    'validate_string',
+    'validate_timestamp',
+    'validate_uid',
+)
+
+_PageT = TypeVar('_PageT', bound='_Page')
 
 EMULATOR_HOST_ENV_VAR = 'FIREBASE_AUTH_EMULATOR_HOST'
 MAX_CLAIMS_PAYLOAD_SIZE = 1000
-RESERVED_CLAIMS = set([
+RESERVED_CLAIMS = {
     'acr', 'amr', 'at_hash', 'aud', 'auth_time', 'azp', 'cnf', 'c_hash', 'exp', 'iat',
     'iss', 'jti', 'nbf', 'nonce', 'sub', 'firebase',
-])
-VALID_EMAIL_ACTION_TYPES = set(['VERIFY_EMAIL', 'EMAIL_SIGNIN', 'PASSWORD_RESET'])
+}
+VALID_EMAIL_ACTION_TYPES = {'VERIFY_EMAIL', 'EMAIL_SIGNIN', 'PASSWORD_RESET'}
 
 
-class PageIterator:
+class _Page(Protocol):
+    @property
+    def has_next_page(self) -> bool: ...
+
+    def get_next_page(self) -> Optional[Self]: ...
+
+
+class PageIterator(Generic[_PageT]):
     """An iterator that allows iterating over a sequence of items, one at a time.
 
     This implementation loads a page of items into memory, and iterates on them. When the whole
@@ -40,21 +104,21 @@ class PageIterator:
     of entries in memory.
     """
 
-    def __init__(self, current_page):
+    def __init__(self, current_page: _PageT) -> None:
         if not current_page:
             raise ValueError('Current page must not be None.')
 
-        self._current_page = current_page
-        self._iter = None
+        self._current_page: Optional[_PageT] = current_page
+        self._iter: Optional[Iterator[_PageT]] = None
 
-    def __next__(self):
+    def __next__(self) -> _PageT:
         if self._iter is None:
             self._iter = iter(self.items)
 
         try:
             return next(self._iter)
         except StopIteration:
-            if self._current_page.has_next_page:
+            if self._current_page and self._current_page.has_next_page:
                 self._current_page = self._current_page.get_next_page()
                 self._iter = iter(self.items)
 
@@ -62,15 +126,15 @@ class PageIterator:
 
             raise
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[_PageT]:
         return self
 
     @property
-    def items(self):
+    def items(self) -> Sequence[Any]:
         raise NotImplementedError
 
 
-def get_emulator_host():
+def get_emulator_host() -> str:
     emulator_host = os.getenv(EMULATOR_HOST_ENV_VAR, '')
     if emulator_host and '//' in emulator_host:
         raise ValueError(
@@ -79,11 +143,15 @@ def get_emulator_host():
     return emulator_host
 
 
-def is_emulated():
+def is_emulated() -> bool:
     return get_emulator_host() != ''
 
 
-def validate_uid(uid, required=False):
+@overload
+def validate_uid(uid: Any, required: Literal[True]) -> str: ...
+@overload
+def validate_uid(uid: Any, required: bool = False) -> Optional[str]: ...
+def validate_uid(uid: Any, required: bool = False) -> Optional[str]:
     if uid is None and not required:
         return None
     if not isinstance(uid, str) or not uid or len(uid) > 128:
@@ -92,7 +160,12 @@ def validate_uid(uid, required=False):
             'characters.')
     return uid
 
-def validate_email(email, required=False):
+
+@overload
+def validate_email(email: Any, required: Literal[True]) -> str: ...
+@overload
+def validate_email(email: Any, required: bool = False) -> Optional[str]: ...
+def validate_email(email: Any, required: bool = False) -> Optional[str]:
     if email is None and not required:
         return None
     if not isinstance(email, str) or not email:
@@ -103,7 +176,12 @@ def validate_email(email, required=False):
         raise ValueError(f'Malformed email address string: "{email}".')
     return email
 
-def validate_phone(phone, required=False):
+
+@overload
+def validate_phone(phone: Any, required: Literal[True]) -> str: ...
+@overload
+def validate_phone(phone: Any, required: bool = False) -> Optional[str]: ...
+def validate_phone(phone: Any, required: bool = False) -> Optional[str]:
     """Validates the specified phone number.
 
     Phone number vlidation is very lax here. Backend will enforce E.164 spec compliance, and
@@ -121,7 +199,12 @@ def validate_phone(phone, required=False):
             'compliant identifier.')
     return phone
 
-def validate_password(password, required=False):
+
+@overload
+def validate_password(password: Any, required: Literal[True]) -> str: ...
+@overload
+def validate_password(password: Any, required: bool = False) -> Optional[str]: ...
+def validate_password(password: Any, required: bool = False) -> Optional[str]:
     if password is None and not required:
         return None
     if not isinstance(password, str) or len(password) < 6:
@@ -129,14 +212,24 @@ def validate_password(password, required=False):
             'Invalid password string. Password must be a string at least 6 characters long.')
     return password
 
-def validate_bytes(value, label, required=False):
+
+@overload
+def validate_bytes(value: Any, label: Any, required: Literal[True]) -> bytes: ...
+@overload
+def validate_bytes(value: Any, label: Any, required: bool = False) -> Optional[bytes]: ...
+def validate_bytes(value: Any, label: Any, required: bool = False) -> Optional[bytes]:
     if value is None and not required:
         return None
     if not isinstance(value, bytes) or not value:
         raise ValueError(f'{label} must be a non-empty byte sequence.')
     return value
 
-def validate_display_name(display_name, required=False):
+
+@overload
+def validate_display_name(display_name: Any, required: Literal[True]) -> str: ...
+@overload
+def validate_display_name(display_name: Any, required: bool = False) -> Optional[str]: ...
+def validate_display_name(display_name: Any, required: bool = False) -> Optional[str]:
     if display_name is None and not required:
         return None
     if not isinstance(display_name, str) or not display_name:
@@ -145,7 +238,12 @@ def validate_display_name(display_name, required=False):
             'string.')
     return display_name
 
-def validate_provider_id(provider_id, required=True):
+
+@overload
+def validate_provider_id(provider_id: Any, required: Literal[True]) -> str: ...
+@overload
+def validate_provider_id(provider_id: Any, required: bool = True) -> Optional[str]: ...
+def validate_provider_id(provider_id: Any, required: bool = True) -> Optional[str]:
     if provider_id is None and not required:
         return None
     if not isinstance(provider_id, str) or not provider_id:
@@ -153,7 +251,12 @@ def validate_provider_id(provider_id, required=True):
             f'Invalid provider ID: "{provider_id}". Provider ID must be a non-empty string.')
     return provider_id
 
-def validate_provider_uid(provider_uid, required=True):
+
+@overload
+def validate_provider_uid(provider_uid: Any, required: Literal[True] = True) -> str: ...
+@overload
+def validate_provider_uid(provider_uid: Any, required: bool = True) -> Optional[str]: ...
+def validate_provider_uid(provider_uid: Any, required: bool = True) -> Optional[str]:
     if provider_uid is None and not required:
         return None
     if not isinstance(provider_uid, str) or not provider_uid:
@@ -161,7 +264,12 @@ def validate_provider_uid(provider_uid, required=True):
             f'Invalid provider UID: "{provider_uid}". Provider UID must be a non-empty string.')
     return provider_uid
 
-def validate_photo_url(photo_url, required=False):
+
+@overload
+def validate_photo_url(photo_url: Any, required: Literal[True]) -> str: ...
+@overload
+def validate_photo_url(photo_url: Any, required: bool = False) -> Optional[str]: ...
+def validate_photo_url(photo_url: Any, required: bool = False) -> Optional[str]:
     """Parses and validates the given URL string."""
     if photo_url is None and not required:
         return None
@@ -176,7 +284,12 @@ def validate_photo_url(photo_url, required=False):
     except Exception as err:
         raise ValueError(f'Malformed photo URL: "{photo_url}".') from err
 
-def validate_timestamp(timestamp, label, required=False):
+
+@overload
+def validate_timestamp(timestamp: Any, label: Any, required: Literal[True]) -> int: ...
+@overload
+def validate_timestamp(timestamp: Any, label: Any, required: bool = False) -> Optional[int]: ...
+def validate_timestamp(timestamp: Any, label: Any, required: bool = False) -> Optional[int]:
     """Validates the given timestamp value. Timestamps must be positive integers."""
     if timestamp is None and not required:
         return None
@@ -192,7 +305,13 @@ def validate_timestamp(timestamp, label, required=False):
         raise ValueError(f'{label} timestamp must be a positive interger.')
     return timestamp_int
 
-def validate_int(value, label, low=None, high=None):
+
+def validate_int(
+    value: Any,
+    label: Any,
+    low: Optional[int] = None,
+    high: Optional[int] = None,
+) -> int:
     """Validates that the given value represents an integer.
 
     There are several ways to represent an integer in Python (e.g. 2, 2L, 2.0). This method allows
@@ -215,19 +334,26 @@ def validate_int(value, label, low=None, high=None):
         raise ValueError(f'{label} must not be larger than {high}.')
     return val_int
 
-def validate_string(value, label):
+
+def validate_string(value: Any, label: Any) -> str:
     """Validates that the given value is a string."""
     if not isinstance(value, str):
         raise ValueError(f'Invalid type for {label}: {value}.')
     return value
 
-def validate_boolean(value, label):
+
+def validate_boolean(value: Any, label: Any) -> bool:
     """Validates that the given value is a boolean."""
     if not isinstance(value, bool):
         raise ValueError(f'Invalid type for {label}: {value}.')
     return value
 
-def validate_custom_claims(custom_claims, required=False):
+
+@overload
+def validate_custom_claims(custom_claims: Any, required: Literal[True]) -> str: ...
+@overload
+def validate_custom_claims(custom_claims: Any, required: bool = False) -> Optional[str]: ...
+def validate_custom_claims(custom_claims: Any, required: bool = False) -> Optional[str]:
     """Validates the specified custom claims.
 
     Custom claims must be specified as a JSON string. The string must not exceed 1000
@@ -240,7 +366,7 @@ def validate_custom_claims(custom_claims, required=False):
         raise ValueError(
             f'Custom claims payload must not exceed {MAX_CLAIMS_PAYLOAD_SIZE} characters.')
     try:
-        parsed = json.loads(claims_str)
+        parsed: dict[str, Any] = json.loads(claims_str)
     except Exception as err:
         raise ValueError('Failed to parse custom claims string as JSON.') from err
 
@@ -255,14 +381,18 @@ def validate_custom_claims(custom_claims, required=False):
             f'Claim "{invalid_claims.pop()}" is reserved, and must not be set.')
     return claims_str
 
-def validate_action_type(action_type):
+
+def validate_action_type(
+    action_type: Any,
+) -> Literal['VERIFY_EMAIL', 'EMAIL_SIGNIN', 'PASSWORD_RESET']:
     if action_type not in VALID_EMAIL_ACTION_TYPES:
         raise ValueError(
             f'Invalid action type provided action_type: {action_type}. Valid values are '
             f'{", ".join(VALID_EMAIL_ACTION_TYPES)}')
     return action_type
 
-def validate_provider_ids(provider_ids, required=False):
+
+def validate_provider_ids(provider_ids: Any, required: bool = False) -> list[str]:
     if not provider_ids:
         if required:
             raise ValueError('Invalid provider IDs. Provider ids should be provided')
@@ -271,11 +401,13 @@ def validate_provider_ids(provider_ids, required=False):
         validate_provider_id(provider_id, True)
     return provider_ids
 
-def build_update_mask(params):
+
+def build_update_mask(params: dict[str, Any]) -> list[str]:
     """Creates an update mask list from the given dictionary."""
-    mask = []
+    mask: list[str] = []
     for key, value in params.items():
         if isinstance(value, dict):
+            value = cast(dict[str, Any], value)
             child_mask = build_update_mask(value)
             for child in child_mask:
                 mask.append(f'{key}.{child}')
@@ -290,17 +422,11 @@ class UidAlreadyExistsError(exceptions.AlreadyExistsError):
 
     default_message = 'The user with the provided uid already exists'
 
-    def __init__(self, message, cause, http_response):
-        exceptions.AlreadyExistsError.__init__(self, message, cause, http_response)
-
 
 class EmailAlreadyExistsError(exceptions.AlreadyExistsError):
     """The user with the provided email already exists."""
 
     default_message = 'The user with the provided email already exists'
-
-    def __init__(self, message, cause, http_response):
-        exceptions.AlreadyExistsError.__init__(self, message, cause, http_response)
 
 
 class InsufficientPermissionError(exceptions.PermissionDeniedError):
@@ -311,17 +437,11 @@ class InsufficientPermissionError(exceptions.PermissionDeniedError):
                        'https://firebase.google.com/docs/admin/setup for details '
                        'on how to initialize the Admin SDK with appropriate permissions')
 
-    def __init__(self, message, cause, http_response):
-        exceptions.PermissionDeniedError.__init__(self, message, cause, http_response)
-
 
 class InvalidDynamicLinkDomainError(exceptions.InvalidArgumentError):
     """Dynamic link domain in ActionCodeSettings is not authorized."""
 
     default_message = 'Dynamic link domain specified in ActionCodeSettings is not authorized'
-
-    def __init__(self, message, cause, http_response):
-        exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
 
 
 class InvalidHostingLinkDomainError(exceptions.InvalidArgumentError):
@@ -331,17 +451,11 @@ class InvalidHostingLinkDomainError(exceptions.InvalidArgumentError):
     default_message = ('The provided hosting link domain is not configured in Firebase '
                        'Hosting or is not owned by the current project')
 
-    def __init__(self, message, cause, http_response):
-        exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
-
 
 class InvalidIdTokenError(exceptions.InvalidArgumentError):
     """The provided ID token is not a valid Firebase ID token."""
 
     default_message = 'The provided ID token is invalid'
-
-    def __init__(self, message, cause=None, http_response=None):
-        exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
 
 
 class PhoneNumberAlreadyExistsError(exceptions.AlreadyExistsError):
@@ -349,15 +463,9 @@ class PhoneNumberAlreadyExistsError(exceptions.AlreadyExistsError):
 
     default_message = 'The user with the provided phone number already exists'
 
-    def __init__(self, message, cause, http_response):
-        exceptions.AlreadyExistsError.__init__(self, message, cause, http_response)
-
 
 class UnexpectedResponseError(exceptions.UnknownError):
     """Backend service responded with an unexpected or malformed response."""
-
-    def __init__(self, message, cause=None, http_response=None):
-        exceptions.UnknownError.__init__(self, message, cause, http_response)
 
 
 class UserNotFoundError(exceptions.NotFoundError):
@@ -365,17 +473,11 @@ class UserNotFoundError(exceptions.NotFoundError):
 
     default_message = 'No user record found for the given identifier'
 
-    def __init__(self, message, cause=None, http_response=None):
-        exceptions.NotFoundError.__init__(self, message, cause, http_response)
-
 
 class EmailNotFoundError(exceptions.NotFoundError):
     """No user record found for the specified email."""
 
     default_message = 'No user record found for the given email'
-
-    def __init__(self, message, cause=None, http_response=None):
-        exceptions.NotFoundError.__init__(self, message, cause, http_response)
 
 
 class TenantNotFoundError(exceptions.NotFoundError):
@@ -383,15 +485,9 @@ class TenantNotFoundError(exceptions.NotFoundError):
 
     default_message = 'No tenant found for the given identifier'
 
-    def __init__(self, message, cause=None, http_response=None):
-        exceptions.NotFoundError.__init__(self, message, cause, http_response)
-
 
 class TenantIdMismatchError(exceptions.InvalidArgumentError):
     """Missing or invalid tenant ID field in the given JWT."""
-
-    def __init__(self, message):
-        exceptions.InvalidArgumentError.__init__(self, message)
 
 
 class ConfigurationNotFoundError(exceptions.NotFoundError):
@@ -399,31 +495,19 @@ class ConfigurationNotFoundError(exceptions.NotFoundError):
 
     default_message = 'No auth provider found for the given identifier'
 
-    def __init__(self, message, cause=None, http_response=None):
-        exceptions.NotFoundError.__init__(self, message, cause, http_response)
-
 
 class UserDisabledError(exceptions.InvalidArgumentError):
     """An operation failed due to a user record being disabled."""
 
     default_message = 'The user record is disabled'
 
-    def __init__(self, message, cause=None, http_response=None):
-        exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
-
 
 class TooManyAttemptsTryLaterError(exceptions.ResourceExhaustedError):
     """Rate limited because of too many attempts."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        exceptions.ResourceExhaustedError.__init__(self, message, cause, http_response)
-
 
 class ResetPasswordExceedLimitError(exceptions.ResourceExhaustedError):
     """Reset password emails exceeded their limits."""
-
-    def __init__(self, message, cause=None, http_response=None):
-        exceptions.ResourceExhaustedError.__init__(self, message, cause, http_response)
 
 
 _CODE_TO_EXC_TYPE = {
@@ -444,7 +528,7 @@ _CODE_TO_EXC_TYPE = {
 }
 
 
-def handle_auth_backend_error(error):
+def handle_auth_backend_error(error: requests.RequestException) -> exceptions.FirebaseError:
     """Converts a requests error received from the Firebase Auth service into a FirebaseError."""
     if error.response is None:
         return _utils.handle_requests_error(error)
@@ -462,11 +546,13 @@ def handle_auth_backend_error(error):
     return exc_type(msg, cause=error, http_response=error.response)
 
 
-def _parse_error_body(response):
+def _parse_error_body(
+    response: requests.Response,
+) -> tuple[Optional[str], Optional[str]]:
     """Parses the given error response to extract Auth error code and message."""
-    error_dict = {}
+    error_dict: dict[str, Any] = {}
     try:
-        parsed_body = response.json()
+        parsed_body: dict[str, Any] = response.json()
         if isinstance(parsed_body, dict):
             error_dict = parsed_body.get('error', {})
     except ValueError:
@@ -479,13 +565,16 @@ def _parse_error_body(response):
         separator = code.find(':')
         if separator != -1:
             custom_message = code[separator + 1:].strip()
-            code = code[:separator].strip()
+            code = code[:separator]
 
     return code, custom_message
 
 
-def _build_error_message(code, exc_type, custom_message):
-    default_message = exc_type.default_message if (
-        exc_type and hasattr(exc_type, 'default_message')) else 'Error while calling Auth service'
+def _build_error_message(
+    code: str,
+    exc_type: Optional[type[exceptions.FirebaseError]],
+    custom_message: Optional[str],
+) -> str:
+    default_message = getattr(exc_type, 'default_message', 'Error while calling Auth service')
     ext = f' {custom_message}' if custom_message else ''
     return f'{default_message} ({code}).{ext}'

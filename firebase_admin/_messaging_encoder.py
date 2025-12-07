@@ -773,7 +773,7 @@ class MessageEncoder(json.JSONEncoder):
     def default(self, o: Any) -> dict[str, Any]: # pylint: disable=method-hidden
         if not isinstance(o, Message):
             return json.JSONEncoder.default(self, o)
-        result = {
+        result: dict[str, Any] = {
             'android': MessageEncoder.encode_android(o.android),
             'apns': MessageEncoder.encode_apns(o.apns),
             'condition': _Validators.check_string(

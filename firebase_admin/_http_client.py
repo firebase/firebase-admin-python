@@ -161,10 +161,11 @@ class HttpClient(Generic[_T]):
         Raises:
           RequestException: Any requests exceptions encountered while making the HTTP call.
         """
+        if self._session is None:
+            raise RuntimeError('HTTP client has been closed.')
         if 'timeout' not in kwargs:
             kwargs['timeout'] = self.timeout
         kwargs.setdefault('headers', {}).update(METRICS_HEADERS)
-        # possible issue: AttributeError <- _session can be None
         resp = self._session.request(method, self.base_url + url, **kwargs)
         resp.raise_for_status()
         return resp

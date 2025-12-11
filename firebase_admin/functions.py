@@ -14,32 +14,35 @@
 
 """Firebase Functions module."""
 
-from __future__ import annotations
-from datetime import datetime, timedelta, timezone
-from urllib import parse
-import re
-import os
+import base64
+import dataclasses
+import datetime
 import json
-from base64 import b64encode
-from typing import Any, Optional, Dict
-from dataclasses import dataclass
+import os
+import re
+from urllib import parse
+from typing import Any, Optional, cast
+from typing_extensions import TypeGuard
 
+import requests
+from google.auth.credentials import Credentials as GoogleAuthCredentials
 from google.auth.compute_engine import Credentials as ComputeEngineCredentials
 from google.auth.credentials import TokenState
 from google.auth.exceptions import RefreshError
 from google.auth.transport import requests as google_auth_requests
 
-import requests
 import firebase_admin
-from firebase_admin import App
 from firebase_admin import _http_client
 from firebase_admin import _utils
+from firebase_admin import exceptions
 
 _FUNCTIONS_ATTRIBUTE = '_functions'
 
 __all__ = [
+    'Resource',
+    'Task', 
     'TaskOptions',
-
+    'TaskQueue',
     'task_queue',
 ]
 
@@ -72,14 +75,15 @@ def _get_emulator_host() -> Optional[str]:
     return None
 
 
-def _get_functions_service(app) -> _FunctionsService:
+def _get_functions_service(app: Optional[firebase_admin.App]) -> '_FunctionsService':
     return _utils.get_app_service(app, _FUNCTIONS_ATTRIBUTE, _FunctionsService)
 
+
 def task_queue(
-        function_name: str,
-        extension_id: Optional[str] = None,
-        app: Optional[App] = None
-    ) -> TaskQueue:
+    function_name: str,
+    extension_id: Optional[str] = None,
+    app: Optional[firebase_admin.App] = None,
+) -> 'TaskQueue':
     """Creates a reference to a TaskQueue for a given function name.
 
     The function name can be either:
@@ -107,9 +111,10 @@ def task_queue(
     """
     return _get_functions_service(app).task_queue(function_name, extension_id)
 
+
 class _FunctionsService:
     """Service class that implements Firebase Functions functionality."""
-    def __init__(self, app: App):
+    def __init__(self, app: firebase_admin.App) -> None:
         self._project_id = app.project_id
         if not self._project_id:
             raise ValueError(
@@ -125,30 +130,29 @@ class _FunctionsService:
 
         self._http_client = _http_client.JsonHttpClient(credential=self._credential)
 
-    def task_queue(self, function_name: str, extension_id: Optional[str] = None) -> TaskQueue:
+    def task_queue(self, function_name: str, extension_id: Optional[str] = None) -> 'TaskQueue':
         """Creates a TaskQueue instance."""
         return TaskQueue(
             function_name, extension_id, self._project_id, self._credential, self._http_client,
             self._emulator_host)
 
     @classmethod
-    def handle_functions_error(cls, error: Any):
+    def handle_functions_error(cls, error: requests.RequestException) -> exceptions.FirebaseError:
         """Handles errors received from the Cloud Functions API."""
-
         return _utils.handle_platform_error_from_requests(error)
+
 
 class TaskQueue:
     """TaskQueue class that implements Firebase Cloud Tasks Queues functionality."""
     def __init__(
-            self,
-            function_name: str,
-            extension_id: Optional[str],
-            project_id,
-            credential,
-            http_client,
-            emulator_host: Optional[str] = None
-        ) -> None:
-
+        self,
+        function_name: str,
+        extension_id: Optional[str],
+        project_id: Optional[str],
+        credential: GoogleAuthCredentials,
+        http_client: _http_client.HttpClient[dict[str, Any]],
+        emulator_host: Optional[str] = None,
+    ) -> None:
         # Validate function_name
         _Validators.check_non_empty_string('function_name', function_name)
 
@@ -170,8 +174,7 @@ class TaskQueue:
             _Validators.check_non_empty_string('extension_id', self._extension_id)
             self._resource.resource_id = f'ext-{self._extension_id}-{self._resource.resource_id}'
 
-
-    def enqueue(self, task_data: Any, opts: Optional[TaskOptions] = None) -> str:
+    def enqueue(self, task_data: Any, opts: Optional['TaskOptions'] = None) -> str:
         """Creates a task and adds it to the queue. Tasks cannot be updated after creation.
 
         This action requires `cloudtasks.tasks.create` IAM permission on the service account.
@@ -202,13 +205,13 @@ class TaskQueue:
             if self._is_emulated():
                 # Emulator returns a response with format {task: {name: <task_name>}}
                 # The task name also has an extra '/' at the start compared to prod
-                task_info = resp.get('task') or {}
-                task_name = task_info.get('name')
+                task_info: dict[str, Any] = resp['task']
+                task_name: str = task_info['name']
                 if task_name:
                     task_name = task_name[1:]
             else:
                 # Production returns a response with format {name: <task_name>}
-                task_name = resp.get('name')
+                task_name = resp['name']
             task_resource = \
                 self._parse_resource_name(task_name, f'queues/{self._resource.resource_id}/tasks')
             return task_resource.resource_id
@@ -243,8 +246,7 @@ class TaskQueue:
         except requests.exceptions.RequestException as error:
             raise _FunctionsService.handle_functions_error(error)
 
-
-    def _parse_resource_name(self, resource_name: str, resource_id_key: str) -> Resource:
+    def _parse_resource_name(self, resource_name: str, resource_id_key: str) -> 'Resource':
         """Parses a full or partial resource path into a ``Resource``."""
         if '/' not in resource_name:
             return Resource(resource_id=resource_name)
@@ -255,7 +257,7 @@ class TaskQueue:
             raise ValueError('Invalid resource name format.')
         return Resource(project_id=match[2], location_id=match[3], resource_id=match[4])
 
-    def _get_url(self, resource: Resource, url_format: str) -> str:
+    def _get_url(self, resource: 'Resource', url_format: str) -> str:
         """Generates url path from a ``Resource`` and url format string."""
         return url_format.format(
             project_id=resource.project_id,
@@ -263,18 +265,18 @@ class TaskQueue:
             resource_id=resource.resource_id)
 
     def _validate_task_options(
-            self,
-            data: Any,
-            resource: Resource,
-            opts: Optional[TaskOptions] = None
-        ) -> Task:
+        self,
+        data: dict[str, Any],
+        resource: 'Resource',
+        opts: Optional['TaskOptions'] = None,
+    ) -> 'Task':
         """Validate and create a Task from optional ``TaskOptions``."""
         task_http_request = {
             'url': '',
             'oidcToken': {
                 'serviceAccountEmail': ''
             },
-            'body': b64encode(json.dumps(data).encode()).decode(),
+            'body': base64.b64encode(json.dumps(data).encode()).decode(),
             'headers': {
                 'Content-Type': 'application/json',
             }
@@ -288,15 +290,15 @@ class TaskQueue:
                 raise ValueError(
                     'Both schedule_delay_seconds and schedule_time cannot be set at the same time.')
             if opts.schedule_time is not None and opts.schedule_delay_seconds is None:
-                if not isinstance(opts.schedule_time, datetime):
+                if not isinstance(opts.schedule_time, datetime.datetime):
                     raise ValueError('schedule_time should be UTC datetime.')
                 task.schedule_time = opts.schedule_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
             if opts.schedule_delay_seconds is not None and opts.schedule_time is None:
                 if not isinstance(opts.schedule_delay_seconds, int) \
                 or opts.schedule_delay_seconds < 0:
                     raise ValueError('schedule_delay_seconds should be positive int.')
-                schedule_time = (
-                    datetime.now(timezone.utc) + timedelta(seconds=opts.schedule_delay_seconds))
+                schedule_time = datetime.datetime.now(datetime.timezone.utc) + \
+                    datetime.timedelta(seconds=opts.schedule_delay_seconds)
                 task.schedule_time = schedule_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
             if opts.dispatch_deadline_seconds is not None:
                 if not isinstance(opts.dispatch_deadline_seconds, int) \
@@ -320,7 +322,12 @@ class TaskQueue:
                 task.http_request['url'] = opts.uri
         return task
 
-    def _update_task_payload(self, task: Task, resource: Resource, extension_id: str) -> Task:
+    def _update_task_payload(
+        self,
+        task: 'Task',
+        resource: 'Resource',
+        extension_id: Optional[str],
+    ) -> 'Task':
         """Prepares task to be sent with credentials."""
         # Get function url from task or generate from resources
         if not _Validators.is_non_empty_string(task.http_request['url']):
@@ -333,7 +340,7 @@ class TaskQueue:
         # are populated, preventing cold start errors.
         if self._credential.token_state != TokenState.FRESH:
             try:
-                self._credential.refresh(google_auth_requests.Request())
+                self._credential.refresh(google_auth_requests.Request())  # pyright: ignore[reportUnknownMemberType]
             except RefreshError as err:
                 raise ValueError(f'Initial task payload credential refresh failed: {err}') from err
 
@@ -341,7 +348,7 @@ class TaskQueue:
         # Meaning that it's credential should be a Compute Engine Credential.
         if _Validators.is_non_empty_string(extension_id) and \
             isinstance(self._credential, ComputeEngineCredentials):
-            id_token = self._credential.token
+            id_token = cast(str, self._credential.token)  # pyright: ignore[reportUnknownMemberType]
             task.http_request['headers'] = \
                 {**task.http_request['headers'], 'Authorization': f'Bearer {id_token}'}
             # Delete oidc token
@@ -349,7 +356,7 @@ class TaskQueue:
         else:
             try:
                 task.http_request['oidcToken'] = \
-                    {'serviceAccountEmail': self._credential.service_account_email}
+                    {'serviceAccountEmail': getattr(self._credential, 'service_account_email')}
             except AttributeError as error:
                 if self._is_emulated():
                     task.http_request['oidcToken'] = \
@@ -361,7 +368,7 @@ class TaskQueue:
                         ) from error
         return task
 
-    def _get_emulator_url(self, resource: Resource):
+    def _get_emulator_url(self, resource: 'Resource') -> Optional[str]:
         if self._emulator_host:
             emulator_url_format = f'http://{self._emulator_host}/' + _CLOUD_TASKS_API_RESOURCE_PATH
             url = self._get_url(resource, emulator_url_format)
@@ -375,7 +382,7 @@ class TaskQueue:
 class _Validators:
     """A collection of data validation utilities."""
     @classmethod
-    def check_non_empty_string(cls, label: str, value: Any):
+    def check_non_empty_string(cls, label: str, value: Any) -> None:
         """Checks if given value is a non-empty string and throws error if not."""
         if not isinstance(value, str):
             raise ValueError(f'{label} "{value}" must be a string.')
@@ -383,14 +390,14 @@ class _Validators:
             raise ValueError(f'{label} "{value}" must be a non-empty string.')
 
     @classmethod
-    def is_non_empty_string(cls, value: Any):
+    def is_non_empty_string(cls, value: Any) -> TypeGuard[str]:
         """Checks if given value is a non-empty string and returns bool."""
         if not isinstance(value, str) or value == '':
             return False
         return True
 
     @classmethod
-    def is_task_id(cls, task_id: Any):
+    def is_task_id(cls, task_id: str) -> bool:
         """Checks if given value is a valid task id."""
         reg = '^[A-Za-z0-9_-]+$'
         if re.match(reg, task_id) is not None and len(task_id) <= 500:
@@ -398,7 +405,7 @@ class _Validators:
         return False
 
     @classmethod
-    def is_url(cls, url: Any):
+    def is_url(cls, url: Any) -> TypeGuard[str]:
         """Checks if given value is a valid url."""
         if not isinstance(url, str):
             return False
@@ -411,7 +418,7 @@ class _Validators:
             return False
 
 
-@dataclass
+@dataclasses.dataclass
 class TaskOptions:
     """Task Options that can be applied to a Task.
 
@@ -470,13 +477,14 @@ class TaskOptions:
             http URL.
     """
     schedule_delay_seconds: Optional[int] = None
-    schedule_time: Optional[datetime] = None
+    schedule_time: Optional[datetime.datetime] = None
     dispatch_deadline_seconds: Optional[int] = None
     task_id: Optional[str] = None
-    headers: Optional[Dict[str, str]] = None
+    headers: Optional[dict[str, str]] = None
     uri: Optional[str] = None
 
-@dataclass
+
+@dataclasses.dataclass
 class Task:
     """Contains the relevant fields for enqueueing tasks that trigger Cloud Functions.
 
@@ -490,12 +498,12 @@ class Task:
         schedule_time: The time when the task is scheduled to be attempted or retried.
         dispatch_deadline: The deadline for requests sent to the worker.
     """
-    http_request: Dict[str, Optional[str | dict]]
+    http_request: dict[str, Any]
     name: Optional[str] = None
     schedule_time: Optional[str] = None
     dispatch_deadline: Optional[str] = None
 
-    def to_api_dict(self) -> dict:
+    def to_api_dict(self) -> dict[str, Any]:
         """Converts the Task object to a dictionary suitable for the Cloud Tasks API."""
         return {
             'httpRequest': self.http_request,
@@ -504,7 +512,8 @@ class Task:
             'dispatchDeadline': self.dispatch_deadline,
         }
 
-@dataclass
+
+@dataclasses.dataclass
 class Resource:
     """Contains the parsed address of a resource.
 

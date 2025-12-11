@@ -16,6 +16,15 @@
 
 from firebase_admin import _auth_utils
 
+__all__ = (
+    'EmailIdentifier',
+    'PhoneIdentifier',
+    'ProviderIdentifier',
+    'UidIdentifier',
+    'UserIdentifier',
+)
+
+
 class UserIdentifier:
     """Identifies a user to be looked up."""
 
@@ -26,7 +35,7 @@ class UidIdentifier(UserIdentifier):
     See ``auth.get_user()``.
     """
 
-    def __init__(self, uid):
+    def __init__(self, uid: str) -> None:
         """Constructs a new `UidIdentifier` object.
 
         Args:
@@ -35,7 +44,7 @@ class UidIdentifier(UserIdentifier):
         self._uid = _auth_utils.validate_uid(uid, required=True)
 
     @property
-    def uid(self):
+    def uid(self) -> str:
         return self._uid
 
 
@@ -45,7 +54,7 @@ class EmailIdentifier(UserIdentifier):
     See ``auth.get_user()``.
     """
 
-    def __init__(self, email):
+    def __init__(self, email: str) -> None:
         """Constructs a new `EmailIdentifier` object.
 
         Args:
@@ -54,7 +63,7 @@ class EmailIdentifier(UserIdentifier):
         self._email = _auth_utils.validate_email(email, required=True)
 
     @property
-    def email(self):
+    def email(self) -> str:
         return self._email
 
 
@@ -64,7 +73,7 @@ class PhoneIdentifier(UserIdentifier):
     See ``auth.get_user()``.
     """
 
-    def __init__(self, phone_number):
+    def __init__(self, phone_number: str) -> None:
         """Constructs a new `PhoneIdentifier` object.
 
         Args:
@@ -73,7 +82,7 @@ class PhoneIdentifier(UserIdentifier):
         self._phone_number = _auth_utils.validate_phone(phone_number, required=True)
 
     @property
-    def phone_number(self):
+    def phone_number(self) -> str:
         return self._phone_number
 
 
@@ -83,21 +92,21 @@ class ProviderIdentifier(UserIdentifier):
     See ``auth.get_user()``.
     """
 
-    def __init__(self, provider_id, provider_uid):
+    def __init__(self, provider_id: str, provider_uid: str) -> None:
         """Constructs a new `ProviderIdentifier` object.
 
-        Args:
-            provider_id: A provider ID string.
-            provider_uid: A provider UID string.
+        Args:
+            provider_id: A provider ID string.
+            provider_uid: A provider UID string.
         """
         self._provider_id = _auth_utils.validate_provider_id(provider_id, required=True)
         self._provider_uid = _auth_utils.validate_provider_uid(
             provider_uid, required=True)
 
     @property
-    def provider_id(self):
+    def provider_id(self) -> str:
         return self._provider_id
 
     @property
-    def provider_uid(self):
+    def provider_uid(self) -> str:
         return self._provider_uid

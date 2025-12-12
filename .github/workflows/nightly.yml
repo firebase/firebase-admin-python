@@ -70,7 +70,7 @@ jobs:
 
     - name: Send email on failure
       if: failure()
-      uses: firebase/firebase-admin-node/.github/actions/send-email@master
+      uses: firebase/firebase-admin-node/.github/actions/send-email@main
       with:
         api-key: ${{ secrets.OSS_BOT_MAILGUN_KEY }}
         domain: ${{ secrets.OSS_BOT_MAILGUN_DOMAIN }}
@@ -85,7 +85,7 @@ jobs:
 
     - name: Send email on cancelled
       if: cancelled()
-      uses: firebase/firebase-admin-node/.github/actions/send-email@master
+      uses: firebase/firebase-admin-node/.github/actions/send-email@main
       with:
         api-key: ${{ secrets.OSS_BOT_MAILGUN_KEY }}
         domain: ${{ secrets.OSS_BOT_MAILGUN_DOMAIN }}

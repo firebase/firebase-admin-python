@@ -22,6 +22,7 @@ The Firebase Admin Python SDK provides a Pythonic interface to Firebase services
 -   `setup.py`: Package definition, including the required environment dependencies.
 -   `requirements.txt`: A list of all development dependencies.
 -   `.pylintrc`: Configuration file for the `pylint` linter.
+-   `pyrightconfig.json`: Configuration file for the `pyright` linter.
 -   `CONTRIBUTING.md`: General guidelines for human contributors. Your instructions here supersede this file.
 
 ## 3. Core Design Patterns

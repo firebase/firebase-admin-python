@@ -43,6 +43,9 @@ install_requires = [
     'google-cloud-storage>=3.1.1',
     'pyjwt[crypto] >= 2.10.1',
     'httpx[http2] == 0.28.1',
+    'typing-extensions >= 4.4.0',
+    'types-requests',
+    'types-httplib2',
 ]
 
 setup(
@@ -72,5 +75,8 @@ setup(
         'Programming Language :: Python :: 3.12',
         'Programming Language :: Python :: 3.13',
         'License :: OSI Approved :: Apache Software License',
+        'Typing :: Typed',
     ],
+    include_package_data=True,
+    package_data={'firebase_admin': ['py.typed']},
 )

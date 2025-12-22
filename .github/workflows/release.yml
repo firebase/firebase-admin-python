@@ -84,11 +84,11 @@ jobs:
 
     # Check whether the release should be published. We publish only when the trigger PR is
     #   1. merged
-    #   2. to the master branch
+    #   2. to the main branch
     #   3. with the label 'release:publish', and
     #   4. the title prefix '[chore] Release '.
     if: github.event.pull_request.merged &&
-      github.ref == 'refs/heads/master' &&
+      github.ref == 'refs/heads/main' &&
       contains(github.event.pull_request.labels.*.name, 'release:publish') &&
       startsWith(github.event.pull_request.title, '[chore] Release ')
 
@@ -130,7 +130,7 @@ jobs:
     - name: Post to Twitter
       if: success() &&
         contains(github.event.pull_request.labels.*.name, 'release:tweet')
-      uses: firebase/firebase-admin-node/.github/actions/send-tweet@master
+      uses: firebase/firebase-admin-node/.github/actions/send-tweet@main
       with:
         status: >
           ${{ steps.preflight.outputs.version }} of @Firebase Admin Python SDK is available.

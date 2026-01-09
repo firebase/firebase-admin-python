@@ -93,6 +93,7 @@ jobs:
       startsWith(github.event.pull_request.title, '[chore] Release ')
 
     runs-on: ubuntu-latest
+    environment: Release
     permissions:
       # Used to create a short-lived OIDC token which is given to PyPi to identify this workflow job
       # See: https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect#adding-permissions-settings

@@ -23,7 +23,9 @@ access_token_info = cred.get_access_token()
 access_token = access_token_info.access_token
 expiration_time = access_token_info.expiry
 # Attach access_token to HTTPS request in the "Authorization: Bearer" header
-# After expiration_time, you must generate a new access token
+# Access tokens are short lived
+# Once the token reaches the expiration time, it can no longer be used.
+# To get a new token, rerun this code to generate a fresh acccess token
 # [END get_service_account_tokens]
 
 print(f'The access token {access_token} expires at {expiration_time}')

@@ -13,16 +13,30 @@
 # limitations under the License.
 
 """Firebase credentials module."""
-import collections
+import datetime
 import json
 import pathlib
+from typing import TYPE_CHECKING, Any, NamedTuple, Optional, Union, cast
+from typing_extensions import TypeGuard
 
 import google.auth
+
 from google.auth.credentials import Credentials as GoogleAuthCredentials
 from google.auth.transport import requests
+from google.auth import crypt
 from google.oauth2 import credentials
 from google.oauth2 import service_account
 
+if TYPE_CHECKING:
+    from _typeshed import StrPath
+
+__all__ = (
+    'AccessTokenInfo',
+    'ApplicationDefault',
+    'Base',
+    'Certificate',
+    'RefreshToken',
+)
 
 _request = requests.Request()
 _scopes = [
@@ -34,18 +48,21 @@ _scopes = [
     'https://www.googleapis.com/auth/userinfo.email'
 ]
 
-AccessTokenInfo = collections.namedtuple('AccessTokenInfo', ['access_token', 'expiry'])
-"""Data included in an OAuth2 access token.
 
-Contains the access token string and the expiry time. The expiry time is exposed as a
-``datetime`` value.
-"""
+class AccessTokenInfo(NamedTuple):
+    """Data included in an OAuth2 access token.
+
+    Contains the access token string and the expiry time. The expiry time is exposed as a
+    ``datetime`` value.
+    """
+    access_token: Any
+    expiry: Optional[datetime.datetime]
 
 
 class Base:
     """Provides OAuth2 access tokens for accessing Firebase services."""
 
-    def get_access_token(self):
+    def get_access_token(self) -> AccessTokenInfo:
         """Fetches a Google OAuth2 access token using this credential instance.
 
         Returns:
@@ -55,30 +72,31 @@ class Base:
         google_cred.refresh(_request)
         return AccessTokenInfo(google_cred.token, google_cred.expiry)
 
-    def get_credential(self):
+    def get_credential(self) -> GoogleAuthCredentials:
         """Returns the Google credential instance used for authentication."""
         raise NotImplementedError
 
-class _ExternalCredentials(Base):
+
+class _ExternalCredentials(Base):  # pyright: ignore[reportUnusedClass]
     """A wrapper for google.auth.credentials.Credentials typed credential instances"""
 
-    def __init__(self, credential: GoogleAuthCredentials):
-        super().__init__()
+    def __init__(self, credential: GoogleAuthCredentials) -> None:
         self._g_credential = credential
 
-    def get_credential(self):
+    def get_credential(self) -> GoogleAuthCredentials:
         """Returns the underlying Google Credential
 
         Returns:
           google.auth.credentials.Credentials: A Google Auth credential instance."""
         return self._g_credential
 
+
 class Certificate(Base):
     """A credential initialized from a JSON certificate keyfile."""
 
     _CREDENTIAL_TYPE = 'service_account'
 
-    def __init__(self, cert):
+    def __init__(self, cert: Union['StrPath', dict[str, Any]]) -> None:
         """Initializes a credential from a Google service account certificate.
 
         Service account certificates can be downloaded as JSON files from the Firebase console.
@@ -115,18 +133,18 @@ class Certificate(Base):
                 f'Failed to initialize a certificate credential. Caused by: "{error}"') from error
 
     @property
-    def project_id(self):
+    def project_id(self) -> Optional[str]:
         return self._g_credential.project_id
 
     @property
-    def signer(self):
+    def signer(self) -> crypt.Signer:
         return self._g_credential.signer
 
     @property
-    def service_account_email(self):
+    def service_account_email(self) -> str:
         return self._g_credential.service_account_email
 
-    def get_credential(self):
+    def get_credential(self) -> GoogleAuthCredentials:
         """Returns the underlying Google credential.
 
         Returns:
@@ -137,16 +155,17 @@ class Certificate(Base):
 class ApplicationDefault(Base):
     """A Google Application Default credential."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Creates an instance that will use Application Default credentials.
 
         The credentials will be lazily initialized when get_credential() or
         project_id() is called. See those methods for possible errors raised.
         """
-        super().__init__()
-        self._g_credential = None  # Will be lazily-loaded via _load_credential().
+        # Will be lazily-loaded via _load_credential().
+        self._g_credential: Optional[GoogleAuthCredentials] = None
+        self._project_id: Optional[str] = None
 
-    def get_credential(self):
+    def get_credential(self) -> GoogleAuthCredentials:
         """Returns the underlying Google credential.
 
         Raises:
@@ -155,10 +174,10 @@ class ApplicationDefault(Base):
         Returns:
           google.auth.credentials.Credentials: A Google Auth credential instance."""
         self._load_credential()
-        return self._g_credential
+        return cast(GoogleAuthCredentials, self._g_credential)
 
     @property
-    def project_id(self):
+    def project_id(self) -> Optional[str]:
         """Returns the project_id from the underlying Google credential.
 
         Raises:
@@ -169,16 +188,17 @@ class ApplicationDefault(Base):
         self._load_credential()
         return self._project_id
 
-    def _load_credential(self):
+    def _load_credential(self) -> None:
         if not self._g_credential:
             self._g_credential, self._project_id = google.auth.default(scopes=_scopes)
+
 
 class RefreshToken(Base):
     """A credential initialized from an existing refresh token."""
 
     _CREDENTIAL_TYPE = 'authorized_user'
 
-    def __init__(self, refresh_token):
+    def __init__(self, refresh_token: Union['StrPath', dict[str, Any]]) -> None:
         """Initializes a credential from a refresh token JSON file.
 
         The JSON must consist of client_id, client_secret and refresh_token fields. Refresh
@@ -212,18 +232,18 @@ class RefreshToken(Base):
         self._g_credential = credentials.Credentials.from_authorized_user_info(json_data, _scopes)
 
     @property
-    def client_id(self):
+    def client_id(self) -> Optional[str]:
         return self._g_credential.client_id
 
     @property
-    def client_secret(self):
+    def client_secret(self) -> Optional[str]:
         return self._g_credential.client_secret
 
     @property
-    def refresh_token(self):
+    def refresh_token(self) -> Optional[str]:
         return self._g_credential.refresh_token
 
-    def get_credential(self):
+    def get_credential(self) -> GoogleAuthCredentials:
         """Returns the underlying Google credential.
 
         Returns:
@@ -231,7 +251,7 @@ class RefreshToken(Base):
         return self._g_credential
 
 
-def _is_file_path(path):
+def _is_file_path(path: Any) -> TypeGuard['StrPath']:
     try:
         pathlib.Path(path)
         return True

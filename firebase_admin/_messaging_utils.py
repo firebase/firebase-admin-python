@@ -14,7 +14,39 @@
 
 """Types and utilities used by the messaging (FCM) module."""
 
+import datetime
+import numbers
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union
+
 from firebase_admin import exceptions
+
+if TYPE_CHECKING:
+    from _typeshed import Incomplete
+else:
+    Incomplete = Any
+
+__all__ = (
+    'APNSConfig',
+    'APNSFCMOptions',
+    'APNSPayload',
+    'AndroidConfig',
+    'AndroidFCMOptions',
+    'AndroidNotification',
+    'Aps',
+    'ApsAlert',
+    'CriticalSound',
+    'FCMOptions',
+    'LightSettings',
+    'Notification',
+    'QuotaExceededError',
+    'SenderIdMismatchError',
+    'ThirdPartyAuthError',
+    'UnregisteredError',
+    'WebpushConfig',
+    'WebpushFCMOptions',
+    'WebpushNotification',
+    'WebpushNotificationAction',
+)
 
 
 class Notification:
@@ -26,7 +58,12 @@ class Notification:
         image: Image url of the notification (optional)
     """
 
-    def __init__(self, title=None, body=None, image=None):
+    def __init__(
+        self,
+        title: Optional[str] = None,
+        body: Optional[str] = None,
+        image: Optional[str] = None,
+    ) -> None:
         self.title = title
         self.body = body
         self.image = image
@@ -53,8 +90,17 @@ class AndroidConfig:
             the app while the device is in direct boot mode (optional).
     """
 
-    def __init__(self, collapse_key=None, priority=None, ttl=None, restricted_package_name=None,
-                 data=None, notification=None, fcm_options=None, direct_boot_ok=None):
+    def __init__(
+        self,
+        collapse_key: Optional[str] = None,
+        priority: Optional[Literal['high', 'normal']] = None,
+        ttl: Optional[Union[numbers.Real, datetime.timedelta]] = None,
+        restricted_package_name: Optional[str] = None,
+        data: Optional[dict[str, str]] = None,
+        notification: Optional['AndroidNotification'] = None,
+        fcm_options: Optional['AndroidFCMOptions'] = None,
+        direct_boot_ok: Optional[bool] = None,
+    ) -> None:
         self.collapse_key = collapse_key
         self.priority = priority
         self.ttl = ttl
@@ -153,13 +199,35 @@ class AndroidNotification:
 
     """
 
-    def __init__(self, title=None, body=None, icon=None, color=None, sound=None, tag=None,
-                 click_action=None, body_loc_key=None, body_loc_args=None, title_loc_key=None,
-                 title_loc_args=None, channel_id=None, image=None, ticker=None, sticky=None,
-                 event_timestamp=None, local_only=None, priority=None, vibrate_timings_millis=None,
-                 default_vibrate_timings=None, default_sound=None, light_settings=None,
-                 default_light_settings=None, visibility=None, notification_count=None,
-                 proxy=None):
+    def __init__(
+        self,
+        title: Optional[str] = None,
+        body: Optional[str] = None,
+        icon: Optional[str] = None,
+        color: Optional[str] = None,
+        sound: Optional[str] = None,
+        tag: Optional[str] = None,
+        click_action: Optional[Incomplete] = None,
+        body_loc_key: Optional[str] = None,
+        body_loc_args: Optional[list[str]] = None,
+        title_loc_key: Optional[str] = None,
+        title_loc_args: Optional[list[str]] = None,
+        channel_id: Optional[Incomplete] = None,
+        image: Optional[str] = None,
+        ticker: Optional[Incomplete] = None,
+        sticky: Optional[bool] = None,
+        event_timestamp: Optional[datetime.datetime] = None,
+        local_only: Optional[Incomplete] = None,
+        priority: Optional[Literal['default', 'min', 'low', 'high', 'max', 'normal']] = None,
+        vibrate_timings_millis: Optional[float] = None,
+        default_vibrate_timings: Optional[bool] = None,
+        default_sound: Optional[bool] = None,
+        light_settings: Optional['LightSettings'] = None,
+        default_light_settings: Optional[bool] = None,
+        visibility: Optional[Literal['private', 'public', 'secret']] = None,
+        notification_count: Optional[int] = None,
+        proxy: Optional[Literal['allow', 'deny']] = None,
+    ) -> None:
         self.title = title
         self.body = body
         self.icon = icon
@@ -199,8 +267,12 @@ class LightSettings:
         light_off_duration_millis: Along with ``light_on_duration``, defines the blink rate of LED
             flashes.
     """
-    def __init__(self, color, light_on_duration_millis,
-                 light_off_duration_millis):
+    def __init__(
+        self,
+        color: str,
+        light_on_duration_millis: Union[numbers.Real, datetime.timedelta],
+        light_off_duration_millis: Union[numbers.Real, datetime.timedelta],
+    ) -> None:
         self.color = color
         self.light_on_duration_millis = light_on_duration_millis
         self.light_off_duration_millis = light_off_duration_millis
@@ -214,7 +286,7 @@ class AndroidFCMOptions:
             (optional).
     """
 
-    def __init__(self, analytics_label=None):
+    def __init__(self, analytics_label: Optional[Incomplete] = None) -> None:
         self.analytics_label = analytics_label
 
 
@@ -233,7 +305,13 @@ class WebpushConfig:
     .. _Webpush Specification: https://tools.ietf.org/html/rfc8030#section-5
     """
 
-    def __init__(self, headers=None, data=None, notification=None, fcm_options=None):
+    def __init__(
+        self,
+        headers: Optional[dict[str, str]] = None,
+        data: Optional[dict[str, str]] = None,
+        notification: Optional['WebpushNotification'] = None,
+        fcm_options: Optional['WebpushFCMOptions'] = None,
+    ) -> None:
         self.headers = headers
         self.data = data
         self.notification = notification
@@ -249,7 +327,7 @@ class WebpushNotificationAction:
         icon: Icon URL for the action (optional).
     """
 
-    def __init__(self, action, title, icon=None):
+    def __init__(self, action: str, title: str, icon: Optional[str] = None) -> None:
         self.action = action
         self.title = title
         self.icon = icon
@@ -290,10 +368,25 @@ class WebpushNotification:
         /notification/Notification
     """
 
-    def __init__(self, title=None, body=None, icon=None, actions=None, badge=None, data=None,
-                 direction=None, image=None, language=None, renotify=None,
-                 require_interaction=None, silent=None, tag=None, timestamp_millis=None,
-                 vibrate=None, custom_data=None):
+    def __init__(
+        self,
+        title: Optional[str] = None,
+        body: Optional[str] = None,
+        icon: Optional[str] = None,
+        actions: Optional[list[WebpushNotificationAction]] = None,
+        badge: Optional[str] = None,
+        data: Optional[Any] = None,
+        direction: Optional[Literal['auto', 'ltr', 'rtl']] = None,
+        image: Optional[str] = None,
+        language: Optional[str] = None,
+        renotify: Optional[bool] = None,
+        require_interaction: Optional[bool] = None,
+        silent: Optional[bool] = None,
+        tag: Optional[str] = None,
+        timestamp_millis: Optional[int] = None,
+        vibrate: Optional[list[int]] = None,
+        custom_data: Optional[dict[str, Any]] = None,
+    ) -> None:
         self.title = title
         self.body = body
         self.icon = icon
@@ -320,7 +413,7 @@ class WebpushFCMOptions:
             (optional).
     """
 
-    def __init__(self, link=None):
+    def __init__(self, link: Optional[str] = None) -> None:
         self.link = link
 
 
@@ -340,7 +433,13 @@ class APNSConfig:
         /NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html
     """
 
-    def __init__(self, headers=None, payload=None, fcm_options=None, live_activity_token=None):
+    def __init__(
+        self,
+        headers: Optional[dict[str, str]] = None,
+        payload: Optional['APNSPayload'] = None,
+        fcm_options: Optional['APNSFCMOptions'] = None,
+        live_activity_token: Optional[str] = None,
+    ) -> None:
         self.headers = headers
         self.payload = payload
         self.fcm_options = fcm_options
@@ -356,7 +455,7 @@ class APNSPayload:
             (optional).
     """
 
-    def __init__(self, aps, **kwargs):
+    def __init__(self, aps: 'Aps', **kwargs: Any) -> None:
         self.aps = aps
         self.custom_data = kwargs
 
@@ -379,8 +478,17 @@ class Aps:
             (optional).
     """
 
-    def __init__(self, alert=None, badge=None, sound=None, content_available=None, category=None,
-                 thread_id=None, mutable_content=None, custom_data=None):
+    def __init__(
+        self,
+        alert: Optional[Union['ApsAlert', str]] = None,
+        badge: Optional[float] = None,  # should it be int?
+        sound: Optional[Union[str, 'CriticalSound']] = None,
+        content_available: Optional[bool] = None,
+        category: Optional[str] = None,
+        thread_id: Optional[str] = None,
+        mutable_content: Optional[bool] = None,
+        custom_data: Optional[dict[str, Any]] = None,
+    ) -> None:
         self.alert = alert
         self.badge = badge
         self.sound = sound
@@ -404,7 +512,12 @@ class CriticalSound:
             and 1.0 (full volume) (optional).
     """
 
-    def __init__(self, name, critical=None, volume=None):
+    def __init__(
+        self,
+        name: str,
+        critical: Optional[bool] = None,
+        volume: Optional[float] = None,
+    ) -> None:
         self.name = name
         self.critical = critical
         self.volume = volume
@@ -434,9 +547,19 @@ class ApsAlert:
             (optional)
     """
 
-    def __init__(self, title=None, subtitle=None, body=None, loc_key=None, loc_args=None,
-                 title_loc_key=None, title_loc_args=None, action_loc_key=None, launch_image=None,
-                 custom_data=None):
+    def __init__(
+        self,
+        title: Optional[str] = None,
+        subtitle: Optional[str] = None,
+        body: Optional[str] = None,
+        loc_key: Optional[str] = None,
+        loc_args: Optional[list[str]] = None,
+        title_loc_key: Optional[str] = None,
+        title_loc_args: Optional[list[str]] = None,
+        action_loc_key: Optional[str] = None,
+        launch_image: Optional[str] = None,
+        custom_data: Optional[dict[str, Any]] = None,
+    ) -> None:
         self.title = title
         self.subtitle = subtitle
         self.body = body
@@ -459,7 +582,11 @@ class APNSFCMOptions:
             (optional).
     """
 
-    def __init__(self, analytics_label=None, image=None):
+    def __init__(
+        self,
+        analytics_label: Optional[Incomplete] = None,
+        image: Optional[str] = None,
+    ) -> None:
         self.analytics_label = analytics_label
         self.image = image
 
@@ -471,35 +598,23 @@ class FCMOptions:
         analytics_label: contains additional options to use across all platforms (optional).
     """
 
-    def __init__(self, analytics_label=None):
+    def __init__(self, analytics_label: Optional[Incomplete] = None) -> None:
         self.analytics_label = analytics_label
 
 
 class ThirdPartyAuthError(exceptions.UnauthenticatedError):
     """APNs certificate or web push auth key was invalid or missing."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        exceptions.UnauthenticatedError.__init__(self, message, cause, http_response)
-
 
 class QuotaExceededError(exceptions.ResourceExhaustedError):
     """Sending limit exceeded for the message target."""
 
-    def __init__(self, message, cause=None, http_response=None):
-        exceptions.ResourceExhaustedError.__init__(self, message, cause, http_response)
-
 
 class SenderIdMismatchError(exceptions.PermissionDeniedError):
     """The authenticated sender ID is different from the sender ID for the registration token."""
-
-    def __init__(self, message, cause=None, http_response=None):
-        exceptions.PermissionDeniedError.__init__(self, message, cause, http_response)
 
 
 class UnregisteredError(exceptions.NotFoundError):
     """App instance was unregistered from FCM.
 
     This usually means that the token used is no longer valid and a new one must be used."""
-
-    def __init__(self, message, cause=None, http_response=None):
-        exceptions.NotFoundError.__init__(self, message, cause, http_response)

@@ -15,20 +15,43 @@
 """Firebase user management sub module."""
 
 import base64
-from collections import defaultdict
+import collections
 import json
-from typing import Optional
-from urllib import parse
 import warnings
+from collections.abc import Callable, Collection
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union, cast
+from urllib import parse
 
 import requests
 
 from firebase_admin import _auth_utils
+from firebase_admin import _http_client
 from firebase_admin import _rfc3339
 from firebase_admin import _user_identifier
 from firebase_admin import _user_import
-from firebase_admin._user_import import ErrorInfo
 
+if TYPE_CHECKING:
+    from _typeshed import ConvertibleToInt
+
+__all__ = (
+    'B64_REDACTED',
+    'DELETE_ATTRIBUTE',
+    'MAX_IMPORT_USERS_SIZE',
+    'MAX_LIST_USERS_RESULTS', 
+    'ActionCodeSettings',
+    'BatchDeleteAccountsResponse',
+    'DeleteUsersResult',
+    'ExportedUserRecord',
+    'GetUsersResult',
+    'ListUsersPage',
+    'ProviderUserInfo',
+    'Sentinel',
+    'UserInfo',
+    'UserManager',
+    'UserMetadata',
+    'UserRecord',
+    'encode_action_code_settings',
+)
 
 MAX_LIST_USERS_RESULTS = 1000
 MAX_IMPORT_USERS_SIZE = 1000
@@ -36,19 +59,22 @@ B64_REDACTED = base64.b64encode(b'REDACTED')
 
 
 class Sentinel:
-
-    def __init__(self, description):
+    def __init__(self, description: str) -> None:
         self.description = description
 
 
-DELETE_ATTRIBUTE = Sentinel('Value used to delete an attribute from a user profile')
+DELETE_ATTRIBUTE: Any = Sentinel('Value used to delete an attribute from a user profile')
 
 
 class UserMetadata:
     """Contains additional metadata associated with a user account."""
 
-    def __init__(self, creation_timestamp=None, last_sign_in_timestamp=None,
-                 last_refresh_timestamp=None):
+    def __init__(
+        self,
+        creation_timestamp: Optional[Any] = None,
+        last_sign_in_timestamp: Optional[Any] = None,
+        last_refresh_timestamp: Optional[Any] = None,
+    ) -> None:
         self._creation_timestamp = _auth_utils.validate_timestamp(
             creation_timestamp, 'creation_timestamp')
         self._last_sign_in_timestamp = _auth_utils.validate_timestamp(
@@ -57,7 +83,7 @@ class UserMetadata:
             last_refresh_timestamp, 'last_refresh_timestamp')
 
     @property
-    def creation_timestamp(self):
+    def creation_timestamp(self) -> Optional[int]:
         """ Creation timestamp in milliseconds since the epoch.
 
         Returns:
@@ -66,7 +92,7 @@ class UserMetadata:
         return self._creation_timestamp
 
     @property
-    def last_sign_in_timestamp(self):
+    def last_sign_in_timestamp(self) -> Optional[int]:
         """ Last sign in timestamp in milliseconds since the epoch.
 
         Returns:
@@ -75,7 +101,7 @@ class UserMetadata:
         return self._last_sign_in_timestamp
 
     @property
-    def last_refresh_timestamp(self):
+    def last_refresh_timestamp(self) -> Optional[int]:
         """The time at which the user was last active (ID token refreshed).
 
         Returns:
@@ -92,32 +118,32 @@ class UserInfo:
     """
 
     @property
-    def uid(self):
+    def uid(self) -> str:
         """Returns the user ID of this user."""
         raise NotImplementedError
 
     @property
-    def display_name(self):
+    def display_name(self) -> Optional[str]:
         """Returns the display name of this user."""
         raise NotImplementedError
 
     @property
-    def email(self):
+    def email(self) -> Optional[str]:
         """Returns the email address associated with this user."""
         raise NotImplementedError
 
     @property
-    def phone_number(self):
+    def phone_number(self) -> Optional[str]:
         """Returns the phone number associated with this user."""
         raise NotImplementedError
 
     @property
-    def photo_url(self):
+    def photo_url(self) -> Optional[str]:
         """Returns the photo URL of this user."""
         raise NotImplementedError
 
     @property
-    def provider_id(self):
+    def provider_id(self) -> str:
         """Returns the ID of the identity provider.
 
         This can be a short domain name (e.g. google.com), or the identity of an OpenID
@@ -129,7 +155,7 @@ class UserInfo:
 class UserRecord(UserInfo):
     """Contains metadata associated with a Firebase user account."""
 
-    def __init__(self, data):
+    def __init__(self, data: dict[str, Any]) -> None:
         super().__init__()
         if not isinstance(data, dict):
             raise ValueError(f'Invalid data argument: {data}. Must be a dictionary.')
@@ -138,16 +164,16 @@ class UserRecord(UserInfo):
         self._data = data
 
     @property
-    def uid(self):
+    def uid(self) -> str:
         """Returns the user ID of this user.
 
         Returns:
           string: A user ID string. This value is never None or empty.
         """
-        return self._data.get('localId')
+        return self._data['localId']
 
     @property
-    def display_name(self):
+    def display_name(self) -> Optional[str]:
         """Returns the display name of this user.
 
         Returns:
@@ -156,7 +182,7 @@ class UserRecord(UserInfo):
         return self._data.get('displayName')
 
     @property
-    def email(self):
+    def email(self) -> Optional[str]:
         """Returns the email address associated with this user.
 
         Returns:
@@ -165,7 +191,7 @@ class UserRecord(UserInfo):
         return self._data.get('email')
 
     @property
-    def phone_number(self):
+    def phone_number(self) -> Optional[str]:
         """Returns the phone number associated with this user.
 
         Returns:
@@ -174,7 +200,7 @@ class UserRecord(UserInfo):
         return self._data.get('phoneNumber')
 
     @property
-    def photo_url(self):
+    def photo_url(self) -> Optional[str]:
         """Returns the photo URL of this user.
 
         Returns:
@@ -183,7 +209,7 @@ class UserRecord(UserInfo):
         return self._data.get('photoUrl')
 
     @property
-    def provider_id(self):
+    def provider_id(self) -> str:
         """Returns the provider ID of this user.
 
         Returns:
@@ -192,7 +218,7 @@ class UserRecord(UserInfo):
         return 'firebase'
 
     @property
-    def email_verified(self):
+    def email_verified(self) -> bool:
         """Returns whether the email address of this user has been verified.
 
         Returns:
@@ -201,7 +227,7 @@ class UserRecord(UserInfo):
         return bool(self._data.get('emailVerified'))
 
     @property
-    def disabled(self):
+    def disabled(self) -> bool:
         """Returns whether this user account is disabled.
 
         Returns:
@@ -210,7 +236,7 @@ class UserRecord(UserInfo):
         return bool(self._data.get('disabled'))
 
     @property
-    def tokens_valid_after_timestamp(self):
+    def tokens_valid_after_timestamp(self) -> int:
         """Returns the time, in milliseconds since the epoch, before which tokens are invalid.
 
         Note: this is truncated to 1 second accuracy.
@@ -225,16 +251,17 @@ class UserRecord(UserInfo):
         return 0
 
     @property
-    def user_metadata(self):
+    def user_metadata(self) -> UserMetadata:
         """Returns additional metadata associated with this user.
 
         Returns:
           UserMetadata: A UserMetadata instance. Does not return None.
         """
-        def _int_or_none(key):
+        def _int_or_none(key: str) -> Optional[int]:
             if key in self._data:
                 return int(self._data[key])
             return None
+
         last_refresh_at_millis = None
         last_refresh_at_rfc3339 = self._data.get('lastRefreshAt', None)
         if last_refresh_at_rfc3339:
@@ -243,7 +270,7 @@ class UserRecord(UserInfo):
             _int_or_none('createdAt'), _int_or_none('lastLoginAt'), last_refresh_at_millis)
 
     @property
-    def provider_data(self):
+    def provider_data(self) -> list['ProviderUserInfo']:
         """Returns a list of UserInfo instances.
 
         Each object represents an identity from an identity provider that is linked to this user.
@@ -255,7 +282,7 @@ class UserRecord(UserInfo):
         return [ProviderUserInfo(entry) for entry in providers]
 
     @property
-    def custom_claims(self):
+    def custom_claims(self) -> Optional[dict[str, Any]]:
         """Returns any custom claims set on this user account.
 
         Returns:
@@ -269,7 +296,7 @@ class UserRecord(UserInfo):
         return None
 
     @property
-    def tenant_id(self):
+    def tenant_id(self) -> Optional[str]:
         """Returns the tenant ID of this user.
 
         Returns:
@@ -282,7 +309,7 @@ class ExportedUserRecord(UserRecord):
     """Contains metadata associated with a user including password hash and salt."""
 
     @property
-    def password_hash(self):
+    def password_hash(self) -> Optional[str]:
         """The user's password hash as a base64-encoded string.
 
         If the Firebase Auth hashing algorithm (SCRYPT) was used to create the user account, this
@@ -301,7 +328,7 @@ class ExportedUserRecord(UserRecord):
         return password_hash
 
     @property
-    def password_salt(self):
+    def password_salt(self) -> Optional[str]:
         """The user's password salt as a base64-encoded string.
 
         If the Firebase Auth hashing algorithm (SCRYPT) was used to create the user account, this
@@ -316,7 +343,11 @@ class ExportedUserRecord(UserRecord):
 class GetUsersResult:
     """Represents the result of the ``auth.get_users()`` API."""
 
-    def __init__(self, users, not_found):
+    def __init__(
+        self,
+        users: list[UserRecord],
+        not_found: list[_user_identifier.UserIdentifier],
+    ) -> None:
         """Constructs a `GetUsersResult` object.
 
         Args:
@@ -327,7 +358,7 @@ class GetUsersResult:
         self._not_found = not_found
 
     @property
-    def users(self):
+    def users(self) -> list[UserRecord]:
         """Set of `UserRecord` instances, corresponding to the set of users
         that were requested. Only users that were found are listed here. The
         result set is unordered.
@@ -335,7 +366,7 @@ class GetUsersResult:
         return self._users
 
     @property
-    def not_found(self):
+    def not_found(self) -> list[_user_identifier.UserIdentifier]:
         """Set of `UserIdentifier` instances that were requested, but not
         found.
         """
@@ -350,27 +381,38 @@ class ListUsersPage:
     through all users in the Firebase project starting from this page.
     """
 
-    def __init__(self, download, page_token, max_results):
+    def __init__(
+        self,
+        download: Callable[[Optional[str], int], dict[str, Any]],
+        page_token: Optional[str],
+        max_results: int,
+    ) -> None:
         self._download = download
         self._max_results = max_results
         self._current = download(page_token, max_results)
 
     @property
-    def users(self):
+    def users(self) -> list[ExportedUserRecord]:
         """A list of ``ExportedUserRecord`` instances available in this page."""
-        return [ExportedUserRecord(user) for user in self._current.get('users', [])]
+        return [
+            ExportedUserRecord(user)
+            for user in cast(
+                list[dict[str, Any]],
+                self._current.get('users', []),
+            )
+        ]
 
     @property
-    def next_page_token(self):
+    def next_page_token(self) -> str:
         """Page token string for the next page (empty string indicates no more pages)."""
-        return self._current.get('nextPageToken', '')
+        return cast(str, self._current.get('nextPageToken', ''))
 
     @property
-    def has_next_page(self):
+    def has_next_page(self) -> bool:
         """A boolean indicating whether more pages are available."""
         return bool(self.next_page_token)
 
-    def get_next_page(self):
+    def get_next_page(self) -> Optional['ListUsersPage']:
         """Retrieves the next page of user accounts, if available.
 
         Returns:
@@ -380,7 +422,7 @@ class ListUsersPage:
             return ListUsersPage(self._download, self.next_page_token, self._max_results)
         return None
 
-    def iterate_all(self):
+    def iterate_all(self) -> '_UserIterator':
         """Retrieves an iterator for user accounts.
 
         Returned iterator will iterate through all the user accounts in the Firebase project
@@ -396,7 +438,7 @@ class ListUsersPage:
 class DeleteUsersResult:
     """Represents the result of the ``auth.delete_users()`` API."""
 
-    def __init__(self, result, total):
+    def __init__(self, result: 'BatchDeleteAccountsResponse', total: int) -> None:
         """Constructs a `DeleteUsersResult` object.
 
         Args:
@@ -410,7 +452,7 @@ class DeleteUsersResult:
         self._errors = errors
 
     @property
-    def success_count(self):
+    def success_count(self) -> int:
         """Returns the number of users that were deleted successfully (possibly
         zero).
 
@@ -420,14 +462,14 @@ class DeleteUsersResult:
         return self._success_count
 
     @property
-    def failure_count(self):
+    def failure_count(self) -> int:
         """Returns the number of users that failed to be deleted (possibly
         zero).
         """
         return self._failure_count
 
     @property
-    def errors(self):
+    def errors(self) -> list[_user_import.ErrorInfo]:
         """A list of `auth.ErrorInfo` instances describing the errors that
         were encountered during the deletion. Length of this list is equal to
         `failure_count`.
@@ -438,7 +480,7 @@ class DeleteUsersResult:
 class BatchDeleteAccountsResponse:
     """Represents the results of a `delete_users()` call."""
 
-    def __init__(self, errors=None):
+    def __init__(self, errors: Optional[list[dict[str, Any]]] = None) -> None:
         """Constructs a `BatchDeleteAccountsResponse` instance, corresponding to
         the JSON representing the `BatchDeleteAccountsResponse` proto.
 
@@ -447,13 +489,13 @@ class BatchDeleteAccountsResponse:
                 `ErrorInfo` instance as returned by the server. `None` implies
                 an empty list.
         """
-        self.errors = [ErrorInfo(err) for err in errors] if errors else []
+        self.errors = [_user_import.ErrorInfo(err) for err in errors] if errors else []
 
 
 class ProviderUserInfo(UserInfo):
     """Contains metadata regarding how a user is known by a particular identity provider."""
 
-    def __init__(self, data):
+    def __init__(self, data: dict[str, Any]) -> None:
         super().__init__()
         if not isinstance(data, dict):
             raise ValueError(f'Invalid data argument: {data}. Must be a dictionary.')
@@ -462,28 +504,29 @@ class ProviderUserInfo(UserInfo):
         self._data = data
 
     @property
-    def uid(self):
-        return self._data.get('rawId')
+    def uid(self) -> str:
+        return self._data['rawId']
 
     @property
-    def display_name(self):
+    def display_name(self) -> Optional[str]:
         return self._data.get('displayName')
 
     @property
-    def email(self):
+    def email(self) -> Optional[str]:
         return self._data.get('email')
 
     @property
-    def phone_number(self):
+    def phone_number(self) -> Optional[str]:
         return self._data.get('phoneNumber')
 
     @property
-    def photo_url(self):
+    def photo_url(self) -> Optional[str]:
         return self._data.get('photoUrl')
 
     @property
-    def provider_id(self):
-        return self._data.get('providerId')
+    def provider_id(self) -> str:
+        # possible issue: can providerId be `None`?
+        return self._data.get('providerId')  # pyright: ignore[reportReturnType]
 
 
 class ActionCodeSettings:
@@ -498,10 +541,10 @@ class ActionCodeSettings:
         dynamic_link_domain: Optional[str] = None,
         ios_bundle_id: Optional[str] = None,
         android_package_name: Optional[str] = None,
-        android_install_app: Optional[str] = None,
+        android_install_app: Optional[bool] = None,
         android_minimum_version: Optional[str] = None,
         link_domain: Optional[str] = None,
-    ):
+    ) -> None:
         if dynamic_link_domain is not None:
             warnings.warn(
                 'dynamic_link_domain is deprecated, use link_domain instead',
@@ -517,7 +560,7 @@ class ActionCodeSettings:
         self.link_domain = link_domain
 
 
-def encode_action_code_settings(settings):
+def encode_action_code_settings(settings: ActionCodeSettings) -> dict[str, Any]:
     """ Validates the provided action code settings for email link generation and
     populates the REST api parameters.
 
@@ -525,7 +568,7 @@ def encode_action_code_settings(settings):
     returns  - dict of parameters to be passed for link gereration.
     """
 
-    parameters = {}
+    parameters: dict[str, Any] = {}
     # url
     if not settings.url:
         raise ValueError("Dynamic action links url is mandatory")
@@ -598,14 +641,20 @@ class UserManager:
 
     ID_TOOLKIT_URL = 'https://identitytoolkit.googleapis.com/v1'
 
-    def __init__(self, http_client, project_id, tenant_id=None, url_override=None):
+    def __init__(
+        self,
+        http_client: _http_client.HttpClient[dict[str, Any]],
+        project_id: str,
+        tenant_id: Optional[str] = None,
+        url_override: Optional[str] = None,
+    ) -> None:
         self.http_client = http_client
         url_prefix = url_override or self.ID_TOOLKIT_URL
         self.base_url = f'{url_prefix}/projects/{project_id}'
         if tenant_id:
             self.base_url += f'/tenants/{tenant_id}'
 
-    def get_user(self, **kwargs):
+    def get_user(self, **kwargs: Any) -> dict[str, Any]:
         """Gets the user data corresponding to the provided key."""
         if 'uid' in kwargs:
             key, key_type = kwargs.pop('uid'), 'user ID'
@@ -624,9 +673,12 @@ class UserManager:
             raise _auth_utils.UserNotFoundError(
                 f'No user record found for the provided {key_type}: {key}.',
                 http_response=http_resp)
-        return body['users'][0]
+        return cast(list[dict[str, Any]], body['users'])[0]
 
-    def get_users(self, identifiers):
+    def get_users(
+        self,
+        identifiers: Collection[_user_identifier.UserIdentifier],
+    ) -> list[dict[str, Any]]:
         """Looks up multiple users by their identifiers (uid, email, etc.)
 
         Args:
@@ -648,7 +700,7 @@ class UserManager:
         if len(identifiers) > 100:
             raise ValueError('`identifiers` parameter must have <= 100 entries.')
 
-        payload = defaultdict(list)
+        payload: dict[str, list[Any]] = collections.defaultdict(list)
         for identifier in identifiers:
             if isinstance(identifier, _user_identifier.UidIdentifier):
                 payload['localId'].append(identifier.uid)
@@ -670,9 +722,13 @@ class UserManager:
         if not http_resp.ok:
             raise _auth_utils.UnexpectedResponseError(
                 'Failed to get users.', http_response=http_resp)
-        return body.get('users', [])
+        return cast(list[dict[str, Any]], body.get('users', []))
 
-    def list_users(self, page_token=None, max_results=MAX_LIST_USERS_RESULTS):
+    def list_users(
+        self,
+        page_token: Optional[str] = None,
+        max_results: int = MAX_LIST_USERS_RESULTS,
+    ) -> dict[str, Any]:
         """Retrieves a batch of users."""
         if page_token is not None:
             if not isinstance(page_token, str) or not page_token:
@@ -683,14 +739,23 @@ class UserManager:
             raise ValueError(
                 f'Max results must be a positive integer less than {MAX_LIST_USERS_RESULTS}.')
 
-        payload = {'maxResults': max_results}
+        payload: dict[str, Any] = {'maxResults': max_results}
         if page_token:
             payload['nextPageToken'] = page_token
         body, _ = self._make_request('get', '/accounts:batchGet', params=payload)
         return body
 
-    def create_user(self, uid=None, display_name=None, email=None, phone_number=None,
-                    photo_url=None, password=None, disabled=None, email_verified=None):
+    def create_user(
+        self,
+        uid: Optional[str] = None,
+        display_name: Optional[str] = None,
+        email: Optional[str] = None,
+        phone_number: Optional[str] = None,
+        photo_url: Optional[str] = None,
+        password: Optional[str] = None,
+        disabled: Optional[bool] = None,
+        email_verified: Optional[bool] = None,
+    ) -> str:
         """Creates a new user account with the specified properties."""
         payload = {
             'localId': _auth_utils.validate_uid(uid),
@@ -707,13 +772,24 @@ class UserManager:
         if not body or not body.get('localId'):
             raise _auth_utils.UnexpectedResponseError(
                 'Failed to create new user.', http_response=http_resp)
-        return body.get('localId')
+        return cast(str, body['localId'])
 
-    def update_user(self, uid, display_name=None, email=None, phone_number=None,
-                    photo_url=None, password=None, disabled=None, email_verified=None,
-                    valid_since=None, custom_claims=None, providers_to_delete=None):
+    def update_user(
+        self,
+        uid: str,
+        display_name: Optional[str] = None,
+        email: Optional[str] = None,
+        phone_number: Optional[str] = None,
+        photo_url: Optional[str] = None,
+        password: Optional[str] = None,
+        disabled: Optional[bool] = None,
+        email_verified: Optional[bool] = None,
+        valid_since: Optional['ConvertibleToInt'] = None,
+        custom_claims: Optional[Union[dict[str, Any], str]] = None,
+        providers_to_delete: Optional[list[str]] = None,
+    ) -> str:
         """Updates an existing user account with the specified properties"""
-        payload = {
+        payload: dict[str, Any] = {
             'localId': _auth_utils.validate_uid(uid, required=True),
             'email': _auth_utils.validate_email(email),
             'password': _auth_utils.validate_password(password),
@@ -722,7 +798,7 @@ class UserManager:
             'disableUser': bool(disabled) if disabled is not None else None,
         }
 
-        remove = []
+        remove: list[str] = []
         remove_provider = _auth_utils.validate_provider_ids(providers_to_delete)
         if display_name is not None:
             if display_name is DELETE_ATTRIBUTE:
@@ -758,9 +834,9 @@ class UserManager:
         if not body or not body.get('localId'):
             raise _auth_utils.UnexpectedResponseError(
                 f'Failed to update user: {uid}.', http_response=http_resp)
-        return body.get('localId')
+        return cast(str, body['localId'])
 
-    def delete_user(self, uid):
+    def delete_user(self, uid: str) -> None:
         """Deletes the user identified by the specified user ID."""
         _auth_utils.validate_uid(uid, required=True)
         body, http_resp = self._make_request('post', '/accounts:delete', json={'localId' : uid})
@@ -768,7 +844,7 @@ class UserManager:
             raise _auth_utils.UnexpectedResponseError(
                 f'Failed to delete user: {uid}.', http_response=http_resp)
 
-    def delete_users(self, uids, force_delete=False):
+    def delete_users(self, uids: Collection[str], force_delete: bool = False) -> BatchDeleteAccountsResponse:
         """Deletes the users identified by the specified user ids.
 
         Args:
@@ -804,7 +880,11 @@ class UserManager:
                 http_response=http_resp)
         return BatchDeleteAccountsResponse(body.get('errors', []))
 
-    def import_users(self, users, hash_alg=None):
+    def import_users(
+        self,
+        users: Collection[_user_import.ImportUserRecord],
+        hash_alg: Optional[_user_import.UserImportHash] = None,
+    ) -> dict[str, Any]:
         """Imports the given list of users to Firebase Auth."""
         try:
             if not users or len(users) > MAX_IMPORT_USERS_SIZE:
@@ -827,7 +907,12 @@ class UserManager:
                 'Failed to import users.', http_response=http_resp)
         return body
 
-    def generate_email_action_link(self, action_type, email, action_code_settings=None):
+    def generate_email_action_link(
+        self,
+        action_type: Literal['VERIFY_EMAIL', 'EMAIL_SIGNIN', 'PASSWORD_RESET'],
+        email: Optional[str],
+        action_code_settings: Optional[ActionCodeSettings] = None,
+    ) -> str:
         """Fetches the email action links for types
 
         Args:
@@ -857,9 +942,14 @@ class UserManager:
         if not body or not body.get('oobLink'):
             raise _auth_utils.UnexpectedResponseError(
                 'Failed to generate email action link.', http_response=http_resp)
-        return body.get('oobLink')
+        return cast(str, body['oobLink'])
 
-    def _make_request(self, method, path, **kwargs):
+    def _make_request(
+        self,
+        method: str,
+        path: str,
+        **kwargs: Any,
+    ) -> tuple[dict[str, Any], requests.Response]:
         url = f'{self.base_url}{path}'
         try:
             return self.http_client.body_and_response(method, url, **kwargs)
@@ -867,8 +957,7 @@ class UserManager:
             raise _auth_utils.handle_auth_backend_error(error)
 
 
-class _UserIterator(_auth_utils.PageIterator):
-
+class _UserIterator(_auth_utils.PageIterator[ListUsersPage]):
     @property
-    def items(self):
-        return self._current_page.users
+    def items(self) -> list[ExportedUserRecord]:
+        return self._current_page.users if self._current_page else []

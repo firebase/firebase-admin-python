@@ -1,4 +1,4 @@
-astroid == 3.3.11
+astroid == 4.0.3
 pylint == 3.3.9
 pytest >= 8.2.2
 pytest-cov >= 2.4.0

@@ -21,6 +21,24 @@ client = firestore.client(default_app, "your-new-enterprise-database")
 
 # pylint: disable=invalid-name
 
+def type_generic_functions():
+    from google.cloud.firestore_v1.pipeline_expressions import Field, Constant
+    # [START type_function]
+    Field.of("rating").type()
+    # [END type_function]
+
+    # [START concat_function]
+    Constant.of("Author ID: ").concat(Field.of("authorId"))
+    # [END concat_function]
+
+    # [START length_function]
+    Field.of("tags").length()
+    # [END length_function]
+
+    # [START reverse_function]
+    Field.of("tags").reverse()
+    # [END reverse_function]
+
 def query_explain():
     # [START query_explain]
     from google.cloud.firestore import Query, FieldFilter

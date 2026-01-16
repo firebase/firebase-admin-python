@@ -25,7 +25,7 @@ expiration_time = access_token_info.expiry
 # Attach access_token to HTTPS request in the "Authorization: Bearer" header
 # Access tokens are short lived
 # Once the token reaches the expiration time, it can no longer be used.
-# To get a new token, rerun this code to generate a fresh acccess token
+# To get a new token, rerun this code to generate a fresh access token
 # [END get_service_account_tokens]
 
 print(f'The access token {access_token} expires at {expiration_time}')

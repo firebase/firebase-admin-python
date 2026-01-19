@@ -1,5 +1,5 @@
 astroid == 3.3.11
-pylint == 3.3.7
+pylint == 3.3.9
 pytest >= 8.2.2
 pytest-cov >= 2.4.0
 pytest-localserver >= 0.4.1

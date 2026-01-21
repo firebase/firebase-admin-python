@@ -12,7 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Firebase Phone Number Verification (FPNV) module."""
+"""Firebase Phone Number Verification (FPNV) module.
+
+This module contains functions for verifying JWTs related to the Firebase
+Phone Number Verification (FPNV) service.
+"""
 from typing import Any, Dict
 
 import jwt
@@ -55,25 +59,40 @@ class FpnvToken(dict):
 
     @property
     def phone_number(self):
-        """Returns the phone number associated with the token."""
+        """Returns the phone number of the user.
+        This corresponds to the 'sub' claim in the JWT.
+        """
         return self.get('sub')
 
     @property
     def issuer(self):
-        """Returns the issuer of the token."""
+        """Returns the issuer identifier for the issuer of the response."""
         return self.get('iss')
 
     @property
     def audience(self):
-        """Returns the audience of the token."""
+        """Returns the audience for which this token is intended."""
         return self.get('aud')
+
+    @property
+    def exp(self):
+        """Returns the expiration time since the Unix epoch."""
+        return self.get('exp')
+
+    @property
+    def iat(self):
+        """Returns the issued-at time since the Unix epoch."""
+        return self.get('iat')
 
     @property
     def sub(self):
         """Returns the sub (subject) of the token, which is the phone number."""
         return self.get('sub')
 
-    # TODO: ADD ALL
+    @property
+    def claims(self):
+        """Returns the entire map of claims."""
+        return self
 
 
 class FpnvClient:
@@ -122,9 +141,9 @@ class FpnvClient:
         try:
             claims = self._verifier.verify(token)
             return FpnvToken(claims)
-        except Exception as error:
+        except ValueError as error:
             raise InvalidArgumentError(
-                'Failed to verify token: {0}'.format(error)
+                'Failed to verify token: {0}'.format(error), cause=error
             )
 
 
@@ -166,19 +185,15 @@ class _FpnvTokenVerifier:
 
     def _validate_payload(self, token: str, signing_key: str) -> Dict[str, Any]:
         """Decodes and verifies the token."""
-        _issuer = None
+        expected_issuer = f'{_FPNV_ISSUER}{self._project_id}'
         payload = {}
         try:
-            unsafe_payload = jwt.decode(token, options={"verify_signature": False})
-            _issuer = unsafe_payload.get('iss')
-
-            if _issuer is None:
-                raise ValueError('The provided FPNV token has no issuer.')
             payload = jwt.decode(
                 token,
                 signing_key,
                 algorithms=[_ALGORITHM_ES256],
-                audience=_issuer
+                audience=expected_issuer,
+                issuer=expected_issuer
             )
         except InvalidSignatureError as exception:
             raise ValueError(
@@ -187,12 +202,12 @@ class _FpnvTokenVerifier:
         except InvalidAudienceError as exception:
             raise ValueError(
                 'The provided FPNV token has an incorrect "aud" (audience) claim. '
-                f'Expected payload to include {_issuer}.'
+                f'Expected payload to include {expected_issuer}.'
             ) from exception
         except InvalidIssuerError as exception:
             raise ValueError(
                 'The provided FPNV token has an incorrect "iss" (issuer) claim. '
-                f'Expected claim to include {_issuer}'
+                f'Expected claim to include {expected_issuer}'
             ) from exception
         except ExpiredSignatureError as exception:
             raise ValueError(
@@ -221,7 +236,5 @@ class _Validators:
     @classmethod
     def check_string(cls, label: str, value: Any):
         """Checks if the given value is a string."""
-        if value is None:
-            raise ValueError(f'{label} "{value}" must be a non-empty string.')
-        if not isinstance(value, str):
-            raise ValueError(f'{label} "{value}" must be a string.')
+        if not isinstance(value, str) or not value:
+            raise ValueError(f'{label} must be a non-empty string.')

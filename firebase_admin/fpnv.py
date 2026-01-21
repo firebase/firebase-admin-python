@@ -178,7 +178,6 @@ class _FpnvTokenVerifier:
     def _validate_payload(self, token: str, signing_key: str) -> Dict[str, Any]:
         """Decodes and verifies the token."""
         expected_issuer = f'{_FPNV_ISSUER}{self._project_id}'
-        payload = {}
         try:
             payload = jwt.decode(
                 token,
@@ -210,8 +209,6 @@ class _FpnvTokenVerifier:
                 f'Decoding FPNV token failed. Error: {exception}'
             ) from exception
 
-        if not payload.get('iss').startswith(_FPNV_ISSUER):
-            raise ValueError('Token does not contain the correct "iss" (issuer).')
         _Validators.check_string(
             'The provided FPNV token "sub" (subject) claim',
             payload.get('sub'))

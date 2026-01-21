@@ -25,13 +25,9 @@ from tests import testutils
 
 # Mock Data
 _PROJECT_ID = 'mock-project-id'
-_FPNV_TOKEN = 'fpnv_token_string'
 _EXP_TIMESTAMP = 2000000000
 _ISSUER = f'https://fpnv.googleapis.com/projects/{_PROJECT_ID}'
-_JWKS_URL = 'https://fpnv.googleapis.com/v1beta/jwks'
 _PHONE_NUMBER = '+1234567890'
-_ISSUER_PREFIX = 'https://fpnv.googleapis.com/projects/'
-_PRIVATE_KEY = 'test-private-key'  # In real tests, use a real RSA/EC private key
 _PUBLIC_KEY = 'test-public-key'  # In real tests, use the corresponding public key
 
 _MOCK_PAYLOAD = {

@@ -14,16 +14,13 @@
 
 """Test cases for the firebase_admin.fpnv module."""
 
-import json
-from datetime import time
+from unittest import mock
 
 import jwt
 import pytest
-from unittest import mock
 
 import firebase_admin
 from firebase_admin import fpnv
-from firebase_admin import _utils
 from tests import testutils
 
 # Mock Data
@@ -114,6 +111,7 @@ class TestFpnvClient(TestCommon):
 
 
 class TestVerifyToken:
+
     @mock.patch('jwt.PyJWKClient')
     @mock.patch('jwt.decode')
     @mock.patch('jwt.get_unverified_header')
@@ -165,7 +163,8 @@ class TestVerifyToken:
         mock_header.return_value = {'kid': 'k', 'typ': 'JWT', 'alg': 'ES256'}
         mock_jwks_instance = mock_jwks_cls.return_value
         # Simulate Key not found or other PyJWKClient error
-        mock_jwks_instance.get_signing_key_from_jwt.side_effect = jwt.PyJWKClientError("Key not found")
+        mock_jwks_instance.get_signing_key_from_jwt.side_effect = jwt.PyJWKClientError(
+            "Key not found")
 
         with pytest.raises(ValueError, match="Verifying FPNV token failed"):
             client.verify_token('token')

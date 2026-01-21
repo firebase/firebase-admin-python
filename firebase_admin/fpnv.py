@@ -21,10 +21,9 @@ from typing import Any, Dict
 
 import jwt
 from jwt import PyJWKClient, InvalidTokenError, DecodeError, InvalidSignatureError, \
-    InvalidAudienceError, InvalidIssuerError, ExpiredSignatureError
+    PyJWKClientError, InvalidAudienceError, InvalidIssuerError, ExpiredSignatureError
 
 from firebase_admin import _utils
-from firebase_admin.exceptions import InvalidArgumentError
 
 _FPNV_ATTRIBUTE = '_fpnv'
 _FPNV_JWKS_URL = 'https://fpnv.googleapis.com/v1beta/jwks'
@@ -155,7 +154,7 @@ class _FpnvTokenVerifier:
             self._validate_headers(jwt.get_unverified_header(token))
             signing_key = self._jwks_client.get_signing_key_from_jwt(token)
             claims = self._validate_payload(token, signing_key.key)
-        except (InvalidTokenError, DecodeError) as exception:
+        except (InvalidTokenError, DecodeError, PyJWKClientError) as exception:
             raise ValueError(
                 f'Verifying FPNV token failed. Error: {exception}'
             ) from exception

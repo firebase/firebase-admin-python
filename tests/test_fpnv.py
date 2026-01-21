@@ -14,7 +14,6 @@
 
 """Test cases for the firebase_admin.fpnv module."""
 
-import base64
 from unittest import mock
 
 import jwt
@@ -44,6 +43,7 @@ _MOCK_PAYLOAD = {
     "other": 'other'
 }
 
+
 @pytest.fixture
 def client():
     app = firebase_admin.get_app()
@@ -55,7 +55,6 @@ class TestCommon:
     def setup_class(cls):
         cred = testutils.MockCredential()
         firebase_admin.initialize_app(cred, {'projectId': _PROJECT_ID})
-
 
     @classmethod
     def teardown_class(cls):
@@ -155,17 +154,21 @@ class TestVerifyToken(TestCommon):
         with pytest.raises(ValueError, match="incorrect alg"):
             client.verify_token('token')
 
-    @mock.patch('jwt.PyJWKClient')
-    @mock.patch('jwt.get_unverified_header')
-    def test_verify_token_jwk_error(self, mock_header, mock_jwks_cls, client):
-        mock_header.return_value = {'kid': 'k', 'typ': 'JWT', 'alg': 'ES256'}
-        mock_jwks_instance = mock_jwks_cls.return_value
-        # Simulate Key not found or other PyJWKClient error
-        mock_jwks_instance.get_signing_key_from_jwt.side_effect = jwt.PyJWKClientError(
-            "Key not found")
+    def test_verify_token_jwk_error(self, client):
+        # Access the ACTUAL client instance used by the verifier
+        # (Assuming internal structure: client -> _verifier -> _jwks_client)
+        jwks_client = client._verifier._jwks_client
 
-        with pytest.raises(ValueError, match="Verifying FPNV token failed"):
-            client.verify_token('token')
+        # Mock the method on the existing instance
+        with mock.patch.object(jwks_client, 'get_signing_key_from_jwt') as mock_method:
+            mock_method.side_effect = jwt.PyJWKClientError("Key not found")
+
+            # Mock header is still needed if _get_signing_key calls it before the client
+            with mock.patch('jwt.get_unverified_header') as mock_header:
+                mock_header.return_value = {'kid': 'k', 'typ': 'JWT', 'alg': 'ES256'}
+
+                with pytest.raises(ValueError, match="Verifying FPNV token failed"):
+                    client.verify_token('token')
 
     @mock.patch('jwt.PyJWKClient')
     @mock.patch('jwt.decode')
@@ -175,7 +178,6 @@ class TestVerifyToken(TestCommon):
         mock_jwks_instance = mock_jwks_cls.return_value
         mock_jwks_instance.get_signing_key_from_jwt.return_value.key = _PUBLIC_KEY
         client._verifier._jwks_client = mock_jwks_instance
-
 
         # Simulate ExpiredSignatureError
         mock_decode.side_effect = jwt.ExpiredSignatureError("Expired")

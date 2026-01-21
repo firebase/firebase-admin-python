@@ -14,6 +14,7 @@
 
 """Test cases for the firebase_admin.fpnv module."""
 
+import base64
 from unittest import mock
 
 import jwt
@@ -43,25 +44,25 @@ _MOCK_PAYLOAD = {
     "other": 'other'
 }
 
-
 @pytest.fixture
-def app():
-    cred = testutils.MockCredential()
-    return firebase_admin.initialize_app(cred, {'projectId': _PROJECT_ID})
-
-
-@pytest.fixture
-def client(app):
+def client():
+    app = firebase_admin.get_app()
     return fpnv.client(app)
 
 
 class TestCommon:
     @classmethod
+    def setup_class(cls):
+        cred = testutils.MockCredential()
+        firebase_admin.initialize_app(cred, {'projectId': _PROJECT_ID})
+
+
+    @classmethod
     def teardown_class(cls):
         testutils.cleanup_apps()
 
 
-class TestFpnvToken(TestCommon):
+class TestFpnvToken:
     def test_properties(self):
         token = fpnv.FpnvToken(_MOCK_PAYLOAD)
 
@@ -77,14 +78,8 @@ class TestFpnvToken(TestCommon):
 
 class TestFpnvClient(TestCommon):
 
-    def test_client_no_app(self):
-        with mock.patch('firebase_admin._utils.get_app_service') as mock_get_service:
-            fpnv.client()
-            mock_get_service.assert_called_once()
-        with pytest.raises(ValueError):
-            fpnv.client()
-
-    def test_client(self, app):
+    def test_client(self):
+        app = firebase_admin.get_app()
         client = fpnv.client(app)
         assert isinstance(client, fpnv.FpnvClient)
         assert client._project_id == _PROJECT_ID
@@ -110,7 +105,7 @@ class TestFpnvClient(TestCommon):
         assert isinstance(client, fpnv.FpnvClient)
 
 
-class TestVerifyToken:
+class TestVerifyToken(TestCommon):
 
     @mock.patch('jwt.PyJWKClient')
     @mock.patch('jwt.decode')
@@ -125,6 +120,7 @@ class TestVerifyToken:
         mock_signing_key = mock.Mock()
         mock_signing_key.key = _PUBLIC_KEY
         mock_jwks_instance.get_signing_key_from_jwt.return_value = mock_signing_key
+        client._verifier._jwks_client = mock_jwks_instance
 
         mock_decode.return_value = _MOCK_PAYLOAD
 
@@ -146,9 +142,11 @@ class TestVerifyToken:
         )
 
     @mock.patch('jwt.get_unverified_header')
-    def test_verify_token_no_kid(self, mock_header, client):
+    def test_verify_token_no_kid(self, mock_header):
+        app = firebase_admin.get_app()
+        client = fpnv.client(app)
         mock_header.return_value = {'typ': 'JWT', 'alg': 'ES256'}  # Missing kid
-        with pytest.raises(ValueError, match="no 'kid' claim"):
+        with pytest.raises(ValueError, match="FPNV has no 'kid' claim."):
             client.verify_token('token')
 
     @mock.patch('jwt.get_unverified_header')
@@ -176,6 +174,8 @@ class TestVerifyToken:
         mock_header.return_value = {'kid': 'k', 'typ': 'JWT', 'alg': 'ES256'}
         mock_jwks_instance = mock_jwks_cls.return_value
         mock_jwks_instance.get_signing_key_from_jwt.return_value.key = _PUBLIC_KEY
+        client._verifier._jwks_client = mock_jwks_instance
+
 
         # Simulate ExpiredSignatureError
         mock_decode.side_effect = jwt.ExpiredSignatureError("Expired")
@@ -190,6 +190,7 @@ class TestVerifyToken:
         mock_header.return_value = {'kid': 'k', 'typ': 'JWT', 'alg': 'ES256'}
         mock_jwks_instance = mock_jwks_cls.return_value
         mock_jwks_instance.get_signing_key_from_jwt.return_value.key = _PUBLIC_KEY
+        client._verifier._jwks_client = mock_jwks_instance
 
         # Simulate InvalidAudienceError
         mock_decode.side_effect = jwt.InvalidAudienceError("Wrong Aud")
@@ -204,6 +205,7 @@ class TestVerifyToken:
         mock_header.return_value = {'kid': 'k', 'typ': 'JWT', 'alg': 'ES256'}
         mock_jwks_instance = mock_jwks_cls.return_value
         mock_jwks_instance.get_signing_key_from_jwt.return_value.key = _PUBLIC_KEY
+        client._verifier._jwks_client = mock_jwks_instance
 
         # Simulate InvalidIssuerError
         mock_decode.side_effect = jwt.InvalidIssuerError("Wrong Iss")

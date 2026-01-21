@@ -136,15 +136,8 @@ class FpnvClient:
 
         Raises:
             ValueError: If the token is invalid or malformed.
-            firebase_admin.exceptions.InvalidArgumentError: If verification fails.
         """
-        try:
-            claims = self._verifier.verify(token)
-            return FpnvToken(claims)
-        except ValueError as error:
-            raise InvalidArgumentError(
-                'Failed to verify token: {0}'.format(error), cause=error
-            )
+        return FpnvToken(self._verifier.verify(token))
 
 
 class _FpnvTokenVerifier:

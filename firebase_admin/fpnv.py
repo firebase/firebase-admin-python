@@ -54,7 +54,7 @@ class FpnvToken(dict):
     """
 
     def __init__(self, claims):
-        super(FpnvToken, self).__init__(claims)
+        super().__init__(claims)
 
     @property
     def phone_number(self):
@@ -149,6 +149,7 @@ class _FpnvTokenVerifier:
         self._jwks_client = PyJWKClient(_FPNV_JWKS_URL, lifespan=21600)
 
     def verify(self, token) -> Dict[str, Any]:
+        """Verifies the given FPNV token."""
         _Validators.check_string("FPNV check token", token)
         try:
             self._validate_headers(jwt.get_unverified_header(token))
@@ -162,6 +163,7 @@ class _FpnvTokenVerifier:
         return claims
 
     def _validate_headers(self, headers: Any) -> None:
+        """Validates the headers."""
         if headers.get('kid') is None:
             raise ValueError("FPNV has no 'kid' claim.")
 

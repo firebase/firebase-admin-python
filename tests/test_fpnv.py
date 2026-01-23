@@ -14,10 +14,14 @@
 
 """Test cases for the firebase_admin.fpnv module."""
 
+import base64
+import time
 from unittest import mock
+from unittest.mock import patch
 
 import jwt
 import pytest
+from cryptography.hazmat.primitives.asymmetric import ec
 
 import firebase_admin
 from firebase_admin import fpnv
@@ -29,10 +33,13 @@ _EXP_TIMESTAMP = 2000000000
 _ISSUER = f'https://fpnv.googleapis.com/projects/{_PROJECT_ID}'
 _PHONE_NUMBER = '+1234567890'
 _PUBLIC_KEY = 'test-public-key'  # In real tests, use the corresponding public key
+_ALGORITHM = 'ES256'
+_KEY_ID = 'test-key-id'
+_TYPE = 'JWT'
 
 _MOCK_PAYLOAD = {
     'iss': _ISSUER,
-    'sub': '+1234567890',
+    'sub': _PHONE_NUMBER,
     'aud': [_ISSUER],
     'exp': _EXP_TIMESTAMP,
     'iat': _EXP_TIMESTAMP - 3600,
@@ -101,6 +108,61 @@ class TestFpnvClient(TestCommon):
 
 
 class TestVerifyToken(TestCommon):
+
+    def test_verify_token_with_real_crypto(self):
+        """Verifies a token signed with a real ES256 key pair.
+
+        Mocking only the JWKS endpoint.
+        This ensures the cryptographic verification logic is functioning correctly.
+        """
+        # Generate a real ES256 key pair
+        private_key = ec.generate_private_key(ec.SECP256R1())
+        public_key = private_key.public_key()
+
+        # Create the JWK representation of the public key (for the mock endpoint)
+        # Note: Retrieving numbers from the key involves cryptography primitives
+        public_numbers = public_key.public_numbers()
+
+        def to_b64url(b_data):
+            return base64.urlsafe_b64encode(b_data).rstrip(b'=').decode('utf-8')
+
+        jwk = {
+            "kty": "EC",
+            "use": "sig",
+            "alg": _ALGORITHM,
+            "kid": _KEY_ID,
+            "crv": "P-256",
+            "x": to_b64url(public_numbers.x.to_bytes(32, 'big')),
+            "y": to_b64url(public_numbers.y.to_bytes(32, 'big')),
+        }
+        now = int(time.time())
+        payload = {
+            'iss': _ISSUER,
+            'aud': [_ISSUER],
+            'iat': now,
+            'exp': now + 3600,
+            'sub': _PHONE_NUMBER
+        }
+
+        # Sign using the private key object directly (PyJWT supports this)
+        token = jwt.encode(
+            payload,
+            private_key,
+            algorithm=_ALGORITHM,
+            headers={'alg': _ALGORITHM, 'typ': _TYPE, 'kid': _KEY_ID},
+        )
+
+        # Mock PyJWKClient fetch_data
+        with patch('jwt.PyJWKClient.fetch_data') as mock_fetch:
+            mock_fetch.return_value = {'keys': [jwk]}
+
+            app = firebase_admin.get_app()
+            client = fpnv.client(app)
+            decoded_token = client.verify_token(token)
+
+            assert decoded_token['sub'] == _PHONE_NUMBER
+            assert _ISSUER in decoded_token['aud']
+            assert decoded_token.phone_number == decoded_token['sub']
 
     @mock.patch('jwt.PyJWKClient')
     @mock.patch('jwt.decode')

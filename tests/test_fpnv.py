@@ -106,6 +106,13 @@ class TestFpnvClient(TestCommon):
         client = fpnv.client(app)
         assert isinstance(client, fpnv.FpnvClient)
 
+    def test_client_illegal_app_argument_wrong_app_type(self):
+        cred = testutils.MockCredential()
+        app = ""
+        with pytest.raises(ValueError, match = 'Illegal app argument. Argument must be of type firebase_admin.App, but given '
+        f'"{type(app)}".'):
+            client = fpnv.client(app)
+
 
 class TestVerifyToken(TestCommon):
 
@@ -199,6 +206,14 @@ class TestVerifyToken(TestCommon):
         )
 
     @mock.patch('jwt.get_unverified_header')
+    def test_verify_token_no_name(self, mock_header):
+        app = firebase_admin.get_app()
+        client = fpnv.client(app)
+        mock_header.return_value = {'kid': 'k', 'typ': 'JWT', 'alg': 'ES256'}
+        with pytest.raises(ValueError, match="must be a non-empty string"):
+            client.verify_token('')
+
+    @mock.patch('jwt.get_unverified_header')
     def test_verify_token_no_kid(self, mock_header):
         app = firebase_admin.get_app()
         client = fpnv.client(app)
@@ -210,6 +225,12 @@ class TestVerifyToken(TestCommon):
     def test_verify_token_wrong_alg(self, mock_header, client):
         mock_header.return_value = {'kid': 'k', 'typ': 'JWT', 'alg': 'RS256'}  # Wrong alg
         with pytest.raises(ValueError, match="incorrect alg"):
+            client.verify_token('token')
+
+    @mock.patch('jwt.get_unverified_header')
+    def test_verify_token_wrong_typ(self, mock_header, client):
+        mock_header.return_value = {'kid': 'k', 'typ': 'WRONG', 'alg': 'ES256'} # wrong typ
+        with pytest.raises(ValueError, match="incorrect type header"):
             client.verify_token('token')
 
     def test_verify_token_jwk_error(self, client):
@@ -246,6 +267,21 @@ class TestVerifyToken(TestCommon):
     @mock.patch('jwt.PyJWKClient')
     @mock.patch('jwt.decode')
     @mock.patch('jwt.get_unverified_header')
+    def test_verify_token_invalid_signature(self, mock_header, mock_decode, mock_jwks_cls, client):
+        mock_header.return_value = {'kid': 'k', 'typ': 'JWT', 'alg': 'ES256'}
+        mock_jwks_instance = mock_jwks_cls.return_value
+        mock_jwks_instance.get_signing_key_from_jwt.return_value.key = _PUBLIC_KEY
+        client._verifier._jwks_client = mock_jwks_instance
+
+        # Simulate InvalidSignatureError
+        mock_decode.side_effect = jwt.InvalidSignatureError("Wrong Signature")
+
+        with pytest.raises(ValueError, match="invalid signature"):
+            client.verify_token('token')
+
+    @mock.patch('jwt.PyJWKClient')
+    @mock.patch('jwt.decode')
+    @mock.patch('jwt.get_unverified_header')
     def test_verify_token_invalid_audience(self, mock_header, mock_decode, mock_jwks_cls, client):
         mock_header.return_value = {'kid': 'k', 'typ': 'JWT', 'alg': 'ES256'}
         mock_jwks_instance = mock_jwks_cls.return_value
@@ -269,6 +305,21 @@ class TestVerifyToken(TestCommon):
 
         # Simulate InvalidIssuerError
         mock_decode.side_effect = jwt.InvalidIssuerError("Wrong Iss")
+
+        with pytest.raises(ValueError, match="incorrect \"iss\""):
+            client.verify_token('token')
+
+    @mock.patch('jwt.PyJWKClient')
+    @mock.patch('jwt.decode')
+    @mock.patch('jwt.get_unverified_header')
+    def test_verify_token_invalid_token(self, mock_header, mock_decode, mock_jwks_cls, client):
+        mock_header.return_value = {'kid': 'k', 'typ': 'JWT', 'alg': 'ES256'}
+        mock_jwks_instance = mock_jwks_cls.return_value
+        mock_jwks_instance.get_signing_key_from_jwt.return_value.key = _PUBLIC_KEY
+        client._verifier._jwks_client = mock_jwks_instance
+
+        # Simulate InvalidTokenError
+        mock_decode.side_effect = jwt.InvalidTokenError("Decoding FPNV token failed")
 
         with pytest.raises(ValueError, match="incorrect \"iss\""):
             client.verify_token('token')

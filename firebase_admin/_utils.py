@@ -279,7 +279,6 @@ def handle_httpx_error(error: httpx.HTTPError, message=None, code=None) -> excep
             message=f'Failed to establish a connection: {error}',
             cause=error)
     if isinstance(error, httpx.HTTPStatusError):
-        print("printing status error", error)
         if not code:
             code = _http_status_to_error_code(error.response.status_code)
         if not message:

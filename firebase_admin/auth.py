@@ -26,6 +26,7 @@ from firebase_admin import _user_identifier
 from firebase_admin import _token_gen
 from firebase_admin import _user_import
 from firebase_admin import _user_mgt
+from firebase_admin import _mfa
 from firebase_admin import _utils
 
 
@@ -54,6 +55,7 @@ __all__ = [
     'InvalidSessionCookieError',
     'ListProviderConfigsPage',
     'ListUsersPage',
+    'MfaError',
     'OIDCProviderConfig',
     'PhoneNumberAlreadyExistsError',
     'ProviderConfig',
@@ -108,6 +110,7 @@ __all__ = [
     'update_user',
     'verify_id_token',
     'verify_session_cookie',
+    'withdraw_mfa_enrollment',
 ]
 
 ActionCodeSettings = _user_mgt.ActionCodeSettings
@@ -131,6 +134,7 @@ InvalidIdTokenError = _auth_utils.InvalidIdTokenError
 InvalidSessionCookieError = _token_gen.InvalidSessionCookieError
 ListProviderConfigsPage = _auth_providers.ListProviderConfigsPage
 ListUsersPage = _user_mgt.ListUsersPage
+MfaError = _mfa.MfaError
 OIDCProviderConfig = _auth_providers.OIDCProviderConfig
 PhoneNumberAlreadyExistsError = _auth_utils.PhoneNumberAlreadyExistsError
 ProviderConfig = _auth_providers.ProviderConfig
@@ -647,6 +651,36 @@ def generate_sign_in_with_email_link(email, action_code_settings, app=None):
         email, action_code_settings=action_code_settings)
 
 
+def withdraw_mfa_enrollment(uid: str, mfa_enrollment_id: str, api_key: str,
+                            tenant_id: str | None = None, app=None) -> dict:
+    """Withdraw (reset) a second factor for the given user.
+
+    This performs an admin-initiated reset by minting a Custom Token for the user,
+    exchanging it for an ID token, and then calling the Identity Toolkit withdraw API.
+
+    Args:
+        uid:               Firebase Auth UID.
+        mfa_enrollment_id: The MFA enrollment ID to revoke (see accounts.lookup to find it).
+        api_key:           Web API key from your Firebase project settings.
+        tenant_id:         Optional Tenant ID for multi-tenancy.
+        app:               Optional App instance.
+
+    Returns:
+        dict: Response from the withdraw call.
+
+    Raises:
+        MfaError: If the operation fails.
+        ValueError: For invalid arguments.
+    """
+    return _mfa.withdraw_mfa_enrollment(
+        uid=uid,
+        mfa_enrollment_id=mfa_enrollment_id,
+        api_key=api_key,
+        tenant_id=tenant_id,
+        app=app,
+    )
+
+
 def get_oidc_provider_config(provider_id, app=None):
     """Returns the ``OIDCProviderConfig`` with the given ID.
 
@@ -924,3 +958,4 @@ def list_saml_provider_configs(
     """
     client = _get_client(app)
     return client.list_saml_provider_configs(page_token, max_results)
+    

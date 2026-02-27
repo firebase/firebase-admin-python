@@ -51,10 +51,15 @@ class AndroidConfig:
         fcm_options: A ``messaging.AndroidFCMOptions`` to be included in the message (optional).
         direct_boot_ok: A boolean indicating whether messages will be allowed to be delivered to
             the app while the device is in direct boot mode (optional).
+        bandwidth_constrained_ok: A boolean indicating whether messages will be allowed to be
+            delivered to the app while the device is on a bandwidth constrained network (optional).
+        restricted_satellite_ok: A boolean indicating whether messages will be allowed to be
+            delivered to the app while the device is on a restricted satellite network (optional).
     """
 
     def __init__(self, collapse_key=None, priority=None, ttl=None, restricted_package_name=None,
-                 data=None, notification=None, fcm_options=None, direct_boot_ok=None):
+                 data=None, notification=None, fcm_options=None, direct_boot_ok=None,
+                 bandwidth_constrained_ok=None, restricted_satellite_ok=None):
         self.collapse_key = collapse_key
         self.priority = priority
         self.ttl = ttl
@@ -63,6 +68,8 @@ class AndroidConfig:
         self.notification = notification
         self.fcm_options = fcm_options
         self.direct_boot_ok = direct_boot_ok
+        self.bandwidth_constrained_ok = bandwidth_constrained_ok
+        self.restricted_satellite_ok = restricted_satellite_ok
 
 
 class AndroidNotification:

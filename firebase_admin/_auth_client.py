@@ -15,6 +15,8 @@
 """Firebase auth client sub module."""
 
 import time
+from collections.abc import Callable, Collection
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import firebase_admin
 from firebase_admin import _auth_providers
@@ -25,12 +27,18 @@ from firebase_admin import _user_identifier
 from firebase_admin import _user_import
 from firebase_admin import _user_mgt
 from firebase_admin import _utils
+from firebase_admin import exceptions
+
+if TYPE_CHECKING:
+    from _typeshed import ConvertibleToInt
+
+__all__ = ('Client',)
 
 
 class Client:
     """Firebase Authentication client scoped to a specific tenant."""
 
-    def __init__(self, app, tenant_id=None):
+    def __init__(self, app: firebase_admin.App, tenant_id: Optional[str] = None) -> None:
         if not app.project_id:
             raise ValueError("""A project ID is required to access the auth service.
             1. Use a service account credential, or
@@ -41,8 +49,8 @@ class Client:
         version_header = f'Python/Admin/{firebase_admin.__version__}'
         timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
         # Non-default endpoint URLs for emulator support are set in this dict later.
-        endpoint_urls = {}
-        self.emulated = False
+        endpoint_urls: dict[str, str] = {}
+        self.emulated: bool = False
 
         # If an emulator is present, check that the given value matches the expected format and set
         # endpoint URLs to use the emulator. Additionally, use a fake credential.
@@ -70,11 +78,15 @@ class Client:
             http_client, app.project_id, tenant_id, url_override=endpoint_urls.get('v2'))
 
     @property
-    def tenant_id(self):
+    def tenant_id(self) -> Optional[str]:
         """Tenant ID associated with this client."""
         return self._tenant_id
 
-    def create_custom_token(self, uid, developer_claims=None):
+    def create_custom_token(
+        self,
+        uid: str,
+        developer_claims: Optional[dict[str, Any]] = None,
+    ) -> bytes:
         """Builds and signs a Firebase custom auth token.
 
         Args:
@@ -92,7 +104,12 @@ class Client:
         return self._token_generator.create_custom_token(
             uid, developer_claims, tenant_id=self.tenant_id)
 
-    def verify_id_token(self, id_token, check_revoked=False, clock_skew_seconds=0):
+    def verify_id_token(
+        self,
+        id_token: Union[bytes, str],
+        check_revoked: bool = False,
+        clock_skew_seconds: int = 0,
+    ) -> dict[str, Any]:
         """Verifies the signature and data for the provided JWT.
 
         Accepts a signed token string, verifies that it is current, was issued
@@ -139,7 +156,7 @@ class Client:
                 verified_claims, _token_gen.RevokedIdTokenError, 'ID token')
         return verified_claims
 
-    def revoke_refresh_tokens(self, uid):
+    def revoke_refresh_tokens(self, uid: str) -> None:
         """Revokes all refresh tokens for an existing user.
 
         This method updates the user's ``tokens_valid_after_timestamp`` to the current UTC
@@ -160,7 +177,7 @@ class Client:
         """
         self._user_manager.update_user(uid, valid_since=int(time.time()))
 
-    def get_user(self, uid):
+    def get_user(self, uid: str) -> _user_mgt.UserRecord:
         """Gets the user data corresponding to the specified user ID.
 
         Args:
@@ -177,7 +194,7 @@ class Client:
         response = self._user_manager.get_user(uid=uid)
         return _user_mgt.UserRecord(response)
 
-    def get_user_by_email(self, email):
+    def get_user_by_email(self, email: str) -> _user_mgt.UserRecord:
         """Gets the user data corresponding to the specified user email.
 
         Args:
@@ -194,7 +211,7 @@ class Client:
         response = self._user_manager.get_user(email=email)
         return _user_mgt.UserRecord(response)
 
-    def get_user_by_phone_number(self, phone_number):
+    def get_user_by_phone_number(self, phone_number: str) -> _user_mgt.UserRecord:
         """Gets the user data corresponding to the specified phone number.
 
         Args:
@@ -211,7 +228,10 @@ class Client:
         response = self._user_manager.get_user(phone_number=phone_number)
         return _user_mgt.UserRecord(response)
 
-    def get_users(self, identifiers):
+    def get_users(
+        self,
+        identifiers: Collection[_user_identifier.UserIdentifier],
+    ) -> _user_mgt.GetUsersResult:
         """Gets the user data corresponding to the specified identifiers.
 
         There are no ordering guarantees; in particular, the nth entry in the
@@ -236,7 +256,10 @@ class Client:
         """
         response = self._user_manager.get_users(identifiers=identifiers)
 
-        def _matches(identifier, user_record):
+        def _matches(
+            identifier: _user_identifier.UserIdentifier,
+            user_record: _user_mgt.UserRecord,
+        ) -> bool:
             if isinstance(identifier, _user_identifier.UidIdentifier):
                 return identifier.uid == user_record.uid
             if isinstance(identifier, _user_identifier.EmailIdentifier):
@@ -252,7 +275,10 @@ class Client:
                 ), False)
             raise TypeError(f"Unexpected type: {type(identifier)}")
 
-        def _is_user_found(identifier, user_records):
+        def _is_user_found(
+            identifier: _user_identifier.UserIdentifier,
+            user_records: list[_user_mgt.UserRecord],
+        ) -> bool:
             return any(_matches(identifier, user_record) for user_record in user_records)
 
         users = [_user_mgt.UserRecord(user) for user in response]
@@ -261,7 +287,11 @@ class Client:
 
         return _user_mgt.GetUsersResult(users=users, not_found=not_found)
 
-    def list_users(self, page_token=None, max_results=_user_mgt.MAX_LIST_USERS_RESULTS):
+    def list_users(
+        self,
+        page_token: Optional[str] = None,
+        max_results: int = _user_mgt.MAX_LIST_USERS_RESULTS,
+    ) -> _user_mgt.ListUsersPage:
         """Retrieves a page of user accounts from a Firebase project.
 
         The ``page_token`` argument governs the starting point of the page. The ``max_results``
@@ -283,11 +313,23 @@ class Client:
             ValueError: If max_results or page_token are invalid.
             FirebaseError: If an error occurs while retrieving the user accounts.
         """
-        def download(page_token, max_results):
+        def download(page_token: Optional[str], max_results: int) -> dict[str, Any]:
             return self._user_manager.list_users(page_token, max_results)
         return _user_mgt.ListUsersPage(download, page_token, max_results)
 
-    def create_user(self, **kwargs): # pylint: disable=differing-param-doc
+    def create_user(
+        self,
+        *,
+        uid: Optional[str] = None,
+        display_name: Optional[str] = None,
+        email: Optional[str] = None,
+        email_verified: Optional[bool] = None,
+        phone_number: Optional[str] = None,
+        photo_url: Optional[str] = None,
+        password: Optional[str] = None,
+        disabled: Optional[bool] = None,
+        **kwargs: Any,
+    ) -> _user_mgt.UserRecord:
         """Creates a new user account with the specified properties.
 
         Args:
@@ -311,10 +353,27 @@ class Client:
             ValueError: If the specified user properties are invalid.
             FirebaseError: If an error occurs while creating the user account.
         """
-        uid = self._user_manager.create_user(**kwargs)
+        uid = self._user_manager.create_user(uid=uid, display_name=display_name, email=email,
+            phone_number=phone_number, photo_url=photo_url, password=password, disabled=disabled,
+            email_verified=email_verified, **kwargs)
         return self.get_user(uid=uid)
 
-    def update_user(self, uid, **kwargs): # pylint: disable=differing-param-doc
+    def update_user(
+        self,
+        uid: str,
+        *,
+        display_name: Optional[str] = None,
+        email: Optional[str] = None,
+        email_verified: Optional[bool] = None,
+        phone_number: Optional[str] = None,
+        photo_url: Optional[str] = None,
+        password: Optional[str] = None,
+        disabled: Optional[bool] = None,
+        custom_claims: Optional[Union[dict[str, Any], str]] = None,
+        valid_since: Optional['ConvertibleToInt'] = None,
+        providers_to_delete: Optional[list[str]] = None,
+        **kwargs: Any,
+    ) -> _user_mgt.UserRecord:
         """Updates an existing user account with the specified properties.
 
         Args:
@@ -349,10 +408,16 @@ class Client:
             ValueError: If the specified user ID or properties are invalid.
             FirebaseError: If an error occurs while updating the user account.
         """
-        self._user_manager.update_user(uid, **kwargs)
+        self._user_manager.update_user(uid, display_name=display_name, email=email, phone_number=phone_number,
+            photo_url=photo_url, password=password, disabled=disabled, email_verified=email_verified,
+            valid_since=valid_since, custom_claims=custom_claims, providers_to_delete=providers_to_delete, **kwargs)
         return self.get_user(uid=uid)
 
-    def set_custom_user_claims(self, uid, custom_claims):
+    def set_custom_user_claims(
+        self,
+        uid: str,
+        custom_claims: Optional[Union[dict[str, Any], str]],
+    ) -> None:
         """Sets additional claims on an existing user account.
 
         Custom claims set via this function can be used to define user roles and privilege levels.
@@ -375,7 +440,7 @@ class Client:
             custom_claims = _user_mgt.DELETE_ATTRIBUTE
         self._user_manager.update_user(uid, custom_claims=custom_claims)
 
-    def delete_user(self, uid):
+    def delete_user(self, uid: str) -> None:
         """Deletes the user identified by the specified user ID.
 
         Args:
@@ -387,7 +452,7 @@ class Client:
         """
         self._user_manager.delete_user(uid)
 
-    def delete_users(self, uids):
+    def delete_users(self, uids: Collection[str]) -> _user_mgt.DeleteUsersResult:
         """Deletes the users specified by the given identifiers.
 
         Deleting a non-existing user does not generate an error (the method is
@@ -414,7 +479,11 @@ class Client:
         result = self._user_manager.delete_users(uids, force_delete=True)
         return _user_mgt.DeleteUsersResult(result, len(uids))
 
-    def import_users(self, users, hash_alg=None):
+    def import_users(
+        self,
+        users: Collection[_user_import.ImportUserRecord],
+        hash_alg: Optional[_user_import.UserImportHash] = None,
+    ) -> _user_import.UserImportResult:
         """Imports the specified list of users into Firebase Auth.
 
         At most 1000 users can be imported at a time. This operation is optimized for bulk imports
@@ -438,7 +507,11 @@ class Client:
         result = self._user_manager.import_users(users, hash_alg)
         return _user_import.UserImportResult(result, len(users))
 
-    def generate_password_reset_link(self, email, action_code_settings=None):
+    def generate_password_reset_link(
+        self,
+        email: Optional[str],
+        action_code_settings: Optional[_user_mgt.ActionCodeSettings] = None,
+    ) -> str:
         """Generates the out-of-band email action link for password reset flows for the specified
         email address.
 
@@ -459,7 +532,11 @@ class Client:
         return self._user_manager.generate_email_action_link(
             'PASSWORD_RESET', email, action_code_settings=action_code_settings)
 
-    def generate_email_verification_link(self, email, action_code_settings=None):
+    def generate_email_verification_link(
+        self,
+        email: Optional[str],
+        action_code_settings: Optional[_user_mgt.ActionCodeSettings] = None,
+    ) -> str:
         """Generates the out-of-band email action link for email verification flows for the
         specified email address.
 
@@ -480,7 +557,11 @@ class Client:
         return self._user_manager.generate_email_action_link(
             'VERIFY_EMAIL', email, action_code_settings=action_code_settings)
 
-    def generate_sign_in_with_email_link(self, email, action_code_settings):
+    def generate_sign_in_with_email_link(
+        self,
+        email: Optional[str],
+        action_code_settings: Optional[_user_mgt.ActionCodeSettings],
+    ) -> str:
         """Generates the out-of-band email action link for email link sign-in flows, using the
         action code settings provided.
 
@@ -500,7 +581,7 @@ class Client:
         return self._user_manager.generate_email_action_link(
             'EMAIL_SIGNIN', email, action_code_settings=action_code_settings)
 
-    def get_oidc_provider_config(self, provider_id):
+    def get_oidc_provider_config(self, provider_id: str) -> _auth_providers.OIDCProviderConfig:
         """Returns the ``OIDCProviderConfig`` with the given ID.
 
         Args:
@@ -517,8 +598,16 @@ class Client:
         return self._provider_manager.get_oidc_provider_config(provider_id)
 
     def create_oidc_provider_config(
-            self, provider_id, client_id, issuer, display_name=None, enabled=None,
-            client_secret=None, id_token_response_type=None, code_response_type=None):
+        self,
+        provider_id: str,
+        client_id: str,
+        issuer: str,
+        display_name: Optional[str] = None,
+        enabled: Optional[bool] = None,
+        client_secret: Optional[str] = None,
+        id_token_response_type: Optional[bool] = None,
+        code_response_type: Optional[bool] = None,
+    ) -> _auth_providers.OIDCProviderConfig:
         """Creates a new OIDC provider config from the given parameters.
 
         OIDC provider support requires Google Cloud's Identity Platform (GCIP). To learn more about
@@ -556,8 +645,16 @@ class Client:
             id_token_response_type=id_token_response_type, code_response_type=code_response_type)
 
     def update_oidc_provider_config(
-            self, provider_id, client_id=None, issuer=None, display_name=None, enabled=None,
-            client_secret=None, id_token_response_type=None, code_response_type=None):
+        self,
+        provider_id: str,
+        client_id: Optional[str] = None,
+        issuer: Optional[str] = None,
+        display_name: Optional[str] = None,
+        enabled: Optional[bool] = None,
+        client_secret: Optional[str] = None,
+        id_token_response_type: Optional[bool] = None,
+        code_response_type: Optional[bool] = None,
+    ) -> _auth_providers.OIDCProviderConfig:
         """Updates an existing OIDC provider config with the given parameters.
 
         Args:
@@ -591,7 +688,7 @@ class Client:
             enabled=enabled, client_secret=client_secret,
             id_token_response_type=id_token_response_type, code_response_type=code_response_type)
 
-    def delete_oidc_provider_config(self, provider_id):
+    def delete_oidc_provider_config(self, provider_id: str) -> None:
         """Deletes the ``OIDCProviderConfig`` with the given ID.
 
         Args:
@@ -605,7 +702,10 @@ class Client:
         self._provider_manager.delete_oidc_provider_config(provider_id)
 
     def list_oidc_provider_configs(
-            self, page_token=None, max_results=_auth_providers.MAX_LIST_CONFIGS_RESULTS):
+        self,
+        page_token: Optional[str] = None,
+        max_results: int = _auth_providers.MAX_LIST_CONFIGS_RESULTS,
+    ) -> _auth_providers._ListOIDCProviderConfigsPage:
         """Retrieves a page of OIDC provider configs from a Firebase project.
 
         The ``page_token`` argument governs the starting point of the page. The ``max_results``
@@ -629,7 +729,7 @@ class Client:
         """
         return self._provider_manager.list_oidc_provider_configs(page_token, max_results)
 
-    def get_saml_provider_config(self, provider_id):
+    def get_saml_provider_config(self, provider_id: str) -> _auth_providers.SAMLProviderConfig:
         """Returns the ``SAMLProviderConfig`` with the given ID.
 
         Args:
@@ -646,8 +746,16 @@ class Client:
         return self._provider_manager.get_saml_provider_config(provider_id)
 
     def create_saml_provider_config(
-            self, provider_id, idp_entity_id, sso_url, x509_certificates, rp_entity_id,
-            callback_url, display_name=None, enabled=None):
+        self,
+        provider_id: str,
+        idp_entity_id: str,
+        sso_url: str,
+        x509_certificates: list[str],
+        rp_entity_id: str,
+        callback_url: str,
+        display_name: Optional[str] = None,
+        enabled: Optional[bool] = None,
+    ) -> _auth_providers.SAMLProviderConfig:
         """Creates a new SAML provider config from the given parameters.
 
         SAML provider support requires Google Cloud's Identity Platform (GCIP). To learn more about
@@ -686,8 +794,16 @@ class Client:
             callback_url=callback_url, display_name=display_name, enabled=enabled)
 
     def update_saml_provider_config(
-            self, provider_id, idp_entity_id=None, sso_url=None, x509_certificates=None,
-            rp_entity_id=None, callback_url=None, display_name=None, enabled=None):
+        self,
+        provider_id: str,
+        idp_entity_id: Optional[str] = None,
+        sso_url: Optional[str] = None,
+        x509_certificates: Optional[list[str]] = None,
+        rp_entity_id: Optional[str] = None,
+        callback_url: Optional[str] = None,
+        display_name: Optional[str] = None,
+        enabled: Optional[bool] = None,
+    ) -> _auth_providers.SAMLProviderConfig:
         """Updates an existing SAML provider config with the given parameters.
 
         Args:
@@ -715,7 +831,7 @@ class Client:
             x509_certificates=x509_certificates, rp_entity_id=rp_entity_id,
             callback_url=callback_url, display_name=display_name, enabled=enabled)
 
-    def delete_saml_provider_config(self, provider_id):
+    def delete_saml_provider_config(self, provider_id: str) -> None:
         """Deletes the ``SAMLProviderConfig`` with the given ID.
 
         Args:
@@ -729,7 +845,10 @@ class Client:
         self._provider_manager.delete_saml_provider_config(provider_id)
 
     def list_saml_provider_configs(
-            self, page_token=None, max_results=_auth_providers.MAX_LIST_CONFIGS_RESULTS):
+        self,
+        page_token: Optional[str] = None,
+        max_results: int = _auth_providers.MAX_LIST_CONFIGS_RESULTS,
+    ) -> _auth_providers._ListSAMLProviderConfigsPage:
         """Retrieves a page of SAML provider configs from a Firebase project.
 
         The ``page_token`` argument governs the starting point of the page. The ``max_results``
@@ -753,9 +872,14 @@ class Client:
         """
         return self._provider_manager.list_saml_provider_configs(page_token, max_results)
 
-    def _check_jwt_revoked_or_disabled(self, verified_claims, exc_type, label):
-        user = self.get_user(verified_claims.get('uid'))
+    def _check_jwt_revoked_or_disabled(
+        self,
+        verified_claims: dict[str, Any],
+        exc_type: Callable[[str], exceptions.FirebaseError],
+        label: str,
+    ) -> None:
+        user = self.get_user(verified_claims['uid'])
         if user.disabled:
             raise _auth_utils.UserDisabledError('The user record is disabled.')
-        if verified_claims.get('iat') * 1000 < user.tokens_valid_after_timestamp:
+        if verified_claims['iat'] * 1000 < user.tokens_valid_after_timestamp:
             raise exc_type(f'The Firebase {label} has been revoked.')

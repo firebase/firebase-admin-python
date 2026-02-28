@@ -14,14 +14,15 @@
 
 """Firebase Cloud Messaging module."""
 
-from __future__ import annotations
-from typing import Any, Callable, Dict, List, Optional, cast
 import concurrent.futures
 import json
-import asyncio
 import logging
-import requests
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Optional, Union, cast
+
+import asyncio
 import httpx
+import requests
 
 import firebase_admin
 from firebase_admin import (
@@ -29,13 +30,11 @@ from firebase_admin import (
     _messaging_encoder,
     _messaging_utils,
     _utils,
-    exceptions,
-    App
+    exceptions
 )
 
-logger = logging.getLogger(__name__)
-
-_MESSAGING_ATTRIBUTE = '_messaging'
+if TYPE_CHECKING:
+    import httplib2
 
 
 __all__ = [
@@ -75,6 +74,10 @@ __all__ = [
     'unsubscribe_from_topic',
 ]
 
+logger = logging.getLogger(__name__)
+
+_MESSAGING_ATTRIBUTE = '_messaging'
+
 
 AndroidConfig = _messaging_utils.AndroidConfig
 AndroidFCMOptions = _messaging_utils.AndroidFCMOptions
@@ -101,10 +104,11 @@ ThirdPartyAuthError = _messaging_utils.ThirdPartyAuthError
 UnregisteredError = _messaging_utils.UnregisteredError
 
 
-def _get_messaging_service(app: Optional[App]) -> _MessagingService:
+def _get_messaging_service(app: Optional[firebase_admin.App]) -> '_MessagingService':
     return _utils.get_app_service(app, _MESSAGING_ATTRIBUTE, _MessagingService)
 
-def send(message: Message, dry_run: bool = False, app: Optional[App] = None) -> str:
+
+def send(message: Message, dry_run: bool = False, app: Optional[firebase_admin.App] = None) -> str:
     """Sends the given message via Firebase Cloud Messaging (FCM).
 
     If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
@@ -124,11 +128,12 @@ def send(message: Message, dry_run: bool = False, app: Optional[App] = None) -> 
     """
     return _get_messaging_service(app).send(message, dry_run)
 
+
 def send_each(
-        messages: List[Message],
-        dry_run: bool = False,
-        app: Optional[App] = None
-    ) -> BatchResponse:
+    messages: list[Message],
+    dry_run: bool = False,
+    app: Optional[firebase_admin.App] = None,
+) -> 'BatchResponse':
     """Sends each message in the given list via Firebase Cloud Messaging.
 
     If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
@@ -148,11 +153,12 @@ def send_each(
     """
     return _get_messaging_service(app).send_each(messages, dry_run)
 
+
 async def send_each_async(
-        messages: List[Message],
-        dry_run: bool = False,
-        app: Optional[App] = None
-    ) -> BatchResponse:
+    messages: list[Message],
+    dry_run: bool = False,
+    app: Optional[firebase_admin.App] = None,
+) -> 'BatchResponse':
     """Sends each message in the given list asynchronously via Firebase Cloud Messaging.
 
     If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
@@ -172,11 +178,12 @@ async def send_each_async(
     """
     return await _get_messaging_service(app).send_each_async(messages, dry_run)
 
+
 async def send_each_for_multicast_async(
-        multicast_message: MulticastMessage,
-        dry_run: bool = False,
-        app: Optional[App] = None
-    ) -> BatchResponse:
+    multicast_message: MulticastMessage,
+    dry_run: bool = False,
+    app: Optional[firebase_admin.App] = None,
+) -> 'BatchResponse':
     """Sends the given mutlicast message to each token asynchronously via Firebase Cloud Messaging
     (FCM).
 
@@ -208,7 +215,12 @@ async def send_each_for_multicast_async(
     ) for token in multicast_message.tokens]
     return await _get_messaging_service(app).send_each_async(messages, dry_run)
 
-def send_each_for_multicast(multicast_message, dry_run=False, app=None):
+
+def send_each_for_multicast(
+    multicast_message: MulticastMessage,
+    dry_run: bool = False,
+    app: Optional[firebase_admin.App] = None,
+) -> 'BatchResponse':
     """Sends the given mutlicast message to each token via Firebase Cloud Messaging (FCM).
 
     If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
@@ -239,7 +251,12 @@ def send_each_for_multicast(multicast_message, dry_run=False, app=None):
     ) for token in multicast_message.tokens]
     return _get_messaging_service(app).send_each(messages, dry_run)
 
-def subscribe_to_topic(tokens, topic, app=None):
+
+def subscribe_to_topic(
+    tokens: Union[list[str], str],
+    topic: str,
+    app: Optional[firebase_admin.App] = None,
+) -> 'TopicManagementResponse':
     """Subscribes a list of registration tokens to an FCM topic.
 
     Args:
@@ -258,7 +275,12 @@ def subscribe_to_topic(tokens, topic, app=None):
     return _get_messaging_service(app).make_topic_management_request(
         tokens, topic, 'iid/v1:batchAdd')
 
-def unsubscribe_from_topic(tokens, topic, app=None):
+
+def unsubscribe_from_topic(
+    tokens: Union[list[str], str],
+    topic: str,
+    app: Optional[firebase_admin.App] = None,
+) -> 'TopicManagementResponse':
     """Unsubscribes a list of registration tokens from an FCM topic.
 
     Args:
@@ -281,17 +303,17 @@ def unsubscribe_from_topic(tokens, topic, app=None):
 class ErrorInfo:
     """An error encountered when performing a topic management operation."""
 
-    def __init__(self, index, reason):
+    def __init__(self, index: int, reason: str) -> None:
         self._index = index
         self._reason = reason
 
     @property
-    def index(self):
+    def index(self) -> int:
         """Index of the registration token to which this error is related to."""
         return self._index
 
     @property
-    def reason(self):
+    def reason(self) -> str:
         """String describing the nature of the error."""
         return self._reason
 
@@ -299,12 +321,12 @@ class ErrorInfo:
 class TopicManagementResponse:
     """The response received from a topic management operation."""
 
-    def __init__(self, resp):
+    def __init__(self, resp: dict[str, Any]) -> None:
         if not isinstance(resp, dict) or 'results' not in resp:
             raise ValueError(f'Unexpected topic management response: {resp}.')
         self._success_count = 0
         self._failure_count = 0
-        self._errors = []
+        self._errors: list[ErrorInfo] = []
         for index, result in enumerate(resp['results']):
             if 'error' in result:
                 self._failure_count += 1
@@ -313,17 +335,17 @@ class TopicManagementResponse:
                 self._success_count += 1
 
     @property
-    def success_count(self):
+    def success_count(self) -> int:
         """Number of tokens that were successfully subscribed or unsubscribed."""
         return self._success_count
 
     @property
-    def failure_count(self):
+    def failure_count(self) -> int:
         """Number of tokens that could not be subscribed or unsubscribed due to errors."""
         return self._failure_count
 
     @property
-    def errors(self):
+    def errors(self) ->list[ErrorInfo]:
         """A list of ``messaging.ErrorInfo`` objects (possibly empty)."""
         return self._errors
 
@@ -331,12 +353,12 @@ class TopicManagementResponse:
 class BatchResponse:
     """The response received from a batch request to the FCM API."""
 
-    def __init__(self, responses: List[SendResponse]) -> None:
+    def __init__(self, responses: list['SendResponse']) -> None:
         self._responses = responses
         self._success_count = sum(1 for resp in responses if resp.success)
 
     @property
-    def responses(self) -> List[SendResponse]:
+    def responses(self) -> list['SendResponse']:
         """A list of ``messaging.SendResponse`` objects (possibly empty)."""
         return self._responses
 
@@ -352,26 +374,31 @@ class BatchResponse:
 class SendResponse:
     """The response received from an individual batched request to the FCM API."""
 
-    def __init__(self, resp, exception):
+    def __init__(
+        self,
+        resp: Optional[dict[str, Any]],
+        exception: Optional[exceptions.FirebaseError],
+    ) -> None:
         self._exception = exception
-        self._message_id = None
+        self._message_id: Optional[str] = None
         if resp:
             self._message_id = resp.get('name', None)
 
     @property
-    def message_id(self):
+    def message_id(self) -> Optional[str]:
         """A message ID string that uniquely identifies the message."""
         return self._message_id
 
     @property
-    def success(self):
+    def success(self) -> bool:
         """A boolean indicating if the request was successful."""
         return self._message_id is not None and not self._exception
 
     @property
-    def exception(self):
+    def exception(self) -> Optional[exceptions.FirebaseError]:
         """A ``FirebaseError`` if an error occurs while sending the message to the FCM service."""
         return self._exception
+
 
 class _MessagingService:
     """Service class that implements Firebase Cloud Messaging (FCM) functionality."""
@@ -390,7 +417,7 @@ class _MessagingService:
         'UNREGISTERED': UnregisteredError,
     }
 
-    def __init__(self, app: App) -> None:
+    def __init__(self, app: firebase_admin.App) -> None:
         project_id = app.project_id
         if not project_id:
             raise ValueError(
@@ -409,7 +436,7 @@ class _MessagingService:
             credential=self._credential, timeout=timeout)
 
     @classmethod
-    def encode_message(cls, message):
+    def encode_message(cls, message: Message) -> dict[str, Any]:
         if not isinstance(message, Message):
             raise ValueError('Message must be an instance of messaging.Message class.')
         return cls.JSON_ENCODER.default(message)
@@ -428,14 +455,14 @@ class _MessagingService:
             raise self._handle_fcm_error(error)
         return cast(str, resp['name'])
 
-    def send_each(self, messages: List[Message], dry_run: bool = False) -> BatchResponse:
+    def send_each(self, messages: list[Message], dry_run: bool = False) -> BatchResponse:
         """Sends the given messages to FCM via the FCM v1 API."""
         if not isinstance(messages, list):
             raise ValueError('messages must be a list of messaging.Message instances.')
         if len(messages) > 500:
             raise ValueError('messages must not contain more than 500 elements.')
 
-        def send_data(data):
+        def send_data(data: dict[str, Any]) -> SendResponse:
             try:
                 resp = self._client.body(
                     'post',
@@ -456,14 +483,14 @@ class _MessagingService:
                 message=f'Unknown error while making remote service calls: {error}',
                 cause=error)
 
-    async def send_each_async(self, messages: List[Message], dry_run: bool = True) -> BatchResponse:
+    async def send_each_async(self, messages: list[Message], dry_run: bool = True) -> BatchResponse:
         """Sends the given messages to FCM via the FCM v1 API."""
         if not isinstance(messages, list):
             raise ValueError('messages must be a list of messaging.Message instances.')
         if len(messages) > 500:
             raise ValueError('messages must not contain more than 500 elements.')
 
-        async def send_data(data):
+        async def send_data(data: dict[str, Any]) -> SendResponse:
             try:
                 resp = await self._async_client.request(
                     'post',
@@ -486,7 +513,12 @@ class _MessagingService:
                 message=f'Unknown error while making remote service calls: {error}',
                 cause=error)
 
-    def make_topic_management_request(self, tokens, topic, operation):
+    def make_topic_management_request(
+        self,
+        tokens: Union[list[str], str],
+        topic: str,
+        operation: str,
+    ) -> TopicManagementResponse:
         """Invokes the IID service for topic management functionality."""
         if isinstance(tokens, str):
             tokens = [tokens]
@@ -516,18 +548,18 @@ class _MessagingService:
             raise self._handle_iid_error(error)
         return TopicManagementResponse(resp)
 
-    def _message_data(self, message, dry_run):
-        data = {'message': _MessagingService.encode_message(message)}
+    def _message_data(self, message: Message, dry_run: bool) -> dict[str, Any]:
+        data: dict[str, Any] = {'message': _MessagingService.encode_message(message)}
         if dry_run:
             data['validate_only'] = True
         return data
 
-    def _postproc(self, _, body):
+    def _postproc(self, _: 'httplib2.Response', body: bytes) -> Any:
         """Handle response from batch API request."""
         # This only gets called for 2xx responses.
         return json.loads(body.decode())
 
-    def _handle_fcm_error(self, error):
+    def _handle_fcm_error(self, error: requests.RequestException) -> exceptions.FirebaseError:
         """Handles errors received from the FCM API."""
         return _utils.handle_platform_error_from_requests(
             error, _MessagingService._build_fcm_error_requests)
@@ -537,12 +569,12 @@ class _MessagingService:
         return _utils.handle_platform_error_from_httpx(
             error, _MessagingService._build_fcm_error_httpx)
 
-    def _handle_iid_error(self, error):
+    def _handle_iid_error(self, error: requests.RequestException) -> exceptions.FirebaseError:
         """Handles errors received from the Instance ID API."""
         if error.response is None:
             raise _utils.handle_requests_error(error)
 
-        data = {}
+        data: dict[str, Any] = {}
         try:
             parsed_body = error.response.json()
             if isinstance(parsed_body, dict):
@@ -567,41 +599,45 @@ class _MessagingService:
         asyncio.run(self._async_client.aclose())
 
     @classmethod
-    def _build_fcm_error_requests(cls, error, message, error_dict):
+    def _build_fcm_error_requests(
+        cls,
+        error: requests.RequestException,
+        message: str,
+        error_dict: dict[str, Any],
+    ) -> Optional[exceptions.FirebaseError]:
         """Parses an error response from the FCM API and creates a FCM-specific exception if
         appropriate."""
         exc_type = cls._build_fcm_error(error_dict)
-        # pylint: disable=not-callable
-        return exc_type(message, cause=error, http_response=error.response) if exc_type else None
+        return exc_type(message, error, error.response) if exc_type else None
 
     @classmethod
     def _build_fcm_error_httpx(
-            cls,
-            error: httpx.HTTPError,
-            message: str,
-            error_dict: Optional[Dict[str, Any]]
-        ) -> Optional[exceptions.FirebaseError]:
+        cls,
+        error: httpx.HTTPError,
+        message: str,
+        error_dict: Optional[dict[str, Any]],
+    ) -> Optional[exceptions.FirebaseError]:
         """Parses a httpx error response from the FCM API and creates a FCM-specific exception if
         appropriate."""
         exc_type = cls._build_fcm_error(error_dict)
         if isinstance(error, httpx.HTTPStatusError):
-            # pylint: disable=not-callable
-            return exc_type(
-                message, cause=error, http_response=error.response) if exc_type else None
-        # pylint: disable=not-callable
-        return exc_type(message, cause=error) if exc_type else None
+            return exc_type(message, error, error.response) if exc_type else None
+        return exc_type(message, error, None) if exc_type else None
 
     @classmethod
     def _build_fcm_error(
-            cls,
-            error_dict: Optional[Dict[str, Any]]
-        ) -> Optional[Callable[..., exceptions.FirebaseError]]:
+        cls,
+        error_dict: Optional[dict[str, Any]],
+    ) -> Optional[Callable[
+        [str, Optional[Exception], Optional[Union[httpx.Response, requests.Response]]],
+        exceptions.FirebaseError
+    ]]:
         """Parses an error response to determine the appropriate FCM-specific error type."""
         if not error_dict:
             return None
         fcm_code = None
         for detail in error_dict.get('details', []):
             if detail.get('@type') == 'type.googleapis.com/google.firebase.fcm.v1.FcmError':
-                fcm_code = detail.get('errorCode')
+                fcm_code = cast(str, detail.get('errorCode'))
                 break
         return _MessagingService.FCM_ERROR_TYPES.get(fcm_code) if fcm_code else None

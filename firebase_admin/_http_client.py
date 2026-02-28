@@ -17,25 +17,48 @@
 This module provides utilities for making HTTP calls using the requests library.
 """
 
-from __future__ import annotations
 import logging
-from typing import Any, Dict, Generator, Optional, Tuple, Union
-import httpx
-import requests.adapters
-from requests.packages.urllib3.util import retry # pylint: disable=import-error
-from google.auth import credentials
-from google.auth import transport
-from google.auth.transport import requests as google_auth_requests
+from collections.abc import Generator, Iterable
+from typing import TYPE_CHECKING, Any, Generic, Optional, Union
 
+import httpx
+import google.auth.transport.requests
+import google.auth.credentials
+import requests.adapters
+import requests.structures
+import typing_extensions
+
+from firebase_admin import _retry
 from firebase_admin import _utils
-from firebase_admin._retry import HttpxRetry, HttpxRetryTransport
+
+if TYPE_CHECKING:
+    from urllib3.util import retry
+    from _typeshed import SupportsKeysAndGetItem
+else:
+    from requests.packages.urllib3.util import retry # pylint: disable=import-error
+
+__all__ = (
+    'DEFAULT_HTTPX_RETRY_CONFIG',
+    'DEFAULT_RETRY_CONFIG',
+    'DEFAULT_TIMEOUT_SECONDS',
+    'METRICS_HEADERS',
+    'GoogleAuthCredentialFlow',
+    'HttpClient',
+    'HttpxAsyncClient',
+    'JsonHttpClient',
+)
 
 logger = logging.getLogger(__name__)
 
+_T = typing_extensions.TypeVar('_T', default=Any)
+
+_ANY_METHOD: dict[str, Any] = {}
+
 if hasattr(retry.Retry.DEFAULT, 'allowed_methods'):
-    _ANY_METHOD = {'allowed_methods': None}
+    _ANY_METHOD['allowed_methods'] = None
 else:
-    _ANY_METHOD = {'method_whitelist': None}
+    _ANY_METHOD['method_whitelist'] = None
+
 # Default retry configuration: Retries once on low-level connection and socket read errors.
 # Retries up to 4 times on HTTP 500 and 503 errors, with exponential backoff. Returns the
 # last response upon exhausting all retries.
@@ -43,9 +66,8 @@ DEFAULT_RETRY_CONFIG = retry.Retry(
     connect=1, read=1, status=4, status_forcelist=[500, 503],
     raise_on_status=False, backoff_factor=0.5, **_ANY_METHOD)
 
-DEFAULT_HTTPX_RETRY_CONFIG = HttpxRetry(
+DEFAULT_HTTPX_RETRY_CONFIG = _retry.HttpxRetry(
     max_retries=4, status_forcelist=[500, 503], backoff_factor=0.5)
-
 
 DEFAULT_TIMEOUT_SECONDS = 120
 
@@ -53,7 +75,7 @@ METRICS_HEADERS = {
     'x-goog-api-client': _utils.get_metrics_header(),
 }
 
-class HttpClient:
+class HttpClient(Generic[_T]):
     """Base HTTP client used to make HTTP calls.
 
     HttpClient maintains an HTTP session, and handles request authentication and retries if
@@ -61,8 +83,17 @@ class HttpClient:
     """
 
     def __init__(
-            self, credential=None, session=None, base_url='', headers=None,
-            retries=DEFAULT_RETRY_CONFIG, timeout=DEFAULT_TIMEOUT_SECONDS):
+        self,
+        credential: Optional[google.auth.credentials.Credentials] = None,
+        session: Optional[requests.Session] = None,
+        base_url: str = '',
+        headers: Optional[Union[
+            'SupportsKeysAndGetItem[str, Union[bytes, str]]',
+            Iterable[tuple[str, Union[bytes, str]]],
+        ]] = None,
+        retries: retry.Retry = DEFAULT_RETRY_CONFIG,
+        timeout: int = DEFAULT_TIMEOUT_SECONDS,
+    ) -> None:
         """Creates a new HttpClient instance from the provided arguments.
 
         If a credential is provided, initializes a new HTTP session authorized with it. If neither
@@ -79,8 +110,9 @@ class HttpClient:
           timeout: HTTP timeout in seconds. Defaults to 120 seconds when not specified. Set to
               None to disable timeouts (optional).
         """
+        self._session: Optional[requests.Session]
         if credential:
-            self._session = transport.requests.AuthorizedSession(credential)
+            self._session = google.auth.transport.requests.AuthorizedSession(credential)
         elif session:
             self._session = session
         else:
@@ -95,21 +127,21 @@ class HttpClient:
         self._timeout = timeout
 
     @property
-    def session(self):
+    def session(self) -> Optional[requests.Session]:
         return self._session
 
     @property
-    def base_url(self):
+    def base_url(self) -> str:
         return self._base_url
 
     @property
-    def timeout(self):
+    def timeout(self) -> int:
         return self._timeout
 
-    def parse_body(self, resp):
+    def parse_body(self, resp: requests.Response) -> _T:
         raise NotImplementedError
 
-    def request(self, method, url, **kwargs):
+    def request(self, method: str, url: str, **kwargs: Any) -> requests.Response:
         """Makes an HTTP call using the Python requests library.
 
         This is the sole entry point to the requests library. All other helper methods in this
@@ -129,6 +161,8 @@ class HttpClient:
         Raises:
           RequestException: Any requests exceptions encountered while making the HTTP call.
         """
+        if self._session is None:
+            raise RuntimeError('HTTP client has been closed.')
         if 'timeout' not in kwargs:
             kwargs['timeout'] = self.timeout
         kwargs.setdefault('headers', {}).update(METRICS_HEADERS)
@@ -136,47 +170,53 @@ class HttpClient:
         resp.raise_for_status()
         return resp
 
-    def headers(self, method, url, **kwargs):
+    def headers(self, method: str, url: str, **kwargs: Any) -> 'requests.structures.CaseInsensitiveDict[str]':
         resp = self.request(method, url, **kwargs)
         return resp.headers
 
-    def body_and_response(self, method, url, **kwargs):
+    def body_and_response(self, method: str, url: str, **kwargs: Any) -> tuple[_T, requests.Response]:
         resp = self.request(method, url, **kwargs)
         return self.parse_body(resp), resp
 
-    def body(self, method, url, **kwargs):
+    def body(self, method: str, url: str, **kwargs: Any) -> _T:
         resp = self.request(method, url, **kwargs)
         return self.parse_body(resp)
 
-    def headers_and_body(self, method, url, **kwargs):
+    def headers_and_body(
+        self,
+        method: str,
+        url: str,
+        **kwargs: Any,
+    ) -> tuple[requests.structures.CaseInsensitiveDict[str], _T]:
         resp = self.request(method, url, **kwargs)
         return resp.headers, self.parse_body(resp)
 
-    def close(self):
-        self._session.close()
-        self._session = None
+    def close(self) -> None:
+        if self._session is not None:
+            self._session.close()
+            self._session = None
 
-class JsonHttpClient(HttpClient):
+
+class JsonHttpClient(HttpClient[dict[str, Any]]):
     """An HTTP client that parses response messages as JSON."""
 
-    def __init__(self, **kwargs):
-        HttpClient.__init__(self, **kwargs)
-
-    def parse_body(self, resp):
+    def parse_body(self, resp: requests.Response) -> dict[str, Any]:
         return resp.json()
+
+
 
 class GoogleAuthCredentialFlow(httpx.Auth):
     """Google Auth Credential Auth Flow"""
-    def __init__(self, credential: credentials.Credentials):
+    def __init__(self, credential: google.auth.credentials.Credentials) -> None:
         self._credential = credential
         self._max_refresh_attempts = 2
         self._refresh_status_codes = (401,)
 
     def apply_auth_headers(
-            self,
-            request: httpx.Request,
-            auth_request: google_auth_requests.Request
-        ) -> None:
+        self,
+        request: httpx.Request,
+        auth_request: google.auth.transport.requests.Request,
+    ) -> None:
         """A helper function that refreshes credentials if needed and mutates the request headers
         to contain access token and any other Google Auth headers."""
 
@@ -194,7 +234,7 @@ class GoogleAuthCredentialFlow(httpx.Auth):
         _credential_refresh_attempt = 0
 
         # Create a Google auth request object to be used for refreshing credentials
-        auth_request = google_auth_requests.Request()
+        auth_request = google.auth.transport.requests.Request()
 
         while True:
             # Copy original headers for each attempt
@@ -237,20 +277,22 @@ class GoogleAuthCredentialFlow(httpx.Auth):
                 break
         # The last yielded response is automatically returned by httpx's auth flow.
 
-class HttpxAsyncClient():
+
+class HttpxAsyncClient:
     """Async HTTP client used to make HTTP/2 calls using HTTPX.
 
     HttpxAsyncClient maintains an async HTTPX client, handles request authentication, and retries
     if necessary.
     """
+
     def __init__(
-            self,
-            credential: Optional[credentials.Credentials] = None,
-            base_url: str = '',
-            headers: Optional[Union[httpx.Headers, Dict[str, str]]] = None,
-            retry_config: HttpxRetry = DEFAULT_HTTPX_RETRY_CONFIG,
-            timeout: int = DEFAULT_TIMEOUT_SECONDS,
-            http2: bool = True
+        self,
+        credential: Optional[google.auth.credentials.Credentials] = None,
+        base_url: str = '',
+        headers: Optional[Union[httpx.Headers, dict[str, str]]] = None,
+        retry_config: _retry.HttpxRetry = DEFAULT_HTTPX_RETRY_CONFIG,
+        timeout: int = DEFAULT_TIMEOUT_SECONDS,
+        http2: bool = True,
     ) -> None:
         """Creates a new HttpxAsyncClient instance from the provided arguments.
 
@@ -274,8 +316,8 @@ class HttpxAsyncClient():
 
         # Only set up retries on urls starting with 'http://' and 'https://'
         self._mounts = {
-            'http://': HttpxRetryTransport(retry=self._retry_config, http2=http2),
-            'https://': HttpxRetryTransport(retry=self._retry_config, http2=http2)
+            'http://': _retry.HttpxRetryTransport(retry=self._retry_config, http2=http2),
+            'https://': _retry.HttpxRetryTransport(retry=self._retry_config, http2=http2)
         }
 
         if credential:
@@ -295,15 +337,15 @@ class HttpxAsyncClient():
             )
 
     @property
-    def base_url(self):
+    def base_url(self) -> str:
         return self._base_url
 
     @property
-    def timeout(self):
+    def timeout(self) -> int:
         return self._timeout
 
     @property
-    def async_client(self):
+    def async_client(self) -> httpx.AsyncClient:
         return self._async_client
 
     async def request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
@@ -337,7 +379,11 @@ class HttpxAsyncClient():
         return resp.headers
 
     async def body_and_response(
-            self, method: str, url: str, **kwargs: Any) -> Tuple[Any, httpx.Response]:
+        self,
+        method: str,
+        url: str,
+        **kwargs: Any,
+    ) -> tuple[Any, httpx.Response]:
         resp = await self.request(method, url, **kwargs)
         return self.parse_body(resp), resp
 
@@ -346,7 +392,11 @@ class HttpxAsyncClient():
         return self.parse_body(resp)
 
     async def headers_and_body(
-            self, method: str, url: str, **kwargs: Any) -> Tuple[httpx.Headers, Any]:
+        self,
+        method: str,
+        url: str,
+        **kwargs: Any,
+    ) -> tuple[httpx.Headers, Any]:
         resp = await self.request(method, url, **kwargs)
         return resp.headers, self.parse_body(resp)
 

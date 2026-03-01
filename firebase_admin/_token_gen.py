@@ -47,6 +47,8 @@ MAX_SESSION_COOKIE_DURATION_SECONDS = int(datetime.timedelta(days=14).total_seco
 MAX_TOKEN_LIFETIME_SECONDS = int(datetime.timedelta(hours=1).total_seconds())
 FIREBASE_AUDIENCE = ('https://identitytoolkit.googleapis.com/google.'
                      'identity.identitytoolkit.v1.IdentityToolkit')
+FIREBASE_APP_CHECK_AUDIENCE = ('https://firebaseappcheck.googleapis.com/google.'
+                               'firebase.appcheck.v1beta.TokenExchangeService')
 RESERVED_CLAIMS = set([
     'acr', 'amr', 'at_hash', 'aud', 'auth_time', 'azp', 'cnf', 'c_hash',
     'exp', 'firebase', 'iat', 'iss', 'jti', 'nbf', 'nonce', 'sub'
@@ -204,6 +206,31 @@ class TokenGenerator:
         except google.auth.exceptions.TransportError as error:
             msg = f'Failed to sign custom token. {error}'
             raise TokenSignError(msg, error) from error
+
+
+    def create_custom_token_fac(self, app_id):
+        """Builds and signs a Firebase custom FAC token."""
+
+        if not app_id or not isinstance(app_id, str):
+            raise ValueError('app_id must be a string.')
+
+        signing_provider = self.signing_provider
+        now = int(time.time())
+        payload = {
+            'iss': signing_provider.signer_email,
+            'sub': signing_provider.signer_email,
+            'aud': FIREBASE_APP_CHECK_AUDIENCE,
+            'app_id': app_id,
+            'iat': now,
+            'exp': now + MAX_TOKEN_LIFETIME_SECONDS,
+        }
+
+        header = {'alg': signing_provider.alg, 'typ': 'JWT'}
+        try:
+            return jwt.encode(signing_provider.signer, payload, header=header)
+        except google.auth.exceptions.TransportError as error:
+            msg = 'Failed to sign custom token. {0}'.format(error)
+            raise TokenSignError(msg, error)
 
 
     def create_session_cookie(self, id_token, expires_in):

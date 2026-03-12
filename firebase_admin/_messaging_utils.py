@@ -13,6 +13,9 @@
 # limitations under the License.
 
 """Types and utilities used by the messaging (FCM) module."""
+from __future__ import annotations
+import datetime
+from typing import Dict, Optional, Union
 
 from firebase_admin import exceptions
 
@@ -57,9 +60,19 @@ class AndroidConfig:
             delivered to the app while the device is on a restricted satellite network (optional).
     """
 
-    def __init__(self, collapse_key=None, priority=None, ttl=None, restricted_package_name=None,
-                 data=None, notification=None, fcm_options=None, direct_boot_ok=None,
-                 bandwidth_constrained_ok=None, restricted_satellite_ok=None):
+    def __init__(
+        self,
+        collapse_key: Optional[str] = None,
+        priority: Optional[str] = None,
+        ttl: Optional[Union[int, float, datetime.timedelta]] = None,
+        restricted_package_name: Optional[str] = None,
+        data: Optional[Dict[str, str]] = None,
+        notification: Optional[AndroidNotification] = None,
+        fcm_options: Optional[AndroidFCMOptions] = None,
+        direct_boot_ok: Optional[bool] = None,
+        bandwidth_constrained_ok: Optional[bool] = None,
+        restricted_satellite_ok: Optional[bool] = None
+    ):
         self.collapse_key = collapse_key
         self.priority = priority
         self.ttl = ttl

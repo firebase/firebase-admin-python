@@ -109,12 +109,6 @@ class _FpnvService:
 
     def __init__(self, app):
         self._project_id = app.project_id
-
-        if not self._project_id:
-            cred = app.credential.get_credential()
-            if hasattr(cred, 'project_id'):
-                self._project_id = cred.project_id
-
         if not self._project_id:
             raise ValueError(
                 'Project ID is required for FPNV. Please ensure the app is '
@@ -171,7 +165,10 @@ class _FpnvTokenVerifier:
             raise InvalidFpnvTokenError("FPNV has no 'kid' claim.")
 
         if headers.get('typ') != 'JWT':
-            raise InvalidFpnvTokenError("The provided FPNV token has an incorrect type header")
+            raise InvalidFpnvTokenError(
+                'The provided FPNV token has an incorrect type header. ' \
+                f"Expected 'JWT' but got {headers.get('typ')!r}."
+            )
 
         algorithm = headers.get('alg')
         if algorithm != _ALGORITHM_ES256:
@@ -198,12 +195,12 @@ class _FpnvTokenVerifier:
         except InvalidAudienceError as exception:
             raise InvalidFpnvTokenError(
                 'The provided FPNV token has an incorrect "aud" (audience) claim. '
-                f'Expected payload to include {expected_issuer}.'
+                f'Expected {expected_issuer}.'
             ) from exception
         except InvalidIssuerError as exception:
             raise InvalidFpnvTokenError(
                 'The provided FPNV token has an incorrect "iss" (issuer) claim. '
-                f'Expected claim to include {expected_issuer}'
+                f'Expected {expected_issuer}.'
             ) from exception
         except ExpiredSignatureError as exception:
             raise ExpiredFpnvTokenError(

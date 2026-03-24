@@ -48,6 +48,7 @@ def verify_token(token: str, app: Optional[App] = None) -> FpnvToken:
         FpnvToken: The verified token claims.
 
     Raises:
+        ValueError: If the token is not a string or is empty.
         InvalidFpnvTokenError: If the token is invalid or malformed.
         ExpiredFpnvTokenError: If the token has expired.
     """
@@ -129,7 +130,9 @@ class _FpnvService:
             FpnvToken: The verified token claims.
 
         Raises:
-            ValueError: If the token is invalid or malformed.
+            ValueError: If the token is not a string or is empty.
+            InvalidFpnvTokenError: If the token is invalid or malformed.
+            ExpiredFpnvTokenError: If the token has expired.
         """
         return FpnvToken(self._verifier.verify(token))
 
@@ -211,9 +214,12 @@ class _FpnvTokenVerifier:
                 f'Decoding FPNV token failed. Error: {exception}'
             ) from exception
 
-        _Validators.check_string(
-            'The provided FPNV token "sub" (subject) claim',
-            payload.get('sub'))
+        sub_claim = payload.get('sub')
+        if not isinstance(sub_claim, str) or not sub_claim:
+            raise InvalidFpnvTokenError(
+                'The provided FPNV token has an incorrect "sub" (subject) claim. '
+                'Expected a non-empty string.'
+            )
 
         return payload
 

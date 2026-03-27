@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Firebase Phone Number Verification (FPNV) module.
+"""Firebase Phone Number Verification module.
 
 This module contains functions for verifying JWTs related to the Firebase
-Phone Number Verification (FPNV) service.
+Phone Number Verification service.
 """
 from __future__ import annotations
 from typing import Any, Dict, Optional
@@ -38,10 +38,10 @@ def _get_fpnv_service(app):
     return _utils.get_app_service(app, _FPNV_ATTRIBUTE, _FpnvService)
 
 def verify_token(token: str, app: Optional[App] = None) -> PhoneNumberVerificationToken:
-    """Verifies a Firebase Phone Number Verification (FPNV) token.
+    """Verifies a Firebase Phone Number Verification token.
 
     Args:
-        token: A string containing the FPNV JWT.
+        token: A string containing the Firebase Phone Number Verification JWT.
         app: An App instance (optional).
 
     Returns:
@@ -56,7 +56,7 @@ def verify_token(token: str, app: Optional[App] = None) -> PhoneNumberVerificati
 
 
 class PhoneNumberVerificationToken(dict):
-    """Represents a verified FPNV token.
+    """Represents a verified Firebase Phone Number Verification token.
 
     This class behaves like a dictionary, allowing access to the decoded claims.
     It also provides convenience properties for common claims.
@@ -112,8 +112,8 @@ class _FpnvService:
         self._project_id = app.project_id
         if not self._project_id:
             raise ValueError(
-                'Project ID is required for FPNV. Please ensure the app is '
-                'initialized with a credential that contains a project ID.'
+                'Project ID is required for Firebase Phone Number Verification. Please ensure the '
+                'app is initialized with a credential that contains a project ID.'
             )
 
         self._verifier = _FpnvTokenVerifier(self._project_id)
@@ -138,7 +138,7 @@ class _FpnvService:
 
 
 class _FpnvTokenVerifier:
-    """Internal class for verifying FPNV JWTs signed with ES256."""
+    """Internal class for verifying Firebase Phone Number Verification JWTs signed with ES256."""
     _jwks_client = None
     _project_id = None
 
@@ -147,8 +147,8 @@ class _FpnvTokenVerifier:
         self._jwks_client = PyJWKClient(_FPNV_JWKS_URL, lifespan=21600)
 
     def verify(self, token) -> Dict[str, Any]:
-        """Verifies the given FPNV token."""
-        _Validators.check_string("FPNV check token", token)
+        """Verifies the given Firebase Phone Number Verification token."""
+        _Validators.check_string("Firebase Phone Number Verification check token", token)
         try:
             self._validate_headers(jwt.get_unverified_header(token))
             signing_key = self._jwks_client.get_signing_key_from_jwt(token)
@@ -236,7 +236,7 @@ class _Validators:
         if not isinstance(value, str) or not value:
             raise ValueError(f'{label} must be a non-empty string.')
 
-# Firebase Phone Number Verification (FPNV) Errors
+# Firebase Phone Number Verification Errors
 class InvalidTokenError(exceptions.InvalidArgumentError):
     """Raised when a Firebase Phone Number Verification token is invalid."""
 

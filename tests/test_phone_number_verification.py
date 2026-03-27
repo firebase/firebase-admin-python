@@ -79,7 +79,10 @@ class TestVerifyToken(TestCommon):
     def test_no_project_id(self):
         app = firebase_admin.initialize_app(testutils.MockCredential(), name='no_project_id')
         app.credential.get_credential().project_id = None
-        with pytest.raises(ValueError, match='Project ID is required for FPNV'):
+        with pytest.raises(
+            ValueError,
+            match='Project ID is required for Firebase Phone Number Verification'
+        ):
             fpnv.verify_token('token', app=app)
 
     def test_verify_token_with_real_crypto(self):

@@ -24,7 +24,7 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import ec
 
 import firebase_admin
-from firebase_admin import fpnv
+from firebase_admin import phone_number_verification as fpnv
 from tests import testutils
 
 # Mock Data
@@ -62,7 +62,7 @@ class TestCommon:
 
 class TestFpnvToken:
     def test_properties(self):
-        token = fpnv.FpnvToken(_MOCK_PAYLOAD)
+        token = fpnv.PhoneNumberVerificationToken(_MOCK_PAYLOAD)
 
         assert token.phone_number == _PHONE_NUMBER
         assert token.sub == _PHONE_NUMBER
@@ -140,7 +140,9 @@ class TestVerifyToken(TestCommon):
 
     def test_verify_token_module_level_delegation(self):
         """Verifies module-level verify_token delegates correctly."""
-        with patch('firebase_admin.fpnv._FpnvService.verify_token') as mock_verify:
+        with patch(
+            'firebase_admin.phone_number_verification._FpnvService.verify_token'
+        ) as mock_verify:
             mock_verify.return_value = 'mock-result'
             res = fpnv.verify_token('some-token')
             assert res == 'mock-result'
@@ -168,7 +170,7 @@ class TestVerifyToken(TestCommon):
         token = fpnv.verify_token(token_str)
 
         # Verify
-        assert isinstance(token, fpnv.FpnvToken)
+        assert isinstance(token, fpnv.PhoneNumberVerificationToken)
         assert token.phone_number == _PHONE_NUMBER
 
         mock_header.assert_called_with(token_str)
@@ -192,19 +194,19 @@ class TestVerifyToken(TestCommon):
     def test_verify_token_no_kid(self, mock_header):
         app = firebase_admin.get_app()
         mock_header.return_value = {'typ': 'JWT', 'alg': 'ES256'}  # Missing kid
-        with pytest.raises(fpnv.InvalidFpnvTokenError, match="FPNV has no 'kid' claim."):
+        with pytest.raises(fpnv.InvalidTokenError, match="Token has no 'kid' claim."):
             fpnv.verify_token('token', app=app)
 
     @mock.patch('jwt.get_unverified_header')
     def test_verify_token_wrong_alg(self, mock_header):
         mock_header.return_value = {'kid': 'k', 'typ': 'JWT', 'alg': 'RS256'}  # Wrong alg
-        with pytest.raises(fpnv.InvalidFpnvTokenError, match="incorrect alg"):
+        with pytest.raises(fpnv.InvalidTokenError, match="incorrect alg"):
             fpnv.verify_token('token')
 
     @mock.patch('jwt.get_unverified_header')
     def test_verify_token_wrong_typ(self, mock_header):
         mock_header.return_value = {'kid': 'k', 'typ': 'WRONG', 'alg': 'ES256'} # wrong typ
-        with pytest.raises(fpnv.InvalidFpnvTokenError, match="incorrect type header"):
+        with pytest.raises(fpnv.InvalidTokenError, match="incorrect type header"):
             fpnv.verify_token('token')
 
     def test_verify_token_jwk_error(self):
@@ -219,7 +221,10 @@ class TestVerifyToken(TestCommon):
             with mock.patch('jwt.get_unverified_header') as mock_header:
                 mock_header.return_value = {'kid': 'k', 'typ': 'JWT', 'alg': 'ES256'}
 
-                with pytest.raises(fpnv.InvalidFpnvTokenError, match="Verifying FPNV token failed"):
+                with pytest.raises(
+                    fpnv.InvalidTokenError,
+                    match="Verifying phone number verification token failed"
+                ):
                     fpnv.verify_token('token')
 
     @mock.patch('jwt.PyJWKClient')
@@ -235,7 +240,7 @@ class TestVerifyToken(TestCommon):
         # Simulate ExpiredSignatureError
         mock_decode.side_effect = jwt.ExpiredSignatureError("Expired")
 
-        with pytest.raises(fpnv.ExpiredFpnvTokenError, match="token has expired"):
+        with pytest.raises(fpnv.ExpiredTokenError, match="token has expired"):
             fpnv.verify_token('token')
 
     @mock.patch('jwt.PyJWKClient')
@@ -251,7 +256,7 @@ class TestVerifyToken(TestCommon):
         # Simulate InvalidSignatureError
         mock_decode.side_effect = jwt.InvalidSignatureError("Wrong Signature")
 
-        with pytest.raises(fpnv.InvalidFpnvTokenError, match="invalid signature"):
+        with pytest.raises(fpnv.InvalidTokenError, match="invalid signature"):
             fpnv.verify_token('token')
 
     @mock.patch('jwt.PyJWKClient')
@@ -267,7 +272,7 @@ class TestVerifyToken(TestCommon):
         # Simulate InvalidAudienceError
         mock_decode.side_effect = jwt.InvalidAudienceError("Wrong Aud")
 
-        with pytest.raises(fpnv.InvalidFpnvTokenError, match="incorrect \"aud\""):
+        with pytest.raises(fpnv.InvalidTokenError, match="incorrect \"aud\""):
             fpnv.verify_token('token')
 
     @mock.patch('jwt.PyJWKClient')
@@ -283,7 +288,7 @@ class TestVerifyToken(TestCommon):
         # Simulate InvalidIssuerError
         mock_decode.side_effect = jwt.InvalidIssuerError("Wrong Iss")
 
-        with pytest.raises(fpnv.InvalidFpnvTokenError, match="incorrect \"iss\""):
+        with pytest.raises(fpnv.InvalidTokenError, match="incorrect \"iss\""):
             fpnv.verify_token('token')
 
     @mock.patch('jwt.PyJWKClient')
@@ -299,5 +304,5 @@ class TestVerifyToken(TestCommon):
         # Simulate InvalidTokenError
         mock_decode.side_effect = jwt.InvalidTokenError("Decoding FPNV token failed")
 
-        with pytest.raises(fpnv.InvalidFpnvTokenError, match="Decoding FPNV token failed"):
+        with pytest.raises(fpnv.InvalidTokenError, match="Decoding FPNV token failed"):
             fpnv.verify_token('token')

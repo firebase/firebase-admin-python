@@ -22,13 +22,13 @@ from typing import Any, Dict, Optional
 
 import jwt
 from jwt import (
-    PyJWKClient, InvalidTokenError, DecodeError, InvalidSignatureError,
+    PyJWKClient, InvalidSignatureError,
     PyJWKClientError, InvalidAudienceError, InvalidIssuerError, ExpiredSignatureError
 )
 
 from firebase_admin import App, _utils, exceptions
 
-_FPNV_ATTRIBUTE = '_fpnv'
+_FPNV_ATTRIBUTE = '_phone_number_verification'
 _FPNV_JWKS_URL = 'https://fpnv.googleapis.com/v1beta/jwks'
 _FPNV_ISSUER = 'https://fpnv.googleapis.com/projects/'
 _ALGORITHM_ES256 = 'ES256'
@@ -37,7 +37,7 @@ _ALGORITHM_ES256 = 'ES256'
 def _get_fpnv_service(app):
     return _utils.get_app_service(app, _FPNV_ATTRIBUTE, _FpnvService)
 
-def verify_token(token: str, app: Optional[App] = None) -> FpnvToken:
+def verify_token(token: str, app: Optional[App] = None) -> PhoneNumberVerificationToken:
     """Verifies a Firebase Phone Number Verification (FPNV) token.
 
     Args:
@@ -45,17 +45,17 @@ def verify_token(token: str, app: Optional[App] = None) -> FpnvToken:
         app: An App instance (optional).
 
     Returns:
-        FpnvToken: The verified token claims.
+        PhoneNumberVerificationToken: The verified token claims.
 
     Raises:
         ValueError: If the token is not a string or is empty.
-        InvalidFpnvTokenError: If the token is invalid or malformed.
-        ExpiredFpnvTokenError: If the token has expired.
+        InvalidTokenError: If the token is invalid or malformed.
+        ExpiredTokenError: If the token has expired.
     """
     return _get_fpnv_service(app).verify_token(token)
 
 
-class FpnvToken(dict):
+class PhoneNumberVerificationToken(dict):
     """Represents a verified FPNV token.
 
     This class behaves like a dictionary, allowing access to the decoded claims.
@@ -118,23 +118,23 @@ class _FpnvService:
 
         self._verifier = _FpnvTokenVerifier(self._project_id)
 
-    def verify_token(self, token) -> FpnvToken:
-        """Verifies the given FPNV token.
+    def verify_token(self, token) -> PhoneNumberVerificationToken:
+        """Verifies a Firebase Phone Number Verification token.
 
         Verifies the signature, expiration, and claims of the token.
 
         Args:
-            token: A string containing the FPNV JWT.
+            token: A string containing the Firebase Phone Number Verification JWT.
 
         Returns:
-            FpnvToken: The verified token claims.
+            PhoneNumberVerificationToken: The verified token claims.
 
         Raises:
             ValueError: If the token is not a string or is empty.
-            InvalidFpnvTokenError: If the token is invalid or malformed.
-            ExpiredFpnvTokenError: If the token has expired.
+            InvalidTokenError: If the token is invalid or malformed.
+            ExpiredTokenError: If the token has expired.
         """
-        return FpnvToken(self._verifier.verify(token))
+        return PhoneNumberVerificationToken(self._verifier.verify(token))
 
 
 class _FpnvTokenVerifier:
@@ -153,9 +153,9 @@ class _FpnvTokenVerifier:
             self._validate_headers(jwt.get_unverified_header(token))
             signing_key = self._jwks_client.get_signing_key_from_jwt(token)
             claims = self._decode_and_verify(token, signing_key.key)
-        except (InvalidTokenError, DecodeError, PyJWKClientError) as exception:
-            raise InvalidFpnvTokenError(
-                'Verifying FPNV token failed.',
+        except (jwt.InvalidTokenError, PyJWKClientError) as exception:
+            raise InvalidTokenError(
+                'Verifying phone number verification token failed.',
                 cause=exception,
                 http_response=getattr(exception, 'http_response', None)
             ) from exception
@@ -165,18 +165,18 @@ class _FpnvTokenVerifier:
     def _validate_headers(self, headers: Any) -> None:
         """Validates the headers."""
         if headers.get('kid') is None:
-            raise InvalidFpnvTokenError("FPNV has no 'kid' claim.")
+            raise InvalidTokenError("Token has no 'kid' claim.")
 
         if headers.get('typ') != 'JWT':
-            raise InvalidFpnvTokenError(
-                'The provided FPNV token has an incorrect type header. ' \
+            raise InvalidTokenError(
+                'The provided token has an incorrect type header. ' \
                 f"Expected 'JWT' but got {headers.get('typ')!r}."
             )
 
         algorithm = headers.get('alg')
         if algorithm != _ALGORITHM_ES256:
-            raise InvalidFpnvTokenError(
-                'The provided FPNV token has an incorrect alg header. '
+            raise InvalidTokenError(
+                'The provided token has an incorrect alg header. '
                 f'Expected {_ALGORITHM_ES256} but got {algorithm}.'
             )
 
@@ -192,32 +192,32 @@ class _FpnvTokenVerifier:
                 issuer=expected_issuer
             )
         except InvalidSignatureError as exception:
-            raise InvalidFpnvTokenError(
-                'The provided FPNV token has an invalid signature.'
+            raise InvalidTokenError(
+                'The provided token has an invalid signature.'
             ) from exception
         except InvalidAudienceError as exception:
-            raise InvalidFpnvTokenError(
-                'The provided FPNV token has an incorrect "aud" (audience) claim. '
+            raise InvalidTokenError(
+                'The provided token has an incorrect "aud" (audience) claim. '
                 f'Expected {expected_issuer}.'
             ) from exception
         except InvalidIssuerError as exception:
-            raise InvalidFpnvTokenError(
-                'The provided FPNV token has an incorrect "iss" (issuer) claim. '
+            raise InvalidTokenError(
+                'The provided token has an incorrect "iss" (issuer) claim. '
                 f'Expected {expected_issuer}.'
             ) from exception
         except ExpiredSignatureError as exception:
-            raise ExpiredFpnvTokenError(
-                'The provided FPNV token has expired.'
+            raise ExpiredTokenError(
+                'The provided token has expired.'
             ) from exception
-        except InvalidTokenError as exception:
-            raise InvalidFpnvTokenError(
-                f'Decoding FPNV token failed. Error: {exception}'
+        except jwt.InvalidTokenError as exception:
+            raise InvalidTokenError(
+                f'Decoding token failed. Error: {exception}'
             ) from exception
 
         sub_claim = payload.get('sub')
         if not isinstance(sub_claim, str) or not sub_claim:
-            raise InvalidFpnvTokenError(
-                'The provided FPNV token has an incorrect "sub" (subject) claim. '
+            raise InvalidTokenError(
+                'The provided token has an incorrect "sub" (subject) claim. '
                 'Expected a non-empty string.'
             )
 
@@ -237,14 +237,14 @@ class _Validators:
             raise ValueError(f'{label} must be a non-empty string.')
 
 # Firebase Phone Number Verification (FPNV) Errors
-class InvalidFpnvTokenError(exceptions.InvalidArgumentError):
-    """Raised when an FPNV token is invalid."""
+class InvalidTokenError(exceptions.InvalidArgumentError):
+    """Raised when a Firebase Phone Number Verification token is invalid."""
 
     def __init__(self, message, cause=None, http_response=None):
         exceptions.InvalidArgumentError.__init__(self, message, cause, http_response)
 
-class ExpiredFpnvTokenError(InvalidFpnvTokenError):
-    """Raised when an FPNV token is expired."""
+class ExpiredTokenError(InvalidTokenError):
+    """Raised when a Firebase Phone Number Verification token is expired."""
 
     def __init__(self, message, cause=None, http_response=None):
-        InvalidFpnvTokenError.__init__(self, message, cause, http_response)
+        InvalidTokenError.__init__(self, message, cause, http_response)

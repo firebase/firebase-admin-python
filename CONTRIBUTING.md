@@ -47,7 +47,7 @@ Great, we love hearing how we can improve our products! Share you idea through o
 ## <a name="submit"></a>Want to submit a pull request?
 
 Sweet, we'd love to accept your contribution!
-[Open a new pull request](https://github.com/firebase/firebase-admin-python/pull/new/master) and fill
+[Open a new pull request](https://github.com/firebase/firebase-admin-python/pull/new) and fill
 out the provided template.
 
 **If you want to implement a new feature, please open an issue with a proposal first so that we can
@@ -251,6 +251,17 @@ to ensure that exported user records contain the password hashes of the user acc
    permissions.
    3. Click **ADD ANOTHER ROLE** and choose **Firebase Authentication Admin**.
    4. Click **SAVE**.
+
+9. Enable Cloud Tasks:
+   1. Search for and enable **Cloud Run**.
+   2. Search for and enable **Cloud Tasks**.
+   3. Go to [Google Cloud console | IAM & admin](https://console.cloud.google.com/iam-admin)
+   and make sure your Firebase project is selected.
+   4. Ensure your service account has the following required roles:
+      * **Cloud Tasks Enqueuer** - `cloudtasks.taskEnqueuer`
+      * **Cloud Tasks Task Deleter** - `cloudtasks.taskDeleter`
+      * **Cloud Run Invoker** - `run.invoker`
+      * **Service Account User** - `iam.serviceAccountUser`
 
 
 Now you can invoke the integration test suite as follows:

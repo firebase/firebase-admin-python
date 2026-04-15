@@ -18,6 +18,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from urllib import parse
 import re
+import os
 import json
 from base64 import b64encode
 from typing import Any, Optional, Dict
@@ -49,6 +50,8 @@ _CLOUD_TASKS_API_URL_FORMAT = \
     'https://cloudtasks.googleapis.com/v2/' + _CLOUD_TASKS_API_RESOURCE_PATH
 _FIREBASE_FUNCTION_URL_FORMAT = \
     'https://{location_id}-{project_id}.cloudfunctions.net/{resource_id}'
+_EMULATOR_HOST_ENV_VAR = 'CLOUD_TASKS_EMULATOR_HOST'
+_EMULATED_SERVICE_ACCOUNT_DEFAULT = 'emulated-service-acct@email.com'
 
 _FUNCTIONS_HEADERS = {
     'X-GOOG-API-FORMAT-VERSION': '2',
@@ -57,6 +60,17 @@ _FUNCTIONS_HEADERS = {
 
 # Default canonical location ID of the task queue.
 _DEFAULT_LOCATION = 'us-central1'
+
+def _get_emulator_host() -> Optional[str]:
+    emulator_host = os.environ.get(_EMULATOR_HOST_ENV_VAR)
+    if emulator_host:
+        if '//' in emulator_host:
+            raise ValueError(
+                f'Invalid {_EMULATOR_HOST_ENV_VAR}: "{emulator_host}". It must follow format '
+                '"host:port".')
+        return emulator_host
+    return None
+
 
 def _get_functions_service(app) -> _FunctionsService:
     return _utils.get_app_service(app, _FUNCTIONS_ATTRIBUTE, _FunctionsService)
@@ -103,13 +117,19 @@ class _FunctionsService:
                 'projectId option, or use service account credentials. Alternatively, set the '
                 'GOOGLE_CLOUD_PROJECT environment variable.')
 
-        self._credential = app.credential.get_credential()
+        self._emulator_host = _get_emulator_host()
+        if self._emulator_host:
+            self._credential = _utils.EmulatorAdminCredentials()
+        else:
+            self._credential = app.credential.get_credential()
+
         self._http_client = _http_client.JsonHttpClient(credential=self._credential)
 
     def task_queue(self, function_name: str, extension_id: Optional[str] = None) -> TaskQueue:
         """Creates a TaskQueue instance."""
         return TaskQueue(
-            function_name, extension_id, self._project_id, self._credential, self._http_client)
+            function_name, extension_id, self._project_id, self._credential, self._http_client,
+            self._emulator_host)
 
     @classmethod
     def handle_functions_error(cls, error: Any):
@@ -125,7 +145,8 @@ class TaskQueue:
             extension_id: Optional[str],
             project_id,
             credential,
-            http_client
+            http_client,
+            emulator_host: Optional[str] = None
         ) -> None:
 
         # Validate function_name
@@ -134,6 +155,7 @@ class TaskQueue:
         self._project_id = project_id
         self._credential = credential
         self._http_client = http_client
+        self._emulator_host = emulator_host
         self._function_name = function_name
         self._extension_id = extension_id
         # Parse resources from function_name
@@ -167,16 +189,26 @@ class TaskQueue:
             str: The ID of the task relative to this queue.
         """
         task = self._validate_task_options(task_data, self._resource, opts)
-        service_url = self._get_url(self._resource, _CLOUD_TASKS_API_URL_FORMAT)
+        emulator_url = self._get_emulator_url(self._resource)
+        service_url = emulator_url or self._get_url(self._resource, _CLOUD_TASKS_API_URL_FORMAT)
         task_payload = self._update_task_payload(task, self._resource, self._extension_id)
         try:
             resp = self._http_client.body(
                 'post',
                 url=service_url,
                 headers=_FUNCTIONS_HEADERS,
-                json={'task': task_payload.__dict__}
+                json={'task': task_payload.to_api_dict()}
             )
-            task_name = resp.get('name', None)
+            if self._is_emulated():
+                # Emulator returns a response with format {task: {name: <task_name>}}
+                # The task name also has an extra '/' at the start compared to prod
+                task_info = resp.get('task') or {}
+                task_name = task_info.get('name')
+                if task_name:
+                    task_name = task_name[1:]
+            else:
+                # Production returns a response with format {name: <task_name>}
+                task_name = resp.get('name')
             task_resource = \
                 self._parse_resource_name(task_name, f'queues/{self._resource.resource_id}/tasks')
             return task_resource.resource_id
@@ -197,7 +229,11 @@ class TaskQueue:
             ValueError: If the input arguments are invalid.
         """
         _Validators.check_non_empty_string('task_id', task_id)
-        service_url = self._get_url(self._resource, _CLOUD_TASKS_API_URL_FORMAT + f'/{task_id}')
+        emulator_url = self._get_emulator_url(self._resource)
+        if emulator_url:
+            service_url = emulator_url + f'/{task_id}'
+        else:
+            service_url = self._get_url(self._resource, _CLOUD_TASKS_API_URL_FORMAT + f'/{task_id}')
         try:
             self._http_client.body(
                 'delete',
@@ -235,8 +271,8 @@ class TaskQueue:
         """Validate and create a Task from optional ``TaskOptions``."""
         task_http_request = {
             'url': '',
-            'oidc_token': {
-                'service_account_email': ''
+            'oidcToken': {
+                'serviceAccountEmail': ''
             },
             'body': b64encode(json.dumps(data).encode()).decode(),
             'headers': {
@@ -250,7 +286,7 @@ class TaskQueue:
                 task.http_request['headers'] = {**task.http_request['headers'], **opts.headers}
             if opts.schedule_time is not None and opts.schedule_delay_seconds is not None:
                 raise ValueError(
-                    'Both sechdule_delay_seconds and schedule_time cannot be set at the same time.')
+                    'Both schedule_delay_seconds and schedule_time cannot be set at the same time.')
             if opts.schedule_time is not None and opts.schedule_delay_seconds is None:
                 if not isinstance(opts.schedule_time, datetime):
                     raise ValueError('schedule_time should be UTC datetime.')
@@ -288,7 +324,10 @@ class TaskQueue:
         """Prepares task to be sent with credentials."""
         # Get function url from task or generate from resources
         if not _Validators.is_non_empty_string(task.http_request['url']):
-            task.http_request['url'] = self._get_url(resource, _FIREBASE_FUNCTION_URL_FORMAT)
+            if self._is_emulated():
+                task.http_request['url'] = ''
+            else:
+                task.http_request['url'] = self._get_url(resource, _FIREBASE_FUNCTION_URL_FORMAT)
 
         # Refresh the credential to ensure all attributes (e.g. service_account_email, id_token)
         # are populated, preventing cold start errors.
@@ -298,7 +337,7 @@ class TaskQueue:
             except RefreshError as err:
                 raise ValueError(f'Initial task payload credential refresh failed: {err}') from err
 
-        # If extension id is provided, it emplies that it is being run from a deployed extension.
+        # If extension id is provided, it implies that it is being run from a deployed extension.
         # Meaning that it's credential should be a Compute Engine Credential.
         if _Validators.is_non_empty_string(extension_id) and \
             isinstance(self._credential, ComputeEngineCredentials):
@@ -306,11 +345,31 @@ class TaskQueue:
             task.http_request['headers'] = \
                 {**task.http_request['headers'], 'Authorization': f'Bearer {id_token}'}
             # Delete oidc token
-            del task.http_request['oidc_token']
+            del task.http_request['oidcToken']
         else:
-            task.http_request['oidc_token'] = \
-                {'service_account_email': self._credential.service_account_email}
+            try:
+                task.http_request['oidcToken'] = \
+                    {'serviceAccountEmail': self._credential.service_account_email}
+            except AttributeError as error:
+                if self._is_emulated():
+                    task.http_request['oidcToken'] = \
+                        {'serviceAccountEmail': _EMULATED_SERVICE_ACCOUNT_DEFAULT}
+                else:
+                    raise ValueError(
+                        'Failed to determine service account. Initialize the SDK with service '
+                        'account credentials or set service account ID as an app option.'
+                        ) from error
         return task
+
+    def _get_emulator_url(self, resource: Resource):
+        if self._emulator_host:
+            emulator_url_format = f'http://{self._emulator_host}/' + _CLOUD_TASKS_API_RESOURCE_PATH
+            url = self._get_url(resource, emulator_url_format)
+            return url
+        return None
+
+    def _is_emulated(self):
+        return self._emulator_host is not None
 
 
 class _Validators:
@@ -436,6 +495,14 @@ class Task:
     schedule_time: Optional[str] = None
     dispatch_deadline: Optional[str] = None
 
+    def to_api_dict(self) -> dict:
+        """Converts the Task object to a dictionary suitable for the Cloud Tasks API."""
+        return {
+            'httpRequest': self.http_request,
+            'name': self.name,
+            'scheduleTime': self.schedule_time,
+            'dispatchDeadline': self.dispatch_deadline,
+        }
 
 @dataclass
 class Resource:

@@ -770,7 +770,7 @@ def get_tenant(tenant_id):
 	# [START get_tenant]
     tenant = tenant_mgt.get_tenant(tenant_id)
 
-    print('Retreieved tenant:', tenant.tenant_id)
+    print('Retrieved tenant:', tenant.tenant_id)
 	# [END get_tenant]
 
 def create_tenant():

@@ -36,7 +36,7 @@ def type_generic_functions():
     # [END length_function]
 
     # [START reverse_function]
-    Field.of("tags").reverse()
+    Field.of("tags").array_reverse()
     # [END reverse_function]
 
 def query_explain():
@@ -2866,3 +2866,190 @@ def distinct_expressions_example():
     # [END distinct_expressions]
     for city in cities:
         print(city)
+
+
+def search_basic():
+    # [START search_basic]
+    from google.cloud.firestore_v1.pipeline_expressions import DocumentMatches
+
+    results = (
+        client.pipeline()
+        .collection("restaurants")
+        .search(DocumentMatches("waffles"))
+        .execute()
+    )
+    # [END search_basic]
+    for result in results:
+        print(result)
+
+
+def search_exact():
+    # [START search_exact]
+    from google.cloud.firestore_v1.pipeline_expressions import DocumentMatches
+
+    results = (
+        client.pipeline()
+        .collection("restaurants")
+        .search(DocumentMatches('"belgian waffles"'))
+        .execute()
+    )
+    # [END search_exact]
+    for result in results:
+        print(result)
+
+
+def search_two_terms():
+    # [START search_two_terms]
+    from google.cloud.firestore_v1.pipeline_expressions import DocumentMatches
+
+    results = (
+        client.pipeline()
+        .collection("restaurants")
+        .search(DocumentMatches("waffles eggs"))
+        .execute()
+    )
+    # [END search_two_terms]
+    for result in results:
+        print(result)
+
+
+def search_exclude():
+    # [START search_exclude]
+    from google.cloud.firestore_v1.pipeline_expressions import DocumentMatches
+
+    results = (
+        client.pipeline()
+        .collection("restaurants")
+        .search(DocumentMatches("-waffles"))
+        .execute()
+    )
+    # [END search_exclude]
+    for result in results:
+        print(result)
+
+
+def search_score():
+    # [START search_score]
+    from google.cloud.firestore_v1.pipeline_expressions import DocumentMatches, Score
+    from google.cloud.firestore_v1.pipeline_stages import SearchOptions
+
+    results = (
+        client.pipeline()
+        .collection("restaurants")
+        .search(
+            SearchOptions(
+                query=DocumentMatches("menu:waffles"),
+                add_fields=[Score().as_("score")],
+            )
+        )
+        .execute()
+    )
+    # [END search_score]
+    for result in results:
+        print(result)
+
+
+def define_example():
+    # [START define_example]
+    from google.cloud.firestore_v1.pipeline_expressions import Field, Variable
+
+    result = (
+        client.pipeline()
+        .collection("authors")
+        .define(Field.of("id").as_("currentAuthorId"))
+        .add_fields(
+            client.pipeline()
+            .collection("books")
+            .where(Field.of("author_id").equal(Variable("currentAuthorId")))
+            .aggregate(Field.of("rating").average().as_("avgRating"))
+            .to_scalar_expression()
+            .as_("averageBookRating")
+        )
+        .execute()
+    )
+    # [END define_example]
+    for r in result:
+        print(r)
+
+
+def to_array_example():
+    # [START to_array_example]
+    from google.cloud.firestore_v1.pipeline_expressions import Field, Variable
+
+    results = (
+        client.pipeline()
+        .collection("projects")
+        .define(Field.of("id").as_("parentId"))
+        .add_fields(
+            client.pipeline()
+            .collection("tasks")
+            .where(Field.of("project_id").equal(Variable("parentId")))
+            .select(Field.of("title"))
+            .to_array_expression()
+            .as_("taskTitles")
+        )
+        .execute()
+    )
+    # [END to_array_example]
+    for result in results:
+        print(result)
+
+
+def to_scalar_example():
+    # [START to_scalar_example]
+    from google.cloud.firestore_v1.pipeline_expressions import Field, Variable
+
+    results = (
+        client.pipeline()
+        .collection("authors")
+        .define(Field.of("id").as_("currentAuthorId"))
+        .add_fields(
+            client.pipeline()
+            .collection("books")
+            .where(Field.of("author_id").equal(Variable("currentAuthorId")))
+            .aggregate(Field.of("rating").average().as_("avgRating"))
+            .to_scalar_expression()
+            .as_("averageBookRating")
+        )
+        .execute()
+    )
+    # [END to_scalar_example]
+    for result in results:
+        print(result)
+
+
+def pipeline_update_example():
+    # [START pipeline_update]
+    from google.cloud.firestore_v1.pipeline_expressions import Constant, Field, Not
+
+    snapshot = (
+        client.pipeline()
+        .collection_group("users")
+        .where(Not(Field.of("preferences.color").exists()))
+        .add_fields(Constant.of(None).as_("preferences.color"))
+        .remove_fields("color")
+        .update()
+        .execute()
+    )
+    # [END pipeline_update]
+    print(snapshot)
+
+
+def pipeline_delete_example():
+    # [START pipeline_delete]
+    from google.cloud.firestore_v1.pipeline_expressions import CurrentTimestamp, Field
+
+    snapshot = (
+        client.pipeline()
+        .collection_group("users")
+        .where(Field.of("address.country").equal("USA"))
+        .where(
+            Field.of("__create_time__")
+            .timestamp_add("day", 10)
+            .less_than(CurrentTimestamp())
+        )
+        .delete()
+        .execute()
+    )
+    # [END pipeline_delete]
+    print(snapshot)

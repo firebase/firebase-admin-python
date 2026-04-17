@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import datetime
 import firebase_admin
 from firebase_admin import firestore
 
@@ -2868,6 +2869,15 @@ def distinct_expressions_example():
         print(city)
 
 
+
+def search_basic_query_data():
+    # [START search_basic_query_data]
+    client.collection("Restaurants").add(
+        {"name": "Waffle Place", "description": "A cozy place for fresh waffles."}
+    )
+    # [END search_basic_query_data]
+
+
 def search_basic():
     # [START search_basic]
     from google.cloud.firestore_v1.pipeline_expressions import DocumentMatches
@@ -2881,6 +2891,14 @@ def search_basic():
     # [END search_basic]
     for result in results:
         print(result)
+
+
+def search_exact_match_data():
+    # [START search_exact_match_data]
+    client.collection("Restaurants").add(
+        {"name": "Waffle Place", "description": "A cozy place for fresh waffles."}
+    )
+    # [END search_exact_match_data]
 
 
 def search_exact():
@@ -2898,6 +2916,17 @@ def search_exact():
         print(result)
 
 
+def search_two_terms_data():
+    # [START search_two_terms_data]
+    client.collection("Restaurants").add(
+        {
+            "name": "Morning Diner",
+            "description": "Start your day with waffles and eggs.",
+        }
+    )
+    # [END search_two_terms_data]
+
+
 def search_two_terms():
     # [START search_two_terms]
     from google.cloud.firestore_v1.pipeline_expressions import DocumentMatches
@@ -2913,6 +2942,14 @@ def search_two_terms():
         print(result)
 
 
+def search_exclude_term_data():
+    # [START search_exclude_term_data]
+    client.collection("Restaurants").add(
+        {"name": "City Coffee", "description": "Premium coffee and pastries."}
+    )
+    # [END search_exclude_term_data]
+
+
 def search_exclude():
     # [START search_exclude]
     from google.cloud.firestore_v1.pipeline_expressions import DocumentMatches
@@ -2926,6 +2963,14 @@ def search_exclude():
     # [END search_exclude]
     for result in results:
         print(result)
+
+
+def search_score_data():
+    # [START search_score_data]
+    client.collection("Restaurants").add(
+        {"name": "The Waffle Hub", "description": "Everything waffles!"}
+    )
+    # [END search_score_data]
 
 
 def search_score():
@@ -2947,6 +2992,14 @@ def search_score():
     # [END search_score]
     for result in results:
         print(result)
+
+
+def define_stage_data():
+    # [START define_stage_data]
+    client.collection("Authors").document("author_123").set(
+        {"id": "author_123", "name": "Jane Austen"}
+    )
+    # [END define_stage_data]
 
 
 def define_example():
@@ -2972,6 +3025,20 @@ def define_example():
         print(r)
 
 
+def to_array_expression_stage_data():
+    # [START to_array_expression_stage_data]
+    client.collection("Projects").document("project_1").set(
+        {"id": "project_1", "name": "Alpha Build"}
+    )
+    tasks = [
+        {"project_id": "project_1", "title": "System Architecture"},
+        {"project_id": "project_1", "title": "Database Schema Design"},
+    ]
+    for task in tasks:
+        client.collection("Tasks").add(task)
+    # [END to_array_expression_stage_data]
+
+
 def to_array_example():
     # [START to_array_example]
     from google.cloud.firestore_v1.pipeline_expressions import Field, Variable
@@ -2993,6 +3060,20 @@ def to_array_example():
     # [END to_array_example]
     for result in results:
         print(result)
+
+
+def to_scalar_expression_stage_data():
+    # [START to_scalar_expression_stage_data]
+    client.collection("Authors").document("author_202").set(
+        {"id": "author_202", "name": "Charles Dickens"}
+    )
+    books = [
+        {"author_id": "author_202", "title": "Great Expectations", "rating": 4.8},
+        {"author_id": "author_202", "title": "Oliver Twist", "rating": 4.5},
+    ]
+    for book in books:
+        client.collection("Books").add(book)
+    # [END to_scalar_expression_stage_data]
 
 
 def to_scalar_example():
@@ -3018,6 +3099,32 @@ def to_scalar_example():
         print(result)
 
 
+def force_index_example():
+    # [START force_index_example]
+    # Note: forceIndex is not currently supported in the Python SDK.
+    results = client.pipeline().collection_group("customers").limit(100).execute()
+    # [END force_index_example]
+    for result in results:
+        print(result)
+
+
+def force_scan_example():
+    # [START force_scan_example]
+    # Note: forceIndex="primary" is not currently supported in the Python SDK.
+    results = client.pipeline().collection_group("customers").limit(100).execute()
+    # [END force_scan_example]
+    for result in results:
+        print(result)
+
+
+def update_dml_example_data():
+    # [START update_dml_example_data]
+    client.collection("Users").document("userID").set(
+        {"id": "userID", "preferences": {}, "color": "#FFFFFF"}
+    )
+    # [END update_dml_example_data]
+
+
 def pipeline_update_example():
     # [START pipeline_update]
     from google.cloud.firestore_v1.pipeline_expressions import Constant, Field, Not
@@ -3033,6 +3140,22 @@ def pipeline_update_example():
     )
     # [END pipeline_update]
     print(snapshot)
+
+
+def delete_dml_example_data():
+    # [START delete_dml_example_data]
+    import datetime
+
+    client.collection("Users").document("userID").set(
+        {
+            "id": "userID",
+            "address": {"country": "USA", "state": "CA"},
+            "__create_time__": datetime.datetime.fromtimestamp(
+                946684800000 / 1000, tz=datetime.timezone.utc
+            ),
+        }
+    )
+    # [END delete_dml_example_data]
 
 
 def pipeline_delete_example():

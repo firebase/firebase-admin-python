@@ -2994,6 +2994,42 @@ def search_score():
         print(result)
 
 
+def search_score_sort():
+    # [START search_score_sort]
+    from google.cloud.firestore_v1.pipeline_expressions import DocumentMatches, Score
+    from google.cloud.firestore_v1.pipeline_stages import SearchOptions
+
+    results = (
+        client.pipeline()
+        .collection("restaurants")
+        .search(
+            SearchOptions(
+                query=DocumentMatches("waffles"),
+                sort=Score().descending(),
+            )
+        )
+        .execute()
+    )
+    # [END search_score_sort]
+    for result in results:
+        print(result)
+
+
+def search_geospatial():
+    # [START search_geospatial]
+    from google.cloud.firestore_v1.pipeline_expressions import DocumentMatches
+
+    results = (
+        client.pipeline()
+        .collection("restaurants")
+        .search(DocumentMatches('"belgian waffles"'))
+        .execute()
+    )
+    # [END search_geospatial]
+    for result in results:
+        print(result)
+
+
 def define_stage_data():
     # [START define_stage_data]
     client.collection("Authors").document("author_123").set(

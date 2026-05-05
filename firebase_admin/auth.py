@@ -92,6 +92,7 @@ __all__ = [
     'generate_email_verification_link',
     'generate_password_reset_link',
     'generate_sign_in_with_email_link',
+    'generate_verify_and_change_email_link',
     'get_oidc_provider_config',
     'get_saml_provider_config',
     'get_user',
@@ -645,6 +646,30 @@ def generate_sign_in_with_email_link(email, action_code_settings, app=None):
     client = _get_client(app)
     return client.generate_sign_in_with_email_link(
         email, action_code_settings=action_code_settings)
+
+
+def generate_verify_and_change_email_link(email, new_email, action_code_settings=None, app=None):
+    """Generates the out-of-band email action link for email verification and change flows for the
+    specified email address.
+
+    Args:
+        email: The current email of the user.
+        new_email: The new email address of the user to be verified.
+        action_code_settings: ``ActionCodeSettings`` instance (optional). Defines whether
+            the link is to be handled by a mobile app and the additional state information to be
+            passed in the deep link.
+        app: An App instance (optional).
+
+    Returns:
+        str: The email verification and change link created by the API
+
+    Raises:
+        ValueError: If the provided arguments are invalid
+        FirebaseError: If an error occurs while generating the link
+    """
+    client = _get_client(app)
+    return client.generate_verify_and_change_email_link(
+        email, new_email, action_code_settings=action_code_settings)
 
 
 def get_oidc_provider_config(provider_id, app=None):

@@ -827,28 +827,41 @@ class UserManager:
                 'Failed to import users.', http_response=http_resp)
         return body
 
-    def generate_email_action_link(self, action_type, email, action_code_settings=None):
+    def generate_email_action_link(
+        self, action_type, email, action_code_settings=None, new_email=None
+    ):
         """Fetches the email action links for types
 
         Args:
-            action_type: String. Valid values ['VERIFY_EMAIL', 'EMAIL_SIGNIN', 'PASSWORD_RESET']
+            action_type: String. Valid values ['VERIFY_EMAIL', 'EMAIL_SIGNIN', 'PASSWORD_RESET',
+                'VERIFY_AND_CHANGE_EMAIL']
             email: Email of the user for which the action is performed
             action_code_settings: ``ActionCodeSettings`` object or dict (optional). Defines whether
                 the link is to be handled by a mobile app and the additional state information to be
                 passed in the deep link, etc.
+            new_email: The new email address of the user. This is required if ``action_type``
+                is 'VERIFY_AND_CHANGE_EMAIL'.
         Returns:
-            link_url: action url to be emailed to the user
+            str: Action URL to be emailed to the user
 
         Raises:
             UnexpectedResponseError: If the backend server responds with an unexpected message
             FirebaseError: If an error occurs while generating the link
             ValueError: If the provided arguments are invalid
         """
+        if action_type == 'VERIFY_AND_CHANGE_EMAIL' and not new_email:
+            raise ValueError(
+                'new_email must be provided when action_type is VERIFY_AND_CHANGE_EMAIL.'
+            )
+
         payload = {
             'requestType': _auth_utils.validate_action_type(action_type),
-            'email': _auth_utils.validate_email(email),
+            'email': _auth_utils.validate_email(email, required=True),
             'returnOobLink': True
         }
+
+        if new_email:
+            payload['newEmail'] = _auth_utils.validate_email(new_email, required=True)
 
         if action_code_settings:
             payload.update(encode_action_code_settings(action_code_settings))

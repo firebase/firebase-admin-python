@@ -689,6 +689,17 @@ def test_email_verification(new_user_email_unverified, api_key):
     assert new_user_email_unverified.email == user_email
     assert auth.get_user(new_user_email_unverified.uid).email_verified
 
+def test_verify_and_change_email(new_user_email_unverified, api_key):
+    _, new_email = _random_id()
+    link = auth.generate_verify_and_change_email_link(new_user_email_unverified.email, new_email)
+    assert isinstance(link, str)
+    query_dict = _extract_link_params(link)
+    user_email = _verify_email(query_dict['oobCode'], api_key)
+    assert new_email == user_email
+    user = auth.get_user(new_user_email_unverified.uid)
+    assert user.email == new_email
+    assert user.email_verified
+
 def test_password_reset_with_settings(new_user_email_unverified, api_key):
     action_code_settings = auth.ActionCodeSettings(ACTION_LINK_CONTINUE_URL)
     link = auth.generate_password_reset_link(new_user_email_unverified.email,
@@ -711,6 +722,20 @@ def test_email_verification_with_settings(new_user_email_unverified, api_key):
     user_email = _verify_email(query_dict['oobCode'], api_key)
     assert new_user_email_unverified.email == user_email
     assert auth.get_user(new_user_email_unverified.uid).email_verified
+
+def test_verify_and_change_email_with_settings(new_user_email_unverified, api_key):
+    _, new_email = _random_id()
+    action_code_settings = auth.ActionCodeSettings(ACTION_LINK_CONTINUE_URL)
+    link = auth.generate_verify_and_change_email_link(new_user_email_unverified.email, new_email,
+                                                 action_code_settings=action_code_settings)
+    assert isinstance(link, str)
+    query_dict = _extract_link_params(link)
+    assert query_dict['continueUrl'] == ACTION_LINK_CONTINUE_URL
+    user_email = _verify_email(query_dict['oobCode'], api_key)
+    assert new_email == user_email
+    user = auth.get_user(new_user_email_unverified.uid)
+    assert user.email == new_email
+    assert user.email_verified
 
 def test_email_sign_in_with_settings(new_user_email_unverified, api_key):
     action_code_settings = auth.ActionCodeSettings(ACTION_LINK_CONTINUE_URL)

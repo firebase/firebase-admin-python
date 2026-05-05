@@ -849,11 +849,14 @@ class UserManager:
             FirebaseError: If an error occurs while generating the link
             ValueError: If the provided arguments are invalid
         """
-        if action_type == 'VERIFY_AND_CHANGE_EMAIL' and not new_email:
+        if action_type == 'VERIFY_AND_CHANGE_EMAIL':
+            if not new_email:
+                raise ValueError(
+                    'new_email must be provided when action_type is VERIFY_AND_CHANGE_EMAIL.')
+        elif new_email:
             raise ValueError(
-                'new_email must be provided when action_type is VERIFY_AND_CHANGE_EMAIL.'
-            )
-
+                'new_email is only supported for the VERIFY_AND_CHANGE_EMAIL action type.')
+        
         payload = {
             'requestType': _auth_utils.validate_action_type(action_type),
             'email': _auth_utils.validate_email(email, required=True),

@@ -856,7 +856,7 @@ class UserManager:
         elif new_email:
             raise ValueError(
                 'new_email is only supported for the VERIFY_AND_CHANGE_EMAIL action type.')
-        
+
         payload = {
             'requestType': _auth_utils.validate_action_type(action_type),
             'email': _auth_utils.validate_email(email, required=True),

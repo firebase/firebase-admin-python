@@ -726,8 +726,8 @@ def test_email_verification_with_settings(new_user_email_unverified, api_key):
 def test_verify_and_change_email_with_settings(new_user_email_unverified, api_key):
     _, new_email = _random_id()
     action_code_settings = auth.ActionCodeSettings(ACTION_LINK_CONTINUE_URL)
-    link = auth.generate_verify_and_change_email_link(new_user_email_unverified.email, new_email,
-                                                 action_code_settings=action_code_settings)
+    link = auth.generate_verify_and_change_email_link(
+        new_user_email_unverified.email, new_email, action_code_settings=action_code_settings)
     assert isinstance(link, str)
     query_dict = _extract_link_params(link)
     assert query_dict['continueUrl'] == ACTION_LINK_CONTINUE_URL

@@ -42,6 +42,7 @@ install_requires = [
     'google-cloud-firestore>=2.21.0; platform.python_implementation != "PyPy"',
     'google-cloud-storage>=3.1.1',
     'pyjwt[crypto] >= 2.10.1',
+    'cryptography < 44.0.0; platform_python_implementation == "PyPy" and python_version < "3.11"',
     'httpx[http2] == 0.28.1',
 ]
 

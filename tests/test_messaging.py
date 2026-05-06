@@ -73,18 +73,22 @@ class TestMessageStr:
         messaging.Message(topic='topic', condition='condition'),
         messaging.Message(condition='condition', token='token'),
         messaging.Message(topic='topic', token='token', condition='condition'),
+        messaging.Message(fid='fid', token='token'),
+        messaging.Message(fid='fid', topic='topic'),
+        messaging.Message(fid='fid', condition='condition'),
+        messaging.Message(fid='fid', token='token', topic='topic'),
     ])
     def test_invalid_target_message(self, msg):
         with pytest.raises(ValueError) as excinfo:
             str(msg)
         assert str(
-            excinfo.value) == 'Exactly one of token, topic or condition must be specified.'
+            excinfo.value) == 'Exactly one of fid, token, topic or condition must be specified.'
 
     def test_empty_message(self):
         assert str(messaging.Message(token='value')) == '{"token": "value"}'
         assert str(messaging.Message(topic='value')) == '{"topic": "value"}'
-        assert str(messaging.Message(condition='value')
-                  ) == '{"condition": "value"}'
+        assert str(messaging.Message(condition='value')) == '{"condition": "value"}'
+        assert str(messaging.Message(fid='value')) == '{"fid": "value"}'
 
     def test_data_message(self):
         assert str(messaging.Message(topic='topic', data={})
@@ -128,17 +132,27 @@ class TestMessageEncoder:
         messaging.Message(topic='topic', condition='condition'),
         messaging.Message(condition='condition', token='token'),
         messaging.Message(topic='topic', token='token', condition='condition'),
+        messaging.Message(fid='fid', token='token'),
+        messaging.Message(fid='fid', topic='topic'),
+        messaging.Message(fid='fid', condition='condition'),
+        messaging.Message(fid='fid', token='token', topic='topic'),
     ])
     def test_invalid_target_message(self, msg):
         with pytest.raises(ValueError) as excinfo:
             check_encoding(msg)
-        assert str(excinfo.value) == 'Exactly one of token, topic or condition must be specified.'
+        assert str(excinfo.value) == 'Exactly one of fid, token, topic or condition must be specified.'
 
     @pytest.mark.parametrize('target', NON_STRING_ARGS + [''])
     def test_invalid_token(self, target):
         with pytest.raises(ValueError) as excinfo:
             check_encoding(messaging.Message(token=target))
         assert str(excinfo.value) == 'Message.token must be a non-empty string.'
+
+    @pytest.mark.parametrize('target', NON_STRING_ARGS + [''])
+    def test_invalid_fid(self, target):
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(fid=target))
+        assert str(excinfo.value) == 'Message.fid must be a non-empty string.'
 
     @pytest.mark.parametrize('target', NON_STRING_ARGS + [''])
     def test_invalid_topic(self, target):
@@ -159,8 +173,13 @@ class TestMessageEncoder:
 
     def test_empty_message(self):
         check_encoding(messaging.Message(token='value'), {'token': 'value'})
+        check_encoding(messaging.Message(fid='value'), {'fid': 'value'})
         check_encoding(messaging.Message(topic='value'), {'topic': 'value'})
         check_encoding(messaging.Message(condition='value'), {'condition': 'value'})
+
+    def test_token_deprecation_warning(self):
+        with pytest.deprecated_call():
+            messaging.Message(token='value')
 
     @pytest.mark.parametrize('data', NON_DICT_ARGS)
     def test_invalid_data_message(self, data):

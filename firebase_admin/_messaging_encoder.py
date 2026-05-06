@@ -19,6 +19,7 @@ import json
 import math
 import numbers
 import re
+import warnings
 
 from firebase_admin import _messaging_utils
 
@@ -37,20 +38,29 @@ class Message:
         webpush: An instance of ``messaging.WebpushConfig`` (optional).
         apns: An instance of ``messaging.ApnsConfig`` (optional).
         fcm_options: An instance of ``messaging.FCMOptions`` (optional).
-        token: The registration token of the device to which the message should be sent (optional).
+        fid: The Firebase installation ID of an FCM registered app instance to which the
+            message should be sent (optional)
+        token: Deprecated. Use ``fid`` instead.
         topic: Name of the FCM topic to which the message should be sent (optional). Topic name
             may contain the ``/topics/`` prefix.
         condition: The FCM condition to which the message should be sent (optional).
     """
 
     def __init__(self, data=None, notification=None, android=None, webpush=None, apns=None,
-                 fcm_options=None, token=None, topic=None, condition=None):
+                 fcm_options=None, fid=None, token=None, topic=None, condition=None):
+        if token is not None:
+            warnings.warn(
+                "Deprecated. Use 'fid' instead.",
+                DeprecationWarning,
+                stacklevel=2
+            )
         self.data = data
         self.notification = notification
         self.android = android
         self.webpush = webpush
         self.apns = apns
         self.fcm_options = fcm_options
+        self.fid = fid
         self.token = token
         self.topic = topic
         self.condition = condition
@@ -695,6 +705,7 @@ class MessageEncoder(json.JSONEncoder):
                 'Message.condition', o.condition, non_empty=True),
             'data': _Validators.check_string_dict('Message.data', o.data),
             'notification': MessageEncoder.encode_notification(o.notification),
+            'fid': _Validators.check_string('Message.fid', o.fid, non_empty=True),
             'token': _Validators.check_string('Message.token', o.token, non_empty=True),
             'topic': _Validators.check_string('Message.topic', o.topic, non_empty=True),
             'webpush': MessageEncoder.encode_webpush(o.webpush),
@@ -702,9 +713,9 @@ class MessageEncoder(json.JSONEncoder):
         }
         result['topic'] = MessageEncoder.sanitize_topic_name(result.get('topic'))
         result = MessageEncoder.remove_null_values(result)
-        target_count = sum(t in result for t in ['token', 'topic', 'condition'])
+        target_count = sum(t in result for t in ['fid', 'token', 'topic', 'condition'])
         if target_count != 1:
-            raise ValueError('Exactly one of token, topic or condition must be specified.')
+            raise ValueError('Exactly one of fid, token, topic or condition must be specified.')
         return result
 
     @classmethod

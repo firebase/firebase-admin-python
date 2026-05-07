@@ -83,8 +83,9 @@ class MulticastMessage:
         apns: An instance of ``messaging.ApnsConfig`` (optional).
         fcm_options: An instance of ``messaging.FCMOptions`` (optional).
     """
-    def __init__(self, fids=None, tokens=None, data=None, notification=None, android=None, webpush=None, apns=None,
-                 fcm_options=None):
+    def __init__(
+            self, fids=None, tokens=None, data=None, notification=None, android=None,
+            webpush=None, apns=None, fcm_options=None):
         if tokens is not None:
             warnings.warn(
                 "Deprecated. Use 'fids' instead.",

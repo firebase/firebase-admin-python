@@ -177,7 +177,8 @@ class TestMessageEncoder:
     def test_invalid_target_message(self, msg):
         with pytest.raises(ValueError) as excinfo:
             check_encoding(msg)
-        assert str(excinfo.value) == 'Exactly one of fid, token, topic or condition must be specified.'
+        expected = 'Exactly one of fid, token, topic or condition must be specified.'
+        assert str(excinfo.value) == expected
 
     @pytest.mark.parametrize('target', NON_STRING_ARGS + [''])
     def test_invalid_token(self, target):

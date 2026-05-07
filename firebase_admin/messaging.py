@@ -178,8 +178,8 @@ async def send_each_for_multicast_async(
         dry_run: bool = False,
         app: Optional[App] = None
     ) -> BatchResponse:
-    """Sends the given multicast message to each token or fid asynchronously via Firebase Cloud Messaging
-    (FCM).
+    """Sends the given multicast message to each token or fid asynchronously via
+    Firebase Cloud Messaging (FCM).
 
     If the ``dry_run`` mode is enabled, the message will not be actually delivered to the
     recipients. Instead, FCM performs all the usual validations and emulates the send operation.

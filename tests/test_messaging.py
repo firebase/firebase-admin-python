@@ -160,6 +160,10 @@ class TestMulticastMessage:
         with pytest.deprecated_call():
             messaging.MulticastMessage(tokens=['token'])
 
+    def test_tokens_deprecation_warning_positional(self):
+        with pytest.deprecated_call():
+            messaging.MulticastMessage(['token'])
+
 
 class TestMessageEncoder:
 

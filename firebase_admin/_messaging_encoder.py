@@ -84,7 +84,7 @@ class MulticastMessage:
         fcm_options: An instance of ``messaging.FCMOptions`` (optional).
     """
     def __init__(
-            self, fids=None, tokens=None, data=None, notification=None, android=None,
+            self, tokens=None, fids=None, data=None, notification=None, android=None,
             webpush=None, apns=None, fcm_options=None):
         if tokens is not None:
             warnings.warn(

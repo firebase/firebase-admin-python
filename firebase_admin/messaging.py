@@ -174,6 +174,7 @@ async def send_each_async(
     return await _get_messaging_service(app).send_each_async(messages, dry_run)
 
 def _get_messages_from_multicast(multicast_message: MulticastMessage) -> List[Message]:
+    """Extracts individual Message objects from a MulticastMessage."""
     if not isinstance(multicast_message, MulticastMessage):
         raise ValueError('Message must be an instance of messaging.MulticastMessage class.')
     if multicast_message.tokens is not None:

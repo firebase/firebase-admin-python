@@ -28,7 +28,7 @@ class Message:
     """A message that can be sent via Firebase Cloud Messaging.
 
     Contains payload information as well as recipient information. In particular, the message must
-    contain exactly one of token, topic or condition fields.
+    contain exactly one of fid, token, topic or condition fields.
 
     Args:
         data: A dictionary of data fields (optional). All keys and values in the dictionary must be
@@ -70,10 +70,11 @@ class Message:
 
 
 class MulticastMessage:
-    """A message that can be sent to multiple tokens via Firebase Cloud Messaging.
+    """A message that can be sent to multiple tokens or fids via Firebase Cloud Messaging.
 
     Args:
-        tokens: A list of registration tokens of targeted devices.
+        fids: A list of Firebase Installation IDs of targeted app instances (optional)
+        tokens: Deprecated. Use ``fids`` instead (optional).
         data: A dictionary of data fields (optional). All keys and values in the dictionary must be
             strings.
         notification: An instance of ``messaging.Notification`` (optional).
@@ -82,12 +83,31 @@ class MulticastMessage:
         apns: An instance of ``messaging.ApnsConfig`` (optional).
         fcm_options: An instance of ``messaging.FCMOptions`` (optional).
     """
-    def __init__(self, tokens, data=None, notification=None, android=None, webpush=None, apns=None,
+    def __init__(self, fids=None, tokens=None, data=None, notification=None, android=None, webpush=None, apns=None,
                  fcm_options=None):
-        _Validators.check_string_list('MulticastMessage.tokens', tokens)
-        if len(tokens) > 500:
-            raise ValueError('MulticastMessage.tokens must not contain more than 500 tokens.')
-        self.tokens = tokens
+        if tokens is not None:
+            warnings.warn(
+                "Deprecated. Use 'fids' instead.",
+                DeprecationWarning,
+                stacklevel=2
+            )
+
+        if (tokens is None and fids is None) or (tokens is not None and fids is not None):
+            raise ValueError("Must specify either 'tokens' or 'fids'.")
+
+        if tokens is not None:
+            _Validators.check_string_list('MulticastMessage.tokens', tokens)
+            if len(tokens) > 500:
+                raise ValueError('MulticastMessage.tokens must not contain more than 500 tokens.')
+            self.tokens = tokens
+            self.fids = None
+        else:
+            _Validators.check_string_list('MulticastMessage.fids', fids)
+            if len(fids) > 500:
+                raise ValueError('MulticastMessage.fids must not contain more than 500 fids.')
+            self.fids = fids
+            self.tokens = None
+
         self.data = data
         self.notification = notification
         self.android = android

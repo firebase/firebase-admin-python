@@ -157,11 +157,13 @@ class TestMulticastMessage:
         assert len(message.fids) == 500
 
     def test_tokens_deprecation_warning(self):
-        with pytest.deprecated_call():
+        msg = 'MulticastMessage.tokens is deprecated. Use fids instead.'
+        with pytest.warns(DeprecationWarning, match=msg):
             messaging.MulticastMessage(tokens=['token'])
 
     def test_tokens_deprecation_warning_positional(self):
-        with pytest.deprecated_call():
+        msg = 'MulticastMessage.tokens is deprecated. Use fids instead.'
+        with pytest.warns(DeprecationWarning, match=msg):
             messaging.MulticastMessage(['token'])
 
 
@@ -220,7 +222,8 @@ class TestMessageEncoder:
         check_encoding(messaging.Message(condition='value'), {'condition': 'value'})
 
     def test_token_deprecation_warning(self):
-        with pytest.deprecated_call():
+        msg = 'Message.token is deprecated. Use fid instead.'
+        with pytest.warns(DeprecationWarning, match=msg):
             messaging.Message(token='value')
 
     @pytest.mark.parametrize('data', NON_DICT_ARGS)
@@ -2280,6 +2283,48 @@ class TestSendEachForMulticast(TestSendEach):
             response_dict={'foo1': [200, payload1], 'foo2': [200, payload2]})
         msg = messaging.MulticastMessage(fids=['foo1', 'foo2'])
         batch_response = messaging.send_each_for_multicast(msg, dry_run=True)
+        assert batch_response.success_count == 2
+        assert batch_response.failure_count == 0
+        assert len(batch_response.responses) == 2
+        assert [r.message_id for r in batch_response.responses] == ['message-id1', 'message-id2']
+        assert all(r.success for r in batch_response.responses)
+        assert not any(r.exception for r in batch_response.responses)
+
+    @respx.mock
+    @pytest.mark.asyncio
+    async def test_send_each_for_multicast_async(self):
+        responses = [
+            respx.MockResponse(200, http_version='HTTP/2', json={'name': 'message-id1'}),
+            respx.MockResponse(200, http_version='HTTP/2', json={'name': 'message-id2'}),
+        ]
+        msg = messaging.MulticastMessage(tokens=['foo1', 'foo2'])
+        route = respx.request(
+            method='POST',
+            url='https://fcm.googleapis.com/v1/projects/explicit-project-id/messages:send'
+        )
+        route.side_effect = responses
+        batch_response = await messaging.send_each_for_multicast_async(msg, dry_run=True)
+        assert batch_response.success_count == 2
+        assert batch_response.failure_count == 0
+        assert len(batch_response.responses) == 2
+        assert [r.message_id for r in batch_response.responses] == ['message-id1', 'message-id2']
+        assert all(r.success for r in batch_response.responses)
+        assert not any(r.exception for r in batch_response.responses)
+
+    @respx.mock
+    @pytest.mark.asyncio
+    async def test_send_each_for_multicast_async_fids(self):
+        responses = [
+            respx.MockResponse(200, http_version='HTTP/2', json={'name': 'message-id1'}),
+            respx.MockResponse(200, http_version='HTTP/2', json={'name': 'message-id2'}),
+        ]
+        msg = messaging.MulticastMessage(fids=['foo1', 'foo2'])
+        route = respx.request(
+            method='POST',
+            url='https://fcm.googleapis.com/v1/projects/explicit-project-id/messages:send'
+        )
+        route.side_effect = responses
+        batch_response = await messaging.send_each_for_multicast_async(msg, dry_run=True)
         assert batch_response.success_count == 2
         assert batch_response.failure_count == 0
         assert len(batch_response.responses) == 2

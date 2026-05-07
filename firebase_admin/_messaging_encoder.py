@@ -39,7 +39,7 @@ class Message:
         apns: An instance of ``messaging.ApnsConfig`` (optional).
         fcm_options: An instance of ``messaging.FCMOptions`` (optional).
         fid: The Firebase installation ID of an FCM registered app instance to which the
-            message should be sent (optional)
+            message should be sent (optional).
         token: Deprecated. Use ``fid`` instead.
         topic: Name of the FCM topic to which the message should be sent (optional). Topic name
             may contain the ``/topics/`` prefix.
@@ -47,10 +47,10 @@ class Message:
     """
 
     def __init__(self, data=None, notification=None, android=None, webpush=None, apns=None,
-                 fcm_options=None, fid=None, token=None, topic=None, condition=None):
+                 fcm_options=None, token=None, topic=None, condition=None, fid=None):
         if token is not None:
             warnings.warn(
-                "Deprecated. Use 'fid' instead.",
+                "Message.token is deprecated. Use fid instead.",
                 DeprecationWarning,
                 stacklevel=2
             )
@@ -73,7 +73,7 @@ class MulticastMessage:
     """A message that can be sent to multiple tokens or fids via Firebase Cloud Messaging.
 
     Args:
-        fids: A list of Firebase Installation IDs of targeted app instances (optional)
+        fids: A list of Firebase Installation IDs of targeted app instances (optional).
         tokens: Deprecated. Use ``fids`` instead (optional).
         data: A dictionary of data fields (optional). All keys and values in the dictionary must be
             strings.
@@ -88,7 +88,7 @@ class MulticastMessage:
             webpush=None, apns=None, fcm_options=None):
         if tokens is not None:
             warnings.warn(
-                "Deprecated. Use 'fids' instead.",
+                "MulticastMessage.tokens is deprecated. Use fids instead.",
                 DeprecationWarning,
                 stacklevel=2
             )

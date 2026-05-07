@@ -173,6 +173,32 @@ async def send_each_async(
     """
     return await _get_messaging_service(app).send_each_async(messages, dry_run)
 
+def _get_messages_from_multicast(multicast_message: MulticastMessage) -> List[Message]:
+    if not isinstance(multicast_message, MulticastMessage):
+        raise ValueError('Message must be an instance of messaging.MulticastMessage class.')
+    if multicast_message.tokens is not None:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            return [Message(
+                data=multicast_message.data,
+                notification=multicast_message.notification,
+                android=multicast_message.android,
+                webpush=multicast_message.webpush,
+                apns=multicast_message.apns,
+                fcm_options=multicast_message.fcm_options,
+                token=token
+            ) for token in multicast_message.tokens]
+
+    return [Message(
+        data=multicast_message.data,
+        notification=multicast_message.notification,
+        android=multicast_message.android,
+        webpush=multicast_message.webpush,
+        apns=multicast_message.apns,
+        fcm_options=multicast_message.fcm_options,
+        fid=fid
+    ) for fid in multicast_message.fids]
+
 async def send_each_for_multicast_async(
         multicast_message: MulticastMessage,
         dry_run: bool = False,
@@ -196,30 +222,7 @@ async def send_each_for_multicast_async(
         FirebaseError: If an error occurs while sending the message to the FCM service.
         ValueError: If the input arguments are invalid.
     """
-    if not isinstance(multicast_message, MulticastMessage):
-        raise ValueError('Message must be an instance of messaging.MulticastMessage class.')
-    if multicast_message.tokens is not None:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            messages = [Message(
-                data=multicast_message.data,
-                notification=multicast_message.notification,
-                android=multicast_message.android,
-                webpush=multicast_message.webpush,
-                apns=multicast_message.apns,
-                fcm_options=multicast_message.fcm_options,
-                token=token
-            ) for token in multicast_message.tokens]
-    else:
-        messages = [Message(
-            data=multicast_message.data,
-            notification=multicast_message.notification,
-            android=multicast_message.android,
-            webpush=multicast_message.webpush,
-            apns=multicast_message.apns,
-            fcm_options=multicast_message.fcm_options,
-            fid=fid
-        ) for fid in multicast_message.fids]
+    messages = _get_messages_from_multicast(multicast_message)
     return await _get_messaging_service(app).send_each_async(messages, dry_run)
 
 def send_each_for_multicast(multicast_message, dry_run=False, app=None):
@@ -240,30 +243,7 @@ def send_each_for_multicast(multicast_message, dry_run=False, app=None):
         FirebaseError: If an error occurs while sending the message to the FCM service.
         ValueError: If the input arguments are invalid.
     """
-    if not isinstance(multicast_message, MulticastMessage):
-        raise ValueError('Message must be an instance of messaging.MulticastMessage class.')
-    if multicast_message.tokens is not None:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            messages = [Message(
-                data=multicast_message.data,
-                notification=multicast_message.notification,
-                android=multicast_message.android,
-                webpush=multicast_message.webpush,
-                apns=multicast_message.apns,
-                fcm_options=multicast_message.fcm_options,
-                token=token
-            ) for token in multicast_message.tokens]
-    else:
-        messages = [Message(
-            data=multicast_message.data,
-            notification=multicast_message.notification,
-            android=multicast_message.android,
-            webpush=multicast_message.webpush,
-            apns=multicast_message.apns,
-            fcm_options=multicast_message.fcm_options,
-            fid=fid
-        ) for fid in multicast_message.fids]
+    messages = _get_messages_from_multicast(multicast_message)
     return _get_messaging_service(app).send_each(messages, dry_run)
 
 def subscribe_to_topic(tokens, topic, app=None):

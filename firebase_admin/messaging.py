@@ -177,10 +177,12 @@ def _get_messages_from_multicast(multicast_message: MulticastMessage) -> List[Me
     """Extracts individual Message objects from a MulticastMessage."""
     if not isinstance(multicast_message, MulticastMessage):
         raise ValueError('Message must be an instance of messaging.MulticastMessage class.')
+
+    messages = []
     if multicast_message.tokens is not None:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
-            return [Message(
+            messages.extend([Message(
                 data=multicast_message.data,
                 notification=multicast_message.notification,
                 android=multicast_message.android,
@@ -188,17 +190,20 @@ def _get_messages_from_multicast(multicast_message: MulticastMessage) -> List[Me
                 apns=multicast_message.apns,
                 fcm_options=multicast_message.fcm_options,
                 token=token
-            ) for token in multicast_message.tokens]
+            ) for token in multicast_message.tokens])
 
-    return [Message(
-        data=multicast_message.data,
-        notification=multicast_message.notification,
-        android=multicast_message.android,
-        webpush=multicast_message.webpush,
-        apns=multicast_message.apns,
-        fcm_options=multicast_message.fcm_options,
-        fid=fid
-    ) for fid in multicast_message.fids]
+    if multicast_message.fids is not None:
+        messages.extend([Message(
+            data=multicast_message.data,
+            notification=multicast_message.notification,
+            android=multicast_message.android,
+            webpush=multicast_message.webpush,
+            apns=multicast_message.apns,
+            fcm_options=multicast_message.fcm_options,
+            fid=fid
+        ) for fid in multicast_message.fids])
+
+    return messages
 
 async def send_each_for_multicast_async(
         multicast_message: MulticastMessage,

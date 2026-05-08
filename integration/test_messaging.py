@@ -87,6 +87,14 @@ def test_send_malformed_token():
     with pytest.raises(exceptions.InvalidArgumentError):
         messaging.send(msg, dry_run=True)
 
+def test_send_invalid_fid():
+    msg = messaging.Message(
+        fid='not-a-fid',
+        notification=messaging.Notification('test-title', 'test-body')
+    )
+    with pytest.raises(exceptions.InvalidArgumentError):
+        messaging.send(msg, dry_run=True)
+
 def test_send_each():
     messages = [
         messaging.Message(
@@ -138,6 +146,21 @@ def test_send_each_for_multicast():
     multicast = messaging.MulticastMessage(
         notification=messaging.Notification('Title', 'Body'),
         tokens=['not-a-token', 'also-not-a-token'])
+
+    batch_response = messaging.send_each_for_multicast(multicast)
+
+    assert batch_response.success_count == 0
+    assert batch_response.failure_count == 2
+    assert len(batch_response.responses) == 2
+    for response in batch_response.responses:
+        assert response.success is False
+        assert response.exception is not None
+        assert response.message_id is None
+
+def test_send_each_for_multicast_fids():
+    multicast = messaging.MulticastMessage(
+        notification=messaging.Notification('Title', 'Body'),
+        fids=['not-a-fid', 'also-not-a-fid'])
 
     batch_response = messaging.send_each_for_multicast(multicast)
 

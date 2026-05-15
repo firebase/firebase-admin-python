@@ -2896,7 +2896,7 @@ def search_basic():
 def search_exact_match_data():
     # [START search_exact_match_data]
     client.collection("Restaurants").add(
-        {"name": "Waffle Place", "description": "A cozy place for fresh waffles."}
+        {"name": "Waffle Place", "description": "A cozy place for fresh belgian waffles."}
     )
     # [END search_exact_match_data]
 

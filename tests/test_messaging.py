@@ -335,6 +335,18 @@ class TestAndroidConfigEncoder:
             check_encoding(messaging.Message(
                 topic='topic', android=messaging.AndroidConfig(direct_boot_ok=data)))
 
+    @pytest.mark.parametrize('data', NON_BOOL_ARGS)
+    def test_invalid_bandwidth_constrained_ok(self, data):
+        with pytest.raises(ValueError):
+            check_encoding(messaging.Message(
+                topic='topic', android=messaging.AndroidConfig(bandwidth_constrained_ok=data)))
+
+    @pytest.mark.parametrize('data', NON_BOOL_ARGS)
+    def test_invalid_restricted_satellite_ok(self, data):
+        with pytest.raises(ValueError):
+            check_encoding(messaging.Message(
+                topic='topic', android=messaging.AndroidConfig(restricted_satellite_ok=data)))
+
 
     def test_android_config(self):
         msg = messaging.Message(
@@ -347,6 +359,8 @@ class TestAndroidConfigEncoder:
                 data={'k1': 'v1', 'k2': 'v2'},
                 fcm_options=messaging.AndroidFCMOptions('analytics_label_v1'),
                 direct_boot_ok=True,
+                bandwidth_constrained_ok=True,
+                restricted_satellite_ok=True,
             )
         )
         expected = {
@@ -364,6 +378,8 @@ class TestAndroidConfigEncoder:
                     'analytics_label': 'analytics_label_v1',
                 },
                 'direct_boot_ok': True,
+                'bandwidth_constrained_ok': True,
+                'restricted_satellite_ok': True,
             },
         }
         check_encoding(msg, expected)

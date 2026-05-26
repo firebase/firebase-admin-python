@@ -207,6 +207,10 @@ class MessageEncoder(json.JSONEncoder):
             'fcm_options': cls.encode_android_fcm_options(android.fcm_options),
             'direct_boot_ok': _Validators.check_boolean(
                 'AndroidConfig.direct_boot_ok', android.direct_boot_ok),
+            'bandwidth_constrained_ok': _Validators.check_boolean(
+                'AndroidConfig.bandwidth_constrained_ok', android.bandwidth_constrained_ok),
+            'restricted_satellite_ok': _Validators.check_boolean(
+                'AndroidConfig.restricted_satellite_ok', android.restricted_satellite_ok),
         }
         result = cls.remove_null_values(result)
         priority = result.get('priority')

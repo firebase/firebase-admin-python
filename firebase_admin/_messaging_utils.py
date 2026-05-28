@@ -519,7 +519,8 @@ class SenderIdMismatchError(exceptions.PermissionDeniedError):
 class UnregisteredError(exceptions.NotFoundError):
     """App instance was unregistered from FCM.
 
-    This usually means that the token used is no longer valid and a new one must be used."""
+    This usually means that the registration token or installation ID (FID) used
+    is no longer valid and a new one must be used."""
 
     def __init__(self, message, cause=None, http_response=None):
         exceptions.NotFoundError.__init__(self, message, cause, http_response)

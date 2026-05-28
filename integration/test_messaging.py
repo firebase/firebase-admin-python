@@ -92,7 +92,7 @@ def test_send_invalid_fid():
         fid='not-a-fid',
         notification=messaging.Notification('test-title', 'test-body')
     )
-    with pytest.raises(exceptions.InvalidArgumentError):
+    with pytest.raises(messaging.UnregisteredError):
         messaging.send(msg, dry_run=True)
 
 def test_send_each():
@@ -169,7 +169,7 @@ def test_send_each_for_multicast_fids():
     assert len(batch_response.responses) == 2
     for response in batch_response.responses:
         assert response.success is False
-        assert response.exception is not None
+        assert isinstance(response.exception, messaging.UnregisteredError)
         assert response.message_id is None
 
 def test_subscribe():

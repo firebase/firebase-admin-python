@@ -7,42 +7,33 @@ from firebase_admin import credentials
 from tests import testutils
 from unittest import mock
 
+BASE_CONFIG = dataconnect.ConnectorConfig(
+    service_id="starterproject",
+    location="us-east4",
+    connector="my_connector",
+)
+
+
 class TestConnectorConfig:
   def teardown_method(self, method):
     del method
     testutils.cleanup_apps()
 
   def test_connector_config_initialization(self):
-    config = dataconnect.ConnectorConfig(
-      service_id="starterproject",
-      location = "us-east4",
-      connector="my_connector"
-    )
-    assert config.service_id=="starterproject"
-    assert config.location=="us-east4"
-    assert config.connector=="my_connector"
+    assert BASE_CONFIG.service_id == "starterproject"
+    assert BASE_CONFIG.location == "us-east4"
+    assert BASE_CONFIG.connector == "my_connector"
   
   def test_connector_config_is_frozen(self):
-    config = dataconnect.ConnectorConfig(
-      service_id="starterproject",
-      location = "us-east4",
-      connector="my_connector"
-    )
-
     with pytest.raises(AttributeError, match="cannot assign to field 'service_id'"):
-      config.service_id = "changed_id"
+      BASE_CONFIG.service_id = "changed_id"
     with pytest.raises(AttributeError, match="cannot assign to field 'location'"):
-      config.location = "us-central1"
+      BASE_CONFIG.location = "us-central1"
     with pytest.raises(AttributeError, match="cannot assign to field 'connector'"):
-      config.connector = "changed_connector"
+      BASE_CONFIG.connector = "changed_connector"
 
-  def testing_connector_config_string_written(self):
-    config = dataconnect.ConnectorConfig(
-      service_id="starterproject",
-      location = "us-east4",
-      connector="my_connector"
-    )
-    repr_str=repr(config)
+  def test_connector_config_string_written(self):
+    repr_str = repr(BASE_CONFIG)
     assert "service_id='starterproject'" in repr_str
     assert "location='us-east4'" in repr_str
     assert "connector='my_connector'" in repr_str
@@ -58,9 +49,9 @@ class TestConnectorConfig:
       dataconnect.ConnectorConfig(service_id="starterproject", location="us-east4", connector="")
 
   def test_connector_config_invalid_types(self):
-    with pytest.raises(ValueError, match="service_id cannot be empty"):
+    with pytest.raises(ValueError, match="service_id must be a string"):
       dataconnect.ConnectorConfig(service_id=None, location="us-east4", connector="my_connector")
-    with pytest.raises(ValueError, match="location cannot be empty"):
+    with pytest.raises(ValueError, match="location must be a string"):
       dataconnect.ConnectorConfig(service_id="starterproject", location=123, connector="my_connector")
 
 class TestDataConnect:
@@ -71,21 +62,19 @@ class TestDataConnect:
   def test_init_property_assignment(self):
     cred = testutils.MockCredential()
     try:
-      app = firebase_admin.initialize_app(cred, name = "starter_app")
+      app = firebase_admin.initialize_app(cred, name="starter_app")
     except Exception:
       pytest.fail("initialize app has an error")
     
-    config = dataconnect.ConnectorConfig(service_id="starterproject", location = "us-east4", connector="my_connector")
-
     try:
-      data_connect_instance = dataconnect.DataConnect(app, config)
+      data_connect_instance = dataconnect.DataConnect(app, BASE_CONFIG)
     except Exception:
       pytest.fail("DataConnect initialization failed.")
 
     assert data_connect_instance._app is app
-    assert data_connect_instance._config is config
+    assert data_connect_instance._config is BASE_CONFIG
     assert data_connect_instance.app is app
-    assert data_connect_instance.config is config
+    assert data_connect_instance.config is BASE_CONFIG
 
     assert data_connect_instance._app.name == "starter_app"
     assert data_connect_instance._config.service_id == "starterproject"
@@ -97,8 +86,8 @@ class TestDataConnectClientFactory:
   
   def setup_method(self):
     self.cred = testutils.MockCredential()
-    self.app = firebase_admin.initialize_app(self.cred, name = 'starter_app')
-    self.config1 = dataconnect.ConnectorConfig(service_id='starterproject', location='us-east3', connector='my_connector')
+    self.app = firebase_admin.initialize_app(self.cred, name='starter_app')
+    self.config1 = BASE_CONFIG
     self.config2 = dataconnect.ConnectorConfig(service_id='starterproject2', location='us-east4', connector='my_connector2')
   
   @mock.patch('firebase_admin.dataconnect._DataConnectService.get_client', wraps=dataconnect._DataConnectService.get_client)
@@ -109,21 +98,19 @@ class TestDataConnectClientFactory:
     assert client_instance.config is self.config1
     assert client_instance.app is self.app
   
-  def test_client_retrieval_diff_configs(self):
-    client1 = dataconnect.client(self.config1, app=self.app)
-    client2 = dataconnect.client(self.config2, app=self.app)
-
-    assert client1 is not client2
-    assert client1.config is self.config1
-    assert client2.config is self.config2
-    assert client1.app is self.app
-    assert client2.app is self.app
-  
-  def test_client_retrieval_same_config_cached(self):
-    client1 = dataconnect.client(self.config1, app=self.app)
-    client2 = dataconnect.client(self.config1, app=self.app)
-
-    assert client1 is client2
+  @pytest.mark.parametrize("config_a, config_b, expect_same", [
+      (dataconnect.ConnectorConfig("s", "l", "c"), dataconnect.ConnectorConfig("s", "l", "c_diff"), False),
+      (dataconnect.ConnectorConfig("s", "l", "c"), dataconnect.ConnectorConfig("s", "l_diff", "c"), False),
+      (dataconnect.ConnectorConfig("s", "l", "c"), dataconnect.ConnectorConfig("s_diff", "l", "c"), False),
+      (dataconnect.ConnectorConfig("s", "l", "c"), dataconnect.ConnectorConfig("s", "l", "c"), True),
+  ])
+  def test_client_caching_permutations(self, config_a, config_b, expect_same):
+    client_a = dataconnect.client(config_a, app=self.app)
+    client_b = dataconnect.client(config_b, app=self.app)
+    if expect_same:
+      assert client_a is client_b
+    else:
+      assert client_a is not client_b
   
   def test_client_retrieval_different_apps_same_config(self):
     app2 = firebase_admin.initialize_app(self.cred, name='app2')
@@ -155,7 +142,7 @@ class TestDataConnectClientFactory:
 class TestDataConnectService:
   def setup_method(self):
     self.cred = testutils.MockCredential()
-    self.app = firebase_admin.initialize_app(self.cred, name = 'starter_app')
+    self.app = firebase_admin.initialize_app(self.cred, name='starter_app')
     self.service = dataconnect._DataConnectService(self.app)
   
   def teardown_method(self, method):
@@ -242,9 +229,9 @@ class TestDataConnectServiceIntegration:
     self.app1 = firebase_admin.initialize_app(self.cred, name='integ_app1')
     self.app2 = firebase_admin.initialize_app(self.cred, name='integ_app2')
 
-    self.config1 = dataconnect.ConnectorConfig( service_id='service1', location='us-central1', connector='conn1')
+    self.config1 = BASE_CONFIG
     self.config2 = dataconnect.ConnectorConfig(service_id='service2', location='us-east4', connector='conn2')
-    self.config1_copy = dataconnect.ConnectorConfig(service_id='service1', location='us-central1', connector='conn1')
+    self.config1_copy = dataconnect.ConnectorConfig(service_id='starterproject', location='us-east4', connector='my_connector')
   
   def teardown_method(self, method):
     del method
@@ -285,3 +272,4 @@ class TestDataConnectServiceIntegration:
     assert args[0] is self.app1
     assert args[1] == '_data_connect_service'
     assert args[2] == dataconnect._DataConnectService
+  

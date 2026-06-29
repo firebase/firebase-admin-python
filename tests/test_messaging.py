@@ -73,18 +73,22 @@ class TestMessageStr:
         messaging.Message(topic='topic', condition='condition'),
         messaging.Message(condition='condition', token='token'),
         messaging.Message(topic='topic', token='token', condition='condition'),
+        messaging.Message(fid='fid', token='token'),
+        messaging.Message(fid='fid', topic='topic'),
+        messaging.Message(fid='fid', condition='condition'),
+        messaging.Message(fid='fid', token='token', topic='topic'),
     ])
     def test_invalid_target_message(self, msg):
         with pytest.raises(ValueError) as excinfo:
             str(msg)
         assert str(
-            excinfo.value) == 'Exactly one of token, topic or condition must be specified.'
+            excinfo.value) == 'Exactly one of fid, token, topic or condition must be specified.'
 
     def test_empty_message(self):
         assert str(messaging.Message(token='value')) == '{"token": "value"}'
         assert str(messaging.Message(topic='value')) == '{"topic": "value"}'
-        assert str(messaging.Message(condition='value')
-                  ) == '{"condition": "value"}'
+        assert str(messaging.Message(condition='value')) == '{"condition": "value"}'
+        assert str(messaging.Message(fid='value')) == '{"fid": "value"}'
 
     def test_data_message(self):
         assert str(messaging.Message(topic='topic', data={})
@@ -94,6 +98,12 @@ class TestMessageStr:
 
 
 class TestMulticastMessage:
+
+    def test_invalid_targets(self):
+        with pytest.raises(ValueError) as excinfo:
+            messaging.MulticastMessage()
+        expected = "Must specify at least one of MulticastMessage.tokens or MulticastMessage.fids."
+        assert str(excinfo.value) == expected
 
     @pytest.mark.parametrize('tokens', NON_LIST_ARGS)
     def test_invalid_tokens_type(self, tokens):
@@ -109,7 +119,7 @@ class TestMulticastMessage:
     def test_tokens_over_500(self):
         with pytest.raises(ValueError) as excinfo:
             messaging.MulticastMessage(tokens=['token' for _ in range(0, 501)])
-        expected = 'MulticastMessage.tokens must not contain more than 500 tokens.'
+        expected = 'Total number of tokens and fids must not exceed 500.'
         assert str(excinfo.value) == expected
 
     def test_tokens_type(self):
@@ -118,6 +128,54 @@ class TestMulticastMessage:
 
         message = messaging.MulticastMessage(tokens=['token' for _ in range(0, 500)])
         assert len(message.tokens) == 500
+
+    @pytest.mark.parametrize('fids', NON_LIST_ARGS)
+    def test_invalid_fids_type(self, fids):
+        with pytest.raises(ValueError) as excinfo:
+            messaging.MulticastMessage(fids=fids)
+        if isinstance(fids, list):
+            expected = 'MulticastMessage.fids must not contain non-string values.'
+            assert str(excinfo.value) == expected
+        else:
+            expected = 'MulticastMessage.fids must be a list of strings.'
+            assert str(excinfo.value) == expected
+
+    def test_fids_over_500(self):
+        with pytest.raises(ValueError) as excinfo:
+            messaging.MulticastMessage(fids=['fid' for _ in range(0, 501)])
+        expected = 'Total number of tokens and fids must not exceed 500.'
+        assert str(excinfo.value) == expected
+
+    def test_fids_type(self):
+        message = messaging.MulticastMessage(fids=['fid'])
+        assert len(message.fids) == 1
+
+        message = messaging.MulticastMessage(fids=['fid' for _ in range(0, 500)])
+        assert len(message.fids) == 500
+
+    def test_combined_over_500(self):
+        with pytest.raises(ValueError) as excinfo:
+            messaging.MulticastMessage(
+                tokens=['token' for _ in range(0, 250)],
+                fids=['fid' for _ in range(0, 251)]
+            )
+        expected = 'Total number of tokens and fids must not exceed 500.'
+        assert str(excinfo.value) == expected
+
+    def test_mixed_targets(self):
+        message = messaging.MulticastMessage(tokens=['token'], fids=['fid'])
+        assert len(message.tokens) == 1
+        assert len(message.fids) == 1
+
+    def test_tokens_deprecation_warning(self):
+        msg = 'MulticastMessage.tokens is deprecated. Use MulticastMessage.fids instead.'
+        with pytest.warns(DeprecationWarning, match=msg):
+            messaging.MulticastMessage(tokens=['token'])
+
+    def test_tokens_deprecation_warning_positional(self):
+        msg = 'MulticastMessage.tokens is deprecated. Use MulticastMessage.fids instead.'
+        with pytest.warns(DeprecationWarning, match=msg):
+            messaging.MulticastMessage(['token'])
 
 
 class TestMessageEncoder:
@@ -128,17 +186,28 @@ class TestMessageEncoder:
         messaging.Message(topic='topic', condition='condition'),
         messaging.Message(condition='condition', token='token'),
         messaging.Message(topic='topic', token='token', condition='condition'),
+        messaging.Message(fid='fid', token='token'),
+        messaging.Message(fid='fid', topic='topic'),
+        messaging.Message(fid='fid', condition='condition'),
+        messaging.Message(fid='fid', token='token', topic='topic'),
     ])
     def test_invalid_target_message(self, msg):
         with pytest.raises(ValueError) as excinfo:
             check_encoding(msg)
-        assert str(excinfo.value) == 'Exactly one of token, topic or condition must be specified.'
+        expected = 'Exactly one of fid, token, topic or condition must be specified.'
+        assert str(excinfo.value) == expected
 
     @pytest.mark.parametrize('target', NON_STRING_ARGS + [''])
     def test_invalid_token(self, target):
         with pytest.raises(ValueError) as excinfo:
             check_encoding(messaging.Message(token=target))
         assert str(excinfo.value) == 'Message.token must be a non-empty string.'
+
+    @pytest.mark.parametrize('target', NON_STRING_ARGS + [''])
+    def test_invalid_fid(self, target):
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(fid=target))
+        assert str(excinfo.value) == 'Message.fid must be a non-empty string.'
 
     @pytest.mark.parametrize('target', NON_STRING_ARGS + [''])
     def test_invalid_topic(self, target):
@@ -159,8 +228,14 @@ class TestMessageEncoder:
 
     def test_empty_message(self):
         check_encoding(messaging.Message(token='value'), {'token': 'value'})
+        check_encoding(messaging.Message(fid='value'), {'fid': 'value'})
         check_encoding(messaging.Message(topic='value'), {'topic': 'value'})
         check_encoding(messaging.Message(condition='value'), {'condition': 'value'})
+
+    def test_token_deprecation_warning(self):
+        msg = 'Message.token is deprecated. Use Message.fid instead.'
+        with pytest.warns(DeprecationWarning, match=msg):
+            messaging.Message(token='value')
 
     @pytest.mark.parametrize('data', NON_DICT_ARGS)
     def test_invalid_data_message(self, data):
@@ -2205,6 +2280,76 @@ class TestSendEachForMulticast(TestSendEach):
             response_dict={'foo1': [200, payload1], 'foo2': [200, payload2]})
         msg = messaging.MulticastMessage(tokens=['foo1', 'foo2'])
         batch_response = messaging.send_each_for_multicast(msg, dry_run=True)
+        assert batch_response.success_count == 2
+        assert batch_response.failure_count == 0
+        assert len(batch_response.responses) == 2
+        assert [r.message_id for r in batch_response.responses] == ['message-id1', 'message-id2']
+        assert all(r.success for r in batch_response.responses)
+        assert not any(r.exception for r in batch_response.responses)
+
+    def test_send_each_for_multicast_fids(self):
+        payload1 = json.dumps({'name': 'message-id1'})
+        payload2 = json.dumps({'name': 'message-id2'})
+        _ = self._instrument_messaging_service(
+            response_dict={'foo1': [200, payload1], 'foo2': [200, payload2]})
+        msg = messaging.MulticastMessage(fids=['foo1', 'foo2'])
+        batch_response = messaging.send_each_for_multicast(msg, dry_run=True)
+        assert batch_response.success_count == 2
+        assert batch_response.failure_count == 0
+        assert len(batch_response.responses) == 2
+        assert [r.message_id for r in batch_response.responses] == ['message-id1', 'message-id2']
+        assert all(r.success for r in batch_response.responses)
+        assert not any(r.exception for r in batch_response.responses)
+
+    def test_send_each_for_multicast_mixed(self):
+        payload1 = json.dumps({'name': 'message-id1'})
+        payload2 = json.dumps({'name': 'message-id2'})
+        _ = self._instrument_messaging_service(
+            response_dict={'foo1': [200, payload1], 'foo2': [200, payload2]})
+        msg = messaging.MulticastMessage(tokens=['foo1'], fids=['foo2'])
+        batch_response = messaging.send_each_for_multicast(msg, dry_run=True)
+        assert batch_response.success_count == 2
+        assert batch_response.failure_count == 0
+        assert len(batch_response.responses) == 2
+        assert [r.message_id for r in batch_response.responses] == ['message-id1', 'message-id2']
+        assert all(r.success for r in batch_response.responses)
+        assert not any(r.exception for r in batch_response.responses)
+
+    @respx.mock
+    @pytest.mark.asyncio
+    async def test_send_each_for_multicast_async(self):
+        responses = [
+            respx.MockResponse(200, http_version='HTTP/2', json={'name': 'message-id1'}),
+            respx.MockResponse(200, http_version='HTTP/2', json={'name': 'message-id2'}),
+        ]
+        msg = messaging.MulticastMessage(tokens=['foo1', 'foo2'])
+        route = respx.request(
+            method='POST',
+            url='https://fcm.googleapis.com/v1/projects/explicit-project-id/messages:send'
+        )
+        route.side_effect = responses
+        batch_response = await messaging.send_each_for_multicast_async(msg, dry_run=True)
+        assert batch_response.success_count == 2
+        assert batch_response.failure_count == 0
+        assert len(batch_response.responses) == 2
+        assert [r.message_id for r in batch_response.responses] == ['message-id1', 'message-id2']
+        assert all(r.success for r in batch_response.responses)
+        assert not any(r.exception for r in batch_response.responses)
+
+    @respx.mock
+    @pytest.mark.asyncio
+    async def test_send_each_for_multicast_async_fids(self):
+        responses = [
+            respx.MockResponse(200, http_version='HTTP/2', json={'name': 'message-id1'}),
+            respx.MockResponse(200, http_version='HTTP/2', json={'name': 'message-id2'}),
+        ]
+        msg = messaging.MulticastMessage(fids=['foo1', 'foo2'])
+        route = respx.request(
+            method='POST',
+            url='https://fcm.googleapis.com/v1/projects/explicit-project-id/messages:send'
+        )
+        route.side_effect = responses
+        batch_response = await messaging.send_each_for_multicast_async(msg, dry_run=True)
         assert batch_response.success_count == 2
         assert batch_response.failure_count == 0
         assert len(batch_response.responses) == 2

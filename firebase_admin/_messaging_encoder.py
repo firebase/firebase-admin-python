@@ -19,6 +19,7 @@ import json
 import math
 import numbers
 import re
+import warnings
 
 from firebase_admin import _messaging_utils
 
@@ -27,7 +28,7 @@ class Message:
     """A message that can be sent via Firebase Cloud Messaging.
 
     Contains payload information as well as recipient information. In particular, the message must
-    contain exactly one of token, topic or condition fields.
+    contain exactly one of fid, token, topic or condition fields.
 
     Args:
         data: A dictionary of data fields (optional). All keys and values in the dictionary must be
@@ -37,20 +38,29 @@ class Message:
         webpush: An instance of ``messaging.WebpushConfig`` (optional).
         apns: An instance of ``messaging.ApnsConfig`` (optional).
         fcm_options: An instance of ``messaging.FCMOptions`` (optional).
-        token: The registration token of the device to which the message should be sent (optional).
+        fid: The Firebase installation ID of an FCM registered app instance to which the
+            message should be sent (optional).
+        token: Deprecated. Use ``fid`` instead.
         topic: Name of the FCM topic to which the message should be sent (optional). Topic name
             may contain the ``/topics/`` prefix.
         condition: The FCM condition to which the message should be sent (optional).
     """
 
     def __init__(self, data=None, notification=None, android=None, webpush=None, apns=None,
-                 fcm_options=None, token=None, topic=None, condition=None):
+                 fcm_options=None, token=None, topic=None, condition=None, fid=None):
+        if token is not None:
+            warnings.warn(
+                "Message.token is deprecated. Use Message.fid instead.",
+                DeprecationWarning,
+                stacklevel=2
+            )
         self.data = data
         self.notification = notification
         self.android = android
         self.webpush = webpush
         self.apns = apns
         self.fcm_options = fcm_options
+        self.fid = fid
         self.token = token
         self.topic = topic
         self.condition = condition
@@ -60,10 +70,10 @@ class Message:
 
 
 class MulticastMessage:
-    """A message that can be sent to multiple tokens via Firebase Cloud Messaging.
+    """A message that can be sent to multiple tokens or fids via Firebase Cloud Messaging.
 
     Args:
-        tokens: A list of registration tokens of targeted devices.
+        tokens: Deprecated. Use ``fids`` instead (optional).
         data: A dictionary of data fields (optional). All keys and values in the dictionary must be
             strings.
         notification: An instance of ``messaging.Notification`` (optional).
@@ -71,13 +81,35 @@ class MulticastMessage:
         webpush: An instance of ``messaging.WebpushConfig`` (optional).
         apns: An instance of ``messaging.ApnsConfig`` (optional).
         fcm_options: An instance of ``messaging.FCMOptions`` (optional).
+        fids: A list of Firebase Installation IDs of targeted app instances (optional).
     """
-    def __init__(self, tokens, data=None, notification=None, android=None, webpush=None, apns=None,
-                 fcm_options=None):
-        _Validators.check_string_list('MulticastMessage.tokens', tokens)
-        if len(tokens) > 500:
-            raise ValueError('MulticastMessage.tokens must not contain more than 500 tokens.')
+    def __init__(
+            self, tokens=None, data=None, notification=None, android=None,
+            webpush=None, apns=None, fcm_options=None, fids=None):
+        if tokens is not None:
+            warnings.warn(
+                "MulticastMessage.tokens is deprecated. Use MulticastMessage.fids instead.",
+                DeprecationWarning,
+                stacklevel=2
+            )
+
+        if tokens is None and fids is None:
+            raise ValueError(
+                "Must specify at least one of MulticastMessage.tokens or MulticastMessage.fids.")
+
+        if tokens is not None:
+            _Validators.check_string_list('MulticastMessage.tokens', tokens)
+        if fids is not None:
+            _Validators.check_string_list('MulticastMessage.fids', fids)
+
+        tokens_len = len(tokens) if tokens is not None else 0
+        fids_len = len(fids) if fids is not None else 0
+        if tokens_len + fids_len > 500:
+            raise ValueError(
+                'Total number of tokens and fids must not exceed 500.')
+
         self.tokens = tokens
+        self.fids = fids
         self.data = data
         self.notification = notification
         self.android = android
@@ -207,6 +239,10 @@ class MessageEncoder(json.JSONEncoder):
             'fcm_options': cls.encode_android_fcm_options(android.fcm_options),
             'direct_boot_ok': _Validators.check_boolean(
                 'AndroidConfig.direct_boot_ok', android.direct_boot_ok),
+            'bandwidth_constrained_ok': _Validators.check_boolean(
+                'AndroidConfig.bandwidth_constrained_ok', android.bandwidth_constrained_ok),
+            'restricted_satellite_ok': _Validators.check_boolean(
+                'AndroidConfig.restricted_satellite_ok', android.restricted_satellite_ok),
         }
         result = cls.remove_null_values(result)
         priority = result.get('priority')
@@ -691,6 +727,7 @@ class MessageEncoder(json.JSONEncoder):
                 'Message.condition', o.condition, non_empty=True),
             'data': _Validators.check_string_dict('Message.data', o.data),
             'notification': MessageEncoder.encode_notification(o.notification),
+            'fid': _Validators.check_string('Message.fid', o.fid, non_empty=True),
             'token': _Validators.check_string('Message.token', o.token, non_empty=True),
             'topic': _Validators.check_string('Message.topic', o.topic, non_empty=True),
             'webpush': MessageEncoder.encode_webpush(o.webpush),
@@ -698,9 +735,9 @@ class MessageEncoder(json.JSONEncoder):
         }
         result['topic'] = MessageEncoder.sanitize_topic_name(result.get('topic'))
         result = MessageEncoder.remove_null_values(result)
-        target_count = sum(t in result for t in ['token', 'topic', 'condition'])
+        target_count = sum(t in result for t in ['fid', 'token', 'topic', 'condition'])
         if target_count != 1:
-            raise ValueError('Exactly one of token, topic or condition must be specified.')
+            raise ValueError('Exactly one of fid, token, topic or condition must be specified.')
         return result
 
     @classmethod

@@ -1,3 +1,9 @@
+"""Firebase Data Connect module.
+
+This module contains utilities for accessing Firebase Data Connect services associated with
+Firebase apps.
+"""
+
 from dataclasses import dataclass
 from typing import Dict, Optional
 
@@ -6,7 +12,6 @@ from firebase_admin import _utils, App
 __all__ = ['ConnectorConfig', 'DataConnect', 'client']
 
 _DATA_CONNECT_ATTRIBUTE = '_data_connect_service'
-
 
 @dataclass(frozen=True)
 class ConnectorConfig:
@@ -39,19 +44,15 @@ class ConnectorConfig:
 
 class DataConnect:
     """Represents a Firebase Data Connect client instance. 
-       This client provides access to the Firebase Data Connect service for a specific Firebase app and connector configuration.
+       This client provides access to the Firebase Data Connect service 
+       for a specific Firebase app and connector configuration.
     
     Attributes:
         app: The Firebase App instance for this client.
         config: The ConnectorConfig object specifying the service ID, location, and connector name.
     """
     def __init__(self, app: App, config: ConnectorConfig) -> None:
-        """Initializes a DataConnect client instance.
-
-        Args:
-            app: An App instance.
-            config: A ConnectorConfig instance.
-        """
+        """Initializes a DataConnect client instance. """
         self._app: App = app
         self._config = config
 
@@ -81,4 +82,14 @@ class _DataConnectService:
 
 
 def client(config: ConnectorConfig, app: Optional[App] = None) -> DataConnect:
-    """Returns a DataConnect client for the specified configuration"""
+    """Returns a DataConnect client for the specified configuration."""
+    if not isinstance(config, ConnectorConfig):
+        raise ValueError("Config must be of type firebase_admin.dataconnect.ConnectorConfig")
+
+    if app is not None and not isinstance(app, App):
+        raise ValueError("App must be of type firebase_admin.App")
+
+    # must check whether app has a _DataConnectService attached to it yet
+    dc_service = _utils.get_app_service(app, _DATA_CONNECT_ATTRIBUTE, _DataConnectService)
+
+    return dc_service.get_client(config)

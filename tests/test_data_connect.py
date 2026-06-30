@@ -13,7 +13,6 @@ BASE_CONFIG = dataconnect.ConnectorConfig(
     connector="my_connector",
 )
 
-
 class TestConnectorConfig:
   def teardown_method(self, method):
     del method
@@ -90,10 +89,11 @@ class TestDataConnectClientFactory:
     self.config1 = BASE_CONFIG
     self.config2 = dataconnect.ConnectorConfig(service_id='starterproject2', location='us-east4', connector='my_connector2')
   
-  @mock.patch('firebase_admin.dataconnect._DataConnectService.get_client', wraps=dataconnect._DataConnectService.get_client)
+  @mock.patch.object(dataconnect._DataConnectService, 'get_client', autospec=True)
   def test_client_successful(self, mock_get_client):
+    mock_get_client.side_effect = lambda service, config: dataconnect.DataConnect(service._app, config)
     client_instance = dataconnect.client(self.config1, app=self.app)
-    mock_get_client.assert_called_once_with(self.config1)
+    mock_get_client.assert_called_once_with(mock.ANY, self.config1)
     assert isinstance(client_instance, dataconnect.DataConnect)
     assert client_instance.config is self.config1
     assert client_instance.app is self.app

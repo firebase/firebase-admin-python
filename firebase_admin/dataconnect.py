@@ -86,9 +86,6 @@ def client(config: ConnectorConfig, app: Optional[App] = None) -> DataConnect:
     if not isinstance(config, ConnectorConfig):
         raise ValueError("Config must be of type firebase_admin.dataconnect.ConnectorConfig")
 
-    if app is not None and not isinstance(app, App):
-        raise ValueError("App must be of type firebase_admin.App")
-
     # must check whether app has a _DataConnectService attached to it yet
     dc_service = _utils.get_app_service(app, _DATA_CONNECT_ATTRIBUTE, _DataConnectService)
 

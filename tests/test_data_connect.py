@@ -63,6 +63,10 @@ class TestConnectorConfig:
             dataconnect.ConnectorConfig(
                 service_id="starterproject", location=123, connector="my_connector"
             )
+        with pytest.raises(ValueError, match="connector must be a string"):
+            dataconnect.ConnectorConfig(
+                service_id="starterproject", location="us-east4", connector=456
+            )
 
 
 class TestDataConnect:
@@ -111,41 +115,15 @@ class TestDataConnectClientFactory:
         mock_get_client.side_effect = lambda service, config: dataconnect.DataConnect(
             service._app, config # pylint: disable=protected-access
         )
-        client_instance = dataconnect.client(self.config1, app=self.app)
-        mock_get_client.assert_called_once_with(mock.ANY, self.config1)
-        assert isinstance(client_instance, dataconnect.DataConnect)
-        assert client_instance.config is self.config1
-        assert client_instance.app is self.app
-
-    @pytest.mark.parametrize("config_a, config_b, expect_same", [
-        (
-            dataconnect.ConnectorConfig("s", "l", "c"),
-            dataconnect.ConnectorConfig("s", "l", "c_diff"),
-            False,
-        ),
-        (
-            dataconnect.ConnectorConfig("s", "l", "c"),
-            dataconnect.ConnectorConfig("s", "l_diff", "c"),
-            False,
-        ),
-        (
-            dataconnect.ConnectorConfig("s", "l", "c"),
-            dataconnect.ConnectorConfig("s_diff", "l", "c"),
-            False,
-        ),
-        (
-            dataconnect.ConnectorConfig("s", "l", "c"),
-            dataconnect.ConnectorConfig("s", "l", "c"),
-            True,
-        ),
-    ])
-    def test_client_caching_permutations(self, config_a, config_b, expect_same):
-        client_a = dataconnect.client(config_a, app=self.app)
-        client_b = dataconnect.client(config_b, app=self.app)
-        if expect_same:
-            assert client_a is client_b
-        else:
-            assert client_a is not client_b
+        client1 = dataconnect.client(self.config1, app=self.app)
+        client2 = dataconnect.client(self.config2, app=self.app)
+        assert mock_get_client.call_count == 2
+        mock_get_client.assert_any_call(mock.ANY, self.config1)
+        mock_get_client.assert_any_call(mock.ANY, self.config2)
+        assert isinstance(client1, dataconnect.DataConnect)
+        assert client1.config is self.config1
+        assert client1.app is self.app
+        assert client2.config is self.config2
 
     def test_client_retrieval_different_apps_same_config(self):
         app2 = firebase_admin.initialize_app(self.cred, name="app2")
@@ -163,7 +141,7 @@ class TestDataConnectClientFactory:
             dataconnect.client("not-a-config", app=self.app)
 
     def test_invalid_app_type(self):
-        with pytest.raises(ValueError, match="App must be of type firebase_admin.App"):
+        with pytest.raises(ValueError, match="Illegal app argument"):
             dataconnect.client(self.config1, "not-a-app")
 
     def test_client_default_app(self):
@@ -175,6 +153,16 @@ class TestDataConnectClientFactory:
         err_msg = "Config must be of type firebase_admin.dataconnect.ConnectorConfig"
         with pytest.raises(ValueError, match=err_msg):
             dataconnect.client(None, app=self.app)
+
+    @mock.patch.object(_utils, "get_app_service", wraps=_utils.get_app_service)
+    def test_uses_app_service_mechanism(self, mock_get_app_service):
+        """Ensures dataconnect.client uses the standard app service loader."""
+        dataconnect.client(self.config1, app=self.app)
+        mock_get_app_service.assert_called_once()
+        args, _ = mock_get_app_service.call_args
+        assert args[0] is self.app
+        assert args[1] == "_data_connect_service"
+        assert args[2] == dataconnect._DataConnectService # pylint: disable=protected-access
 
 
 class TestDataConnectService:
@@ -204,28 +192,31 @@ class TestDataConnectService:
         client2 = self.service.get_client(config2)
         assert client1 is not client2
 
-    @pytest.mark.parametrize("config_a, config_b, expect_same", [
-        (
-            dataconnect.ConnectorConfig("s", "l", "c"),
-            dataconnect.ConnectorConfig("s", "l", "c_diff"),
-            False,
-        ),
-        (
-            dataconnect.ConnectorConfig("s", "l", "c"),
-            dataconnect.ConnectorConfig("s", "l_diff", "c"),
-            False,
-        ),
-        (
-            dataconnect.ConnectorConfig("s", "l", "c"),
-            dataconnect.ConnectorConfig("s_diff", "l", "c"),
-            False,
-        ),
-        (
-            dataconnect.ConnectorConfig("s", "l", "c"),
-            dataconnect.ConnectorConfig("s", "l", "c"),
-            True,
-        ),
-    ])
+    @pytest.mark.parametrize(
+        "config_a, config_b, expect_same",
+        [
+            (
+                dataconnect.ConnectorConfig("s", "l", "c"),
+                dataconnect.ConnectorConfig("s", "l", "c_diff"),
+                False,
+            ),
+            (
+                dataconnect.ConnectorConfig("s", "l", "c"),
+                dataconnect.ConnectorConfig("s", "l_diff", "c"),
+                False,
+            ),
+            (
+                dataconnect.ConnectorConfig("s", "l", "c"),
+                dataconnect.ConnectorConfig("s_diff", "l", "c"),
+                False,
+            ),
+            (
+                dataconnect.ConnectorConfig("s", "l", "c"),
+                dataconnect.ConnectorConfig("s", "l", "c"),
+                True,
+            ),
+        ],
+    )
     def test_complex_cache_key(self, config_a, config_b, expect_same):
         client_a = self.service.get_client(config_a)
         client_b = self.service.get_client(config_b)
@@ -324,13 +315,3 @@ class TestDataConnectServiceIntegration:
         assert client1_app2.app is self.app2
         assert client1_app2.config is self.config1
         assert client1_app2 is not client1a
-
-    @mock.patch.object(_utils, "get_app_service", wraps=_utils.get_app_service)
-    def test_uses_app_service_mechanism(self, mock_get_app_service):
-        """Ensures dataconnect.client uses the standard app service loader."""
-        dataconnect.client(self.config1, app=self.app1)
-        mock_get_app_service.assert_called_once()
-        args, _ = mock_get_app_service.call_args
-        assert args[0] is self.app1
-        assert args[1] == "_data_connect_service"
-        assert args[2] == dataconnect._DataConnectService # pylint: disable=protected-access

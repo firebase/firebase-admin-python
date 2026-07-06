@@ -1,0 +1,124 @@
+# Copyright 2026 Google Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Firebase Data Connect module.
+
+This module contains utilities for accessing Firebase Data Connect services associated with
+Firebase apps.
+"""
+
+from dataclasses import dataclass
+from typing import Dict, Optional
+
+from firebase_admin import _utils, App
+
+__all__ = ['ConnectorConfig', 'DataConnect', 'client']
+
+_DATA_CONNECT_ATTRIBUTE = '_data_connect'
+
+@dataclass(frozen=True)
+class ConnectorConfig:
+    """A configuration object for DataConnect.
+
+    Attributes:
+        service_id: A string representing the Google Cloud project ID of the service.
+        location: A string representing the region of the service.
+        connector: A string representing the name of the connector.
+    """
+
+    service_id: str
+    location: str
+    connector: str
+
+    def __post_init__(self):
+        if not isinstance(self.service_id, str):
+            raise ValueError("service_id must be a string")
+        if not self.service_id:
+            raise ValueError("service_id cannot be empty")
+        if not isinstance(self.location, str):
+            raise ValueError("location must be a string")
+        if not self.location:
+            raise ValueError("location cannot be empty")
+        if not isinstance(self.connector, str):
+            raise ValueError("connector must be a string")
+        if not self.connector:
+            raise ValueError("connector cannot be empty")
+
+
+class DataConnect:
+    """Represents a Firebase Data Connect client instance. 
+    
+       This client provides access to the Firebase Data Connect service 
+       for a specific Firebase app and connector configuration.
+    
+    Attributes:
+        app: The Firebase App instance for this client.
+        config: The ConnectorConfig object specifying the service ID, location, and connector name.
+    """
+
+    def __init__(self, app: App, config: ConnectorConfig) -> None:
+        """Initializes a DataConnect client instance. """
+        self._app: App = app
+        self._config = config
+
+    @property
+    def app(self) -> App:
+        return self._app
+
+    @property
+    def config(self) -> ConnectorConfig:
+        return self._config
+
+
+class _DataConnectService:
+    """Service that maintains a collection of DataConnect clients."""
+
+    def __init__(self, app: App) -> None:
+        self._app: App = app
+        self._clients: Dict[ConnectorConfig, DataConnect] = {}
+
+    def get_client(self, config: ConnectorConfig) -> DataConnect:
+        """Creates a client based on the ConnectorConfig. These clients are cached."""
+        if not isinstance(config, ConnectorConfig):
+            raise ValueError("Config must be of type firebase_admin.dataconnect.ConnectorConfig")
+        if config not in self._clients:
+            self._clients[config] = DataConnect(app=self._app, config=config)
+        return self._clients[config]
+
+
+def client(config: ConnectorConfig, app: Optional[App] = None) -> DataConnect:
+    """Returns a DataConnect client for the specified configuration.
+
+    This function does not make any RPC calls.
+
+    Args:
+        config: A ConnectorConfig instance specifying the service ID, location,
+            and connector name.
+        app: An App instance (optional). Defaults to the default Firebase App.
+
+    Returns:
+        DataConnect: A handle to the specified DataConnect client instance.
+
+    Raises:
+        ValueError: If config argument is not an instance of ConnectorConfig, or if
+            app is an invalid instance of App.
+    """
+
+    if not isinstance(config, ConnectorConfig):
+        raise ValueError("Config must be of type firebase_admin.dataconnect.ConnectorConfig")
+
+    # must check whether app has a _DataConnectService attached to it yet
+    dc_service = _utils.get_app_service(app, _DATA_CONNECT_ATTRIBUTE, _DataConnectService)
+
+    return dc_service.get_client(config)

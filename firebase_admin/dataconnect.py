@@ -1,3 +1,17 @@
+# Copyright 2026 Google Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Firebase Data Connect module.
 
 This module contains utilities for accessing Firebase Data Connect services associated with
@@ -11,7 +25,7 @@ from firebase_admin import _utils, App
 
 __all__ = ['ConnectorConfig', 'DataConnect', 'client']
 
-_DATA_CONNECT_ATTRIBUTE = '_data_connect_service'
+_DATA_CONNECT_ATTRIBUTE = '_data_connect'
 
 @dataclass(frozen=True)
 class ConnectorConfig:
@@ -44,6 +58,7 @@ class ConnectorConfig:
 
 class DataConnect:
     """Represents a Firebase Data Connect client instance. 
+    
        This client provides access to the Firebase Data Connect service 
        for a specific Firebase app and connector configuration.
     
@@ -51,6 +66,7 @@ class DataConnect:
         app: The Firebase App instance for this client.
         config: The ConnectorConfig object specifying the service ID, location, and connector name.
     """
+
     def __init__(self, app: App, config: ConnectorConfig) -> None:
         """Initializes a DataConnect client instance. """
         self._app: App = app
@@ -82,7 +98,23 @@ class _DataConnectService:
 
 
 def client(config: ConnectorConfig, app: Optional[App] = None) -> DataConnect:
-    """Returns a DataConnect client for the specified configuration."""
+    """Returns a DataConnect client for the specified configuration.
+
+    This function does not make any RPC calls.
+
+    Args:
+        config: A ConnectorConfig instance specifying the service ID, location,
+            and connector name.
+        app: An App instance (optional). Defaults to the default Firebase App.
+
+    Returns:
+        DataConnect: A handle to the specified DataConnect client instance.
+
+    Raises:
+        ValueError: If config argument is not an instance of ConnectorConfig, or if
+            app is an invalid instance of App.
+    """
+
     if not isinstance(config, ConnectorConfig):
         raise ValueError("Config must be of type firebase_admin.dataconnect.ConnectorConfig")
 

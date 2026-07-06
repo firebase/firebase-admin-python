@@ -287,7 +287,7 @@ class TestDataConnectService:
             self.service.get_client(None)
 
 
-class TestDataConnectServiceIntegration:
+class TestDataConnectServiceWorkflow:
 
     def setup_method(self):
         self.cred = testutils.MockCredential()

@@ -331,3 +331,285 @@ class TestDataConnectServiceWorkflow:
         assert client1_app2.app is self.app2
         assert client1_app2.config is self.config1
         assert client1_app2 is not client1a
+
+
+class TestDataConnectApiClientConstructor:
+
+    def setup_method(self):
+        self.cred = testutils.MockCredential()
+
+    def teardown_method(self, method):
+        del method
+        testutils.cleanup_apps()
+
+    def test_constructor_invalid_app(self):
+        with pytest.raises(ValueError, match="First argument passed to DataConnectApiClient must be a valid Firebase app instance."):
+            dataconnect._DataConnectApiClient(BASE_CONFIG, None)
+
+    def test_constructor_missing_project_id(self):
+        class CredentialWithoutProjectId:
+            def get_credential(self):
+                return self
+
+        app_no_project_id = firebase_admin.initialize_app(CredentialWithoutProjectId(), name="no-project-id-app")
+        try:
+            with pytest.raises(ValueError, match="Failed to determine project ID"):
+                dataconnect._DataConnectApiClient(BASE_CONFIG, app_no_project_id)
+        finally:
+            firebase_admin.delete_app(app_no_project_id)
+
+    def test_constructor_connector_config(self):
+        app = firebase_admin.initialize_app(self.cred, options={'projectId': 'test-project'})
+        api_client = dataconnect._DataConnectApiClient(BASE_CONFIG, app)
+        assert api_client._connector_config is BASE_CONFIG
+
+
+class TestDataConnectApiClientValidateInputs:
+
+    def setup_method(self):
+        self.cred = testutils.MockCredential()
+        self.app = firebase_admin.initialize_app(self.cred, options={'projectId': 'test-project'})
+        self.api_client = dataconnect._DataConnectApiClient(BASE_CONFIG, self.app)
+
+    def teardown_method(self, method):
+        del method
+        testutils.cleanup_apps()
+
+    def test_validate_inputs_valid(self):
+        # Valid query, no options
+        self.api_client._validate_inputs("query { hello }", None)
+
+        # Valid query, valid options
+        options = dataconnect.GraphqlOptions(variables={"foo": "bar"})
+        self.api_client._validate_inputs("query { hello }", options)
+
+    def test_validate_inputs_valid_impersonate(self):
+        # Valid unauthenticated impersonation
+        options = dataconnect.GraphqlOptions(impersonate=dataconnect.Impersonation.unauthenticated())
+        self.api_client._validate_inputs("query { hello }", options)
+
+        # Valid authenticated impersonation
+        options = dataconnect.GraphqlOptions(impersonate=dataconnect.Impersonation.authenticated({"sub": "authenticated-UUID"}))
+        self.api_client._validate_inputs("query { hello }", options)
+
+    def test_validate_inputs_valid_variables(self):
+        @dataclass
+        class User:
+            id: str
+            name: str
+            address: str
+
+        @dataclass
+        class UsersResponse:
+            users: list[User]
+
+        valid_variables = UsersResponse(users=[User(id="1", name="Fred", address="123 Road")])
+        options = dataconnect.GraphqlOptions(variables=valid_variables)
+        self.api_client._validate_inputs("query { hello }", options, UsersResponse)
+
+    def test_validate_inputs_invalid_query_type(self):
+
+        with pytest.raises(ValueError, match="query must be a non-empty string"):
+            self.api_client._validate_inputs(None, None)
+        with pytest.raises(ValueError, match="query must be a non-empty string"):
+            self.api_client._validate_inputs(123, None)
+
+    def test_validate_inputs_empty_query(self):
+        with pytest.raises(ValueError, match="query must be a non-empty string"):
+            self.api_client._validate_inputs("", None)
+        with pytest.raises(ValueError, match="query must be a non-empty string"):
+            self.api_client._validate_inputs("   ", None)
+
+    def test_validate_inputs_invalid_options(self):
+        with pytest.raises(ValueError, match="options must be a GraphqlOptions instance"):
+            self.api_client._validate_inputs("query { hello }", "invalid-options")
+
+    def test_validate_inputs_invalid_impersonate(self):
+        # impersonate must be dict
+        options = dataconnect.GraphqlOptions(impersonate="invalid")
+        with pytest.raises(ValueError, match="impersonate option must be a dictionary"):
+            self.api_client._validate_inputs("query { hello }", options)
+
+        # impersonate must have either unauthenticated or authClaims
+        options = dataconnect.GraphqlOptions(impersonate={"invalid_key": True})
+        with pytest.raises(ValueError, match="impersonate option must contain either 'unauthenticated' or 'authClaims'"):
+            self.api_client._validate_inputs("query { hello }", options)
+
+        # unauthenticated must be boolean
+        options = dataconnect.GraphqlOptions(impersonate={"unauthenticated": "not-bool"})
+        with pytest.raises(ValueError, match="'unauthenticated' claim must be a boolean"):
+            self.api_client._validate_inputs("query { hello }", options)
+
+        # authClaims must be a dict
+        options = dataconnect.GraphqlOptions(impersonate={"authClaims": "not-dict"})
+        with pytest.raises(ValueError, match="'authClaims' must be a dictionary"):
+            self.api_client._validate_inputs("query { hello }", options)
+
+    def test_validate_inputs_invalid_operation_name(self):
+        options = dataconnect.GraphqlOptions(operation_name=123)
+        with pytest.raises(ValueError, match="operation_name must be a non-empty string"):
+            self.api_client._validate_inputs("query { hello }", options)
+        options = dataconnect.GraphqlOptions(operation_name="")
+        with pytest.raises(ValueError, match="operation_name must be a non-empty string"):
+            self.api_client._validate_inputs("query { hello }", options)
+
+
+    def test_validate_inputs_invalid_variables(self):
+        @dataclass
+        class User:
+            id: str
+            name: str
+            address: str
+
+        @dataclass
+        class UsersResponse:
+            users: list[User]
+
+        options = dataconnect.GraphqlOptions(variables="not-users-response")
+        with pytest.raises(ValueError, match="variables must be of type UsersResponse"):
+            self.api_client._validate_inputs("query { hello }", options, UsersResponse)
+
+
+class TestDataConnectApiClientPrepareGraphqlPayload:
+
+    def setup_method(self):
+        self.cred = testutils.MockCredential()
+        self.app = firebase_admin.initialize_app(self.cred, options={'projectId': 'test-project'})
+        self.api_client = dataconnect._DataConnectApiClient(BASE_CONFIG, self.app)
+
+    def teardown_method(self, method):
+        del method
+        testutils.cleanup_apps()
+
+    def test_prepare_graphql_payload_only_query(self):
+        payload = self.api_client._prepare_graphql_payload("query { hello }", None)
+        assert payload == {"query": "query { hello }"}
+
+    def test_prepare_graphql_payload_with_variables(self):
+        options = dataconnect.GraphqlOptions(variables={"foo": "bar"})
+        payload = self.api_client._prepare_graphql_payload("query { hello }", options)
+        assert payload == {
+            "query": "query { hello }",
+            "variables": {"foo": "bar"}
+        }
+
+    def test_prepare_graphql_payload_with_dataclass_variables(self):
+        @dataclass
+        class User:
+            id: str
+            name: str
+            address: str
+
+        @dataclass
+        class UsersResponse:
+            users: list[User]
+
+        valid_variables = UsersResponse(users=[User(id="1", name="Fred", address="123 Road")])
+        options = dataconnect.GraphqlOptions(variables=valid_variables)
+        payload = self.api_client._prepare_graphql_payload("query { hello }", options)
+        assert payload == {
+            "query": "query { hello }",
+            "variables": {
+                "users": [
+                    {
+                        "id": "1",
+                        "name": "Fred",
+                        "address": "123 Road"
+                    }
+                ]
+            }
+        }
+
+    def test_prepare_graphql_payload_with_operation_name(self):
+        options = dataconnect.GraphqlOptions(operation_name="myOp")
+        payload = self.api_client._prepare_graphql_payload("query { hello }", options)
+        assert payload == {
+            "query": "query { hello }",
+            "operationName": "myOp"
+        }
+
+    def test_prepare_graphql_payload_with_impersonate_unauthenticated(self):
+        options = dataconnect.GraphqlOptions(impersonate=dataconnect.Impersonation.unauthenticated())
+        payload = self.api_client._prepare_graphql_payload("query { hello }", options)
+        assert payload == {
+            "query": "query { hello }",
+            "extensions": {
+                "impersonate": {"unauthenticated": True}
+            }
+        }
+
+    def test_prepare_graphql_payload_with_impersonate_authenticated(self):
+        options = dataconnect.GraphqlOptions(impersonate=dataconnect.Impersonation.authenticated({"sub": "authenticated-UUID"}))
+        payload = self.api_client._prepare_graphql_payload("query { hello }", options)
+        assert payload == {
+            "query": "query { hello }",
+            "extensions": {
+                "impersonate": {"authClaims": {"sub": "authenticated-UUID"}}
+            }
+        }
+
+    def test_prepare_graphql_payload_with_all_fields(self):
+        @dataclass
+        class User:
+            id: str
+            name: str
+            address: str
+
+        @dataclass
+        class UsersResponse:
+            users: list[User]
+
+        valid_variables = UsersResponse(users=[User(id="1", name="Fred", address="123 Road")])
+        options = dataconnect.GraphqlOptions(
+            variables=valid_variables,
+            operation_name="getUsers",
+            impersonate=dataconnect.Impersonation.authenticated({"sub": "authenticated-UUID"})
+        )
+        payload = self.api_client._prepare_graphql_payload("query { hello }", options)
+        assert payload == {
+            "query": "query { hello }",
+            "operationName": "getUsers",
+            "variables": {
+                "users": [
+                    {
+                        "id": "1",
+                        "name": "Fred",
+                        "address": "123 Road"
+                    }
+                ]
+            },
+            "extensions": {
+                "impersonate": {"authClaims": {"sub": "authenticated-UUID"}}
+            }
+        }
+
+
+class TestDataConnectApiClientServiceUrl:
+
+    def setup_method(self):
+        self.cred = testutils.MockCredential()
+        self.app = firebase_admin.initialize_app(self.cred, options={'projectId': 'test-project'})
+        self.api_client = dataconnect._DataConnectApiClient(BASE_CONFIG, self.app)
+
+    def teardown_method(self, method):
+        del method
+        testutils.cleanup_apps()
+
+    def test_get_firebase_dataconnect_service_url_production(self):
+        url = self.api_client._get_firebase_dataconnect_service_url("executeGraphql")
+        expected = (
+            "https://firebasedataconnect.googleapis.com/v1"
+            "/projects/test-project/locations/us-east4"
+            "/services/starterproject:executeGraphql"
+        )
+        assert url == expected
+
+    def test_get_firebase_dataconnect_service_url_emulator(self, monkeypatch):
+        monkeypatch.setenv("DATA_CONNECT_EMULATOR_HOST", "localhost:9399")
+        url = self.api_client._get_firebase_dataconnect_service_url("executeGraphql")
+        expected = (
+            "http://localhost:9399/v1"
+            "/projects/test-project/locations/us-east4"
+            "/services/starterproject:executeGraphql"
+        )
+        assert url == expected

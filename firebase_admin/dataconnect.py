@@ -18,14 +18,40 @@ This module contains utilities for accessing Firebase Data Connect services asso
 Firebase apps.
 """
 
-from dataclasses import dataclass
-from typing import Dict, Optional
+import os
+from dataclasses import dataclass, asdict, is_dataclass
+from typing import Any, Dict, Generic, Optional, TypeVar
 
-from firebase_admin import _utils, App
+from firebase_admin import _utils, _http_client, App
 
-__all__ = ['ConnectorConfig', 'DataConnect', 'client']
+
+__all__ = [
+    'ConnectorConfig',
+    'DataConnect',
+    'client',
+    'GraphqlOptions',
+    'Impersonation',
+    'ExecuteGraphqlResponse',
+]
+
 
 _DATA_CONNECT_ATTRIBUTE = '_data_connect'
+_DATA_CONNECT_PROD_URL = 'https://firebasedataconnect.googleapis.com'
+_API_VERSION = 'v1'
+
+_SERVICES_URL_FORMAT = (
+    '{host}/{version}/projects/{project_id}/locations/{location_id}'
+    '/services/{service_id}:{endpoint_id}'
+)
+
+_EMULATOR_SERVICES_URL_FORMAT = (
+    'http://{host}/{version}/projects/{project_id}/locations/{location_id}'
+    '/services/{service_id}:{endpoint_id}'
+)
+
+# Generic Type Parameters
+_T = TypeVar("_T")
+_V = TypeVar("_V")
 
 @dataclass(frozen=True)
 class ConnectorConfig:
@@ -122,3 +148,170 @@ def client(config: ConnectorConfig, app: Optional[App] = None) -> DataConnect:
     dc_service = _utils.get_app_service(app, _DATA_CONNECT_ATTRIBUTE, _DataConnectService)
 
     return dc_service.get_client(config)
+
+
+class Impersonation:
+    """Represents impersonation configuration for DataConnect requests."""
+
+    @staticmethod
+    def unauthenticated() -> Dict[str, bool]:
+        """Returns impersonation configuration for unauthenticated requests."""
+        return {"unauthenticated": True}
+
+    @staticmethod
+    def authenticated(auth_claims: Dict[str, Any]) -> Dict[str, Any]:
+        """Returns impersonation configuration for authenticated requests."""
+        return {"authClaims": auth_claims}
+
+
+@dataclass
+class GraphqlOptions(Generic[_V]):
+    variables: Optional[_V] = None
+    operation_name: Optional[str] = None
+    impersonate: Optional[Impersonation] = None
+
+
+@dataclass
+class ExecuteGraphqlResponse(Generic[_T]):
+    data: _T
+
+
+def _get_emulator_host() -> Optional[str]:
+    emulator_host = os.environ.get("DATA_CONNECT_EMULATOR_HOST")
+    if emulator_host:
+        if "//" in emulator_host:
+            raise ValueError(
+                f'Invalid DATA_CONNECT_EMULATOR_HOST: "{emulator_host}". It must follow format '
+                '"host:port".'
+            )
+        return emulator_host
+    return None
+
+
+class _DataConnectApiClient:
+    """Internal client for sending requests to the Firebase Data Connect backend.
+    Attributes:
+        connector_config: The connector configuration specifying the service,
+            location, and connector name.
+        app: The Firebase App instance associated with this client.
+    """
+
+    def __init__(self, connector_config: ConnectorConfig, app: App) -> None:
+        if not isinstance(app, App):
+            raise ValueError(
+                'First argument passed to DataConnectApiClient must be a valid '
+                'Firebase app instance.'
+            )
+        self._connector_config = connector_config
+        self._app = app
+
+        self._project_id = app.project_id
+        if not self._project_id:
+            raise ValueError(
+                'Failed to determine project ID. Initialize the SDK with service '
+                'account credentials or set project ID as an app option. Alternatively, set the '
+                'GOOGLE_CLOUD_PROJECT environment variable.')
+
+        self._emulator_host = _get_emulator_host()
+        if self._emulator_host:
+            self._credential = _utils.EmulatorAdminCredentials()
+        else:
+            self._credential = app.credential.get_credential()
+
+        self._http_client = _http_client.JsonHttpClient(credential=self._credential)
+
+    def _validate_inputs(
+        self,
+        graphql_query: str,
+        graphql_options: Optional[GraphqlOptions[Any]],
+        variable_type: Any = None
+    ) -> None:
+        """Validates query and GraphqlOptions inputs at runtime."""
+        # Validate the Query
+        if not isinstance(graphql_query, str) or not graphql_query.strip():
+            raise ValueError('query must be a non-empty string')
+
+        # Validate Options (if they exist)
+        if graphql_options is not None:
+            if not isinstance(graphql_options, GraphqlOptions):
+                raise ValueError('options must be a GraphqlOptions instance')
+
+            # Validate Variables against expected variable_type
+            variables = graphql_options.variables
+            if variables is not None and variable_type is not None:
+                if not isinstance(variables, variable_type):
+                    raise ValueError(f"variables must be of type {variable_type.__name__}")
+
+            # Validate Operation Name (if it exists)
+            operation_name = graphql_options.operation_name
+            if operation_name is not None:
+                if not isinstance(operation_name, str) or not operation_name.strip():
+                    raise ValueError('operation_name must be a non-empty string')
+
+            # Validate Impersonation (if it exists)
+            impersonate = graphql_options.impersonate
+            if impersonate is not None:
+                if not isinstance(impersonate, dict):
+                    raise ValueError('impersonate option must be a dictionary')
+                if 'unauthenticated' not in impersonate and 'authClaims' not in impersonate:
+                    raise ValueError(
+                        "impersonate option must contain either "
+                        "'unauthenticated' or 'authClaims'"
+                    )
+                if 'unauthenticated' in impersonate:
+                    if not isinstance(impersonate['unauthenticated'], bool):
+                        raise ValueError("'unauthenticated' claim must be a boolean")
+                if 'authClaims' in impersonate:
+                    if not isinstance(impersonate['authClaims'], dict):
+                        raise ValueError("'authClaims' claim must be a dictionary")
+
+    def _prepare_graphql_payload(
+        self,
+        graphql_query: str,
+        graphql_options: Optional[GraphqlOptions[Any]]
+    ) -> Dict[str, Any]:
+        """Serializes input query and options to JSON-compatible dictionary."""
+        payload = {
+            "query": graphql_query
+        }
+
+        if graphql_options is not None:
+            if graphql_options.variables is not None:
+                if is_dataclass(graphql_options.variables):
+                    payload["variables"] = asdict(graphql_options.variables)
+                else:
+                    payload["variables"] = graphql_options.variables
+
+            if graphql_options.operation_name is not None:
+                payload["operationName"] = graphql_options.operation_name
+
+            if graphql_options.impersonate is not None:
+                payload["extensions"] = {
+                    "impersonate": graphql_options.impersonate
+                }
+
+        return payload
+
+    def _get_firebase_dataconnect_service_url(self, method_name: str) -> str:
+        """Build and return the URL for a Firebase Data Connect API method."""
+        project_id = self._project_id
+        location = self._connector_config.location
+        service_id = self._connector_config.service_id
+
+        if self._emulator_host:
+            return _EMULATOR_SERVICES_URL_FORMAT.format(
+                host=self._emulator_host,
+                version=_API_VERSION,
+                project_id=project_id,
+                location_id=location,
+                service_id=service_id,
+                endpoint_id=method_name
+            )
+        return _SERVICES_URL_FORMAT.format(
+            host=_DATA_CONNECT_PROD_URL,
+            version=_API_VERSION,
+            project_id=project_id,
+            location_id=location,
+            service_id=service_id,
+            endpoint_id=method_name
+        )

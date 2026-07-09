@@ -15,6 +15,8 @@
 """Test cases for the firebase_admin.dataconnect module."""
 
 from unittest import mock
+from dataclasses import dataclass
+from google.auth import credentials as google_auth_credentials
 import pytest
 
 import firebase_admin
@@ -343,15 +345,25 @@ class TestDataConnectApiClientConstructor:
         testutils.cleanup_apps()
 
     def test_constructor_invalid_app(self):
-        with pytest.raises(ValueError, match="First argument passed to DataConnectApiClient must be a valid Firebase app instance."):
+        msg = (
+            "First argument passed to DataConnectApiClient must be a valid "
+            "Firebase app instance."
+        )
+        with pytest.raises(ValueError, match=msg):
             dataconnect._DataConnectApiClient(BASE_CONFIG, None)
 
     def test_constructor_missing_project_id(self):
-        class CredentialWithoutProjectId:
+        class CredentialWithoutProjectId(firebase_admin.credentials.Base):
             def get_credential(self):
-                return self
+                class DummyGoogleCred(google_auth_credentials.Credentials):
+                    def refresh(self, request):
+                        pass
+                return DummyGoogleCred()
 
-        app_no_project_id = firebase_admin.initialize_app(CredentialWithoutProjectId(), name="no-project-id-app")
+        app_no_project_id = firebase_admin.initialize_app(
+            CredentialWithoutProjectId(),
+            name="no-project-id-app"
+        )
         try:
             with pytest.raises(ValueError, match="Failed to determine project ID"):
                 dataconnect._DataConnectApiClient(BASE_CONFIG, app_no_project_id)
@@ -368,7 +380,9 @@ class TestDataConnectApiClientValidateInputs:
 
     def setup_method(self):
         self.cred = testutils.MockCredential()
-        self.app = firebase_admin.initialize_app(self.cred, options={'projectId': 'test-project'})
+        self.app = firebase_admin.initialize_app(
+            self.cred, options={'projectId': 'test-project'}
+        )
         self.api_client = dataconnect._DataConnectApiClient(BASE_CONFIG, self.app)
 
     def teardown_method(self, method):
@@ -385,17 +399,22 @@ class TestDataConnectApiClientValidateInputs:
 
     def test_validate_inputs_valid_impersonate(self):
         # Valid unauthenticated impersonation
-        options = dataconnect.GraphqlOptions(impersonate=dataconnect.Impersonation.unauthenticated())
+        imp_unauth = dataconnect.Impersonation.unauthenticated()
+        options = dataconnect.GraphqlOptions(impersonate=imp_unauth)
         self.api_client._validate_inputs("query { hello }", options)
 
         # Valid authenticated impersonation
-        options = dataconnect.GraphqlOptions(impersonate=dataconnect.Impersonation.authenticated({"sub": "authenticated-UUID"}))
+        imp_auth = dataconnect.Impersonation.authenticated(
+            {"sub": "authenticated-UUID"}
+        )
+        options = dataconnect.GraphqlOptions(impersonate=imp_auth)
         self.api_client._validate_inputs("query { hello }", options)
+
 
     def test_validate_inputs_valid_variables(self):
         @dataclass
         class User:
-            id: str
+            user_id: str
             name: str
             address: str
 
@@ -403,7 +422,8 @@ class TestDataConnectApiClientValidateInputs:
         class UsersResponse:
             users: list[User]
 
-        valid_variables = UsersResponse(users=[User(id="1", name="Fred", address="123 Road")])
+        users_val = [User(user_id="1", name="Fred", address="123 Road")]
+        valid_variables = UsersResponse(users=users_val)
         options = dataconnect.GraphqlOptions(variables=valid_variables)
         self.api_client._validate_inputs("query { hello }", options, UsersResponse)
 
@@ -432,7 +452,11 @@ class TestDataConnectApiClientValidateInputs:
 
         # impersonate must have either unauthenticated or authClaims
         options = dataconnect.GraphqlOptions(impersonate={"invalid_key": True})
-        with pytest.raises(ValueError, match="impersonate option must contain either 'unauthenticated' or 'authClaims'"):
+        msg = (
+            "impersonate option must contain either "
+            "'unauthenticated' or 'authClaims'"
+        )
+        with pytest.raises(ValueError, match=msg):
             self.api_client._validate_inputs("query { hello }", options)
 
         # unauthenticated must be boolean
@@ -442,7 +466,7 @@ class TestDataConnectApiClientValidateInputs:
 
         # authClaims must be a dict
         options = dataconnect.GraphqlOptions(impersonate={"authClaims": "not-dict"})
-        with pytest.raises(ValueError, match="'authClaims' must be a dictionary"):
+        with pytest.raises(ValueError, match="'authClaims' claim must be a dictionary"):
             self.api_client._validate_inputs("query { hello }", options)
 
     def test_validate_inputs_invalid_operation_name(self):
@@ -453,11 +477,10 @@ class TestDataConnectApiClientValidateInputs:
         with pytest.raises(ValueError, match="operation_name must be a non-empty string"):
             self.api_client._validate_inputs("query { hello }", options)
 
-
     def test_validate_inputs_invalid_variables(self):
         @dataclass
         class User:
-            id: str
+            user_id: str
             name: str
             address: str
 
@@ -496,7 +519,7 @@ class TestDataConnectApiClientPrepareGraphqlPayload:
     def test_prepare_graphql_payload_with_dataclass_variables(self):
         @dataclass
         class User:
-            id: str
+            user_id: str
             name: str
             address: str
 
@@ -504,7 +527,8 @@ class TestDataConnectApiClientPrepareGraphqlPayload:
         class UsersResponse:
             users: list[User]
 
-        valid_variables = UsersResponse(users=[User(id="1", name="Fred", address="123 Road")])
+        users_val = [User(user_id="1", name="Fred", address="123 Road")]
+        valid_variables = UsersResponse(users=users_val)
         options = dataconnect.GraphqlOptions(variables=valid_variables)
         payload = self.api_client._prepare_graphql_payload("query { hello }", options)
         assert payload == {
@@ -512,7 +536,7 @@ class TestDataConnectApiClientPrepareGraphqlPayload:
             "variables": {
                 "users": [
                     {
-                        "id": "1",
+                        "user_id": "1",
                         "name": "Fred",
                         "address": "123 Road"
                     }
@@ -529,7 +553,8 @@ class TestDataConnectApiClientPrepareGraphqlPayload:
         }
 
     def test_prepare_graphql_payload_with_impersonate_unauthenticated(self):
-        options = dataconnect.GraphqlOptions(impersonate=dataconnect.Impersonation.unauthenticated())
+        imp_unauth = dataconnect.Impersonation.unauthenticated()
+        options = dataconnect.GraphqlOptions(impersonate=imp_unauth)
         payload = self.api_client._prepare_graphql_payload("query { hello }", options)
         assert payload == {
             "query": "query { hello }",
@@ -539,7 +564,10 @@ class TestDataConnectApiClientPrepareGraphqlPayload:
         }
 
     def test_prepare_graphql_payload_with_impersonate_authenticated(self):
-        options = dataconnect.GraphqlOptions(impersonate=dataconnect.Impersonation.authenticated({"sub": "authenticated-UUID"}))
+        imp_auth = dataconnect.Impersonation.authenticated(
+            {"sub": "authenticated-UUID"}
+        )
+        options = dataconnect.GraphqlOptions(impersonate=imp_auth)
         payload = self.api_client._prepare_graphql_payload("query { hello }", options)
         assert payload == {
             "query": "query { hello }",
@@ -551,7 +579,7 @@ class TestDataConnectApiClientPrepareGraphqlPayload:
     def test_prepare_graphql_payload_with_all_fields(self):
         @dataclass
         class User:
-            id: str
+            user_id: str
             name: str
             address: str
 
@@ -559,11 +587,15 @@ class TestDataConnectApiClientPrepareGraphqlPayload:
         class UsersResponse:
             users: list[User]
 
-        valid_variables = UsersResponse(users=[User(id="1", name="Fred", address="123 Road")])
+        users_val = [User(user_id="1", name="Fred", address="123 Road")]
+        valid_variables = UsersResponse(users=users_val)
+        imp_auth = dataconnect.Impersonation.authenticated(
+            {"sub": "authenticated-UUID"}
+        )
         options = dataconnect.GraphqlOptions(
             variables=valid_variables,
             operation_name="getUsers",
-            impersonate=dataconnect.Impersonation.authenticated({"sub": "authenticated-UUID"})
+            impersonate=imp_auth
         )
         payload = self.api_client._prepare_graphql_payload("query { hello }", options)
         assert payload == {
@@ -572,7 +604,7 @@ class TestDataConnectApiClientPrepareGraphqlPayload:
             "variables": {
                 "users": [
                     {
-                        "id": "1",
+                        "user_id": "1",
                         "name": "Fred",
                         "address": "123 Road"
                     }
@@ -606,7 +638,8 @@ class TestDataConnectApiClientServiceUrl:
 
     def test_get_firebase_dataconnect_service_url_emulator(self, monkeypatch):
         monkeypatch.setenv("DATA_CONNECT_EMULATOR_HOST", "localhost:9399")
-        url = self.api_client._get_firebase_dataconnect_service_url("executeGraphql")
+        api_client = dataconnect._DataConnectApiClient(BASE_CONFIG, self.app)
+        url = api_client._get_firebase_dataconnect_service_url("executeGraphql")
         expected = (
             "http://localhost:9399/v1"
             "/projects/test-project/locations/us-east4"

@@ -303,7 +303,7 @@ class TestTaskQueue:
         assert recorder[0].url == expected_url
 
     def test_enqueue_current_scope_env_vars_kit(self, monkeypatch):
-        monkeypatch.setenv('KIT_INSTANCE_ID', 'my-kit')
+        monkeypatch.setenv('FIREBASE_KIT_INSTANCE_ID', 'my-kit')
         expected_queue = 'kit-my-kit-test-function-name'
         response_payload = json.dumps({
             'name': (

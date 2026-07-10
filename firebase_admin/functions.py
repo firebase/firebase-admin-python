@@ -248,7 +248,7 @@ class TaskQueue:
         extension_or_kit_id = None
 
         if scope.type == 'current':
-            kit_instance_id = os.environ.get('KIT_INSTANCE_ID')
+            kit_instance_id = os.environ.get('FIREBASE_KIT_INSTANCE_ID')
             if kit_instance_id:
                 resource_id = f'kit-{kit_instance_id}-{resource_id}'
                 extension_or_kit_id = kit_instance_id

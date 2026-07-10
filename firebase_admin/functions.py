@@ -22,7 +22,7 @@ import os
 import warnings
 import json
 from base64 import b64encode
-from typing import Any, Optional, Dict, Union
+from typing import Any, Optional, Dict, Union, Tuple
 from dataclasses import dataclass
 
 from google.auth.compute_engine import Credentials as ComputeEngineCredentials
@@ -196,8 +196,11 @@ class _FunctionsService:
     @classmethod
     def handle_functions_error(cls, error: Any):
         """Handles errors received from the Cloud Functions API."""
-
         return _utils.handle_platform_error_from_requests(error)
+
+
+_WARNED_INSTANCES = set()
+
 
 class TaskQueue:
     """TaskQueue class that implements Firebase Cloud Tasks Queues functionality."""
@@ -239,7 +242,7 @@ class TaskQueue:
         self._resource.location_id = self._resource.location_id or _DEFAULT_LOCATION
         _Validators.check_non_empty_string('resource.resource_id', self._resource.resource_id)
 
-    def _resolve_resource(self, scope: FunctionScope) -> tuple[Resource, Optional[str]]:
+    def _resolve_resource(self, scope: FunctionScope) -> Tuple[Resource, Optional[str]]:
         """Resolves the Resource object and extension/kit ID based on the scope."""
         resource_id = self._resource.resource_id
         extension_or_kit_id = None
@@ -267,6 +270,10 @@ class TaskQueue:
 
     def _log_fallback_warning(self, function_name: str, instance: str) -> None:
         """Logs a warning when falling back from extension to kit."""
+        key = (function_name, instance)
+        if key in _WARNED_INSTANCES:
+            return
+        _WARNED_INSTANCES.add(key)
         warnings.warn(
             f"Targeting kit {instance} with the legacy extensions API, "
             "which has performance implications. Please change the call "
@@ -322,7 +329,6 @@ class TaskQueue:
                 resp = self._enqueue_with_scope(task_data, kit_scope, opts)
             except requests.exceptions.RequestException as retry_error:
                 raise _FunctionsService.handle_functions_error(retry_error)
-            self._scope = kit_scope
             self._log_fallback_warning(self._function_name, self._scope.instance_id)
             return resp
 
@@ -351,7 +357,6 @@ class TaskQueue:
                     self._delete_with_scope(task_id, kit_scope)
                 except requests.exceptions.RequestException as retry_error:
                     raise _FunctionsService.handle_functions_error(retry_error)
-                self._scope = kit_scope
                 self._log_fallback_warning(self._function_name, self._scope.instance_id)
                 return
 

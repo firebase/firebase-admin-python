@@ -385,12 +385,13 @@ class TestTaskQueue:
             recorder
         )
         functions_service._http_client.session.mount(_CLOUD_TASKS_URL, adapter)
+        functions._WARNED_INSTANCES.clear()
 
         queue = functions.task_queue('test-function-name', 'my-instance')
         with pytest.warns(UserWarning) as record:
             task_id = queue.enqueue(_DEFAULT_DATA)
         assert task_id == 'task-123'
-        assert queue._scope.type == 'kit'
+        assert queue._scope.type == 'extension_or_kit'
         assert len(record) == 1
         assert "Targeting kit my-instance with the legacy extensions API" in str(record[0].message)
         assert len(recorder) == 2
@@ -406,11 +407,12 @@ class TestTaskQueue:
             recorder
         )
         functions_service._http_client.session.mount(_CLOUD_TASKS_URL, adapter)
+        functions._WARNED_INSTANCES.clear()
 
         queue = functions.task_queue('test-function-name', 'my-instance')
         with pytest.warns(UserWarning) as record:
             queue.delete('task-123')
-        assert queue._scope.type == 'kit'
+        assert queue._scope.type == 'extension_or_kit'
         assert len(record) == 1
         assert "Targeting kit my-instance with the legacy extensions API" in str(record[0].message)
         assert len(recorder) == 2
@@ -436,6 +438,7 @@ class TestTaskQueue:
             recorder
         )
         functions_service._http_client.session.mount(_CLOUD_TASKS_URL, adapter)
+        functions._WARNED_INSTANCES.clear()
 
         queue = functions.task_queue('test-function-name', 'my-instance')
         with warnings.catch_warnings(record=True) as record:
@@ -456,6 +459,7 @@ class TestTaskQueue:
             recorder
         )
         functions_service._http_client.session.mount(_CLOUD_TASKS_URL, adapter)
+        functions._WARNED_INSTANCES.clear()
 
         queue = functions.task_queue('test-function-name', 'my-instance')
         with warnings.catch_warnings(record=True) as record:
@@ -476,6 +480,7 @@ class TestTaskQueue:
             recorder
         )
         functions_service._http_client.session.mount(_CLOUD_TASKS_URL, adapter)
+        functions._WARNED_INSTANCES.clear()
 
         queue = functions.task_queue('test-function-name', 'my-instance')
         with warnings.catch_warnings(record=True) as record:

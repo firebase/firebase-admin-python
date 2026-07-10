@@ -19,9 +19,10 @@ from datetime import datetime, timedelta, timezone
 from urllib import parse
 import re
 import os
+import warnings
 import json
 from base64 import b64encode
-from typing import Any, Optional, Dict
+from typing import Any, Optional, Dict, Union
 from dataclasses import dataclass
 
 from google.auth.compute_engine import Credentials as ComputeEngineCredentials
@@ -38,10 +39,51 @@ from firebase_admin import _utils
 _FUNCTIONS_ATTRIBUTE = '_functions'
 
 __all__ = [
+    'FunctionScope',
     'TaskOptions',
 
     'task_queue',
 ]
+
+
+class FunctionScope:
+    """Defines the scope of a function in a task queue."""
+
+    def __init__(self, type_: str, instance_id: Optional[str] = None):
+        if type_ not in (
+                'current', 'global', 'extension', 'kit', 'extension_or_kit'):
+            # "kit" is not released yet and "extension_or_kit" is an implementation detail,
+            # so they are not included in the public list of options.
+            raise ValueError(
+                'type_ must be one of "current", "global", or "extension".'
+            )
+        if type_ in ('extension', 'kit', 'extension_or_kit'):
+            if not isinstance(instance_id, str):
+                raise ValueError('instance_id must be a string.')
+            if instance_id == '':
+                raise ValueError('instance_id must be a non-empty string.')
+        else:
+            if instance_id is not None:
+                raise ValueError(
+                    f'instance_id must not be set for type "{type_}".'
+                )
+        self.type = type_
+        self.instance_id = instance_id
+
+    @classmethod
+    def current(cls):
+        """Creates a FunctionScope targeting the current extension or kit context."""
+        return cls("current")
+
+    @classmethod
+    def global_scope(cls):
+        """Creates a FunctionScope targeting a global function."""
+        return cls("global")
+
+    @classmethod
+    def extension(cls, extension_id: str):
+        """Creates a FunctionScope targeting a specific extension instance."""
+        return cls("extension", instance_id=extension_id)
 
 
 _CLOUD_TASKS_API_RESOURCE_PATH = \
@@ -77,8 +119,9 @@ def _get_functions_service(app) -> _FunctionsService:
 
 def task_queue(
         function_name: str,
-        extension_id: Optional[str] = None,
-        app: Optional[App] = None
+        scope: Optional[Union[str, FunctionScope]] = None,
+        app: Optional[App] = None,
+        **kwargs
     ) -> TaskQueue:
     """Creates a reference to a TaskQueue for a given function name.
 
@@ -96,8 +139,9 @@ def task_queue(
 
     Args:
         function_name: Name of the function.
-        extension_id: Firebase extension ID (optional).
+        scope: FunctionScope configuration or Firebase extension ID (optional).
         app: An App instance (optional).
+        **kwargs: Backwards-compatible parameters (e.g., extension_id).
 
     Returns:
         TaskQueue: A TaskQueue instance.
@@ -105,7 +149,21 @@ def task_queue(
     Raises:
         ValueError: If the input arguments are invalid.
     """
-    return _get_functions_service(app).task_queue(function_name, extension_id)
+    extension_id = kwargs.pop('extension_id', None)
+    if kwargs:
+        raise TypeError(f"task_queue() got an unexpected keyword argument '{next(iter(kwargs))}'")
+
+    if extension_id is not None:
+        if scope is not None:
+            raise ValueError('Cannot set both scope and extension_id.')
+        warnings.warn(
+            'extension_id is deprecated. Use scope instead.',
+            DeprecationWarning,
+            stacklevel=2
+        )
+        scope = extension_id
+
+    return _get_functions_service(app).task_queue(function_name, scope)
 
 class _FunctionsService:
     """Service class that implements Firebase Functions functionality."""
@@ -125,10 +183,14 @@ class _FunctionsService:
 
         self._http_client = _http_client.JsonHttpClient(credential=self._credential)
 
-    def task_queue(self, function_name: str, extension_id: Optional[str] = None) -> TaskQueue:
+    def task_queue(
+            self,
+            function_name: str,
+            scope: Optional[Union[str, FunctionScope]] = None
+        ) -> TaskQueue:
         """Creates a TaskQueue instance."""
         return TaskQueue(
-            function_name, extension_id, self._project_id, self._credential, self._http_client,
+            function_name, scope, self._project_id, self._credential, self._http_client,
             self._emulator_host)
 
     @classmethod
@@ -142,7 +204,7 @@ class TaskQueue:
     def __init__(
             self,
             function_name: str,
-            extension_id: Optional[str],
+            scope: Optional[Union[str, FunctionScope]],
             project_id,
             credential,
             http_client,
@@ -157,7 +219,18 @@ class TaskQueue:
         self._http_client = http_client
         self._emulator_host = emulator_host
         self._function_name = function_name
-        self._extension_id = extension_id
+
+        # Determine the scope
+        if scope is None:
+            self._scope = FunctionScope.current()
+        elif isinstance(scope, str):
+            _Validators.check_non_empty_string('scope', scope)
+            self._scope = FunctionScope('extension_or_kit', scope)
+        elif isinstance(scope, FunctionScope):
+            self._scope = scope
+        else:
+            raise ValueError('scope must be a string or a FunctionScope object.')
+
         # Parse resources from function_name
         self._resource = self._parse_resource_name(self._function_name, 'functions')
 
@@ -165,11 +238,59 @@ class TaskQueue:
         self._resource.project_id = self._resource.project_id or self._project_id
         self._resource.location_id = self._resource.location_id or _DEFAULT_LOCATION
         _Validators.check_non_empty_string('resource.resource_id', self._resource.resource_id)
-        # Validate extension_id if provided and edit resources depending
-        if self._extension_id is not None:
-            _Validators.check_non_empty_string('extension_id', self._extension_id)
-            self._resource.resource_id = f'ext-{self._extension_id}-{self._resource.resource_id}'
 
+    def _resolve_resource(self, scope: FunctionScope) -> tuple[Resource, Optional[str]]:
+        """Resolves the Resource object and extension/kit ID based on the scope."""
+        resource_id = self._resource.resource_id
+        extension_or_kit_id = None
+
+        if scope.type == 'current':
+            kit_instance_id = os.environ.get('KIT_INSTANCE_ID')
+            if kit_instance_id:
+                resource_id = f'kit-{kit_instance_id}-{resource_id}'
+                extension_or_kit_id = kit_instance_id
+        elif scope.type == 'global':
+            pass
+        elif scope.type in ('extension', 'extension_or_kit'):
+            resource_id = f'ext-{scope.instance_id}-{resource_id}'
+            extension_or_kit_id = scope.instance_id
+        elif scope.type == 'kit':
+            resource_id = f'kit-{scope.instance_id}-{resource_id}'
+            extension_or_kit_id = scope.instance_id
+
+        resolved = Resource(
+            resource_id=resource_id,
+            project_id=self._resource.project_id,
+            location_id=self._resource.location_id
+        )
+        return resolved, extension_or_kit_id
+
+    def _log_fallback_warning(self, function_name: str, instance: str) -> None:
+        """Logs a warning when falling back from extension to kit."""
+        warnings.warn(
+            f"Targeting kit {instance} with the legacy extensions API, "
+            "which has performance implications. Please change the call "
+            f"task_queue('{function_name}', '{instance}') to "
+            f"task_queue('{function_name}', FunctionScope('kit', '{instance}'))",
+            UserWarning,
+            stacklevel=3
+        )
+
+    def _parse_enqueue_response(self, resp: dict, resolved_resource: Resource) -> str:
+        """Parses the enqueue response to extract the task ID."""
+        if self._is_emulated():
+            # Emulator returns a response with format {task: {name: <task_name>}}
+            # The task name also has an extra '/' at the start compared to prod
+            task_info = resp.get('task') or {}
+            task_name = task_info.get('name')
+            if task_name:
+                task_name = task_name[1:]
+        else:
+            # Production returns a response with format {name: <task_name>}
+            task_name = resp.get('name')
+        task_resource = self._parse_resource_name(
+            task_name, f'queues/{resolved_resource.resource_id}/tasks')
+        return task_resource.resource_id
 
     def enqueue(self, task_data: Any, opts: Optional[TaskOptions] = None) -> str:
         """Creates a task and adds it to the queue. Tasks cannot be updated after creation.
@@ -188,10 +309,11 @@ class TaskQueue:
         Returns:
             str: The ID of the task relative to this queue.
         """
-        task = self._validate_task_options(task_data, self._resource, opts)
-        emulator_url = self._get_emulator_url(self._resource)
-        service_url = emulator_url or self._get_url(self._resource, _CLOUD_TASKS_API_URL_FORMAT)
-        task_payload = self._update_task_payload(task, self._resource, self._extension_id)
+        resolved_resource, ext_or_kit_id = self._resolve_resource(self._scope)
+        task = self._validate_task_options(task_data, resolved_resource, opts)
+        service_url = self._get_emulator_url(resolved_resource) or self._get_url(
+            resolved_resource, _CLOUD_TASKS_API_URL_FORMAT)
+        task_payload = self._update_task_payload(task, resolved_resource, ext_or_kit_id)
         try:
             resp = self._http_client.body(
                 'post',
@@ -199,21 +321,22 @@ class TaskQueue:
                 headers=_FUNCTIONS_HEADERS,
                 json={'task': task_payload.to_api_dict()}
             )
-            if self._is_emulated():
-                # Emulator returns a response with format {task: {name: <task_name>}}
-                # The task name also has an extra '/' at the start compared to prod
-                task_info = resp.get('task') or {}
-                task_name = task_info.get('name')
-                if task_name:
-                    task_name = task_name[1:]
-            else:
-                # Production returns a response with format {name: <task_name>}
-                task_name = resp.get('name')
-            task_resource = \
-                self._parse_resource_name(task_name, f'queues/{self._resource.resource_id}/tasks')
-            return task_resource.resource_id
+            return self._parse_enqueue_response(resp, resolved_resource)
         except requests.exceptions.RequestException as error:
-            raise _FunctionsService.handle_functions_error(error)
+            is_404 = error.response is not None and error.response.status_code == 404
+            if self._scope.type != 'extension_or_kit' or not is_404:
+                raise _FunctionsService.handle_functions_error(error)
+
+            # Upgrade scope to kit and retry recursively, rolling back if it throws
+            old_scope = self._scope
+            self._scope = FunctionScope('kit', self._scope.instance_id)
+            try:
+                resp = self.enqueue(task_data, opts)
+                self._log_fallback_warning(self._function_name, self._scope.instance_id)
+                return resp
+            except Exception:
+                self._scope = old_scope
+                raise
 
     def delete(self, task_id: str) -> None:
         """Deletes an enqueued task if it has not yet started.
@@ -229,11 +352,14 @@ class TaskQueue:
             ValueError: If the input arguments are invalid.
         """
         _Validators.check_non_empty_string('task_id', task_id)
-        emulator_url = self._get_emulator_url(self._resource)
+
+        resolved_resource, _ = self._resolve_resource(self._scope)
+        emulator_url = self._get_emulator_url(resolved_resource)
         if emulator_url:
             service_url = emulator_url + f'/{task_id}'
         else:
-            service_url = self._get_url(self._resource, _CLOUD_TASKS_API_URL_FORMAT + f'/{task_id}')
+            service_url = self._get_url(
+                resolved_resource, _CLOUD_TASKS_API_URL_FORMAT + f'/{task_id}')
         try:
             self._http_client.body(
                 'delete',
@@ -241,7 +367,19 @@ class TaskQueue:
                 headers=_FUNCTIONS_HEADERS,
             )
         except requests.exceptions.RequestException as error:
-            raise _FunctionsService.handle_functions_error(error)
+            is_404 = error.response is not None and error.response.status_code == 404
+            if not is_404:
+                raise _FunctionsService.handle_functions_error(error)
+
+            if self._scope.type == 'extension_or_kit':
+                old_scope = self._scope
+                self._scope = FunctionScope('kit', self._scope.instance_id)
+                try:
+                    self.delete(task_id)
+                    self._log_fallback_warning(self._function_name, self._scope.instance_id)
+                except Exception:
+                    self._scope = old_scope
+                    raise
 
 
     def _parse_resource_name(self, resource_name: str, resource_id_key: str) -> Resource:

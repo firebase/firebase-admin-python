@@ -17,6 +17,7 @@
 from datetime import datetime, timedelta, timezone
 import json
 import time
+import warnings
 import pytest
 
 import firebase_admin
@@ -97,19 +98,21 @@ class TestTaskQueue:
 
     def test_task_queue_extension_id(self):
         queue = functions.task_queue("test-function-name", "test-extension-id")
-        assert queue._resource.resource_id == 'ext-test-extension-id-test-function-name'
+        assert queue._scope.type == 'extension_or_kit'
+        assert queue._scope.instance_id == 'test-extension-id'
+        assert queue._resource.resource_id == 'test-function-name'
         assert queue._resource.project_id == 'test-project'
         assert queue._resource.location_id == 'us-central1'
 
     def test_task_queue_empty_extension_id_error(self):
         with pytest.raises(ValueError) as excinfo:
             functions.task_queue('test-function-name', '')
-        assert str(excinfo.value) == 'extension_id "" must be a non-empty string.'
+        assert str(excinfo.value) == 'scope "" must be a non-empty string.'
 
     def test_task_queue_non_string_extension_id_error(self):
         with pytest.raises(ValueError) as excinfo:
             functions.task_queue('test-function-name', 1234)
-        assert str(excinfo.value) == 'extension_id "1234" must be a string.'
+        assert str(excinfo.value) == 'scope must be a string or a FunctionScope object.'
 
 
     def test_task_enqueue(self):
@@ -261,6 +264,206 @@ class TestTaskQueue:
         with pytest.raises(ValueError) as excinfo:
             functions.task_queue('test-function-name', app=app)
         assert 'Invalid CLOUD_TASKS_EMULATOR_HOST' in str(excinfo.value)
+
+    def test_task_queue_with_scope_parameter(self):
+        scope = functions.FunctionScope.extension('my-ext')
+        queue = functions.task_queue('test-function-name', scope=scope)
+        assert queue._scope == scope
+
+    def test_task_queue_deprecation_warning(self):
+        with pytest.warns(DeprecationWarning) as record:
+            queue = functions.task_queue('test-function-name', extension_id='my-ext')
+        assert queue._scope.type == 'extension_or_kit'
+        assert queue._scope.instance_id == 'my-ext'
+        assert len(record) == 1
+        assert 'extension_id is deprecated. Use scope instead.' in str(record[0].message)
+
+    def test_enqueue_current_scope_default(self):
+        _, recorder = self._instrument_functions_service()
+        queue = functions.task_queue('test-function-name')
+        queue.enqueue(_DEFAULT_DATA)
+        assert len(recorder) == 1
+        expected_url = (
+            _CLOUD_TASKS_URL + 'projects/test-project/locations/us-central1/'
+            'queues/test-function-name/tasks'
+        )
+        assert recorder[0].url == expected_url
+
+    def test_enqueue_current_scope_env_vars_ext(self, monkeypatch):
+        # Python SDK does not handle EXT_INSTANCE_ID since no extensions use Python
+        monkeypatch.setenv('EXT_INSTANCE_ID', 'my-ext')
+        _, recorder = self._instrument_functions_service()
+        queue = functions.task_queue('test-function-name')
+        queue.enqueue(_DEFAULT_DATA)
+        assert len(recorder) == 1
+        expected_url = (
+            _CLOUD_TASKS_URL + 'projects/test-project/locations/us-central1/'
+            'queues/test-function-name/tasks'
+        )
+        assert recorder[0].url == expected_url
+
+    def test_enqueue_current_scope_env_vars_kit(self, monkeypatch):
+        monkeypatch.setenv('KIT_INSTANCE_ID', 'my-kit')
+        expected_queue = 'kit-my-kit-test-function-name'
+        response_payload = json.dumps({
+            'name': (
+                f'projects/test-project/locations/us-central1/'
+                f'queues/{expected_queue}/tasks/test-task-id'
+            )
+        })
+        _, recorder = self._instrument_functions_service(payload=response_payload)
+        queue = functions.task_queue('test-function-name')
+        queue.enqueue(_DEFAULT_DATA)
+        assert len(recorder) == 1
+        expected_url = (
+            _CLOUD_TASKS_URL + 'projects/test-project/locations/us-central1/'
+            f'queues/{expected_queue}/tasks'
+        )
+        assert recorder[0].url == expected_url
+
+    def test_enqueue_global_scope(self):
+        _, recorder = self._instrument_functions_service()
+        queue = functions.task_queue(
+            'test-function-name', scope=functions.FunctionScope.global_scope())
+        queue.enqueue(_DEFAULT_DATA)
+        assert len(recorder) == 1
+        expected_url = (
+            _CLOUD_TASKS_URL + 'projects/test-project/locations/us-central1/'
+            'queues/test-function-name/tasks'
+        )
+        assert recorder[0].url == expected_url
+
+    def test_enqueue_extension_scope(self):
+        expected_queue = 'ext-my-ext-test-function-name'
+        response_payload = json.dumps({
+            'name': (
+                f'projects/test-project/locations/us-central1/'
+                f'queues/{expected_queue}/tasks/test-task-id'
+            )
+        })
+        _, recorder = self._instrument_functions_service(payload=response_payload)
+        queue = functions.task_queue(
+            'test-function-name', scope=functions.FunctionScope.extension('my-ext'))
+        queue.enqueue(_DEFAULT_DATA)
+        assert len(recorder) == 1
+        expected_url = (
+            _CLOUD_TASKS_URL + 'projects/test-project/locations/us-central1/'
+            f'queues/{expected_queue}/tasks'
+        )
+        assert recorder[0].url == expected_url
+
+    def test_enqueue_kit_scope(self):
+        expected_queue = 'kit-my-kit-test-function-name'
+        response_payload = json.dumps({
+            'name': (
+                f'projects/test-project/locations/us-central1/'
+                f'queues/{expected_queue}/tasks/test-task-id'
+            )
+        })
+        _, recorder = self._instrument_functions_service(payload=response_payload)
+        queue = functions.task_queue(
+            'test-function-name', scope=functions.FunctionScope('kit', 'my-kit'))
+        queue.enqueue(_DEFAULT_DATA)
+        assert len(recorder) == 1
+        expected_url = (
+            _CLOUD_TASKS_URL + 'projects/test-project/locations/us-central1/'
+            f'queues/{expected_queue}/tasks'
+        )
+        assert recorder[0].url == expected_url
+
+    def test_enqueue_fallback_flow(self):
+        functions_service = functions._get_functions_service(firebase_admin.get_app())
+        recorder = []
+        task_name = (
+            'projects/test-project/locations/us-central1/queues/'
+            'kit-my-instance-test-function-name/tasks/task-123'
+        )
+        adapter = testutils.MockMultiRequestAdapter(
+            [json.dumps({'error': {'status': 'NOT_FOUND'}}),
+             json.dumps({'name': task_name})],
+            [404, 200],
+            recorder
+        )
+        functions_service._http_client.session.mount(_CLOUD_TASKS_URL, adapter)
+
+        queue = functions.task_queue('test-function-name', 'my-instance')
+        with pytest.warns(UserWarning) as record:
+            task_id = queue.enqueue(_DEFAULT_DATA)
+        assert task_id == 'task-123'
+        assert queue._scope.type == 'kit'
+        assert len(record) == 1
+        assert "Targeting kit my-instance with the legacy extensions API" in str(record[0].message)
+        assert len(recorder) == 2
+        assert 'ext-my-instance-test-function-name' in recorder[0].url
+        assert 'kit-my-instance-test-function-name' in recorder[1].url
+
+    def test_delete_fallback_flow(self):
+        functions_service = functions._get_functions_service(firebase_admin.get_app())
+        recorder = []
+        adapter = testutils.MockMultiRequestAdapter(
+            [json.dumps({'error': {'status': 'NOT_FOUND'}}), '{}'],
+            [404, 200],
+            recorder
+        )
+        functions_service._http_client.session.mount(_CLOUD_TASKS_URL, adapter)
+
+        queue = functions.task_queue('test-function-name', 'my-instance')
+        with pytest.warns(UserWarning) as record:
+            queue.delete('task-123')
+        assert queue._scope.type == 'kit'
+        assert len(record) == 1
+        assert "Targeting kit my-instance with the legacy extensions API" in str(record[0].message)
+        assert len(recorder) == 2
+        assert 'ext-my-instance-test-function-name/tasks/task-123' in recorder[0].url
+        assert 'kit-my-instance-test-function-name/tasks/task-123' in recorder[1].url
+
+    def test_delete_ignoring_404(self):
+        _, recorder = self._instrument_functions_service(
+            status=404, payload='{"error": {"status": "NOT_FOUND"}}')
+        queue = functions.task_queue(
+            'test-function-name', scope=functions.FunctionScope.global_scope())
+        queue.delete('task-123')
+        assert len(recorder) == 1
+
+    def test_enqueue_fallback_failure_reverts_scope(self):
+        functions_service = functions._get_functions_service(firebase_admin.get_app())
+        recorder = []
+        adapter = testutils.MockMultiRequestAdapter(
+            [json.dumps({'error': {'status': 'NOT_FOUND'}}),
+             json.dumps({'error': {'status': 'INTERNAL'}})],
+            [404, 500],
+            recorder
+        )
+        functions_service._http_client.session.mount(_CLOUD_TASKS_URL, adapter)
+
+        queue = functions.task_queue('test-function-name', 'my-instance')
+        with warnings.catch_warnings(record=True) as record:
+            warnings.simplefilter("always")
+            with pytest.raises(firebase_admin.exceptions.InternalError):
+                queue.enqueue(_DEFAULT_DATA)
+        assert queue._scope.type == 'extension_or_kit'
+        user_warnings = [w for w in record if issubclass(w.category, UserWarning)]
+        assert len(user_warnings) == 0
+
+    def test_delete_fallback_failure_reverts_scope(self):
+        functions_service = functions._get_functions_service(firebase_admin.get_app())
+        recorder = []
+        adapter = testutils.MockMultiRequestAdapter(
+            [json.dumps({'error': {'status': 'NOT_FOUND'}}),
+             json.dumps({'error': {'status': 'INTERNAL'}})],
+            [404, 500],
+            recorder
+        )
+        functions_service._http_client.session.mount(_CLOUD_TASKS_URL, adapter)
+
+        queue = functions.task_queue('test-function-name', 'my-instance')
+        with warnings.catch_warnings(record=True) as record:
+            warnings.simplefilter("always")
+            with pytest.raises(firebase_admin.exceptions.InternalError):
+                queue.delete('task-123')
+        assert queue._scope.type == 'extension_or_kit'
+        user_warnings = [w for w in record if issubclass(w.category, UserWarning)]
+        assert len(user_warnings) == 0
 
 class TestTaskQueueOptions:
 
@@ -431,3 +634,36 @@ class TestTaskQueueOptions:
         assert len(recorder) == 0
         assert str(excinfo.value) == \
             'uri must be a valid RFC3986 URI string using the https or http schema.'
+
+
+class TestFunctionScope:
+    def test_function_scope_current(self):
+        scope = functions.FunctionScope.current()
+        assert scope.type == 'current'
+        assert scope.instance_id is None
+
+    def test_function_scope_global(self):
+        scope = functions.FunctionScope.global_scope()
+        assert scope.type == 'global'
+        assert scope.instance_id is None
+
+    def test_function_scope_extension(self):
+        scope = functions.FunctionScope.extension('my-extension')
+        assert scope.type == 'extension'
+        assert scope.instance_id == 'my-extension'
+
+    def test_function_scope_constructor_kit(self):
+        scope = functions.FunctionScope('kit', 'my-kit')
+        assert scope.type == 'kit'
+        assert scope.instance_id == 'my-kit'
+
+    @pytest.mark.parametrize('invalid_id', [None, '', 123, []])
+    def test_function_scope_invalid(self, invalid_id):
+        with pytest.raises(ValueError):
+            functions.FunctionScope.extension(invalid_id)
+        with pytest.raises(ValueError):
+            functions.FunctionScope('kit', invalid_id)
+
+    def test_function_scope_invalid_type(self):
+        with pytest.raises(ValueError):
+            functions.FunctionScope('invalid-type')

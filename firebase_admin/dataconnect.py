@@ -34,7 +34,6 @@ __all__ = [
     'ExecuteGraphqlResponse',
 ]
 
-
 _DATA_CONNECT_ATTRIBUTE = '_data_connect'
 _DATA_CONNECT_PROD_URL = 'https://firebasedataconnect.googleapis.com'
 _API_VERSION = 'v1'
@@ -190,6 +189,7 @@ def _get_emulator_host() -> Optional[str]:
 
 class _DataConnectApiClient:
     """Internal client for sending requests to the Firebase Data Connect backend.
+
     Attributes:
         connector_config: The connector configuration specifying the service,
             location, and connector name.

@@ -248,8 +248,12 @@ class TaskQueue:
         extension_or_kit_id = None
 
         if scope.type == 'current':
+            ext_instance_id = os.environ.get('EXT_INSTANCE_ID')
             kit_instance_id = os.environ.get('FIREBASE_KIT_INSTANCE_ID')
-            if kit_instance_id:
+            if ext_instance_id:
+                resource_id = f'ext-{ext_instance_id}-{resource_id}'
+                extension_or_kit_id = ext_instance_id
+            elif kit_instance_id:
                 resource_id = f'kit-{kit_instance_id}-{resource_id}'
                 extension_or_kit_id = kit_instance_id
         elif scope.type == 'global':
@@ -278,7 +282,7 @@ class TaskQueue:
             f"Targeting kit {instance} with the legacy extensions API, "
             "which has performance implications. Please change the call "
             f"task_queue('{function_name}', '{instance}') to "
-            f"task_queue('{function_name}', FunctionScope('kit', '{instance}'))",
+            f"task_queue('{function_name}', functions.FunctionScope('kit', '{instance}'))",
             UserWarning,
             stacklevel=3
         )

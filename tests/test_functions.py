@@ -290,21 +290,47 @@ class TestTaskQueue:
         assert recorder[0].url == expected_url
 
     def test_enqueue_current_scope_env_vars_ext(self, monkeypatch):
-        # Python SDK does not handle EXT_INSTANCE_ID since no extensions use Python
         monkeypatch.setenv('EXT_INSTANCE_ID', 'my-ext')
-        _, recorder = self._instrument_functions_service()
+        expected_queue = 'ext-my-ext-test-function-name'
+        response_payload = json.dumps({
+            'name': (
+                f'projects/test-project/locations/us-central1/'
+                f'queues/{expected_queue}/tasks/test-task-id'
+            )
+        })
+        _, recorder = self._instrument_functions_service(payload=response_payload)
         queue = functions.task_queue('test-function-name')
         queue.enqueue(_DEFAULT_DATA)
         assert len(recorder) == 1
         expected_url = (
             _CLOUD_TASKS_URL + 'projects/test-project/locations/us-central1/'
-            'queues/test-function-name/tasks'
+            f'queues/{expected_queue}/tasks'
         )
         assert recorder[0].url == expected_url
 
     def test_enqueue_current_scope_env_vars_kit(self, monkeypatch):
         monkeypatch.setenv('FIREBASE_KIT_INSTANCE_ID', 'my-kit')
         expected_queue = 'kit-my-kit-test-function-name'
+        response_payload = json.dumps({
+            'name': (
+                f'projects/test-project/locations/us-central1/'
+                f'queues/{expected_queue}/tasks/test-task-id'
+            )
+        })
+        _, recorder = self._instrument_functions_service(payload=response_payload)
+        queue = functions.task_queue('test-function-name')
+        queue.enqueue(_DEFAULT_DATA)
+        assert len(recorder) == 1
+        expected_url = (
+            _CLOUD_TASKS_URL + 'projects/test-project/locations/us-central1/'
+            f'queues/{expected_queue}/tasks'
+        )
+        assert recorder[0].url == expected_url
+
+    def test_enqueue_current_scope_env_vars_precedence(self, monkeypatch):
+        monkeypatch.setenv('EXT_INSTANCE_ID', 'my-ext')
+        monkeypatch.setenv('FIREBASE_KIT_INSTANCE_ID', 'my-kit')
+        expected_queue = 'ext-my-ext-test-function-name'
         response_payload = json.dumps({
             'name': (
                 f'projects/test-project/locations/us-central1/'
@@ -392,8 +418,8 @@ class TestTaskQueue:
             task_id = queue.enqueue(_DEFAULT_DATA)
         assert task_id == 'task-123'
         assert queue._scope.type == 'extension_or_kit'
-        assert len(record) == 1
         assert "Targeting kit my-instance with the legacy extensions API" in str(record[0].message)
+        assert "functions.FunctionScope('kit', 'my-instance')" in str(record[0].message)
         assert len(recorder) == 2
         assert 'ext-my-instance-test-function-name' in recorder[0].url
         assert 'kit-my-instance-test-function-name' in recorder[1].url
@@ -415,6 +441,7 @@ class TestTaskQueue:
         assert queue._scope.type == 'extension_or_kit'
         assert len(record) == 1
         assert "Targeting kit my-instance with the legacy extensions API" in str(record[0].message)
+        assert "functions.FunctionScope('kit', 'my-instance')" in str(record[0].message)
         assert len(recorder) == 2
         assert 'ext-my-instance-test-function-name/tasks/task-123' in recorder[0].url
         assert 'kit-my-instance-test-function-name/tasks/task-123' in recorder[1].url

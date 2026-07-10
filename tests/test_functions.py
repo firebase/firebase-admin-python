@@ -417,12 +417,13 @@ class TestTaskQueue:
         assert 'ext-my-instance-test-function-name/tasks/task-123' in recorder[0].url
         assert 'kit-my-instance-test-function-name/tasks/task-123' in recorder[1].url
 
-    def test_delete_ignoring_404(self):
+    def test_delete_propagates_404(self):
         _, recorder = self._instrument_functions_service(
             status=404, payload='{"error": {"status": "NOT_FOUND"}}')
         queue = functions.task_queue(
             'test-function-name', scope=functions.FunctionScope.global_scope())
-        queue.delete('task-123')
+        with pytest.raises(firebase_admin.exceptions.NotFoundError):
+            queue.delete('task-123')
         assert len(recorder) == 1
 
     def test_enqueue_fallback_failure_reverts_scope(self):
@@ -460,6 +461,26 @@ class TestTaskQueue:
         with warnings.catch_warnings(record=True) as record:
             warnings.simplefilter("always")
             with pytest.raises(firebase_admin.exceptions.InternalError):
+                queue.delete('task-123')
+        assert queue._scope.type == 'extension_or_kit'
+        user_warnings = [w for w in record if issubclass(w.category, UserWarning)]
+        assert len(user_warnings) == 0
+
+    def test_delete_fallback_failure_reverts_scope_on_404(self):
+        functions_service = functions._get_functions_service(firebase_admin.get_app())
+        recorder = []
+        adapter = testutils.MockMultiRequestAdapter(
+            [json.dumps({'error': {'status': 'NOT_FOUND'}}),
+             json.dumps({'error': {'status': 'NOT_FOUND'}})],
+            [404, 404],
+            recorder
+        )
+        functions_service._http_client.session.mount(_CLOUD_TASKS_URL, adapter)
+
+        queue = functions.task_queue('test-function-name', 'my-instance')
+        with warnings.catch_warnings(record=True) as record:
+            warnings.simplefilter("always")
+            with pytest.raises(firebase_admin.exceptions.NotFoundError):
                 queue.delete('task-123')
         assert queue._scope.type == 'extension_or_kit'
         user_warnings = [w for w in record if issubclass(w.category, UserWarning)]

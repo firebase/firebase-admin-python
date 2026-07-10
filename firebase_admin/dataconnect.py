@@ -21,7 +21,7 @@ Firebase apps.
 import os
 from dataclasses import dataclass, asdict, is_dataclass
 from typing import Any, Dict, Generic, Optional, TypeVar
-
+import firebase_admin
 from firebase_admin import _utils, _http_client, App
 
 
@@ -315,3 +315,10 @@ class _DataConnectApiClient:
             service_id=service_id,
             endpoint_id=method_name
         )
+
+    def _get_headers(self) -> Dict[str, str]:
+        """Build and return the headers for a Firebase Data Connect API call."""
+        return{
+            "X-Firebase-Client": f"fire-admin-python/{firebase_admin.__version__}",
+            "x-goog-api-client": _utils.get_metrics_header(),
+        }

@@ -646,3 +646,23 @@ class TestDataConnectApiClientServiceUrl:
             "/services/starterproject:executeGraphql"
         )
         assert url == expected
+
+
+class TestDataConnectApiClientGetHeaders:
+    
+    def setup_method(self):
+        self.cred = testutils.MockCredential()
+        self.app = firebase_admin.initialize_app(
+            self.cred, options={'projectId': 'test-project'}
+        )
+        self.api_client = dataconnect._DataConnectApiClient(BASE_CONFIG, self.app)
+   
+    def teardown_method(self, method):
+        del method
+        testutils.cleanup_apps()
+    
+    def test_get_headers(self):
+        headers = self.api_client._get_headers()
+        assert isinstance(headers, dict)
+        assert headers.get("X-Firebase-Client") == f"fire-admin-python/{firebase_admin.__version__}"
+        assert headers.get("x-goog-api-client") == _utils.get_metrics_header()

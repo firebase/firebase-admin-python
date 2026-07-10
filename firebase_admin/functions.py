@@ -309,34 +309,22 @@ class TaskQueue:
         Returns:
             str: The ID of the task relative to this queue.
         """
-        resolved_resource, ext_or_kit_id = self._resolve_resource(self._scope)
-        task = self._validate_task_options(task_data, resolved_resource, opts)
-        service_url = self._get_emulator_url(resolved_resource) or self._get_url(
-            resolved_resource, _CLOUD_TASKS_API_URL_FORMAT)
-        task_payload = self._update_task_payload(task, resolved_resource, ext_or_kit_id)
         try:
-            resp = self._http_client.body(
-                'post',
-                url=service_url,
-                headers=_FUNCTIONS_HEADERS,
-                json={'task': task_payload.to_api_dict()}
-            )
-            return self._parse_enqueue_response(resp, resolved_resource)
+            return self._enqueue_with_scope(task_data, self._scope, opts)
         except requests.exceptions.RequestException as error:
             is_404 = error.response is not None and error.response.status_code == 404
             if self._scope.type != 'extension_or_kit' or not is_404:
                 raise _FunctionsService.handle_functions_error(error)
 
-            # Upgrade scope to kit and retry recursively, rolling back if it throws
-            old_scope = self._scope
-            self._scope = FunctionScope('kit', self._scope.instance_id)
+            # Retry with kit scope
+            kit_scope = FunctionScope('kit', self._scope.instance_id)
             try:
-                resp = self.enqueue(task_data, opts)
-                self._log_fallback_warning(self._function_name, self._scope.instance_id)
-                return resp
-            except Exception:
-                self._scope = old_scope
-                raise
+                resp = self._enqueue_with_scope(task_data, kit_scope, opts)
+            except requests.exceptions.RequestException as retry_error:
+                raise _FunctionsService.handle_functions_error(retry_error)
+            self._scope = kit_scope
+            self._log_fallback_warning(self._function_name, self._scope.instance_id)
+            return resp
 
     def delete(self, task_id: str) -> None:
         """Deletes an enqueued task if it has not yet started.
@@ -352,34 +340,61 @@ class TaskQueue:
             ValueError: If the input arguments are invalid.
         """
         _Validators.check_non_empty_string('task_id', task_id)
-
-        resolved_resource, _ = self._resolve_resource(self._scope)
-        emulator_url = self._get_emulator_url(resolved_resource)
-        if emulator_url:
-            service_url = emulator_url + f'/{task_id}'
-        else:
-            service_url = self._get_url(
-                resolved_resource, _CLOUD_TASKS_API_URL_FORMAT + f'/{task_id}')
         try:
-            self._http_client.body(
-                'delete',
-                url=service_url,
-                headers=_FUNCTIONS_HEADERS,
-            )
+            self._delete_with_scope(task_id, self._scope)
         except requests.exceptions.RequestException as error:
             is_404 = error.response is not None and error.response.status_code == 404
             if not is_404:
                 raise _FunctionsService.handle_functions_error(error)
 
             if self._scope.type == 'extension_or_kit':
-                old_scope = self._scope
-                self._scope = FunctionScope('kit', self._scope.instance_id)
+                kit_scope = FunctionScope('kit', self._scope.instance_id)
                 try:
-                    self.delete(task_id)
-                    self._log_fallback_warning(self._function_name, self._scope.instance_id)
-                except Exception:
-                    self._scope = old_scope
-                    raise
+                    self._delete_with_scope(task_id, kit_scope)
+                except requests.exceptions.RequestException as retry_error:
+                    is_retry_404 = (
+                        retry_error.response is not None
+                        and retry_error.response.status_code == 404
+                    )
+                    if not is_retry_404:
+                        raise _FunctionsService.handle_functions_error(retry_error)
+                self._scope = kit_scope
+                self._log_fallback_warning(self._function_name, self._scope.instance_id)
+
+    def _enqueue_with_scope(
+            self,
+            task_data: Any,
+            scope: FunctionScope,
+            opts: Optional[TaskOptions] = None
+        ) -> str:
+        """Enqueues a task using a specific FunctionScope."""
+        resolved_resource, ext_or_kit_id = self._resolve_resource(scope)
+        task = self._validate_task_options(task_data, resolved_resource, opts)
+        service_url = self._get_emulator_url(resolved_resource) or self._get_url(
+            resolved_resource, _CLOUD_TASKS_API_URL_FORMAT)
+        task_payload = self._update_task_payload(task, resolved_resource, ext_or_kit_id)
+        resp = self._http_client.body(
+            'post',
+            url=service_url,
+            headers=_FUNCTIONS_HEADERS,
+            json={'task': task_payload.to_api_dict()}
+        )
+        return self._parse_enqueue_response(resp, resolved_resource)
+
+    def _delete_with_scope(self, task_id: str, scope: FunctionScope) -> None:
+        """Deletes a task using a specific FunctionScope."""
+        resolved_resource, _ = self._resolve_resource(scope)
+        emulator_url = self._get_emulator_url(resolved_resource)
+        if emulator_url:
+            service_url = emulator_url + f'/{task_id}'
+        else:
+            service_url = self._get_url(
+                resolved_resource, _CLOUD_TASKS_API_URL_FORMAT + f'/{task_id}')
+        self._http_client.body(
+            'delete',
+            url=service_url,
+            headers=_FUNCTIONS_HEADERS,
+        )
 
 
     def _parse_resource_name(self, resource_name: str, resource_id_key: str) -> Resource:

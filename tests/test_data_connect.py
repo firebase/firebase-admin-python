@@ -649,18 +649,18 @@ class TestDataConnectApiClientServiceUrl:
 
 
 class TestDataConnectApiClientGetHeaders:
-    
+
     def setup_method(self):
         self.cred = testutils.MockCredential()
         self.app = firebase_admin.initialize_app(
             self.cred, options={'projectId': 'test-project'}
         )
         self.api_client = dataconnect._DataConnectApiClient(BASE_CONFIG, self.app)
-   
+
     def teardown_method(self, method):
         del method
         testutils.cleanup_apps()
-    
+
     def test_get_headers(self):
         headers = self.api_client._get_headers()
         assert isinstance(headers, dict)

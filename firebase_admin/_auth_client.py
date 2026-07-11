@@ -500,6 +500,31 @@ class Client:
         return self._user_manager.generate_email_action_link(
             'EMAIL_SIGNIN', email, action_code_settings=action_code_settings)
 
+    def generate_verify_and_change_email_link(self, email, new_email, action_code_settings=None):
+        """Generates the out-of-band email action link for email verification and change flows for
+        the specified email address.
+
+        Args:
+            email: The current email of the user.
+            new_email: The new email address of the user to be verified.
+            action_code_settings: ``ActionCodeSettings`` instance (optional). Defines whether
+                the link is to be handled by a mobile app and the additional state information to
+                be passed in the deep link.
+
+        Returns:
+            str: The email verification and change link created by the API
+
+        Raises:
+            ValueError: If the provided arguments are invalid
+            FirebaseError: If an error occurs while generating the link
+        """
+        return self._user_manager.generate_email_action_link(
+            "VERIFY_AND_CHANGE_EMAIL",
+            email,
+            action_code_settings=action_code_settings,
+            new_email=new_email,
+        )
+
     def get_oidc_provider_config(self, provider_id):
         """Returns the ``OIDCProviderConfig`` with the given ID.
 

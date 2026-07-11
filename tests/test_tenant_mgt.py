@@ -754,6 +754,24 @@ class TestTenantAwareUserManagement:
             'continueUrl': 'http://localhost',
         })
 
+    def test_generate_verify_and_change_email_link(self, tenant_mgt_app):
+        client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
+        recorder = _instrument_user_mgt(client, 200, '{"oobLink":"https://testlink"}')
+        settings = auth.ActionCodeSettings(url='http://localhost')
+
+        link = client.generate_verify_and_change_email_link(
+            "test@test.com", "new@test.com", settings
+        )
+
+        assert link == 'https://testlink'
+        self._assert_request(recorder, '/accounts:sendOobCode', {
+            'email': 'test@test.com',
+            'newEmail': 'new@test.com',
+            'requestType': 'VERIFY_AND_CHANGE_EMAIL',
+            'returnOobLink': True,
+            'continueUrl': 'http://localhost',
+        })
+
     def test_get_oidc_provider_config(self, tenant_mgt_app):
         client = tenant_mgt.auth_for_tenant('tenant-id', app=tenant_mgt_app)
         recorder = _instrument_provider_mgt(client, 200, OIDC_PROVIDER_CONFIG_RESPONSE)

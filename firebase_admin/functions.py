@@ -354,17 +354,16 @@ class TaskQueue:
             self._delete_with_scope(task_id, self._scope)
         except requests.exceptions.RequestException as error:
             is_404 = error.response is not None and error.response.status_code == 404
-            if self._scope.type == 'extension_or_kit' and is_404:
-                # Retry with kit scope
-                kit_scope = FunctionScope('kit', self._scope.instance_id)
-                try:
-                    self._delete_with_scope(task_id, kit_scope)
-                except requests.exceptions.RequestException as retry_error:
-                    raise _FunctionsService.handle_functions_error(retry_error)
-                self._log_fallback_warning(self._function_name, self._scope.instance_id)
-                return
+            if self._scope.type != 'extension_or_kit' or not is_404:
+                raise _FunctionsService.handle_functions_error(error)
 
-            raise _FunctionsService.handle_functions_error(error)
+            # Retry with kit scope
+            kit_scope = FunctionScope('kit', self._scope.instance_id)
+            try:
+                self._delete_with_scope(task_id, kit_scope)
+            except requests.exceptions.RequestException as retry_error:
+                raise _FunctionsService.handle_functions_error(retry_error)
+            self._log_fallback_warning(self._function_name, self._scope.instance_id)
 
     def _enqueue_with_scope(
             self,

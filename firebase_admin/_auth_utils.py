@@ -81,6 +81,8 @@ def get_emulator_host():
 
 def get_tenant_emulator_host():
     emulator_host = os.getenv(TENANT_EMULATOR_HOST_ENV_VAR, '')
+    if not emulator_host:
+        emulator_host = get_emulator_host()
     if emulator_host and '//' in emulator_host:
         raise ValueError(
             f'Invalid {TENANT_EMULATOR_HOST_ENV_VAR}: "{emulator_host}". '

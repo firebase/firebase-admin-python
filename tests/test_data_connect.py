@@ -399,8 +399,8 @@ class TestDataConnectApiClientValidateGraphqlOptions:
         # Valid with no options
         self.api_client._validate_graphql_options(None)
 
-        # Valid with options
-        options = dataconnect.GraphqlOptions(variables={"foo": "bar"})
+        # Valid with default options (no arguments)
+        options = dataconnect.GraphqlOptions()
         self.api_client._validate_graphql_options(options)
 
     def test_validate_graphql_options_valid_impersonate(self):
@@ -416,21 +416,28 @@ class TestDataConnectApiClientValidateGraphqlOptions:
         options = dataconnect.GraphqlOptions(impersonate=imp_auth)
         self.api_client._validate_graphql_options(options)
 
-    def test_validate_graphql_options_valid_variables(self):
+    def test_validate_graphql_options_valid_dataclass_variables(self):
         @dataclass
-        class User:
+        class UserProfile:
+            address: str
+            phone: str
+
+        @dataclass
+        class CreateUserVariables:
             user_id: str
             name: str
-            address: str
+            profile: UserProfile
 
-        @dataclass
-        class UsersResponse:
-            users: list[User]
-
-        users_val = [User(user_id="1", name="Fred", address="123 Road")]
-        valid_variables = UsersResponse(users=users_val)
+        profile_val = UserProfile(address="123 Road", phone="332-3233-0199")
+        valid_variables = CreateUserVariables(
+            user_id="1", name="Fred", profile=profile_val
+        )
         options = dataconnect.GraphqlOptions(variables=valid_variables)
-        self.api_client._validate_graphql_options(options, UsersResponse)
+        self.api_client._validate_graphql_options(options, CreateUserVariables)
+
+    def test_validate_graphql_options_valid_mapping_variables(self):
+        options = dataconnect.GraphqlOptions(variables={"user_id": "1", "name": "Fred"})
+        self.api_client._validate_graphql_options(options)
 
     def test_validate_graphql_options_invalid_options(self):
         with pytest.raises(ValueError, match="options must be a GraphqlOptions instance"):
@@ -490,18 +497,26 @@ class TestDataConnectApiClientValidateGraphqlOptions:
 
     def test_validate_graphql_options_invalid_variables(self):
         @dataclass
-        class User:
-            user_id: str
-            name: str
+        class UserProfile:
             address: str
+            phone: str
 
         @dataclass
-        class UsersResponse:
-            users: list[User]
+        class CreateUserVariables:
+            user_id: str
+            name: str
+            profile: UserProfile
 
-        options = dataconnect.GraphqlOptions(variables="not-users-response")
-        with pytest.raises(ValueError, match="variables must be of type UsersResponse"):
-            self.api_client._validate_graphql_options(options, UsersResponse)
+        # Test invalid variable format (not Mapping or dataclass)
+        options = dataconnect.GraphqlOptions(variables="invalid-string-format")
+        msg = "variables must be a collections.abc.Mapping or a dataclass"
+        with pytest.raises(ValueError, match=msg):
+            self.api_client._validate_graphql_options(options)
+
+        # Test valid Mapping format but type mismatch against expected dataclass type
+        options = dataconnect.GraphqlOptions(variables={"foo": "bar"})
+        with pytest.raises(ValueError, match="variables must be of type CreateUserVariables"):
+            self.api_client._validate_graphql_options(options, CreateUserVariables)
 
 
 class TestDataConnectApiClientPrepareGraphqlPayload:
@@ -529,29 +544,31 @@ class TestDataConnectApiClientPrepareGraphqlPayload:
 
     def test_prepare_graphql_payload_with_dataclass_variables(self):
         @dataclass
-        class User:
-            user_id: str
-            name: str
+        class UserProfile:
             address: str
+            phone: str
 
         @dataclass
-        class UsersResponse:
-            users: list[User]
+        class CreateUserVariables:
+            user_id: str
+            name: str
+            profile: UserProfile
 
-        users_val = [User(user_id="1", name="Fred", address="123 Road")]
-        valid_variables = UsersResponse(users=users_val)
+        profile_val = UserProfile(address="123 Road", phone="332-3233-0199")
+        valid_variables = CreateUserVariables(
+            user_id="1", name="Fred", profile=profile_val
+        )
         options = dataconnect.GraphqlOptions(variables=valid_variables)
         payload = self.api_client._prepare_graphql_payload("query { hello }", options)
         assert payload == {
             "query": "query { hello }",
             "variables": {
-                "users": [
-                    {
-                        "user_id": "1",
-                        "name": "Fred",
-                        "address": "123 Road"
-                    }
-                ]
+                "user_id": "1",
+                "name": "Fred",
+                "profile": {
+                    "address": "123 Road",
+                    "phone": "332-3233-0199"
+                }
             }
         }
 
@@ -589,17 +606,20 @@ class TestDataConnectApiClientPrepareGraphqlPayload:
 
     def test_prepare_graphql_payload_with_all_fields(self):
         @dataclass
-        class User:
-            user_id: str
-            name: str
+        class UserProfile:
             address: str
+            phone: str
 
         @dataclass
-        class UsersResponse:
-            users: list[User]
+        class CreateUserVariables:
+            user_id: str
+            name: str
+            profile: UserProfile
 
-        users_val = [User(user_id="1", name="Fred", address="123 Road")]
-        valid_variables = UsersResponse(users=users_val)
+        profile_val = UserProfile(address="123 Road", phone="332-3233-0199")
+        valid_variables = CreateUserVariables(
+            user_id="1", name="Fred", profile=profile_val
+        )
         imp_auth = dataconnect.Impersonation.authenticated(
             {"sub": "authenticated-UUID"}
         )
@@ -613,13 +633,12 @@ class TestDataConnectApiClientPrepareGraphqlPayload:
             "query": "query { hello }",
             "operationName": "getUsers",
             "variables": {
-                "users": [
-                    {
-                        "user_id": "1",
-                        "name": "Fred",
-                        "address": "123 Road"
-                    }
-                ]
+                "user_id": "1",
+                "name": "Fred",
+                "profile": {
+                    "address": "123 Road",
+                    "phone": "332-3233-0199"
+                }
             },
             "extensions": {
                 "impersonate": {"authClaims": {"sub": "authenticated-UUID"}}

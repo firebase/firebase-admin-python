@@ -346,7 +346,7 @@ class TestDataConnectApiClientConstructor:
 
     def test_constructor_invalid_app(self):
         msg = (
-            "First argument passed to DataConnectApiClient must be a valid "
+            "Second argument passed to DataConnectApiClient must be a valid "
             "Firebase app instance."
         )
         with pytest.raises(ValueError, match=msg):
@@ -375,8 +375,14 @@ class TestDataConnectApiClientConstructor:
         api_client = dataconnect._DataConnectApiClient(BASE_CONFIG, app)
         assert api_client._connector_config is BASE_CONFIG
 
+    def test_constructor_emulator_host_invalid(self, monkeypatch):
+        monkeypatch.setenv("DATA_CONNECT_EMULATOR_HOST", "http://localhost:9399")
+        app = firebase_admin.initialize_app(self.cred, options={'projectId': 'test-project'})
+        with pytest.raises(ValueError, match="Invalid DATA_CONNECT_EMULATOR_HOST"):
+            dataconnect._DataConnectApiClient(BASE_CONFIG, app)
 
-class TestDataConnectApiClientValidateInputs:
+
+class TestDataConnectApiClientValidateGraphqlOptions:
 
     def setup_method(self):
         self.cred = testutils.MockCredential()
@@ -389,29 +395,28 @@ class TestDataConnectApiClientValidateInputs:
         del method
         testutils.cleanup_apps()
 
-    def test_validate_inputs_valid(self):
-        # Valid query, no options
-        self.api_client._validate_inputs("query { hello }", None)
+    def test_validate_graphql_options_valid(self):
+        # Valid with no options
+        self.api_client._validate_graphql_options(None)
 
-        # Valid query, valid options
+        # Valid with options
         options = dataconnect.GraphqlOptions(variables={"foo": "bar"})
-        self.api_client._validate_inputs("query { hello }", options)
+        self.api_client._validate_graphql_options(options)
 
-    def test_validate_inputs_valid_impersonate(self):
+    def test_validate_graphql_options_valid_impersonate(self):
         # Valid unauthenticated impersonation
         imp_unauth = dataconnect.Impersonation.unauthenticated()
         options = dataconnect.GraphqlOptions(impersonate=imp_unauth)
-        self.api_client._validate_inputs("query { hello }", options)
+        self.api_client._validate_graphql_options(options)
 
         # Valid authenticated impersonation
         imp_auth = dataconnect.Impersonation.authenticated(
             {"sub": "authenticated-UUID"}
         )
         options = dataconnect.GraphqlOptions(impersonate=imp_auth)
-        self.api_client._validate_inputs("query { hello }", options)
+        self.api_client._validate_graphql_options(options)
 
-
-    def test_validate_inputs_valid_variables(self):
+    def test_validate_graphql_options_valid_variables(self):
         @dataclass
         class User:
             user_id: str
@@ -425,30 +430,17 @@ class TestDataConnectApiClientValidateInputs:
         users_val = [User(user_id="1", name="Fred", address="123 Road")]
         valid_variables = UsersResponse(users=users_val)
         options = dataconnect.GraphqlOptions(variables=valid_variables)
-        self.api_client._validate_inputs("query { hello }", options, UsersResponse)
+        self.api_client._validate_graphql_options(options, UsersResponse)
 
-    def test_validate_inputs_invalid_query_type(self):
-
-        with pytest.raises(ValueError, match="query must be a non-empty string"):
-            self.api_client._validate_inputs(None, None)
-        with pytest.raises(ValueError, match="query must be a non-empty string"):
-            self.api_client._validate_inputs(123, None)
-
-    def test_validate_inputs_empty_query(self):
-        with pytest.raises(ValueError, match="query must be a non-empty string"):
-            self.api_client._validate_inputs("", None)
-        with pytest.raises(ValueError, match="query must be a non-empty string"):
-            self.api_client._validate_inputs("   ", None)
-
-    def test_validate_inputs_invalid_options(self):
+    def test_validate_graphql_options_invalid_options(self):
         with pytest.raises(ValueError, match="options must be a GraphqlOptions instance"):
-            self.api_client._validate_inputs("query { hello }", "invalid-options")
+            self.api_client._validate_graphql_options("invalid-options")
 
-    def test_validate_inputs_invalid_impersonate(self):
+    def test_validate_graphql_options_invalid_impersonate(self):
         # impersonate must be dict
         options = dataconnect.GraphqlOptions(impersonate="invalid")
         with pytest.raises(ValueError, match="impersonate option must be a dictionary"):
-            self.api_client._validate_inputs("query { hello }", options)
+            self.api_client._validate_graphql_options(options)
 
         # impersonate must have either unauthenticated or authClaims
         options = dataconnect.GraphqlOptions(impersonate={"invalid_key": True})
@@ -457,27 +449,46 @@ class TestDataConnectApiClientValidateInputs:
             "'unauthenticated' or 'authClaims'"
         )
         with pytest.raises(ValueError, match=msg):
-            self.api_client._validate_inputs("query { hello }", options)
+            self.api_client._validate_graphql_options(options)
 
         # unauthenticated must be boolean
         options = dataconnect.GraphqlOptions(impersonate={"unauthenticated": "not-bool"})
         with pytest.raises(ValueError, match="'unauthenticated' claim must be a boolean"):
-            self.api_client._validate_inputs("query { hello }", options)
+            self.api_client._validate_graphql_options(options)
 
         # authClaims must be a dict
         options = dataconnect.GraphqlOptions(impersonate={"authClaims": "not-dict"})
         with pytest.raises(ValueError, match="'authClaims' claim must be a dictionary"):
-            self.api_client._validate_inputs("query { hello }", options)
+            self.api_client._validate_graphql_options(options)
 
-    def test_validate_inputs_invalid_operation_name(self):
+        # impersonate cannot contain both unauthenticated and authClaims
+        options = dataconnect.GraphqlOptions(
+            impersonate={"unauthenticated": True, "authClaims": {"uid": "123"}}
+        )
+        msg = (
+            "impersonate option cannot contain both "
+            "'unauthenticated' and 'authClaims'"
+        )
+        with pytest.raises(ValueError, match=msg):
+            self.api_client._validate_graphql_options(options)
+
+    def test_validate_graphql_options_invalid_operation_name(self):
+        # Test type validation
         options = dataconnect.GraphqlOptions(operation_name=123)
-        with pytest.raises(ValueError, match="operation_name must be a non-empty string"):
-            self.api_client._validate_inputs("query { hello }", options)
+        with pytest.raises(ValueError, match="operation_name must be a string"):
+            self.api_client._validate_graphql_options(options)
+
+        # Test empty string validation
         options = dataconnect.GraphqlOptions(operation_name="")
         with pytest.raises(ValueError, match="operation_name must be a non-empty string"):
-            self.api_client._validate_inputs("query { hello }", options)
+            self.api_client._validate_graphql_options(options)
 
-    def test_validate_inputs_invalid_variables(self):
+        # Test stripped whitespace validation
+        options = dataconnect.GraphqlOptions(operation_name="   ")
+        with pytest.raises(ValueError, match="operation_name must be a non-empty string"):
+            self.api_client._validate_graphql_options(options)
+
+    def test_validate_graphql_options_invalid_variables(self):
         @dataclass
         class User:
             user_id: str
@@ -490,7 +501,7 @@ class TestDataConnectApiClientValidateInputs:
 
         options = dataconnect.GraphqlOptions(variables="not-users-response")
         with pytest.raises(ValueError, match="variables must be of type UsersResponse"):
-            self.api_client._validate_inputs("query { hello }", options, UsersResponse)
+            self.api_client._validate_graphql_options(options, UsersResponse)
 
 
 class TestDataConnectApiClientPrepareGraphqlPayload:

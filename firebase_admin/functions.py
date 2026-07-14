@@ -18,7 +18,6 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from urllib import parse
 import re
-import os
 import json
 from base64 import b64encode
 from typing import Any, Optional, Dict
@@ -62,14 +61,7 @@ _FUNCTIONS_HEADERS = {
 _DEFAULT_LOCATION = 'us-central1'
 
 def _get_emulator_host() -> Optional[str]:
-    emulator_host = os.environ.get(_EMULATOR_HOST_ENV_VAR)
-    if emulator_host:
-        if '//' in emulator_host:
-            raise ValueError(
-                f'Invalid {_EMULATOR_HOST_ENV_VAR}: "{emulator_host}". It must follow format '
-                '"host:port".')
-        return emulator_host
-    return None
+    return _utils.get_emulator_host(_EMULATOR_HOST_ENV_VAR)
 
 
 def _get_functions_service(app) -> _FunctionsService:

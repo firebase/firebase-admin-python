@@ -18,12 +18,10 @@ This module contains utilities for accessing Firebase Data Connect services asso
 Firebase apps.
 """
 
-import os
 from dataclasses import dataclass, asdict, is_dataclass
-from typing import Any, Dict, Generic, Optional, TypeVar
+from typing import Any, Dict, Generic, Optional, TypeVar, Union
 import firebase_admin
 from firebase_admin import _utils, _http_client, App
-
 
 __all__ = [
     'ConnectorConfig',
@@ -49,8 +47,8 @@ _EMULATOR_SERVICES_URL_FORMAT = (
 )
 
 # Generic Type Parameters
-_T = TypeVar("_T")
-_V = TypeVar("_V")
+_Data = TypeVar("_Data")
+_Variables = TypeVar("_Variables")
 
 @dataclass(frozen=True)
 class ConnectorConfig:
@@ -149,42 +147,38 @@ def client(config: ConnectorConfig, app: Optional[App] = None) -> DataConnect:
     return dc_service.get_client(config)
 
 
-class Impersonation:
+
+class Impersonation(dict):
     """Represents impersonation configuration for DataConnect requests."""
 
     @staticmethod
-    def unauthenticated() -> Dict[str, bool]:
+    def unauthenticated() -> 'Impersonation':
         """Returns impersonation configuration for unauthenticated requests."""
-        return {"unauthenticated": True}
+        return Impersonation(unauthenticated=True)
 
     @staticmethod
-    def authenticated(auth_claims: Dict[str, Any]) -> Dict[str, Any]:
-        """Returns impersonation configuration for authenticated requests."""
-        return {"authClaims": auth_claims}
+    def authenticated(auth_claims: Dict[str, Any]) -> 'Impersonation':
+        """Returns impersonation configuration for authenticated requests.
+
+        # TODO: More strongly type auth_claims later.
+        """
+        return Impersonation(authClaims=auth_claims)
 
 
 @dataclass
-class GraphqlOptions(Generic[_V]):
-    variables: Optional[_V] = None
+class GraphqlOptions(Generic[_Variables]):
+    variables: Optional[_Variables] = None
     operation_name: Optional[str] = None
-    impersonate: Optional[Impersonation] = None
+    impersonate: Optional[Union[Impersonation, Dict[str, Any]]] = None
 
 
 @dataclass
-class ExecuteGraphqlResponse(Generic[_T]):
-    data: _T
+class ExecuteGraphqlResponse(Generic[_Data]):
+    data: _Data
 
 
 def _get_emulator_host() -> Optional[str]:
-    emulator_host = os.environ.get("DATA_CONNECT_EMULATOR_HOST")
-    if emulator_host:
-        if "//" in emulator_host:
-            raise ValueError(
-                f'Invalid DATA_CONNECT_EMULATOR_HOST: "{emulator_host}". It must follow format '
-                '"host:port".'
-            )
-        return emulator_host
-    return None
+    return _utils.get_emulator_host("DATA_CONNECT_EMULATOR_HOST")
 
 
 class _DataConnectApiClient:
@@ -199,7 +193,7 @@ class _DataConnectApiClient:
     def __init__(self, connector_config: ConnectorConfig, app: App) -> None:
         if not isinstance(app, App):
             raise ValueError(
-                'First argument passed to DataConnectApiClient must be a valid '
+                'Second argument passed to DataConnectApiClient must be a valid '
                 'Firebase app instance.'
             )
         self._connector_config = connector_config
@@ -220,50 +214,59 @@ class _DataConnectApiClient:
 
         self._http_client = _http_client.JsonHttpClient(credential=self._credential)
 
-    def _validate_inputs(
+    def _validate_variables_type(self, variables: Any, variable_type: Any) -> None:
+        """Validates variables against expected type."""
+        if variables is not None and variable_type is not None:
+            if not isinstance(variables, variable_type):
+                raise ValueError(f"variables must be of type {variable_type.__name__}")
+
+    def _validate_impersonation_options(self, impersonate: Any) -> None:
+        """Validates impersonation dictionary options."""
+        if impersonate is not None:
+            if not isinstance(impersonate, dict):
+                raise ValueError('impersonate option must be a dictionary')
+            if 'unauthenticated' not in impersonate and 'authClaims' not in impersonate:
+                raise ValueError(
+                    "impersonate option must contain either "
+                    "'unauthenticated' or 'authClaims'"
+                )
+            if 'unauthenticated' in impersonate and 'authClaims' in impersonate:
+                raise ValueError(
+                    "impersonate option cannot contain both "
+                    "'unauthenticated' and 'authClaims'"
+                )
+            if 'unauthenticated' in impersonate:
+                if not isinstance(impersonate['unauthenticated'], bool):
+                    raise ValueError("'unauthenticated' claim must be a boolean")
+            if 'authClaims' in impersonate:
+                if not isinstance(impersonate['authClaims'], dict):
+                    raise ValueError("'authClaims' claim must be a dictionary")
+
+    def _validate_graphql_options(
         self,
-        graphql_query: str,
         graphql_options: Optional[GraphqlOptions[Any]],
         variable_type: Any = None
     ) -> None:
-        """Validates query and GraphqlOptions inputs at runtime."""
-        # Validate the Query
-        if not isinstance(graphql_query, str) or not graphql_query.strip():
-            raise ValueError('query must be a non-empty string')
-
-        # Validate Options (if they exist)
+        """Validates GraphqlOptions inputs at runtime."""
         if graphql_options is not None:
             if not isinstance(graphql_options, GraphqlOptions):
                 raise ValueError('options must be a GraphqlOptions instance')
 
             # Validate Variables against expected variable_type
-            variables = graphql_options.variables
-            if variables is not None and variable_type is not None:
-                if not isinstance(variables, variable_type):
-                    raise ValueError(f"variables must be of type {variable_type.__name__}")
+            self._validate_variables_type(graphql_options.variables, variable_type)
 
             # Validate Operation Name (if it exists)
             operation_name = graphql_options.operation_name
             if operation_name is not None:
-                if not isinstance(operation_name, str) or not operation_name.strip():
+                if not isinstance(operation_name, str):
+                    raise ValueError('operation_name must be a string')
+                operation_name = operation_name.strip()
+                if not operation_name:
                     raise ValueError('operation_name must be a non-empty string')
+                graphql_options.operation_name = operation_name
 
             # Validate Impersonation (if it exists)
-            impersonate = graphql_options.impersonate
-            if impersonate is not None:
-                if not isinstance(impersonate, dict):
-                    raise ValueError('impersonate option must be a dictionary')
-                if 'unauthenticated' not in impersonate and 'authClaims' not in impersonate:
-                    raise ValueError(
-                        "impersonate option must contain either "
-                        "'unauthenticated' or 'authClaims'"
-                    )
-                if 'unauthenticated' in impersonate:
-                    if not isinstance(impersonate['unauthenticated'], bool):
-                        raise ValueError("'unauthenticated' claim must be a boolean")
-                if 'authClaims' in impersonate:
-                    if not isinstance(impersonate['authClaims'], dict):
-                        raise ValueError("'authClaims' claim must be a dictionary")
+            self._validate_impersonation_options(graphql_options.impersonate)
 
     def _prepare_graphql_payload(
         self,
@@ -318,7 +321,7 @@ class _DataConnectApiClient:
 
     def _get_headers(self) -> Dict[str, str]:
         """Build and return the headers for a Firebase Data Connect API call."""
-        return{
+        return {
             "X-Firebase-Client": f"fire-admin-python/{firebase_admin.__version__}",
             "x-goog-api-client": _utils.get_metrics_header(),
         }

@@ -15,6 +15,8 @@
 """Internal utilities common to all modules."""
 
 import json
+import os
+import re
 from platform import python_version
 from typing import Callable, Optional
 
@@ -345,3 +347,16 @@ class EmulatorAdminCredentials(google.auth.credentials.Credentials):
 
     def refresh(self, request):
         pass
+
+
+def get_emulator_host(env_var_name: str) -> Optional[str]:
+    """Retrieves and validates the host from the specified emulator environment variable."""
+    emulator_host = os.environ.get(env_var_name)
+    if emulator_host:
+        if not re.match(r'^(?:\[[a-fA-F0-9:]+\]|[a-zA-Z0-9.-]+):[0-9]+$', emulator_host):
+            raise ValueError(
+                f'Invalid {env_var_name}: "{emulator_host}". It must follow format '
+                '"host:port".'
+            )
+        return emulator_host
+    return None

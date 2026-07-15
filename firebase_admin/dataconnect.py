@@ -280,7 +280,7 @@ class _DataConnectApiClient:
     def _prepare_graphql_payload(
         self,
         graphql_query: str,
-        graphql_options: Optional[GraphqlOptions[Any]]
+        graphql_options: Optional[GraphqlOptions[_Variables]]
     ) -> Dict[str, Any]:
         """Serializes input query and options to JSON-compatible dictionary."""
         payload = {

@@ -518,6 +518,12 @@ class TestDataConnectApiClientValidateGraphqlOptions:
         with pytest.raises(ValueError, match="variables must be of type CreateUserVariables"):
             self.api_client._validate_graphql_options(options, CreateUserVariables)
 
+        # Test type mismatch when variable_type is a tuple of classes (no __name__ attribute)
+        options = dataconnect.GraphqlOptions(variables={"foo": "bar"})
+        msg = r"variables must be of type \(\<class 'list'\>, \<class 'tuple'\>\)"
+        with pytest.raises(ValueError, match=msg):
+            self.api_client._validate_graphql_options(options, (list, tuple))
+
 
 class TestDataConnectApiClientPrepareGraphqlPayload:
 

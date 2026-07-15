@@ -226,7 +226,8 @@ class _DataConnectApiClient:
                 raise ValueError("variables must be a collections.abc.Mapping or a dataclass")
             if variable_type is not None:
                 if not isinstance(variables, variable_type):
-                    raise ValueError(f"variables must be of type {variable_type.__name__}")
+                    type_name = getattr(variable_type, '__name__', str(variable_type))
+                    raise ValueError(f"variables must be of type {type_name}")
 
     def _validate_impersonation_options(self, impersonate: Any) -> None:
         """Validates impersonation dictionary options."""

@@ -19,10 +19,12 @@ from dataclasses import dataclass
 from google.auth import credentials as google_auth_credentials
 import pytest
 
+
 import firebase_admin
 from firebase_admin import _utils
 from firebase_admin import dataconnect
 from tests import testutils
+
 
 BASE_CONFIG = dataconnect.ConnectorConfig(
     service_id="starterproject",
@@ -579,12 +581,16 @@ class TestDataConnectApiClientPrepareGraphqlPayload:
         }
 
     def test_prepare_graphql_payload_with_operation_name(self):
-        options = dataconnect.GraphqlOptions(operation_name="myOp")
+        options = dataconnect.GraphqlOptions(operation_name="  myOp  ")
+        self.api_client._validate_graphql_options(options)
+        assert options.operation_name == "  myOp  "
+
         payload = self.api_client._prepare_graphql_payload("query { hello }", options)
         assert payload == {
             "query": "query { hello }",
             "operationName": "myOp"
         }
+        assert options.operation_name == "  myOp  "
 
     def test_prepare_graphql_payload_with_impersonate_unauthenticated(self):
         imp_unauth = dataconnect.Impersonation.unauthenticated()

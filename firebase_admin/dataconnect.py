@@ -269,10 +269,8 @@ class _DataConnectApiClient:
             if operation_name is not None:
                 if not isinstance(operation_name, str):
                     raise ValueError('operation_name must be a string')
-                operation_name = operation_name.strip()
-                if not operation_name:
+                if not operation_name.strip():
                     raise ValueError('operation_name must be a non-empty string')
-                graphql_options.operation_name = operation_name
 
             # Validate Impersonation (if it exists)
             self._validate_impersonation_options(graphql_options.impersonate)
@@ -295,7 +293,7 @@ class _DataConnectApiClient:
                     payload["variables"] = graphql_options.variables
 
             if graphql_options.operation_name is not None:
-                payload["operationName"] = graphql_options.operation_name
+                payload["operationName"] = graphql_options.operation_name.strip()
 
             if graphql_options.impersonate is not None:
                 payload["extensions"] = {

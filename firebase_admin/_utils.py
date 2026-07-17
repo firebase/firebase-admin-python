@@ -353,7 +353,7 @@ def get_emulator_host(env_var_name: str) -> Optional[str]:
     """Retrieves and validates the host from the specified emulator environment variable."""
     emulator_host = os.environ.get(env_var_name)
     if emulator_host:
-        if not re.match(r'^(?:\[[a-fA-F0-9:]+\]|[a-zA-Z0-9.-]+):[0-9]+$', emulator_host):
+        if not re.match(r'^(?:\[[a-fA-F0-9:]+\]|[a-zA-Z0-9._-]+):[0-9]+$', emulator_host):
             raise ValueError(
                 f'Invalid {env_var_name}: "{emulator_host}". It must follow format '
                 '"host:port".'

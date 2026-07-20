@@ -222,7 +222,7 @@ class _DataConnectApiClient:
         variable_type: Optional[Type[Any]] = None
     ) -> None:
         """Validates variables against expected type."""
-        if variables is not None: 
+        if variables is not None:
             if not (isinstance(variables, Mapping) or is_dataclass(variables)):
                 raise ValueError("variables must be a collections.abc.Mapping or a dataclass")
             if variable_type is not None:

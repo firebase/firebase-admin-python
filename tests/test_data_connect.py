@@ -14,8 +14,10 @@
 
 """Test cases for the firebase_admin.dataconnect module."""
 
-from unittest import mock
 from dataclasses import dataclass
+from typing import Any, Dict, Mapping
+from unittest import mock
+
 from google.auth import credentials as google_auth_credentials
 import pytest
 
@@ -442,7 +444,6 @@ class TestDataConnectApiClientValidateGraphqlOptions:
         self.api_client._validate_graphql_options(options)
 
     def test_validate_graphql_options_valid_generic_variables(self):
-        from typing import Any, Dict, Mapping
         options = dataconnect.GraphqlOptions(variables={"user_id": "1", "name": "Fred"})
         self.api_client._validate_graphql_options(options, Dict[str, Any])
         self.api_client._validate_graphql_options(options, Mapping[str, Any])
@@ -533,7 +534,6 @@ class TestDataConnectApiClientValidateGraphqlOptions:
             self.api_client._validate_graphql_options(options, (list, tuple))
 
         # Test type mismatch when a dataclass is passed but a Dict is expected
-        from typing import Dict, Any
         profile_val = UserProfile(address="123 Road", phone="332-3233-0199")
         valid_variables = CreateUserVariables(
             user_id="1", name="Fred", profile=profile_val

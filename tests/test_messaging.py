@@ -479,6 +479,406 @@ class TestAndroidConfigEncoder:
         check_encoding(msg, expected)
 
 
+class TestAndroidConfigV2Encoder:
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_collapse_key(self, data):
+        with pytest.raises(ValueError):
+            check_encoding(messaging.Message(
+                topic='topic', android_v2=messaging.AndroidConfigV2(collapse_key=data)))
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_restricted_package_name(self, data):
+        with pytest.raises(ValueError):
+            check_encoding(messaging.Message(
+                topic='topic', android_v2=messaging.AndroidConfigV2(restricted_package_name=data)))
+
+    @pytest.mark.parametrize('ttl', NON_UINT_ARGS + [
+        -1, -1.0, datetime.timedelta(seconds=-1), datetime.timedelta(days=-1)])
+    def test_invalid_ttl(self, ttl):
+        with pytest.raises(ValueError):
+            check_encoding(messaging.Message(
+                topic='topic', android_v2=messaging.AndroidConfigV2(ttl=ttl)))
+
+    @pytest.mark.parametrize('data', NON_OBJECT_ARGS)
+    def test_invalid_fcm_options(self, data):
+        with pytest.raises(ValueError):
+            check_encoding(messaging.Message(
+                topic='topic', android_v2=messaging.AndroidConfigV2(fcm_options=data)))
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_analytics_label(self, data):
+        with pytest.raises(ValueError):
+            check_encoding(messaging.Message(
+                topic='topic', android_v2=messaging.AndroidConfigV2(
+                    fcm_options=messaging.AndroidFCMOptions(analytics_label=data))))
+
+    @pytest.mark.parametrize('data', NON_BOOL_ARGS)
+    def test_invalid_direct_boot_ok(self, data):
+        with pytest.raises(ValueError):
+            check_encoding(messaging.Message(
+                topic='topic', android_v2=messaging.AndroidConfigV2(direct_boot_ok=data)))
+
+    @pytest.mark.parametrize('data', NON_BOOL_ARGS)
+    def test_invalid_bandwidth_constrained_ok(self, data):
+        with pytest.raises(ValueError):
+            check_encoding(messaging.Message(
+                topic='topic', android_v2=messaging.AndroidConfigV2(bandwidth_constrained_ok=data)))
+
+    @pytest.mark.parametrize('data', NON_BOOL_ARGS)
+    def test_invalid_restricted_satellite_ok(self, data):
+        with pytest.raises(ValueError):
+            check_encoding(messaging.Message(
+                topic='topic', android_v2=messaging.AndroidConfigV2(restricted_satellite_ok=data)))
+
+    @pytest.mark.parametrize('kwargs, expected_error', [
+        ({}, 'AndroidConfigV2 must contain exactly one of remote_notification or background_sync.'),
+        ({'remote_notification': messaging.AndroidRemoteNotification(
+            notification=messaging.AndroidNotificationV2()),
+          'background_sync': messaging.AndroidBackgroundSyncMessage()},
+         'AndroidConfigV2 must contain exactly one of remote_notification or background_sync.')
+    ])
+    def test_mutual_exclusivity_within_android_config_v2(self, kwargs, expected_error):
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(
+                topic='topic', android_v2=messaging.AndroidConfigV2(**kwargs)
+            ))
+        assert str(excinfo.value) == expected_error
+
+    def test_mutual_exclusivity_android_and_android_v2(self):
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(
+                topic='topic',
+                android=messaging.AndroidConfig(),
+                android_v2=messaging.AndroidConfigV2(
+                    background_sync=messaging.AndroidBackgroundSyncMessage()
+                )
+            ))
+        assert str(excinfo.value) == 'android and android_v2 are mutually exclusive.'
+
+    def test_android_v2_background_sync(self):
+        msg = messaging.Message(
+            topic='topic',
+            android_v2=messaging.AndroidConfigV2(
+                collapse_key='key',
+                restricted_package_name='package',
+                ttl=123,
+                data={'k1': 'v1', 'k2': 'v2'},
+                fcm_options=messaging.AndroidFCMOptions('analytics_label_v2'),
+                direct_boot_ok=True,
+                bandwidth_constrained_ok=True,
+                restricted_satellite_ok=True,
+                background_sync=messaging.AndroidBackgroundSyncMessage()
+            )
+        )
+        expected = {
+            'topic': 'topic',
+            'androidV2': {
+                'collapse_key': 'key',
+                'restricted_package_name': 'package',
+                'ttl': '123s',
+                'data': {
+                    'k1': 'v1',
+                    'k2': 'v2',
+                },
+                'fcm_options': {
+                    'analytics_label': 'analytics_label_v2',
+                },
+                'direct_boot_ok': True,
+                'bandwidth_constrained_ok': True,
+                'restricted_satellite_ok': True,
+                'background_sync': {},
+            },
+        }
+        check_encoding(msg, expected)
+
+    def test_android_v2_remote_notification(self):
+        notif = messaging.AndroidNotificationV2(
+            title='title',
+            body='body',
+            icon='icon',
+            color='#123456',
+            sound='sound',
+            tag='tag',
+            id=123,
+            click_action='click',
+            body_loc_key='body_key',
+            body_loc_args=['arg1'],
+            title_loc_key='title_key',
+            title_loc_args=['arg2'],
+            channel_id='channel',
+            ticker='ticker',
+            sticky=True,
+            event_time=datetime.datetime(2026, 7, 14, 12, 0, 0, tzinfo=datetime.timezone.utc),
+            local_only=True,
+            notification_priority='high',
+            default_sound=True,
+            default_vibrate_timings=True,
+            default_light_settings=True,
+            vibrate_timings_millis=[500, 1000],
+            visibility='private',
+            notification_count=5,
+            light_settings=messaging.LightSettings('#ff0000', 500, 1000),
+            image='image_url'
+        )
+        msg = messaging.Message(
+            topic='topic',
+            android_v2=messaging.AndroidConfigV2(
+                remote_notification=messaging.AndroidRemoteNotification(
+                    notification=notif,
+                    mutable_content=True,
+                    use_as_v1_data_message=True
+                )
+            )
+        )
+        expected = {
+            'topic': 'topic',
+            'androidV2': {
+                'remote_notification': {
+                    'mutable_content': True,
+                    'use_as_v1_data_message': True,
+                    'notification': {
+                        'title': 'title',
+                        'body': 'body',
+                        'icon': 'icon',
+                        'color': '#123456',
+                        'sound': 'sound',
+                        'tag': 'tag',
+                        'id': 123,
+                        'click_action': 'click',
+                        'body_loc_key': 'body_key',
+                        'body_loc_args': ['arg1'],
+                        'title_loc_key': 'title_key',
+                        'title_loc_args': ['arg2'],
+                        'channel_id': 'channel',
+                        'ticker': 'ticker',
+                        'sticky': True,
+                        'event_time': '2026-07-14T12:00:00.000000Z',
+                        'local_only': True,
+                        'notification_priority': 'PRIORITY_HIGH',
+                        'default_sound': True,
+                        'default_vibrate_timings': True,
+                        'default_light_settings': True,
+                        'vibrate_timings': ['0.500000000s', '1s'],
+                        'visibility': 'PRIVATE',
+                        'notification_count': 5,
+                        'light_settings': {
+                            'color': {
+                                'red': 1.0,
+                                'green': 0.0,
+                                'blue': 0.0,
+                                'alpha': 1.0
+                            },
+                            'light_on_duration': '0.500000000s',
+                            'light_off_duration': '1s'
+                        },
+                        'image': 'image_url'
+                    }
+                }
+            }
+        }
+        check_encoding(msg, expected)
+
+
+class TestAndroidNotificationV2Encoder:
+
+    def _check_notification(self, notification):
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(
+                topic='topic',
+                android_v2=messaging.AndroidConfigV2(
+                    remote_notification=messaging.AndroidRemoteNotification(
+                        notification=notification
+                    )
+                )
+            ))
+        return excinfo
+
+    @pytest.mark.parametrize('data', NON_OBJECT_ARGS)
+    def test_invalid_android_remote_notification(self, data):
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(
+                topic='topic',
+                android_v2=messaging.AndroidConfigV2(
+                    remote_notification=data
+                )
+            ))
+        expected = (
+            'AndroidConfigV2.remote_notification must be an instance of '
+            'AndroidRemoteNotification class.'
+        )
+        assert str(excinfo.value) == expected
+
+    def test_missing_notification_in_remote_notification(self):
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(
+                topic='topic',
+                android_v2=messaging.AndroidConfigV2(
+                    remote_notification=messaging.AndroidRemoteNotification(
+                        notification=None
+                    )
+                )
+            ))
+        expected = 'AndroidRemoteNotification.notification is required and cannot be None.'
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_title(self, data):
+        notification = messaging.AndroidNotificationV2(title=data)
+        excinfo = self._check_notification(notification)
+        assert str(excinfo.value) == 'AndroidNotificationV2.title must be a string.'
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS)
+    def test_invalid_body(self, data):
+        notification = messaging.AndroidNotificationV2(body=data)
+        excinfo = self._check_notification(notification)
+        assert str(excinfo.value) == 'AndroidNotificationV2.body must be a string.'
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS + ['foo'])
+    def test_invalid_color(self, data):
+        notification = messaging.AndroidNotificationV2(color=data)
+        excinfo = self._check_notification(notification)
+        if isinstance(data, str):
+            assert str(excinfo.value) == 'AndroidNotificationV2.color must be in the form #RRGGBB.'
+        else:
+            assert str(excinfo.value) == 'AndroidNotificationV2.color must be a non-empty string.'
+
+    @pytest.mark.parametrize('data', ['', 'foo', [], tuple(), {}])
+    def test_invalid_id(self, data):
+        notification = messaging.AndroidNotificationV2(id=data)
+        excinfo = self._check_notification(notification)
+        assert str(excinfo.value) == 'AndroidNotificationV2.id must be a number.'
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS + ['foo'])
+    def test_invalid_priority(self, data):
+        notification = messaging.AndroidNotificationV2(notification_priority=data)
+        excinfo = self._check_notification(notification)
+        if isinstance(data, str):
+            assert str(excinfo.value) == (
+                'AndroidNotificationV2.notification_priority must be "default", "min", '
+                '"low", "high" or "max".'
+            )
+        else:
+            assert str(excinfo.value) == (
+                'AndroidNotificationV2.notification_priority must be a non-empty string.'
+            )
+
+    @pytest.mark.parametrize('data', NON_STRING_ARGS + ['foo'])
+    def test_invalid_visibility(self, data):
+        notification = messaging.AndroidNotificationV2(visibility=data)
+        excinfo = self._check_notification(notification)
+        if isinstance(data, str):
+            assert str(excinfo.value) == (
+                'AndroidNotificationV2.visibility must be "private", "public" or "secret".'
+            )
+        else:
+            assert str(excinfo.value) == (
+                'AndroidNotificationV2.visibility must be a non-empty string.'
+            )
+
+    def test_invalid_body_loc_args(self):
+        notification = messaging.AndroidNotificationV2(body_loc_args=['arg'])
+        excinfo = self._check_notification(notification)
+        assert str(excinfo.value) == (
+            'AndroidNotificationV2.body_loc_key is required when specifying body_loc_args.'
+        )
+
+    def test_invalid_title_loc_args(self):
+        notification = messaging.AndroidNotificationV2(title_loc_args=['arg'])
+        excinfo = self._check_notification(notification)
+        assert str(excinfo.value) == (
+            'AndroidNotificationV2.title_loc_key is required when specifying title_loc_args.'
+        )
+
+    @pytest.mark.parametrize('data', NON_LIST_ARGS)
+    def test_invalid_vibrate_timings_millis(self, data):
+        notification = messaging.AndroidNotificationV2(vibrate_timings_millis=data)
+        if isinstance(data, list) and not [x for x in data if not isinstance(x, numbers.Number)]:
+            return
+        excinfo = self._check_notification(notification)
+        if isinstance(data, list):
+            expected = (
+                'AndroidNotificationV2.vibrate_timings_millis must not contain '
+                'non-number values.'
+            )
+        else:
+            expected = (
+                'AndroidNotificationV2.vibrate_timings_millis must be a list of '
+                'numbers.'
+            )
+        assert str(excinfo.value) == expected
+
+    def test_android_notification_v2_key_order(self):
+        notif = messaging.AndroidNotificationV2(
+            title='title',
+            body='body',
+            icon='icon',
+            color='#123456',
+            sound='sound',
+            tag='tag',
+            id=123,
+            click_action='click',
+            body_loc_key='body_key',
+            body_loc_args=['arg1'],
+            title_loc_key='title_key',
+            title_loc_args=['arg2'],
+            channel_id='channel',
+            ticker='ticker',
+            sticky=True,
+            event_time=datetime.datetime(2026, 7, 14, 12, 0, 0, tzinfo=datetime.timezone.utc),
+            local_only=True,
+            notification_priority='high',
+            default_sound=True,
+            default_vibrate_timings=True,
+            default_light_settings=True,
+            vibrate_timings_millis=[500, 1000],
+            visibility='private',
+            notification_count=5,
+            light_settings=messaging.LightSettings('#ff0000', 500, 1000),
+            image='image_url'
+        )
+        msg = messaging.Message(
+            topic='topic',
+            android_v2=messaging.AndroidConfigV2(
+                remote_notification=messaging.AndroidRemoteNotification(
+                    notification=notif
+                )
+            )
+        )
+        encoded = messaging._MessagingService.encode_message(msg)
+        encoded_notif = encoded['androidV2']['remote_notification']['notification']
+        expected_order = [
+            'body',
+            'body_loc_args',
+            'body_loc_key',
+            'click_action',
+            'color',
+            'icon',
+            'sound',
+            'tag',
+            'id',
+            'title',
+            'title_loc_args',
+            'title_loc_key',
+            'channel_id',
+            'image',
+            'ticker',
+            'sticky',
+            'event_time',
+            'local_only',
+            'notification_priority',
+            'vibrate_timings',
+            'default_vibrate_timings',
+            'default_sound',
+            'default_light_settings',
+            'light_settings',
+            'visibility',
+            'notification_count'
+        ]
+        assert list(encoded_notif.keys()) == expected_order
+
+
+
 class TestAndroidNotificationEncoder:
 
     def _check_notification(self, notification):

@@ -14,11 +14,13 @@
 
 """Encoding and validation utils for the messaging (FCM) module."""
 
+from __future__ import annotations
 import datetime
 import json
 import math
 import numbers
 import re
+from typing import Dict, List, Optional
 import warnings
 
 from firebase_admin import _messaging_utils
@@ -34,7 +36,9 @@ class Message:
         data: A dictionary of data fields (optional). All keys and values in the dictionary must be
             strings.
         notification: An instance of ``messaging.Notification`` (optional).
-        android: An instance of ``messaging.AndroidConfig`` (optional).
+        android: An instance of ``messaging.AndroidConfig`` (optional). Deprecated.
+            Use ``android_v2`` instead.
+        android_v2: An instance of ``messaging.AndroidConfigV2`` (optional).
         webpush: An instance of ``messaging.WebpushConfig`` (optional).
         apns: An instance of ``messaging.ApnsConfig`` (optional).
         fcm_options: An instance of ``messaging.FCMOptions`` (optional).
@@ -46,17 +50,36 @@ class Message:
         condition: The FCM condition to which the message should be sent (optional).
     """
 
-    def __init__(self, data=None, notification=None, android=None, webpush=None, apns=None,
-                 fcm_options=None, token=None, topic=None, condition=None, fid=None):
+    def __init__(
+        self,
+        data: Optional[Dict[str, str]] = None,
+        notification: Optional[_messaging_utils.Notification] = None,
+        android: Optional[_messaging_utils.AndroidConfig] = None,
+        webpush: Optional[_messaging_utils.WebpushConfig] = None,
+        apns: Optional[_messaging_utils.APNSConfig] = None,
+        fcm_options: Optional[_messaging_utils.FCMOptions] = None,
+        token: Optional[str] = None,
+        topic: Optional[str] = None,
+        condition: Optional[str] = None,
+        fid: Optional[str] = None,
+        android_v2: Optional[_messaging_utils.AndroidConfigV2] = None
+    ):
         if token is not None:
             warnings.warn(
                 "Message.token is deprecated. Use Message.fid instead.",
                 DeprecationWarning,
                 stacklevel=2
             )
+        if android is not None:
+            warnings.warn(
+                'The "android" parameter is deprecated. Use "android_v2" instead.',
+                DeprecationWarning,
+                stacklevel=2
+            )
         self.data = data
         self.notification = notification
         self.android = android
+        self.android_v2 = android_v2
         self.webpush = webpush
         self.apns = apns
         self.fcm_options = fcm_options
@@ -77,18 +100,35 @@ class MulticastMessage:
         data: A dictionary of data fields (optional). All keys and values in the dictionary must be
             strings.
         notification: An instance of ``messaging.Notification`` (optional).
-        android: An instance of ``messaging.AndroidConfig`` (optional).
+        android: An instance of ``messaging.AndroidConfig`` (optional). Deprecated.
+            Use ``android_v2`` instead.
+        android_v2: An instance of ``messaging.AndroidConfigV2`` (optional).
         webpush: An instance of ``messaging.WebpushConfig`` (optional).
         apns: An instance of ``messaging.ApnsConfig`` (optional).
         fcm_options: An instance of ``messaging.FCMOptions`` (optional).
         fids: A list of Firebase Installation IDs of targeted app instances (optional).
     """
     def __init__(
-            self, tokens=None, data=None, notification=None, android=None,
-            webpush=None, apns=None, fcm_options=None, fids=None):
+        self,
+        tokens: Optional[List[str]] = None,
+        data: Optional[Dict[str, str]] = None,
+        notification: Optional[_messaging_utils.Notification] = None,
+        android: Optional[_messaging_utils.AndroidConfig] = None,
+        webpush: Optional[_messaging_utils.WebpushConfig] = None,
+        apns: Optional[_messaging_utils.APNSConfig] = None,
+        fcm_options: Optional[_messaging_utils.FCMOptions] = None,
+        fids: Optional[List[str]] = None,
+        android_v2: Optional[_messaging_utils.AndroidConfigV2] = None
+    ):
         if tokens is not None:
             warnings.warn(
                 "MulticastMessage.tokens is deprecated. Use MulticastMessage.fids instead.",
+                DeprecationWarning,
+                stacklevel=2
+            )
+        if android is not None:
+            warnings.warn(
+                'The "android" parameter is deprecated. Use "android_v2" instead.',
                 DeprecationWarning,
                 stacklevel=2
             )
@@ -113,6 +153,7 @@ class MulticastMessage:
         self.data = data
         self.notification = notification
         self.android = android
+        self.android_v2 = android_v2
         self.webpush = webpush
         self.apns = apns
         self.fcm_options = fcm_options
@@ -215,8 +256,12 @@ class MessageEncoder(json.JSONEncoder):
     """A custom ``JSONEncoder`` implementation for serializing Message instances into JSON."""
 
     @classmethod
-    def remove_null_values(cls, dict_value):
-        return {k: v for k, v in dict_value.items() if v not in [None, [], {}]}
+    def remove_null_values(cls, dict_value, ignore_keys=None):
+        ignore_keys = ignore_keys or []
+        return {
+            k: v for k, v in dict_value.items()
+            if v is not None and (k in ignore_keys or v not in ([], {}))
+        }
 
     @classmethod
     def encode_android(cls, android):
@@ -249,6 +294,55 @@ class MessageEncoder(json.JSONEncoder):
         if priority and priority not in ('high', 'normal'):
             raise ValueError('AndroidConfig.priority must be "high" or "normal".')
         return result
+
+    @classmethod
+    def encode_android_v2(cls, android_v2):
+        """Encodes an ``AndroidConfigV2`` instance into JSON."""
+        if android_v2 is None:
+            return None
+        if not isinstance(android_v2, _messaging_utils.AndroidConfigV2):
+            raise ValueError('Message.android_v2 must be an instance of AndroidConfigV2 class.')
+
+        count = sum(t is not None for t in [
+            android_v2.remote_notification, android_v2.background_sync])
+        if count != 1:
+            raise ValueError('AndroidConfigV2 must contain exactly one of remote_notification or '
+                             'background_sync.')
+
+        result = {
+            'collapse_key': _Validators.check_string(
+                'AndroidConfigV2.collapse_key', android_v2.collapse_key),
+            'data': _Validators.check_string_dict(
+                'AndroidConfigV2.data', android_v2.data),
+            'remote_notification': cls.encode_android_remote_notification(
+                android_v2.remote_notification),
+            'background_sync': cls.encode_background_sync(
+                android_v2.background_sync),
+            'restricted_package_name': _Validators.check_string(
+                'AndroidConfigV2.restricted_package_name', android_v2.restricted_package_name),
+            'ttl': cls.encode_ttl(android_v2.ttl),
+            'fcm_options': cls.encode_android_fcm_options(android_v2.fcm_options),
+            'direct_boot_ok': _Validators.check_boolean(
+                'AndroidConfigV2.direct_boot_ok', android_v2.direct_boot_ok),
+            'bandwidth_constrained_ok': _Validators.check_boolean(
+                'AndroidConfigV2.bandwidth_constrained_ok', android_v2.bandwidth_constrained_ok),
+            'restricted_satellite_ok': _Validators.check_boolean(
+                'AndroidConfigV2.restricted_satellite_ok', android_v2.restricted_satellite_ok),
+        }
+        return cls.remove_null_values(result, ignore_keys=['background_sync'])
+
+    @classmethod
+    def encode_background_sync(cls, background_sync):
+        """Encodes an ``AndroidBackgroundSyncMessage`` instance into JSON."""
+        if background_sync is None:
+            return None
+        if not isinstance(background_sync, _messaging_utils.AndroidBackgroundSyncMessage):
+            raise ValueError('AndroidConfigV2.background_sync must be an instance of '
+                             'AndroidBackgroundSyncMessage class.')
+        # Currently empty, but structured to be easily expandable for future fields.
+        result = {}
+        return result
+
 
     @classmethod
     def encode_android_fcm_options(cls, fcm_options):
@@ -408,6 +502,133 @@ class MessageEncoder(json.JSONEncoder):
                 raise ValueError(
                     'AndroidNotification.proxy must be "allow", "deny" or "if_priority_lowered".')
             result['proxy'] = proxy.upper()
+        return result
+
+    @classmethod
+    def encode_android_remote_notification(cls, remote_notification):
+        """Encodes an ``AndroidRemoteNotification`` instance into JSON."""
+        if remote_notification is None:
+            return None
+        if not isinstance(remote_notification, _messaging_utils.AndroidRemoteNotification):
+            raise ValueError('AndroidConfigV2.remote_notification must be an instance of '
+                             'AndroidRemoteNotification class.')
+
+        if remote_notification.notification is None:
+            raise ValueError(
+                'AndroidRemoteNotification.notification is required and cannot be None.')
+
+        result = {
+            'mutable_content': _Validators.check_boolean(
+                'AndroidRemoteNotification.mutable_content', remote_notification.mutable_content),
+            'use_as_v1_data_message': _Validators.check_boolean(
+                'AndroidRemoteNotification.use_as_v1_data_message',
+                remote_notification.use_as_v1_data_message),
+            'notification': cls.encode_android_notification_v2(remote_notification.notification),
+        }
+        return cls.remove_null_values(result)
+
+    @classmethod
+    def encode_android_notification_v2(cls, notification):
+        """Encodes an ``AndroidNotificationV2`` instance into JSON."""
+        if notification is None:
+            return None
+        if not isinstance(notification, _messaging_utils.AndroidNotificationV2):
+            raise ValueError('AndroidRemoteNotification.notification must be an instance of '
+                             'AndroidNotificationV2 class.')
+        result = {
+            'body': _Validators.check_string(
+                'AndroidNotificationV2.body', notification.body),
+            'body_loc_args': _Validators.check_string_list(
+                'AndroidNotificationV2.body_loc_args', notification.body_loc_args),
+            'body_loc_key': _Validators.check_string(
+                'AndroidNotificationV2.body_loc_key', notification.body_loc_key),
+            'click_action': _Validators.check_string(
+                'AndroidNotificationV2.click_action', notification.click_action),
+            'color': _Validators.check_string(
+                'AndroidNotificationV2.color', notification.color, non_empty=True),
+            'icon': _Validators.check_string(
+                'AndroidNotificationV2.icon', notification.icon),
+            'sound': _Validators.check_string(
+                'AndroidNotificationV2.sound', notification.sound),
+            'tag': _Validators.check_string(
+                'AndroidNotificationV2.tag', notification.tag),
+            'id': _Validators.check_number(
+                'AndroidNotificationV2.id', notification.id),
+            'title': _Validators.check_string(
+                'AndroidNotificationV2.title', notification.title),
+            'title_loc_args': _Validators.check_string_list(
+                'AndroidNotificationV2.title_loc_args', notification.title_loc_args),
+            'title_loc_key': _Validators.check_string(
+                'AndroidNotificationV2.title_loc_key', notification.title_loc_key),
+            'channel_id': _Validators.check_string(
+                'AndroidNotificationV2.channel_id', notification.channel_id),
+            'image': _Validators.check_string(
+                'AndroidNotificationV2.image', notification.image),
+            'ticker': _Validators.check_string(
+                'AndroidNotificationV2.ticker', notification.ticker),
+            'sticky': notification.sticky,
+            'event_time': _Validators.check_datetime(
+                'AndroidNotificationV2.event_time', notification.event_time),
+            'local_only': notification.local_only,
+            'notification_priority': _Validators.check_string(
+                'AndroidNotificationV2.notification_priority', notification.notification_priority,
+                non_empty=True),
+            'vibrate_timings': _Validators.check_number_list(
+                'AndroidNotificationV2.vibrate_timings_millis',
+                notification.vibrate_timings_millis),
+            'default_vibrate_timings': notification.default_vibrate_timings,
+            'default_sound': notification.default_sound,
+            'default_light_settings': notification.default_light_settings,
+            'light_settings': cls.encode_light_settings(notification.light_settings),
+            'visibility': _Validators.check_string(
+                'AndroidNotificationV2.visibility', notification.visibility, non_empty=True),
+            'notification_count': _Validators.check_number(
+                'AndroidNotificationV2.notification_count', notification.notification_count)
+        }
+        result = cls.remove_null_values(result)
+        color = result.get('color')
+        if color and not re.match(r'^#[0-9a-fA-F]{6}$', color):
+            raise ValueError(
+                'AndroidNotificationV2.color must be in the form #RRGGBB.')
+        if result.get('body_loc_args') and not result.get('body_loc_key'):
+            raise ValueError(
+                'AndroidNotificationV2.body_loc_key is required when specifying body_loc_args.')
+        if result.get('title_loc_args') and not result.get('title_loc_key'):
+            raise ValueError(
+                'AndroidNotificationV2.title_loc_key is required when specifying title_loc_args.')
+
+        event_time = result.get('event_time')
+        if event_time:
+            # if the datetime instance is not naive (tzinfo is present), convert to UTC
+            # otherwise (tzinfo is None) assume the datetime instance is already in UTC
+            if event_time.tzinfo is not None:
+                event_time = event_time.astimezone(datetime.timezone.utc)
+            result['event_time'] = event_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+
+        priority = result.get('notification_priority')
+        if priority:
+            if priority not in ('min', 'low', 'default', 'high', 'max'):
+                raise ValueError(
+                    'AndroidNotificationV2.notification_priority must be "default", "min", '
+                    '"low", "high" or "max".')
+            result['notification_priority'] = 'PRIORITY_' + priority.upper()
+
+        visibility = result.get('visibility')
+        if visibility:
+            if visibility not in ('private', 'public', 'secret'):
+                raise ValueError(
+                    'AndroidNotificationV2.visibility must be "private", "public" or "secret".')
+            result['visibility'] = visibility.upper()
+
+        vibrate_timings = result.get('vibrate_timings')
+        if vibrate_timings:
+            vibrate_timing_strings = []
+            for msec in vibrate_timings:
+                formated_string = cls.encode_milliseconds(
+                    'AndroidNotificationV2.vibrate_timings_millis', msec)
+                vibrate_timing_strings.append(formated_string)
+            result['vibrate_timings'] = vibrate_timing_strings
+
         return result
 
     @classmethod
@@ -720,8 +941,11 @@ class MessageEncoder(json.JSONEncoder):
     def default(self, o): # pylint: disable=method-hidden
         if not isinstance(o, Message):
             return json.JSONEncoder.default(self, o)
+        if o.android is not None and o.android_v2 is not None:
+            raise ValueError('android and android_v2 are mutually exclusive.')
         result = {
             'android': MessageEncoder.encode_android(o.android),
+            'androidV2': MessageEncoder.encode_android_v2(o.android_v2),
             'apns': MessageEncoder.encode_apns(o.apns),
             'condition': _Validators.check_string(
                 'Message.condition', o.condition, non_empty=True),

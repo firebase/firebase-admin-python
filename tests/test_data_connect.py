@@ -441,6 +441,12 @@ class TestDataConnectApiClientValidateGraphqlOptions:
         options = dataconnect.GraphqlOptions(variables={"user_id": "1", "name": "Fred"})
         self.api_client._validate_graphql_options(options)
 
+    def test_validate_graphql_options_valid_generic_variables(self):
+        from typing import Any, Dict, Mapping
+        options = dataconnect.GraphqlOptions(variables={"user_id": "1", "name": "Fred"})
+        self.api_client._validate_graphql_options(options, Dict[str, Any])
+        self.api_client._validate_graphql_options(options, Mapping[str, Any])
+
     def test_validate_graphql_options_invalid_options(self):
         with pytest.raises(ValueError, match="options must be a GraphqlOptions instance"):
             self.api_client._validate_graphql_options("invalid-options")
@@ -525,6 +531,16 @@ class TestDataConnectApiClientValidateGraphqlOptions:
         msg = r"variables must be of type \(\<class 'list'\>, \<class 'tuple'\>\)"
         with pytest.raises(ValueError, match=msg):
             self.api_client._validate_graphql_options(options, (list, tuple))
+
+        # Test type mismatch when a dataclass is passed but a Dict is expected
+        from typing import Dict, Any
+        profile_val = UserProfile(address="123 Road", phone="332-3233-0199")
+        valid_variables = CreateUserVariables(
+            user_id="1", name="Fred", profile=profile_val
+        )
+        options = dataconnect.GraphqlOptions(variables=valid_variables)
+        with pytest.raises(ValueError, match="variables must be of type dict"):
+            self.api_client._validate_graphql_options(options, Dict[str, Any])
 
 
 class TestDataConnectApiClientPrepareGraphqlPayload:

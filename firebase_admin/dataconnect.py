@@ -20,6 +20,7 @@ Firebase apps.
 
 from collections.abc import Mapping
 from dataclasses import dataclass, asdict, is_dataclass
+import typing
 from typing import Any, Dict, Generic, Optional, Type, TypeVar, Union
 import firebase_admin
 from firebase_admin import _utils, _http_client, App
@@ -221,12 +222,13 @@ class _DataConnectApiClient:
         variable_type: Optional[Type[Any]] = None
     ) -> None:
         """Validates variables against expected type."""
-        if variables is not None:
+        if variables is not None: 
             if not (isinstance(variables, Mapping) or is_dataclass(variables)):
                 raise ValueError("variables must be a collections.abc.Mapping or a dataclass")
             if variable_type is not None:
-                if not isinstance(variables, variable_type):
-                    type_name = getattr(variable_type, '__name__', str(variable_type))
+                expected_type = typing.get_origin(variable_type) or variable_type
+                if not isinstance(variables, expected_type):
+                    type_name = getattr(expected_type, '__name__', str(expected_type))
                     raise ValueError(f"variables must be of type {type_name}")
 
     def _validate_impersonation_options(self, impersonate: Any) -> None:

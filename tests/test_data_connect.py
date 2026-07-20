@@ -15,7 +15,8 @@
 """Test cases for the firebase_admin.dataconnect module."""
 
 from dataclasses import dataclass
-from typing import Any, Dict, Mapping
+from enum import Enum
+from typing import Any, Dict, List, Mapping, Optional, Union
 from unittest import mock
 
 from google.auth import credentials as google_auth_credentials
@@ -780,3 +781,312 @@ class TestDataConnectApiClientMakeGqlRequest:
 
         with pytest.raises(exceptions.FirebaseError):
             self.api_client._make_gql_request(url, headers, payload)
+
+    @mock.patch.object(_http_client.JsonHttpClient, "body_and_response")
+    def test_make_gql_request_server_errors(self, mock_body_and_response):
+        mock_response = mock.Mock(spec=requests.Response)
+        mock_body_and_response.return_value = (
+            {
+                "errors": [
+                    {"message": "First error."},
+                    {"message": "Second error."}
+                ]
+            },
+            mock_response
+        )
+        url = "https://example.com/endpoint"
+        headers = {"key": "val"}
+        payload = {"query": "foo"}
+
+        with pytest.raises(exceptions.FirebaseError) as excinfo:
+            self.api_client._make_gql_request(url, headers, payload)
+
+        assert excinfo.value.code == "query-error"
+        assert str(excinfo.value) == "First error. Second error."
+        assert excinfo.value.http_response is mock_response
+
+    @mock.patch.object(_http_client.JsonHttpClient, "body_and_response")
+    def test_make_gql_request_non_standard_errors(self, mock_body_and_response):
+        mock_response = mock.Mock(spec=requests.Response)
+        mock_body_and_response.return_value = (
+            {"errors": "String error message"},
+            mock_response
+        )
+        url = "https://example.com/endpoint"
+        headers = {"key": "val"}
+        payload = {"query": "foo"}
+
+        with pytest.raises(exceptions.FirebaseError) as excinfo:
+            self.api_client._make_gql_request(url, headers, payload)
+
+        assert excinfo.value.code == "query-error"
+        assert str(excinfo.value) == "GraphQL execution failed: String error message"
+
+        mock_body_and_response.return_value = (
+            {"errors": []},
+            mock_response
+        )
+        with pytest.raises(exceptions.FirebaseError) as excinfo:
+            self.api_client._make_gql_request(url, headers, payload)
+
+        assert str(excinfo.value) == "GraphQL execution failed."
+
+
+class TestParseGraphqlResponse:
+
+    def setup_method(self):
+        self.cred = testutils.MockCredential()
+        self.app = firebase_admin.initialize_app(
+            self.cred, options={'projectId': 'test-project'}
+        )
+        self.api_client = dataconnect._DataConnectApiClient(BASE_CONFIG, self.app)
+
+    def teardown_method(self, method):
+        del method
+        testutils.cleanup_apps()
+
+    def test_parse_graphql_response_to_dictionary(self):
+        payload = {
+            "data": {"name": "Fred", "age": 20}
+        }
+        res = self.api_client._parse_graphql_response(payload, dict)
+        assert isinstance(res, dataconnect.ExecuteGraphqlResponse)
+        assert res.data == {"name": "Fred", "age": 20}
+
+    def test_parse_graphql_response_list_of_dataclasses(self):
+        @dataclass
+        class User:
+            name: str
+
+        payload = {
+            "data": [{"name": "Fred"}, {"name": "Bob"}]
+        }
+        res = self.api_client._parse_graphql_response(payload, List[User])
+        assert isinstance(res.data, list)
+        assert len(res.data) == 2
+        assert isinstance(res.data[0], User)
+        assert res.data[0].name == "Fred"
+        assert isinstance(res.data[1], User)
+        assert res.data[1].name == "Bob"
+
+    def test_parse_graphql_response_dataclass(self):
+        @dataclass
+        class User:
+            name: str
+
+        payload = {
+            "data": {"name": "Fred"}
+        }
+        res = self.api_client._parse_graphql_response(payload, User)
+        assert isinstance(res.data, User)
+        assert res.data.name == "Fred"
+
+    def test_parse_graphql_response_primitive_str(self):
+        payload = {
+            "data": "Hello World"
+        }
+        res = self.api_client._parse_graphql_response(payload, str)
+        assert res.data == "Hello World"
+
+    def test_parse_graphql_response_nested_dataclasses(self):
+        @dataclass
+        class Profile:
+            bio: str
+
+        @dataclass
+        class GetProfileData:
+            name: str
+            profile: Profile
+
+        payload = {
+            "data": {
+                "name": "Fred",
+                "profile": {"bio": "Developer"}
+            }
+        }
+        res = self.api_client._parse_graphql_response(payload, GetProfileData)
+        assert isinstance(res.data, GetProfileData)
+        assert res.data.name == "Fred"
+        assert isinstance(res.data.profile, Profile)
+        assert res.data.profile.bio == "Developer"
+
+    def test_parse_graphql_response_lists_inside_dataclasses(self):
+        @dataclass
+        class Comment:
+            text: str
+            author: str
+
+        @dataclass
+        class Post:
+            title: str
+            tags: List[str]
+            comments: List[Comment]
+
+        payload = {
+            "data": {
+                "title": "My Post",
+                "tags": ["tech", "firebase"],
+                "comments": [
+                    {"text": "Nice post", "author": "Alice"},
+                    {"text": "Thanks", "author": "Bob"}
+                ]
+            }
+        }
+        res = self.api_client._parse_graphql_response(payload, Post)
+        assert isinstance(res.data, Post)
+        assert res.data.title == "My Post"
+        assert res.data.tags == ["tech", "firebase"]
+        assert isinstance(res.data.comments, list)
+        assert isinstance(res.data.comments[0], Comment)
+        assert res.data.comments[0].text == "Nice post"
+        assert res.data.comments[0].author == "Alice"
+
+    def test_parse_graphql_response_optional_fields(self):
+        @dataclass
+        class Profile:
+            name: str
+            age: Optional[int] = None
+            email: Optional[str] = None
+
+        payload = {
+            "data": {
+                "name": "Fred",
+                "age": 20
+            }
+        }
+        res = self.api_client._parse_graphql_response(payload, Profile)
+        assert isinstance(res.data, Profile)
+        assert res.data.name == "Fred"
+        assert res.data.age == 20
+        assert res.data.email is None
+
+    def test_parse_graphql_response_list_of_primitives(self):
+        payload = {
+            "data": ["tech", "firebase"]
+        }
+        res = self.api_client._parse_graphql_response(payload, List[str])
+        assert res.data == ["tech", "firebase"]
+
+    def test_parse_graphql_response_empty_lists_and_null_objects(self):
+        @dataclass
+        class User:
+            name: str
+
+        # Null data
+        payload1 = {
+            "data": None
+        }
+        res1 = self.api_client._parse_graphql_response(payload1, User)
+        assert res1.data is None
+
+        # Empty list
+        payload2 = {
+            "data": []
+        }
+        res2 = self.api_client._parse_graphql_response(payload2, List[User])
+        assert res2.data == []
+
+    def test_parse_graphql_response_dict_and_any(self):
+        payload = {
+            "data": {"name": "Fred", "age": 20}
+        }
+        res = self.api_client._parse_graphql_response(payload, Dict[str, Any])
+        assert res.data == {"name": "Fred", "age": 20}
+
+        res_any = self.api_client._parse_graphql_response(payload, Any)
+        assert res_any.data == {"name": "Fred", "age": 20}
+
+    def test_parse_graphql_response_nested_dictionary_field(self):
+        @dataclass
+        class AppConfig:
+            name: str
+            settings: Dict[str, Any]
+
+        payload = {
+            "data": {
+                "name": "MyApp",
+                "settings": {"theme": "dark", "retries": 3}
+            }
+        }
+        res = self.api_client._parse_graphql_response(payload, AppConfig)
+        assert isinstance(res.data, AppConfig)
+        assert res.data.name == "MyApp"
+        assert res.data.settings == {"theme": "dark", "retries": 3}
+
+    def test_parse_graphql_response_dictionary_key_coercion_to_str(self):
+        @dataclass
+        class AppConfig:
+            name: str
+            settings: Dict[str, Any]
+
+        payload = {
+            "data": {
+                "name": "MyApp",
+                "settings": {1: "first", 2: "second"}
+            }
+        }
+        res = self.api_client._parse_graphql_response(payload, AppConfig)
+        assert isinstance(res.data, AppConfig)
+        assert res.data.name == "MyApp"
+        assert res.data.settings == {"1": "first", "2": "second"}
+
+    def test_parse_graphql_response_dictionary_key_coercion_to_int(self):
+        @dataclass
+        class AppConfig:
+            name: str
+            settings: Dict[int, str]
+
+        payload = {
+            "data": {
+                "name": "MyApp",
+                "settings": {"1": "first", "2": "second"}
+            }
+        }
+        res = self.api_client._parse_graphql_response(payload, AppConfig)
+        assert isinstance(res.data, AppConfig)
+        assert res.data.name == "MyApp"
+        assert res.data.settings == {1: "first", 2: "second"}
+
+    def test_parse_graphql_response_non_dict_error(self):
+        with pytest.raises(exceptions.FirebaseError) as excinfo:
+            self.api_client._parse_graphql_response("not-a-dict", dict)
+
+        assert excinfo.value.code == "internal-error"
+        assert str(excinfo.value) == "Response payload is not a valid JSON dictionary."
+
+    def test_parse_graphql_response_union_types(self):
+        payload_int = {
+            "data": 123
+        }
+        res_int = self.api_client._parse_graphql_response(payload_int, Union[int, str])
+        assert res_int.data == 123
+
+        payload_str = {
+            "data": "hello"
+        }
+        res_str = self.api_client._parse_graphql_response(payload_str, Union[int, str])
+        assert res_str.data == "hello"
+
+        # Also testing generic lists inside Union
+        payload_list = {
+            "data": ["foo", "bar"]
+        }
+        res_list = self.api_client._parse_graphql_response(payload_list, Union[int, List[str]])
+        assert res_list.data == ["foo", "bar"]
+
+    def test_parse_graphql_response_enum(self):
+        class Status(Enum):
+            ACTIVE = "ACTIVE"
+            INACTIVE = "INACTIVE"
+
+        payload = {"data": "ACTIVE"}
+        res = self.api_client._parse_graphql_response(payload, Status)
+        assert res.data == Status.ACTIVE
+
+    def test_parse_graphql_response_enum_invalid(self):
+        class Status(Enum):
+            ACTIVE = "ACTIVE"
+
+        payload = {"data": "UNKNOWN"}
+        with pytest.raises(ValueError, match="Invalid value 'UNKNOWN' for Enum 'Status'."):
+            self.api_client._parse_graphql_response(payload, Status)

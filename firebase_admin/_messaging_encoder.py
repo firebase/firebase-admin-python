@@ -226,6 +226,23 @@ class _Validators:
         return value
 
     @classmethod
+    def check_vibrate_timings(cls, label, value):
+        """Checks if the given value is a list comprised of numbers or datetime.timedelta
+        instances.
+        """
+        if value is None or value == []:
+            return None
+        if not isinstance(value, list):
+            raise ValueError(f'{label} must be a list of numbers or datetime.timedelta instances.')
+        non_valid = [
+            k for k in value
+            if not isinstance(k, (numbers.Number, datetime.timedelta))
+        ]
+        if non_valid:
+            raise ValueError(f'{label} must not contain non-number or non-timedelta values.')
+        return value
+
+    @classmethod
     def check_analytics_label(cls, label, value):
         """Checks if the given value is a valid analytics label."""
         value = _Validators.check_string(label, value)
@@ -573,7 +590,7 @@ class MessageEncoder(json.JSONEncoder):
             'notification_priority': _Validators.check_string(
                 'AndroidNotificationV2.notification_priority', notification.notification_priority,
                 non_empty=True),
-            'vibrate_timings': _Validators.check_number_list(
+            'vibrate_timings': _Validators.check_vibrate_timings(
                 'AndroidNotificationV2.vibrate_timings_millis',
                 notification.vibrate_timings_millis),
             'default_vibrate_timings': notification.default_vibrate_timings,

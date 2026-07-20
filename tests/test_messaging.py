@@ -615,7 +615,7 @@ class TestAndroidConfigV2Encoder:
             default_sound=True,
             default_vibrate_timings=True,
             default_light_settings=True,
-            vibrate_timings_millis=[500, 1000],
+            vibrate_timings_millis=[500, datetime.timedelta(seconds=1)],
             visibility='private',
             notification_count=5,
             light_settings=messaging.LightSettings('#ff0000', 500, 1000),
@@ -793,18 +793,22 @@ class TestAndroidNotificationV2Encoder:
     @pytest.mark.parametrize('data', NON_LIST_ARGS)
     def test_invalid_vibrate_timings_millis(self, data):
         notification = messaging.AndroidNotificationV2(vibrate_timings_millis=data)
-        if isinstance(data, list) and not [x for x in data if not isinstance(x, numbers.Number)]:
+        is_valid_list = (
+            isinstance(data, list)
+            and not [x for x in data if not isinstance(x, (numbers.Number, datetime.timedelta))]
+        )
+        if is_valid_list:
             return
         excinfo = self._check_notification(notification)
         if isinstance(data, list):
             expected = (
                 'AndroidNotificationV2.vibrate_timings_millis must not contain '
-                'non-number values.'
+                'non-number or non-timedelta values.'
             )
         else:
             expected = (
                 'AndroidNotificationV2.vibrate_timings_millis must be a list of '
-                'numbers.'
+                'numbers or datetime.timedelta instances.'
             )
         assert str(excinfo.value) == expected
 

@@ -20,10 +20,10 @@ from unittest import mock
 
 from google.auth import credentials as google_auth_credentials
 import pytest
-
+import requests
 
 import firebase_admin
-from firebase_admin import _utils
+from firebase_admin import _utils, _http_client, exceptions
 from firebase_admin import dataconnect
 from tests import testutils
 
@@ -724,3 +724,59 @@ class TestDataConnectApiClientGetHeaders:
         assert isinstance(headers, dict)
         assert headers.get("X-Firebase-Client") == f"fire-admin-python/{firebase_admin.__version__}"
         assert headers.get("x-goog-api-client") == _utils.get_metrics_header()
+
+
+class TestDataConnectApiClientMakeGqlRequest:
+
+    def setup_method(self):
+        self.cred = testutils.MockCredential()
+        self.app = firebase_admin.initialize_app(
+            self.cred, options={'projectId': 'test-project'}
+        )
+        self.api_client = dataconnect._DataConnectApiClient(BASE_CONFIG, self.app)
+
+    def teardown_method(self, method):
+        del method
+        testutils.cleanup_apps()
+
+    @mock.patch.object(_http_client.JsonHttpClient, "body_and_response")
+    def test_make_gql_request_success(self, mock_body_and_response):
+        mock_response = mock.Mock(spec=requests.Response)
+        mock_body_and_response.return_value = ({"data": "val"}, mock_response)
+        url = "https://example.com/endpoint"
+        headers = {"key": "val"}
+        payload = {"query": "foo"}
+
+        res = self.api_client._make_gql_request(url, headers, payload)
+        assert res == {"data": "val"}
+        mock_body_and_response.assert_called_once_with(
+            "post", url=url, headers=headers, json=payload
+        )
+
+    def test_make_gql_request_missing_url(self):
+        headers = {"key": "val"}
+        payload = {"query": "foo"}
+        with pytest.raises(ValueError, match="url, headers, and payload must all be specified."):
+            self.api_client._make_gql_request(None, headers, payload)
+
+    def test_make_gql_request_missing_headers(self):
+        url = "https://example.com/endpoint"
+        payload = {"query": "foo"}
+        with pytest.raises(ValueError, match="url, headers, and payload must all be specified."):
+            self.api_client._make_gql_request(url, None, payload)
+
+    def test_make_gql_request_missing_payload(self):
+        url = "https://example.com/endpoint"
+        headers = {"key": "val"}
+        with pytest.raises(ValueError, match="url, headers, and payload must all be specified."):
+            self.api_client._make_gql_request(url, headers, None)
+
+    @mock.patch.object(_http_client.JsonHttpClient, "body_and_response")
+    def test_make_gql_request_error(self, mock_body_and_response):
+        mock_body_and_response.side_effect = requests.exceptions.RequestException()
+        url = "https://example.com/endpoint"
+        headers = {"key": "val"}
+        payload = {"query": "foo"}
+
+        with pytest.raises(exceptions.FirebaseError):
+            self.api_client._make_gql_request(url, headers, payload)

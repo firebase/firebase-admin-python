@@ -22,8 +22,11 @@ from collections.abc import Mapping
 from dataclasses import dataclass, asdict, is_dataclass
 import typing
 from typing import Any, Dict, Generic, Optional, Type, TypeVar, Union
+
+import requests
+
 import firebase_admin
-from firebase_admin import _utils, _http_client, App
+from firebase_admin import _utils, _http_client, App, exceptions
 
 __all__ = [
     'ConnectorConfig',
@@ -334,3 +337,39 @@ class _DataConnectApiClient:
             "X-Firebase-Client": f"fire-admin-python/{firebase_admin.__version__}",
             "x-goog-api-client": _utils.get_metrics_header(),
         }
+
+    def _make_gql_request(
+        self,
+        url: str,
+        headers: Dict[str, str],
+        payload: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Make a GraphQL request to the Data Connect service."""
+        if url is None or headers is None or payload is None:
+            raise ValueError("url, headers, and payload must all be specified.")
+
+        try:
+            resp_dict, resp = self._http_client.body_and_response(
+                'post',
+                url=url,
+                headers=headers,
+                json=payload
+            )
+        except requests.exceptions.RequestException as error:
+            raise _utils.handle_platform_error_from_requests(error)
+
+        if resp_dict and "errors" in resp_dict:
+            errors = resp_dict["errors"]
+            if isinstance(errors, list) and len(errors) > 0:
+                messages = [
+                    err.get("message") for err in errors
+                    if isinstance(err, dict) and err.get("message")
+                ]
+                all_messages = " ".join(messages)
+                raise exceptions.FirebaseError(
+                    code="query-error",
+                    message=all_messages,
+                    http_response=resp
+                )
+
+        return resp_dict

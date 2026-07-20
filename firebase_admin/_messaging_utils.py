@@ -14,8 +14,10 @@
 
 """Types and utilities used by the messaging (FCM) module."""
 from __future__ import annotations
+from dataclasses import dataclass
 import datetime
 from typing import Dict, List, Optional, Union
+import warnings
 
 from firebase_admin import exceptions
 
@@ -37,6 +39,8 @@ class Notification:
 
 class AndroidConfig:
     """Android-specific options that can be included in a message.
+
+    AndroidConfig is deprecated. Use AndroidConfigV2 instead.
 
     Args:
         collapse_key: Collapse key string for the message (optional). This is an identifier for a
@@ -73,6 +77,11 @@ class AndroidConfig:
         bandwidth_constrained_ok: Optional[bool] = None,
         restricted_satellite_ok: Optional[bool] = None
     ):
+        warnings.warn(
+            'AndroidConfig is deprecated. Use AndroidConfigV2 instead.',
+            DeprecationWarning,
+            stacklevel=2
+        )
         self.collapse_key = collapse_key
         self.priority = priority
         self.ttl = ttl
@@ -85,6 +94,7 @@ class AndroidConfig:
         self.restricted_satellite_ok = restricted_satellite_ok
 
 
+@dataclass
 class AndroidConfigV2:
     """Android-specific options that can be included in a message (V2).
 
@@ -111,34 +121,22 @@ class AndroidConfigV2:
         restricted_satellite_ok: A boolean indicating whether messages will be allowed to be
             delivered to the app while the device is on a restricted satellite network (optional).
     """
-
-    def __init__(
-        self,
-        collapse_key: Optional[str] = None,
-        ttl: Optional[Union[int, float, datetime.timedelta]] = None,
-        restricted_package_name: Optional[str] = None,
-        data: Optional[Dict[str, str]] = None,
-        remote_notification: Optional[AndroidRemoteNotification] = None,
-        background_sync: Optional[AndroidBackgroundSyncMessage] = None,
-        fcm_options: Optional[AndroidFCMOptions] = None,
-        direct_boot_ok: Optional[bool] = None,
-        bandwidth_constrained_ok: Optional[bool] = None,
-        restricted_satellite_ok: Optional[bool] = None
-    ):
-        self.collapse_key = collapse_key
-        self.ttl = ttl
-        self.restricted_package_name = restricted_package_name
-        self.data = data
-        self.remote_notification = remote_notification
-        self.background_sync = background_sync
-        self.fcm_options = fcm_options
-        self.direct_boot_ok = direct_boot_ok
-        self.bandwidth_constrained_ok = bandwidth_constrained_ok
-        self.restricted_satellite_ok = restricted_satellite_ok
+    collapse_key: Optional[str] = None
+    ttl: Optional[Union[int, float, datetime.timedelta]] = None
+    restricted_package_name: Optional[str] = None
+    data: Optional[Dict[str, str]] = None
+    remote_notification: Optional[AndroidRemoteNotification] = None
+    background_sync: Optional[AndroidBackgroundSyncMessage] = None
+    fcm_options: Optional[AndroidFCMOptions] = None
+    direct_boot_ok: Optional[bool] = None
+    bandwidth_constrained_ok: Optional[bool] = None
+    restricted_satellite_ok: Optional[bool] = None
 
 
 class AndroidNotification:
     """Android-specific notification parameters.
+
+    AndroidNotification is deprecated. Use AndroidNotificationV2 instead.
 
     Args:
         title: Title of the notification (optional). If specified, overrides the title set via
@@ -232,6 +230,11 @@ class AndroidNotification:
                  default_vibrate_timings=None, default_sound=None, light_settings=None,
                  default_light_settings=None, visibility=None, notification_count=None,
                  proxy=None):
+        warnings.warn(
+            'AndroidNotification is deprecated. Use AndroidNotificationV2 instead.',
+            DeprecationWarning,
+            stacklevel=2
+        )
         self.title = title
         self.body = body
         self.icon = icon
@@ -260,6 +263,7 @@ class AndroidNotification:
         self.proxy = proxy
 
 
+@dataclass
 class AndroidNotificationV2:
     """Android-specific notification options (V2).
 
@@ -345,64 +349,35 @@ class AndroidNotificationV2:
             unspecified, systems that support badging use the default, which is to increment a
             number displayed on the long-press menu each time a new notification arrives.
     """
-
-    def __init__(
-        self,
-        title: Optional[str] = None,
-        body: Optional[str] = None,
-        icon: Optional[str] = None,
-        color: Optional[str] = None,
-        sound: Optional[str] = None,
-        tag: Optional[str] = None,
-        id: Optional[int] = None,  # pylint: disable=redefined-builtin,invalid-name
-        click_action: Optional[str] = None,
-        body_loc_key: Optional[str] = None,
-        body_loc_args: Optional[List[str]] = None,
-        title_loc_key: Optional[str] = None,
-        title_loc_args: Optional[List[str]] = None,
-        channel_id: Optional[str] = None,
-        image: Optional[str] = None,
-        ticker: Optional[str] = None,
-        sticky: Optional[bool] = None,
-        event_time: Optional[datetime.datetime] = None,
-        local_only: Optional[bool] = None,
-        notification_priority: Optional[str] = None,
-        vibrate_timings_millis: Optional[List[Union[int, float, datetime.timedelta]]] = None,
-        default_vibrate_timings: Optional[bool] = None,
-        default_sound: Optional[bool] = None,
-        light_settings: Optional[LightSettings] = None,
-        default_light_settings: Optional[bool] = None,
-        visibility: Optional[str] = None,
-        notification_count: Optional[int] = None
-    ):
-        self.title = title
-        self.body = body
-        self.icon = icon
-        self.color = color
-        self.sound = sound
-        self.tag = tag
-        self.id = id  # pylint: disable=invalid-name
-        self.click_action = click_action
-        self.body_loc_key = body_loc_key
-        self.body_loc_args = body_loc_args
-        self.title_loc_key = title_loc_key
-        self.title_loc_args = title_loc_args
-        self.channel_id = channel_id
-        self.image = image
-        self.ticker = ticker
-        self.sticky = sticky
-        self.event_time = event_time
-        self.local_only = local_only
-        self.notification_priority = notification_priority
-        self.vibrate_timings_millis = vibrate_timings_millis
-        self.default_vibrate_timings = default_vibrate_timings
-        self.default_sound = default_sound
-        self.light_settings = light_settings
-        self.default_light_settings = default_light_settings
-        self.visibility = visibility
-        self.notification_count = notification_count
+    title: Optional[str] = None
+    body: Optional[str] = None
+    icon: Optional[str] = None
+    color: Optional[str] = None
+    sound: Optional[str] = None
+    tag: Optional[str] = None
+    id: Optional[int] = None  # pylint: disable=redefined-builtin,invalid-name
+    click_action: Optional[str] = None
+    body_loc_key: Optional[str] = None
+    body_loc_args: Optional[List[str]] = None
+    title_loc_key: Optional[str] = None
+    title_loc_args: Optional[List[str]] = None
+    channel_id: Optional[str] = None
+    image: Optional[str] = None
+    ticker: Optional[str] = None
+    sticky: Optional[bool] = None
+    event_time: Optional[datetime.datetime] = None
+    local_only: Optional[bool] = None
+    notification_priority: Optional[str] = None
+    vibrate_timings_millis: Optional[List[Union[int, float, datetime.timedelta]]] = None
+    default_vibrate_timings: Optional[bool] = None
+    default_sound: Optional[bool] = None
+    light_settings: Optional[LightSettings] = None
+    default_light_settings: Optional[bool] = None
+    visibility: Optional[str] = None
+    notification_count: Optional[int] = None
 
 
+@dataclass
 class AndroidRemoteNotification:
     """Android remote notification options.
 
@@ -413,18 +388,12 @@ class AndroidRemoteNotification:
         use_as_v1_data_message: A boolean indicating whether to use as a V1 data message
             fallback (optional).
     """
-
-    def __init__(
-        self,
-        notification: AndroidNotificationV2,
-        mutable_content: Optional[bool] = None,
-        use_as_v1_data_message: Optional[bool] = None
-    ):
-        self.notification = notification
-        self.mutable_content = mutable_content
-        self.use_as_v1_data_message = use_as_v1_data_message
+    notification: AndroidNotificationV2
+    mutable_content: Optional[bool] = None
+    use_as_v1_data_message: Optional[bool] = None
 
 
+@dataclass
 class AndroidBackgroundSyncMessage:
     """Android background sync message options."""
 

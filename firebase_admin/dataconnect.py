@@ -22,8 +22,13 @@ from collections.abc import Mapping
 from dataclasses import dataclass, asdict, is_dataclass
 import typing
 from typing import Any, Dict, Generic, Optional, Type, TypeVar, Union
+
+
+import requests
+
 import firebase_admin
-from firebase_admin import _utils, _http_client, App
+
+from firebase_admin import _utils, _http_client, App, exceptions
 
 __all__ = [
     'ConnectorConfig',
@@ -32,6 +37,7 @@ __all__ = [
     'GraphqlOptions',
     'Impersonation',
     'ExecuteGraphqlResponse',
+    'QueryError',
 ]
 
 _DATA_CONNECT_ATTRIBUTE = '_data_connect'
@@ -51,6 +57,21 @@ _EMULATOR_SERVICES_URL_FORMAT = (
 # Generic Type Parameters
 _Data = TypeVar("_Data")
 _Variables = TypeVar("_Variables")
+
+
+# Error Codes
+_QUERY_ERROR_CODE = 'query-error'
+
+
+class QueryError(exceptions.FirebaseError):
+    """Raised when a GraphQL query or mutation execution fails."""
+
+    def __init__(self, message: str, http_response: Any = None) -> None:
+        super().__init__(
+            code=_QUERY_ERROR_CODE,
+            message=message,
+            http_response=http_response
+        )
 
 @dataclass(frozen=True)
 class ConnectorConfig:
@@ -96,6 +117,7 @@ class DataConnect:
         """Initializes a DataConnect client instance. """
         self._app: App = app
         self._config = config
+        self._client = _DataConnectApiClient(connector_config=config, app=app)
 
     @property
     def app(self) -> App:
@@ -147,7 +169,6 @@ def client(config: ConnectorConfig, app: Optional[App] = None) -> DataConnect:
     dc_service = _utils.get_app_service(app, _DATA_CONNECT_ATTRIBUTE, _DataConnectService)
 
     return dc_service.get_client(config)
-
 
 
 class Impersonation(dict):
@@ -334,3 +355,62 @@ class _DataConnectApiClient:
             "X-Firebase-Client": f"fire-admin-python/{firebase_admin.__version__}",
             "x-goog-api-client": _utils.get_metrics_header(),
         }
+
+    @staticmethod
+    def _check_graphql_errors(resp_dict: Any, resp: Any) -> None:
+        """Raises QueryError if the GraphQL response payload contains an errors key."""
+        if isinstance(resp_dict, dict) and "errors" in resp_dict:
+            errors = resp_dict["errors"]
+            all_messages = ""
+            if isinstance(errors, list):
+                messages = []
+                for err in errors:
+                    if isinstance(err, dict):
+                        message = err.get("message")
+                        if message:
+                            messages.append(message)
+                all_messages = " ".join(messages)
+            if not all_messages:
+                all_messages = (
+                    f"GraphQL execution failed: {errors}" if errors
+                    else "GraphQL execution failed."
+                )
+            raise QueryError(
+                message=all_messages,
+                http_response=resp
+            )
+
+    def _make_gql_request(
+        self,
+        url: str,
+        headers: Dict[str, str],
+        payload: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Make a GraphQL request to the Data Connect service."""
+        if url is None or headers is None or payload is None:
+            raise ValueError("url, headers, and payload must all be specified.")
+
+        try:
+            resp_dict, resp = self._http_client.body_and_response(
+                'post',
+                url=url,
+                headers=headers,
+                json=payload
+            )
+        except requests.exceptions.RequestException as error:
+            raise _utils.handle_platform_error_from_requests(error)
+
+        _DataConnectApiClient._check_graphql_errors(resp_dict, resp)
+        return resp_dict
+
+    @staticmethod
+    def _parse_graphql_response(
+        resp_dict: Dict[str, Any]
+    ) -> ExecuteGraphqlResponse[Any]:
+        """Parses a raw GraphQL response payload into ExecuteGraphqlResponse."""
+        if not isinstance(resp_dict, dict):
+            raise exceptions.InternalError(
+                message="Response payload is not a valid JSON dictionary."
+            )
+
+        return ExecuteGraphqlResponse(data=resp_dict.get("data"))

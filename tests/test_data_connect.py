@@ -18,12 +18,13 @@ from dataclasses import dataclass
 from typing import Any, Dict, Mapping
 from unittest import mock
 
+
 from google.auth import credentials as google_auth_credentials
 import pytest
-
+import requests
 
 import firebase_admin
-from firebase_admin import _utils
+from firebase_admin import _utils, _http_client, exceptions
 from firebase_admin import dataconnect
 from tests import testutils
 
@@ -100,7 +101,9 @@ class TestDataConnect:
     def test_init_property_assignment(self):
         cred = testutils.MockCredential()
         try:
-            app = firebase_admin.initialize_app(cred, name="starter_app")
+            app = firebase_admin.initialize_app(
+                cred, options={'projectId': 'test-project'}, name="starter_app"
+            )
         except ValueError:
             pytest.fail("initialize app has an error")
 
@@ -113,9 +116,8 @@ class TestDataConnect:
         assert data_connect_instance._config is BASE_CONFIG # pylint: disable=protected-access
         assert data_connect_instance.app is app
         assert data_connect_instance.config is BASE_CONFIG
+        assert isinstance(data_connect_instance._client, dataconnect._DataConnectApiClient) # pylint: disable=protected-access
 
-        assert data_connect_instance._app.name == "starter_app" # pylint: disable=protected-access
-        assert data_connect_instance._config.service_id == "starterproject" # pylint: disable=protected-access
 
 
 class TestDataConnectClientFactory:
@@ -126,7 +128,9 @@ class TestDataConnectClientFactory:
 
     def setup_method(self):
         self.cred = testutils.MockCredential()
-        self.app = firebase_admin.initialize_app(self.cred, name="starter_app")
+        self.app = firebase_admin.initialize_app(
+            self.cred, options={'projectId': 'test-project'}, name="starter_app"
+        )
         self.config1 = BASE_CONFIG
         self.config2 = dataconnect.ConnectorConfig(
             service_id="starterproject2", location="us-east4", connector="my_connector2"
@@ -148,7 +152,9 @@ class TestDataConnectClientFactory:
         assert client2.config is self.config2
 
     def test_client_retrieval_different_apps_same_config(self):
-        app2 = firebase_admin.initialize_app(self.cred, name="app2")
+        app2 = firebase_admin.initialize_app(
+            self.cred, options={'projectId': 'test-project'}, name="app2"
+        )
 
         client1 = dataconnect.client(self.config1, app=self.app)
         client2 = dataconnect.client(self.config1, app=app2)
@@ -167,7 +173,9 @@ class TestDataConnectClientFactory:
             dataconnect.client(self.config1, "not-a-app")
 
     def test_client_default_app(self):
-        default_app = firebase_admin.initialize_app(self.cred)
+        default_app = firebase_admin.initialize_app(
+            self.cred, options={'projectId': 'test-project'}
+        )
         client_instance = dataconnect.client(self.config1)
         assert client_instance.app is default_app
 
@@ -191,8 +199,11 @@ class TestDataConnectService:
 
     def setup_method(self):
         self.cred = testutils.MockCredential()
-        self.app = firebase_admin.initialize_app(self.cred, name="starter_app")
+        self.app = firebase_admin.initialize_app(
+            self.cred, options={'projectId': 'test-project'}, name="starter_app"
+        )
         self.service = dataconnect._DataConnectService(self.app) # pylint: disable=protected-access
+
 
     def teardown_method(self, method):
         del method
@@ -297,8 +308,12 @@ class TestDataConnectServiceWorkflow:
 
     def setup_method(self):
         self.cred = testutils.MockCredential()
-        self.app1 = firebase_admin.initialize_app(self.cred, name="integ_app1")
-        self.app2 = firebase_admin.initialize_app(self.cred, name="integ_app2")
+        self.app1 = firebase_admin.initialize_app(
+            self.cred, options={'projectId': 'test-project'}, name="integ_app1"
+        )
+        self.app2 = firebase_admin.initialize_app(
+            self.cred, options={'projectId': 'test-project'}, name="integ_app2"
+        )
 
         self.config1 = BASE_CONFIG
         self.config2 = dataconnect.ConnectorConfig(
@@ -307,6 +322,7 @@ class TestDataConnectServiceWorkflow:
         self.config1_copy = dataconnect.ConnectorConfig(
             service_id="starterproject", location="us-east4", connector="my_connector"
         )
+
 
     def teardown_method(self, method):
         del method
@@ -724,3 +740,144 @@ class TestDataConnectApiClientGetHeaders:
         assert isinstance(headers, dict)
         assert headers.get("X-Firebase-Client") == f"fire-admin-python/{firebase_admin.__version__}"
         assert headers.get("x-goog-api-client") == _utils.get_metrics_header()
+
+
+class TestDataConnectApiClientMakeGqlRequest:
+
+    def setup_method(self):
+        self.cred = testutils.MockCredential()
+        self.app = firebase_admin.initialize_app(
+            self.cred, options={'projectId': 'test-project'}
+        )
+        self.api_client = dataconnect._DataConnectApiClient(BASE_CONFIG, self.app)
+
+    def teardown_method(self, method):
+        del method
+        testutils.cleanup_apps()
+
+    @mock.patch.object(_http_client.JsonHttpClient, "body_and_response")
+    def test_make_gql_request_success(self, mock_body_and_response):
+        mock_response = mock.Mock(spec=requests.Response)
+        mock_body_and_response.return_value = ({"data": "val"}, mock_response)
+        url = "https://example.com/endpoint"
+        headers = {"key": "val"}
+        payload = {"query": "foo"}
+
+        res = self.api_client._make_gql_request(url, headers, payload)
+        assert res == {"data": "val"}
+        mock_body_and_response.assert_called_once_with(
+            "post", url=url, headers=headers, json=payload
+        )
+
+    def test_make_gql_request_missing_url(self):
+        headers = {"key": "val"}
+        payload = {"query": "foo"}
+        with pytest.raises(ValueError, match="url, headers, and payload must all be specified."):
+            self.api_client._make_gql_request(None, headers, payload)
+
+    def test_make_gql_request_missing_headers(self):
+        url = "https://example.com/endpoint"
+        payload = {"query": "foo"}
+        with pytest.raises(ValueError, match="url, headers, and payload must all be specified."):
+            self.api_client._make_gql_request(url, None, payload)
+
+    def test_make_gql_request_missing_payload(self):
+        url = "https://example.com/endpoint"
+        headers = {"key": "val"}
+        with pytest.raises(ValueError, match="url, headers, and payload must all be specified."):
+            self.api_client._make_gql_request(url, headers, None)
+
+    @mock.patch.object(_http_client.JsonHttpClient, "body_and_response")
+    def test_make_gql_request_error(self, mock_body_and_response):
+        mock_body_and_response.side_effect = requests.exceptions.RequestException()
+        url = "https://example.com/endpoint"
+        headers = {"key": "val"}
+        payload = {"query": "foo"}
+
+        with pytest.raises(exceptions.FirebaseError):
+            self.api_client._make_gql_request(url, headers, payload)
+
+    @mock.patch.object(_http_client.JsonHttpClient, "body_and_response")
+    def test_make_gql_request_server_errors(self, mock_body_and_response):
+        mock_response = mock.Mock(spec=requests.Response)
+        mock_body_and_response.return_value = (
+            {
+                "errors": [
+                    {"message": "First error."},
+                    {"message": "Second error."}
+                ]
+            },
+            mock_response
+        )
+        url = "https://example.com/endpoint"
+        headers = {"key": "val"}
+        payload = {"query": "foo"}
+
+        with pytest.raises(exceptions.FirebaseError) as excinfo:
+            self.api_client._make_gql_request(url, headers, payload)
+
+        assert excinfo.value.code == "query-error"
+        assert str(excinfo.value) == "First error. Second error."
+        assert excinfo.value.http_response is mock_response
+
+    @mock.patch.object(_http_client.JsonHttpClient, "body_and_response")
+    def test_make_gql_request_non_standard_errors(self, mock_body_and_response):
+        mock_response = mock.Mock(spec=requests.Response)
+        mock_body_and_response.return_value = (
+            {"errors": "String error message"},
+            mock_response
+        )
+        url = "https://example.com/endpoint"
+        headers = {"key": "val"}
+        payload = {"query": "foo"}
+
+        with pytest.raises(exceptions.FirebaseError) as excinfo:
+            self.api_client._make_gql_request(url, headers, payload)
+
+        assert excinfo.value.code == "query-error"
+        assert str(excinfo.value) == "GraphQL execution failed: String error message"
+
+        mock_body_and_response.return_value = (
+            {"errors": []},
+            mock_response
+        )
+        with pytest.raises(exceptions.FirebaseError) as excinfo:
+            self.api_client._make_gql_request(url, headers, payload)
+
+        assert str(excinfo.value) == "GraphQL execution failed."
+
+
+class TestParseGraphqlResponse:
+
+    def setup_method(self):
+        self.cred = testutils.MockCredential()
+        self.app = firebase_admin.initialize_app(
+            self.cred, options={'projectId': 'test-project'}
+        )
+        self.api_client = dataconnect._DataConnectApiClient(BASE_CONFIG, self.app)
+
+    def teardown_method(self, method):
+        del method
+        testutils.cleanup_apps()
+
+    def test_parse_graphql_response_to_dictionary(self):
+        payload = {
+            "data": {"name": "Fred", "age": 20}
+        }
+        res = self.api_client._parse_graphql_response(payload)
+        assert isinstance(res, dataconnect.ExecuteGraphqlResponse)
+        assert res.data == {"name": "Fred", "age": 20}
+
+
+    def test_parse_graphql_response_none_data(self):
+        payload = {"data": None}
+        res = self.api_client._parse_graphql_response(payload)
+        assert isinstance(res, dataconnect.ExecuteGraphqlResponse)
+        assert res.data is None
+
+    def test_parse_graphql_response_non_dict_error(self):
+        with pytest.raises(exceptions.InternalError) as excinfo:
+            self.api_client._parse_graphql_response("not-a-dict")
+
+        assert excinfo.value.code == exceptions.INTERNAL
+        assert str(excinfo.value) == "Response payload is not a valid JSON dictionary."

@@ -41,6 +41,7 @@ __all__ = [
     'GraphqlOptions',
     'Impersonation',
     'ExecuteGraphqlResponse',
+    'QueryError',
 ]
 
 _DATA_CONNECT_ATTRIBUTE = '_data_connect'
@@ -60,6 +61,21 @@ _EMULATOR_SERVICES_URL_FORMAT = (
 # Generic Type Parameters
 _Data = TypeVar("_Data")
 _Variables = TypeVar("_Variables")
+
+
+# Error Codes
+_QUERY_ERROR_CODE = 'query-error'
+
+
+class QueryError(exceptions.FirebaseError):
+    """Raised when a GraphQL query or mutation execution fails."""
+
+    def __init__(self, message: str, http_response: Any = None) -> None:
+        super().__init__(
+            code=_QUERY_ERROR_CODE,
+            message=message,
+            http_response=http_response
+        )
 
 @dataclass(frozen=True)
 class ConnectorConfig:
@@ -344,6 +360,30 @@ class _DataConnectApiClient:
             "x-goog-api-client": _utils.get_metrics_header(),
         }
 
+    @staticmethod
+    def _check_graphql_errors(resp_dict: Any, resp: Any) -> None:
+        """Raises QueryError if the GraphQL response payload contains an errors key."""
+        if isinstance(resp_dict, dict) and "errors" in resp_dict:
+            errors = resp_dict["errors"]
+            all_messages = ""
+            if isinstance(errors, list):
+                messages = []
+                for err in errors:
+                    if isinstance(err, dict):
+                        message = err.get("message")
+                        if message:
+                            messages.append(message)
+                all_messages = " ".join(messages)
+            if not all_messages:
+                all_messages = (
+                    f"GraphQL execution failed: {errors}" if errors
+                    else "GraphQL execution failed."
+                )
+            raise QueryError(
+                message=all_messages,
+                http_response=resp
+            )
+
     def _make_gql_request(
         self,
         url: str,
@@ -364,26 +404,7 @@ class _DataConnectApiClient:
         except requests.exceptions.RequestException as error:
             raise _utils.handle_platform_error_from_requests(error)
 
-        if isinstance(resp_dict, dict) and "errors" in resp_dict:
-            errors = resp_dict["errors"]
-            all_messages = ""
-            if isinstance(errors, list):
-                messages = [
-                    err.get("message") for err in errors
-                    if isinstance(err, dict) and err.get("message")
-                ]
-                all_messages = " ".join(messages)
-            if not all_messages:
-                all_messages = (
-                    f"GraphQL execution failed: {errors}" if errors
-                    else "GraphQL execution failed."
-                )
-            raise exceptions.FirebaseError(
-                code="query-error",
-                message=all_messages,
-                http_response=resp
-            )
-
+        _DataConnectApiClient._check_graphql_errors(resp_dict, resp)
         return resp_dict
 
     @staticmethod
@@ -489,8 +510,7 @@ class _DataConnectApiClient:
     ) -> ExecuteGraphqlResponse[_Data]:
         """Parses a raw GraphQL response payload into ExecuteGraphqlResponse."""
         if not isinstance(resp_dict, dict):
-            raise exceptions.FirebaseError(
-                code="internal-error",
+            raise exceptions.InternalError(
                 message="Response payload is not a valid JSON dictionary."
             )
 

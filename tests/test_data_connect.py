@@ -1048,10 +1048,10 @@ class TestParseGraphqlResponse:
         assert res.data.settings == {1: "first", 2: "second"}
 
     def test_parse_graphql_response_non_dict_error(self):
-        with pytest.raises(exceptions.FirebaseError) as excinfo:
+        with pytest.raises(exceptions.InternalError) as excinfo:
             self.api_client._parse_graphql_response("not-a-dict", dict)
 
-        assert excinfo.value.code == "internal-error"
+        assert excinfo.value.code == exceptions.INTERNAL
         assert str(excinfo.value) == "Response payload is not a valid JSON dictionary."
 
     def test_parse_graphql_response_union_types(self):

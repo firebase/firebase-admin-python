@@ -20,18 +20,14 @@ Firebase apps.
 
 from collections.abc import Mapping
 from dataclasses import dataclass, asdict, is_dataclass
-import enum
 import typing
 from typing import Any, Dict, Generic, Optional, Type, TypeVar, Union
 
+
 import requests
 
-try:
-    from types import UnionType  # pylint: disable=no-name-in-module
-except ImportError:
-    UnionType = None
-
 import firebase_admin
+
 from firebase_admin import _utils, _http_client, App, exceptions
 
 __all__ = [
@@ -121,6 +117,7 @@ class DataConnect:
         """Initializes a DataConnect client instance. """
         self._app: App = app
         self._config = config
+        self._client = _DataConnectApiClient(connector_config=config, app=app)
 
     @property
     def app(self) -> App:
@@ -172,7 +169,6 @@ def client(config: ConnectorConfig, app: Optional[App] = None) -> DataConnect:
     dc_service = _utils.get_app_service(app, _DATA_CONNECT_ATTRIBUTE, _DataConnectService)
 
     return dc_service.get_client(config)
-
 
 
 class Impersonation(dict):
@@ -408,116 +404,13 @@ class _DataConnectApiClient:
         return resp_dict
 
     @staticmethod
-    def _extract_actual_type(field_type: Any) -> Any:
-        origin = typing.get_origin(field_type)
-        if origin is Union or (UnionType is not None and origin is UnionType):
-            args = typing.get_args(field_type)
-            non_none_args = [arg for arg in args if arg is not type(None)]
-            if len(non_none_args) == 1:
-                return non_none_args[0]
-        return field_type
-
-    @staticmethod
-    def _deserialize_type(type_hint: Any, data: Any) -> Any:
-        """Recursively deserializes data into the specified type hint."""
-        if data is None or type_hint is Any:
-            return data
-
-        actual_type = _DataConnectApiClient._extract_actual_type(type_hint)
-
-        origin = typing.get_origin(actual_type)
-        args = typing.get_args(actual_type)
-
-        # Union (e.g. Union[int, str] or Union[int, List[str]])
-        if origin is Union or (UnionType is not None and origin is UnionType):
-            for arg in args:
-                try:
-                    res = _DataConnectApiClient._deserialize_type(arg, data)
-                    base = typing.get_origin(arg) or arg
-                    if base is Any or (isinstance(base, type) and isinstance(res, base)):
-                        return res
-                except (ValueError, TypeError):
-                    continue
-            return data
-
-        # Dataclass
-        if is_dataclass(actual_type):
-            return _DataConnectApiClient._deserialize_dataclass(actual_type, data)
-
-        # List
-        if (origin is list or actual_type is list) and isinstance(data, list):
-            if args:
-                return [_DataConnectApiClient._deserialize_type(args[0], item) for item in data]
-            return data
-
-        # Dict / Mapping
-        if (origin in (dict, Mapping) or actual_type in (dict, Mapping)) and isinstance(data, dict):
-            if len(args) == 2:
-                k_type, v_type = args
-                new_dict = {}
-                for key, val in data.items():
-                    try:
-                        coerced_key = k_type(key) if isinstance(k_type, type) else key
-                    except (ValueError, TypeError):
-                        coerced_key = key
-                    new_dict[coerced_key] = _DataConnectApiClient._deserialize_type(
-                        v_type, val
-                    )
-                return new_dict
-            return data
-
-        # Enum (fails loudly on invalid value)
-        if isinstance(actual_type, type) and issubclass(actual_type, enum.Enum):
-            try:
-                return actual_type(data)
-            except (ValueError, TypeError) as err:
-                raise ValueError(
-                    f"Invalid value {data!r} for Enum '{actual_type.__name__}'."
-                ) from err
-
-        # Primitive / Class Constructor
-        if isinstance(actual_type, type):
-            try:
-                return actual_type(data)
-            except (ValueError, TypeError):
-                return data
-
-        return data
-
-    @staticmethod
-    def _deserialize_dataclass(type_hint: Any, data: Any) -> Any:
-        """Deserializes a dictionary payload into a target dataclass instance."""
-        if not is_dataclass(type_hint):
-            return data
-        if not isinstance(data, dict):
-            return data
-
-        type_hints = typing.get_type_hints(type_hint)
-        fields_to_pass = {}
-        for field_name, _ in type_hint.__dataclass_fields__.items():
-            if field_name in data:
-                val = data[field_name]
-                field_type = type_hints.get(field_name)
-                fields_to_pass[field_name] = _DataConnectApiClient._deserialize_type(
-                    field_type, val
-                )
-        return type_hint(**fields_to_pass)
-
-    @staticmethod
     def _parse_graphql_response(
-        resp_dict: Dict[str, Any],
-        data_type: Type[_Data] = Any
-    ) -> ExecuteGraphqlResponse[_Data]:
+        resp_dict: Dict[str, Any]
+    ) -> ExecuteGraphqlResponse[Any]:
         """Parses a raw GraphQL response payload into ExecuteGraphqlResponse."""
         if not isinstance(resp_dict, dict):
             raise exceptions.InternalError(
                 message="Response payload is not a valid JSON dictionary."
             )
 
-        data = resp_dict.get("data")
-
-        if data is None:
-            return ExecuteGraphqlResponse(data=None)
-
-        deserialized_data = _DataConnectApiClient._deserialize_type(data_type, data)
-        return ExecuteGraphqlResponse(data=deserialized_data)
+        return ExecuteGraphqlResponse(data=resp_dict.get("data"))

@@ -881,3 +881,219 @@ class TestParseGraphqlResponse:
 
         assert excinfo.value.code == exceptions.INTERNAL
         assert str(excinfo.value) == "Response payload is not a valid JSON dictionary."
+
+
+class TestDataConnectExecuteGraphql:
+
+    def setup_method(self):
+        self.cred = testutils.MockCredential()
+        self.app = firebase_admin.initialize_app(
+            self.cred, options={'projectId': 'test-project'}
+        )
+        self.dc_client = dataconnect.DataConnect(self.app, BASE_CONFIG)
+
+    def teardown_method(self, method):
+        del method
+        testutils.cleanup_apps()
+
+    @mock.patch.object(dataconnect._DataConnectApiClient, "execute_graphql")
+    def test_execute_graphql_delegates_default(self, mock_execute_graphql):
+        mock_execute_graphql.return_value = dataconnect.ExecuteGraphqlResponse(data={"key": "val"})
+        res = self.dc_client.execute_graphql("query { hello }")
+        mock_execute_graphql.assert_called_once_with(
+            query="query { hello }",
+            options=None,
+            variables_type=Any
+        )
+        assert res.data == {"key": "val"}
+
+    @mock.patch.object(dataconnect._DataConnectApiClient, "execute_graphql")
+    def test_execute_graphql_delegates_with_options(self, mock_execute_graphql):
+        mock_execute_graphql.return_value = dataconnect.ExecuteGraphqlResponse(data={"key": "val"})
+        options = dataconnect.GraphqlOptions(variables={"id": "1"})
+        res = self.dc_client.execute_graphql(
+            "query { hello }", options=options, variables_type=dict
+        )
+        mock_execute_graphql.assert_called_once_with(
+            query="query { hello }",
+            options=options,
+            variables_type=dict
+        )
+        assert res.data == {"key": "val"}
+
+    @mock.patch.object(dataconnect._DataConnectApiClient, "execute_graphql_read")
+    def test_execute_graphql_read_delegates_default(self, mock_execute_graphql_read):
+        mock_execute_graphql_read.return_value = (
+            dataconnect.ExecuteGraphqlResponse(data={"key": "val"})
+        )
+        res = self.dc_client.execute_graphql_read("query { hello }")
+        mock_execute_graphql_read.assert_called_once_with(
+            query="query { hello }",
+            options=None,
+            variables_type=Any
+        )
+        assert res.data == {"key": "val"}
+
+    @mock.patch.object(dataconnect._DataConnectApiClient, "execute_graphql_read")
+    def test_execute_graphql_read_delegates_with_options(self, mock_execute_graphql_read):
+        mock_execute_graphql_read.return_value = (
+            dataconnect.ExecuteGraphqlResponse(data={"key": "val"})
+        )
+        options = dataconnect.GraphqlOptions(variables={"id": "1"})
+        res = self.dc_client.execute_graphql_read(
+            "query { hello }", options=options, variables_type=dict
+        )
+        mock_execute_graphql_read.assert_called_once_with(
+            query="query { hello }",
+            options=options,
+            variables_type=dict
+        )
+        assert res.data == {"key": "val"}
+
+
+class TestDataConnectApiClientExecuteGraphql:
+
+    def setup_method(self):
+        self.cred = testutils.MockCredential()
+        self.app = firebase_admin.initialize_app(
+            self.cred, options={'projectId': 'test-project'}
+        )
+        self.api_client = dataconnect._DataConnectApiClient(BASE_CONFIG, self.app)
+
+    def teardown_method(self, method):
+        del method
+        testutils.cleanup_apps()
+
+    def test_execute_graphql_invalid_query_type(self):
+        with pytest.raises(ValueError, match="query must be a string"):
+            self.api_client.execute_graphql(123)
+
+    def test_execute_graphql_empty_query(self):
+        with pytest.raises(ValueError, match="query must be a non-empty string"):
+            self.api_client.execute_graphql("   ")
+
+    def test_execute_graphql_read_invalid_query_type(self):
+        with pytest.raises(ValueError, match="query must be a string"):
+            self.api_client.execute_graphql_read(123)
+
+    def test_execute_graphql_read_empty_query(self):
+        with pytest.raises(ValueError, match="query must be a non-empty string"):
+            self.api_client.execute_graphql_read("   ")
+
+    def test_execute_graphql_invalid_options(self):
+        with pytest.raises(ValueError, match="options must be a GraphqlOptions instance"):
+            self.api_client.execute_graphql("query { foo }", options="not-graphql-options")
+
+    def test_execute_graphql_invalid_variables_type(self):
+        @dataclass
+        class User:
+            name: str
+
+        options = dataconnect.GraphqlOptions(variables={"name": "Fred"})
+        with pytest.raises(ValueError, match="Expected variables of type User"):
+            self.api_client.execute_graphql("query { foo }", options=options, variables_type=User)
+
+    @mock.patch.object(dataconnect._DataConnectApiClient, "_make_gql_request")
+
+    def test_execute_graphql_success(self, mock_make_gql_request):
+        mock_make_gql_request.return_value = {"data": {"foo": "bar"}}
+        res = self.api_client.execute_graphql("query { foo }")
+        assert res.data == {"foo": "bar"}
+        mock_make_gql_request.assert_called_once()
+
+    @mock.patch.object(dataconnect._DataConnectApiClient, "_make_gql_request")
+    def test_execute_graphql_with_dataclass_variables(self, mock_make_gql_request):
+        @dataclass
+        class User:
+            name: str
+
+        mock_make_gql_request.return_value = {"data": {"user": {"name": "Fred"}}}
+        user_var = User(name="Fred")
+        options = dataconnect.GraphqlOptions(variables=user_var)
+        res = self.api_client.execute_graphql(
+            "query CreateUser { user }", options=options, variables_type=User
+        )
+        assert res.data == {"user": {"name": "Fred"}}
+        mock_make_gql_request.assert_called_once_with(
+            url=mock.ANY,
+            headers=mock.ANY,
+            payload={
+                "query": "query CreateUser { user }",
+                "variables": {"name": "Fred"}
+            }
+        )
+
+    @mock.patch.object(dataconnect._DataConnectApiClient, "_make_gql_request")
+    def test_execute_graphql_read_success(self, mock_make_gql_request):
+        mock_make_gql_request.return_value = {"data": {"foo": "bar"}}
+        res = self.api_client.execute_graphql_read("query { foo }")
+        assert res.data == {"foo": "bar"}
+        mock_make_gql_request.assert_called_once()
+
+    @mock.patch.object(dataconnect._DataConnectApiClient, "_make_gql_request")
+    def test_execute_graphql_read_with_dataclass_variables(self, mock_make_gql_request):
+        @dataclass
+        class User:
+            name: str
+
+        mock_make_gql_request.return_value = {"data": {"user": {"name": "Fred"}}}
+        user_var = User(name="Fred")
+        options = dataconnect.GraphqlOptions(variables=user_var)
+        res = self.api_client.execute_graphql_read(
+            "query GetUser { user }", options=options, variables_type=User
+        )
+        assert res.data == {"user": {"name": "Fred"}}
+        mock_make_gql_request.assert_called_once_with(
+            url=mock.ANY,
+            headers=mock.ANY,
+            payload={
+                "query": "query GetUser { user }",
+                "variables": {"name": "Fred"}
+            }
+        )
+
+    @mock.patch.object(dataconnect._DataConnectApiClient, "_make_gql_request")
+    def test_execute_graphql_payload_omits_empty_fields(self, mock_make_gql_request):
+        mock_make_gql_request.return_value = {"data": {"foo": "bar"}}
+        self.api_client.execute_graphql("query { foo }")
+        mock_make_gql_request.assert_called_once_with(
+            url=mock.ANY,
+            headers=mock.ANY,
+            payload={"query": "query { foo }"}
+        )
+
+    @mock.patch.object(_http_client.JsonHttpClient, "body_and_response")
+
+    def test_execute_graphql_parses_graphql_errors(self, mock_body_and_response):
+        mock_response = mock.Mock(spec=requests.Response)
+        mock_body_and_response.return_value = (
+            {"errors": [{"message": "Syntax error in GraphQL query"}]},
+            mock_response
+        )
+        with pytest.raises(dataconnect.QueryError) as excinfo:
+            self.api_client.execute_graphql("query { invalid }")
+
+        assert "Syntax error in GraphQL query" in str(excinfo.value)
+        assert excinfo.value.code == dataconnect._QUERY_ERROR_CODE
+
+    @mock.patch.object(_http_client.JsonHttpClient, "body_and_response")
+    def test_execute_graphql_malformed_response_payload(self, mock_body_and_response):
+        mock_response = mock.Mock(spec=requests.Response)
+        mock_body_and_response.return_value = ("invalid-string-payload", mock_response)
+        with pytest.raises(exceptions.InternalError) as excinfo:
+            self.api_client.execute_graphql("query { foo }")
+
+        assert excinfo.value.code == exceptions.INTERNAL
+        assert str(excinfo.value) == "Response payload is not a valid JSON dictionary."
+
+    @pytest.mark.parametrize("error_class", [
+        exceptions.InvalidArgumentError,
+        exceptions.PermissionDeniedError,
+        exceptions.NotFoundError,
+        exceptions.FirebaseError
+    ])
+    @mock.patch.object(dataconnect._DataConnectApiClient, "_make_gql_request")
+    def test_execute_graphql_bubbles_http_exceptions(self, mock_make_gql_request, error_class):
+        mock_make_gql_request.side_effect = error_class("Mocked API error")
+        with pytest.raises(error_class, match="Mocked API error"):
+            self.api_client.execute_graphql("query { foo }")

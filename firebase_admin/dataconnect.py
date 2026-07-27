@@ -54,6 +54,9 @@ _EMULATOR_SERVICES_URL_FORMAT = (
     '/services/{service_id}:{endpoint_id}'
 )
 
+_EXECUTE_GRAPHQL_ENDPOINT = 'executeGraphql'
+_EXECUTE_GRAPHQL_READ_ENDPOINT = 'executeGraphqlRead'
+
 # Generic Type Parameters
 _Data = TypeVar("_Data")
 _Variables = TypeVar("_Variables")
@@ -102,7 +105,42 @@ class ConnectorConfig:
             raise ValueError("connector cannot be empty")
 
 
+class Impersonation(dict):
+    """Represents impersonation configuration for DataConnect requests."""
+
+    @staticmethod
+    def unauthenticated() -> 'Impersonation':
+        """Returns impersonation configuration for unauthenticated requests."""
+        return Impersonation(unauthenticated=True)
+
+    @staticmethod
+    def authenticated(auth_claims: Dict[str, Any]) -> 'Impersonation':
+        """Returns impersonation configuration for authenticated requests.
+
+        # TODO: More strongly type auth_claims later.
+        """
+        return Impersonation(authClaims=auth_claims)
+
+
+@dataclass
+class GraphqlOptions(Generic[_Variables]):
+    variables: Optional[_Variables] = None
+    operation_name: Optional[str] = None
+    impersonate: Optional[Union[Impersonation, Dict[str, Any]]] = None
+
+
+@dataclass
+class ExecuteGraphqlResponse(Generic[_Data]):
+    """Represents the response from a DataConnect GraphQL execution.
+
+    Attributes:
+        data: The raw JSON dictionary returned by the GraphQL execution.
+    """
+    data: _Data
+
+
 class DataConnect:
+
     """Represents a Firebase Data Connect client instance. 
     
        This client provides access to the Firebase Data Connect service 
@@ -126,6 +164,66 @@ class DataConnect:
     @property
     def config(self) -> ConnectorConfig:
         return self._config
+
+    def execute_graphql(
+        self,
+        query: str,
+        options: Optional[GraphqlOptions[_Variables]] = None,
+        variables_type: Type[_Variables] = Any,
+    ) -> ExecuteGraphqlResponse[Any]:
+        """Executes a GraphQL query or mutation and returns the result.
+
+        Args:
+            query: string containing the GraphQL query
+            options: GraphqlOptions instance containing operational parameters such as
+                variables, operation name, or impersonation context (optional).
+            variables_type: The expected structure for the request variables
+
+        Returns:
+            ExecuteGraphqlResponse: An ExecuteGraphqlResponse containing the raw
+                response data dictionary.
+
+        Raises:
+            ValueError: If the arguments are invalid from the local inputs side.
+            InvalidArgumentError: If GraphQL syntax validation fails on the server.
+            PermissionDeniedError: If an @auth policy directive blocks execution due to
+                insufficient permission.
+            NotFoundError: If a specified resource is not found, or the request is rejected
+                by undisclosed reasons, such as whitelisting.
+            InternalError: If the server response payload is invalid or malformed.
+            FirebaseError: The base platform exception.
+        """
+        raise NotImplementedError
+
+    def execute_graphql_read(
+        self,
+        query: str,
+        options: Optional[GraphqlOptions[_Variables]] = None,
+        variables_type: Type[_Variables] = Any,
+    ) -> ExecuteGraphqlResponse[Any]:
+        """Executes a read-only GraphQL query and returns the result.
+
+        Args:
+            query: string containing the read-only GraphQL query
+            options: GraphqlOptions instance containing operational parameters such as
+                variables, operation name, or impersonation context (optional).
+            variables_type: The expected structure for the request variables
+
+        Returns:
+            ExecuteGraphqlResponse: An ExecuteGraphqlResponse containing the raw
+                response data dictionary.
+
+        Raises:
+            ValueError: If the arguments are invalid from the local inputs side.
+            InvalidArgumentError: If GraphQL syntax validation fails on the server.
+            PermissionDeniedError: If an @auth policy directive blocks execution due to
+                insufficient permission.
+            NotFoundError: If a specified resource is not found, or the request is rejected
+                by undisclosed reasons, such as whitelisting.
+            InternalError: If the server response payload is invalid or malformed.
+            FirebaseError: The base platform exception.
+        """
+        raise NotImplementedError
 
 
 class _DataConnectService:
@@ -169,35 +267,6 @@ def client(config: ConnectorConfig, app: Optional[App] = None) -> DataConnect:
     dc_service = _utils.get_app_service(app, _DATA_CONNECT_ATTRIBUTE, _DataConnectService)
 
     return dc_service.get_client(config)
-
-
-class Impersonation(dict):
-    """Represents impersonation configuration for DataConnect requests."""
-
-    @staticmethod
-    def unauthenticated() -> 'Impersonation':
-        """Returns impersonation configuration for unauthenticated requests."""
-        return Impersonation(unauthenticated=True)
-
-    @staticmethod
-    def authenticated(auth_claims: Dict[str, Any]) -> 'Impersonation':
-        """Returns impersonation configuration for authenticated requests.
-
-        # TODO: More strongly type auth_claims later.
-        """
-        return Impersonation(authClaims=auth_claims)
-
-
-@dataclass
-class GraphqlOptions(Generic[_Variables]):
-    variables: Optional[_Variables] = None
-    operation_name: Optional[str] = None
-    impersonate: Optional[Union[Impersonation, Dict[str, Any]]] = None
-
-
-@dataclass
-class ExecuteGraphqlResponse(Generic[_Data]):
-    data: _Data
 
 
 def _get_emulator_host() -> Optional[str]:
@@ -414,3 +483,31 @@ class _DataConnectApiClient:
             )
 
         return ExecuteGraphqlResponse(data=resp_dict.get("data"))
+
+    def _execute_graphql_helper(
+        self,
+        query: str,
+        endpoint: str,
+        options: Optional[GraphqlOptions[_Variables]] = None,
+        variables_type: Type[_Variables] = Any,
+    ) -> ExecuteGraphqlResponse[Any]:
+        """Helper method to execute GraphQL queries or mutations against a specified endpoint."""
+        raise NotImplementedError
+
+    def execute_graphql(
+        self,
+        query: str,
+        options: Optional[GraphqlOptions[_Variables]] = None,
+        variables_type: Type[_Variables] = Any,
+    ) -> ExecuteGraphqlResponse[Any]:
+        """Executes a GraphQL query or mutation and returns the result."""
+        raise NotImplementedError
+
+    def execute_graphql_read(
+        self,
+        query: str,
+        options: Optional[GraphqlOptions[_Variables]] = None,
+        variables_type: Type[_Variables] = Any,
+    ) -> ExecuteGraphqlResponse[Any]:
+        """Executes a read-only GraphQL query and returns the result."""
+        raise NotImplementedError

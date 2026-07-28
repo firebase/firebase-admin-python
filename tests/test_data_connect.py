@@ -883,7 +883,71 @@ class TestParseGraphqlResponse:
         assert str(excinfo.value) == "Response payload is not a valid JSON dictionary."
 
 
+class TestImpersonation:
+    """Unit tests for Impersonation class and constructor validation."""
+
+    def test_unauthenticated_factory(self):
+        """Tests factory method for unauthenticated impersonation."""
+        imp = dataconnect.Impersonation.unauthenticated()
+        assert imp == {"unauthenticated": True}
+
+    def test_authenticated_factory(self):
+        """Tests factory method for authenticated impersonation."""
+        claims = {"sub": "user_123"}
+        imp = dataconnect.Impersonation.authenticated(claims)
+        assert imp == {"authClaims": {"sub": "user_123"}}
+
+    def test_constructor_unauthenticated(self):
+        """Tests direct constructor with unauthenticated=True."""
+        imp = dataconnect.Impersonation(unauthenticated=True)
+        assert imp == {"unauthenticated": True}
+
+    def test_constructor_auth_claims(self):
+        """Tests direct constructor with auth_claims dict."""
+        claims = {"sub": "user_123"}
+        imp = dataconnect.Impersonation(auth_claims=claims)
+        assert imp == {"authClaims": {"sub": "user_123"}}
+
+    def test_constructor_auth_claims_camel_case(self):
+        """Tests direct constructor with authClaims dict."""
+        claims = {"sub": "user_123"}
+        imp = dataconnect.Impersonation(authClaims=claims)
+        assert imp == {"authClaims": {"sub": "user_123"}}
+
+    def test_constructor_both_claims_and_camel_case_fails(self):
+        """Tests specifying both auth_claims and authClaims raises ValueError."""
+        with pytest.raises(ValueError, match="Cannot specify both 'auth_claims' and 'authClaims'."):
+            dataconnect.Impersonation(auth_claims={"sub": "1"}, authClaims={"sub": "2"})
+
+    def test_constructor_neither_unauth_nor_claims_fails(self):
+        """Tests specifying neither unauthenticated nor claims raises ValueError."""
+        with pytest.raises(
+            ValueError,
+            match="Impersonation requires either 'unauthenticated=True' or 'auth_claims'."
+        ):
+            dataconnect.Impersonation()
+
+    def test_constructor_both_unauth_and_claims_fails(self):
+        """Tests specifying both unauthenticated and claims raises ValueError."""
+        with pytest.raises(
+            ValueError,
+            match="Cannot specify both 'unauthenticated' and 'auth_claims'."
+        ):
+            dataconnect.Impersonation(unauthenticated=True, auth_claims={"sub": "123"})
+
+    def test_constructor_invalid_unauthenticated_type(self):
+        """Tests non-boolean unauthenticated raises ValueError."""
+        with pytest.raises(ValueError, match="'unauthenticated' must be a boolean."):
+            dataconnect.Impersonation(unauthenticated="not-a-bool")
+
+    def test_constructor_invalid_auth_claims_type(self):
+        """Tests non-dict auth_claims raises ValueError."""
+        with pytest.raises(ValueError, match="'auth_claims' must be a dictionary."):
+            dataconnect.Impersonation(auth_claims="not-a-dict")
+
+
 class TestDataConnectExecuteGraphql:
+
 
     def setup_method(self):
         self.cred = testutils.MockCredential()
@@ -990,8 +1054,9 @@ class TestDataConnectApiClientExecuteGraphql:
             name: str
 
         options = dataconnect.GraphqlOptions(variables={"name": "Fred"})
-        with pytest.raises(ValueError, match="Expected variables of type User"):
+        with pytest.raises(ValueError, match="variables must be of type User"):
             self.api_client.execute_graphql("query { foo }", options=options, variables_type=User)
+
 
     @mock.patch.object(dataconnect._DataConnectApiClient, "_make_gql_request")
 

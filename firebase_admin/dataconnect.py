@@ -106,7 +106,39 @@ class ConnectorConfig:
 
 
 class Impersonation(dict):
-    """Represents impersonation configuration for DataConnect requests."""
+    """Represents impersonation configuration for DataConnect requests.
+
+    It is recommended to construct instances using the static factory methods
+    :meth:`unauthenticated` or :meth:`authenticated`.
+    """
+
+    def __init__(
+        self,
+        *,
+        unauthenticated: Optional[bool] = None,
+        auth_claims: Optional[Dict[str, Any]] = None,
+        authClaims: Optional[Dict[str, Any]] = None
+    ) -> None:
+        if auth_claims is not None and authClaims is not None:
+            raise ValueError("Cannot specify both 'auth_claims' and 'authClaims'.")
+
+        claims = auth_claims if auth_claims is not None else authClaims
+
+        if unauthenticated is None and claims is None:
+            raise ValueError(
+                "Impersonation requires either 'unauthenticated=True' or 'auth_claims'."
+            )
+        if unauthenticated is not None and claims is not None:
+            raise ValueError("Cannot specify both 'unauthenticated' and 'auth_claims'.")
+
+        if unauthenticated is not None:
+            if not isinstance(unauthenticated, bool):
+                raise ValueError("'unauthenticated' must be a boolean.")
+            super().__init__(unauthenticated=unauthenticated)
+        else:
+            if not isinstance(claims, dict):
+                raise ValueError("'auth_claims' must be a dictionary.")
+            super().__init__(authClaims=claims)
 
     @staticmethod
     def unauthenticated() -> 'Impersonation':
@@ -119,7 +151,7 @@ class Impersonation(dict):
 
         # TODO: More strongly type auth_claims later.
         """
-        return Impersonation(authClaims=auth_claims)
+        return Impersonation(auth_claims=auth_claims)
 
 
 @dataclass
@@ -129,6 +161,7 @@ class GraphqlOptions(Generic[_Variables]):
     impersonate: Optional[Union[Impersonation, Dict[str, Any]]] = None
 
 
+# TODO(b/406281627): Add support for partial errors.
 @dataclass
 class ExecuteGraphqlResponse(Generic[_Data]):
     """Represents the response from a DataConnect GraphQL execution.
@@ -140,6 +173,7 @@ class ExecuteGraphqlResponse(Generic[_Data]):
 
 
 class DataConnect:
+
 
     """Represents a Firebase Data Connect client instance. 
     
@@ -479,10 +513,12 @@ class _DataConnectApiClient:
         """Parses a raw GraphQL response payload into ExecuteGraphqlResponse."""
         if not isinstance(resp_dict, dict):
             raise exceptions.InternalError(
-                message="Response payload is not a valid JSON dictionary."
+                message=f"Response payload is not a valid JSON dictionary: {resp_dict}"
             )
 
+        # TODO(b/406281627): Add support for partial errors.
         return ExecuteGraphqlResponse(data=resp_dict.get("data"))
+
 
     def _execute_graphql_helper(
         self,

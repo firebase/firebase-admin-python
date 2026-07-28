@@ -880,4 +880,6 @@ class TestParseGraphqlResponse:
             self.api_client._parse_graphql_response("not-a-dict")
 
         assert excinfo.value.code == exceptions.INTERNAL
-        assert str(excinfo.value) == "Response payload is not a valid JSON dictionary."
+        assert str(excinfo.value) == (
+            "Response payload is not a valid JSON dictionary: not-a-dict"
+        )

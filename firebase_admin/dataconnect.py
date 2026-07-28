@@ -23,7 +23,6 @@ from dataclasses import dataclass, asdict, is_dataclass
 import typing
 from typing import Any, Dict, Generic, Optional, Type, TypeVar, Union
 
-
 import requests
 
 import firebase_admin
@@ -195,9 +194,16 @@ class GraphqlOptions(Generic[_Variables]):
     impersonate: Optional[Union[Impersonation, Dict[str, Any]]] = None
 
 
+# TODO(b/406281627): Add support for partial errors.
 @dataclass
 class ExecuteGraphqlResponse(Generic[_Data]):
+    """Represents the response from a DataConnect GraphQL execution.
+
+    Attributes:
+        data: The raw JSON dictionary returned by the GraphQL execution.
+    """
     data: _Data
+
 
 
 def _get_emulator_host() -> Optional[str]:
@@ -410,7 +416,8 @@ class _DataConnectApiClient:
         """Parses a raw GraphQL response payload into ExecuteGraphqlResponse."""
         if not isinstance(resp_dict, dict):
             raise exceptions.InternalError(
-                message="Response payload is not a valid JSON dictionary."
+                message=f"Response payload is not a valid JSON dictionary: {resp_dict}"
             )
 
+        # TODO(b/406281627): Add support for partial errors.
         return ExecuteGraphqlResponse(data=resp_dict.get("data"))

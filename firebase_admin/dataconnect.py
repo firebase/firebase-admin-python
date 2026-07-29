@@ -23,7 +23,6 @@ from dataclasses import dataclass, asdict, is_dataclass
 import typing
 from typing import Any, Dict, Generic, Optional, Type, TypeVar, Union
 
-
 import requests
 
 import firebase_admin

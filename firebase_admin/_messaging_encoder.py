@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Encoding and validation utils for the messaging (FCM) module."""
+# pylint: disable=too-many-lines
 
 from __future__ import annotations
 import datetime
@@ -236,7 +237,7 @@ class _Validators:
             raise ValueError(f'{label} must be a list of numbers or datetime.timedelta instances.')
         non_valid = [
             k for k in value
-            if not isinstance(k, (numbers.Number, datetime.timedelta))
+            if isinstance(k, bool) or not isinstance(k, (numbers.Number, datetime.timedelta))
         ]
         if non_valid:
             raise ValueError(f'{label} must not contain non-number or non-timedelta values.')
@@ -583,19 +584,26 @@ class MessageEncoder(json.JSONEncoder):
                 'AndroidNotificationV2.image', notification.image),
             'ticker': _Validators.check_string(
                 'AndroidNotificationV2.ticker', notification.ticker),
-            'sticky': notification.sticky,
+            'sticky': _Validators.check_boolean(
+                'AndroidNotificationV2.sticky', notification.sticky),
             'event_time': _Validators.check_datetime(
                 'AndroidNotificationV2.event_time', notification.event_time),
-            'local_only': notification.local_only,
+            'local_only': _Validators.check_boolean(
+                'AndroidNotificationV2.local_only', notification.local_only),
             'notification_priority': _Validators.check_string(
                 'AndroidNotificationV2.notification_priority', notification.notification_priority,
                 non_empty=True),
             'vibrate_timings': _Validators.check_vibrate_timings(
                 'AndroidNotificationV2.vibrate_timings_millis',
                 notification.vibrate_timings_millis),
-            'default_vibrate_timings': notification.default_vibrate_timings,
-            'default_sound': notification.default_sound,
-            'default_light_settings': notification.default_light_settings,
+            'default_vibrate_timings': _Validators.check_boolean(
+                'AndroidNotificationV2.default_vibrate_timings',
+                notification.default_vibrate_timings),
+            'default_sound': _Validators.check_boolean(
+                'AndroidNotificationV2.default_sound', notification.default_sound),
+            'default_light_settings': _Validators.check_boolean(
+                'AndroidNotificationV2.default_light_settings',
+                notification.default_light_settings),
             'light_settings': cls.encode_light_settings(notification.light_settings),
             'visibility': _Validators.check_string(
                 'AndroidNotificationV2.visibility', notification.visibility, non_empty=True),

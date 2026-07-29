@@ -36,6 +36,7 @@ NON_OBJECT_ARGS = [[], tuple(), {}, 'foo', 0, 1, True, False]
 NON_LIST_ARGS = ['', tuple(), {}, True, False, 1, 0, [1], ['foo', 1]]
 NON_UINT_ARGS = ['1.23s', [], tuple(), {}, -1.23]
 NON_BOOL_ARGS = ['', [], tuple(), {}, 1, 0, [1], ['foo', 1], {1: 'foo'}, {'foo': 1}]
+NON_NUMBER_LIST_ARGS = ['', tuple(), {}, True, False, 1, 0, ['foo'], [True], ['foo', 1]]
 HTTP_ERROR_CODES = {
     400: exceptions.InvalidArgumentError,
     403: exceptions.PermissionDeniedError,
@@ -790,15 +791,9 @@ class TestAndroidNotificationV2Encoder:
             'AndroidNotificationV2.title_loc_key is required when specifying title_loc_args.'
         )
 
-    @pytest.mark.parametrize('data', NON_LIST_ARGS)
+    @pytest.mark.parametrize('data', NON_NUMBER_LIST_ARGS)
     def test_invalid_vibrate_timings_millis(self, data):
         notification = messaging.AndroidNotificationV2(vibrate_timings_millis=data)
-        is_valid_list = (
-            isinstance(data, list)
-            and not [x for x in data if not isinstance(x, (numbers.Number, datetime.timedelta))]
-        )
-        if is_valid_list:
-            return
         excinfo = self._check_notification(notification)
         if isinstance(data, list):
             expected = (
@@ -811,6 +806,40 @@ class TestAndroidNotificationV2Encoder:
                 'numbers or datetime.timedelta instances.'
             )
         assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('data', NON_BOOL_ARGS)
+    def test_invalid_sticky(self, data):
+        notification = messaging.AndroidNotificationV2(sticky=data)
+        excinfo = self._check_notification(notification)
+        assert str(excinfo.value) == 'AndroidNotificationV2.sticky must be a boolean.'
+
+    @pytest.mark.parametrize('data', NON_BOOL_ARGS)
+    def test_invalid_local_only(self, data):
+        notification = messaging.AndroidNotificationV2(local_only=data)
+        excinfo = self._check_notification(notification)
+        assert str(excinfo.value) == 'AndroidNotificationV2.local_only must be a boolean.'
+
+    @pytest.mark.parametrize('data', NON_BOOL_ARGS)
+    def test_invalid_default_vibrate_timings(self, data):
+        notification = messaging.AndroidNotificationV2(default_vibrate_timings=data)
+        excinfo = self._check_notification(notification)
+        assert str(excinfo.value) == (
+            'AndroidNotificationV2.default_vibrate_timings must be a boolean.'
+        )
+
+    @pytest.mark.parametrize('data', NON_BOOL_ARGS)
+    def test_invalid_default_sound(self, data):
+        notification = messaging.AndroidNotificationV2(default_sound=data)
+        excinfo = self._check_notification(notification)
+        assert str(excinfo.value) == 'AndroidNotificationV2.default_sound must be a boolean.'
+
+    @pytest.mark.parametrize('data', NON_BOOL_ARGS)
+    def test_invalid_default_light_settings(self, data):
+        notification = messaging.AndroidNotificationV2(default_light_settings=data)
+        excinfo = self._check_notification(notification)
+        assert str(excinfo.value) == (
+            'AndroidNotificationV2.default_light_settings must be a boolean.'
+        )
 
     def test_android_notification_v2_key_order(self):
         notif = messaging.AndroidNotificationV2(

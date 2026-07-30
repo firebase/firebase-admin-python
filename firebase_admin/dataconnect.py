@@ -333,4 +333,5 @@ class _DataConnectApiClient:
         return {
             "X-Firebase-Client": f"fire-admin-python/{firebase_admin.__version__}",
             "x-goog-api-client": _utils.get_metrics_header(),
+            "X-Client-Version": f"python/{firebase_admin.__version__}",
         }

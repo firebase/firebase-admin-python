@@ -55,7 +55,8 @@ jobs:
     - name: Run Functions emulator tests
       run: firebase emulators:exec --config integration/emulators/firebase.json --only tasks,functions --project fake-project-id 'CLOUD_TASKS_EMULATOR_HOST=localhost:9499 pytest integration/test_functions.py'
     - name: Run Data Connect emulator tests
-      run: firebase emulators:exec --config integration/emulators/firebase.json --only dataconnect --project fake-project-id './integration/emulators/seed.sh && DATA_CONNECT_EMULATOR_HOST=localhost:9399 pytest integration/test_data_connect.py'
+      run: firebase emulators:exec --config integration/emulators/firebase.json --only dataconnect --project fake-project-id './integration/emulators/seed.sh && DATA_CONNECT_EMULATOR_HOST=localhost:9399 pytest integration/test_data_connect.py --cert=tests/data/service_account.json'
+
 
   lint:
     runs-on: ubuntu-latest

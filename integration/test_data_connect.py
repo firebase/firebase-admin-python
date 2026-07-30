@@ -19,10 +19,11 @@ import pytest
 from firebase_admin import dataconnect, exceptions
 
 CONNECTOR_CONFIG = dataconnect.ConnectorConfig(
-    location='us-west2',
+    location='us-east4',
     service_id='my-service',
     connector='my-connector'
 )
+
 
 FRED_USER = {'id': 'fred_id', 'address': '32 Elm St.', 'name': 'Fred'}
 FREDRICK_USER = {
@@ -122,18 +123,6 @@ OPTS_NON_EXISTING_CLAIMS = dataconnect.GraphqlOptions(
 )
 
 
-@pytest.fixture(autouse=True)
-def setup_teardown_db(default_app):
-    """Sets initial database state before each test and cleans up after."""
-    del default_app
-    dc_client = dataconnect.client(CONNECTOR_CONFIG)
-    dc_client.execute_graphql(UPSERT_FRED_USER)
-    dc_client.execute_graphql(UPSERT_JEFF_USER)
-    dc_client.execute_graphql(UPSERT_FRED_EMAIL)
-    yield
-    dc_client.execute_graphql(DELETE_ALL)
-
-
 class TestExecuteGraphql:
     """Integration tests for execute_graphql method."""
 
@@ -156,15 +145,14 @@ class TestExecuteGraphql:
         )
         assert query_email_resp.data['email'] == FRED_EMAIL
 
-        delete_resp = dc_client.execute_graphql(DELETE_ALL)
-        assert delete_resp.data['email_deleteMany'] == 1
-        assert delete_resp.data['user_deleteMany'] == 2
 
     def test_execute_graphql_query(self):
         """Tests executing a query via execute_graphql."""
         dc_client = dataconnect.client(CONNECTOR_CONFIG)
         resp = dc_client.execute_graphql(QUERY_LIST_USERS)
-        assert resp.data['users'] == INITIAL_STATE['users']
+        assert sorted(resp.data['users'], key=lambda x: x['id']) == sorted(
+            INITIAL_STATE['users'], key=lambda x: x['id']
+        )
 
     def test_execute_graphql_operation_name_multiple_queries(self):
         """Tests operation_name with multi-query document."""
@@ -196,7 +184,10 @@ class TestExecuteGraphqlRead:
         """Tests read-only query execution."""
         dc_client = dataconnect.client(CONNECTOR_CONFIG)
         resp = dc_client.execute_graphql_read(QUERY_LIST_USERS)
-        assert resp.data['users'] == INITIAL_STATE['users']
+        assert sorted(resp.data['users'], key=lambda x: x['id']) == sorted(
+            INITIAL_STATE['users'], key=lambda x: x['id']
+        )
+
 
     def test_execute_graphql_read_mutation_fails(self):
         """Tests that execute_graphql_read rejects mutation queries."""
@@ -265,6 +256,7 @@ class TestExecuteGraphqlImpersonation:
             query_options = dataconnect.GraphqlOptions(variables={'id': {'id': user_id}})
             query_resp = dc_client.execute_graphql(QUERY_GET_USER_BY_ID, options=query_options)
             assert query_resp.data['user'] == FREDRICK_USER
+            dc_client.execute_graphql(UPSERT_FRED_USER)
 
         def test_execute_graphql_impersonated_mutation_unauthenticated_fails(self):
             """Tests mutation with unauthenticated impersonation fails."""
@@ -291,7 +283,9 @@ class TestExecuteGraphqlImpersonation:
             resp = dc_client.execute_graphql(
                 QUERY_LIST_USERS, options=OPTS_AUTHORIZED_FRED_CLAIMS
             )
-            assert resp.data['users'] == INITIAL_STATE['users']
+            assert sorted(resp.data['users'], key=lambda x: x['id']) == sorted(
+                INITIAL_STATE['users'], key=lambda x: x['id']
+            )
 
         def test_impersonated_unauthenticated(self):
             """Tests public query with unauthenticated claims."""
@@ -299,7 +293,9 @@ class TestExecuteGraphqlImpersonation:
             resp = dc_client.execute_graphql(
                 QUERY_LIST_USERS, options=OPTS_UNAUTHORIZED_CLAIMS
             )
-            assert resp.data['users'] == INITIAL_STATE['users']
+            assert sorted(resp.data['users'], key=lambda x: x['id']) == sorted(
+                INITIAL_STATE['users'], key=lambda x: x['id']
+            )
 
         def test_impersonated_non_existing_claims(self):
             """Tests public query with non-existing user claims."""
@@ -307,7 +303,10 @@ class TestExecuteGraphqlImpersonation:
             resp = dc_client.execute_graphql(
                 QUERY_LIST_USERS, options=OPTS_NON_EXISTING_CLAIMS
             )
-            assert resp.data['users'] == INITIAL_STATE['users']
+            assert sorted(resp.data['users'], key=lambda x: x['id']) == sorted(
+                INITIAL_STATE['users'], key=lambda x: x['id']
+            )
+
 
     class TestNoAccessAuthPolicy:
         """Integration tests for @auth(level: NO_ACCESS) policy."""

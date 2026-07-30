@@ -1,5 +1,8 @@
 {
   "emulators": {
+    "dataconnect": {
+      "port": 9399
+    },
     "tasks": {
       "port": 9499
     },
@@ -10,6 +13,9 @@
     "functions": {
       "port": 5001
     }
+  },
+  "dataconnect": {
+    "source": "dataconnect"
   },
   "functions": [
     {

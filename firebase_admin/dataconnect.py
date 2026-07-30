@@ -226,7 +226,9 @@ class DataConnect:
             InternalError: If the server response payload is invalid or malformed.
             FirebaseError: The base platform exception.
         """
-        raise NotImplementedError
+        return self._client.execute_graphql(
+            query=query, options=options, variables_type=variables_type
+        )
 
     def execute_graphql_read(
         self,
@@ -256,7 +258,10 @@ class DataConnect:
             InternalError: If the server response payload is invalid or malformed.
             FirebaseError: The base platform exception.
         """
-        raise NotImplementedError
+        return self._client.execute_graphql_read(
+            query=query, options=options, variables_type=variables_type
+        )
+
 
 
 class _DataConnectService:
@@ -348,11 +353,17 @@ class _DataConnectApiClient:
         if variables is not None:
             if not (isinstance(variables, Mapping) or is_dataclass(variables)):
                 raise ValueError("variables must be a collections.abc.Mapping or a dataclass")
-            if variable_type is not None:
+            if (
+                variable_type is not None
+                and variable_type is not Any
+                and variable_type is not typing.Any
+            ):
                 expected_type = typing.get_origin(variable_type) or variable_type
                 if not isinstance(variables, expected_type):
                     type_name = getattr(expected_type, '__name__', str(expected_type))
                     raise ValueError(f"variables must be of type {type_name}")
+
+
 
     def _validate_impersonation_options(self, impersonate: Any) -> None:
         """Validates impersonation dictionary options."""
@@ -460,9 +471,10 @@ class _DataConnectApiClient:
 
     @staticmethod
     def _check_graphql_errors(resp_dict: Any, resp: Any) -> None:
-        """Raises QueryError if the GraphQL response payload contains an errors key."""
-        if isinstance(resp_dict, dict) and "errors" in resp_dict:
+        """Raises QueryError if the GraphQL response payload contains non-empty errors."""
+        if isinstance(resp_dict, dict) and resp_dict.get("errors"):
             errors = resp_dict["errors"]
+
             all_messages = ""
             if isinstance(errors, list):
                 messages = []
@@ -527,7 +539,20 @@ class _DataConnectApiClient:
         variables_type: Type[_Variables] = Any,
     ) -> ExecuteGraphqlResponse[Any]:
         """Helper method to execute GraphQL queries or mutations against a specified endpoint."""
-        raise NotImplementedError
+        if not isinstance(query, str):
+            raise ValueError("query must be a string")
+        if not query.strip():
+            raise ValueError("query must be a non-empty string")
+
+        self._validate_graphql_options(options, variable_type=variables_type)
+
+        url = self._get_firebase_dataconnect_service_url(endpoint)
+        headers = self._get_headers()
+        payload = self._prepare_graphql_payload(query, options)
+
+        resp_dict = self._make_gql_request(url=url, headers=headers, payload=payload)
+        return self._parse_graphql_response(resp_dict)
+
 
     def execute_graphql(
         self,
@@ -536,7 +561,9 @@ class _DataConnectApiClient:
         variables_type: Type[_Variables] = Any,
     ) -> ExecuteGraphqlResponse[Any]:
         """Executes a GraphQL query or mutation and returns the result."""
-        raise NotImplementedError
+        return self._execute_graphql_helper(
+            query, _EXECUTE_GRAPHQL_ENDPOINT, options, variables_type
+        )
 
     def execute_graphql_read(
         self,
@@ -545,4 +572,6 @@ class _DataConnectApiClient:
         variables_type: Type[_Variables] = Any,
     ) -> ExecuteGraphqlResponse[Any]:
         """Executes a read-only GraphQL query and returns the result."""
-        raise NotImplementedError
+        return self._execute_graphql_helper(
+            query, _EXECUTE_GRAPHQL_READ_ENDPOINT, options, variables_type
+        )

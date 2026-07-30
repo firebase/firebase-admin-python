@@ -1,0 +1,12 @@
+specVersion: "v1"
+serviceId: "my-service"
+location: "us-west2"
+schema:
+  source: "./schema"
+  datasource:
+    postgresql:
+      database: "my-database"
+      cloudSql:
+        instanceId: "my-instance"
+connectorDirs:
+  - "./connector"

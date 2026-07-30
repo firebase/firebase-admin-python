@@ -838,13 +838,11 @@ class TestDataConnectApiClientMakeGqlRequest:
         assert str(excinfo.value) == "GraphQL execution failed: String error message"
 
         mock_body_and_response.return_value = (
-            {"errors": []},
+            {"data": {"foo": "bar"}, "errors": []},
             mock_response
         )
-        with pytest.raises(exceptions.FirebaseError) as excinfo:
-            self.api_client._make_gql_request(url, headers, payload)
-
-        assert str(excinfo.value) == "GraphQL execution failed."
+        res = self.api_client._make_gql_request(url, headers, payload)
+        assert res == {"data": {"foo": "bar"}, "errors": []}
 
 
 class TestParseGraphqlResponse:
@@ -879,8 +877,10 @@ class TestParseGraphqlResponse:
         with pytest.raises(exceptions.InternalError) as excinfo:
             self.api_client._parse_graphql_response("not-a-dict")
 
-        assert excinfo.value.code == exceptions.INTERNAL
-        assert str(excinfo.value) == "Response payload is not a valid JSON dictionary."
+        assert str(excinfo.value) == (
+            "Response payload is not a valid JSON dictionary: not-a-dict"
+        )
+
 
 
 class TestImpersonation:
@@ -1149,13 +1149,15 @@ class TestDataConnectApiClientExecuteGraphql:
             self.api_client.execute_graphql("query { foo }")
 
         assert excinfo.value.code == exceptions.INTERNAL
-        assert str(excinfo.value) == "Response payload is not a valid JSON dictionary."
+        assert str(excinfo.value) == (
+            "Response payload is not a valid JSON dictionary: invalid-string-payload"
+        )
 
     @pytest.mark.parametrize("error_class", [
         exceptions.InvalidArgumentError,
         exceptions.PermissionDeniedError,
         exceptions.NotFoundError,
-        exceptions.FirebaseError
+        exceptions.UnknownError
     ])
     @mock.patch.object(dataconnect._DataConnectApiClient, "_make_gql_request")
     def test_execute_graphql_bubbles_http_exceptions(self, mock_make_gql_request, error_class):

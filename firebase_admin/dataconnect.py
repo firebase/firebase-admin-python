@@ -115,19 +115,13 @@ class Impersonation(dict):
         self,
         *,
         unauthenticated: Optional[bool] = None,
-        auth_claims: Optional[Dict[str, Any]] = None,
-        authClaims: Optional[Dict[str, Any]] = None
+        auth_claims: Optional[Dict[str, Any]] = None
     ) -> None:
-        if auth_claims is not None and authClaims is not None:
-            raise ValueError("Cannot specify both 'auth_claims' and 'authClaims'.")
-
-        claims = auth_claims if auth_claims is not None else authClaims
-
-        if unauthenticated is None and claims is None:
+        if unauthenticated is None and auth_claims is None:
             raise ValueError(
                 "Impersonation requires either 'unauthenticated=True' or 'auth_claims'."
             )
-        if unauthenticated is not None and claims is not None:
+        if unauthenticated is not None and auth_claims is not None:
             raise ValueError("Cannot specify both 'unauthenticated' and 'auth_claims'.")
 
         if unauthenticated is not None:
@@ -135,9 +129,9 @@ class Impersonation(dict):
                 raise ValueError("'unauthenticated' must be a boolean.")
             super().__init__(unauthenticated=unauthenticated)
         else:
-            if not isinstance(claims, dict):
+            if not isinstance(auth_claims, dict):
                 raise ValueError("'auth_claims' must be a dictionary.")
-            super().__init__(authClaims=claims)
+            super().__init__(authClaims=auth_claims)
 
     @staticmethod
     def unauthenticated() -> 'Impersonation':
@@ -542,7 +536,8 @@ class _DataConnectApiClient:
         """Helper method to execute GraphQL queries or mutations against a specified endpoint."""
         if not isinstance(query, str):
             raise ValueError("query must be a string")
-        if not query.strip():
+        query = query.strip()
+        if not query:
             raise ValueError("query must be a non-empty string")
 
         self._validate_graphql_options(options, variable_type=variables_type)

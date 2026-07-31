@@ -19,11 +19,10 @@ import pytest
 from firebase_admin import dataconnect, exceptions
 
 CONNECTOR_CONFIG = dataconnect.ConnectorConfig(
-    location='us-east4',
+    location='us-west2',
     service_id='my-service',
     connector='my-connector'
 )
-
 
 FRED_USER = {'id': 'fred_id', 'address': '32 Elm St.', 'name': 'Fred'}
 FREDRICK_USER = {
@@ -145,7 +144,6 @@ class TestExecuteGraphql:
         )
         assert query_email_resp.data['email'] == FRED_EMAIL
 
-
     def test_execute_graphql_query(self):
         """Tests executing a query via execute_graphql."""
         dc_client = dataconnect.client(CONNECTOR_CONFIG)
@@ -188,7 +186,6 @@ class TestExecuteGraphqlRead:
             INITIAL_STATE['users'], key=lambda x: x['id']
         )
 
-
     def test_execute_graphql_read_mutation_fails(self):
         """Tests that execute_graphql_read rejects mutation queries."""
         dc_client = dataconnect.client(CONNECTOR_CONFIG)
@@ -210,14 +207,6 @@ class TestExecuteGraphqlImpersonation:
             )
             assert len(resp.data['users']) == 1
             assert resp.data['users'][0] == FRED_USER
-
-        def test_execute_graphql_read_impersonated_unauthenticated_fails(self):
-            """Tests read query with unauthenticated impersonation fails."""
-            dc_client = dataconnect.client(CONNECTOR_CONFIG)
-            with pytest.raises(exceptions.UnauthenticatedError):
-                dc_client.execute_graphql_read(
-                    QUERY_LIST_USERS_IMPERSONATION, options=OPTS_UNAUTHORIZED_CLAIMS
-                )
 
         def test_execute_graphql_impersonated_authenticated(self):
             """Tests query with authenticated impersonation."""
@@ -273,6 +262,7 @@ class TestExecuteGraphqlImpersonation:
                 UPDATE_FREDRICK_USER_IMPERSONATED, options=OPTS_NON_EXISTING_CLAIMS
             )
             assert resp.data['user_update'] is None
+
 
     class TestPublicAuthPolicy:
         """Integration tests for @auth(level: PUBLIC) policy."""

@@ -254,7 +254,7 @@ def pipeline_join_multi_field(db):
             db.pipeline()
             .collection_group("reviews")
             .where(Field.of("restaurant").equal(Variable("__name__")))
-            .where(Field.of("author").equal(Variable("owner_id")))
+            .where(Field.of("reviewer_id").equal(Variable("owner_id")))
             .aggregate(Count().as_("c"))
             .to_scalar_expression()
             .greater_than(0)

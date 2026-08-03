@@ -40,6 +40,14 @@ FRED_EMAIL = {
     'from': {'id': FRED_USER['id']}
 }
 
+UPDATED_FRED_EMAIL = {
+    'id': FRED_EMAIL['id'],
+    'subject': 'updated subject',
+    'date': '2026-07-31',
+    'text': 'updated body text!',
+    'from': {'id': FRED_USER['id']}
+}
+
 INITIAL_STATE = {
     'users': [FRED_USER, JEFF_USER],
     'emails': [FRED_EMAIL]
@@ -97,6 +105,17 @@ UPSERT_FRED_EMAIL = f"""
       }})
     }}"""
 
+UPSERT_UPDATED_FRED_EMAIL = f"""
+    mutation email {{
+      email_upsert(data: {{
+        id:"{UPDATED_FRED_EMAIL['id']}",
+        subject: "{UPDATED_FRED_EMAIL['subject']}",
+        date: "{UPDATED_FRED_EMAIL['date']}",
+        text: "{UPDATED_FRED_EMAIL['text']}",
+        fromId: "{UPDATED_FRED_EMAIL['from']['id']}"
+      }})
+    }}"""
+
 DELETE_ALL = """
     mutation delete {
       email_deleteMany(all: true)
@@ -125,32 +144,21 @@ OPTS_NON_EXISTING_CLAIMS = dataconnect.GraphqlOptions(
 class TestExecuteGraphql:
     """Integration tests for execute_graphql method."""
 
-    def test_execute_graphql_mutation(self):
-        """Tests executing mutations via execute_graphql."""
-        dc_client = dataconnect.client(CONNECTOR_CONFIG)
-        fred_resp = dc_client.execute_graphql(UPSERT_FRED_USER)
-        assert fred_resp.data['user_upsert']['id'] == FRED_USER['id']
-
-        jeff_resp = dc_client.execute_graphql(UPSERT_JEFF_USER)
-        assert jeff_resp.data['user_upsert']['id'] == JEFF_USER['id']
-
-        upsert_email_resp = dc_client.execute_graphql(UPSERT_FRED_EMAIL)
-        email_id = upsert_email_resp.data['email_upsert']['id']
-        assert email_id
-
-        get_email_options = dataconnect.GraphqlOptions(variables={'id': email_id})
-        query_email_resp = dc_client.execute_graphql(
-            QUERY_GET_EMAIL, options=get_email_options
-        )
-        assert query_email_resp.data['email'] == FRED_EMAIL
-
     def test_execute_graphql_query(self):
         """Tests executing a query via execute_graphql."""
         dc_client = dataconnect.client(CONNECTOR_CONFIG)
         resp = dc_client.execute_graphql(QUERY_LIST_USERS)
-        assert sorted(resp.data['users'], key=lambda x: x['id']) == sorted(
-            INITIAL_STATE['users'], key=lambda x: x['id']
+        assert sorted(resp.data['users'], key=lambda user: user['id']) == sorted(
+            INITIAL_STATE['users'], key=lambda user: user['id']
         )
+
+    def test_execute_graphql_query_with_variables(self):
+        """Tests query execution with variables."""
+        dc_client = dataconnect.client(CONNECTOR_CONFIG)
+        user_id = INITIAL_STATE['users'][0]['id']
+        options = dataconnect.GraphqlOptions(variables={'id': {'id': user_id}})
+        resp = dc_client.execute_graphql(QUERY_GET_USER_BY_ID, options=options)
+        assert resp.data['user'] == INITIAL_STATE['users'][0]
 
     def test_execute_graphql_operation_name_multiple_queries(self):
         """Tests operation_name with multi-query document."""
@@ -166,13 +174,25 @@ class TestExecuteGraphql:
             dc_client.execute_graphql(QUERY_GET_USER_BY_ID)
         assert excinfo.value.code == 'query-error'
 
-    def test_execute_graphql_query_with_variables(self):
-        """Tests query execution with variables."""
+    def test_execute_graphql_mutation(self):
+        """Tests executing mutations via execute_graphql."""
         dc_client = dataconnect.client(CONNECTOR_CONFIG)
-        user_id = INITIAL_STATE['users'][0]['id']
-        options = dataconnect.GraphqlOptions(variables={'id': {'id': user_id}})
-        resp = dc_client.execute_graphql(QUERY_GET_USER_BY_ID, options=options)
-        assert resp.data['user'] == INITIAL_STATE['users'][0]
+        fred_resp = dc_client.execute_graphql(UPSERT_FRED_USER)
+        assert fred_resp.data['user_upsert']['id'] == FRED_USER['id']
+
+        jeff_resp = dc_client.execute_graphql(UPSERT_JEFF_USER)
+        assert jeff_resp.data['user_upsert']['id'] == JEFF_USER['id']
+
+        upsert_email_resp = dc_client.execute_graphql(UPSERT_UPDATED_FRED_EMAIL)
+        email_id = upsert_email_resp.data['email_upsert']['id']
+        assert email_id == UPDATED_FRED_EMAIL['id']
+
+        get_email_options = dataconnect.GraphqlOptions(variables={'id': email_id})
+        query_email_resp = dc_client.execute_graphql(
+            QUERY_GET_EMAIL, options=get_email_options
+        )
+        assert query_email_resp.data['email'] == UPDATED_FRED_EMAIL
+        dc_client.execute_graphql(UPSERT_FRED_EMAIL)
 
 
 class TestExecuteGraphqlRead:
@@ -182,8 +202,8 @@ class TestExecuteGraphqlRead:
         """Tests read-only query execution."""
         dc_client = dataconnect.client(CONNECTOR_CONFIG)
         resp = dc_client.execute_graphql_read(QUERY_LIST_USERS)
-        assert sorted(resp.data['users'], key=lambda x: x['id']) == sorted(
-            INITIAL_STATE['users'], key=lambda x: x['id']
+        assert sorted(resp.data['users'], key=lambda user: user['id']) == sorted(
+            INITIAL_STATE['users'], key=lambda user: user['id']
         )
 
     def test_execute_graphql_read_mutation_fails(self):
@@ -273,8 +293,8 @@ class TestExecuteGraphqlImpersonation:
             resp = dc_client.execute_graphql(
                 QUERY_LIST_USERS, options=OPTS_AUTHORIZED_FRED_CLAIMS
             )
-            assert sorted(resp.data['users'], key=lambda x: x['id']) == sorted(
-                INITIAL_STATE['users'], key=lambda x: x['id']
+            assert sorted(resp.data['users'], key=lambda user: user['id']) == sorted(
+                INITIAL_STATE['users'], key=lambda user: user['id']
             )
 
         def test_impersonated_unauthenticated(self):
@@ -283,8 +303,8 @@ class TestExecuteGraphqlImpersonation:
             resp = dc_client.execute_graphql(
                 QUERY_LIST_USERS, options=OPTS_UNAUTHORIZED_CLAIMS
             )
-            assert sorted(resp.data['users'], key=lambda x: x['id']) == sorted(
-                INITIAL_STATE['users'], key=lambda x: x['id']
+            assert sorted(resp.data['users'], key=lambda user: user['id']) == sorted(
+                INITIAL_STATE['users'], key=lambda user: user['id']
             )
 
         def test_impersonated_non_existing_claims(self):
@@ -293,8 +313,8 @@ class TestExecuteGraphqlImpersonation:
             resp = dc_client.execute_graphql(
                 QUERY_LIST_USERS, options=OPTS_NON_EXISTING_CLAIMS
             )
-            assert sorted(resp.data['users'], key=lambda x: x['id']) == sorted(
-                INITIAL_STATE['users'], key=lambda x: x['id']
+            assert sorted(resp.data['users'], key=lambda user: user['id']) == sorted(
+                INITIAL_STATE['users'], key=lambda user: user['id']
             )
 
 

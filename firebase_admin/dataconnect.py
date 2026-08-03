@@ -131,7 +131,7 @@ class Impersonation(dict):
         else:
             if not isinstance(auth_claims, dict):
                 raise ValueError("'auth_claims' must be a dictionary.")
-            super().__init__(authClaims=auth_claims)
+            super().__init__(auth_claims=auth_claims)
 
     @staticmethod
     def unauthenticated() -> 'Impersonation':
@@ -364,22 +364,22 @@ class _DataConnectApiClient:
         if impersonate is not None:
             if not isinstance(impersonate, dict):
                 raise ValueError('impersonate option must be a dictionary')
-            if 'unauthenticated' not in impersonate and 'authClaims' not in impersonate:
+            if 'unauthenticated' not in impersonate and 'auth_claims' not in impersonate:
                 raise ValueError(
                     "impersonate option must contain either "
-                    "'unauthenticated' or 'authClaims'"
+                    "'unauthenticated' or 'auth_claims'"
                 )
-            if 'unauthenticated' in impersonate and 'authClaims' in impersonate:
+            if 'unauthenticated' in impersonate and 'auth_claims' in impersonate:
                 raise ValueError(
                     "impersonate option cannot contain both "
-                    "'unauthenticated' and 'authClaims'"
+                    "'unauthenticated' and 'auth_claims'"
                 )
             if 'unauthenticated' in impersonate:
                 if not isinstance(impersonate['unauthenticated'], bool):
                     raise ValueError("'unauthenticated' claim must be a boolean")
-            if 'authClaims' in impersonate:
-                if not isinstance(impersonate['authClaims'], dict):
-                    raise ValueError("'authClaims' claim must be a dictionary")
+            if 'auth_claims' in impersonate:
+                if not isinstance(impersonate['auth_claims'], dict):
+                    raise ValueError("'auth_claims' claim must be a dictionary")
 
     def _validate_graphql_options(
         self,
@@ -426,8 +426,11 @@ class _DataConnectApiClient:
                 payload["operationName"] = graphql_options.operation_name.strip()
 
             if graphql_options.impersonate is not None:
+                impersonate_payload = dict(graphql_options.impersonate)
+                if "auth_claims" in impersonate_payload:
+                    impersonate_payload["authClaims"] = impersonate_payload.pop("auth_claims")
                 payload["extensions"] = {
-                    "impersonate": graphql_options.impersonate
+                    "impersonate": impersonate_payload
                 }
 
         return payload

@@ -39,7 +39,7 @@ TEST_URL = "https://example.com/endpoint"
 TEST_HEADERS = {"key": "val"}
 TEST_PAYLOAD = {"query": TEST_QUERY}
 TEST_AUTH_CLAIMS = {"sub": "user_123"}
-TEST_VARIABLES = {"foo": "bar"}
+TEST_VARIABLES = {"var_key": "var_val"}
 
 @dataclass
 class UserProfile:
@@ -481,11 +481,11 @@ class TestDataConnectApiClientValidateGraphqlOptions:
         with pytest.raises(ValueError, match="impersonate option must be a dictionary"):
             self.api_client._validate_graphql_options(options)
 
-        # impersonate must have either unauthenticated or authClaims
+        # impersonate must have either unauthenticated or auth_claims
         options = dataconnect.GraphqlOptions(impersonate={"invalid_key": True})
         msg = (
             "impersonate option must contain either "
-            "'unauthenticated' or 'authClaims'"
+            "'unauthenticated' or 'auth_claims'"
         )
         with pytest.raises(ValueError, match=msg):
             self.api_client._validate_graphql_options(options)
@@ -495,18 +495,18 @@ class TestDataConnectApiClientValidateGraphqlOptions:
         with pytest.raises(ValueError, match="'unauthenticated' claim must be a boolean"):
             self.api_client._validate_graphql_options(options)
 
-        # authClaims must be a dict
-        options = dataconnect.GraphqlOptions(impersonate={"authClaims": "not-dict"})
-        with pytest.raises(ValueError, match="'authClaims' claim must be a dictionary"):
+        # auth_claims must be a dict
+        options = dataconnect.GraphqlOptions(impersonate={"auth_claims": "not-dict"})
+        with pytest.raises(ValueError, match="'auth_claims' claim must be a dictionary"):
             self.api_client._validate_graphql_options(options)
 
-        # impersonate cannot contain both unauthenticated and authClaims
+        # impersonate cannot contain both unauthenticated and auth_claims
         options = dataconnect.GraphqlOptions(
-            impersonate={"unauthenticated": True, "authClaims": {"uid": "123"}}
+            impersonate={"unauthenticated": True, "auth_claims": {"uid": "123"}}
         )
         msg = (
             "impersonate option cannot contain both "
-            "'unauthenticated' and 'authClaims'"
+            "'unauthenticated' and 'auth_claims'"
         )
         with pytest.raises(ValueError, match=msg):
             self.api_client._validate_graphql_options(options)
@@ -564,7 +564,7 @@ class TestDataConnectApiClientPrepareGraphqlPayload:
 
     def test_prepare_graphql_payload_only_query(self):
         payload = self.api_client._prepare_graphql_payload(TEST_QUERY, None)
-        assert payload == {"query": TEST_QUERY}
+        assert payload == TEST_PAYLOAD
 
     def test_prepare_graphql_payload_with_variables(self):
         options = dataconnect.GraphqlOptions(variables=TEST_VARIABLES)
@@ -837,7 +837,7 @@ class TestImpersonation:
     def test_authenticated_factory(self):
         """Tests factory method for authenticated impersonation."""
         imp = dataconnect.Impersonation.authenticated(TEST_AUTH_CLAIMS)
-        assert imp == {"authClaims": TEST_AUTH_CLAIMS}
+        assert imp == {"auth_claims": TEST_AUTH_CLAIMS}
 
     def test_constructor_unauthenticated(self):
         """Tests direct constructor with unauthenticated=True."""
@@ -847,7 +847,7 @@ class TestImpersonation:
     def test_constructor_auth_claims(self):
         """Tests direct constructor with auth_claims dict."""
         imp = dataconnect.Impersonation(auth_claims=TEST_AUTH_CLAIMS)
-        assert imp == {"authClaims": TEST_AUTH_CLAIMS}
+        assert imp == {"auth_claims": TEST_AUTH_CLAIMS}
 
     def test_constructor_neither_unauth_nor_claims_fails(self):
         """Tests specifying neither unauthenticated nor claims raises ValueError."""
@@ -971,7 +971,7 @@ class TestDataConnectApiClientExecuteGraphql:
         mock_make_gql_request.assert_called_once_with(
             url=mock.ANY,
             headers=mock.ANY,
-            payload={"query": TEST_QUERY}
+            payload=TEST_PAYLOAD
         )
 
     @mock.patch.object(_http_client.JsonHttpClient, "body_and_response")

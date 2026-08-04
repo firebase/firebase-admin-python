@@ -14,9 +14,27 @@
 
 """Integration tests for firebase_admin.dataconnect module (execute_graphql)."""
 
+import os
+import subprocess
 import pytest
 
-from firebase_admin import dataconnect, exceptions
+import firebase_admin
+from firebase_admin import _utils, dataconnect, exceptions
+from integration import conftest
+
+def integration_conf(request):
+    host_override = os.environ.get('DATA_CONNECT_EMULATOR_HOST')
+    if host_override:
+        return _utils.EmulatorAdminCredentials(), 'fake-project-id'
+
+    return conftest.integration_conf(request)
+
+@pytest.fixture(scope='module', autouse=True)
+def default_app(request):
+    cred, project_id = integration_conf(request)
+    return firebase_admin.initialize_app(
+        cred, options={'projectId': project_id})
+
 
 CONNECTOR_CONFIG = dataconnect.ConnectorConfig(
     location='us-west2',
@@ -122,6 +140,17 @@ DELETE_ALL = """
       user_deleteMany(all: true)
     }"""
 
+@pytest.fixture(autouse=True)
+def setup_and_cleanup_database():
+    """Initializes database via seed.sh before each test and wipes it via cleanup.sh afterwards."""
+    script_dir = os.path.dirname(__file__)
+    seed_script = os.path.join(script_dir, 'emulators', 'seed.sh')
+    cleanup_script = os.path.join(script_dir, 'emulators', 'cleanup.sh')
+
+    subprocess.run(['bash', seed_script], check=True)
+    yield
+    subprocess.run(['bash', cleanup_script], check=True)
+
 # Impersonation Options
 OPTS_UNAUTHORIZED_CLAIMS = dataconnect.GraphqlOptions(
     impersonate=dataconnect.Impersonation.unauthenticated()
@@ -139,7 +168,6 @@ OPTS_NON_EXISTING_CLAIMS = dataconnect.GraphqlOptions(
         'email_verified': True
     })
 )
-
 
 class TestExecuteGraphql:
     """Integration tests for execute_graphql method."""
@@ -192,7 +220,6 @@ class TestExecuteGraphql:
             QUERY_GET_EMAIL, options=get_email_options
         )
         assert query_email_resp.data['email'] == UPDATED_FRED_EMAIL
-        dc_client.execute_graphql(UPSERT_FRED_EMAIL)
 
 
 class TestExecuteGraphqlRead:
@@ -265,7 +292,6 @@ class TestExecuteGraphqlImpersonation:
             query_options = dataconnect.GraphqlOptions(variables={'id': {'id': user_id}})
             query_resp = dc_client.execute_graphql(QUERY_GET_USER_BY_ID, options=query_options)
             assert query_resp.data['user'] == FREDRICK_USER
-            dc_client.execute_graphql(UPSERT_FRED_USER)
 
         def test_execute_graphql_impersonated_mutation_unauthenticated_fails(self):
             """Tests mutation with unauthenticated impersonation fails."""

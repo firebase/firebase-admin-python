@@ -18,6 +18,8 @@ This module contains utilities for accessing Firebase Data Connect services asso
 Firebase apps.
 """
 
+from __future__ import annotations
+
 from collections.abc import Mapping
 from dataclasses import dataclass, asdict, is_dataclass
 import typing
@@ -134,12 +136,12 @@ class Impersonation(dict):
             super().__init__(auth_claims=auth_claims)
 
     @staticmethod
-    def unauthenticated() -> 'Impersonation':
+    def unauthenticated() -> Impersonation:
         """Returns impersonation configuration for unauthenticated requests."""
         return Impersonation(unauthenticated=True)
 
     @staticmethod
-    def authenticated(auth_claims: Dict[str, Any]) -> 'Impersonation':
+    def authenticated(auth_claims: Dict[str, Any]) -> Impersonation:
         """Returns impersonation configuration for authenticated requests.
 
         # TODO: More strongly type auth_claims later.
@@ -166,8 +168,6 @@ class ExecuteGraphqlResponse(Generic[_Data]):
 
 
 class DataConnect:
-
-
     """Represents a Firebase Data Connect client instance. 
     
        This client provides access to the Firebase Data Connect service 
@@ -255,7 +255,6 @@ class DataConnect:
         return self._client.execute_graphql_read(
             query=query, options=options, variables_type=variables_type
         )
-
 
 
 class _DataConnectService:
@@ -356,8 +355,6 @@ class _DataConnectApiClient:
                 if not isinstance(variables, expected_type):
                     type_name = getattr(expected_type, '__name__', str(expected_type))
                     raise ValueError(f"variables must be of type {type_name}")
-
-
 
     def _validate_impersonation_options(self, impersonate: Any) -> None:
         """Validates impersonation dictionary options."""
@@ -531,7 +528,6 @@ class _DataConnectApiClient:
         # TODO(b/406281627): Add support for partial errors.
         return ExecuteGraphqlResponse(data=resp_dict.get("data"))
 
-
     def _execute_graphql_helper(
         self,
         query: str,
@@ -554,7 +550,6 @@ class _DataConnectApiClient:
 
         resp_dict = self._make_gql_request(url=url, headers=headers, payload=payload)
         return self._parse_graphql_response(resp_dict)
-
 
     def execute_graphql(
         self,

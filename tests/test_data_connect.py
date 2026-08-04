@@ -830,27 +830,27 @@ class TestParseGraphqlResponse:
 
 class TestImpersonation:
 
-    def test_unauthenticated_factory(self):
+    def test_impersonation_unauthenticated_factory(self):
         """Tests factory method for unauthenticated impersonation."""
         imp = dataconnect.Impersonation.unauthenticated()
         assert imp == {"unauthenticated": True}
 
-    def test_authenticated_factory(self):
+    def test_impersonation_authenticated_factory(self):
         """Tests factory method for authenticated impersonation."""
         imp = dataconnect.Impersonation.authenticated(TEST_AUTH_CLAIMS)
         assert imp == {"auth_claims": TEST_AUTH_CLAIMS}
 
-    def test_constructor_unauthenticated(self):
+    def test_impersonation_constructor_unauthenticated(self):
         """Tests direct constructor with unauthenticated=True."""
         imp = dataconnect.Impersonation(unauthenticated=True)
         assert imp == {"unauthenticated": True}
 
-    def test_constructor_auth_claims(self):
+    def test_impersonation_constructor_auth_claims(self):
         """Tests direct constructor with auth_claims dict."""
         imp = dataconnect.Impersonation(auth_claims=TEST_AUTH_CLAIMS)
         assert imp == {"auth_claims": TEST_AUTH_CLAIMS}
 
-    def test_constructor_neither_unauth_nor_claims_fails(self):
+    def test_impersonation_constructor_neither_unauth_nor_claims_fails(self):
         """Tests specifying neither unauthenticated nor claims raises ValueError."""
         with pytest.raises(
             ValueError,
@@ -858,7 +858,7 @@ class TestImpersonation:
         ):
             dataconnect.Impersonation()
 
-    def test_constructor_both_unauth_and_claims_fails(self):
+    def test_impersonation_constructor_both_unauth_and_claims_fails(self):
         """Tests specifying both unauthenticated and claims raises ValueError."""
         with pytest.raises(
             ValueError,
@@ -866,12 +866,12 @@ class TestImpersonation:
         ):
             dataconnect.Impersonation(unauthenticated=True, auth_claims={"sub": "123"})
 
-    def test_constructor_invalid_unauthenticated_type(self):
+    def test_impersonation_constructor_invalid_unauthenticated_type(self):
         """Tests non-boolean unauthenticated raises ValueError."""
         with pytest.raises(ValueError, match="'unauthenticated' must be a boolean."):
             dataconnect.Impersonation(unauthenticated="not-a-bool")
 
-    def test_constructor_invalid_auth_claims_type(self):
+    def test_impersonation_constructor_invalid_auth_claims_type(self):
         """Tests non-dict auth_claims raises ValueError."""
         with pytest.raises(ValueError, match="'auth_claims' must be a dictionary."):
             dataconnect.Impersonation(auth_claims="not-a-dict")

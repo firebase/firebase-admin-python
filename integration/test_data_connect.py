@@ -29,15 +29,21 @@ def integration_conf(request):
 
     return conftest.integration_conf(request)
 
-@pytest.fixture(scope='module', autouse=True)
-def default_app(request):
+@pytest.fixture(scope='module')
+def app(request):
     cred, project_id = integration_conf(request)
-    try:
-        firebase_admin.delete_app(firebase_admin.get_app())
-    except ValueError:
-        pass
     return firebase_admin.initialize_app(
-        cred, options={'projectId': project_id})
+        cred, options={'projectId': project_id}, name='integration-dataconnect')
+
+@pytest.fixture(scope='module', autouse=True)
+def default_app():
+    # Overwrites the default_app fixture in conftest.py.
+    # This test suite should not use the default app. Use the app fixture instead.
+    pass
+
+@pytest.fixture
+def dc_client(app):
+    return dataconnect.client(CONNECTOR_CONFIG, app=app)
 
 
 CONNECTOR_CONFIG = dataconnect.ConnectorConfig(
@@ -147,6 +153,10 @@ DELETE_ALL = """
 @pytest.fixture(autouse=True)
 def setup_and_cleanup_database():
     """Initializes database via seed.sh before each test and wipes it via cleanup.sh afterwards."""
+    if not os.environ.get('DATA_CONNECT_EMULATOR_HOST'):
+        yield
+        return
+
     script_dir = os.path.dirname(__file__)
     seed_script = os.path.join(script_dir, 'emulators', 'seed.sh')
     cleanup_script = os.path.join(script_dir, 'emulators', 'cleanup.sh')
@@ -176,39 +186,34 @@ OPTS_NON_EXISTING_CLAIMS = dataconnect.GraphqlOptions(
 class TestExecuteGraphql:
     """Integration tests for execute_graphql method."""
 
-    def test_execute_graphql_query(self):
+    def test_execute_graphql_query(self, dc_client):
         """Tests executing a query via execute_graphql."""
-        dc_client = dataconnect.client(CONNECTOR_CONFIG)
         resp = dc_client.execute_graphql(QUERY_LIST_USERS)
         assert sorted(resp.data['users'], key=lambda user: user['id']) == sorted(
             INITIAL_STATE['users'], key=lambda user: user['id']
         )
 
-    def test_execute_graphql_query_with_variables(self):
+    def test_execute_graphql_query_with_variables(self, dc_client):
         """Tests query execution with variables."""
-        dc_client = dataconnect.client(CONNECTOR_CONFIG)
         user_id = INITIAL_STATE['users'][0]['id']
         options = dataconnect.GraphqlOptions(variables={'id': {'id': user_id}})
         resp = dc_client.execute_graphql(QUERY_GET_USER_BY_ID, options=options)
         assert resp.data['user'] == INITIAL_STATE['users'][0]
 
-    def test_execute_graphql_operation_name_multiple_queries(self):
+    def test_execute_graphql_operation_name_multiple_queries(self, dc_client):
         """Tests operation_name with multi-query document."""
-        dc_client = dataconnect.client(CONNECTOR_CONFIG)
         options = dataconnect.GraphqlOptions(operation_name='ListEmails')
         resp = dc_client.execute_graphql(MULTIPLE_QUERIES, options=options)
         assert resp.data['emails'] == INITIAL_STATE['emails']
 
-    def test_execute_graphql_query_error_missing_variables(self):
+    def test_execute_graphql_query_error_missing_variables(self, dc_client):
         """Tests query error when required variables are missing."""
-        dc_client = dataconnect.client(CONNECTOR_CONFIG)
         with pytest.raises(dataconnect.QueryError) as excinfo:
             dc_client.execute_graphql(QUERY_GET_USER_BY_ID)
         assert excinfo.value.code == 'query-error'
 
-    def test_execute_graphql_mutation(self):
+    def test_execute_graphql_mutation(self, dc_client):
         """Tests executing mutations via execute_graphql."""
-        dc_client = dataconnect.client(CONNECTOR_CONFIG)
         fred_resp = dc_client.execute_graphql(UPSERT_FRED_USER)
         assert fred_resp.data['user_upsert']['id'] == FRED_USER['id']
 
@@ -229,17 +234,15 @@ class TestExecuteGraphql:
 class TestExecuteGraphqlRead:
     """Integration tests for execute_graphql_read method."""
 
-    def test_execute_graphql_read_query(self):
+    def test_execute_graphql_read_query(self, dc_client):
         """Tests read-only query execution."""
-        dc_client = dataconnect.client(CONNECTOR_CONFIG)
         resp = dc_client.execute_graphql_read(QUERY_LIST_USERS)
         assert sorted(resp.data['users'], key=lambda user: user['id']) == sorted(
             INITIAL_STATE['users'], key=lambda user: user['id']
         )
 
-    def test_execute_graphql_read_mutation_fails(self):
+    def test_execute_graphql_read_mutation_fails(self, dc_client):
         """Tests that execute_graphql_read rejects mutation queries."""
-        dc_client = dataconnect.client(CONNECTOR_CONFIG)
         with pytest.raises(exceptions.PermissionDeniedError):
             dc_client.execute_graphql_read(UPSERT_FRED_USER)
 
@@ -250,43 +253,38 @@ class TestExecuteGraphqlImpersonation:
     class TestUserAuthPolicy:
         """Integration tests for @auth(level: USER) policy."""
 
-        def test_execute_graphql_read_impersonated_authenticated(self):
+        def test_execute_graphql_read_impersonated_authenticated(self, dc_client):
             """Tests read query with authenticated impersonation."""
-            dc_client = dataconnect.client(CONNECTOR_CONFIG)
             resp = dc_client.execute_graphql_read(
                 QUERY_LIST_USERS_IMPERSONATION, options=OPTS_AUTHORIZED_FRED_CLAIMS
             )
             assert len(resp.data['users']) == 1
             assert resp.data['users'][0] == FRED_USER
 
-        def test_execute_graphql_impersonated_authenticated(self):
+        def test_execute_graphql_impersonated_authenticated(self, dc_client):
             """Tests query with authenticated impersonation."""
-            dc_client = dataconnect.client(CONNECTOR_CONFIG)
             resp = dc_client.execute_graphql(
                 QUERY_LIST_USERS_IMPERSONATION, options=OPTS_AUTHORIZED_FRED_CLAIMS
             )
             assert len(resp.data['users']) == 1
             assert resp.data['users'][0] == FRED_USER
 
-        def test_execute_graphql_impersonated_unauthenticated_fails(self):
+        def test_execute_graphql_impersonated_unauthenticated_fails(self, dc_client):
             """Tests query with unauthenticated impersonation fails."""
-            dc_client = dataconnect.client(CONNECTOR_CONFIG)
             with pytest.raises(exceptions.UnauthenticatedError):
                 dc_client.execute_graphql(
                     QUERY_LIST_USERS_IMPERSONATION, options=OPTS_UNAUTHORIZED_CLAIMS
                 )
 
-        def test_execute_graphql_impersonated_non_existing_claims(self):
+        def test_execute_graphql_impersonated_non_existing_claims(self, dc_client):
             """Tests query with non-existing user claims returns empty list."""
-            dc_client = dataconnect.client(CONNECTOR_CONFIG)
             resp = dc_client.execute_graphql(
                 QUERY_LIST_USERS_IMPERSONATION, options=OPTS_NON_EXISTING_CLAIMS
             )
             assert resp.data['users'] == []
 
-        def test_execute_graphql_impersonated_mutation_authenticated(self):
+        def test_execute_graphql_impersonated_mutation_authenticated(self, dc_client):
             """Tests mutation with authenticated impersonation."""
-            dc_client = dataconnect.client(CONNECTOR_CONFIG)
             update_resp = dc_client.execute_graphql(
                 UPDATE_FREDRICK_USER_IMPERSONATED, options=OPTS_AUTHORIZED_FRED_CLAIMS
             )
@@ -297,17 +295,15 @@ class TestExecuteGraphqlImpersonation:
             query_resp = dc_client.execute_graphql(QUERY_GET_USER_BY_ID, options=query_options)
             assert query_resp.data['user'] == FREDRICK_USER
 
-        def test_execute_graphql_impersonated_mutation_unauthenticated_fails(self):
+        def test_execute_graphql_impersonated_mutation_unauthenticated_fails(self, dc_client):
             """Tests mutation with unauthenticated impersonation fails."""
-            dc_client = dataconnect.client(CONNECTOR_CONFIG)
             with pytest.raises(exceptions.UnauthenticatedError):
                 dc_client.execute_graphql(
                     UPDATE_FREDRICK_USER_IMPERSONATED, options=OPTS_UNAUTHORIZED_CLAIMS
                 )
 
-        def test_execute_graphql_impersonated_mutation_non_existing_claims(self):
+        def test_execute_graphql_impersonated_mutation_non_existing_claims(self, dc_client):
             """Tests mutation with non-existing claims returns None."""
-            dc_client = dataconnect.client(CONNECTOR_CONFIG)
             resp = dc_client.execute_graphql(
                 UPDATE_FREDRICK_USER_IMPERSONATED, options=OPTS_NON_EXISTING_CLAIMS
             )
@@ -317,9 +313,8 @@ class TestExecuteGraphqlImpersonation:
     class TestPublicAuthPolicy:
         """Integration tests for @auth(level: PUBLIC) policy."""
 
-        def test_impersonated_authenticated(self):
+        def test_impersonated_authenticated(self, dc_client):
             """Tests public query with authenticated claims."""
-            dc_client = dataconnect.client(CONNECTOR_CONFIG)
             resp = dc_client.execute_graphql(
                 QUERY_LIST_USERS, options=OPTS_AUTHORIZED_FRED_CLAIMS
             )
@@ -327,9 +322,8 @@ class TestExecuteGraphqlImpersonation:
                 INITIAL_STATE['users'], key=lambda user: user['id']
             )
 
-        def test_impersonated_unauthenticated(self):
+        def test_impersonated_unauthenticated(self, dc_client):
             """Tests public query with unauthenticated claims."""
-            dc_client = dataconnect.client(CONNECTOR_CONFIG)
             resp = dc_client.execute_graphql(
                 QUERY_LIST_USERS, options=OPTS_UNAUTHORIZED_CLAIMS
             )
@@ -337,9 +331,8 @@ class TestExecuteGraphqlImpersonation:
                 INITIAL_STATE['users'], key=lambda user: user['id']
             )
 
-        def test_impersonated_non_existing_claims(self):
+        def test_impersonated_non_existing_claims(self, dc_client):
             """Tests public query with non-existing user claims."""
-            dc_client = dataconnect.client(CONNECTOR_CONFIG)
             resp = dc_client.execute_graphql(
                 QUERY_LIST_USERS, options=OPTS_NON_EXISTING_CLAIMS
             )
@@ -351,25 +344,22 @@ class TestExecuteGraphqlImpersonation:
     class TestNoAccessAuthPolicy:
         """Integration tests for @auth(level: NO_ACCESS) policy."""
 
-        def test_impersonated_authenticated_fails(self):
+        def test_impersonated_authenticated_fails(self, dc_client):
             """Tests no-access query with authenticated claims fails."""
-            dc_client = dataconnect.client(CONNECTOR_CONFIG)
             with pytest.raises(exceptions.PermissionDeniedError):
                 dc_client.execute_graphql(
                     QUERY_LIST_EMAILS, options=OPTS_AUTHORIZED_FRED_CLAIMS
                 )
 
-        def test_impersonated_unauthenticated_fails(self):
+        def test_impersonated_unauthenticated_fails(self, dc_client):
             """Tests no-access query with unauthenticated claims fails."""
-            dc_client = dataconnect.client(CONNECTOR_CONFIG)
             with pytest.raises(exceptions.PermissionDeniedError):
                 dc_client.execute_graphql(
                     QUERY_LIST_EMAILS, options=OPTS_UNAUTHORIZED_CLAIMS
                 )
 
-        def test_impersonated_non_existing_claims_fails(self):
+        def test_impersonated_non_existing_claims_fails(self, dc_client):
             """Tests no-access query with non-existing user claims fails."""
-            dc_client = dataconnect.client(CONNECTOR_CONFIG)
             with pytest.raises(exceptions.PermissionDeniedError):
                 dc_client.execute_graphql(
                     QUERY_LIST_EMAILS, options=OPTS_NON_EXISTING_CLAIMS

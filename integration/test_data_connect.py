@@ -32,6 +32,10 @@ def integration_conf(request):
 @pytest.fixture(scope='module', autouse=True)
 def default_app(request):
     cred, project_id = integration_conf(request)
+    try:
+        firebase_admin.delete_app(firebase_admin.get_app())
+    except ValueError:
+        pass
     return firebase_admin.initialize_app(
         cred, options={'projectId': project_id})
 

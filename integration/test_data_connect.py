@@ -41,12 +41,6 @@ def default_app():
     # This test suite should not use the default app. Use the app fixture instead.
     pass
 
-@pytest.fixture(scope='module', autouse=True)
-def check_emulator():
-    """Skips Data Connect integration tests if emulator host is not set."""
-    if not os.environ.get('DATA_CONNECT_EMULATOR_HOST'):
-        pytest.skip('Data Connect integration tests require DATA_CONNECT_EMULATOR_HOST.')
-
 @pytest.fixture
 def dc_client(app):
     return dataconnect.client(CONNECTOR_CONFIG, app=app)

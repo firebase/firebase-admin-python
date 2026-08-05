@@ -151,18 +151,13 @@ DELETE_ALL = """
 
 @pytest.fixture(autouse=True)
 def setup_and_cleanup_database():
-    """Initializes database via seed.sh before each test and wipes it via cleanup.sh afterwards."""
-    if not os.environ.get('DATA_CONNECT_EMULATOR_HOST'):
-        yield
-        return
-
+    """Initializes database via setup_teardown.sh before each test and wipes it afterwards."""
     script_dir = os.path.dirname(__file__)
-    seed_script = os.path.join(script_dir, 'emulators', 'seed.sh')
-    cleanup_script = os.path.join(script_dir, 'emulators', 'cleanup.sh')
+    script = os.path.join(script_dir, 'emulators', 'dataconnect', 'setup_teardown.sh')
 
-    subprocess.run(['bash', seed_script], check=True)
+    subprocess.run(['bash', script, 'setup'], check=True)
     yield
-    subprocess.run(['bash', cleanup_script], check=True)
+    subprocess.run(['bash', script, 'teardown'], check=True)
 
 # Impersonation Options
 OPTS_UNAUTHORIZED_CLAIMS = dataconnect.GraphqlOptions(

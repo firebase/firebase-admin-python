@@ -8,9 +8,24 @@ if [ -n "${DATA_CONNECT_EMULATOR_HOST}" ]; then
   ENDPOINT="http://${DATA_CONNECT_EMULATOR_HOST}/v1/projects/test-project/locations/us-west2/services/my-service:executeGraphql"
   AUTH_HEADER="Authorization: Bearer owner"
 else
-  PROJECT_ID="${FB_INTEGRATION_PROJECT_ID:-fir-kobayashi-maru}"
+  CERT_FILE="${GOOGLE_APPLICATION_CREDENTIALS:-cert.json}"
+  PROJECT_ID="${FB_INTEGRATION_PROJECT_ID:-$(python3 -c "import json, os; print(json.load(open('${CERT_FILE}')).get('project_id', '')) if os.path.exists('${CERT_FILE}') else print('')")}"
   ENDPOINT="https://dataconnect.googleapis.com/v1/projects/${PROJECT_ID}/locations/us-west2/services/my-service:executeGraphql"
-  ACCESS_TOKEN=$(python3 -c "import google.auth, google.auth.transport.requests; creds, _ = google.auth.default(); creds.refresh(google.auth.transport.requests.Request()); print(creds.token)")
+  
+  ACCESS_TOKEN=$(python3 -c "
+import google.auth, google.auth.transport.requests, os
+from google.oauth2 import service_account
+
+cert_file = '${CERT_FILE}'
+if os.path.exists(cert_file):
+    creds = service_account.Credentials.from_service_account_file(cert_file, scopes=['https://www.googleapis.com/auth/cloud-platform'])
+else:
+    creds, _ = google.auth.default()
+    creds = creds.with_scopes(['https://www.googleapis.com/auth/cloud-platform'])
+
+creds.refresh(google.auth.transport.requests.Request())
+print(creds.token)
+")
   AUTH_HEADER="Authorization: Bearer ${ACCESS_TOKEN}"
 fi
 

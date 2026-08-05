@@ -15,7 +15,6 @@
 """Integration tests for firebase_admin.dataconnect module (execute_graphql)."""
 
 import os
-import subprocess
 import pytest
 
 import firebase_admin
@@ -150,14 +149,13 @@ DELETE_ALL = """
     }"""
 
 @pytest.fixture(autouse=True)
-def setup_and_cleanup_database():
-    """Initializes database via setup_teardown.sh before each test and wipes it afterwards."""
-    script_dir = os.path.dirname(__file__)
-    script = os.path.join(script_dir, 'emulators', 'dataconnect', 'setup_teardown.sh')
-
-    subprocess.run(['bash', script, 'setup'], check=True)
+def setup_and_cleanup_database(dc_client):
+    """Initializes database via DataConnect client before each test and wipes it afterwards."""
+    dc_client.execute_graphql(UPSERT_FRED_USER)
+    dc_client.execute_graphql(UPSERT_JEFF_USER)
+    dc_client.execute_graphql(UPSERT_FRED_EMAIL)
     yield
-    subprocess.run(['bash', script, 'teardown'], check=True)
+    dc_client.execute_graphql(DELETE_ALL)
 
 # Impersonation Options
 OPTS_UNAUTHORIZED_CLAIMS = dataconnect.GraphqlOptions(

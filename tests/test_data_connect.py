@@ -18,7 +18,6 @@ from dataclasses import dataclass
 from typing import Any, Dict, Mapping
 from unittest import mock
 
-
 from google.auth import credentials as google_auth_credentials
 import pytest
 import requests
@@ -28,13 +27,39 @@ from firebase_admin import _utils, _http_client, exceptions
 from firebase_admin import dataconnect
 from tests import testutils
 
-
 BASE_CONFIG = dataconnect.ConnectorConfig(
     service_id="starterproject",
     location="us-east4",
     connector="my_connector",
 )
 
+TEST_QUERY = "query { hello }"
+TEST_RESPONSE_DATA = {"foo": "bar"}
+TEST_URL = "https://example.com/endpoint"
+TEST_HEADERS = {"key": "val"}
+TEST_PAYLOAD = {"query": TEST_QUERY}
+TEST_AUTH_CLAIMS = {"sub": "user_123"}
+TEST_VARIABLES = {"var_key": "var_val"}
+
+@dataclass
+class UserProfile:
+    address: str
+    phone: str
+
+@dataclass
+class CreateUserVariables:
+    user_id: str
+    name: str
+    profile: UserProfile
+
+TEST_PROFILE = UserProfile(address="123 Road", phone="332-3233-0199")
+TEST_DATACLASS_VARIABLES = CreateUserVariables(
+    user_id="1", name="Fred", profile=TEST_PROFILE
+)
+
+@dataclass
+class User:
+    name: str
 
 class TestConnectorConfig:
 
@@ -117,7 +142,6 @@ class TestDataConnect:
         assert data_connect_instance.app is app
         assert data_connect_instance.config is BASE_CONFIG
         assert isinstance(data_connect_instance._client, dataconnect._DataConnectApiClient) # pylint: disable=protected-access
-
 
 
 class TestDataConnectClientFactory:
@@ -203,7 +227,6 @@ class TestDataConnectService:
             self.cred, options={'projectId': 'test-project'}, name="starter_app"
         )
         self.service = dataconnect._DataConnectService(self.app) # pylint: disable=protected-access
-
 
     def teardown_method(self, method):
         del method
@@ -323,7 +346,6 @@ class TestDataConnectServiceWorkflow:
             service_id="starterproject", location="us-east4", connector="my_connector"
         )
 
-
     def teardown_method(self, method):
         del method
         testutils.cleanup_apps()
@@ -437,22 +459,7 @@ class TestDataConnectApiClientValidateGraphqlOptions:
         self.api_client._validate_graphql_options(options)
 
     def test_validate_graphql_options_valid_dataclass_variables(self):
-        @dataclass
-        class UserProfile:
-            address: str
-            phone: str
-
-        @dataclass
-        class CreateUserVariables:
-            user_id: str
-            name: str
-            profile: UserProfile
-
-        profile_val = UserProfile(address="123 Road", phone="332-3233-0199")
-        valid_variables = CreateUserVariables(
-            user_id="1", name="Fred", profile=profile_val
-        )
-        options = dataconnect.GraphqlOptions(variables=valid_variables)
+        options = dataconnect.GraphqlOptions(variables=TEST_DATACLASS_VARIABLES)
         self.api_client._validate_graphql_options(options, CreateUserVariables)
 
     def test_validate_graphql_options_valid_mapping_variables(self):
@@ -474,11 +481,11 @@ class TestDataConnectApiClientValidateGraphqlOptions:
         with pytest.raises(ValueError, match="impersonate option must be a dictionary"):
             self.api_client._validate_graphql_options(options)
 
-        # impersonate must have either unauthenticated or authClaims
+        # impersonate must have either unauthenticated or auth_claims
         options = dataconnect.GraphqlOptions(impersonate={"invalid_key": True})
         msg = (
             "impersonate option must contain either "
-            "'unauthenticated' or 'authClaims'"
+            "'unauthenticated' or 'auth_claims'"
         )
         with pytest.raises(ValueError, match=msg):
             self.api_client._validate_graphql_options(options)
@@ -488,18 +495,18 @@ class TestDataConnectApiClientValidateGraphqlOptions:
         with pytest.raises(ValueError, match="'unauthenticated' claim must be a boolean"):
             self.api_client._validate_graphql_options(options)
 
-        # authClaims must be a dict
-        options = dataconnect.GraphqlOptions(impersonate={"authClaims": "not-dict"})
-        with pytest.raises(ValueError, match="'authClaims' claim must be a dictionary"):
+        # auth_claims must be a dict
+        options = dataconnect.GraphqlOptions(impersonate={"auth_claims": "not-dict"})
+        with pytest.raises(ValueError, match="'auth_claims' claim must be a dictionary"):
             self.api_client._validate_graphql_options(options)
 
-        # impersonate cannot contain both unauthenticated and authClaims
+        # impersonate cannot contain both unauthenticated and auth_claims
         options = dataconnect.GraphqlOptions(
-            impersonate={"unauthenticated": True, "authClaims": {"uid": "123"}}
+            impersonate={"unauthenticated": True, "auth_claims": {"uid": "123"}}
         )
         msg = (
             "impersonate option cannot contain both "
-            "'unauthenticated' and 'authClaims'"
+            "'unauthenticated' and 'auth_claims'"
         )
         with pytest.raises(ValueError, match=msg):
             self.api_client._validate_graphql_options(options)
@@ -521,17 +528,6 @@ class TestDataConnectApiClientValidateGraphqlOptions:
             self.api_client._validate_graphql_options(options)
 
     def test_validate_graphql_options_invalid_variables(self):
-        @dataclass
-        class UserProfile:
-            address: str
-            phone: str
-
-        @dataclass
-        class CreateUserVariables:
-            user_id: str
-            name: str
-            profile: UserProfile
-
         # Test invalid variable format (not Mapping or dataclass)
         options = dataconnect.GraphqlOptions(variables="invalid-string-format")
         msg = "variables must be a collections.abc.Mapping or a dataclass"
@@ -539,22 +535,18 @@ class TestDataConnectApiClientValidateGraphqlOptions:
             self.api_client._validate_graphql_options(options)
 
         # Test valid Mapping format but type mismatch against expected dataclass type
-        options = dataconnect.GraphqlOptions(variables={"foo": "bar"})
+        options = dataconnect.GraphqlOptions(variables=TEST_VARIABLES)
         with pytest.raises(ValueError, match="variables must be of type CreateUserVariables"):
             self.api_client._validate_graphql_options(options, CreateUserVariables)
 
         # Test type mismatch when variable_type is a tuple of classes (no __name__ attribute)
-        options = dataconnect.GraphqlOptions(variables={"foo": "bar"})
+        options = dataconnect.GraphqlOptions(variables=TEST_VARIABLES)
         msg = r"variables must be of type \(\<class 'list'\>, \<class 'tuple'\>\)"
         with pytest.raises(ValueError, match=msg):
             self.api_client._validate_graphql_options(options, (list, tuple))
 
         # Test type mismatch when a dataclass is passed but a Dict is expected
-        profile_val = UserProfile(address="123 Road", phone="332-3233-0199")
-        valid_variables = CreateUserVariables(
-            user_id="1", name="Fred", profile=profile_val
-        )
-        options = dataconnect.GraphqlOptions(variables=valid_variables)
+        options = dataconnect.GraphqlOptions(variables=TEST_DATACLASS_VARIABLES)
         with pytest.raises(ValueError, match="variables must be of type dict"):
             self.api_client._validate_graphql_options(options, Dict[str, Any])
 
@@ -571,37 +563,22 @@ class TestDataConnectApiClientPrepareGraphqlPayload:
         testutils.cleanup_apps()
 
     def test_prepare_graphql_payload_only_query(self):
-        payload = self.api_client._prepare_graphql_payload("query { hello }", None)
-        assert payload == {"query": "query { hello }"}
+        payload = self.api_client._prepare_graphql_payload(TEST_QUERY, None)
+        assert payload == TEST_PAYLOAD
 
     def test_prepare_graphql_payload_with_variables(self):
-        options = dataconnect.GraphqlOptions(variables={"foo": "bar"})
-        payload = self.api_client._prepare_graphql_payload("query { hello }", options)
+        options = dataconnect.GraphqlOptions(variables=TEST_VARIABLES)
+        payload = self.api_client._prepare_graphql_payload(TEST_QUERY, options)
         assert payload == {
-            "query": "query { hello }",
-            "variables": {"foo": "bar"}
+            "query": TEST_QUERY,
+            "variables": TEST_VARIABLES
         }
 
     def test_prepare_graphql_payload_with_dataclass_variables(self):
-        @dataclass
-        class UserProfile:
-            address: str
-            phone: str
-
-        @dataclass
-        class CreateUserVariables:
-            user_id: str
-            name: str
-            profile: UserProfile
-
-        profile_val = UserProfile(address="123 Road", phone="332-3233-0199")
-        valid_variables = CreateUserVariables(
-            user_id="1", name="Fred", profile=profile_val
-        )
-        options = dataconnect.GraphqlOptions(variables=valid_variables)
-        payload = self.api_client._prepare_graphql_payload("query { hello }", options)
+        options = dataconnect.GraphqlOptions(variables=TEST_DATACLASS_VARIABLES)
+        payload = self.api_client._prepare_graphql_payload(TEST_QUERY, options)
         assert payload == {
-            "query": "query { hello }",
+            "query": TEST_QUERY,
             "variables": {
                 "user_id": "1",
                 "name": "Fred",
@@ -617,9 +594,9 @@ class TestDataConnectApiClientPrepareGraphqlPayload:
         self.api_client._validate_graphql_options(options)
         assert options.operation_name == "  myOp  "
 
-        payload = self.api_client._prepare_graphql_payload("query { hello }", options)
+        payload = self.api_client._prepare_graphql_payload(TEST_QUERY, options)
         assert payload == {
-            "query": "query { hello }",
+            "query": TEST_QUERY,
             "operationName": "myOp"
         }
         assert options.operation_name == "  myOp  "
@@ -627,9 +604,9 @@ class TestDataConnectApiClientPrepareGraphqlPayload:
     def test_prepare_graphql_payload_with_impersonate_unauthenticated(self):
         imp_unauth = dataconnect.Impersonation.unauthenticated()
         options = dataconnect.GraphqlOptions(impersonate=imp_unauth)
-        payload = self.api_client._prepare_graphql_payload("query { hello }", options)
+        payload = self.api_client._prepare_graphql_payload(TEST_QUERY, options)
         assert payload == {
-            "query": "query { hello }",
+            "query": TEST_QUERY,
             "extensions": {
                 "impersonate": {"unauthenticated": True}
             }
@@ -640,41 +617,26 @@ class TestDataConnectApiClientPrepareGraphqlPayload:
             {"sub": "authenticated-UUID"}
         )
         options = dataconnect.GraphqlOptions(impersonate=imp_auth)
-        payload = self.api_client._prepare_graphql_payload("query { hello }", options)
+        payload = self.api_client._prepare_graphql_payload(TEST_QUERY, options)
         assert payload == {
-            "query": "query { hello }",
+            "query": TEST_QUERY,
             "extensions": {
                 "impersonate": {"authClaims": {"sub": "authenticated-UUID"}}
             }
         }
 
     def test_prepare_graphql_payload_with_all_fields(self):
-        @dataclass
-        class UserProfile:
-            address: str
-            phone: str
-
-        @dataclass
-        class CreateUserVariables:
-            user_id: str
-            name: str
-            profile: UserProfile
-
-        profile_val = UserProfile(address="123 Road", phone="332-3233-0199")
-        valid_variables = CreateUserVariables(
-            user_id="1", name="Fred", profile=profile_val
-        )
         imp_auth = dataconnect.Impersonation.authenticated(
             {"sub": "authenticated-UUID"}
         )
         options = dataconnect.GraphqlOptions(
-            variables=valid_variables,
+            variables=TEST_DATACLASS_VARIABLES,
             operation_name="getUsers",
             impersonate=imp_auth
         )
-        payload = self.api_client._prepare_graphql_payload("query { hello }", options)
+        payload = self.api_client._prepare_graphql_payload(TEST_QUERY, options)
         assert payload == {
-            "query": "query { hello }",
+            "query": TEST_QUERY,
             "operationName": "getUsers",
             "variables": {
                 "user_id": "1",
@@ -761,43 +723,31 @@ class TestDataConnectApiClientMakeGqlRequest:
     def test_make_gql_request_success(self, mock_body_and_response):
         mock_response = mock.Mock(spec=requests.Response)
         mock_body_and_response.return_value = ({"data": "val"}, mock_response)
-        url = "https://example.com/endpoint"
-        headers = {"key": "val"}
-        payload = {"query": "foo"}
 
-        res = self.api_client._make_gql_request(url, headers, payload)
-        assert res == {"data": "val"}
+        res = self.api_client._make_gql_request(TEST_URL, TEST_HEADERS, TEST_PAYLOAD)
         mock_body_and_response.assert_called_once_with(
-            "post", url=url, headers=headers, json=payload
+            "post", url=TEST_URL, headers=TEST_HEADERS, json=TEST_PAYLOAD
         )
+        assert res == {"data": "val"}
 
     def test_make_gql_request_missing_url(self):
-        headers = {"key": "val"}
-        payload = {"query": "foo"}
         with pytest.raises(ValueError, match="url, headers, and payload must all be specified."):
-            self.api_client._make_gql_request(None, headers, payload)
+            self.api_client._make_gql_request(None, TEST_HEADERS, TEST_PAYLOAD)
 
     def test_make_gql_request_missing_headers(self):
-        url = "https://example.com/endpoint"
-        payload = {"query": "foo"}
         with pytest.raises(ValueError, match="url, headers, and payload must all be specified."):
-            self.api_client._make_gql_request(url, None, payload)
+            self.api_client._make_gql_request(TEST_URL, None, TEST_PAYLOAD)
 
     def test_make_gql_request_missing_payload(self):
-        url = "https://example.com/endpoint"
-        headers = {"key": "val"}
         with pytest.raises(ValueError, match="url, headers, and payload must all be specified."):
-            self.api_client._make_gql_request(url, headers, None)
+            self.api_client._make_gql_request(TEST_URL, TEST_HEADERS, None)
 
     @mock.patch.object(_http_client.JsonHttpClient, "body_and_response")
     def test_make_gql_request_error(self, mock_body_and_response):
         mock_body_and_response.side_effect = requests.exceptions.RequestException()
-        url = "https://example.com/endpoint"
-        headers = {"key": "val"}
-        payload = {"query": "foo"}
 
         with pytest.raises(exceptions.FirebaseError):
-            self.api_client._make_gql_request(url, headers, payload)
+            self.api_client._make_gql_request(TEST_URL, TEST_HEADERS, TEST_PAYLOAD)
 
     @mock.patch.object(_http_client.JsonHttpClient, "body_and_response")
     def test_make_gql_request_server_errors(self, mock_body_and_response):
@@ -811,12 +761,9 @@ class TestDataConnectApiClientMakeGqlRequest:
             },
             mock_response
         )
-        url = "https://example.com/endpoint"
-        headers = {"key": "val"}
-        payload = {"query": "foo"}
 
         with pytest.raises(exceptions.FirebaseError) as excinfo:
-            self.api_client._make_gql_request(url, headers, payload)
+            self.api_client._make_gql_request(TEST_URL, TEST_HEADERS, TEST_PAYLOAD)
 
         assert excinfo.value.code == "query-error"
         assert str(excinfo.value) == "First error. Second error."
@@ -829,24 +776,19 @@ class TestDataConnectApiClientMakeGqlRequest:
             {"errors": "String error message"},
             mock_response
         )
-        url = "https://example.com/endpoint"
-        headers = {"key": "val"}
-        payload = {"query": "foo"}
 
         with pytest.raises(exceptions.FirebaseError) as excinfo:
-            self.api_client._make_gql_request(url, headers, payload)
+            self.api_client._make_gql_request(TEST_URL, TEST_HEADERS, TEST_PAYLOAD)
 
         assert excinfo.value.code == "query-error"
         assert str(excinfo.value) == "GraphQL execution failed: String error message"
 
         mock_body_and_response.return_value = (
-            {"errors": []},
+            {"data": TEST_RESPONSE_DATA, "errors": []},
             mock_response
         )
-        with pytest.raises(exceptions.FirebaseError) as excinfo:
-            self.api_client._make_gql_request(url, headers, payload)
-
-        assert str(excinfo.value) == "GraphQL execution failed."
+        res = self.api_client._make_gql_request(TEST_URL, TEST_HEADERS, TEST_PAYLOAD)
+        assert res == {"data": TEST_RESPONSE_DATA, "errors": []}
 
 
 class TestParseGraphqlResponse:
@@ -881,7 +823,191 @@ class TestParseGraphqlResponse:
         with pytest.raises(exceptions.InternalError) as excinfo:
             self.api_client._parse_graphql_response("not-a-dict")
 
-        assert excinfo.value.code == exceptions.INTERNAL
         assert str(excinfo.value) == (
             "Response payload is not a valid JSON dictionary: not-a-dict"
         )
+
+
+class TestImpersonation:
+
+    def test_impersonation_unauthenticated_factory(self):
+        """Tests factory method for unauthenticated impersonation."""
+        imp = dataconnect.Impersonation.unauthenticated()
+        assert imp == {"unauthenticated": True}
+
+    def test_impersonation_authenticated_factory(self):
+        """Tests factory method for authenticated impersonation."""
+        imp = dataconnect.Impersonation.authenticated(TEST_AUTH_CLAIMS)
+        assert imp == {"auth_claims": TEST_AUTH_CLAIMS}
+
+    def test_impersonation_constructor_unauthenticated(self):
+        """Tests direct constructor with unauthenticated=True."""
+        imp = dataconnect.Impersonation(unauthenticated=True)
+        assert imp == {"unauthenticated": True}
+
+    def test_impersonation_constructor_auth_claims(self):
+        """Tests direct constructor with auth_claims dict."""
+        imp = dataconnect.Impersonation(auth_claims=TEST_AUTH_CLAIMS)
+        assert imp == {"auth_claims": TEST_AUTH_CLAIMS}
+
+    def test_impersonation_constructor_neither_unauth_nor_claims_fails(self):
+        """Tests specifying neither unauthenticated nor claims raises ValueError."""
+        with pytest.raises(
+            ValueError,
+            match="Impersonation requires either 'unauthenticated=True' or 'auth_claims'."
+        ):
+            dataconnect.Impersonation()
+
+    def test_impersonation_constructor_both_unauth_and_claims_fails(self):
+        """Tests specifying both unauthenticated and claims raises ValueError."""
+        with pytest.raises(
+            ValueError,
+            match="Cannot specify both 'unauthenticated' and 'auth_claims'."
+        ):
+            dataconnect.Impersonation(unauthenticated=True, auth_claims={"sub": "123"})
+
+    def test_impersonation_constructor_invalid_unauthenticated_type(self):
+        """Tests non-boolean unauthenticated raises ValueError."""
+        with pytest.raises(ValueError, match="'unauthenticated' must be a boolean."):
+            dataconnect.Impersonation(unauthenticated="not-a-bool")
+
+    def test_impersonation_constructor_invalid_auth_claims_type(self):
+        """Tests non-dict auth_claims raises ValueError."""
+        with pytest.raises(ValueError, match="'auth_claims' must be a dictionary."):
+            dataconnect.Impersonation(auth_claims="not-a-dict")
+
+
+class TestDataConnectApiClientExecuteGraphql:
+
+    def setup_method(self):
+        self.cred = testutils.MockCredential()
+        self.app = firebase_admin.initialize_app(
+            self.cred, options={'projectId': 'test-project'}
+        )
+        self.api_client = dataconnect._DataConnectApiClient(BASE_CONFIG, self.app)
+
+    def teardown_method(self, method):
+        del method
+        testutils.cleanup_apps()
+
+    def test_execute_graphql_invalid_query_type(self):
+        with pytest.raises(ValueError, match="query must be a string"):
+            self.api_client.execute_graphql(123)
+
+    def test_execute_graphql_empty_query(self):
+        with pytest.raises(ValueError, match="query must be a non-empty string"):
+            self.api_client.execute_graphql("   ")
+
+    def test_execute_graphql_read_invalid_query_type(self):
+        with pytest.raises(ValueError, match="query must be a string"):
+            self.api_client.execute_graphql_read(123)
+
+    def test_execute_graphql_read_empty_query(self):
+        with pytest.raises(ValueError, match="query must be a non-empty string"):
+            self.api_client.execute_graphql_read("   ")
+
+    def test_execute_graphql_invalid_options(self):
+        with pytest.raises(ValueError, match="options must be a GraphqlOptions instance"):
+            self.api_client.execute_graphql(TEST_QUERY, options="not-graphql-options")
+
+    def test_execute_graphql_invalid_variables_type(self):
+        options = dataconnect.GraphqlOptions(variables={"name": "Fred"})
+        with pytest.raises(ValueError, match="variables must be of type User"):
+            self.api_client.execute_graphql(TEST_QUERY, options=options, variables_type=User)
+
+    @mock.patch.object(dataconnect._DataConnectApiClient, "_make_gql_request")
+    def test_execute_graphql_success(self, mock_make_gql_request):
+        mock_make_gql_request.return_value = {"data": TEST_RESPONSE_DATA}
+        res = self.api_client.execute_graphql(TEST_QUERY)
+        mock_make_gql_request.assert_called_once()
+        assert res.data == TEST_RESPONSE_DATA
+
+    @mock.patch.object(dataconnect._DataConnectApiClient, "_make_gql_request")
+    def test_execute_graphql_with_dataclass_variables(self, mock_make_gql_request):
+        mock_make_gql_request.return_value = {"data": {"user": {"name": "Fred"}}}
+        user_var = User(name="Fred")
+        options = dataconnect.GraphqlOptions(variables=user_var)
+        res = self.api_client.execute_graphql(
+            "query CreateUser { user }", options=options, variables_type=User
+        )
+        mock_make_gql_request.assert_called_once_with(
+            url=mock.ANY,
+            headers=mock.ANY,
+            payload={
+                "query": "query CreateUser { user }",
+                "variables": {"name": "Fred"}
+            }
+        )
+        assert res.data == {"user": {"name": "Fred"}}
+
+    @mock.patch.object(dataconnect._DataConnectApiClient, "_make_gql_request")
+    def test_execute_graphql_read_success(self, mock_make_gql_request):
+        mock_make_gql_request.return_value = {"data": TEST_RESPONSE_DATA}
+        res = self.api_client.execute_graphql_read(TEST_QUERY)
+        mock_make_gql_request.assert_called_once()
+        assert res.data == TEST_RESPONSE_DATA
+
+    @mock.patch.object(dataconnect._DataConnectApiClient, "_make_gql_request")
+    def test_execute_graphql_read_with_dataclass_variables(self, mock_make_gql_request):
+        mock_make_gql_request.return_value = {"data": {"user": {"name": "Fred"}}}
+        user_var = User(name="Fred")
+        options = dataconnect.GraphqlOptions(variables=user_var)
+        res = self.api_client.execute_graphql_read(
+            "query GetUser { user }", options=options, variables_type=User
+        )
+        mock_make_gql_request.assert_called_once_with(
+            url=mock.ANY,
+            headers=mock.ANY,
+            payload={
+                "query": "query GetUser { user }",
+                "variables": {"name": "Fred"}
+            }
+        )
+        assert res.data == {"user": {"name": "Fred"}}
+
+    @mock.patch.object(dataconnect._DataConnectApiClient, "_make_gql_request")
+    def test_execute_graphql_payload_omits_empty_fields(self, mock_make_gql_request):
+        mock_make_gql_request.return_value = {"data": TEST_RESPONSE_DATA}
+        self.api_client.execute_graphql(TEST_QUERY)
+        mock_make_gql_request.assert_called_once_with(
+            url=mock.ANY,
+            headers=mock.ANY,
+            payload=TEST_PAYLOAD
+        )
+
+    @mock.patch.object(_http_client.JsonHttpClient, "body_and_response")
+    def test_execute_graphql_parses_graphql_errors(self, mock_body_and_response):
+        mock_response = mock.Mock(spec=requests.Response)
+        mock_body_and_response.return_value = (
+            {"errors": [{"message": "Syntax error in GraphQL query"}]},
+            mock_response
+        )
+        with pytest.raises(dataconnect.QueryError) as excinfo:
+            self.api_client.execute_graphql("query { invalid }")
+
+        assert "Syntax error in GraphQL query" in str(excinfo.value)
+        assert excinfo.value.code == dataconnect._QUERY_ERROR_CODE
+
+    @mock.patch.object(_http_client.JsonHttpClient, "body_and_response")
+    def test_execute_graphql_malformed_response_payload(self, mock_body_and_response):
+        mock_response = mock.Mock(spec=requests.Response)
+        mock_body_and_response.return_value = ("invalid-string-payload", mock_response)
+        with pytest.raises(exceptions.InternalError) as excinfo:
+            self.api_client.execute_graphql(TEST_QUERY)
+
+        assert excinfo.value.code == exceptions.INTERNAL
+        assert str(excinfo.value) == (
+            "Response payload is not a valid JSON dictionary: invalid-string-payload"
+        )
+
+    @pytest.mark.parametrize("error_class", [
+        exceptions.InvalidArgumentError,
+        exceptions.PermissionDeniedError,
+        exceptions.NotFoundError,
+        exceptions.UnknownError
+    ])
+    @mock.patch.object(dataconnect._DataConnectApiClient, "_make_gql_request")
+    def test_execute_graphql_bubbles_http_exceptions(self, mock_make_gql_request, error_class):
+        mock_make_gql_request.side_effect = error_class("Mocked API error")
+        with pytest.raises(error_class, match="Mocked API error"):
+            self.api_client.execute_graphql(TEST_QUERY)

@@ -18,6 +18,8 @@ This module contains utilities for accessing Firebase Data Connect services asso
 Firebase apps.
 """
 
+from __future__ import annotations
+
 from collections.abc import Mapping
 from dataclasses import dataclass, asdict, is_dataclass
 import typing
@@ -52,6 +54,9 @@ _EMULATOR_SERVICES_URL_FORMAT = (
     'http://{host}/{version}/projects/{project_id}/locations/{location_id}'
     '/services/{service_id}:{endpoint_id}'
 )
+
+_EXECUTE_GRAPHQL_ENDPOINT = 'executeGraphql'
+_EXECUTE_GRAPHQL_READ_ENDPOINT = 'executeGraphqlRead'
 
 # Generic Type Parameters
 _Data = TypeVar("_Data")
@@ -101,6 +106,67 @@ class ConnectorConfig:
             raise ValueError("connector cannot be empty")
 
 
+class Impersonation(dict):
+    """Represents impersonation configuration for DataConnect requests.
+
+    It is recommended to construct instances using the static factory methods
+    :meth:`unauthenticated` or :meth:`authenticated`.
+    """
+
+    def __init__(
+        self,
+        *,
+        unauthenticated: Optional[bool] = None,
+        auth_claims: Optional[Dict[str, Any]] = None
+    ) -> None:
+        if unauthenticated is None and auth_claims is None:
+            raise ValueError(
+                "Impersonation requires either 'unauthenticated=True' or 'auth_claims'."
+            )
+        if unauthenticated is not None and auth_claims is not None:
+            raise ValueError("Cannot specify both 'unauthenticated' and 'auth_claims'.")
+
+        if unauthenticated is not None:
+            if not isinstance(unauthenticated, bool):
+                raise ValueError("'unauthenticated' must be a boolean.")
+            super().__init__(unauthenticated=unauthenticated)
+        else:
+            if not isinstance(auth_claims, dict):
+                raise ValueError("'auth_claims' must be a dictionary.")
+            super().__init__(auth_claims=auth_claims)
+
+    @staticmethod
+    def unauthenticated() -> Impersonation:
+        """Returns impersonation configuration for unauthenticated requests."""
+        return Impersonation(unauthenticated=True)
+
+    @staticmethod
+    def authenticated(auth_claims: Dict[str, Any]) -> Impersonation:
+        """Returns impersonation configuration for authenticated requests.
+
+        # TODO: More strongly type auth_claims later.
+        """
+        return Impersonation(auth_claims=auth_claims)
+
+
+@dataclass
+class GraphqlOptions(Generic[_Variables]):
+    variables: Optional[_Variables] = None
+    operation_name: Optional[str] = None
+    impersonate: Optional[Union[Impersonation, Dict[str, Any]]] = None
+
+
+# TODO(b/406281627): Add support for partial errors.
+@dataclass
+class ExecuteGraphqlResponse(Generic[_Data]):
+    """Represents the response from a DataConnect GraphQL execution.
+
+    Attributes:
+        data: The raw JSON dictionary returned by the GraphQL execution.
+    """
+    data: _Data
+
+
 class DataConnect:
     """Represents a Firebase Data Connect client instance. 
     
@@ -125,6 +191,70 @@ class DataConnect:
     @property
     def config(self) -> ConnectorConfig:
         return self._config
+
+    def execute_graphql(
+        self,
+        query: str,
+        options: Optional[GraphqlOptions[_Variables]] = None,
+        variables_type: Type[_Variables] = Any,
+    ) -> ExecuteGraphqlResponse[Any]:
+        """Executes a GraphQL query or mutation and returns the result.
+
+        Args:
+            query: string containing the GraphQL query
+            options: GraphqlOptions instance containing operational parameters such as
+                variables, operation name, or impersonation context (optional).
+            variables_type: The expected structure for the request variables
+
+        Returns:
+            ExecuteGraphqlResponse: An ExecuteGraphqlResponse containing the raw
+                response data dictionary.
+
+        Raises:
+            ValueError: If the arguments are invalid from the local inputs side.
+            InvalidArgumentError: If GraphQL syntax validation fails on the server.
+            PermissionDeniedError: If an @auth policy directive blocks execution due to
+                insufficient permission.
+            NotFoundError: If a specified resource is not found, or the request is rejected
+                by undisclosed reasons, such as whitelisting.
+            InternalError: If the server response payload is invalid or malformed.
+            FirebaseError: The base platform exception.
+        """
+        return self._client.execute_graphql(
+            query=query, options=options, variables_type=variables_type
+        )
+
+    def execute_graphql_read(
+        self,
+        query: str,
+        options: Optional[GraphqlOptions[_Variables]] = None,
+        variables_type: Type[_Variables] = Any,
+    ) -> ExecuteGraphqlResponse[Any]:
+        """Executes a read-only GraphQL query and returns the result.
+
+        Args:
+            query: string containing the read-only GraphQL query
+            options: GraphqlOptions instance containing operational parameters such as
+                variables, operation name, or impersonation context (optional).
+            variables_type: The expected structure for the request variables
+
+        Returns:
+            ExecuteGraphqlResponse: An ExecuteGraphqlResponse containing the raw
+                response data dictionary.
+
+        Raises:
+            ValueError: If the arguments are invalid from the local inputs side.
+            InvalidArgumentError: If GraphQL syntax validation fails on the server.
+            PermissionDeniedError: If an @auth policy directive blocks execution due to
+                insufficient permission.
+            NotFoundError: If a specified resource is not found, or the request is rejected
+                by undisclosed reasons, such as whitelisting.
+            InternalError: If the server response payload is invalid or malformed.
+            FirebaseError: The base platform exception.
+        """
+        return self._client.execute_graphql_read(
+            query=query, options=options, variables_type=variables_type
+        )
 
 
 class _DataConnectService:
@@ -168,42 +298,6 @@ def client(config: ConnectorConfig, app: Optional[App] = None) -> DataConnect:
     dc_service = _utils.get_app_service(app, _DATA_CONNECT_ATTRIBUTE, _DataConnectService)
 
     return dc_service.get_client(config)
-
-
-class Impersonation(dict):
-    """Represents impersonation configuration for DataConnect requests."""
-
-    @staticmethod
-    def unauthenticated() -> 'Impersonation':
-        """Returns impersonation configuration for unauthenticated requests."""
-        return Impersonation(unauthenticated=True)
-
-    @staticmethod
-    def authenticated(auth_claims: Dict[str, Any]) -> 'Impersonation':
-        """Returns impersonation configuration for authenticated requests.
-
-        # TODO: More strongly type auth_claims later.
-        """
-        return Impersonation(authClaims=auth_claims)
-
-
-@dataclass
-class GraphqlOptions(Generic[_Variables]):
-    variables: Optional[_Variables] = None
-    operation_name: Optional[str] = None
-    impersonate: Optional[Union[Impersonation, Dict[str, Any]]] = None
-
-
-# TODO(b/406281627): Add support for partial errors.
-@dataclass
-class ExecuteGraphqlResponse(Generic[_Data]):
-    """Represents the response from a DataConnect GraphQL execution.
-
-    Attributes:
-        data: The raw JSON dictionary returned by the GraphQL execution.
-    """
-    data: _Data
-
 
 
 def _get_emulator_host() -> Optional[str]:
@@ -252,7 +346,11 @@ class _DataConnectApiClient:
         if variables is not None:
             if not (isinstance(variables, Mapping) or is_dataclass(variables)):
                 raise ValueError("variables must be a collections.abc.Mapping or a dataclass")
-            if variable_type is not None:
+            if (
+                variable_type is not None
+                and variable_type is not Any
+                and variable_type is not typing.Any
+            ):
                 expected_type = typing.get_origin(variable_type) or variable_type
                 if not isinstance(variables, expected_type):
                     type_name = getattr(expected_type, '__name__', str(expected_type))
@@ -263,22 +361,22 @@ class _DataConnectApiClient:
         if impersonate is not None:
             if not isinstance(impersonate, dict):
                 raise ValueError('impersonate option must be a dictionary')
-            if 'unauthenticated' not in impersonate and 'authClaims' not in impersonate:
+            if 'unauthenticated' not in impersonate and 'auth_claims' not in impersonate:
                 raise ValueError(
                     "impersonate option must contain either "
-                    "'unauthenticated' or 'authClaims'"
+                    "'unauthenticated' or 'auth_claims'"
                 )
-            if 'unauthenticated' in impersonate and 'authClaims' in impersonate:
+            if 'unauthenticated' in impersonate and 'auth_claims' in impersonate:
                 raise ValueError(
                     "impersonate option cannot contain both "
-                    "'unauthenticated' and 'authClaims'"
+                    "'unauthenticated' and 'auth_claims'"
                 )
             if 'unauthenticated' in impersonate:
                 if not isinstance(impersonate['unauthenticated'], bool):
                     raise ValueError("'unauthenticated' claim must be a boolean")
-            if 'authClaims' in impersonate:
-                if not isinstance(impersonate['authClaims'], dict):
-                    raise ValueError("'authClaims' claim must be a dictionary")
+            if 'auth_claims' in impersonate:
+                if not isinstance(impersonate['auth_claims'], dict):
+                    raise ValueError("'auth_claims' claim must be a dictionary")
 
     def _validate_graphql_options(
         self,
@@ -325,8 +423,11 @@ class _DataConnectApiClient:
                 payload["operationName"] = graphql_options.operation_name.strip()
 
             if graphql_options.impersonate is not None:
+                impersonate_payload = dict(graphql_options.impersonate)
+                if "auth_claims" in impersonate_payload:
+                    impersonate_payload["authClaims"] = impersonate_payload.pop("auth_claims")
                 payload["extensions"] = {
-                    "impersonate": graphql_options.impersonate
+                    "impersonate": impersonate_payload
                 }
 
         return payload
@@ -368,9 +469,10 @@ class _DataConnectApiClient:
 
     @staticmethod
     def _check_graphql_errors(resp_dict: Any, resp: Any) -> None:
-        """Raises QueryError if the GraphQL response payload contains an errors key."""
-        if isinstance(resp_dict, dict) and "errors" in resp_dict:
+        """Raises QueryError if the GraphQL response payload contains non-empty errors."""
+        if isinstance(resp_dict, dict) and resp_dict.get("errors"):
             errors = resp_dict["errors"]
+
             all_messages = ""
             if isinstance(errors, list):
                 messages = []
@@ -425,3 +527,48 @@ class _DataConnectApiClient:
 
         # TODO(b/406281627): Add support for partial errors.
         return ExecuteGraphqlResponse(data=resp_dict.get("data"))
+
+    def _execute_graphql_helper(
+        self,
+        query: str,
+        endpoint: str,
+        options: Optional[GraphqlOptions[_Variables]] = None,
+        variables_type: Type[_Variables] = Any,
+    ) -> ExecuteGraphqlResponse[Any]:
+        """Helper method to execute GraphQL queries or mutations against a specified endpoint."""
+        if not isinstance(query, str):
+            raise ValueError("query must be a string")
+        query = query.strip()
+        if not query:
+            raise ValueError("query must be a non-empty string")
+
+        self._validate_graphql_options(options, variable_type=variables_type)
+
+        url = self._get_firebase_dataconnect_service_url(endpoint)
+        headers = self._get_headers()
+        payload = self._prepare_graphql_payload(query, options)
+
+        resp_dict = self._make_gql_request(url=url, headers=headers, payload=payload)
+        return self._parse_graphql_response(resp_dict)
+
+    def execute_graphql(
+        self,
+        query: str,
+        options: Optional[GraphqlOptions[_Variables]] = None,
+        variables_type: Type[_Variables] = Any,
+    ) -> ExecuteGraphqlResponse[Any]:
+        """Executes a GraphQL query or mutation and returns the result."""
+        return self._execute_graphql_helper(
+            query, _EXECUTE_GRAPHQL_ENDPOINT, options, variables_type
+        )
+
+    def execute_graphql_read(
+        self,
+        query: str,
+        options: Optional[GraphqlOptions[_Variables]] = None,
+        variables_type: Type[_Variables] = Any,
+    ) -> ExecuteGraphqlResponse[Any]:
+        """Executes a read-only GraphQL query and returns the result."""
+        return self._execute_graphql_helper(
+            query, _EXECUTE_GRAPHQL_READ_ENDPOINT, options, variables_type
+        )

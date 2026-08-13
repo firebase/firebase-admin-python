@@ -702,7 +702,7 @@ class TestDataConnectApiClientGetHeaders:
         assert isinstance(headers, dict)
         assert headers.get("X-Firebase-Client") == f"fire-admin-python/{firebase_admin.__version__}"
         assert headers.get("x-goog-api-client") == _utils.get_metrics_header()
-        assert headers.get("X-Client-Version") == f"python/{firebase_admin.__version__}"
+        assert headers.get("X-Client-Version") == f"Python/Admin/{firebase_admin.__version__}"
         assert headers.get("X-Firebase-Sqlconnect-Affinity") == "test-projectstarterproject"
 
 

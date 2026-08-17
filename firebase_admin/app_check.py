@@ -107,7 +107,9 @@ class _AppCheckService:
             except requests.exceptions.RequestException as error:
                 raise _utils.handle_requests_error(error)
 
-            already_consumed = body.get('alreadyConsumed', False) if isinstance(body, dict) else False
+            already_consumed = False
+            if isinstance(body, dict):
+                already_consumed = body.get('alreadyConsumed', False)
             verified_claims['already_consumed'] = bool(already_consumed)
 
         return verified_claims

@@ -27,7 +27,7 @@ def _get_app_check_service(app) -> Any:
     return _utils.get_app_service(app, _APP_CHECK_ATTRIBUTE, _AppCheckService)
 
 def verify_token(token: str, app=None, consume: bool = False) -> Dict[str, Any]:
-    """Verifies a Firebase App Check token.
+    """Verifies a Firebase App Check token, optionally consuming limited-use tokens.
 
     Args:
         token: A token from App Check.
@@ -83,7 +83,7 @@ class _AppCheckService:
 
 
     def verify_token(self, token: str, consume: bool = False) -> Dict[str, Any]:
-        """Verifies a Firebase App Check token."""
+        """Verifies a Firebase App Check token, optionally consuming limited-use tokens."""
         _Validators.check_string("app check token", token)
 
         # Obtain the Firebase App Check Public Keys

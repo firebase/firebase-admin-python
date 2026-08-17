@@ -32,8 +32,8 @@ def verify_token(token: str, app=None, consume: bool = False) -> Dict[str, Any]:
     Args:
         token: A token from App Check.
         app: An App instance (optional).
-        consume: If set to ``True``, performs stateful verification with the App Check
-            backend to mark the token as consumed for replay protection. Defaults to ``False``.
+        consume: Set to ``True`` only if the token is a limited-use (one-time) token
+            that should be consumed upon verification (optional, defaults to ``False``).
 
     Returns:
         Dict[str, Any]: The token's decoded claims. If ``consume`` is ``True``, the dictionary

@@ -105,7 +105,7 @@ class _AppCheckService:
             try:
                 body = self._http_client.body('post', url, json={'app_check_token': token})
             except requests.exceptions.RequestException as error:
-                raise _utils.handle_requests_error(error)
+                raise _utils.handle_platform_error_from_requests(error)
 
             already_consumed = False
             if isinstance(body, dict):

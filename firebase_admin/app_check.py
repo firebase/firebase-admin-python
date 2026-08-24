@@ -100,6 +100,8 @@ class _AppCheckService:
 
         verified_claims['app_id'] = verified_claims.get('sub')
 
+        if not isinstance(consume, bool):
+            raise ValueError('consume must be a boolean.')
         if consume:
             url = self._VERIFY_URL_FORMAT.format(project_id=self._project_id)
             try:

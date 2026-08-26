@@ -15,14 +15,17 @@
 """Firebase Cloud Messaging module."""
 
 from __future__ import annotations
-from typing import Any, Callable, Dict, List, Optional, cast
+import asyncio
 import concurrent.futures
 import json
-import asyncio
 import logging
+import re
+from typing import Any, Callable, Dict, List, Optional, cast
+import urllib.parse
 import warnings
-import requests
+
 import httpx
+import requests
 
 import firebase_admin
 from firebase_admin import (
@@ -73,7 +76,11 @@ __all__ = [
     'send_each_for_multicast',
     'send_each_for_multicast_async',
     'subscribe_to_topic',
+    'subscribe_to_topic_async',
+    'subscribe_to_topic_legacy',
     'unsubscribe_from_topic',
+    'unsubscribe_from_topic_async',
+    'unsubscribe_from_topic_legacy',
 ]
 
 
@@ -265,9 +272,51 @@ def subscribe_to_topic(tokens, topic, app=None):
         TopicManagementResponse: A ``TopicManagementResponse`` instance.
 
     Raises:
+        FirebaseError: If an error occurs while communicating with the FCM service.
+        ValueError: If the input arguments are invalid.
+    """
+    return _get_messaging_service(app).subscribe_to_topic(tokens, topic)
+
+async def subscribe_to_topic_async(tokens, topic, app=None):
+    """Subscribes a list of registration tokens to an FCM topic asynchronously.
+
+    Args:
+        tokens: A non-empty list of device registration tokens. List may not have more than 1000
+            elements.
+        topic: Name of the topic to subscribe to. May contain the ``/topics/`` prefix.
+        app: An App instance (optional).
+
+    Returns:
+        TopicManagementResponse: A ``TopicManagementResponse`` instance.
+
+    Raises:
+        FirebaseError: If an error occurs while communicating with the FCM service.
+        ValueError: If the input arguments are invalid.
+    """
+    return await _get_messaging_service(app).subscribe_to_topic_async(tokens, topic)
+
+def subscribe_to_topic_legacy(tokens, topic, app=None):
+    """Subscribes a list of registration tokens to an FCM topic using the legacy Instance ID API.
+
+    subscribe_to_topic_legacy is deprecated. Use subscribe_to_topic instead.
+
+    Args:
+        tokens: A non-empty list of device registration tokens. List may not have more than 1000
+            elements.
+        topic: Name of the topic to subscribe to. May contain the ``/topics/`` prefix.
+        app: An App instance (optional).
+
+    Returns:
+        TopicManagementResponse: A ``TopicManagementResponse`` instance.
+
+    Raises:
         FirebaseError: If an error occurs while communicating with instance ID service.
         ValueError: If the input arguments are invalid.
     """
+    warnings.warn(
+        'subscribe_to_topic_legacy is deprecated. Use subscribe_to_topic instead.',
+        DeprecationWarning,
+        stacklevel=2)
     return _get_messaging_service(app).make_topic_management_request(
         tokens, topic, 'iid/v1:batchAdd')
 
@@ -284,9 +333,52 @@ def unsubscribe_from_topic(tokens, topic, app=None):
         TopicManagementResponse: A ``TopicManagementResponse`` instance.
 
     Raises:
+        FirebaseError: If an error occurs while communicating with the FCM service.
+        ValueError: If the input arguments are invalid.
+    """
+    return _get_messaging_service(app).unsubscribe_from_topic(tokens, topic)
+
+async def unsubscribe_from_topic_async(tokens, topic, app=None):
+    """Unsubscribes a list of registration tokens from an FCM topic asynchronously.
+
+    Args:
+        tokens: A non-empty list of device registration tokens. List may not have more than 1000
+            elements.
+        topic: Name of the topic to unsubscribe from. May contain the ``/topics/`` prefix.
+        app: An App instance (optional).
+
+    Returns:
+        TopicManagementResponse: A ``TopicManagementResponse`` instance.
+
+    Raises:
+        FirebaseError: If an error occurs while communicating with the FCM service.
+        ValueError: If the input arguments are invalid.
+    """
+    return await _get_messaging_service(app).unsubscribe_from_topic_async(tokens, topic)
+
+def unsubscribe_from_topic_legacy(tokens, topic, app=None):
+    """Unsubscribes a list of registration tokens from an FCM topic using the legacy
+    Instance ID API.
+
+    unsubscribe_from_topic_legacy is deprecated. Use unsubscribe_from_topic instead.
+
+    Args:
+        tokens: A non-empty list of device registration tokens. List may not have more than 1000
+            elements.
+        topic: Name of the topic to unsubscribe from. May contain the ``/topics/`` prefix.
+        app: An App instance (optional).
+
+    Returns:
+        TopicManagementResponse: A ``TopicManagementResponse`` instance.
+
+    Raises:
         FirebaseError: If an error occurs while communicating with instance ID service.
         ValueError: If the input arguments are invalid.
     """
+    warnings.warn(
+        'unsubscribe_from_topic_legacy is deprecated. Use unsubscribe_from_topic instead.',
+        DeprecationWarning,
+        stacklevel=2)
     return _get_messaging_service(app).make_topic_management_request(
         tokens, topic, 'iid/v1:batchRemove')
 
@@ -410,7 +502,9 @@ class _MessagingService:
                 'Project ID is required to access Cloud Messaging service. Either set the '
                 'projectId option, or use service account credentials. Alternatively, set the '
                 'GOOGLE_CLOUD_PROJECT environment variable.')
+        self._project_id = project_id
         self._fcm_url = _MessagingService.FCM_URL.format(project_id)
+        self._fcm_topic_url = f'https://fcm.googleapis.com/v1/projects/{project_id}/registrations'
         self._fcm_headers = {
             'X-GOOG-API-FORMAT-VERSION': '2',
             'X-FIREBASE-CLIENT': f'fire-admin-python/{firebase_admin.__version__}',
@@ -498,6 +592,225 @@ class _MessagingService:
             raise exceptions.UnknownError(
                 message=f'Unknown error while making remote service calls: {error}',
                 cause=error)
+
+    def _validate_topic_management_args(self, tokens, topic):
+        """Validates and formats topic management arguments."""
+        if isinstance(tokens, str):
+            tokens = [tokens]
+        if not isinstance(tokens, list) or not tokens:
+            raise ValueError('Tokens must be a string or a non-empty list of strings.')
+        invalid_str = [t for t in tokens if not isinstance(t, str) or not t]
+        if invalid_str:
+            raise ValueError('Tokens must be non-empty strings.')
+        if len(tokens) > 1000:
+            raise ValueError('tokens must not contain more than 1000 elements.')
+
+        if not isinstance(topic, str) or not topic:
+            raise ValueError('Topic must be a non-empty string.')
+        topic_name = topic
+        if topic_name.startswith('/topics/'):
+            topic_name = topic_name[len('/topics/'):]
+        if not topic_name or not re.match(r'^[a-zA-Z0-9-_\.~%]+$', topic_name):
+            raise ValueError('Malformed topic name.')
+
+        return tokens, topic_name
+
+    def subscribe_to_topic(self, tokens, topic) -> TopicManagementResponse:
+        """Subscribes a list of registration tokens to an FCM topic via the FCM v1 API."""
+        return self._make_topic_management_request_v1(tokens, topic, is_subscribe=True)
+
+    def unsubscribe_from_topic(self, tokens, topic) -> TopicManagementResponse:
+        """Unsubscribes a list of registration tokens from an FCM topic via the FCM v1 API."""
+        return self._make_topic_management_request_v1(tokens, topic, is_subscribe=False)
+
+    async def subscribe_to_topic_async(self, tokens, topic) -> TopicManagementResponse:
+        """Subscribes a list of registration tokens to an FCM topic asynchronously
+        via the FCM v1 API."""
+        return await self._make_topic_management_request_v1_async(
+            tokens, topic, is_subscribe=True)
+
+    async def unsubscribe_from_topic_async(self, tokens, topic) -> TopicManagementResponse:
+        """Unsubscribes a list of registration tokens from an FCM topic asynchronously
+        via the FCM v1 API."""
+        return await self._make_topic_management_request_v1_async(
+            tokens, topic, is_subscribe=False)
+
+    def _make_topic_management_request_v1(
+        self, tokens, topic, is_subscribe: bool
+    ) -> TopicManagementResponse:
+        """Helper method that sends topic subscription requests via FCM v1 API."""
+        tokens_list, topic_name = self._validate_topic_management_args(tokens, topic)
+
+        def send_request(token: str):
+            encoded_token = urllib.parse.quote(token, safe='')
+            encoded_topic = urllib.parse.quote(topic_name, safe='')
+            base_url = f'{self._fcm_topic_url}/{encoded_token}/topicSubscriptions'
+            if is_subscribe:
+                url = f'{base_url}?topic_name={encoded_topic}'
+                method = 'post'
+                json_data = {}
+            else:
+                url = f'{base_url}/{encoded_topic}?allow_missing=true'
+                method = 'delete'
+                json_data = None
+
+            try:
+                self._client.request(
+                    method,
+                    url=url,
+                    headers=self._fcm_headers,
+                    json=json_data,
+                )
+                return {'success': True}
+            except requests.exceptions.RequestException as error:
+                return self._build_topic_subscription_result_from_requests_error(
+                    error, is_subscribe)
+
+        try:
+            with concurrent.futures.ThreadPoolExecutor(
+                max_workers=min(len(tokens_list), 100)
+            ) as executor:
+                results = list(executor.map(send_request, tokens_list))
+                return self._parse_topic_management_results(results)
+        except Exception as error:
+            raise exceptions.UnknownError(
+                message=f'Unknown error while making remote service calls: {error}',
+                cause=error)
+
+    async def _make_topic_management_request_v1_async(
+        self, tokens, topic, is_subscribe: bool
+    ) -> TopicManagementResponse:
+        """Helper method that sends topic subscription requests asynchronously via FCM v1 API."""
+        tokens_list, topic_name = self._validate_topic_management_args(tokens, topic)
+        semaphore = asyncio.Semaphore(100)
+
+        async def send_request_async(token: str):
+            encoded_token = urllib.parse.quote(token, safe='')
+            encoded_topic = urllib.parse.quote(topic_name, safe='')
+            base_url = f'{self._fcm_topic_url}/{encoded_token}/topicSubscriptions'
+            if is_subscribe:
+                url = f'{base_url}?topic_name={encoded_topic}'
+                method = 'post'
+                json_data = {}
+            else:
+                url = f'{base_url}/{encoded_topic}?allow_missing=true'
+                method = 'delete'
+                json_data = None
+
+            async with semaphore:
+                try:
+                    await self._async_client.request(
+                        method,
+                        url=url,
+                        headers=self._fcm_headers,
+                        json=json_data,
+                    )
+                    return {'success': True}
+                except httpx.HTTPError as error:
+                    return self._build_topic_subscription_result_from_httpx_error(
+                        error, is_subscribe)
+                except requests.exceptions.RequestException as error:
+                    return self._build_topic_subscription_result_from_requests_error(
+                        error, is_subscribe)
+
+        try:
+            results = await asyncio.gather(*[send_request_async(token) for token in tokens_list])
+            return self._parse_topic_management_results(results)
+        except Exception as error:
+            raise exceptions.UnknownError(
+                message=f'Unknown error while making remote service calls: {error}',
+                cause=error)
+
+    @classmethod
+    def _get_topic_error_code(cls, error_dict: dict, status_code: int) -> str:
+        """Extracts the error code for a topic subscription error response."""
+        error_data = error_dict.get('error')
+        if isinstance(error_data, str) and error_data:
+            return error_data
+        if isinstance(error_data, dict):
+            details = error_data.get('details')
+            if isinstance(details, list):
+                fcm_error_type = 'type.googleapis.com/google.firebase.fcm.v1.FcmError'
+                for element in details:
+                    if isinstance(element, dict) and element.get('@type') == fcm_error_type:
+                        code = element.get('errorCode')
+                        if code:
+                            return code
+            status = error_data.get('status')
+            if status:
+                return status
+            message = error_data.get('message')
+            if message:
+                return message
+
+        status_map = {
+            400: 'INVALID_ARGUMENT',
+            401: 'PERMISSION_DENIED',
+            403: 'PERMISSION_DENIED',
+            404: 'NOT_FOUND',
+            429: 'RESOURCE_EXHAUSTED',
+            500: 'INTERNAL',
+            503: 'DEADLINE_EXCEEDED',
+        }
+        return status_map.get(status_code, 'UNKNOWN_ERROR')
+
+    def _build_topic_subscription_result_from_requests_error(self, error, is_subscribe):
+        """Constructs a result dict from a requests error."""
+        if error.response is not None:
+            if is_subscribe and error.response.status_code == 409:
+                return {'success': True}
+            error_dict = {}
+            try:
+                parsed = error.response.json()
+                if isinstance(parsed, dict):
+                    error_dict = parsed
+            except ValueError:
+                pass
+
+            error_data = error_dict.get('error')
+            if is_subscribe and isinstance(error_data, dict) and (
+                error_data.get('status') == 'ALREADY_EXISTS'
+            ):
+                return {'success': True}
+
+            error_code = self._get_topic_error_code(error_dict, error.response.status_code)
+            return {'success': False, 'error': error_code}
+
+        return {'success': False, 'error': 'UNKNOWN_ERROR'}
+
+    def _build_topic_subscription_result_from_httpx_error(self, error, is_subscribe):
+        """Constructs a result dict from an httpx error."""
+        if isinstance(error, httpx.HTTPStatusError):
+            if is_subscribe and error.response.status_code == 409:
+                return {'success': True}
+            error_dict = {}
+            try:
+                parsed = error.response.json()
+                if isinstance(parsed, dict):
+                    error_dict = parsed
+            except ValueError:
+                pass
+
+            error_data = error_dict.get('error')
+            if is_subscribe and isinstance(error_data, dict) and (
+                error_data.get('status') == 'ALREADY_EXISTS'
+            ):
+                return {'success': True}
+
+            error_code = self._get_topic_error_code(error_dict, error.response.status_code)
+            return {'success': False, 'error': error_code}
+
+        return {'success': False, 'error': 'UNKNOWN_ERROR'}
+
+    def _parse_topic_management_results(self, results) -> TopicManagementResponse:
+        """Parses individual request results into a TopicManagementResponse."""
+        formatted_results = []
+        for result in results:
+            if result.get('success'):
+                formatted_results.append({})
+            else:
+                formatted_results.append({'error': result.get('error', 'UNKNOWN_ERROR')})
+        return TopicManagementResponse({'results': formatted_results})
 
     def make_topic_management_request(self, tokens, topic, operation):
         """Invokes the IID service for topic management functionality."""

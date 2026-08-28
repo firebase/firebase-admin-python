@@ -14,16 +14,24 @@
 
 """Firebase ML module.
 
+.. deprecated::
+    Firebase ML is deprecated and will be shut down on June 15, 2027.
+    To host custom models, you must migrate to another solution. You can use Cloud Storage for
+    Firebase as an alternative for hosting custom models. For more info, see
+    https://firebase.google.com/docs/ml/migrate-to-cloud-storage
+
 This module contains functions for creating, updating, getting, listing,
 deleting, publishing and unpublishing Firebase ML models.
 """
 
+# pylint: disable=too-many-lines
 
 import datetime
 import re
 import time
 import os
 from urllib import parse
+import warnings
 
 import requests
 
@@ -45,6 +53,13 @@ try:
     _TF_ENABLED = True
 except ImportError:
     _TF_ENABLED = False
+
+_DEPRECATION_WARNING = (
+    'Firebase ML is deprecated and will be shut down on June 15, 2027. '
+    'To host custom models, you must migrate to another solution. You can use Cloud Storage for '
+    'Firebase as an alternative for hosting custom models. For more info, see '
+    'https://firebase.google.com/docs/ml/migrate-to-cloud-storage'
+)
 
 _ML_ATTRIBUTE = '_ml'
 _MAX_PAGE_SIZE = 100
@@ -77,6 +92,12 @@ def _get_ml_service(app):
 def create_model(model, app=None):
     """Creates a model in the current Firebase project.
 
+    .. deprecated::
+        Firebase ML is deprecated and will be shut down on June 15, 2027.
+        To host custom models, you must migrate to another solution. You can use Cloud Storage for
+        Firebase as an alternative for hosting custom models. For more info, see
+        https://firebase.google.com/docs/ml/migrate-to-cloud-storage
+
     Args:
         model: An ml.Model to create.
         app: A Firebase app instance (or None to use the default app).
@@ -84,12 +105,19 @@ def create_model(model, app=None):
     Returns:
         Model: The model that was created in Firebase ML.
     """
+    warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
     ml_service = _get_ml_service(app)
     return Model.from_dict(ml_service.create_model(model), app=app)
 
 
 def update_model(model, app=None):
     """Updates a model's metadata or model file.
+
+    .. deprecated::
+        Firebase ML is deprecated and will be shut down on June 15, 2027.
+        To host custom models, you must migrate to another solution. You can use Cloud Storage for
+        Firebase as an alternative for hosting custom models. For more info, see
+        https://firebase.google.com/docs/ml/migrate-to-cloud-storage
 
     Args:
         model: The ml.Model to update.
@@ -98,12 +126,19 @@ def update_model(model, app=None):
     Returns:
         Model: The updated model.
     """
+    warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
     ml_service = _get_ml_service(app)
     return Model.from_dict(ml_service.update_model(model), app=app)
 
 
 def publish_model(model_id, app=None):
     """Publishes a Firebase ML model.
+
+    .. deprecated::
+        Firebase ML is deprecated and will be shut down on June 15, 2027.
+        To host custom models, you must migrate to another solution. You can use Cloud Storage for
+        Firebase as an alternative for hosting custom models. For more info, see
+        https://firebase.google.com/docs/ml/migrate-to-cloud-storage
 
     A published model can be downloaded to client apps.
 
@@ -114,12 +149,19 @@ def publish_model(model_id, app=None):
     Returns:
         Model: The published model.
     """
+    warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
     ml_service = _get_ml_service(app)
     return Model.from_dict(ml_service.set_published(model_id, publish=True), app=app)
 
 
 def unpublish_model(model_id, app=None):
     """Unpublishes a Firebase ML model.
+
+    .. deprecated::
+        Firebase ML is deprecated and will be shut down on June 15, 2027.
+        To host custom models, you must migrate to another solution. You can use Cloud Storage for
+        Firebase as an alternative for hosting custom models. For more info, see
+        https://firebase.google.com/docs/ml/migrate-to-cloud-storage
 
     Args:
         model_id: The id of the model to unpublish.
@@ -128,12 +170,19 @@ def unpublish_model(model_id, app=None):
     Returns:
         Model: The unpublished model.
     """
+    warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
     ml_service = _get_ml_service(app)
     return Model.from_dict(ml_service.set_published(model_id, publish=False), app=app)
 
 
 def get_model(model_id, app=None):
     """Gets the model specified by the given ID.
+
+    .. deprecated::
+        Firebase ML is deprecated and will be shut down on June 15, 2027.
+        To host custom models, you must migrate to another solution. You can use Cloud Storage for
+        Firebase as an alternative for hosting custom models. For more info, see
+        https://firebase.google.com/docs/ml/migrate-to-cloud-storage
 
     Args:
         model_id: The id of the model to get.
@@ -142,12 +191,19 @@ def get_model(model_id, app=None):
     Returns:
      Model: The requested model.
     """
+    warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
     ml_service = _get_ml_service(app)
     return Model.from_dict(ml_service.get_model(model_id), app=app)
 
 
 def list_models(list_filter=None, page_size=None, page_token=None, app=None):
     """Lists the current project's models.
+
+    .. deprecated::
+        Firebase ML is deprecated and will be shut down on June 15, 2027.
+        To host custom models, you must migrate to another solution. You can use Cloud Storage for
+        Firebase as an alternative for hosting custom models. For more info, see
+        https://firebase.google.com/docs/ml/migrate-to-cloud-storage
 
     Args:
         list_filter: a list filter string such as ``tags:'tag_1'``. None will return all models.
@@ -160,6 +216,7 @@ def list_models(list_filter=None, page_size=None, page_token=None, app=None):
     Returns:
         ListModelsPage: A (filtered) list of models.
     """
+    warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
     ml_service = _get_ml_service(app)
     return ListModelsPage(
         ml_service.list_models, list_filter, page_size, page_token, app=app)
@@ -168,10 +225,17 @@ def list_models(list_filter=None, page_size=None, page_token=None, app=None):
 def delete_model(model_id, app=None):
     """Deletes a model from the current project.
 
+    .. deprecated::
+        Firebase ML is deprecated and will be shut down on June 15, 2027.
+        To host custom models, you must migrate to another solution. You can use Cloud Storage for
+        Firebase as an alternative for hosting custom models. For more info, see
+        https://firebase.google.com/docs/ml/migrate-to-cloud-storage
+
     Args:
         model_id: The id of the model you wish to delete.
         app: A Firebase app instance (or None to use the default app).
     """
+    warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
     ml_service = _get_ml_service(app)
     ml_service.delete_model(model_id)
 
@@ -179,12 +243,19 @@ def delete_model(model_id, app=None):
 class Model:
     """A Firebase ML Model object.
 
+    .. deprecated::
+        Firebase ML is deprecated and will be shut down on June 15, 2027.
+        To host custom models, you must migrate to another solution. You can use Cloud Storage for
+        Firebase as an alternative for hosting custom models. For more info, see
+        https://firebase.google.com/docs/ml/migrate-to-cloud-storage
+
     Args:
         display_name: The display name of your model - used to identify your model in code.
         tags: Optional list of strings associated with your model. Can be used in list queries.
         model_format: A subclass of ModelFormat. (e.g. TFLiteFormat) Specifies the model details.
     """
     def __init__(self, display_name=None, tags=None, model_format=None):
+        warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
         self._app = None  # Only needed for wait_for_unlo
         self._data = {}
         self._model_format = None
@@ -342,7 +413,14 @@ class Model:
 
 
 class ModelFormat:
-    """Abstract base class representing a Model Format such as TFLite."""
+    """Abstract base class representing a Model Format such as TFLite.
+
+    .. deprecated::
+        Firebase ML is deprecated and will be shut down on June 15, 2027.
+        To host custom models, you must migrate to another solution. You can use Cloud Storage for
+        Firebase as an alternative for hosting custom models. For more info, see
+        https://firebase.google.com/docs/ml/migrate-to-cloud-storage
+    """
     def as_dict(self, for_upload=False):
         """Returns a serializable representation of the object."""
         raise NotImplementedError
@@ -351,10 +429,17 @@ class ModelFormat:
 class TFLiteFormat(ModelFormat):
     """Model format representing a TFLite model.
 
+    .. deprecated::
+        Firebase ML is deprecated and will be shut down on June 15, 2027.
+        To host custom models, you must migrate to another solution. You can use Cloud Storage for
+        Firebase as an alternative for hosting custom models. For more info, see
+        https://firebase.google.com/docs/ml/migrate-to-cloud-storage
+
     Args:
         model_source: A TFLiteModelSource sub class. Specifies the details of the model source.
     """
     def __init__(self, model_source=None):
+        warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
         self._data = {}
         self._model_source = None
 
@@ -412,7 +497,14 @@ class TFLiteFormat(ModelFormat):
 
 
 class TFLiteModelSource:
-    """Abstract base class representing a model source for TFLite format models."""
+    """Abstract base class representing a model source for TFLite format models.
+
+    .. deprecated::
+        Firebase ML is deprecated and will be shut down on June 15, 2027.
+        To host custom models, you must migrate to another solution. You can use Cloud Storage for
+        Firebase as an alternative for hosting custom models. For more info, see
+        https://firebase.google.com/docs/ml/migrate-to-cloud-storage
+    """
     def as_dict(self, for_upload=False):
         """Returns a serializable representation of the object."""
         raise NotImplementedError
@@ -466,11 +558,19 @@ class _CloudStorageClient:
 
 
 class TFLiteGCSModelSource(TFLiteModelSource):
-    """TFLite model source representing a tflite model file stored in GCS."""
+    """TFLite model source representing a tflite model file stored in GCS.
+
+    .. deprecated::
+        Firebase ML is deprecated and will be shut down on June 15, 2027.
+        To host custom models, you must migrate to another solution. You can use Cloud Storage for
+        Firebase as an alternative for hosting custom models. For more info, see
+        https://firebase.google.com/docs/ml/migrate-to-cloud-storage
+    """
 
     _STORAGE_CLIENT = _CloudStorageClient()
 
     def __init__(self, gcs_tflite_uri, app=None):
+        warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
         self._app = app
         self._gcs_tflite_uri = _validate_gcs_tflite_uri(gcs_tflite_uri)
 
@@ -600,12 +700,19 @@ class TFLiteGCSModelSource(TFLiteModelSource):
 class ListModelsPage:
     """Represents a page of models in a Firebase project.
 
+    .. deprecated::
+        Firebase ML is deprecated and will be shut down on June 15, 2027.
+        To host custom models, you must migrate to another solution. You can use Cloud Storage for
+        Firebase as an alternative for hosting custom models. For more info, see
+        https://firebase.google.com/docs/ml/migrate-to-cloud-storage
+
     Provides methods for traversing the models included in this page, as well as
     retrieving subsequent pages of models. The iterator returned by
     ``iterate_all()`` can be used to iterate through all the models in the
     Firebase project starting from this page.
     """
     def __init__(self, list_models_func, list_filter, page_size, page_token, app):
+        warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
         self._list_models_func = list_models_func
         self._list_filter = list_filter
         self._page_size = page_size

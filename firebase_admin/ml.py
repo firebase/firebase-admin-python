@@ -27,9 +27,10 @@ deleting, publishing and unpublishing Firebase ML models.
 # pylint: disable=too-many-lines
 
 import datetime
-import re
-import time
 import os
+import re
+import sys
+import time
 from urllib import parse
 import warnings
 
@@ -60,6 +61,23 @@ _DEPRECATION_WARNING = (
     'Firebase as an alternative for hosting custom models. For more info, see '
     'https://firebase.google.com/docs/ml/migrate-to-cloud-storage'
 )
+
+
+def _is_internal_call():
+    """Checks if the current call originated from within the ML module."""
+    try:
+        # pylint: disable=protected-access
+        frame = sys._getframe(2)
+        while frame:
+            if frame.f_code.co_name in (
+                'from_dict', '_update_from_dict', 'handle_operation', 'list_models'
+            ):
+                return True
+            frame = frame.f_back
+    except (AttributeError, ValueError):
+        pass
+    return False
+
 
 _ML_ATTRIBUTE = '_ml'
 _MAX_PAGE_SIZE = 100
@@ -105,7 +123,8 @@ def create_model(model, app=None):
     Returns:
         Model: The model that was created in Firebase ML.
     """
-    warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
+    if not _is_internal_call():
+        warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
     ml_service = _get_ml_service(app)
     return Model.from_dict(ml_service.create_model(model), app=app)
 
@@ -126,7 +145,8 @@ def update_model(model, app=None):
     Returns:
         Model: The updated model.
     """
-    warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
+    if not _is_internal_call():
+        warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
     ml_service = _get_ml_service(app)
     return Model.from_dict(ml_service.update_model(model), app=app)
 
@@ -149,7 +169,8 @@ def publish_model(model_id, app=None):
     Returns:
         Model: The published model.
     """
-    warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
+    if not _is_internal_call():
+        warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
     ml_service = _get_ml_service(app)
     return Model.from_dict(ml_service.set_published(model_id, publish=True), app=app)
 
@@ -170,7 +191,8 @@ def unpublish_model(model_id, app=None):
     Returns:
         Model: The unpublished model.
     """
-    warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
+    if not _is_internal_call():
+        warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
     ml_service = _get_ml_service(app)
     return Model.from_dict(ml_service.set_published(model_id, publish=False), app=app)
 
@@ -191,7 +213,8 @@ def get_model(model_id, app=None):
     Returns:
      Model: The requested model.
     """
-    warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
+    if not _is_internal_call():
+        warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
     ml_service = _get_ml_service(app)
     return Model.from_dict(ml_service.get_model(model_id), app=app)
 
@@ -216,7 +239,8 @@ def list_models(list_filter=None, page_size=None, page_token=None, app=None):
     Returns:
         ListModelsPage: A (filtered) list of models.
     """
-    warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
+    if not _is_internal_call():
+        warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
     ml_service = _get_ml_service(app)
     return ListModelsPage(
         ml_service.list_models, list_filter, page_size, page_token, app=app)
@@ -235,7 +259,8 @@ def delete_model(model_id, app=None):
         model_id: The id of the model you wish to delete.
         app: A Firebase app instance (or None to use the default app).
     """
-    warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
+    if not _is_internal_call():
+        warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
     ml_service = _get_ml_service(app)
     ml_service.delete_model(model_id)
 
@@ -255,7 +280,8 @@ class Model:
         model_format: A subclass of ModelFormat. (e.g. TFLiteFormat) Specifies the model details.
     """
     def __init__(self, display_name=None, tags=None, model_format=None):
-        warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
+        if not _is_internal_call():
+            warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
         self._app = None  # Only needed for wait_for_unlo
         self._data = {}
         self._model_format = None
@@ -439,7 +465,8 @@ class TFLiteFormat(ModelFormat):
         model_source: A TFLiteModelSource sub class. Specifies the details of the model source.
     """
     def __init__(self, model_source=None):
-        warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
+        if not _is_internal_call():
+            warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
         self._data = {}
         self._model_source = None
 
@@ -570,7 +597,8 @@ class TFLiteGCSModelSource(TFLiteModelSource):
     _STORAGE_CLIENT = _CloudStorageClient()
 
     def __init__(self, gcs_tflite_uri, app=None):
-        warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
+        if not _is_internal_call():
+            warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
         self._app = app
         self._gcs_tflite_uri = _validate_gcs_tflite_uri(gcs_tflite_uri)
 
@@ -712,7 +740,8 @@ class ListModelsPage:
     Firebase project starting from this page.
     """
     def __init__(self, list_models_func, list_filter, page_size, page_token, app):
-        warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
+        if not _is_internal_call():
+            warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
         self._list_models_func = list_models_func
         self._list_filter = list_filter
         self._page_size = page_size

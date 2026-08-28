@@ -15,6 +15,7 @@
 """Test cases for the firebase_admin.ml module."""
 
 import json
+import warnings
 
 import pytest
 
@@ -1119,7 +1120,7 @@ class TestMLDeprecation:
 
     def test_tflite_gcs_model_source_init_deprecation_warning(self):
         with pytest.warns(DeprecationWarning, match=self.DEPRECATION_MSG):
-            ml.TFLiteGCSModelSource('gs://bucket/model.tflite')
+            ml.TFLiteGCSModelSource(GCS_TFLITE_URI)
 
     def test_get_model_deprecation_warning(self):
         instrument_ml_service(status=200, payload=DEFAULT_GET_RESPONSE)
@@ -1155,3 +1156,20 @@ class TestMLDeprecation:
         instrument_ml_service(status=200, payload=OPERATION_DONE_RESPONSE)
         with pytest.warns(DeprecationWarning, match=self.DEPRECATION_MSG):
             ml.unpublish_model(MODEL_ID_1)
+
+    def test_single_warning_on_get_model(self):
+        instrument_ml_service(status=200, payload=DEFAULT_GET_RESPONSE)
+        with warnings.catch_warnings(record=True) as captured_warnings:
+            warnings.simplefilter('always')
+            ml.get_model(MODEL_ID_1)
+            assert len(captured_warnings) == 1
+            assert issubclass(captured_warnings[0].category, DeprecationWarning)
+
+    def test_single_warning_on_list_models(self):
+        instrument_ml_service(status=200, payload=ONE_PAGE_LIST_RESPONSE)
+        with warnings.catch_warnings(record=True) as captured_warnings:
+            warnings.simplefilter('always')
+            page = ml.list_models()
+            _ = page.models
+            assert len(captured_warnings) == 1
+            assert issubclass(captured_warnings[0].category, DeprecationWarning)

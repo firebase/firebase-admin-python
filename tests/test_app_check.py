@@ -18,8 +18,9 @@ import pytest
 
 from jwt import PyJWK, InvalidAudienceError, InvalidIssuerError
 from jwt import ExpiredSignatureError, InvalidSignatureError
+import requests
 import firebase_admin
-from firebase_admin import app_check
+from firebase_admin import app_check, exceptions
 from tests import testutils
 
 NON_STRING_ARGS = [[], tuple(), {}, True, False, 1, 0]
@@ -57,6 +58,21 @@ class TestBatch:
     @classmethod
     def teardown_class(cls):
         testutils.cleanup_apps()
+
+@pytest.fixture
+def app_check_mock(mocker):
+    """Fixture to mock JWT functions and provide a fresh app."""
+    mocker.patch("jwt.decode", return_value=JWT_PAYLOAD_SAMPLE)
+    mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value=PyJWK(signing_key))
+    mocker.patch("jwt.get_unverified_header", return_value=JWT_PAYLOAD_SAMPLE.get("headers"))
+    mock_http_client = mocker.patch("firebase_admin._http_client.JsonHttpClient")
+
+    cred = testutils.MockCredential()
+    app = firebase_admin.initialize_app(cred, {'projectId': PROJECT_ID}, name='test_consume_app')
+
+    yield mock_http_client, app
+
+    firebase_admin.delete_app(app)
 
 class TestVerifyToken(TestBatch):
 
@@ -231,6 +247,54 @@ class TestVerifyToken(TestBatch):
         expected = JWT_PAYLOAD_SAMPLE.copy()
         expected['app_id'] = APP_ID
         assert payload == expected
+
+    def test_verify_token_with_consume(self, app_check_mock):
+        """Test verify_token with consume=True."""
+        mock_http_client, app = app_check_mock
+        mock_http_client.return_value.body.return_value = {'alreadyConsumed': True}
+
+        payload = app_check.verify_token("encoded", app, consume=True)
+        expected = JWT_PAYLOAD_SAMPLE.copy()
+        expected['app_id'] = APP_ID
+        expected['already_consumed'] = True
+        assert payload == expected
+        mock_http_client.return_value.body.assert_called_once_with(
+            'post',
+            f'{SCOPED_PROJECT_ID}:verifyAppCheckToken',
+            json={'app_check_token': 'encoded'})
+
+    def test_verify_token_with_consume_network_error(self, app_check_mock):
+        """Test verify_token with consume=True handles network errors."""
+        mock_http_client, app = app_check_mock
+        mock_http_client.return_value.body.side_effect = requests.exceptions.RequestException(
+            "Network error")
+
+        with pytest.raises(exceptions.UnknownError) as excinfo:
+            app_check.verify_token("encoded", app, consume=True)
+        assert str(excinfo.value) == (
+            "Unknown error while making a remote service call: Network error")
+
+    def test_verify_token_with_consume_non_dict_response(self, app_check_mock):
+        """Test verify_token with consume=True handles non-dict response."""
+        mock_http_client, app = app_check_mock
+        mock_http_client.return_value.body.return_value = ["not", "a", "dict"]
+
+        with pytest.raises(exceptions.UnknownError) as excinfo:
+            app_check.verify_token("encoded", app, consume=True)
+        assert str(excinfo.value) == (
+            'Unexpected response from App Check service. '
+            'Expected a JSON object, but got list.')
+
+    def test_verify_token_with_consume_malformed_json(self, app_check_mock):
+        """Test verify_token with consume=True handles malformed JSON response."""
+        mock_http_client, app = app_check_mock
+        mock_http_client.return_value.body.side_effect = ValueError("Malformed JSON")
+
+        with pytest.raises(exceptions.UnknownError) as excinfo:
+            app_check.verify_token("encoded", app, consume=True)
+        assert str(excinfo.value) == (
+            'Unexpected response from App Check service. '
+            'Error: Malformed JSON')
 
     def test_verify_token_with_non_list_audience_raises_error(self, mocker):
         jwt_with_non_list_audience = JWT_PAYLOAD_SAMPLE.copy()

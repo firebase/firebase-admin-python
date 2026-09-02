@@ -778,7 +778,8 @@ def create_tenant():
     tenant = tenant_mgt.create_tenant(
         display_name='myTenant1',
         enable_email_link_sign_in=True,
-        allow_password_sign_up=True)
+        allow_password_sign_up=True,
+        allow_default_provider=True)
 
     print('Created tenant:', tenant.tenant_id)
 	# [END create_tenant]

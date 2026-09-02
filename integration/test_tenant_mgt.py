@@ -202,6 +202,14 @@ def test_sign_in_with_email_link(sample_tenant, tenant_user):
     assert _tenant_id_from_link(link) == sample_tenant.tenant_id
 
 
+def test_verify_and_change_email_link(sample_tenant, tenant_user):
+    client = tenant_mgt.auth_for_tenant(sample_tenant.tenant_id)
+    new_email = _random_email()
+    link = client.generate_verify_and_change_email_link(
+        tenant_user.email, new_email, ACTION_CODE_SETTINGS
+    )
+    assert _tenant_id_from_link(link) == sample_tenant.tenant_id
+
 def test_import_users(sample_tenant):
     client = tenant_mgt.auth_for_tenant(sample_tenant.tenant_id)
     user = auth.ImportUserRecord(

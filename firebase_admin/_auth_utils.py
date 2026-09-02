@@ -29,7 +29,9 @@ RESERVED_CLAIMS = set([
     'acr', 'amr', 'at_hash', 'aud', 'auth_time', 'azp', 'cnf', 'c_hash', 'exp', 'iat',
     'iss', 'jti', 'nbf', 'nonce', 'sub', 'firebase',
 ])
-VALID_EMAIL_ACTION_TYPES = set(['VERIFY_EMAIL', 'EMAIL_SIGNIN', 'PASSWORD_RESET'])
+VALID_EMAIL_ACTION_TYPES = set(
+    ["VERIFY_EMAIL", "EMAIL_SIGNIN", "PASSWORD_RESET", "VERIFY_AND_CHANGE_EMAIL"]
+)
 
 
 class PageIterator:

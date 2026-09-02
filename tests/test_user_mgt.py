@@ -1425,6 +1425,16 @@ class TestGenerateEmailActionLink:
         assert request['requestType'] == 'PASSWORD_RESET'
         self._validate_request(request)
 
+    def test_verify_and_change_email_no_settings(self, user_mgt_app):
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"oobLink":"https://testlink"}')
+        link = auth._get_client(user_mgt_app)._user_manager.generate_email_action_link(
+            'VERIFY_AND_CHANGE_EMAIL', 'test@test.com', new_email='new@test.com')
+        request = json.loads(recorder[0].body.decode())
+
+        assert link == 'https://testlink'
+        assert request['requestType'] == 'VERIFY_AND_CHANGE_EMAIL'
+        self._validate_request(request, new_email='new@test.com')
+
     def test_email_signin_with_settings(self, user_mgt_app):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"oobLink":"https://testlink"}')
         link = auth.generate_sign_in_with_email_link('test@test.com',
@@ -1457,6 +1467,20 @@ class TestGenerateEmailActionLink:
         assert link == 'https://testlink'
         assert request['requestType'] == 'PASSWORD_RESET'
         self._validate_request(request, MOCK_ACTION_CODE_SETTINGS)
+
+    def test_verify_and_change_email_with_settings(self, user_mgt_app):
+        _, recorder = _instrument_user_manager(user_mgt_app, 200, '{"oobLink":"https://testlink"}')
+        link = auth._get_client(user_mgt_app)._user_manager.generate_email_action_link(
+            "VERIFY_AND_CHANGE_EMAIL",
+            "test@test.com",
+            action_code_settings=MOCK_ACTION_CODE_SETTINGS,
+            new_email="new@test.com",
+        )
+        request = json.loads(recorder[0].body.decode())
+
+        assert link == 'https://testlink'
+        assert request['requestType'] == 'VERIFY_AND_CHANGE_EMAIL'
+        self._validate_request(request, MOCK_ACTION_CODE_SETTINGS, new_email='new@test.com')
 
     @pytest.mark.parametrize('func', [
         auth.generate_sign_in_with_email_link,
@@ -1547,9 +1571,20 @@ class TestGenerateEmailActionLink:
                 .generate_email_action_link('BAD_TYPE', 'test@test.com',
                                             action_code_settings=MOCK_ACTION_CODE_SETTINGS)
 
-    def _validate_request(self, request, settings=None):
+    def test_verify_and_change_email_missing_new_email(self, user_mgt_app):
+        with pytest.raises(ValueError) as excinfo:
+            auth._get_client(user_mgt_app)._user_manager.generate_email_action_link(
+                'VERIFY_AND_CHANGE_EMAIL', 'test@test.com')
+        assert (
+            str(excinfo.value)
+            == "new_email must be provided when action_type is VERIFY_AND_CHANGE_EMAIL."
+        )
+
+    def _validate_request(self, request, settings=None, new_email=None):
         assert request['email'] == 'test@test.com'
         assert request['returnOobLink']
+        if new_email:
+            assert request['newEmail'] == new_email
         if settings:
             assert request['continueUrl'] == settings.url
             assert request['canHandleCodeInApp'] == settings.handle_code_in_app

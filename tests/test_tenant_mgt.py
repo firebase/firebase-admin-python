@@ -112,22 +112,40 @@ INVALID_BOOLEANS = ['', 1, 0, [], tuple(), {}]
 
 USER_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v1/projects/mock-project-id'
 PROVIDER_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v2/projects/mock-project-id'
-TENANT_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v2/projects/mock-project-id'
 
+TENANT_MGT_URL = 'https://identitytoolkit.googleapis.com/v2'
+TENANT_MGT_URL_PREFIX = f'{TENANT_MGT_URL}/projects/mock-project-id'
+TENANT_MGT_URLS = {
+    'URL': TENANT_MGT_URL,
+    'PREFIX': TENANT_MGT_URL_PREFIX,
+}
 
-@pytest.fixture(scope='module')
-def tenant_mgt_app():
+TENANT_EMULATOR_HOST_ENV_VAR = 'FIREBASE_TENANT_EMULATOR_HOST'
+TENANT_EMULATOR_HOST = 'localhost:9099'
+
+EMULATED_TENANT_MGT_URL = f'http://{TENANT_EMULATOR_HOST}/identitytoolkit.googleapis.com/v2'
+EMULATED_TENANT_MGT_URL_PREFIX = f'{EMULATED_TENANT_MGT_URL}/projects/mock-project-id'
+
+@pytest.fixture(scope='module', params=[{'emulated': False}, {'emulated': True}])
+def tenant_mgt_app(request):
+    monkeypatch = testutils.new_monkeypatch()
+    if request.param['emulated']:
+        monkeypatch.setenv(TENANT_EMULATOR_HOST_ENV_VAR, TENANT_EMULATOR_HOST)
+        monkeypatch.setitem(TENANT_MGT_URLS, 'URL', EMULATED_TENANT_MGT_URL)
+        monkeypatch.setitem(TENANT_MGT_URLS, 'PREFIX', EMULATED_TENANT_MGT_URL_PREFIX)
     app = firebase_admin.initialize_app(
         testutils.MockCredential(), name='tenantMgt', options={'projectId': 'mock-project-id'})
     yield app
     firebase_admin.delete_app(app)
+    monkeypatch.undo()
 
 
 def _instrument_tenant_mgt(app, status, payload):
     service = tenant_mgt._get_tenant_mgt_service(app)
     recorder = []
+    mount_url = service.client._base_url.rsplit('/projects/', 1)[0]
     service.client.session.mount(
-        tenant_mgt._TenantManagementService.TENANT_MGT_URL,
+        mount_url,
         testutils.MockAdapter(payload, status, recorder))
     return service, recorder
 
@@ -197,10 +215,13 @@ class TestGetTenant:
         assert len(recorder) == 1
         req = recorder[0]
         assert req.method == 'GET'
-        assert req.url == f'{TENANT_MGT_URL_PREFIX}/tenants/tenant-id'
+        assert req.url == f'{TENANT_MGT_URLS["PREFIX"]}/tenants/tenant-id'
         assert req.headers['X-Client-Version'] == f'Python/Admin/{firebase_admin.__version__}'
-        expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
-        assert req.headers['x-goog-api-client'] == expected_metrics_header
+        expected_metrics_headers = [
+            _utils.get_metrics_header(),
+            _utils.get_metrics_header() + ' mock-cred-metric-tag',
+        ]
+        assert req.headers['x-goog-api-client'] in expected_metrics_headers
 
     def test_tenant_not_found(self, tenant_mgt_app):
         _instrument_tenant_mgt(tenant_mgt_app, 500, TENANT_NOT_FOUND_RESPONSE)
@@ -290,10 +311,13 @@ class TestCreateTenant:
         assert len(recorder) == 1
         req = recorder[0]
         assert req.method == 'POST'
-        assert req.url == f'{TENANT_MGT_URL_PREFIX}/tenants'
+        assert req.url == f'{TENANT_MGT_URLS["PREFIX"]}/tenants'
         assert req.headers['X-Client-Version'] == f'Python/Admin/{firebase_admin.__version__}'
-        expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
-        assert req.headers['x-goog-api-client'] == expected_metrics_header
+        expected_metrics_headers = [
+            _utils.get_metrics_header(),
+            _utils.get_metrics_header() + ' mock-cred-metric-tag',
+        ]
+        assert req.headers['x-goog-api-client'] in expected_metrics_headers
         got = json.loads(req.body.decode())
         assert got == body
 
@@ -390,10 +414,16 @@ class TestUpdateTenant:
         assert len(recorder) == 1
         req = recorder[0]
         assert req.method == 'PATCH'
-        assert req.url == f'{TENANT_MGT_URL_PREFIX}/tenants/tenant-id?updateMask={",".join(mask)}'
+        assert req.url == (
+            f'{TENANT_MGT_URLS["PREFIX"]}/tenants/tenant-id'
+            f'?updateMask={",".join(mask)}'
+        )
         assert req.headers['X-Client-Version'] == f'Python/Admin/{firebase_admin.__version__}'
-        expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
-        assert req.headers['x-goog-api-client'] == expected_metrics_header
+        expected_metrics_headers = [
+            _utils.get_metrics_header(),
+            _utils.get_metrics_header() + ' mock-cred-metric-tag',
+        ]
+        assert req.headers['x-goog-api-client'] in expected_metrics_headers
         got = json.loads(req.body.decode())
         assert got == body
 
@@ -413,10 +443,13 @@ class TestDeleteTenant:
         assert len(recorder) == 1
         req = recorder[0]
         assert req.method == 'DELETE'
-        assert req.url == f'{TENANT_MGT_URL_PREFIX}/tenants/tenant-id'
+        assert req.url == f'{TENANT_MGT_URLS["PREFIX"]}/tenants/tenant-id'
         assert req.headers['X-Client-Version'] == f'Python/Admin/{firebase_admin.__version__}'
-        expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
-        assert req.headers['x-goog-api-client'] == expected_metrics_header
+        expected_metrics_headers = [
+            _utils.get_metrics_header(),
+            _utils.get_metrics_header() + ' mock-cred-metric-tag',
+        ]
+        assert req.headers['x-goog-api-client'] in expected_metrics_headers
 
     def test_tenant_not_found(self, tenant_mgt_app):
         _instrument_tenant_mgt(tenant_mgt_app, 500, TENANT_NOT_FOUND_RESPONSE)
@@ -560,8 +593,11 @@ class TestListTenants:
         req = recorder[0]
         assert req.method == 'GET'
         assert req.headers['X-Client-Version'] == f'Python/Admin/{firebase_admin.__version__}'
-        expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
-        assert req.headers['x-goog-api-client'] == expected_metrics_header
+        expected_metrics_headers = [
+            _utils.get_metrics_header(),
+            _utils.get_metrics_header() + ' mock-cred-metric-tag',
+        ]
+        assert req.headers['x-goog-api-client'] in expected_metrics_headers
         request = dict(parse.parse_qsl(parse.urlsplit(req.url).query))
         assert request == expected
 
@@ -944,8 +980,11 @@ class TestTenantAwareUserManagement:
         assert req.method == method
         assert req.url == f'{prefix}/tenants/tenant-id{want_url}'
         assert req.headers['X-Client-Version'] == f'Python/Admin/{firebase_admin.__version__}'
-        expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
-        assert req.headers['x-goog-api-client'] == expected_metrics_header
+        expected_metrics_headers = [
+            _utils.get_metrics_header(),
+            _utils.get_metrics_header() + ' mock-cred-metric-tag',
+        ]
+        assert req.headers['x-goog-api-client'] in expected_metrics_headers
         body = json.loads(req.body.decode())
         assert body == want_body
 

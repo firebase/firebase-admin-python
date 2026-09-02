@@ -15,38 +15,47 @@
 """Firebase App Check module."""
 
 from typing import Any, Dict
+import requests
 import jwt
 from jwt import PyJWKClient, ExpiredSignatureError, InvalidTokenError, DecodeError
 from jwt import InvalidAudienceError, InvalidIssuerError, InvalidSignatureError
-from firebase_admin import _utils
+from firebase_admin import _http_client, _utils
 
 _APP_CHECK_ATTRIBUTE = '_app_check'
 
 def _get_app_check_service(app) -> Any:
     return _utils.get_app_service(app, _APP_CHECK_ATTRIBUTE, _AppCheckService)
 
-def verify_token(token: str, app=None) -> Dict[str, Any]:
-    """Verifies a Firebase App Check token.
+def verify_token(token: str, app=None, consume: bool = False) -> Dict[str, Any]:
+    """Verifies a Firebase App Check token, optionally consuming limited-use tokens.
 
     Args:
         token: A token from App Check.
         app: An App instance (optional).
+        consume: Set to ``True`` only if the token is a limited-use (one-time) token
+            that should be consumed upon verification (optional, defaults to ``False``).
 
     Returns:
-        Dict[str, Any]: The token's decoded claims.
+        Dict[str, Any]: The token's decoded claims. If ``consume`` is ``True``, the dictionary
+            also includes an ``already_consumed`` boolean key indicating whether the token was
+            previously consumed.
 
     Raises:
         ValueError: If the app's ``project_id`` is invalid or unspecified,
-        or if the token's headers or payload are invalid.
+            or if the token's headers or payload are invalid.
+        FirebaseError: If an error occurs while communicating with the App Check service.
         PyJWKClientError: If PyJWKClient fails to fetch a valid signing key.
     """
-    return _get_app_check_service(app).verify_token(token)
+    return _get_app_check_service(app).verify_token(token, consume=consume)
 
 class _AppCheckService:
     """Service class that implements Firebase App Check functionality."""
 
     _APP_CHECK_ISSUER = 'https://firebaseappcheck.googleapis.com/'
     _JWKS_URL = 'https://firebaseappcheck.googleapis.com/v1/jwks'
+    _VERIFY_URL_FORMAT = (
+        'https://firebaseappcheck.googleapis.com/v1/projects/{project_id}:verifyAppCheckToken'
+    )
     _project_id = None
     _scoped_project_id = None
     _jwks_client = None
@@ -68,10 +77,13 @@ class _AppCheckService:
         # Default lifespan is 300 seconds (5 minutes) so we change it to 21600 seconds (6 hours).
         self._jwks_client = PyJWKClient(
             self._JWKS_URL, lifespan=21600, headers=self._APP_CHECK_HEADERS)
+        timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
+        self._http_client = _http_client.JsonHttpClient(
+            credential=app.credential.get_credential(), timeout=timeout)
 
 
-    def verify_token(self, token: str) -> Dict[str, Any]:
-        """Verifies a Firebase App Check token."""
+    def verify_token(self, token: str, consume: bool = False) -> Dict[str, Any]:
+        """Verifies a Firebase App Check token, optionally consuming limited-use tokens."""
         _Validators.check_string("app check token", token)
 
         # Obtain the Firebase App Check Public Keys
@@ -87,6 +99,21 @@ class _AppCheckService:
                 ) from exception
 
         verified_claims['app_id'] = verified_claims.get('sub')
+
+        if not isinstance(consume, bool):
+            raise ValueError('consume must be a boolean.')
+        if consume:
+            url = self._VERIFY_URL_FORMAT.format(project_id=self._project_id)
+            try:
+                body = self._http_client.body('post', url, json={'app_check_token': token})
+            except requests.exceptions.RequestException as error:
+                raise _utils.handle_platform_error_from_requests(error)
+
+            already_consumed = False
+            if isinstance(body, dict):
+                already_consumed = body.get('alreadyConsumed', False)
+            verified_claims['already_consumed'] = bool(already_consumed)
+
         return verified_claims
 
     def _has_valid_token_headers(self, headers: Any) -> None:

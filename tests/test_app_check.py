@@ -15,11 +15,12 @@
 """Test cases for the firebase_admin.app_check module."""
 import base64
 import pytest
+import requests
 
 from jwt import PyJWK, InvalidAudienceError, InvalidIssuerError
 from jwt import ExpiredSignatureError, InvalidSignatureError
 import firebase_admin
-from firebase_admin import app_check
+from firebase_admin import app_check, exceptions
 from tests import testutils
 
 NON_STRING_ARGS = [[], tuple(), {}, True, False, 1, 0]
@@ -273,3 +274,62 @@ class TestVerifyToken(TestBatch):
 
         expected = 'Token does not contain the correct "iss" (issuer).'
         assert str(excinfo.value) == expected
+
+    def test_verify_token_with_consume_true_not_consumed(self, mocker):
+        mocker.patch("jwt.decode", return_value=JWT_PAYLOAD_SAMPLE)
+        mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value=PyJWK(signing_key))
+        mocker.patch("jwt.get_unverified_header", return_value=JWT_PAYLOAD_SAMPLE.get("headers"))
+        app = firebase_admin.get_app()
+        app_check_service = app_check._get_app_check_service(app)
+        mock_body = mocker.patch.object(
+            app_check_service._http_client, "body", return_value={"alreadyConsumed": False}
+        )
+
+        payload = app_check.verify_token("encoded", app=app, consume=True)
+        expected = JWT_PAYLOAD_SAMPLE.copy()
+        expected["app_id"] = APP_ID
+        expected["already_consumed"] = False
+        assert payload == expected
+
+        expected_url = (
+            f"https://firebaseappcheck.googleapis.com/v1/projects/{PROJECT_ID}:verifyAppCheckToken"
+        )
+        mock_body.assert_called_once_with(
+            "post", expected_url, json={"app_check_token": "encoded"}
+        )
+
+    def test_verify_token_with_consume_true_already_consumed(self, mocker):
+        mocker.patch("jwt.decode", return_value=JWT_PAYLOAD_SAMPLE)
+        mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value=PyJWK(signing_key))
+        mocker.patch("jwt.get_unverified_header", return_value=JWT_PAYLOAD_SAMPLE.get("headers"))
+        app = firebase_admin.get_app()
+        app_check_service = app_check._get_app_check_service(app)
+        mock_body = mocker.patch.object(
+            app_check_service._http_client, "body", return_value={"alreadyConsumed": True}
+        )
+
+        payload = app_check.verify_token("encoded", app=app, consume=True)
+        expected = JWT_PAYLOAD_SAMPLE.copy()
+        expected["app_id"] = APP_ID
+        expected["already_consumed"] = True
+        assert payload == expected
+
+        expected_url = (
+            f"https://firebaseappcheck.googleapis.com/v1/projects/{PROJECT_ID}:verifyAppCheckToken"
+        )
+        mock_body.assert_called_once_with(
+            "post", expected_url, json={"app_check_token": "encoded"}
+        )
+
+    def test_verify_token_with_consume_true_backend_error(self, mocker):
+        mocker.patch("jwt.decode", return_value=JWT_PAYLOAD_SAMPLE)
+        mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value=PyJWK(signing_key))
+        mocker.patch("jwt.get_unverified_header", return_value=JWT_PAYLOAD_SAMPLE.get("headers"))
+        app = firebase_admin.get_app()
+        app_check_service = app_check._get_app_check_service(app)
+
+        req_exc = requests.exceptions.RequestException("Backend error")
+        mocker.patch.object(app_check_service._http_client, "body", side_effect=req_exc)
+
+        with pytest.raises(exceptions.FirebaseError):
+            app_check.verify_token("encoded", app=app, consume=True)

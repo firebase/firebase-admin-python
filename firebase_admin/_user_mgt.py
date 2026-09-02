@@ -27,7 +27,7 @@ from firebase_admin import _auth_utils
 from firebase_admin import _rfc3339
 from firebase_admin import _user_identifier
 from firebase_admin import _user_import
-from firebase_admin._user_import import ErrorInfo
+from firebase_admin._user_import import ErrorInfo, UserProvider
 
 
 MAX_LIST_USERS_RESULTS = 1000
@@ -711,7 +711,8 @@ class UserManager:
 
     def update_user(self, uid, display_name=None, email=None, phone_number=None,
                     photo_url=None, password=None, disabled=None, email_verified=None,
-                    valid_since=None, custom_claims=None, providers_to_delete=None):
+                    valid_since=None, custom_claims=None, providers_to_delete=None,
+                    provider_to_add: UserProvider | None=None):
         """Updates an existing user account with the specified properties"""
         payload = {
             'localId': _auth_utils.validate_uid(uid, required=True),
@@ -749,6 +750,9 @@ class UserManager:
             json_claims = json.dumps(custom_claims) if isinstance(
                 custom_claims, dict) else custom_claims
             payload['customAttributes'] = _auth_utils.validate_custom_claims(json_claims)
+
+        if provider_to_add:
+            payload['linkProviderUserInfo'] = provider_to_add.to_dict()
 
         if remove_provider:
             payload['deleteProvider'] = list(set(remove_provider))

@@ -14,8 +14,10 @@
 
 """Types and utilities used by the messaging (FCM) module."""
 from __future__ import annotations
+from dataclasses import dataclass
 import datetime
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
+import warnings
 
 from firebase_admin import exceptions
 
@@ -37,6 +39,8 @@ class Notification:
 
 class AndroidConfig:
     """Android-specific options that can be included in a message.
+
+    AndroidConfig is deprecated. Use AndroidConfigV2 instead.
 
     Args:
         collapse_key: Collapse key string for the message (optional). This is an identifier for a
@@ -73,6 +77,11 @@ class AndroidConfig:
         bandwidth_constrained_ok: Optional[bool] = None,
         restricted_satellite_ok: Optional[bool] = None
     ):
+        warnings.warn(
+            'AndroidConfig is deprecated. Use AndroidConfigV2 instead.',
+            DeprecationWarning,
+            stacklevel=2
+        )
         self.collapse_key = collapse_key
         self.priority = priority
         self.ttl = ttl
@@ -85,8 +94,49 @@ class AndroidConfig:
         self.restricted_satellite_ok = restricted_satellite_ok
 
 
+@dataclass
+class AndroidConfigV2:
+    """Android-specific options that can be included in a message (V2).
+
+    Args:
+        collapse_key: Collapse key string for the message (optional). This is an identifier for a
+            group of messages that can be collapsed, so that only the last message is sent when
+            delivery can be resumed. A maximum of 4 different collapse keys may be active at a
+            given time.
+        ttl: The time-to-live duration of the message (optional). This can be specified
+            as a numeric seconds value or a ``datetime.timedelta`` instance.
+        restricted_package_name: The package name of the application where the registration
+            tokens must match in order to receive the message (optional).
+        data: A dictionary of data fields (optional). All keys and values in the dictionary must be
+            strings. When specified, overrides any data fields set via ``Message.data``.
+        remote_notification: A ``messaging.AndroidRemoteNotification`` to be included in the
+            message (optional).
+        background_sync: An ``messaging.AndroidBackgroundSyncMessage`` instance to be included in
+            the message (optional).
+        fcm_options: A ``messaging.AndroidFCMOptions`` to be included in the message (optional).
+        direct_boot_ok: A boolean indicating whether messages will be allowed to be delivered to
+            the app while the device is in direct boot mode (optional).
+        bandwidth_constrained_ok: A boolean indicating whether messages will be allowed to be
+            delivered to the app while the device is on a bandwidth constrained network (optional).
+        restricted_satellite_ok: A boolean indicating whether messages will be allowed to be
+            delivered to the app while the device is on a restricted satellite network (optional).
+    """
+    collapse_key: Optional[str] = None
+    ttl: Optional[Union[int, float, datetime.timedelta]] = None
+    restricted_package_name: Optional[str] = None
+    data: Optional[Dict[str, str]] = None
+    remote_notification: Optional[AndroidRemoteNotification] = None
+    background_sync: Optional[AndroidBackgroundSyncMessage] = None
+    fcm_options: Optional[AndroidFCMOptions] = None
+    direct_boot_ok: Optional[bool] = None
+    bandwidth_constrained_ok: Optional[bool] = None
+    restricted_satellite_ok: Optional[bool] = None
+
+
 class AndroidNotification:
     """Android-specific notification parameters.
+
+    AndroidNotification is deprecated. Use AndroidNotificationV2 instead.
 
     Args:
         title: Title of the notification (optional). If specified, overrides the title set via
@@ -134,7 +184,7 @@ class AndroidNotification:
             ``AndroidMessagePriority``. This priority is processed by the client after the message
             has been delivered. Whereas ``AndroidMessagePriority`` is an FCM concept that controls
             when the message is delivered (optional). Must be one of ``default``, ``min``, ``low``,
-            ``high``, ``max`` or ``normal``.
+            ``high`` or ``max``.
         vibrate_timings_millis: Sets the vibration pattern to use. Pass in an array of milliseconds
             to turn the vibrator on or off. The first value indicates the duration to wait before
             turning the vibrator on. The next value indicates the duration to keep the vibrator on.
@@ -180,6 +230,11 @@ class AndroidNotification:
                  default_vibrate_timings=None, default_sound=None, light_settings=None,
                  default_light_settings=None, visibility=None, notification_count=None,
                  proxy=None):
+        warnings.warn(
+            'AndroidNotification is deprecated. Use AndroidNotificationV2 instead.',
+            DeprecationWarning,
+            stacklevel=2
+        )
         self.title = title
         self.body = body
         self.icon = icon
@@ -206,6 +261,141 @@ class AndroidNotification:
         self.visibility = visibility
         self.notification_count = notification_count
         self.proxy = proxy
+
+
+@dataclass
+class AndroidNotificationV2:
+    """Android-specific notification options (V2).
+
+    Args:
+        title: Title of the notification (optional). If specified, overrides the title set via
+            ``messaging.Notification``.
+        body: Body of the notification (optional). If specified, overrides the body set via
+            ``messaging.Notification``.
+        icon: Icon of the notification (optional).
+        color: Color of the notification icon expressed in ``#rrggbb`` form (optional).
+        sound: Sound to be played when the device receives the notification (optional). This is
+            usually the file name of the sound resource.
+        tag: Tag of the notification (optional). This is an identifier used to replace existing
+            notifications in the notification drawer. If not specified, each request creates a new
+            notification.
+        id: Notification ID (optional).
+        click_action: The action associated with a user click on the notification (optional). If
+            specified, an activity with a matching intent filter is launched when a user clicks on
+            the notification.
+        body_loc_key: Key of the body string in the app's string resources to use to localize the
+            body text (optional).
+        body_loc_args: A list of resource keys that will be used in place of the format specifiers
+            in ``body_loc_key`` (optional).
+        title_loc_key: Key of the title string in the app's string resources to use to localize the
+            title text (optional).
+        title_loc_args: A list of resource keys that will be used in place of the format specifiers
+            in ``title_loc_key`` (optional).
+        channel_id: channel_id of the notification (optional).
+        image: Image URL of the notification (optional).
+        ticker: Sets the ``ticker`` text, which is sent to accessibility services. Prior to API
+            level 21 (Lollipop), sets the text that is displayed in the status bar when the
+            notification first arrives (optional).
+        sticky: When set to ``False`` or unset, the notification is automatically dismissed when the
+            user clicks it in the panel. When set to ``True``, the notification persists even when
+            the user clicks it (optional).
+        event_time: For notifications that inform users about events with an absolute time
+            reference, sets the time that the event in the notification occurred as a
+            ``datetime.datetime`` instance. If the ``datetime.datetime`` instance is naive, it
+            defaults to be in the UTC timezone. Notifications in the panel are sorted by this time
+            (optional).
+        local_only: Sets whether or not this notification is relevant only to the current device.
+            Some notifications can be bridged to other devices for remote display, such as a Wear OS
+            watch. This hint can be set to recommend this notification not be bridged (optional).
+            See Wear OS guides:
+            https://developer.android.com/training/wearables/notifications/bridger#existing-method-of-preventing-bridging
+        notification_priority: Sets the relative priority for this notification. Low-priority
+            notifications may be hidden from the user in certain situations. Note this priority
+            differs from ``AndroidMessagePriority``. This priority is processed by the client after
+            the message has been delivered. Whereas ``AndroidMessagePriority`` is an FCM concept
+            that controls when the message is delivered (optional). Must be one of ``default``,
+            ``min``, ``low``, ``high`` or ``max``.
+        vibrate_timings_millis: Sets the vibration pattern to use. Pass in an array of milliseconds
+            or ``datetime.timedelta`` instances (optional) to turn the vibrator on or off. The
+            first value indicates the duration to wait before turning the vibrator on. The next
+            value indicates the duration to keep the vibrator on. Subsequent values alternate
+            between duration to turn the vibrator off and to turn the vibrator on. If
+            ``vibrate_timings`` is set and ``default_vibrate_timings`` is set to ``True``,
+            the default value is used instead of the user-specified ``vibrate_timings``.
+        default_vibrate_timings: If set to ``True``, use the Android framework's default vibrate
+            pattern for the notification (optional). Default values are specified in ``config.xml``
+            https://android.googlesource.com/platform/frameworks/base/+/master/core/res/res/values/config.xml.
+            If ``default_vibrate_timings`` is set to ``True`` and ``vibrate_timings`` is
+            also set, the default value is used instead of the user-specified
+            ``vibrate_timings``.
+        default_sound: If set to ``True``, use the Android framework's default sound for the
+            notification (optional). Default values are specified in ``config.xml``
+            https://android.googlesource.com/platform/frameworks/base/+/master/core/res/res/values/config.xml
+        light_settings: Settings to control the notification's LED blinking rate and color if LED is
+            available on the device. The total blinking time is controlled by the OS (optional).
+        default_light_settings: If set to ``True``, use the Android framework's default LED light
+            settings for the notification. Default values are specified in ``config.xml``
+            https://android.googlesource.com/platform/frameworks/base/+/master/core/res/res/values/config.xml.
+            If ``default_light_settings`` is set to ``True`` and ``light_settings`` is also set, the
+            user-specified ``light_settings`` is used instead of the default value.
+        visibility: Sets the visibility of the notification. Must be either ``private``, ``public``,
+            or ``secret``. If unspecified, it remains undefined in the Admin SDK, and defers to
+            the FCM backend's default mapping.
+        notification_count: Sets the number of items this notification represents. May be displayed
+            as a badge count for Launchers that support badging. See ``NotificationBadge``
+            https://developer.android.com/training/notify-user/badges. For example, this might be
+            useful if you're using just one notification to represent multiple new messages but you
+            want the count here to represent the number of total new messages. If zero or
+            unspecified, systems that support badging use the default, which is to increment a
+            number displayed on the long-press menu each time a new notification arrives.
+    """
+    title: Optional[str] = None
+    body: Optional[str] = None
+    icon: Optional[str] = None
+    color: Optional[str] = None
+    sound: Optional[str] = None
+    tag: Optional[str] = None
+    id: Optional[int] = None  # pylint: disable=redefined-builtin,invalid-name
+    click_action: Optional[str] = None
+    body_loc_key: Optional[str] = None
+    body_loc_args: Optional[List[str]] = None
+    title_loc_key: Optional[str] = None
+    title_loc_args: Optional[List[str]] = None
+    channel_id: Optional[str] = None
+    image: Optional[str] = None
+    ticker: Optional[str] = None
+    sticky: Optional[bool] = None
+    event_time: Optional[datetime.datetime] = None
+    local_only: Optional[bool] = None
+    notification_priority: Optional[str] = None
+    vibrate_timings_millis: Optional[List[Union[int, float, datetime.timedelta]]] = None
+    default_vibrate_timings: Optional[bool] = None
+    default_sound: Optional[bool] = None
+    light_settings: Optional[LightSettings] = None
+    default_light_settings: Optional[bool] = None
+    visibility: Optional[str] = None
+    notification_count: Optional[int] = None
+
+
+@dataclass
+class AndroidRemoteNotification:
+    """Android remote notification options.
+
+    Args:
+        notification: An ``AndroidNotificationV2`` instance.
+        mutable_content: A boolean indicating whether the notification content can be updated by the
+            app after the notification is received on the device (optional).
+        use_as_v1_data_message: A boolean indicating whether to use as a V1 data message
+            fallback (optional).
+    """
+    notification: AndroidNotificationV2
+    mutable_content: Optional[bool] = None
+    use_as_v1_data_message: Optional[bool] = None
+
+
+@dataclass
+class AndroidBackgroundSyncMessage:
+    """Android background sync message options."""
 
 
 class LightSettings:

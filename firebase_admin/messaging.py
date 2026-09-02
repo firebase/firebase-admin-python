@@ -41,8 +41,12 @@ _MESSAGING_ATTRIBUTE = '_messaging'
 
 __all__ = [
     'AndroidConfig',
+    'AndroidConfigV2',
     'AndroidFCMOptions',
     'AndroidNotification',
+    'AndroidNotificationV2',
+    'AndroidRemoteNotification',
+    'AndroidBackgroundSyncMessage',
     'APNSConfig',
     'APNSFCMOptions',
     'APNSPayload',
@@ -78,8 +82,12 @@ __all__ = [
 
 
 AndroidConfig = _messaging_utils.AndroidConfig
+AndroidConfigV2 = _messaging_utils.AndroidConfigV2
 AndroidFCMOptions = _messaging_utils.AndroidFCMOptions
 AndroidNotification = _messaging_utils.AndroidNotification
+AndroidNotificationV2 = _messaging_utils.AndroidNotificationV2
+AndroidRemoteNotification = _messaging_utils.AndroidRemoteNotification
+AndroidBackgroundSyncMessage = _messaging_utils.AndroidBackgroundSyncMessage
 APNSConfig = _messaging_utils.APNSConfig
 APNSFCMOptions = _messaging_utils.APNSFCMOptions
 APNSPayload = _messaging_utils.APNSPayload
@@ -186,6 +194,7 @@ def _get_messages_from_multicast(multicast_message: MulticastMessage) -> List[Me
                 data=multicast_message.data,
                 notification=multicast_message.notification,
                 android=multicast_message.android,
+                android_v2=multicast_message.android_v2,
                 webpush=multicast_message.webpush,
                 apns=multicast_message.apns,
                 fcm_options=multicast_message.fcm_options,
@@ -197,6 +206,7 @@ def _get_messages_from_multicast(multicast_message: MulticastMessage) -> List[Me
             data=multicast_message.data,
             notification=multicast_message.notification,
             android=multicast_message.android,
+            android_v2=multicast_message.android_v2,
             webpush=multicast_message.webpush,
             apns=multicast_message.apns,
             fcm_options=multicast_message.fcm_options,

@@ -1044,6 +1044,43 @@ class TestQuery:
         with pytest.raises(ValueError):
             db.Query(order_by='$key', client=ref._client, pathurl=ref._add_suffix(), foo='bar')
 
+    @staticmethod
+    def _instrument_body(query, payload, monkeypatch):
+        """Stubs out the HTTP layer of a Query with a fixed server payload."""
+        class _StubClient:
+            def body(self, unused_method, unused_url, params=None):
+                return dict(payload)
+        monkeypatch.setattr(query, '_client', _StubClient())
+
+    def test_get_order_by_key_preserves_server_order(self, monkeypatch):
+        # Regression test for https://github.com/firebase/firebase-admin-python/issues/677
+        # The RTDB server returns children in Firebase key order (integer-parseable keys
+        # first, numerically; then string keys lexicographically). The client must not
+        # re-sort the payload with a pure lexicographic comparison, which would scramble
+        # the server order and break keyset pagination (e.g. feeding the last returned
+        # key back into start_at()).
+        query = self.ref.order_by_key().limit_to_first(4)
+        server_payload = collections.OrderedDict([
+            ('123', {'myValue': True}),
+            ('100001', {'myValue': True}),
+            ('100002', {'myValue': True}),
+            ('100003', {'myValue': True}),
+        ])
+        self._instrument_body(query, server_payload, monkeypatch)
+        result = query.get()
+        assert isinstance(result, collections.OrderedDict)
+        assert list(result.keys()) == ['123', '100001', '100002', '100003']
+
+    def test_get_order_by_child_still_sorted_client_side(self, monkeypatch):
+        # Guard against overcorrection: ordering by child must still be sorted
+        # client-side, since the server returns an unordered collection for it.
+        query = self.ref.order_by_child('myValue')
+        server_payload = {'k1': {'myValue': 2}, 'k2': {'myValue': 1}}
+        self._instrument_body(query, server_payload, monkeypatch)
+        result = query.get()
+        assert isinstance(result, collections.OrderedDict)
+        assert list(result.keys()) == ['k2', 'k1']
+
 
 class TestSorter:
     """Test cases for db._Sorter class."""

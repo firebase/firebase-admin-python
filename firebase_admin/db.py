@@ -481,8 +481,9 @@ class Query:
     is applied on the sorted data to produce the final result. Despite the ordering constraint,
     the final result is returned by the server as an unordered collection. Therefore the Query
     interface performs another round of sorting at the client-side before returning the results
-    to the caller. This client-side sorted results are returned to the user as a Python
-    OrderedDict.
+    to the caller. The only exceptions are queries ordered by key (``order_by_key()``) or by
+    priority (``order_by='$priority'``), for which the server-returned order is preserved as is.
+    This client-side sorted results are returned to the user as a Python OrderedDict.
     """
 
     def __init__(self, **kwargs):
@@ -618,6 +619,10 @@ class Query:
           FirebaseError: If an error occurs while communicating with the remote database server.
         """
         result = self._client.body('get', self._pathurl, params=self._querystr)
+        if isinstance(result, dict) and self._order_by == '$key':
+            # The server already returns results in key order. Re-sorting them client-side
+            # with a pure lexicographic comparison would scramble that order (see issue #677).
+            return collections.OrderedDict(result)
         if isinstance(result, (dict, list)) and self._order_by != '$priority':
             return _Sorter(result, self._order_by).get()
         return result

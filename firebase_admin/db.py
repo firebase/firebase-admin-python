@@ -23,6 +23,7 @@ module uses the Firebase REST API underneath.
 import collections
 import json
 import os
+import re
 import sys
 import threading
 from urllib import parse
@@ -661,9 +662,13 @@ class _SortEntry:
     _type_string = 4
     _type_object = 5
 
+    # Matches child keys that the Realtime Database backend treats as integers when ordering.
+    _INTEGER_KEY_PATTERN = re.compile(r'^-?(0*)\d{1,10}$')
+
     def __init__(self, key, value, order_by):
         self._key = key
         self._value = value
+        self._order_by = order_by
         if order_by in ('$key', '$priority'):
             self._index = key
         elif order_by == '$value':
@@ -719,6 +724,28 @@ class _SortEntry:
                 return None
         return current
 
+    @classmethod
+    def _parse_int_key(cls, key):
+        """Returns key parsed as a 32-bit integer, or None if not parseable."""
+        if isinstance(key, str) and cls._INTEGER_KEY_PATTERN.match(key):
+            value = int(key)
+            if -2147483648 <= value <= 2147483647:
+                return value
+        return None
+
+    @classmethod
+    def _key_order(cls, key):
+        """Builds a sort key that orders child keys the way the backend does.
+
+        Keys parseable as 32-bit integers come first, in ascending numeric order (ties
+        broken by key length, shorter keys first). All other keys follow in lexicographic
+        order. See https://github.com/firebase/firebase-admin-python/issues/677
+        """
+        parsed = cls._parse_int_key(key)
+        if parsed is not None:
+            return (0, parsed, len(key), key)
+        return (1, key)
+
     def _compare(self, other):
         """Compares two _SortEntry instances.
 
@@ -727,6 +754,12 @@ class _SortEntry:
         nor string, compare the keys. In all other cases compare based on the ordering provided
         by index types.
         """
+        if (self._order_by == '$key' and isinstance(self.key, str)
+                and isinstance(other.key, str)):
+            # Match the backend key ordering instead of a plain lexicographic sort.
+            this = _SortEntry._key_order(self.key)
+            that = _SortEntry._key_order(other.key)
+            return (this > that) - (this < that)
         self_key, other_key = self.index_type, other.index_type
         if self_key == other_key:
             if self_key in (self._type_numeric, self._type_string) and self.index != other.index:

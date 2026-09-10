@@ -1100,6 +1100,17 @@ class TestSorter:
         ({'k1' : 1, 'k2' : 2, 'k3' : 3}, ['k1', 'k2', 'k3']),
         ({'k3' : 3, 'k2' : 2, 'k1' : 1}, ['k1', 'k2', 'k3']),
         ({'k1' : 3, 'k3' : 1, 'k2' : 2}, ['k1', 'k2', 'k3']),
+        # Keys that parse as integers are ordered numerically, matching the backend
+        # (https://github.com/firebase/firebase-admin-python/issues/677).
+        ({'100001' : 1, '100002' : 2, '123' : 3, '100003' : 4},
+         ['123', '100001', '100002', '100003']),
+        ({'2' : 1, '10' : 2, '1' : 3}, ['1', '2', '10']),
+        ({'-5' : 1, '3' : 2, '-10' : 3}, ['-10', '-5', '3']),
+        ({'01' : 1, '1' : 2, '2' : 3}, ['1', '01', '2']),
+        # Integer keys come before string keys; the rest are lexicographic.
+        ({'b' : 1, '10' : 2, 'a' : 3, '2' : 4}, ['2', '10', 'a', 'b']),
+        # Keys outside the signed 32-bit integer range are ordered lexicographically.
+        ({'2147483648' : 1, '9' : 2, '2147483647' : 3}, ['9', '2147483647', '2147483648']),
     ])
     def test_order_by_key(self, result, expected):
         ordered = db._Sorter(result, '$key').get()

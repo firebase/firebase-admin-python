@@ -15,6 +15,7 @@
 """Test cases for the firebase_admin.ml module."""
 
 import json
+import warnings
 
 import pytest
 
@@ -1086,3 +1087,89 @@ class TestListModels:
         assert len(page.models) == 0
         models = list(page.iterate_all())
         assert len(models) == 0
+
+
+class TestMLDeprecation:
+    """Tests for verifying deprecation warnings in the ML module."""
+
+    DEPRECATION_MSG = (
+        r'Firebase ML is deprecated and will be shut down on June 15, 2027\. '
+        r'To host custom models, you must migrate to another solution\. '
+        r'You can use Cloud Storage for Firebase as an alternative for hosting custom models\. '
+        r'For more info, see https://firebase\.google\.com/docs/ml/migrate-to-cloud-storage'
+    )
+
+    @classmethod
+    def setup_class(cls):
+        cred = testutils.MockCredential()
+        firebase_admin.initialize_app(cred, {'projectId': PROJECT_ID})
+        ml._MLService.POLL_BASE_WAIT_TIME_SECONDS = 0.1
+        ml.TFLiteGCSModelSource._STORAGE_CLIENT = _TestStorageClient()
+
+    @classmethod
+    def teardown_class(cls):
+        testutils.cleanup_apps()
+
+    def test_model_init_deprecation_warning(self):
+        with pytest.warns(DeprecationWarning, match=self.DEPRECATION_MSG):
+            ml.Model()
+
+    def test_tflite_format_init_deprecation_warning(self):
+        with pytest.warns(DeprecationWarning, match=self.DEPRECATION_MSG):
+            ml.TFLiteFormat()
+
+    def test_tflite_gcs_model_source_init_deprecation_warning(self):
+        with pytest.warns(DeprecationWarning, match=self.DEPRECATION_MSG):
+            ml.TFLiteGCSModelSource(GCS_TFLITE_URI)
+
+    def test_get_model_deprecation_warning(self):
+        instrument_ml_service(status=200, payload=DEFAULT_GET_RESPONSE)
+        with pytest.warns(DeprecationWarning, match=self.DEPRECATION_MSG):
+            ml.get_model(MODEL_ID_1)
+
+    def test_list_models_deprecation_warning(self):
+        instrument_ml_service(status=200, payload=ONE_PAGE_LIST_RESPONSE)
+        with pytest.warns(DeprecationWarning, match=self.DEPRECATION_MSG):
+            ml.list_models()
+
+    def test_delete_model_deprecation_warning(self):
+        instrument_ml_service(status=200, payload=EMPTY_RESPONSE)
+        with pytest.warns(DeprecationWarning, match=self.DEPRECATION_MSG):
+            ml.delete_model(MODEL_ID_1)
+
+    def test_create_model_deprecation_warning(self):
+        instrument_ml_service(status=200, payload=OPERATION_DONE_RESPONSE)
+        with pytest.warns(DeprecationWarning, match=self.DEPRECATION_MSG):
+            ml.create_model(ml.Model(display_name=DISPLAY_NAME_1))
+
+    def test_update_model_deprecation_warning(self):
+        instrument_ml_service(status=200, payload=OPERATION_DONE_RESPONSE)
+        with pytest.warns(DeprecationWarning, match=self.DEPRECATION_MSG):
+            ml.update_model(ml.Model(display_name=DISPLAY_NAME_1))
+
+    def test_publish_model_deprecation_warning(self):
+        instrument_ml_service(status=200, payload=OPERATION_DONE_RESPONSE)
+        with pytest.warns(DeprecationWarning, match=self.DEPRECATION_MSG):
+            ml.publish_model(MODEL_ID_1)
+
+    def test_unpublish_model_deprecation_warning(self):
+        instrument_ml_service(status=200, payload=OPERATION_DONE_RESPONSE)
+        with pytest.warns(DeprecationWarning, match=self.DEPRECATION_MSG):
+            ml.unpublish_model(MODEL_ID_1)
+
+    def test_single_warning_on_get_model(self):
+        instrument_ml_service(status=200, payload=DEFAULT_GET_RESPONSE)
+        with warnings.catch_warnings(record=True) as captured_warnings:
+            warnings.simplefilter('always')
+            ml.get_model(MODEL_ID_1)
+            assert len(captured_warnings) == 1
+            assert issubclass(captured_warnings[0].category, DeprecationWarning)
+
+    def test_single_warning_on_list_models(self):
+        instrument_ml_service(status=200, payload=ONE_PAGE_LIST_RESPONSE)
+        with warnings.catch_warnings(record=True) as captured_warnings:
+            warnings.simplefilter('always')
+            page = ml.list_models()
+            _ = page.models
+            assert len(captured_warnings) == 1
+            assert issubclass(captured_warnings[0].category, DeprecationWarning)

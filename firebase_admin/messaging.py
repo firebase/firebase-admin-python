@@ -658,7 +658,7 @@ class _MessagingService:
                 self._client.request(
                     method,
                     url=url,
-                    headers=self._fcm_headers,
+                    headers=dict(self._fcm_headers),
                     json=json_data,
                 )
                 return {'success': True}
@@ -702,7 +702,7 @@ class _MessagingService:
                     await self._async_client.request(
                         method,
                         url=url,
-                        headers=self._fcm_headers,
+                        headers=dict(self._fcm_headers),
                         json=json_data,
                     )
                     return {'success': True}
@@ -754,14 +754,14 @@ class _MessagingService:
         }
         return status_map.get(status_code, 'UNKNOWN_ERROR')
 
-    def _build_topic_subscription_result_from_requests_error(self, error, is_subscribe):
-        """Constructs a result dict from a requests error."""
-        if error.response is not None:
-            if is_subscribe and error.response.status_code == 409:
+    def _build_topic_subscription_result(self, response, is_subscribe):
+        """Constructs a result dict from a response object."""
+        if response is not None:
+            if is_subscribe and response.status_code == 409:
                 return {'success': True}
             error_dict = {}
             try:
-                parsed = error.response.json()
+                parsed = response.json()
                 if isinstance(parsed, dict):
                     error_dict = parsed
             except ValueError:
@@ -773,34 +773,19 @@ class _MessagingService:
             ):
                 return {'success': True}
 
-            error_code = self._get_topic_error_code(error_dict, error.response.status_code)
+            error_code = self._get_topic_error_code(error_dict, response.status_code)
             return {'success': False, 'error': error_code}
 
         return {'success': False, 'error': 'UNKNOWN_ERROR'}
+
+    def _build_topic_subscription_result_from_requests_error(self, error, is_subscribe):
+        """Constructs a result dict from a requests error."""
+        return self._build_topic_subscription_result(error.response, is_subscribe)
 
     def _build_topic_subscription_result_from_httpx_error(self, error, is_subscribe):
         """Constructs a result dict from an httpx error."""
-        if isinstance(error, httpx.HTTPStatusError):
-            if is_subscribe and error.response.status_code == 409:
-                return {'success': True}
-            error_dict = {}
-            try:
-                parsed = error.response.json()
-                if isinstance(parsed, dict):
-                    error_dict = parsed
-            except ValueError:
-                pass
-
-            error_data = error_dict.get('error')
-            if is_subscribe and isinstance(error_data, dict) and (
-                error_data.get('status') == 'ALREADY_EXISTS'
-            ):
-                return {'success': True}
-
-            error_code = self._get_topic_error_code(error_dict, error.response.status_code)
-            return {'success': False, 'error': error_code}
-
-        return {'success': False, 'error': 'UNKNOWN_ERROR'}
+        response = error.response if isinstance(error, httpx.HTTPStatusError) else None
+        return self._build_topic_subscription_result(response, is_subscribe)
 
     def _parse_topic_management_results(self, results) -> TopicManagementResponse:
         """Parses individual request results into a TopicManagementResponse."""

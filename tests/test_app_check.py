@@ -75,6 +75,12 @@ class TestVerifyToken(TestBatch):
         expected = f'app check token "{token}" must be a string.'
         assert str(excinfo.value) == expected
 
+    @pytest.mark.parametrize('consume', [[], tuple(), {}, 1, 0, 'true', 'false', None])
+    def test_verify_token_with_non_boolean_consume_raises_error(self, consume):
+        with pytest.raises(ValueError) as excinfo:
+            app_check.verify_token('app_check_token', consume=consume)
+        assert str(excinfo.value) == 'consume must be a boolean.'
+
     def test_has_valid_token_headers(self):
         app = firebase_admin.get_app()
         app_check_service = app_check._get_app_check_service(app)

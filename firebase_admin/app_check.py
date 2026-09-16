@@ -85,6 +85,7 @@ class _AppCheckService:
     def verify_token(self, token: str, consume: bool = False) -> Dict[str, Any]:
         """Verifies a Firebase App Check token, optionally consuming limited-use tokens."""
         _Validators.check_string("app check token", token)
+        _Validators.check_boolean("consume", consume)
 
         # Obtain the Firebase App Check Public Keys
         # Note: It is not recommended to hard code these keys as they rotate,
@@ -100,8 +101,6 @@ class _AppCheckService:
 
         verified_claims['app_id'] = verified_claims.get('sub')
 
-        if not isinstance(consume, bool):
-            raise ValueError('consume must be a boolean.')
         if consume:
             url = self._VERIFY_URL_FORMAT.format(project_id=self._project_id)
             try:
@@ -186,3 +185,10 @@ class _Validators:
             raise ValueError(f'{label} "{value}" must be a non-empty string.')
         if not isinstance(value, str):
             raise ValueError(f'{label} "{value}" must be a string.')
+
+    @classmethod
+    def check_boolean(cls, label: str, value: Any):
+        """Checks if the given value is a boolean."""
+        if not isinstance(value, bool):
+            raise ValueError(f'{label} must be a boolean.')
+        return value

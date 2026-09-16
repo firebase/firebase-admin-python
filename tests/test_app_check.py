@@ -353,8 +353,26 @@ class TestVerifyToken(TestBatch):
         req_exc = requests.exceptions.RequestException("Backend error")
         mocker.patch.object(app_check_service._http_client, "body", side_effect=req_exc)
 
-        with pytest.raises(exceptions.FirebaseError):
+        with pytest.raises(exceptions.UnknownError) as excinfo:
             app_check.verify_token("encoded", app=app, consume=True)
+        assert "Unknown error while making a remote service call" in str(excinfo.value)
+
+    def test_verify_token_with_consume_true_http_error(self, mocker):
+        mocker.patch("jwt.decode", return_value=JWT_PAYLOAD_SAMPLE)
+        mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value=PyJWK(signing_key))
+        mocker.patch("jwt.get_unverified_header", return_value=JWT_PAYLOAD_SAMPLE.get("headers"))
+        app = firebase_admin.get_app()
+        app_check_service = app_check._get_app_check_service(app)
+
+        response = requests.Response()
+        response.status_code = 403
+        response._content = b'{"error": {"status": "PERMISSION_DENIED", "message": "Permission denied."}}'
+        http_exc = requests.exceptions.HTTPError(response=response)
+        mocker.patch.object(app_check_service._http_client, "body", side_effect=http_exc)
+
+        with pytest.raises(exceptions.PermissionDeniedError) as excinfo:
+            app_check.verify_token("encoded", app=app, consume=True)
+        assert "Permission denied." in str(excinfo.value)
 
     @pytest.mark.parametrize('malformed_body', ['string_response', [1, 2], 123, None])
     def test_verify_token_with_consume_true_malformed_response_raises_error(

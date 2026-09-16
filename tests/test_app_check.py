@@ -281,6 +281,22 @@ class TestVerifyToken(TestBatch):
         expected = 'Token does not contain the correct "iss" (issuer).'
         assert str(excinfo.value) == expected
 
+    @pytest.mark.parametrize('consume_kwargs', [{}, {'consume': False}])
+    def test_verify_token_with_consume_false_makes_no_http_call(self, mocker, consume_kwargs):
+        mocker.patch("jwt.decode", return_value=JWT_PAYLOAD_SAMPLE)
+        mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value=PyJWK(signing_key))
+        mocker.patch("jwt.get_unverified_header", return_value=JWT_PAYLOAD_SAMPLE.get("headers"))
+        app = firebase_admin.get_app()
+        app_check_service = app_check._get_app_check_service(app)
+        mock_body = mocker.patch.object(app_check_service._http_client, "body")
+
+        payload = app_check.verify_token("encoded", app=app, **consume_kwargs)
+        expected = JWT_PAYLOAD_SAMPLE.copy()
+        expected["app_id"] = APP_ID
+        assert payload == expected
+        assert 'already_consumed' not in payload
+        mock_body.assert_not_called()
+
     def test_verify_token_with_consume_true_not_consumed(self, mocker):
         mocker.patch("jwt.decode", return_value=JWT_PAYLOAD_SAMPLE)
         mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value=PyJWK(signing_key))

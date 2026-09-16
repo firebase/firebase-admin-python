@@ -102,22 +102,29 @@ class _AppCheckService:
         verified_claims['app_id'] = verified_claims.get('sub')
 
         if consume:
-            url = self._VERIFY_URL_FORMAT.format(project_id=self._project_id)
-            try:
-                body = self._http_client.body('post', url, json={'app_check_token': token})
-            except requests.exceptions.RequestException as error:
-                raise _utils.handle_platform_error_from_requests(error)
-
-            if not isinstance(body, dict):
-                raise exceptions.UnknownError(
-                    'Unexpected response from App Check service. '
-                    f'Expected a JSON object, but got {type(body).__name__}.'
-                )
-
-            already_consumed = body.get('alreadyConsumed', False)
-            verified_claims['already_consumed'] = bool(already_consumed)
+            verified_claims['already_consumed'] = self._verify_replay_protection(token)
 
         return verified_claims
+
+    def _verify_replay_protection(self, token: str) -> bool:
+        """Verifies replay protection with the backend and returns the alreadyConsumed status."""
+        url = self._VERIFY_URL_FORMAT.format(project_id=self._project_id)
+        try:
+            body = self._http_client.body('post', url, json={'app_check_token': token})
+        except requests.exceptions.RequestException as error:
+            raise _utils.handle_platform_error_from_requests(error)
+        except ValueError as error:
+            raise exceptions.UnknownError(
+                f'Unexpected response from App Check service: {error}'
+            ) from error
+
+        if not isinstance(body, dict):
+            raise exceptions.UnknownError(
+                'Unexpected response from App Check service. '
+                f'Expected a JSON object, but got {type(body).__name__}.'
+            )
+
+        return bool(body.get('alreadyConsumed', False))
 
     def _has_valid_token_headers(self, headers: Any) -> None:
         """Checks whether the token has valid headers for App Check."""

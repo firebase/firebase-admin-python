@@ -354,3 +354,21 @@ class TestVerifyToken(TestBatch):
         with pytest.raises(exceptions.UnknownError) as excinfo:
             app_check.verify_token("encoded", app=app, consume=True)
         assert 'Unexpected response from App Check service' in str(excinfo.value)
+
+    def test_verify_token_with_consume_true_json_decode_error(self, mocker):
+        mocker.patch("jwt.decode", return_value=JWT_PAYLOAD_SAMPLE)
+        mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value=PyJWK(signing_key))
+        mocker.patch("jwt.get_unverified_header", return_value=JWT_PAYLOAD_SAMPLE.get("headers"))
+        app = firebase_admin.get_app()
+        app_check_service = app_check._get_app_check_service(app)
+        mocker.patch.object(
+            app_check_service._http_client,
+            "body",
+            side_effect=ValueError("Expecting value: line 1 column 1 (char 0)"),
+        )
+
+        with pytest.raises(exceptions.UnknownError) as excinfo:
+            app_check.verify_token("encoded", app=app, consume=True)
+        assert "Unexpected response from App Check service: Expecting value: line 1 column 1 (char 0)" in str(
+            excinfo.value
+        )

@@ -19,7 +19,7 @@ import requests
 import jwt
 from jwt import PyJWKClient, ExpiredSignatureError, InvalidTokenError, DecodeError
 from jwt import InvalidAudienceError, InvalidIssuerError, InvalidSignatureError
-from firebase_admin import _http_client, _utils
+from firebase_admin import _http_client, _utils, exceptions
 
 _APP_CHECK_ATTRIBUTE = '_app_check'
 
@@ -108,9 +108,13 @@ class _AppCheckService:
             except requests.exceptions.RequestException as error:
                 raise _utils.handle_platform_error_from_requests(error)
 
-            already_consumed = False
-            if isinstance(body, dict):
-                already_consumed = body.get('alreadyConsumed', False)
+            if not isinstance(body, dict):
+                raise exceptions.UnknownError(
+                    'Unexpected response from App Check service. '
+                    f'Expected a JSON object, but got {type(body).__name__}.'
+                )
+
+            already_consumed = body.get('alreadyConsumed', False)
             verified_claims['already_consumed'] = bool(already_consumed)
 
         return verified_claims

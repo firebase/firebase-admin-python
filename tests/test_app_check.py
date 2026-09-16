@@ -339,3 +339,18 @@ class TestVerifyToken(TestBatch):
 
         with pytest.raises(exceptions.FirebaseError):
             app_check.verify_token("encoded", app=app, consume=True)
+
+    @pytest.mark.parametrize('malformed_body', ['string_response', [1, 2], 123, None])
+    def test_verify_token_with_consume_true_malformed_response_raises_error(
+        self, mocker, malformed_body
+    ):
+        mocker.patch("jwt.decode", return_value=JWT_PAYLOAD_SAMPLE)
+        mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value=PyJWK(signing_key))
+        mocker.patch("jwt.get_unverified_header", return_value=JWT_PAYLOAD_SAMPLE.get("headers"))
+        app = firebase_admin.get_app()
+        app_check_service = app_check._get_app_check_service(app)
+        mocker.patch.object(app_check_service._http_client, "body", return_value=malformed_body)
+
+        with pytest.raises(exceptions.UnknownError) as excinfo:
+            app_check.verify_token("encoded", app=app, consume=True)
+        assert 'Unexpected response from App Check service' in str(excinfo.value)

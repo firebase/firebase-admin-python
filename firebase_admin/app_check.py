@@ -41,8 +41,8 @@ def verify_token(token: str, app=None, consume: bool = False) -> Dict[str, Any]:
             previously consumed.
 
     Raises:
-        ValueError: If the app's ``project_id`` is invalid or unspecified,
-            or if the token's headers or payload are invalid.
+        ValueError: If ``consume`` is not a boolean, or if the app's ``project_id``
+            is invalid or unspecified, or if the token's headers or payload are invalid.
         FirebaseError: If an error occurs while communicating with the App Check service.
         PyJWKClientError: If PyJWKClient fails to fetch a valid signing key.
     """

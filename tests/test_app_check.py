@@ -15,11 +15,12 @@
 """Test cases for the firebase_admin.app_check module."""
 import base64
 import pytest
+import requests
 
 from jwt import PyJWK, InvalidAudienceError, InvalidIssuerError
 from jwt import ExpiredSignatureError, InvalidSignatureError
 import firebase_admin
-from firebase_admin import app_check
+from firebase_admin import app_check, exceptions
 from tests import testutils
 
 NON_STRING_ARGS = [[], tuple(), {}, True, False, 1, 0]
@@ -58,6 +59,15 @@ class TestBatch:
     def teardown_class(cls):
         testutils.cleanup_apps()
 
+
+@pytest.fixture
+def mock_jwt(mocker):
+    """Mocks JWT decoding and JWKS key retrieval for a valid App Check token."""
+    mocker.patch("jwt.decode", return_value=JWT_PAYLOAD_SAMPLE)
+    mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value=PyJWK(signing_key))
+    mocker.patch("jwt.get_unverified_header", return_value=JWT_PAYLOAD_SAMPLE.get("headers"))
+
+
 class TestVerifyToken(TestBatch):
 
     def test_no_project_id(self):
@@ -73,6 +83,12 @@ class TestVerifyToken(TestBatch):
             app_check.verify_token(token)
         expected = f'app check token "{token}" must be a string.'
         assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('consume', [[], tuple(), {}, 1, 0, 'true', 'false', None])
+    def test_verify_token_with_non_boolean_consume_raises_error(self, consume):
+        with pytest.raises(ValueError) as excinfo:
+            app_check.verify_token('app_check_token', consume=consume)
+        assert str(excinfo.value) == 'consume must be a boolean.'
 
     def test_has_valid_token_headers(self):
         app = firebase_admin.get_app()
@@ -221,10 +237,8 @@ class TestVerifyToken(TestBatch):
             f'"{sub_number}" must be a string.')
         assert str(excinfo.value) == expected
 
-    def test_verify_token(self, mocker):
-        mocker.patch("jwt.decode", return_value=JWT_PAYLOAD_SAMPLE)
-        mocker.patch("jwt.PyJWKClient.get_signing_key_from_jwt", return_value=PyJWK(signing_key))
-        mocker.patch("jwt.get_unverified_header", return_value=JWT_PAYLOAD_SAMPLE.get("headers"))
+    @pytest.mark.usefixtures("mock_jwt")
+    def test_verify_token(self):
         app = firebase_admin.get_app()
 
         payload = app_check.verify_token("encoded", app)
@@ -273,3 +287,120 @@ class TestVerifyToken(TestBatch):
 
         expected = 'Token does not contain the correct "iss" (issuer).'
         assert str(excinfo.value) == expected
+
+    @pytest.mark.usefixtures("mock_jwt")
+    @pytest.mark.parametrize('consume_kwargs', [{}, {'consume': False}])
+    def test_verify_token_with_consume_false_makes_no_http_call(
+        self, mocker, consume_kwargs
+    ):
+        app = firebase_admin.get_app()
+        app_check_service = app_check._get_app_check_service(app)
+        mock_body = mocker.patch.object(app_check_service._http_client, "body")
+
+        payload = app_check.verify_token("encoded", app=app, **consume_kwargs)
+        expected = JWT_PAYLOAD_SAMPLE.copy()
+        expected["app_id"] = APP_ID
+        assert payload == expected
+        assert 'already_consumed' not in payload
+        mock_body.assert_not_called()
+
+    @pytest.mark.usefixtures("mock_jwt")
+    def test_verify_token_with_consume_true_not_consumed(self, mocker):
+        app = firebase_admin.get_app()
+        app_check_service = app_check._get_app_check_service(app)
+        mock_body = mocker.patch.object(
+            app_check_service._http_client, "body", return_value={"alreadyConsumed": False}
+        )
+
+        payload = app_check.verify_token("encoded", app=app, consume=True)
+        expected = JWT_PAYLOAD_SAMPLE.copy()
+        expected["app_id"] = APP_ID
+        expected["already_consumed"] = False
+        assert payload == expected
+
+        expected_url = (
+            f"https://firebaseappcheck.googleapis.com/v1/projects/{PROJECT_ID}:verifyAppCheckToken"
+        )
+        mock_body.assert_called_once_with(
+            "post", expected_url, json={"app_check_token": "encoded"}
+        )
+
+    @pytest.mark.usefixtures("mock_jwt")
+    def test_verify_token_with_consume_true_already_consumed(self, mocker):
+        app = firebase_admin.get_app()
+        app_check_service = app_check._get_app_check_service(app)
+        mock_body = mocker.patch.object(
+            app_check_service._http_client, "body", return_value={"alreadyConsumed": True}
+        )
+
+        payload = app_check.verify_token("encoded", app=app, consume=True)
+        expected = JWT_PAYLOAD_SAMPLE.copy()
+        expected["app_id"] = APP_ID
+        expected["already_consumed"] = True
+        assert payload == expected
+
+        expected_url = (
+            f"https://firebaseappcheck.googleapis.com/v1/projects/{PROJECT_ID}:verifyAppCheckToken"
+        )
+        mock_body.assert_called_once_with(
+            "post", expected_url, json={"app_check_token": "encoded"}
+        )
+
+    @pytest.mark.usefixtures("mock_jwt")
+    def test_verify_token_with_consume_true_backend_error(self, mocker):
+        app = firebase_admin.get_app()
+        app_check_service = app_check._get_app_check_service(app)
+
+        req_exc = requests.exceptions.RequestException("Backend error")
+        mocker.patch.object(app_check_service._http_client, "body", side_effect=req_exc)
+
+        with pytest.raises(exceptions.UnknownError) as excinfo:
+            app_check.verify_token("encoded", app=app, consume=True)
+        assert "Unknown error while making a remote service call" in str(excinfo.value)
+
+    @pytest.mark.usefixtures("mock_jwt")
+    def test_verify_token_with_consume_true_http_error(self, mocker):
+        app = firebase_admin.get_app()
+        app_check_service = app_check._get_app_check_service(app)
+
+        response = requests.Response()
+        response.status_code = 403
+        response._content = (
+            b'{"error": {"status": "PERMISSION_DENIED", "message": "Permission denied."}}'
+        )
+        http_exc = requests.exceptions.HTTPError(response=response)
+        mocker.patch.object(app_check_service._http_client, "body", side_effect=http_exc)
+
+        with pytest.raises(exceptions.PermissionDeniedError) as excinfo:
+            app_check.verify_token("encoded", app=app, consume=True)
+        assert "Permission denied." in str(excinfo.value)
+
+    @pytest.mark.usefixtures("mock_jwt")
+    @pytest.mark.parametrize('malformed_body', ['string_response', [1, 2], 123, None])
+    def test_verify_token_with_consume_true_malformed_response_raises_error(
+        self, mocker, malformed_body
+    ):
+        app = firebase_admin.get_app()
+        app_check_service = app_check._get_app_check_service(app)
+        mocker.patch.object(app_check_service._http_client, "body", return_value=malformed_body)
+
+        with pytest.raises(exceptions.UnknownError) as excinfo:
+            app_check.verify_token("encoded", app=app, consume=True)
+        assert 'Unexpected response from App Check service' in str(excinfo.value)
+
+    @pytest.mark.usefixtures("mock_jwt")
+    def test_verify_token_with_consume_true_json_decode_error(self, mocker):
+        app = firebase_admin.get_app()
+        app_check_service = app_check._get_app_check_service(app)
+        mocker.patch.object(
+            app_check_service._http_client,
+            "body",
+            side_effect=ValueError("Expecting value: line 1 column 1 (char 0)"),
+        )
+
+        with pytest.raises(exceptions.UnknownError) as excinfo:
+            app_check.verify_token("encoded", app=app, consume=True)
+        expected_msg = (
+            "Unexpected response from App Check service: Expecting value: line 1 column 1 (char 0)"
+        )
+        assert expected_msg in str(excinfo.value)

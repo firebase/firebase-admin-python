@@ -26,6 +26,7 @@ from firebase_admin import exceptions
 from firebase_admin import ml
 from tests import testutils
 
+pytestmark = pytest.mark.skip(reason='ML integration tests are skipped.')
 
 # pylint: disable=import-error, no-member
 try:

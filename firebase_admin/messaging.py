@@ -512,6 +512,12 @@ class _MessagingService:
         timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)
         self._credential = app.credential.get_credential()
         self._client = _http_client.JsonHttpClient(credential=self._credential, timeout=timeout)
+        fcm_adapter = requests.adapters.HTTPAdapter(
+            pool_connections=100,
+            pool_maxsize=100,
+            max_retries=_http_client.DEFAULT_RETRY_CONFIG
+        )
+        self._client.session.mount('https://fcm.googleapis.com', fcm_adapter)
         self._async_client = _http_client.HttpxAsyncClient(
             credential=self._credential, timeout=timeout)
 
@@ -640,10 +646,10 @@ class _MessagingService:
     ) -> TopicManagementResponse:
         """Helper method that sends topic subscription requests via FCM v1 API."""
         tokens_list, topic_name = self._validate_topic_management_args(tokens, topic)
+        encoded_topic = urllib.parse.quote(topic_name, safe='')
 
         def send_request(token: str):
             encoded_token = urllib.parse.quote(token, safe='')
-            encoded_topic = urllib.parse.quote(topic_name, safe='')
             base_url = f'{self._fcm_topic_url}/{encoded_token}/topicSubscriptions'
             if is_subscribe:
                 url = f'{base_url}?topic_name={encoded_topic}'
@@ -682,11 +688,11 @@ class _MessagingService:
     ) -> TopicManagementResponse:
         """Helper method that sends topic subscription requests asynchronously via FCM v1 API."""
         tokens_list, topic_name = self._validate_topic_management_args(tokens, topic)
+        encoded_topic = urllib.parse.quote(topic_name, safe='')
         semaphore = asyncio.Semaphore(100)
 
         async def send_request_async(token: str):
             encoded_token = urllib.parse.quote(token, safe='')
-            encoded_topic = urllib.parse.quote(topic_name, safe='')
             base_url = f'{self._fcm_topic_url}/{encoded_token}/topicSubscriptions'
             if is_subscribe:
                 url = f'{base_url}?topic_name={encoded_topic}'

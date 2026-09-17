@@ -39,7 +39,8 @@ def sample_tenant():
     tenant = tenant_mgt.create_tenant(
         display_name='admin-python-tenant',
         allow_password_sign_up=True,
-        enable_email_link_sign_in=True)
+        enable_email_link_sign_in=True,
+        allow_default_provider=True)
     yield tenant
     tenant_mgt.delete_tenant(tenant.tenant_id)
 
@@ -60,6 +61,7 @@ def test_get_tenant(sample_tenant):
     assert tenant.display_name == 'admin-python-tenant'
     assert tenant.allow_password_sign_up is True
     assert tenant.enable_email_link_sign_in is True
+    assert tenant.allow_default_provider is True
 
 
 def test_list_tenants(sample_tenant):
@@ -74,20 +76,22 @@ def test_list_tenants(sample_tenant):
     assert result.display_name == 'admin-python-tenant'
     assert result.allow_password_sign_up is True
     assert result.enable_email_link_sign_in is True
+    assert result.allow_default_provider is True
 
 
 def test_update_tenant():
     tenant = tenant_mgt.create_tenant(
-        display_name='py-update-test', allow_password_sign_up=True, enable_email_link_sign_in=True)
+        display_name='py-update-test', allow_password_sign_up=True, enable_email_link_sign_in=True, allow_default_provider=True)
     try:
         tenant = tenant_mgt.update_tenant(
             tenant.tenant_id, display_name='updated-py-tenant', allow_password_sign_up=False,
-            enable_email_link_sign_in=False)
+            enable_email_link_sign_in=False, allow_default_provider=False)
         assert isinstance(tenant, tenant_mgt.Tenant)
         assert tenant.tenant_id == tenant.tenant_id
         assert tenant.display_name == 'updated-py-tenant'
         assert tenant.allow_password_sign_up is False
         assert tenant.enable_email_link_sign_in is False
+        assert tenant.allow_default_provider is False
     finally:
         tenant_mgt.delete_tenant(tenant.tenant_id)
 

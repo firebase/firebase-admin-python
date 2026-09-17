@@ -2688,7 +2688,9 @@ class TestTopicManagement:
             messaging.unsubscribe_from_topic('test-token', topic)
         assert str(excinfo.value) == expected
 
-    @pytest.mark.parametrize('topic', ['/topics/', '/foo/bar', 'foo bar', 'f*o*o', '/topics/f+o+o', '$foo', '/topics/foo&'])
+    @pytest.mark.parametrize('topic', [
+        '/topics/', '/foo/bar', 'foo bar', 'f*o*o', '/topics/f+o+o', '$foo', '/topics/foo&'
+    ])
     def test_malformed_topic(self, topic):
         with pytest.raises(ValueError) as excinfo:
             messaging.subscribe_to_topic('test-token', topic)
@@ -2705,7 +2707,10 @@ class TestTopicManagement:
         assert resp.failure_count == 0
         assert resp.errors == []
         assert len(recorder) == 1
-        expected_url = 'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/token1/topicSubscriptions?topic_name=test-topic'
+        expected_url = (
+            'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/'
+            'token1/topicSubscriptions?topic_name=test-topic'
+        )
         self._assert_request(recorder[0], 'POST', expected_url, {})
 
     def test_subscribe_to_topic_prefixed(self):
@@ -2715,7 +2720,10 @@ class TestTopicManagement:
         assert resp.failure_count == 0
         assert resp.errors == []
         assert len(recorder) == 1
-        expected_url = 'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/token1/topicSubscriptions?topic_name=test-topic'
+        expected_url = (
+            'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/'
+            'token1/topicSubscriptions?topic_name=test-topic'
+        )
         self._assert_request(recorder[0], 'POST', expected_url, {})
 
     def test_unsubscribe_from_topic_single(self):
@@ -2725,7 +2733,10 @@ class TestTopicManagement:
         assert resp.failure_count == 0
         assert resp.errors == []
         assert len(recorder) == 1
-        expected_url = 'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/token1/topicSubscriptions/test-topic?allow_missing=true'
+        expected_url = (
+            'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/'
+            'token1/topicSubscriptions/test-topic?allow_missing=true'
+        )
         self._assert_request(recorder[0], 'DELETE', expected_url, None)
 
     def test_subscribe_to_topic_already_exists_409(self):
@@ -2753,7 +2764,7 @@ class TestTopicManagement:
         recorder = []
 
         class MultiTokenMockAdapter(requests.adapters.HTTPAdapter):
-            def send(self, request, **kwargs):
+            def send(self, request, **kwargs):  # pylint: disable=arguments-differ,unused-argument
                 recorder.append(request)
                 resp = requests.models.Response()
                 resp.url = request.url
@@ -2834,7 +2845,10 @@ class TestTopicManagementAsync:
     @pytest.mark.asyncio
     @respx.mock
     async def test_subscribe_to_topic_async_single(self):
-        url = 'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/token1/topicSubscriptions?topic_name=test-topic'
+        url = (
+            'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/'
+            'token1/topicSubscriptions?topic_name=test-topic'
+        )
         route = respx.post(url).mock(return_value=respx.MockResponse(200, json={}))
         resp = await messaging.subscribe_to_topic_async('token1', 'test-topic')
         assert route.call_count == 1
@@ -2845,7 +2859,10 @@ class TestTopicManagementAsync:
     @pytest.mark.asyncio
     @respx.mock
     async def test_subscribe_to_topic_async_already_exists(self):
-        url = 'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/token1/topicSubscriptions?topic_name=test-topic'
+        url = (
+            'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/'
+            'token1/topicSubscriptions?topic_name=test-topic'
+        )
         payload = {'error': {'status': 'ALREADY_EXISTS', 'message': 'Already exists'}}
         route = respx.post(url).mock(return_value=respx.MockResponse(409, json=payload))
         resp = await messaging.subscribe_to_topic_async('token1', 'test-topic')
@@ -2857,7 +2874,10 @@ class TestTopicManagementAsync:
     @pytest.mark.asyncio
     @respx.mock
     async def test_unsubscribe_from_topic_async_single(self):
-        url = 'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/token1/topicSubscriptions/test-topic?allow_missing=true'
+        url = (
+            'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/'
+            'token1/topicSubscriptions/test-topic?allow_missing=true'
+        )
         route = respx.delete(url).mock(return_value=respx.MockResponse(200, json={}))
         resp = await messaging.unsubscribe_from_topic_async('token1', 'test-topic')
         assert route.call_count == 1
@@ -2868,7 +2888,10 @@ class TestTopicManagementAsync:
     @pytest.mark.asyncio
     @respx.mock
     async def test_unsubscribe_from_topic_async_not_found(self):
-        url = 'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/token1/topicSubscriptions/test-topic?allow_missing=true'
+        url = (
+            'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/'
+            'token1/topicSubscriptions/test-topic?allow_missing=true'
+        )
         payload = {'error': {'status': 'NOT_FOUND', 'message': 'Not found'}}
         route = respx.delete(url).mock(return_value=respx.MockResponse(404, json=payload))
         resp = await messaging.unsubscribe_from_topic_async('token1', 'test-topic')
@@ -2882,14 +2905,17 @@ class TestTopicManagementAsync:
     @pytest.mark.asyncio
     @respx.mock
     async def test_subscribe_to_topic_async_multiple(self):
-        url1 = 'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/token1/topicSubscriptions?topic_name=test-topic'
-        url2 = 'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/token2/topicSubscriptions?topic_name=test-topic'
-        url3 = 'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/token3/topicSubscriptions?topic_name=test-topic'
+        base = 'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations'
+        url1 = f'{base}/token1/topicSubscriptions?topic_name=test-topic'
+        url2 = f'{base}/token2/topicSubscriptions?topic_name=test-topic'
+        url3 = f'{base}/token3/topicSubscriptions?topic_name=test-topic'
         route1 = respx.post(url1).mock(return_value=respx.MockResponse(200, json={}))
-        route2 = respx.post(url2).mock(return_value=respx.MockResponse(404, json={'error': {'status': 'NOT_FOUND'}}))
+        route2 = respx.post(url2).mock(
+            return_value=respx.MockResponse(404, json={'error': {'status': 'NOT_FOUND'}}))
         route3 = respx.post(url3).mock(return_value=respx.MockResponse(200, json={}))
 
-        resp = await messaging.subscribe_to_topic_async(['token1', 'token2', 'token3'], 'test-topic')
+        resp = await messaging.subscribe_to_topic_async(
+            ['token1', 'token2', 'token3'], 'test-topic')
         assert route1.call_count == 1
         assert route2.call_count == 1
         assert route3.call_count == 1

@@ -20,7 +20,7 @@ import concurrent.futures
 import json
 import logging
 import re
-from typing import Any, Callable, Dict, List, Optional, cast
+from typing import Any, Callable, Dict, List, Optional, Union, cast
 import urllib.parse
 import warnings
 
@@ -259,7 +259,9 @@ def send_each_for_multicast(multicast_message, dry_run=False, app=None):
     messages = _get_messages_from_multicast(multicast_message)
     return _get_messaging_service(app).send_each(messages, dry_run)
 
-def subscribe_to_topic(tokens, topic, app=None):
+def subscribe_to_topic(
+    tokens: Union[str, List[str]], topic: str, app: Optional[App] = None
+) -> TopicManagementResponse:
     """Subscribes a list of registration tokens to an FCM topic.
 
     Args:
@@ -277,7 +279,9 @@ def subscribe_to_topic(tokens, topic, app=None):
     """
     return _get_messaging_service(app).subscribe_to_topic(tokens, topic)
 
-async def subscribe_to_topic_async(tokens, topic, app=None):
+async def subscribe_to_topic_async(
+    tokens: Union[str, List[str]], topic: str, app: Optional[App] = None
+) -> TopicManagementResponse:
     """Subscribes a list of registration tokens to an FCM topic asynchronously.
 
     Args:
@@ -295,7 +299,9 @@ async def subscribe_to_topic_async(tokens, topic, app=None):
     """
     return await _get_messaging_service(app).subscribe_to_topic_async(tokens, topic)
 
-def subscribe_to_topic_legacy(tokens, topic, app=None):
+def subscribe_to_topic_legacy(
+    tokens: Union[str, List[str]], topic: str, app: Optional[App] = None
+) -> TopicManagementResponse:
     """Subscribes a list of registration tokens to an FCM topic using the legacy Instance ID API.
 
     subscribe_to_topic_legacy is deprecated. Use subscribe_to_topic instead.
@@ -320,7 +326,9 @@ def subscribe_to_topic_legacy(tokens, topic, app=None):
     return _get_messaging_service(app).make_topic_management_request(
         tokens, topic, 'iid/v1:batchAdd')
 
-def unsubscribe_from_topic(tokens, topic, app=None):
+def unsubscribe_from_topic(
+    tokens: Union[str, List[str]], topic: str, app: Optional[App] = None
+) -> TopicManagementResponse:
     """Unsubscribes a list of registration tokens from an FCM topic.
 
     Args:
@@ -338,7 +346,9 @@ def unsubscribe_from_topic(tokens, topic, app=None):
     """
     return _get_messaging_service(app).unsubscribe_from_topic(tokens, topic)
 
-async def unsubscribe_from_topic_async(tokens, topic, app=None):
+async def unsubscribe_from_topic_async(
+    tokens: Union[str, List[str]], topic: str, app: Optional[App] = None
+) -> TopicManagementResponse:
     """Unsubscribes a list of registration tokens from an FCM topic asynchronously.
 
     Args:
@@ -356,7 +366,9 @@ async def unsubscribe_from_topic_async(tokens, topic, app=None):
     """
     return await _get_messaging_service(app).unsubscribe_from_topic_async(tokens, topic)
 
-def unsubscribe_from_topic_legacy(tokens, topic, app=None):
+def unsubscribe_from_topic_legacy(
+    tokens: Union[str, List[str]], topic: str, app: Optional[App] = None
+) -> TopicManagementResponse:
     """Unsubscribes a list of registration tokens from an FCM topic using the legacy
     Instance ID API.
 
@@ -534,7 +546,7 @@ class _MessagingService:
             resp = self._client.body(
                 'post',
                 url=self._fcm_url,
-                headers=self._fcm_headers,
+                headers=dict(self._fcm_headers),
                 json=data
             )
         except requests.exceptions.RequestException as error:
@@ -553,7 +565,7 @@ class _MessagingService:
                 resp = self._client.body(
                     'post',
                     url=self._fcm_url,
-                    headers=self._fcm_headers,
+                    headers=dict(self._fcm_headers),
                     json=data)
             except requests.exceptions.RequestException as exception:
                 return SendResponse(resp=None, exception=self._handle_fcm_error(exception))
@@ -581,7 +593,7 @@ class _MessagingService:
                 resp = await self._async_client.request(
                     'post',
                     url=self._fcm_url,
-                    headers=self._fcm_headers,
+                    headers=dict(self._fcm_headers),
                     json=data)
             except httpx.HTTPError as exception:
                 return SendResponse(resp=None, exception=self._handle_fcm_httpx_error(exception))
@@ -616,26 +628,34 @@ class _MessagingService:
         topic_name = topic
         if topic_name.startswith('/topics/'):
             topic_name = topic_name[len('/topics/'):]
-        if not topic_name or not re.match(r'^[a-zA-Z0-9-_\.~%]+$', topic_name):
+        if not topic_name or not re.match(r'^[a-zA-Z0-9-_\.~%]+\Z', topic_name):
             raise ValueError('Malformed topic name.')
 
         return tokens, topic_name
 
-    def subscribe_to_topic(self, tokens, topic) -> TopicManagementResponse:
+    def subscribe_to_topic(
+        self, tokens: Union[str, List[str]], topic: str
+    ) -> TopicManagementResponse:
         """Subscribes a list of registration tokens to an FCM topic via the FCM v1 API."""
         return self._make_topic_management_request_v1(tokens, topic, is_subscribe=True)
 
-    def unsubscribe_from_topic(self, tokens, topic) -> TopicManagementResponse:
+    def unsubscribe_from_topic(
+        self, tokens: Union[str, List[str]], topic: str
+    ) -> TopicManagementResponse:
         """Unsubscribes a list of registration tokens from an FCM topic via the FCM v1 API."""
         return self._make_topic_management_request_v1(tokens, topic, is_subscribe=False)
 
-    async def subscribe_to_topic_async(self, tokens, topic) -> TopicManagementResponse:
+    async def subscribe_to_topic_async(
+        self, tokens: Union[str, List[str]], topic: str
+    ) -> TopicManagementResponse:
         """Subscribes a list of registration tokens to an FCM topic asynchronously
         via the FCM v1 API."""
         return await self._make_topic_management_request_v1_async(
             tokens, topic, is_subscribe=True)
 
-    async def unsubscribe_from_topic_async(self, tokens, topic) -> TopicManagementResponse:
+    async def unsubscribe_from_topic_async(
+        self, tokens: Union[str, List[str]], topic: str
+    ) -> TopicManagementResponse:
         """Unsubscribes a list of registration tokens from an FCM topic asynchronously
         via the FCM v1 API."""
         return await self._make_topic_management_request_v1_async(
@@ -745,20 +765,27 @@ class _MessagingService:
             status = error_data.get('status')
             if status:
                 return status
+
+        status_map = {
+            400: 'INVALID_ARGUMENT',
+            401: 'UNAUTHENTICATED',
+            403: 'PERMISSION_DENIED',
+            404: 'NOT_FOUND',
+            408: 'DEADLINE_EXCEEDED',
+            429: 'RESOURCE_EXHAUSTED',
+            500: 'INTERNAL',
+            503: 'UNAVAILABLE',
+            504: 'DEADLINE_EXCEEDED',
+        }
+        if status_code in status_map:
+            return status_map[status_code]
+
+        if isinstance(error_data, dict):
             message = error_data.get('message')
             if message:
                 return message
 
-        status_map = {
-            400: 'INVALID_ARGUMENT',
-            401: 'PERMISSION_DENIED',
-            403: 'PERMISSION_DENIED',
-            404: 'NOT_FOUND',
-            429: 'RESOURCE_EXHAUSTED',
-            500: 'INTERNAL',
-            503: 'DEADLINE_EXCEEDED',
-        }
-        return status_map.get(status_code, 'UNKNOWN_ERROR')
+        return 'UNKNOWN_ERROR'
 
     def _build_topic_subscription_result(self, response, is_subscribe):
         """Constructs a result dict from a response object."""

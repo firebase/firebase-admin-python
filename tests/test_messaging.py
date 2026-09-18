@@ -33,7 +33,7 @@ from tests import testutils
 NON_STRING_ARGS = [[], tuple(), {}, True, False, 1, 0]
 NON_DICT_ARGS = ['', [], tuple(), True, False, 1, 0, {1: 'foo'}, {'foo': 1}]
 NON_OBJECT_ARGS = [[], tuple(), {}, 'foo', 0, 1, True, False]
-NON_LIST_ARGS = ['', tuple(), {}, True, False, 1, 0, [1], ['foo', 1]]
+NON_LIST_ARGS = ['', {}, True, False, 1, 0, [1], ['foo', 1], iter([])]
 NON_UINT_ARGS = ['1.23s', [], tuple(), {}, -1.23]
 NON_BOOL_ARGS = ['', [], tuple(), {}, 1, 0, [1], ['foo', 1], {1: 'foo'}, {'foo': 1}]
 HTTP_ERROR_CODES = {
@@ -128,6 +128,12 @@ class TestMulticastMessage:
 
         message = messaging.MulticastMessage(tokens=['token' for _ in range(0, 500)])
         assert len(message.tokens) == 500
+
+        message = messaging.MulticastMessage(tokens=tuple(['token' for _ in range(0, 500)]))
+        assert len(message.tokens) == 500
+
+        message = messaging.MulticastMessage(tokens=set(['token']))
+        assert len(message.tokens) == 1
 
     @pytest.mark.parametrize('fids', NON_LIST_ARGS)
     def test_invalid_fids_type(self, fids):

@@ -68,12 +68,6 @@ def _parse_to_datetime(datestr):
     except ValueError:
         pass
 
-    # Note: %z parses timezone offsets, but requires the timezone offset *not*
-    # include a separating ':'. As of python 3.7, this was relaxed.
-    # TODO(rsgowman): Once python3.7 becomes our floor, we can drop the regex
-    # replacement.
-    datestr_modified = re.sub(r'(\d\d):(\d\d)$', r'\1\2', datestr_modified)
-
     try:
         return datetime.strptime(datestr_modified, '%Y-%m-%dT%H:%M:%S.%f%z')
     except ValueError:

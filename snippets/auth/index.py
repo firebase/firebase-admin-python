@@ -224,6 +224,14 @@ def get_user_by_phone_number():
     print(f'Successfully fetched user data: {user.uid}')
     # [END get_user_by_phone]
 
+def get_user_by_provider_id():
+    # [START get_user_by_provider_id]
+    from firebase_admin import auth
+
+    user = auth.get_user_by_provider_user_id('google.com', 'google_uid1234')
+    print('Successfully fetched user data: {0}'.format(user.uid))
+    # [END get_user_by_provider_id]
+
 def create_user():
     # [START create_user]
     user = auth.create_user(
@@ -258,6 +266,26 @@ def update_user(uid):
         disabled=True)
     print(f'Sucessfully updated user: {user.uid}')
     # [END update_user]
+
+def update_user_link_federated(uid):
+    # [START update_user_link_federated]
+    # Link the user with a federated identity provider (like Google).
+    user = auth.update_user(
+        uid,
+        link_provider=auth.UserProvider(uid='google_uid1234', provider_id='google.com'))
+
+    print('Sucessfully updated user: {0}'.format(user.uid))
+    # [END update_user_link_federated]
+
+def update_user_unlink_federated(uid):
+    # [START update_user_unlink_federated]
+    # Unlink the user from a federated identity provider (like Google).
+    user = auth.update_user(
+        uid,
+        delete_provider_ids=['google.com'])
+
+    print('Sucessfully updated user: {0}'.format(user.uid))
+    # [END update_user_unlink_federated]
 
 def delete_user(uid):
     # [START delete_user]

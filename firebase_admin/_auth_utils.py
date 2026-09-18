@@ -24,6 +24,7 @@ from firebase_admin import _utils
 
 
 EMULATOR_HOST_ENV_VAR = 'FIREBASE_AUTH_EMULATOR_HOST'
+TENANT_EMULATOR_HOST_ENV_VAR = 'FIREBASE_TENANT_EMULATOR_HOST'
 MAX_CLAIMS_PAYLOAD_SIZE = 1000
 RESERVED_CLAIMS = set([
     'acr', 'amr', 'at_hash', 'aud', 'auth_time', 'azp', 'cnf', 'c_hash', 'exp', 'iat',
@@ -78,6 +79,15 @@ def get_emulator_host():
             'It must follow format "host:port".')
     return emulator_host
 
+def get_tenant_emulator_host():
+    emulator_host = os.getenv(TENANT_EMULATOR_HOST_ENV_VAR, '')
+    if not emulator_host:
+        emulator_host = get_emulator_host()
+    if emulator_host and '//' in emulator_host:
+        raise ValueError(
+            f'Invalid {TENANT_EMULATOR_HOST_ENV_VAR}: "{emulator_host}". '
+            'It must follow format "host:port".')
+    return emulator_host
 
 def is_emulated():
     return get_emulator_host() != ''

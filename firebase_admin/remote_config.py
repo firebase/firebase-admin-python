@@ -487,20 +487,19 @@ class _ConditionEvaluator:
         Returns:
           True if the condition is met, False otherwise.
         """
-        custom_signal_operator = custom_signal_condition.get('customSignalOperator') or {}
-        custom_signal_key = custom_signal_condition.get('customSignalKey') or {}
-        target_custom_signal_values = (
-            custom_signal_condition.get('targetCustomSignalValues') or {})
+        custom_signal_operator = custom_signal_condition.get('customSignalOperator')
+        custom_signal_key = custom_signal_condition.get('customSignalKey')
+        target_custom_signal_values = custom_signal_condition.get('targetCustomSignalValues')
 
         if not all([custom_signal_operator, custom_signal_key, target_custom_signal_values]):
             logger.warning("Missing operator, key, or target values for custom signal condition.")
             return False
 
-        if not target_custom_signal_values:
-            return False
-        actual_custom_signal_value = context.get(custom_signal_key) or {}
+        # A signal is only absent when the context has no entry for it. Values such as 0 or ''
+        # are valid signals (the context is typed as Union[str, int]) and must be compared.
+        actual_custom_signal_value = context.get(custom_signal_key)
 
-        if not actual_custom_signal_value:
+        if actual_custom_signal_value is None:
             logger.debug("Custom signal value not found in context: %s", custom_signal_key)
             return False
 

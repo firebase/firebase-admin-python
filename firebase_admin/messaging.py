@@ -136,7 +136,7 @@ def send_each(
     recipients. Instead, FCM performs all the usual validations and emulates the send operation.
 
     Args:
-        messages: A list of ``messaging.Message`` instances.
+        messages: A non-empty list of up to 500 ``messaging.Message`` instances.
         dry_run: A boolean indicating whether to run the operation in dry run mode (optional).
         app: An App instance (optional).
 
@@ -160,7 +160,7 @@ async def send_each_async(
     recipients. Instead, FCM performs all the usual validations and emulates the send operation.
 
     Args:
-        messages: A list of ``messaging.Message`` instances.
+        messages: A non-empty list of up to 500 ``messaging.Message`` instances.
         dry_run: A boolean indicating whether to run the operation in dry run mode (optional).
         app: An App instance (optional).
 
@@ -217,7 +217,8 @@ async def send_each_for_multicast_async(
     recipients. Instead, FCM performs all the usual validations and emulates the send operation.
 
     Args:
-        multicast_message: An instance of ``messaging.MulticastMessage``.
+        multicast_message: An instance of ``messaging.MulticastMessage`` with at least one
+            token or fid.
         dry_run: A boolean indicating whether to run the operation in dry run mode (optional).
         app: An App instance (optional).
 
@@ -238,7 +239,8 @@ def send_each_for_multicast(multicast_message, dry_run=False, app=None):
     recipients. Instead, FCM performs all the usual validations and emulates the send operation.
 
     Args:
-        multicast_message: An instance of ``messaging.MulticastMessage``.
+        multicast_message: An instance of ``messaging.MulticastMessage`` with at least one
+            token or fid.
         dry_run: A boolean indicating whether to run the operation in dry run mode (optional).
         app: An App instance (optional).
 
@@ -445,6 +447,8 @@ class _MessagingService:
         """Sends the given messages to FCM via the FCM v1 API."""
         if not isinstance(messages, list):
             raise ValueError('messages must be a list of messaging.Message instances.')
+        if not messages:
+            raise ValueError('messages must not be empty.')
         if len(messages) > 500:
             raise ValueError('messages must not contain more than 500 elements.')
 
@@ -473,6 +477,8 @@ class _MessagingService:
         """Sends the given messages to FCM via the FCM v1 API."""
         if not isinstance(messages, list):
             raise ValueError('messages must be a list of messaging.Message instances.')
+        if not messages:
+            raise ValueError('messages must not be empty.')
         if len(messages) > 500:
             raise ValueError('messages must not contain more than 500 elements.')
 

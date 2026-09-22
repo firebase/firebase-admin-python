@@ -1953,6 +1953,15 @@ class TestSendEach():
             expected = 'messages must be a list of messaging.Message instances.'
             assert str(excinfo.value) == expected
 
+    def test_send_each_empty_batch(self):
+        with pytest.raises(ValueError, match='messages must not be empty.'):
+            messaging.send_each([])
+
+    @pytest.mark.asyncio
+    async def test_send_each_async_empty_batch(self):
+        with pytest.raises(ValueError, match='messages must not be empty.'):
+            await messaging.send_each_async([])
+
     def test_invalid_over_500(self):
         msg = messaging.Message(topic='foo')
         with pytest.raises(ValueError) as excinfo:
@@ -2272,6 +2281,17 @@ class TestSendEachForMulticast(TestSendEach):
             messaging.send_each_for_multicast(msg)
         expected = 'Message must be an instance of messaging.MulticastMessage class.'
         assert str(excinfo.value) == expected
+
+    def test_send_each_for_multicast_empty_batch(self):
+        msg = messaging.MulticastMessage(tokens=[])
+        with pytest.raises(ValueError, match='messages must not be empty.'):
+            messaging.send_each_for_multicast(msg)
+
+    @pytest.mark.asyncio
+    async def test_send_each_for_multicast_async_empty_batch(self):
+        msg = messaging.MulticastMessage(tokens=[])
+        with pytest.raises(ValueError, match='messages must not be empty.'):
+            await messaging.send_each_for_multicast_async(msg)
 
     def test_send_each_for_multicast(self):
         payload1 = json.dumps({'name': 'message-id1'})

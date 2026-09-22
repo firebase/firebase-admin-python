@@ -54,7 +54,7 @@ class _AppCheckService:
     _APP_CHECK_ISSUER = 'https://firebaseappcheck.googleapis.com/'
     _JWKS_URL = 'https://firebaseappcheck.googleapis.com/v1/jwks'
     _VERIFY_URL_FORMAT = (
-        'https://firebaseappcheck.googleapis.com/v1/projects/{project_id}:verifyAppCheckToken'
+        'https://firebaseappcheck.googleapis.com/v1beta/projects/{project_id}:verifyAppCheckToken'
     )
     _project_id = None
     _scoped_project_id = None

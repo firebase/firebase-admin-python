@@ -319,7 +319,7 @@ class TestVerifyToken(TestBatch):
         assert payload == expected
 
         expected_url = (
-            f"https://firebaseappcheck.googleapis.com/v1/projects/{PROJECT_ID}:verifyAppCheckToken"
+            f"https://firebaseappcheck.googleapis.com/v1beta/projects/{PROJECT_ID}:verifyAppCheckToken"
         )
         mock_body.assert_called_once_with(
             "post", expected_url, json={"app_check_token": "encoded"}
@@ -340,7 +340,7 @@ class TestVerifyToken(TestBatch):
         assert payload == expected
 
         expected_url = (
-            f"https://firebaseappcheck.googleapis.com/v1/projects/{PROJECT_ID}:verifyAppCheckToken"
+            f"https://firebaseappcheck.googleapis.com/v1beta/projects/{PROJECT_ID}:verifyAppCheckToken"
         )
         mock_body.assert_called_once_with(
             "post", expected_url, json={"app_check_token": "encoded"}

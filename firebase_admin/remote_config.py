@@ -315,7 +315,9 @@ class _ConditionEvaluator:
 
                 if parameter_value_wrapper:
                     parameter_value = parameter_value_wrapper.get('value')
-                    self._config_values[key] = _Value('remote', parameter_value)
+                    # A conditional value without an explicit value does not override anything.
+                    if parameter_value is not None:
+                        self._config_values[key] = _Value('remote', parameter_value)
                     continue
 
                 if not default_value:
@@ -724,7 +726,8 @@ class _Value:
           value: The string value.
         """
         self.source = source
-        self.value = value
+        # The getters assume a string payload, so a missing value must not end up as None.
+        self.value = value if value is not None else self.DEFAULT_VALUE_FOR_STRING
 
     def as_string(self) -> str:
         """Returns the value as a string."""

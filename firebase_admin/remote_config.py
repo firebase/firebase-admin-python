@@ -741,7 +741,7 @@ class _Value:
             return self.DEFAULT_VALUE_FOR_BOOLEAN
         return str(self.value).lower() in self.BOOLEAN_TRUTHY_VALUES
 
-    def as_int(self) -> float:
+    def as_int(self) -> int:
         """Returns the value as a number."""
         if self.source == 'static':
             return self.DEFAULT_VALUE_FOR_INTEGER

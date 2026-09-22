@@ -203,6 +203,8 @@ def _get_messages_from_multicast(multicast_message: MulticastMessage) -> List[Me
             fid=fid
         ) for fid in multicast_message.fids])
 
+    if not messages:
+        raise ValueError('multicast_message must contain at least one token or fid.')
     return messages
 
 async def send_each_for_multicast_async(

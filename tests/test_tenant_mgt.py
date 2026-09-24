@@ -37,7 +37,8 @@ GET_TENANT_RESPONSE = """{
     "name": "projects/mock-project-id/tenants/tenant-id",
     "displayName": "Test Tenant",
     "allowPasswordSignup": true,
-    "enableEmailLinkSignin": true
+    "enableEmailLinkSignin": true,
+    "allowDefaultProvider": true
 }"""
 
 TENANT_NOT_FOUND_RESPONSE = """{
@@ -52,13 +53,15 @@ LIST_TENANTS_RESPONSE = """{
             "name": "projects/mock-project-id/tenants/tenant0",
             "displayName": "Test Tenant",
             "allowPasswordSignup": true,
-            "enableEmailLinkSignin": true
+            "enableEmailLinkSignin": true,
+            "allowDefaultProvider": true
         },
         {
             "name": "projects/mock-project-id/tenants/tenant1",
             "displayName": "Test Tenant",
             "allowPasswordSignup": true,
-            "enableEmailLinkSignin": true
+            "enableEmailLinkSignin": true,
+            "allowDefaultProvider": true
         }
     ]
 }"""
@@ -163,12 +166,14 @@ class TestTenant:
             'displayName': 'Test Tenant',
             'allowPasswordSignup': True,
             'enableEmailLinkSignin': True,
+            'allowDefaultProvider': True
         }
         tenant = tenant_mgt.Tenant(data)
         assert tenant.tenant_id == 'tenant-id'
         assert tenant.display_name == 'Test Tenant'
         assert tenant.allow_password_sign_up is True
         assert tenant.enable_email_link_sign_in is True
+        assert tenant.allow_default_provider is True
 
     def test_tenant_optional_params(self):
         data = {
@@ -242,30 +247,39 @@ class TestCreateTenant:
                 display_name='test', enable_email_link_sign_in=enable, app=tenant_mgt_app)
         assert str(excinfo.value).startswith('Invalid type for enableEmailLinkSignin')
 
+    @pytest.mark.parametrize('allow', INVALID_BOOLEANS)
+    def test_invalid_allow_default_provider(self, allow, tenant_mgt_app):
+        with pytest.raises(ValueError) as excinfo:
+            tenant_mgt.create_tenant(
+                display_name='test', allow_default_provider=allow, app=tenant_mgt_app)
+        assert str(excinfo.value).startswith('Invalid type for allowDefaultProvider')
+
     def test_create_tenant(self, tenant_mgt_app):
         _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
         tenant = tenant_mgt.create_tenant(
             display_name='My-Tenant', allow_password_sign_up=True, enable_email_link_sign_in=True,
-            app=tenant_mgt_app)
+            allow_default_provider=True, app=tenant_mgt_app)
 
         _assert_tenant(tenant)
         self._assert_request(recorder, {
             'displayName': 'My-Tenant',
             'allowPasswordSignup': True,
             'enableEmailLinkSignin': True,
+            'allowDefaultProvider': True,
         })
 
     def test_create_tenant_false_values(self, tenant_mgt_app):
         _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
         tenant = tenant_mgt.create_tenant(
             display_name='test', allow_password_sign_up=False, enable_email_link_sign_in=False,
-            app=tenant_mgt_app)
+            allow_default_provider=False, app=tenant_mgt_app)
 
         _assert_tenant(tenant)
         self._assert_request(recorder, {
             'displayName': 'test',
             'allowPasswordSignup': False,
             'enableEmailLinkSignin': False,
+            'allowDefaultProvider': False,
         })
 
     def test_create_tenant_minimal(self, tenant_mgt_app):
@@ -330,6 +344,13 @@ class TestUpdateTenant:
             tenant_mgt.update_tenant(
                 'tenant-id', enable_email_link_sign_in=enable, app=tenant_mgt_app)
         assert str(excinfo.value).startswith('Invalid type for enableEmailLinkSignin')
+    
+    @pytest.mark.parametrize('allow', INVALID_BOOLEANS)
+    def test_invalid_allow_default_provider(self, allow, tenant_mgt_app):
+        with pytest.raises(ValueError) as excinfo:
+            tenant_mgt.update_tenant(
+                'tenant-id', allow_default_provider=allow, app=tenant_mgt_app)
+        assert str(excinfo.value).startswith('Invalid type for allowDefaultProvider')
 
     def test_update_tenant_no_args(self, tenant_mgt_app):
         with pytest.raises(ValueError) as excinfo:
@@ -340,29 +361,31 @@ class TestUpdateTenant:
         _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
         tenant = tenant_mgt.update_tenant(
             'tenant-id', display_name='My-Tenant', allow_password_sign_up=True,
-            enable_email_link_sign_in=True, app=tenant_mgt_app)
+            enable_email_link_sign_in=True, allow_default_provider=True, app=tenant_mgt_app)
 
         _assert_tenant(tenant)
         body = {
             'displayName': 'My-Tenant',
             'allowPasswordSignup': True,
             'enableEmailLinkSignin': True,
+            'allowDefaultProvider': True,
         }
-        mask = ['allowPasswordSignup', 'displayName', 'enableEmailLinkSignin']
+        mask = ['allowDefaultProvider', 'allowPasswordSignup', 'displayName', 'enableEmailLinkSignin']
         self._assert_request(recorder, body, mask)
 
     def test_update_tenant_false_values(self, tenant_mgt_app):
         _, recorder = _instrument_tenant_mgt(tenant_mgt_app, 200, GET_TENANT_RESPONSE)
         tenant = tenant_mgt.update_tenant(
             'tenant-id', allow_password_sign_up=False,
-            enable_email_link_sign_in=False, app=tenant_mgt_app)
+            enable_email_link_sign_in=False, allow_default_provider=False, app=tenant_mgt_app)
 
         _assert_tenant(tenant)
         body = {
             'allowPasswordSignup': False,
             'enableEmailLinkSignin': False,
+            'allowDefaultProvider': False,
         }
-        mask = ['allowPasswordSignup', 'enableEmailLinkSignin']
+        mask = ['allowDefaultProvider', 'allowPasswordSignup', 'enableEmailLinkSignin']
         self._assert_request(recorder, body, mask)
 
     def test_update_tenant_minimal(self, tenant_mgt_app):
@@ -1050,3 +1073,4 @@ def _assert_tenant(tenant, tenant_id='tenant-id'):
     assert tenant.display_name == 'Test Tenant'
     assert tenant.allow_password_sign_up is True
     assert tenant.enable_email_link_sign_in is True
+    assert tenant.allow_default_provider is True

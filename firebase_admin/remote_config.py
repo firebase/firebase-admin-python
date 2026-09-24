@@ -614,7 +614,7 @@ class _ConditionEvaluator:
             actual = float(actual_value)
             result = -1 if actual < target else 1 if actual > target else 0
             return predicate_fn(result)
-        except ValueError:
+        except (ValueError, TypeError):
             logger.warning("Invalid numeric value for comparison for custom signal key %s.",
                            custom_signal_key)
             return False

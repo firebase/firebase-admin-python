@@ -840,6 +840,20 @@ class TestEvaluate:
         server_config = server_template.evaluate(context)
         assert server_config.get_boolean('is_enabled') == parameter_value
 
+    @pytest.mark.parametrize('context_value', [[], {}])
+    @pytest.mark.parametrize('operator', [
+        CustomSignalOperator.NUMERIC_LESS_THAN,
+        CustomSignalOperator.NUMERIC_LESS_EQUAL,
+        CustomSignalOperator.NUMERIC_EQUAL,
+        CustomSignalOperator.NUMERIC_NOT_EQUAL,
+        CustomSignalOperator.NUMERIC_GREATER_THAN,
+        CustomSignalOperator.NUMERIC_GREATER_EQUAL,
+    ])
+    def test_evaluate_custom_signal_non_numeric_value(self, context_value, operator):
+        server_template = self._custom_signal_template(operator.value, ['0'])
+        server_config = server_template.evaluate({'signal_key': context_value})
+        assert server_config.get_boolean('is_enabled') is False
+
     def test_evaluate_custom_signal_missing_value(self):
         server_template = self._custom_signal_template(
             CustomSignalOperator.NUMERIC_LESS_THAN.value, ['1'])

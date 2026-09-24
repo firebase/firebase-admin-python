@@ -820,6 +820,69 @@ class TestEvaluate:
         assert server_config.get_boolean('is_enabled') == parameter_value
 
 
+    @pytest.mark.parametrize(
+        'custom_signal_operator, target_custom_signal_value, context_value, parameter_value',
+        [
+            (CustomSignalOperator.NUMERIC_EQUAL.value, ['0'], 0, True),
+            (CustomSignalOperator.NUMERIC_LESS_THAN.value, ['1'], 0, True),
+            (CustomSignalOperator.NUMERIC_GREATER_THAN.value, ['-1'], 0.0, True),
+            (CustomSignalOperator.NUMERIC_GREATER_THAN.value, ['0'], 0, False),
+            (CustomSignalOperator.STRING_EXACTLY_MATCHES.value, ['0'], 0, True),
+        ])
+    def test_evaluate_custom_signal_zero_value(self,
+                                               custom_signal_operator,
+                                               target_custom_signal_value,
+                                               context_value,
+                                               parameter_value):
+        server_template = self._custom_signal_template(custom_signal_operator,
+                                                       target_custom_signal_value)
+        context = {'randomization_id': '123', 'signal_key': context_value}
+        server_config = server_template.evaluate(context)
+        assert server_config.get_boolean('is_enabled') == parameter_value
+
+    def test_evaluate_custom_signal_missing_value(self):
+        server_template = self._custom_signal_template(
+            CustomSignalOperator.NUMERIC_LESS_THAN.value, ['1'])
+        server_config = server_template.evaluate({'randomization_id': '123'})
+        assert server_config.get_boolean('is_enabled') is False
+
+    def _custom_signal_template(self, custom_signal_operator, target_custom_signal_value):
+        condition = {
+            'name': 'is_true',
+            'condition': {
+                'orCondition': {
+                    'conditions': [{
+                        'andCondition': {
+                            'conditions': [{
+                                'customSignal': {
+                                    'customSignalOperator': custom_signal_operator,
+                                    'customSignalKey': 'signal_key',
+                                    'targetCustomSignalValues': target_custom_signal_value
+                                }
+                            }],
+                        }
+                    }]
+                }
+            }
+        }
+        template_data = {
+            'conditions': [condition],
+            'parameters': {
+                'is_enabled': {
+                    'defaultValue': {'value': 'false'},
+                    'conditionalValues': {'is_true': {'value': 'true'}}
+                },
+            },
+            'parameterGroups': '',
+            'version': '',
+            'etag': '123'
+        }
+        return remote_config.init_server_template(
+            app=firebase_admin.get_app(),
+            default_config={'dog_is_cute': True},
+            template_data_json=json.dumps(template_data)
+        )
+
 class MockAdapter(testutils.MockAdapter):
     """A Mock HTTP Adapter that provides Firebase Remote Config responses with ETag in header."""
 

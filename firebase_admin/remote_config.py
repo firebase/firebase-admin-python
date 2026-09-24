@@ -487,10 +487,10 @@ class _ConditionEvaluator:
         Returns:
           True if the condition is met, False otherwise.
         """
-        custom_signal_operator = custom_signal_condition.get('customSignalOperator') or {}
-        custom_signal_key = custom_signal_condition.get('customSignalKey') or {}
+        custom_signal_operator = custom_signal_condition.get('customSignalOperator') or ''
+        custom_signal_key = custom_signal_condition.get('customSignalKey') or ''
         target_custom_signal_values = (
-            custom_signal_condition.get('targetCustomSignalValues') or {})
+            custom_signal_condition.get('targetCustomSignalValues') or [])
 
         if not all([custom_signal_operator, custom_signal_key, target_custom_signal_values]):
             logger.warning("Missing operator, key, or target values for custom signal condition.")
@@ -498,9 +498,10 @@ class _ConditionEvaluator:
 
         if not target_custom_signal_values:
             return False
-        actual_custom_signal_value = context.get(custom_signal_key) or {}
+        actual_custom_signal_value = context.get(custom_signal_key)
 
-        if not actual_custom_signal_value:
+        # Falsy signal values such as 0 are valid; only a missing signal is skipped.
+        if actual_custom_signal_value is None:
             logger.debug("Custom signal value not found in context: %s", custom_signal_key)
             return False
 
@@ -739,7 +740,7 @@ class _Value:
             return self.DEFAULT_VALUE_FOR_BOOLEAN
         return str(self.value).lower() in self.BOOLEAN_TRUTHY_VALUES
 
-    def as_int(self) -> float:
+    def as_int(self) -> int:
         """Returns the value as a number."""
         if self.source == 'static':
             return self.DEFAULT_VALUE_FOR_INTEGER

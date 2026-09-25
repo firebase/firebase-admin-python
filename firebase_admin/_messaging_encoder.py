@@ -300,7 +300,7 @@ class MessageEncoder(json.JSONEncoder):
         seconds = duration.days * 86400 + duration.seconds
         nanos = duration.microseconds * 1000
         if nanos:
-            return f'{seconds}.{str(nanos).zfill(9)}s'
+            return f'{seconds}.{nanos:09d}s'
         return f'{seconds}s'
 
     @classmethod

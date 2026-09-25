@@ -20,7 +20,7 @@ This module provides utilities for making HTTP calls using the requests library.
 from __future__ import annotations
 import logging
 from typing import Any, Dict, Generator, Optional, Tuple, Union
-import httpx
+import httpx2
 import requests.adapters
 from requests.packages.urllib3.util import retry # pylint: disable=import-error
 from google.auth import credentials
@@ -165,7 +165,7 @@ class JsonHttpClient(HttpClient):
     def parse_body(self, resp):
         return resp.json()
 
-class GoogleAuthCredentialFlow(httpx.Auth):
+class GoogleAuthCredentialFlow(httpx2.Auth):
     """Google Auth Credential Auth Flow"""
     def __init__(self, credential: credentials.Credentials):
         self._credential = credential
@@ -174,7 +174,7 @@ class GoogleAuthCredentialFlow(httpx.Auth):
 
     def apply_auth_headers(
             self,
-            request: httpx.Request,
+            request: httpx2.Request,
             auth_request: google_auth_requests.Request
         ) -> None:
         """A helper function that refreshes credentials if needed and mutates the request headers
@@ -189,7 +189,9 @@ class GoogleAuthCredentialFlow(httpx.Auth):
         )
         logger.debug('Auth headers applied. Credential validity after: %s', self._credential.valid)
 
-    def auth_flow(self, request: httpx.Request) -> Generator[httpx.Request, httpx.Response, None]:
+    def auth_flow(
+            self, request: httpx2.Request
+    ) -> Generator[httpx2.Request, httpx2.Response, None]:
         _original_headers = request.headers.copy()
         _credential_refresh_attempt = 0
 
@@ -207,7 +209,7 @@ class GoogleAuthCredentialFlow(httpx.Auth):
                 'Dispatching request, attempt %d of %d',
                 _credential_refresh_attempt, self._max_refresh_attempts
             )
-            response: httpx.Response = yield request
+            response: httpx2.Response = yield request
 
             if response.status_code in self._refresh_status_codes:
                 if _credential_refresh_attempt < self._max_refresh_attempts:
@@ -235,7 +237,7 @@ class GoogleAuthCredentialFlow(httpx.Auth):
                     response.status_code
                 )
                 break
-        # The last yielded response is automatically returned by httpx's auth flow.
+        # The last yielded response is automatically returned by httpx2's auth flow.
 
 class HttpxAsyncClient():
     """Async HTTP client used to make HTTP/2 calls using HTTPX.
@@ -247,7 +249,7 @@ class HttpxAsyncClient():
             self,
             credential: Optional[credentials.Credentials] = None,
             base_url: str = '',
-            headers: Optional[Union[httpx.Headers, Dict[str, str]]] = None,
+            headers: Optional[Union[httpx2.Headers, Dict[str, str]]] = None,
             retry_config: HttpxRetry = DEFAULT_HTTPX_RETRY_CONFIG,
             timeout: int = DEFAULT_TIMEOUT_SECONDS,
             http2: bool = True
@@ -279,7 +281,7 @@ class HttpxAsyncClient():
         }
 
         if credential:
-            self._async_client = httpx.AsyncClient(
+            self._async_client = httpx2.AsyncClient(
                 http2=http2,
                 timeout=self._timeout,
                 headers=self._headers,
@@ -287,7 +289,7 @@ class HttpxAsyncClient():
                 mounts=self._mounts
             )
         else:
-            self._async_client = httpx.AsyncClient(
+            self._async_client = httpx2.AsyncClient(
                 http2=http2,
                 timeout=self._timeout,
                 headers=self._headers,
@@ -306,12 +308,12 @@ class HttpxAsyncClient():
     def async_client(self):
         return self._async_client
 
-    async def request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
+    async def request(self, method: str, url: str, **kwargs: Any) -> httpx2.Response:
         """Makes an HTTP call using the HTTPX library.
 
         This is the sole entry point to the HTTPX library. All other helper methods in this
         class call this method to send HTTP requests out. Refer to
-        https://www.python-httpx.org/api/ for more information on supported options
+        https://pydantic.dev/docs/httpx2/api/api/ for more information on supported options
         and features.
 
         Args:
@@ -332,12 +334,12 @@ class HttpxAsyncClient():
         resp = await self._async_client.request(method, self.base_url + url, **kwargs)
         return resp.raise_for_status()
 
-    async def headers(self, method: str, url: str, **kwargs: Any) -> httpx.Headers:
+    async def headers(self, method: str, url: str, **kwargs: Any) -> httpx2.Headers:
         resp = await self.request(method, url, **kwargs)
         return resp.headers
 
     async def body_and_response(
-            self, method: str, url: str, **kwargs: Any) -> Tuple[Any, httpx.Response]:
+            self, method: str, url: str, **kwargs: Any) -> Tuple[Any, httpx2.Response]:
         resp = await self.request(method, url, **kwargs)
         return self.parse_body(resp), resp
 
@@ -346,11 +348,11 @@ class HttpxAsyncClient():
         return self.parse_body(resp)
 
     async def headers_and_body(
-            self, method: str, url: str, **kwargs: Any) -> Tuple[httpx.Headers, Any]:
+            self, method: str, url: str, **kwargs: Any) -> Tuple[httpx2.Headers, Any]:
         resp = await self.request(method, url, **kwargs)
         return resp.headers, self.parse_body(resp)
 
-    def parse_body(self, resp: httpx.Response) -> Any:
+    def parse_body(self, resp: httpx2.Response) -> Any:
         return resp.json()
 
     async def aclose(self) -> None:

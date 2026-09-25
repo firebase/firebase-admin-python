@@ -24,7 +24,7 @@ from typing import Any, Callable, Dict, List, Optional, Union, cast
 import urllib.parse
 import warnings
 
-import httpx
+import httpx2
 import requests
 
 import firebase_admin
@@ -595,7 +595,7 @@ class _MessagingService:
                     url=self._fcm_url,
                     headers=dict(self._fcm_headers),
                     json=data)
-            except httpx.HTTPError as exception:
+            except httpx2.HTTPError as exception:
                 return SendResponse(resp=None, exception=self._handle_fcm_httpx_error(exception))
             # Catch errors caused by the requests library during authorization
             except requests.exceptions.RequestException as exception:
@@ -732,7 +732,7 @@ class _MessagingService:
                         json=json_data,
                     )
                     return {'success': True}
-                except httpx.HTTPError as error:
+                except httpx2.HTTPError as error:
                     return self._build_topic_subscription_result_from_httpx_error(
                         error, is_subscribe)
                 except requests.exceptions.RequestException as error:
@@ -817,7 +817,7 @@ class _MessagingService:
 
     def _build_topic_subscription_result_from_httpx_error(self, error, is_subscribe):
         """Constructs a result dict from an httpx error."""
-        response = error.response if isinstance(error, httpx.HTTPStatusError) else None
+        response = error.response if isinstance(error, httpx2.HTTPStatusError) else None
         return self._build_topic_subscription_result(response, is_subscribe)
 
     def _parse_topic_management_results(self, results) -> TopicManagementResponse:
@@ -876,7 +876,7 @@ class _MessagingService:
         return _utils.handle_platform_error_from_requests(
             error, _MessagingService._build_fcm_error_requests)
 
-    def _handle_fcm_httpx_error(self, error: httpx.HTTPError) -> exceptions.FirebaseError:
+    def _handle_fcm_httpx_error(self, error: httpx2.HTTPError) -> exceptions.FirebaseError:
         """Handles errors received from the FCM API."""
         return _utils.handle_platform_error_from_httpx(
             error, _MessagingService._build_fcm_error_httpx)
@@ -921,14 +921,14 @@ class _MessagingService:
     @classmethod
     def _build_fcm_error_httpx(
             cls,
-            error: httpx.HTTPError,
+            error: httpx2.HTTPError,
             message: str,
             error_dict: Optional[Dict[str, Any]]
         ) -> Optional[exceptions.FirebaseError]:
         """Parses a httpx error response from the FCM API and creates a FCM-specific exception if
         appropriate."""
         exc_type = cls._build_fcm_error(error_dict)
-        if isinstance(error, httpx.HTTPStatusError):
+        if isinstance(error, httpx2.HTTPStatusError):
             # pylint: disable=not-callable
             return exc_type(
                 message, cause=error, http_response=error.response) if exc_type else None

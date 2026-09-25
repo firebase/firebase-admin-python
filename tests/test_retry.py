@@ -19,7 +19,7 @@ import email.utils
 from itertools import repeat
 from unittest.mock import call
 import pytest
-import httpx
+import httpx2
 from pytest_mock import MockerFixture
 import respx
 
@@ -39,9 +39,9 @@ class TestHttpxRetryTransport():
         """Test that a successful response doesn't trigger retries."""
         retry_config = HttpxRetry(max_retries=3, status_forcelist=[500])
         transport = HttpxRetryTransport(retry=retry_config)
-        client = httpx.AsyncClient(transport=transport)
+        client = httpx2.AsyncClient(transport=transport)
 
-        route = respx.post(base_url).mock(return_value=httpx.Response(200, text="Success"))
+        route = respx.post(base_url).mock(return_value=httpx2.Response(200, text="Success"))
 
         mock_sleep = mocker.patch('asyncio.sleep', return_value=None)
         response = await client.post(base_url)
@@ -57,9 +57,9 @@ class TestHttpxRetryTransport():
         """Test that a non-retryable error status doesn't trigger retries."""
         retry_config = HttpxRetry(max_retries=3, status_forcelist=[500, 503])
         transport = HttpxRetryTransport(retry=retry_config)
-        client = httpx.AsyncClient(transport=transport)
+        client = httpx2.AsyncClient(transport=transport)
 
-        route = respx.post(base_url).mock(return_value=httpx.Response(404, text="Not Found"))
+        route = respx.post(base_url).mock(return_value=httpx2.Response(404, text="Not Found"))
 
         mock_sleep = mocker.patch('asyncio.sleep', return_value=None)
         response = await client.post(base_url)
@@ -77,12 +77,12 @@ class TestHttpxRetryTransport():
         """Test retry on status code from status_forcelist, succeeding on the last attempt."""
         retry_config = HttpxRetry(max_retries=2, status_forcelist=[503, 500], backoff_factor=0.5)
         transport = HttpxRetryTransport(retry=retry_config)
-        client = httpx.AsyncClient(transport=transport)
+        client = httpx2.AsyncClient(transport=transport)
 
         route = respx.post(base_url).mock(side_effect=[
-            httpx.Response(503, text="Attempt 1 Failed"),
-            httpx.Response(500, text="Attempt 2 Failed"),
-            httpx.Response(200, text="Attempt 3 Success"),
+            httpx2.Response(503, text="Attempt 1 Failed"),
+            httpx2.Response(500, text="Attempt 2 Failed"),
+            httpx2.Response(200, text="Attempt 3 Success"),
         ])
 
         mock_sleep = mocker.patch('asyncio.sleep', return_value=None)
@@ -103,13 +103,13 @@ class TestHttpxRetryTransport():
         """Test that the last response is returned when retries are exhausted."""
         retry_config = HttpxRetry(max_retries=1, status_forcelist=[500], backoff_factor=0)
         transport = HttpxRetryTransport(retry=retry_config)
-        client = httpx.AsyncClient(transport=transport)
+        client = httpx2.AsyncClient(transport=transport)
 
         route = respx.post(base_url).mock(side_effect=[
-            httpx.Response(500, text="Attempt 1 Failed"),
-            httpx.Response(500, text="Attempt 2 Failed (Final)"),
+            httpx2.Response(500, text="Attempt 1 Failed"),
+            httpx2.Response(500, text="Attempt 2 Failed (Final)"),
             # Should stop after previous response
-            httpx.Response(200, text="This should not be reached"),
+            httpx2.Response(200, text="This should not be reached"),
         ])
 
         mock_sleep = mocker.patch('asyncio.sleep', return_value=None)
@@ -127,11 +127,11 @@ class TestHttpxRetryTransport():
         retry_config = HttpxRetry(
             max_retries=1, respect_retry_after_header=True, backoff_factor=100)
         transport = HttpxRetryTransport(retry=retry_config)
-        client = httpx.AsyncClient(transport=transport)
+        client = httpx2.AsyncClient(transport=transport)
 
         route = respx.post(base_url).mock(side_effect=[
-            httpx.Response(429, text="Too Many Requests", headers={'Retry-After': '10'}),
-            httpx.Response(200, text="OK"),
+            httpx2.Response(429, text="Too Many Requests", headers={'Retry-After': '10'}),
+            httpx2.Response(200, text="OK"),
         ])
 
         mock_sleep = mocker.patch('asyncio.sleep', return_value=None)
@@ -150,7 +150,7 @@ class TestHttpxRetryTransport():
         retry_config = HttpxRetry(
             max_retries=1, respect_retry_after_header=True, backoff_factor=100)
         transport = HttpxRetryTransport(retry=retry_config)
-        client = httpx.AsyncClient(transport=transport)
+        client = httpx2.AsyncClient(transport=transport)
 
         # Calculate a future time and format as HTTP-date
         retry_delay_seconds = 60
@@ -159,8 +159,8 @@ class TestHttpxRetryTransport():
         http_date = email.utils.formatdate(retry_time)
 
         route = respx.post(base_url).mock(side_effect=[
-            httpx.Response(503, text="Maintenance", headers={'Retry-After': http_date}),
-            httpx.Response(200, text="OK"),
+            httpx2.Response(503, text="Maintenance", headers={'Retry-After': http_date}),
+            httpx2.Response(200, text="OK"),
         ])
 
         mock_sleep = mocker.patch('asyncio.sleep', return_value=None)
@@ -186,13 +186,13 @@ class TestHttpxRetryTransport():
             max_retries=3, respect_retry_after_header=False, status_forcelist=[429],
             backoff_factor=0.5, backoff_max=10)
         transport = HttpxRetryTransport(retry=retry_config)
-        client = httpx.AsyncClient(transport=transport)
+        client = httpx2.AsyncClient(transport=transport)
 
         route = respx.post(base_url).mock(side_effect=[
-            httpx.Response(429, text="Too Many Requests", headers={'Retry-After': '60'}),
-            httpx.Response(429, text="Too Many Requests", headers={'Retry-After': '60'}),
-            httpx.Response(429, text="Too Many Requests", headers={'Retry-After': '60'}),
-            httpx.Response(200, text="OK"),
+            httpx2.Response(429, text="Too Many Requests", headers={'Retry-After': '60'}),
+            httpx2.Response(429, text="Too Many Requests", headers={'Retry-After': '60'}),
+            httpx2.Response(429, text="Too Many Requests", headers={'Retry-After': '60'}),
+            httpx2.Response(200, text="OK"),
         ])
 
         mock_sleep = mocker.patch('asyncio.sleep', return_value=None)
@@ -220,13 +220,13 @@ class TestHttpxRetryTransport():
             max_retries=3, respect_retry_after_header=True, status_forcelist=[429],
             backoff_factor=0.5, backoff_max=10)
         transport = HttpxRetryTransport(retry=retry_config)
-        client = httpx.AsyncClient(transport=transport)
+        client = httpx2.AsyncClient(transport=transport)
 
         route = respx.post(base_url).mock(side_effect=[
-            httpx.Response(429, text="Too Many Requests"),
-            httpx.Response(429, text="Too Many Requests"),
-            httpx.Response(429, text="Too Many Requests"),
-            httpx.Response(200, text="OK"),
+            httpx2.Response(429, text="Too Many Requests"),
+            httpx2.Response(429, text="Too Many Requests"),
+            httpx2.Response(429, text="Too Many Requests"),
+            httpx2.Response(200, text="OK"),
         ])
 
         mock_sleep = mocker.patch('asyncio.sleep', return_value=None)
@@ -251,13 +251,13 @@ class TestHttpxRetryTransport():
         retry_config = HttpxRetry(
             max_retries=3, status_forcelist=[500], backoff_factor=0.1, backoff_max=10.0)
         transport = HttpxRetryTransport(retry=retry_config)
-        client = httpx.AsyncClient(transport=transport)
+        client = httpx2.AsyncClient(transport=transport)
 
         route = respx.post(base_url).mock(side_effect=[
-            httpx.Response(500, text="Fail 1"),
-            httpx.Response(500, text="Fail 2"),
-            httpx.Response(500, text="Fail 3"),
-            httpx.Response(200, text="Success"),
+            httpx2.Response(500, text="Fail 1"),
+            httpx2.Response(500, text="Fail 2"),
+            httpx2.Response(500, text="Fail 3"),
+            httpx2.Response(200, text="Success"),
         ])
 
         mock_sleep = mocker.patch('asyncio.sleep', return_value=None)
@@ -282,14 +282,14 @@ class TestHttpxRetryTransport():
         retry_config = HttpxRetry(
             max_retries=4, status_forcelist=[500], backoff_factor=1, backoff_max=3.0)
         transport = HttpxRetryTransport(retry=retry_config)
-        client = httpx.AsyncClient(transport=transport)
+        client = httpx2.AsyncClient(transport=transport)
 
         route = respx.post(base_url).mock(side_effect=[
-            httpx.Response(500, text="Fail 1"),
-            httpx.Response(500, text="Fail 2"),
-            httpx.Response(500, text="Fail 2"),
-            httpx.Response(500, text="Fail 4"),
-            httpx.Response(200, text="Success"),
+            httpx2.Response(500, text="Fail 1"),
+            httpx2.Response(500, text="Fail 2"),
+            httpx2.Response(500, text="Fail 2"),
+            httpx2.Response(500, text="Fail 4"),
+            httpx2.Response(200, text="Success"),
         ])
 
         mock_sleep = mocker.patch('asyncio.sleep', return_value=None)
@@ -314,13 +314,13 @@ class TestHttpxRetryTransport():
         retry_config = HttpxRetry(
             max_retries=3, status_forcelist=[500], backoff_factor=0.2, backoff_jitter=0.1)
         transport = HttpxRetryTransport(retry=retry_config)
-        client = httpx.AsyncClient(transport=transport)
+        client = httpx2.AsyncClient(transport=transport)
 
         route = respx.post(base_url).mock(side_effect=[
-            httpx.Response(500, text="Fail 1"),
-            httpx.Response(500, text="Fail 2"),
-            httpx.Response(500, text="Fail 3"),
-            httpx.Response(200, text="Success"),
+            httpx2.Response(500, text="Fail 1"),
+            httpx2.Response(500, text="Fail 2"),
+            httpx2.Response(500, text="Fail 3"),
+            httpx2.Response(200, text="Success"),
         ])
 
         mock_sleep = mocker.patch('asyncio.sleep', return_value=None)
@@ -347,20 +347,20 @@ class TestHttpxRetryTransport():
         """Test that non-HTTP errors are raised immediately if not retryable."""
         retry_config = HttpxRetry(max_retries=3)
         transport = HttpxRetryTransport(retry=retry_config)
-        client = httpx.AsyncClient(transport=transport)
+        client = httpx2.AsyncClient(transport=transport)
 
         # Mock a connection error
         route = respx.post(base_url).mock(
-            side_effect=repeat(httpx.ConnectError("Connection failed")))
+            side_effect=repeat(httpx2.ConnectError("Connection failed")))
 
-        with pytest.raises(httpx.ConnectError, match="Connection failed"):
+        with pytest.raises(httpx2.ConnectError, match="Connection failed"):
             await client.post(base_url)
 
         assert route.call_count == 1
 
 
 class TestHttpxRetry():
-    _TEST_REQUEST = httpx.Request('POST', _TEST_URL)
+    _TEST_REQUEST = httpx2.Request('POST', _TEST_URL)
 
     def test_httpx_retry_copy(self, base_url):
         """Test that `HttpxRetry.copy()` creates a deep copy."""
@@ -411,13 +411,13 @@ class TestHttpxRetry():
 
     def test_parse_retry_after_invalid_date(self):
         retry = HttpxRetry()
-        with pytest.raises(httpx.RemoteProtocolError, match='Invalid Retry-After header'):
+        with pytest.raises(httpx2.RemoteProtocolError, match='Invalid Retry-After header'):
             retry._parse_retry_after('Invalid Date Format')
 
     def test_get_backoff_time_calculation(self):
         retry = HttpxRetry(
             max_retries=6, status_forcelist=[503], backoff_factor=0.5, backoff_max=10.0)
-        response = httpx.Response(503)
+        response = httpx2.Response(503)
         # No history -> attempt 1 -> no backoff before first request
         # Note: get_backoff_time() is typically called *before* the *next* request,
         # so history length reflects completed attempts.

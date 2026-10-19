@@ -14,10 +14,12 @@
 
 """Test cases for the firebase_admin.messaging module."""
 import datetime
+import io
 from itertools import chain, repeat
 import json
 import numbers
 import httpx
+import requests
 import respx
 
 import pytest
@@ -73,18 +75,22 @@ class TestMessageStr:
         messaging.Message(topic='topic', condition='condition'),
         messaging.Message(condition='condition', token='token'),
         messaging.Message(topic='topic', token='token', condition='condition'),
+        messaging.Message(fid='fid', token='token'),
+        messaging.Message(fid='fid', topic='topic'),
+        messaging.Message(fid='fid', condition='condition'),
+        messaging.Message(fid='fid', token='token', topic='topic'),
     ])
     def test_invalid_target_message(self, msg):
         with pytest.raises(ValueError) as excinfo:
             str(msg)
         assert str(
-            excinfo.value) == 'Exactly one of token, topic or condition must be specified.'
+            excinfo.value) == 'Exactly one of fid, token, topic or condition must be specified.'
 
     def test_empty_message(self):
         assert str(messaging.Message(token='value')) == '{"token": "value"}'
         assert str(messaging.Message(topic='value')) == '{"topic": "value"}'
-        assert str(messaging.Message(condition='value')
-                  ) == '{"condition": "value"}'
+        assert str(messaging.Message(condition='value')) == '{"condition": "value"}'
+        assert str(messaging.Message(fid='value')) == '{"fid": "value"}'
 
     def test_data_message(self):
         assert str(messaging.Message(topic='topic', data={})
@@ -94,6 +100,12 @@ class TestMessageStr:
 
 
 class TestMulticastMessage:
+
+    def test_invalid_targets(self):
+        with pytest.raises(ValueError) as excinfo:
+            messaging.MulticastMessage()
+        expected = "Must specify at least one of MulticastMessage.tokens or MulticastMessage.fids."
+        assert str(excinfo.value) == expected
 
     @pytest.mark.parametrize('tokens', NON_LIST_ARGS)
     def test_invalid_tokens_type(self, tokens):
@@ -109,7 +121,7 @@ class TestMulticastMessage:
     def test_tokens_over_500(self):
         with pytest.raises(ValueError) as excinfo:
             messaging.MulticastMessage(tokens=['token' for _ in range(0, 501)])
-        expected = 'MulticastMessage.tokens must not contain more than 500 tokens.'
+        expected = 'Total number of tokens and fids must not exceed 500.'
         assert str(excinfo.value) == expected
 
     def test_tokens_type(self):
@@ -118,6 +130,54 @@ class TestMulticastMessage:
 
         message = messaging.MulticastMessage(tokens=['token' for _ in range(0, 500)])
         assert len(message.tokens) == 500
+
+    @pytest.mark.parametrize('fids', NON_LIST_ARGS)
+    def test_invalid_fids_type(self, fids):
+        with pytest.raises(ValueError) as excinfo:
+            messaging.MulticastMessage(fids=fids)
+        if isinstance(fids, list):
+            expected = 'MulticastMessage.fids must not contain non-string values.'
+            assert str(excinfo.value) == expected
+        else:
+            expected = 'MulticastMessage.fids must be a list of strings.'
+            assert str(excinfo.value) == expected
+
+    def test_fids_over_500(self):
+        with pytest.raises(ValueError) as excinfo:
+            messaging.MulticastMessage(fids=['fid' for _ in range(0, 501)])
+        expected = 'Total number of tokens and fids must not exceed 500.'
+        assert str(excinfo.value) == expected
+
+    def test_fids_type(self):
+        message = messaging.MulticastMessage(fids=['fid'])
+        assert len(message.fids) == 1
+
+        message = messaging.MulticastMessage(fids=['fid' for _ in range(0, 500)])
+        assert len(message.fids) == 500
+
+    def test_combined_over_500(self):
+        with pytest.raises(ValueError) as excinfo:
+            messaging.MulticastMessage(
+                tokens=['token' for _ in range(0, 250)],
+                fids=['fid' for _ in range(0, 251)]
+            )
+        expected = 'Total number of tokens and fids must not exceed 500.'
+        assert str(excinfo.value) == expected
+
+    def test_mixed_targets(self):
+        message = messaging.MulticastMessage(tokens=['token'], fids=['fid'])
+        assert len(message.tokens) == 1
+        assert len(message.fids) == 1
+
+    def test_tokens_deprecation_warning(self):
+        msg = 'MulticastMessage.tokens is deprecated. Use MulticastMessage.fids instead.'
+        with pytest.warns(DeprecationWarning, match=msg):
+            messaging.MulticastMessage(tokens=['token'])
+
+    def test_tokens_deprecation_warning_positional(self):
+        msg = 'MulticastMessage.tokens is deprecated. Use MulticastMessage.fids instead.'
+        with pytest.warns(DeprecationWarning, match=msg):
+            messaging.MulticastMessage(['token'])
 
 
 class TestMessageEncoder:
@@ -128,17 +188,28 @@ class TestMessageEncoder:
         messaging.Message(topic='topic', condition='condition'),
         messaging.Message(condition='condition', token='token'),
         messaging.Message(topic='topic', token='token', condition='condition'),
+        messaging.Message(fid='fid', token='token'),
+        messaging.Message(fid='fid', topic='topic'),
+        messaging.Message(fid='fid', condition='condition'),
+        messaging.Message(fid='fid', token='token', topic='topic'),
     ])
     def test_invalid_target_message(self, msg):
         with pytest.raises(ValueError) as excinfo:
             check_encoding(msg)
-        assert str(excinfo.value) == 'Exactly one of token, topic or condition must be specified.'
+        expected = 'Exactly one of fid, token, topic or condition must be specified.'
+        assert str(excinfo.value) == expected
 
     @pytest.mark.parametrize('target', NON_STRING_ARGS + [''])
     def test_invalid_token(self, target):
         with pytest.raises(ValueError) as excinfo:
             check_encoding(messaging.Message(token=target))
         assert str(excinfo.value) == 'Message.token must be a non-empty string.'
+
+    @pytest.mark.parametrize('target', NON_STRING_ARGS + [''])
+    def test_invalid_fid(self, target):
+        with pytest.raises(ValueError) as excinfo:
+            check_encoding(messaging.Message(fid=target))
+        assert str(excinfo.value) == 'Message.fid must be a non-empty string.'
 
     @pytest.mark.parametrize('target', NON_STRING_ARGS + [''])
     def test_invalid_topic(self, target):
@@ -159,8 +230,14 @@ class TestMessageEncoder:
 
     def test_empty_message(self):
         check_encoding(messaging.Message(token='value'), {'token': 'value'})
+        check_encoding(messaging.Message(fid='value'), {'fid': 'value'})
         check_encoding(messaging.Message(topic='value'), {'topic': 'value'})
         check_encoding(messaging.Message(condition='value'), {'condition': 'value'})
+
+    def test_token_deprecation_warning(self):
+        msg = 'Message.token is deprecated. Use Message.fid instead.'
+        with pytest.warns(DeprecationWarning, match=msg):
+            messaging.Message(token='value')
 
     @pytest.mark.parametrize('data', NON_DICT_ARGS)
     def test_invalid_data_message(self, data):
@@ -1667,8 +1744,23 @@ class TestTimeout:
         all_options.update(options)
         firebase_admin.initialize_app(cred, all_options)
         recorder = self._instrument_service(
-            'https://iid.googleapis.com', {'results': [{}, {'error': 'error_reason'}]})
+            'https://fcm.googleapis.com', {})
         messaging.subscribe_to_topic(['1'], 'a')
+        self._check_timeout(recorder, timeout)
+
+    @pytest.mark.parametrize('options, timeout', [
+        ({'httpTimeout': 4}, 4),
+        ({'httpTimeout': None}, None),
+        ({}, _http_client.DEFAULT_TIMEOUT_SECONDS),
+    ])
+    def test_topic_management_legacy_custom_timeout(self, options, timeout):
+        cred = testutils.MockCredential()
+        all_options = {'projectId': 'explicit-project-id'}
+        all_options.update(options)
+        firebase_admin.initialize_app(cred, all_options)
+        recorder = self._instrument_service(
+            'https://iid.googleapis.com', {'results': [{}, {'error': 'error_reason'}]})
+        messaging.subscribe_to_topic_legacy(['1'], 'a')
         self._check_timeout(recorder, timeout)
 
 
@@ -2212,6 +2304,76 @@ class TestSendEachForMulticast(TestSendEach):
         assert all(r.success for r in batch_response.responses)
         assert not any(r.exception for r in batch_response.responses)
 
+    def test_send_each_for_multicast_fids(self):
+        payload1 = json.dumps({'name': 'message-id1'})
+        payload2 = json.dumps({'name': 'message-id2'})
+        _ = self._instrument_messaging_service(
+            response_dict={'foo1': [200, payload1], 'foo2': [200, payload2]})
+        msg = messaging.MulticastMessage(fids=['foo1', 'foo2'])
+        batch_response = messaging.send_each_for_multicast(msg, dry_run=True)
+        assert batch_response.success_count == 2
+        assert batch_response.failure_count == 0
+        assert len(batch_response.responses) == 2
+        assert [r.message_id for r in batch_response.responses] == ['message-id1', 'message-id2']
+        assert all(r.success for r in batch_response.responses)
+        assert not any(r.exception for r in batch_response.responses)
+
+    def test_send_each_for_multicast_mixed(self):
+        payload1 = json.dumps({'name': 'message-id1'})
+        payload2 = json.dumps({'name': 'message-id2'})
+        _ = self._instrument_messaging_service(
+            response_dict={'foo1': [200, payload1], 'foo2': [200, payload2]})
+        msg = messaging.MulticastMessage(tokens=['foo1'], fids=['foo2'])
+        batch_response = messaging.send_each_for_multicast(msg, dry_run=True)
+        assert batch_response.success_count == 2
+        assert batch_response.failure_count == 0
+        assert len(batch_response.responses) == 2
+        assert [r.message_id for r in batch_response.responses] == ['message-id1', 'message-id2']
+        assert all(r.success for r in batch_response.responses)
+        assert not any(r.exception for r in batch_response.responses)
+
+    @respx.mock
+    @pytest.mark.asyncio
+    async def test_send_each_for_multicast_async(self):
+        responses = [
+            respx.MockResponse(200, http_version='HTTP/2', json={'name': 'message-id1'}),
+            respx.MockResponse(200, http_version='HTTP/2', json={'name': 'message-id2'}),
+        ]
+        msg = messaging.MulticastMessage(tokens=['foo1', 'foo2'])
+        route = respx.request(
+            method='POST',
+            url='https://fcm.googleapis.com/v1/projects/explicit-project-id/messages:send'
+        )
+        route.side_effect = responses
+        batch_response = await messaging.send_each_for_multicast_async(msg, dry_run=True)
+        assert batch_response.success_count == 2
+        assert batch_response.failure_count == 0
+        assert len(batch_response.responses) == 2
+        assert [r.message_id for r in batch_response.responses] == ['message-id1', 'message-id2']
+        assert all(r.success for r in batch_response.responses)
+        assert not any(r.exception for r in batch_response.responses)
+
+    @respx.mock
+    @pytest.mark.asyncio
+    async def test_send_each_for_multicast_async_fids(self):
+        responses = [
+            respx.MockResponse(200, http_version='HTTP/2', json={'name': 'message-id1'}),
+            respx.MockResponse(200, http_version='HTTP/2', json={'name': 'message-id2'}),
+        ]
+        msg = messaging.MulticastMessage(fids=['foo1', 'foo2'])
+        route = respx.request(
+            method='POST',
+            url='https://fcm.googleapis.com/v1/projects/explicit-project-id/messages:send'
+        )
+        route.side_effect = responses
+        batch_response = await messaging.send_each_for_multicast_async(msg, dry_run=True)
+        assert batch_response.success_count == 2
+        assert batch_response.failure_count == 0
+        assert len(batch_response.responses) == 2
+        assert [r.message_id for r in batch_response.responses] == ['message-id1', 'message-id2']
+        assert all(r.success for r in batch_response.responses)
+        assert not any(r.exception for r in batch_response.responses)
+
     @pytest.mark.parametrize('status', HTTP_ERROR_CODES)
     def test_send_each_for_multicast_detailed_error(self, status):
         success_payload = json.dumps({'name': 'message-id'})
@@ -2303,7 +2465,7 @@ class TestSendEachForMulticast(TestSendEach):
         check_exception(exception, 'test error', status)
 
 
-class TestTopicManagement:
+class TestTopicManagementLegacy:
 
     _DEFAULT_RESPONSE = json.dumps({'results': [{}, {'error': 'error_reason'}]})
     _DEFAULT_ERROR_RESPONSE = json.dumps({'error': 'error_reason'})
@@ -2357,77 +2519,79 @@ class TestTopicManagement:
             expected = 'Tokens must be non-empty strings.'
 
         with pytest.raises(ValueError) as excinfo:
-            messaging.subscribe_to_topic(tokens, 'test-topic')
+            messaging.subscribe_to_topic_legacy(tokens, 'test-topic')
         assert str(excinfo.value) == expected
 
         with pytest.raises(ValueError) as excinfo:
-            messaging.unsubscribe_from_topic(tokens, 'test-topic')
+            messaging.unsubscribe_from_topic_legacy(tokens, 'test-topic')
         assert str(excinfo.value) == expected
 
     @pytest.mark.parametrize('topic', NON_STRING_ARGS + [None, ''])
     def test_invalid_topic(self, topic):
         expected = 'Topic must be a non-empty string.'
         with pytest.raises(ValueError) as excinfo:
-            messaging.subscribe_to_topic('test-token', topic)
+            messaging.subscribe_to_topic_legacy('test-token', topic)
         assert str(excinfo.value) == expected
 
         with pytest.raises(ValueError) as excinfo:
-            messaging.unsubscribe_from_topic('test-tokens', topic)
+            messaging.unsubscribe_from_topic_legacy('test-tokens', topic)
         assert str(excinfo.value) == expected
 
     @pytest.mark.parametrize('args', _VALID_ARGS)
-    def test_subscribe_to_topic(self, args):
+    def test_subscribe_to_topic_legacy(self, args):
         _, recorder = self._instrument_iid_service()
-        resp = messaging.subscribe_to_topic(args[0], args[1])
+        with pytest.deprecated_call():
+            resp = messaging.subscribe_to_topic_legacy(args[0], args[1])
         self._check_response(resp)
         assert len(recorder) == 1
         self._assert_request(recorder[0], 'POST', self._get_url('iid/v1:batchAdd'))
         assert json.loads(recorder[0].body.decode()) == args[2]
 
     @pytest.mark.parametrize('status, exc_type', HTTP_ERROR_CODES.items())
-    def test_subscribe_to_topic_error(self, status, exc_type):
+    def test_subscribe_to_topic_legacy_error(self, status, exc_type):
         _, recorder = self._instrument_iid_service(
             status=status, payload=self._DEFAULT_ERROR_RESPONSE)
         with pytest.raises(exc_type) as excinfo:
-            messaging.subscribe_to_topic('foo', 'test-topic')
+            messaging.subscribe_to_topic_legacy('foo', 'test-topic')
         assert str(excinfo.value) == 'Error while calling the IID service: error_reason'
         assert len(recorder) == 1
         self._assert_request(recorder[0], 'POST', self._get_url('iid/v1:batchAdd'))
 
     @pytest.mark.parametrize('status, exc_type', HTTP_ERROR_CODES.items())
-    def test_subscribe_to_topic_non_json_error(self, status, exc_type):
+    def test_subscribe_to_topic_legacy_non_json_error(self, status, exc_type):
         _, recorder = self._instrument_iid_service(status=status, payload='not json')
         with pytest.raises(exc_type) as excinfo:
-            messaging.subscribe_to_topic('foo', 'test-topic')
+            messaging.subscribe_to_topic_legacy('foo', 'test-topic')
         reason = f'Unexpected HTTP response with status: {status}; body: not json'
         assert str(excinfo.value) == reason
         assert len(recorder) == 1
         self._assert_request(recorder[0], 'POST', self._get_url('iid/v1:batchAdd'))
 
     @pytest.mark.parametrize('args', _VALID_ARGS)
-    def test_unsubscribe_from_topic(self, args):
+    def test_unsubscribe_from_topic_legacy(self, args):
         _, recorder = self._instrument_iid_service()
-        resp = messaging.unsubscribe_from_topic(args[0], args[1])
+        with pytest.deprecated_call():
+            resp = messaging.unsubscribe_from_topic_legacy(args[0], args[1])
         self._check_response(resp)
         assert len(recorder) == 1
         self._assert_request(recorder[0], 'POST', self._get_url('iid/v1:batchRemove'))
         assert json.loads(recorder[0].body.decode()) == args[2]
 
     @pytest.mark.parametrize('status, exc_type', HTTP_ERROR_CODES.items())
-    def test_unsubscribe_from_topic_error(self, status, exc_type):
+    def test_unsubscribe_from_topic_legacy_error(self, status, exc_type):
         _, recorder = self._instrument_iid_service(
             status=status, payload=self._DEFAULT_ERROR_RESPONSE)
         with pytest.raises(exc_type) as excinfo:
-            messaging.unsubscribe_from_topic('foo', 'test-topic')
+            messaging.unsubscribe_from_topic_legacy('foo', 'test-topic')
         assert str(excinfo.value) == 'Error while calling the IID service: error_reason'
         assert len(recorder) == 1
         self._assert_request(recorder[0], 'POST', self._get_url('iid/v1:batchRemove'))
 
     @pytest.mark.parametrize('status, exc_type', HTTP_ERROR_CODES.items())
-    def test_unsubscribe_from_topic_non_json_error(self, status, exc_type):
+    def test_unsubscribe_from_topic_legacy_non_json_error(self, status, exc_type):
         _, recorder = self._instrument_iid_service(status=status, payload='not json')
         with pytest.raises(exc_type) as excinfo:
-            messaging.unsubscribe_from_topic('foo', 'test-topic')
+            messaging.unsubscribe_from_topic_legacy('foo', 'test-topic')
         reason = f'Unexpected HTTP response with status: {status}; body: not json'
         assert str(excinfo.value) == reason
         assert len(recorder) == 1
@@ -2439,3 +2603,530 @@ class TestTopicManagement:
         assert len(resp.errors) == 1
         assert resp.errors[0].index == 1
         assert resp.errors[0].reason == 'error_reason'
+
+
+class TestTopicManagement:
+
+    _CLIENT_VERSION = f'fire-admin-python/{firebase_admin.__version__}'
+
+    @classmethod
+    def setup_class(cls):
+        cred = testutils.MockCredential()
+        firebase_admin.initialize_app(cred, {'projectId': 'explicit-project-id'})
+
+    @classmethod
+    def teardown_class(cls):
+        testutils.cleanup_apps()
+
+    def _instrument_messaging_service(self, app=None, status=200, payload='{}'):
+        if not app:
+            app = firebase_admin.get_app()
+        fcm_service = messaging._get_messaging_service(app)
+        recorder = []
+        fcm_service._client.session.mount(
+            'https://fcm.googleapis.com',
+            testutils.MockAdapter(payload, status, recorder))
+        return fcm_service, recorder
+
+    def _assert_request(self, request, expected_method, expected_url, expected_body=None):
+        assert request.method == expected_method
+        assert request.url == expected_url
+        assert request.headers['X-GOOG-API-FORMAT-VERSION'] == '2'
+        assert request.headers['X-FIREBASE-CLIENT'] == self._CLIENT_VERSION
+        expected_metrics_header = _utils.get_metrics_header() + ' mock-cred-metric-tag'
+        assert request.headers['x-goog-api-client'] == expected_metrics_header
+        if expected_body is None:
+            assert request.body is None
+        else:
+            assert json.loads(request.body.decode()) == expected_body
+
+    @pytest.mark.parametrize('tokens', [None, '', [], {}, tuple()])
+    def test_invalid_tokens(self, tokens):
+        expected = 'Tokens must be a string or a non-empty list of strings.'
+        if isinstance(tokens, str):
+            expected = 'Tokens must be non-empty strings.'
+
+        with pytest.raises(ValueError) as excinfo:
+            messaging.subscribe_to_topic(tokens, 'test-topic')
+        assert str(excinfo.value) == expected
+
+        with pytest.raises(ValueError) as excinfo:
+            messaging.unsubscribe_from_topic(tokens, 'test-topic')
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('tokens', [
+        ['foo', 'bar', ''],
+        ['foo', 123, 'bar'],
+    ])
+    def test_invalid_tokens_in_list(self, tokens):
+        with pytest.raises(ValueError) as excinfo:
+            messaging.subscribe_to_topic(tokens, 'test-topic')
+        assert str(excinfo.value) == 'Tokens must be non-empty strings.'
+
+        with pytest.raises(ValueError) as excinfo:
+            messaging.unsubscribe_from_topic(tokens, 'test-topic')
+        assert str(excinfo.value) == 'Tokens must be non-empty strings.'
+
+    def test_tokens_over_1000(self):
+        tokens = [f'token{i}' for i in range(1001)]
+        with pytest.raises(ValueError) as excinfo:
+            messaging.subscribe_to_topic(tokens, 'test-topic')
+        assert str(excinfo.value) == 'tokens must not contain more than 1000 elements.'
+
+        with pytest.raises(ValueError) as excinfo:
+            messaging.unsubscribe_from_topic(tokens, 'test-topic')
+        assert str(excinfo.value) == 'tokens must not contain more than 1000 elements.'
+
+    @pytest.mark.parametrize('topic', NON_STRING_ARGS + [None, ''])
+    def test_invalid_topic(self, topic):
+        expected = 'Topic must be a non-empty string.'
+        with pytest.raises(ValueError) as excinfo:
+            messaging.subscribe_to_topic('test-token', topic)
+        assert str(excinfo.value) == expected
+
+        with pytest.raises(ValueError) as excinfo:
+            messaging.unsubscribe_from_topic('test-token', topic)
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.parametrize('topic', [
+        '/topics/', '/foo/bar', 'foo bar', 'f*o*o', '/topics/f+o+o', '$foo', '/topics/foo&',
+        '/topics/foo\n', 'foo\n',
+    ])
+    def test_malformed_topic(self, topic):
+        with pytest.raises(ValueError) as excinfo:
+            messaging.subscribe_to_topic('test-token', topic)
+        assert str(excinfo.value) == 'Malformed topic name.'
+
+        with pytest.raises(ValueError) as excinfo:
+            messaging.unsubscribe_from_topic('test-token', topic)
+        assert str(excinfo.value) == 'Malformed topic name.'
+
+    def test_subscribe_to_topic_single(self):
+        _, recorder = self._instrument_messaging_service()
+        resp = messaging.subscribe_to_topic('token1', 'test-topic')
+        assert resp.success_count == 1
+        assert resp.failure_count == 0
+        assert resp.errors == []
+        assert len(recorder) == 1
+        expected_url = (
+            'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/'
+            'token1/topicSubscriptions?topic_name=test-topic'
+        )
+        self._assert_request(recorder[0], 'POST', expected_url, {})
+
+    def test_subscribe_to_topic_prefixed(self):
+        _, recorder = self._instrument_messaging_service()
+        resp = messaging.subscribe_to_topic('token1', '/topics/test-topic')
+        assert resp.success_count == 1
+        assert resp.failure_count == 0
+        assert resp.errors == []
+        assert len(recorder) == 1
+        expected_url = (
+            'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/'
+            'token1/topicSubscriptions?topic_name=test-topic'
+        )
+        self._assert_request(recorder[0], 'POST', expected_url, {})
+
+    def test_unsubscribe_from_topic_single(self):
+        _, recorder = self._instrument_messaging_service()
+        resp = messaging.unsubscribe_from_topic('token1', 'test-topic')
+        assert resp.success_count == 1
+        assert resp.failure_count == 0
+        assert resp.errors == []
+        assert len(recorder) == 1
+        expected_url = (
+            'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/'
+            'token1/topicSubscriptions/test-topic?allow_missing=true'
+        )
+        self._assert_request(recorder[0], 'DELETE', expected_url, None)
+
+    def test_unsubscribe_from_topic_prefixed(self):
+        _, recorder = self._instrument_messaging_service()
+        resp = messaging.unsubscribe_from_topic('token1', '/topics/test-topic')
+        assert resp.success_count == 1
+        assert resp.failure_count == 0
+        assert resp.errors == []
+        assert len(recorder) == 1
+        expected_url = (
+            'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/'
+            'token1/topicSubscriptions/test-topic?allow_missing=true'
+        )
+        self._assert_request(recorder[0], 'DELETE', expected_url, None)
+
+    def test_subscribe_to_topic_already_exists_409(self):
+        payload = json.dumps({'error': {'status': 'ALREADY_EXISTS', 'message': 'Already exists'}})
+        _, recorder = self._instrument_messaging_service(status=409, payload=payload)
+        resp = messaging.subscribe_to_topic('token1', 'test-topic')
+        assert resp.success_count == 1
+        assert resp.failure_count == 0
+        assert resp.errors == []
+        assert len(recorder) == 1
+
+    def test_unsubscribe_from_topic_not_found_404(self):
+        payload = json.dumps({'error': {'status': 'NOT_FOUND', 'message': 'Not found'}})
+        _, recorder = self._instrument_messaging_service(status=404, payload=payload)
+        resp = messaging.unsubscribe_from_topic('token1', 'test-topic')
+        assert resp.success_count == 0
+        assert resp.failure_count == 1
+        assert len(resp.errors) == 1
+        assert resp.errors[0].index == 0
+        assert resp.errors[0].reason == 'NOT_FOUND'
+        assert len(recorder) == 1
+
+    def test_topic_management_multiple_tokens(self):
+        fcm_service = messaging._get_messaging_service(firebase_admin.get_app())
+        recorder = []
+
+        class MultiTokenMockAdapter(requests.adapters.HTTPAdapter):
+            def send(self, request, **kwargs):  # pylint: disable=arguments-differ,unused-argument
+                recorder.append(request)
+                resp = requests.models.Response()
+                resp.url = request.url
+                if 'token2' in request.url:
+                    resp.status_code = 404
+                    content = json.dumps({'error': {'status': 'NOT_FOUND'}}).encode()
+                else:
+                    resp.status_code = 200
+                    content = b'{}'
+                resp.raw = io.BytesIO(content)
+                return resp
+
+        fcm_service._client.session.mount(
+            'https://fcm.googleapis.com',
+            MultiTokenMockAdapter())
+
+        resp = messaging.subscribe_to_topic(['token1', 'token2', 'token3'], 'test-topic')
+        assert resp.success_count == 2
+        assert resp.failure_count == 1
+        assert len(resp.errors) == 1
+        assert resp.errors[0].index == 1
+        assert resp.errors[0].reason == 'NOT_FOUND'
+        assert len(recorder) == 3
+
+    def test_topic_management_fcm_error_details(self):
+        payload = json.dumps({
+            'error': {
+                'status': 'NOT_FOUND',
+                'details': [
+                    {
+                        '@type': 'type.googleapis.com/google.firebase.fcm.v1.FcmError',
+                        'errorCode': 'UNREGISTERED',
+                    },
+                ],
+            }
+        })
+        _, recorder = self._instrument_messaging_service(status=404, payload=payload)
+        resp = messaging.subscribe_to_topic('token1', 'test-topic')
+        assert resp.success_count == 0
+        assert resp.failure_count == 1
+        assert len(resp.errors) == 1
+        assert resp.errors[0].index == 0
+        assert resp.errors[0].reason == 'UNREGISTERED'
+        assert len(recorder) == 1
+
+    def test_topic_management_500_error(self):
+        _, recorder = self._instrument_messaging_service(status=500, payload='{"error": null}')
+        resp = messaging.subscribe_to_topic('token1', 'test-topic')
+        assert resp.success_count == 0
+        assert resp.failure_count == 1
+        assert len(resp.errors) == 1
+        assert resp.errors[0].index == 0
+        assert resp.errors[0].reason == 'INTERNAL'
+        assert len(recorder) == 1
+
+    def test_topic_management_non_json_error(self):
+        _, recorder = self._instrument_messaging_service(status=400, payload='not json')
+        resp = messaging.subscribe_to_topic('token1', 'test-topic')
+        assert resp.success_count == 0
+        assert resp.failure_count == 1
+        assert len(resp.errors) == 1
+        assert resp.errors[0].index == 0
+        assert resp.errors[0].reason == 'INVALID_ARGUMENT'
+        assert len(recorder) == 1
+
+    @pytest.mark.parametrize('status_code, expected_reason', [
+        (401, 'UNAUTHENTICATED'),
+        (403, 'PERMISSION_DENIED'),
+        (408, 'DEADLINE_EXCEEDED'),
+        (429, 'RESOURCE_EXHAUSTED'),
+        (503, 'UNAVAILABLE'),
+        (504, 'DEADLINE_EXCEEDED'),
+    ])
+    def test_topic_management_status_code_mapping(self, status_code, expected_reason):
+        _, recorder = self._instrument_messaging_service(
+            status=status_code, payload=json.dumps({'error': {'message': 'Some message'}}))
+        resp = messaging.subscribe_to_topic('token1', 'test-topic')
+        assert resp.success_count == 0
+        assert resp.failure_count == 1
+        assert len(resp.errors) == 1
+        assert resp.errors[0].index == 0
+        assert resp.errors[0].reason == expected_reason
+        assert len(recorder) == (3 if status_code == 401 else 1)
+
+
+class TestTopicManagementAsync:
+
+    @classmethod
+    def setup_class(cls):
+        cred = testutils.MockCredential()
+        firebase_admin.initialize_app(cred, {'projectId': 'explicit-project-id'})
+
+    @classmethod
+    def teardown_class(cls):
+        testutils.cleanup_apps()
+
+    @pytest.mark.asyncio
+    @respx.mock
+    async def test_subscribe_to_topic_async_single(self):
+        url = (
+            'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/'
+            'token1/topicSubscriptions?topic_name=test-topic'
+        )
+        route = respx.post(url).mock(return_value=respx.MockResponse(200, json={}))
+        resp = await messaging.subscribe_to_topic_async('token1', 'test-topic')
+        assert route.call_count == 1
+        assert resp.success_count == 1
+        assert resp.failure_count == 0
+        assert resp.errors == []
+
+    @pytest.mark.asyncio
+    @respx.mock
+    async def test_subscribe_to_topic_async_already_exists(self):
+        url = (
+            'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/'
+            'token1/topicSubscriptions?topic_name=test-topic'
+        )
+        payload = {'error': {'status': 'ALREADY_EXISTS', 'message': 'Already exists'}}
+        route = respx.post(url).mock(return_value=respx.MockResponse(409, json=payload))
+        resp = await messaging.subscribe_to_topic_async('token1', 'test-topic')
+        assert route.call_count == 1
+        assert resp.success_count == 1
+        assert resp.failure_count == 0
+        assert resp.errors == []
+
+    @pytest.mark.asyncio
+    @respx.mock
+    async def test_unsubscribe_from_topic_async_single(self):
+        url = (
+            'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/'
+            'token1/topicSubscriptions/test-topic?allow_missing=true'
+        )
+        route = respx.delete(url).mock(return_value=respx.MockResponse(200, json={}))
+        resp = await messaging.unsubscribe_from_topic_async('token1', 'test-topic')
+        assert route.call_count == 1
+        assert resp.success_count == 1
+        assert resp.failure_count == 0
+        assert resp.errors == []
+
+    @pytest.mark.asyncio
+    @respx.mock
+    async def test_unsubscribe_from_topic_async_not_found(self):
+        url = (
+            'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/'
+            'token1/topicSubscriptions/test-topic?allow_missing=true'
+        )
+        payload = {'error': {'status': 'NOT_FOUND', 'message': 'Not found'}}
+        route = respx.delete(url).mock(return_value=respx.MockResponse(404, json=payload))
+        resp = await messaging.unsubscribe_from_topic_async('token1', 'test-topic')
+        assert route.call_count == 1
+        assert resp.success_count == 0
+        assert resp.failure_count == 1
+        assert len(resp.errors) == 1
+        assert resp.errors[0].index == 0
+        assert resp.errors[0].reason == 'NOT_FOUND'
+
+    @pytest.mark.asyncio
+    @respx.mock
+    async def test_subscribe_to_topic_async_multiple(self):
+        base = 'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations'
+        url1 = f'{base}/token1/topicSubscriptions?topic_name=test-topic'
+        url2 = f'{base}/token2/topicSubscriptions?topic_name=test-topic'
+        url3 = f'{base}/token3/topicSubscriptions?topic_name=test-topic'
+        route1 = respx.post(url1).mock(return_value=respx.MockResponse(200, json={}))
+        route2 = respx.post(url2).mock(
+            return_value=respx.MockResponse(404, json={'error': {'status': 'NOT_FOUND'}}))
+        route3 = respx.post(url3).mock(return_value=respx.MockResponse(200, json={}))
+
+        resp = await messaging.subscribe_to_topic_async(
+            ['token1', 'token2', 'token3'], 'test-topic')
+        assert route1.call_count == 1
+        assert route2.call_count == 1
+        assert route3.call_count == 1
+        assert resp.success_count == 2
+        assert resp.failure_count == 1
+        assert len(resp.errors) == 1
+        assert resp.errors[0].index == 1
+        assert resp.errors[0].reason == 'NOT_FOUND'
+
+    @pytest.mark.asyncio
+    @respx.mock
+    async def test_subscribe_to_topic_async_prefixed(self):
+        url = (
+            'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/'
+            'token1/topicSubscriptions?topic_name=test-topic'
+        )
+        route = respx.post(url).mock(return_value=respx.MockResponse(200, json={}))
+        resp = await messaging.subscribe_to_topic_async('token1', '/topics/test-topic')
+        assert route.call_count == 1
+        assert resp.success_count == 1
+        assert resp.failure_count == 0
+        assert resp.errors == []
+
+    @pytest.mark.asyncio
+    @respx.mock
+    async def test_unsubscribe_from_topic_async_prefixed(self):
+        url = (
+            'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/'
+            'token1/topicSubscriptions/test-topic?allow_missing=true'
+        )
+        route = respx.delete(url).mock(return_value=respx.MockResponse(200, json={}))
+        resp = await messaging.unsubscribe_from_topic_async('token1', '/topics/test-topic')
+        assert route.call_count == 1
+        assert resp.success_count == 1
+        assert resp.failure_count == 0
+        assert resp.errors == []
+
+    @pytest.mark.asyncio
+    @respx.mock
+    async def test_unsubscribe_from_topic_async_multiple(self):
+        base = 'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations'
+        url1 = f'{base}/token1/topicSubscriptions/test-topic?allow_missing=true'
+        url2 = f'{base}/token2/topicSubscriptions/test-topic?allow_missing=true'
+        url3 = f'{base}/token3/topicSubscriptions/test-topic?allow_missing=true'
+        route1 = respx.delete(url1).mock(return_value=respx.MockResponse(200, json={}))
+        route2 = respx.delete(url2).mock(
+            return_value=respx.MockResponse(404, json={'error': {'status': 'NOT_FOUND'}}))
+        route3 = respx.delete(url3).mock(return_value=respx.MockResponse(200, json={}))
+
+        resp = await messaging.unsubscribe_from_topic_async(
+            ['token1', 'token2', 'token3'], 'test-topic')
+        assert route1.call_count == 1
+        assert route2.call_count == 1
+        assert route3.call_count == 1
+        assert resp.success_count == 2
+        assert resp.failure_count == 1
+        assert len(resp.errors) == 1
+        assert resp.errors[0].index == 1
+        assert resp.errors[0].reason == 'NOT_FOUND'
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('tokens', [None, '', [], {}, tuple()])
+    async def test_invalid_tokens(self, tokens):
+        expected = 'Tokens must be a string or a non-empty list of strings.'
+        if isinstance(tokens, str):
+            expected = 'Tokens must be non-empty strings.'
+
+        with pytest.raises(ValueError) as excinfo:
+            await messaging.subscribe_to_topic_async(tokens, 'test-topic')
+        assert str(excinfo.value) == expected
+
+        with pytest.raises(ValueError) as excinfo:
+            await messaging.unsubscribe_from_topic_async(tokens, 'test-topic')
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('tokens', [
+        ['foo', 'bar', ''],
+        ['foo', 123, 'bar'],
+    ])
+    async def test_invalid_tokens_in_list(self, tokens):
+        with pytest.raises(ValueError) as excinfo:
+            await messaging.subscribe_to_topic_async(tokens, 'test-topic')
+        assert str(excinfo.value) == 'Tokens must be non-empty strings.'
+
+        with pytest.raises(ValueError) as excinfo:
+            await messaging.unsubscribe_from_topic_async(tokens, 'test-topic')
+        assert str(excinfo.value) == 'Tokens must be non-empty strings.'
+
+    @pytest.mark.asyncio
+    async def test_tokens_over_1000(self):
+        tokens = [f'token{i}' for i in range(1001)]
+        with pytest.raises(ValueError) as excinfo:
+            await messaging.subscribe_to_topic_async(tokens, 'test-topic')
+        assert str(excinfo.value) == 'tokens must not contain more than 1000 elements.'
+
+        with pytest.raises(ValueError) as excinfo:
+            await messaging.unsubscribe_from_topic_async(tokens, 'test-topic')
+        assert str(excinfo.value) == 'tokens must not contain more than 1000 elements.'
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('topic', NON_STRING_ARGS + [None, ''])
+    async def test_invalid_topic(self, topic):
+        expected = 'Topic must be a non-empty string.'
+        with pytest.raises(ValueError) as excinfo:
+            await messaging.subscribe_to_topic_async('test-token', topic)
+        assert str(excinfo.value) == expected
+
+        with pytest.raises(ValueError) as excinfo:
+            await messaging.unsubscribe_from_topic_async('test-token', topic)
+        assert str(excinfo.value) == expected
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('topic', [
+        '/topics/', '/foo/bar', 'foo bar', 'f*o*o', '/topics/f+o+o', '$foo', '/topics/foo&',
+        '/topics/foo\n', 'foo\n',
+    ])
+    async def test_malformed_topic(self, topic):
+        with pytest.raises(ValueError) as excinfo:
+            await messaging.subscribe_to_topic_async('test-token', topic)
+        assert str(excinfo.value) == 'Malformed topic name.'
+
+        with pytest.raises(ValueError) as excinfo:
+            await messaging.unsubscribe_from_topic_async('test-token', topic)
+        assert str(excinfo.value) == 'Malformed topic name.'
+
+    @pytest.mark.asyncio
+    @respx.mock
+    async def test_topic_management_async_fcm_error_details(self):
+        url = (
+            'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/'
+            'token1/topicSubscriptions?topic_name=test-topic'
+        )
+        payload = {
+            'error': {
+                'status': 'NOT_FOUND',
+                'details': [
+                    {
+                        '@type': 'type.googleapis.com/google.firebase.fcm.v1.FcmError',
+                        'errorCode': 'UNREGISTERED',
+                    },
+                ],
+            }
+        }
+        respx.post(url).mock(return_value=respx.MockResponse(404, json=payload))
+        resp = await messaging.subscribe_to_topic_async('token1', 'test-topic')
+        assert resp.success_count == 0
+        assert resp.failure_count == 1
+        assert len(resp.errors) == 1
+        assert resp.errors[0].index == 0
+        assert resp.errors[0].reason == 'UNREGISTERED'
+
+    @pytest.mark.asyncio
+    @respx.mock
+    async def test_topic_management_async_500_error(self):
+        url = (
+            'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/'
+            'token1/topicSubscriptions?topic_name=test-topic'
+        )
+        respx.post(url).mock(return_value=respx.MockResponse(500, json={'error': None}))
+        resp = await messaging.subscribe_to_topic_async('token1', 'test-topic')
+        assert resp.success_count == 0
+        assert resp.failure_count == 1
+        assert len(resp.errors) == 1
+        assert resp.errors[0].index == 0
+        assert resp.errors[0].reason == 'INTERNAL'
+
+    @pytest.mark.asyncio
+    @respx.mock
+    async def test_topic_management_async_non_json_error(self):
+        url = (
+            'https://fcm.googleapis.com/v1/projects/explicit-project-id/registrations/'
+            'token1/topicSubscriptions?topic_name=test-topic'
+        )
+        respx.post(url).mock(return_value=respx.MockResponse(400, text='not json'))
+        resp = await messaging.subscribe_to_topic_async('token1', 'test-topic')
+        assert resp.success_count == 0
+        assert resp.failure_count == 1
+        assert len(resp.errors) == 1
+        assert resp.errors[0].index == 0
+        assert resp.errors[0].reason == 'INVALID_ARGUMENT'

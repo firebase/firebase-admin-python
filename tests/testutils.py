@@ -159,6 +159,10 @@ class MockGoogleComputeEngineCredential(compute_engine.Credentials):
         self._service_account_email = None
         self._token_state = credentials.TokenState.INVALID
 
+    @property
+    def universe_domain(self):
+        return 'googleapis.com'
+
     def refresh(self, request):
         self.token = 'mock-compute-engine-token'
         self._service_account_email = 'mock-gce-email'

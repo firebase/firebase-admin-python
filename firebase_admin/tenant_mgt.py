@@ -288,11 +288,7 @@ class _TenantManagementService:
             self, tenant_id, display_name=None, allow_password_sign_up=None,
             enable_email_link_sign_in=None):
         """Updates the specified tenant with the given parameters."""
-        if not isinstance(tenant_id, str) or not tenant_id:
-            raise ValueError('Tenant ID must be a non-empty string.')
-        if not _auth_utils.is_safe_url_segment(tenant_id):
-            raise ValueError(
-                'Tenant ID must be a non-empty string with valid URL path segment characters.')
+        _auth_utils.validate_tenant_id(tenant_id)
 
         payload = {}
         if display_name is not None:

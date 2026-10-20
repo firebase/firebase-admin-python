@@ -308,7 +308,7 @@ class TestUpdateTenant:
     def test_invalid_tenant_id(self, tenant_id, tenant_mgt_app):
         with pytest.raises(ValueError) as excinfo:
             tenant_mgt.update_tenant(tenant_id, display_name='My Tenant', app=tenant_mgt_app)
-        assert str(excinfo.value).startswith('Tenant ID must be a non-empty string')
+        assert str(excinfo.value).startswith('Invalid tenant ID')
 
     @pytest.mark.parametrize('display_name', [True, False, 1, 0, [], tuple(), {}])
     def test_invalid_display_name_type(self, display_name, tenant_mgt_app):

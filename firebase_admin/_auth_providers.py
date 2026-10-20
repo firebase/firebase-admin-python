@@ -387,9 +387,7 @@ def _validate_oidc_provider_id(provider_id):
     if not isinstance(provider_id, str):
         raise ValueError(
             f'Invalid OIDC provider ID: {provider_id}. Provider ID must be a non-empty string.')
-    if (not provider_id.startswith('oidc.') or
-            provider_id == 'oidc.' or
-            not _auth_utils.is_safe_url_segment(provider_id)):
+    if not provider_id.startswith('oidc.') or not _auth_utils.is_safe_url_segment(provider_id):
         raise ValueError(f'Invalid OIDC provider ID: {provider_id}.')
     return provider_id
 
@@ -398,9 +396,7 @@ def _validate_saml_provider_id(provider_id):
     if not isinstance(provider_id, str):
         raise ValueError(
             f'Invalid SAML provider ID: {provider_id}. Provider ID must be a non-empty string.')
-    if (not provider_id.startswith('saml.') or
-            provider_id == 'saml.' or
-            not _auth_utils.is_safe_url_segment(provider_id)):
+    if not provider_id.startswith('saml.') or not _auth_utils.is_safe_url_segment(provider_id):
         raise ValueError(f'Invalid SAML provider ID: {provider_id}.')
     return provider_id
 

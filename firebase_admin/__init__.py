@@ -21,7 +21,12 @@ import threading
 from google.auth.credentials import Credentials as GoogleAuthCredentials
 from google.auth.exceptions import DefaultCredentialsError
 from firebase_admin import credentials
+from firebase_admin import _python_version_support
 from firebase_admin.__about__ import __version__
+
+
+# Perform Python version check and emit a support warning if needed.
+_python_version_support.check_python_version(package='firebase-admin')
 
 
 _apps = {}

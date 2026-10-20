@@ -37,6 +37,9 @@ class Client:
             2. set the project ID explicitly via Firebase App options, or
             3. set the project ID via the GOOGLE_CLOUD_PROJECT environment variable.""")
 
+        if tenant_id is not None:
+            _auth_utils.validate_tenant_id(tenant_id)
+
         credential = None
         version_header = f'Python/Admin/{firebase_admin.__version__}'
         timeout = app.options.get('httpTimeout', _http_client.DEFAULT_TIMEOUT_SECONDS)

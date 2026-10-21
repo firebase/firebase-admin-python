@@ -26,7 +26,7 @@ from firebase_admin.__about__ import __version__
 
 
 # Perform Python version check and emit a support warning if needed.
-_python_version_support.check_python_version(package='firebase-admin')
+_python_version_support.check_python_version()
 
 
 _apps = {}

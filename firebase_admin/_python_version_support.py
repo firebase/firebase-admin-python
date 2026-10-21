@@ -12,98 +12,80 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Code to check Python versions supported by the Firebase Admin Python SDK."""
+"""Code to check Python versions supported by the Firebase Admin Python SDK.
+
+Adapted from ``google.api_core._python_version_support``.
+"""
 
 import datetime
 import enum
-import functools
-from importlib import metadata
-import logging
 import sys
 import textwrap
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple
+from typing import Dict, List, NamedTuple, Optional, Tuple
 import warnings
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class PythonVersionStatus(enum.Enum):
-    """Support status of a Python version in this client library artifact release.
-
-    "Support", in this context, means that this release of a client library
-    artifact is configured to run on the currently configured version of
-    Python.
-    """
-
-    PYTHON_VERSION_STATUS_UNSPECIFIED = 'PYTHON_VERSION_STATUS_UNSPECIFIED'
+    """Support status of a Python version in this SDK release."""
 
     PYTHON_VERSION_SUPPORTED = 'PYTHON_VERSION_SUPPORTED'
-    """This Python version is fully supported, so the artifact running on this
+    """This Python version is fully supported, so the SDK running on this
     version will have all features and bug fixes."""
 
     PYTHON_VERSION_DEPRECATED = 'PYTHON_VERSION_DEPRECATED'
     """This Python version is still supported, but support will end within a
-    year. At that time, there will be no more releases for this artifact
+    year. At that time, there will be no more releases for this SDK
     running under this Python version."""
 
     PYTHON_VERSION_EOL = 'PYTHON_VERSION_EOL'
     """This Python version has reached its end of life in the Python community
-    (see https://devguide.python.org/versions/), and this artifact will cease
+    (see https://devguide.python.org/versions/), and this SDK will cease
     supporting this Python version within the next few releases."""
 
     PYTHON_VERSION_UNSUPPORTED = 'PYTHON_VERSION_UNSUPPORTED'
-    """This release of the client library artifact may not be the latest, since
-    current releases no longer support this Python version."""
+    """This release of the SDK may not be the latest, since current releases no
+    longer support this Python version."""
 
 
 class VersionInfo(NamedTuple):
     """Hold release and support date information for a Python version."""
 
     version: str
-    python_beta: Optional[datetime.date]
     python_start: datetime.date
     python_eol: datetime.date
-    gapic_start: Optional[datetime.date] = None  # unused
-    gapic_deprecation: Optional[datetime.date] = None
-    gapic_end: Optional[datetime.date] = None
-    dep_unpatchable_cve: Optional[datetime.date] = None  # unused
+    deprecation_date: Optional[datetime.date] = None
+    end_of_support_date: Optional[datetime.date] = None
 
 
 PYTHON_VERSIONS: List[VersionInfo] = [
     # Refer to https://devguide.python.org/versions/ and the PEPs linked therefrom.
     VersionInfo(
         version='3.9',
-        python_beta=datetime.date(2020, 5, 18),
         python_start=datetime.date(2020, 10, 5),
         python_eol=datetime.date(2025, 10, 5),
     ),
     VersionInfo(
         version='3.10',
-        python_beta=datetime.date(2021, 5, 3),
         python_start=datetime.date(2021, 10, 4),
         python_eol=datetime.date(2026, 10, 4),
     ),
     VersionInfo(
         version='3.11',
-        python_beta=datetime.date(2022, 5, 8),
         python_start=datetime.date(2022, 10, 24),
         python_eol=datetime.date(2027, 10, 24),
     ),
     VersionInfo(
         version='3.12',
-        python_beta=datetime.date(2023, 5, 22),
         python_start=datetime.date(2023, 10, 2),
         python_eol=datetime.date(2028, 10, 2),
     ),
     VersionInfo(
         version='3.13',
-        python_beta=datetime.date(2024, 5, 8),
         python_start=datetime.date(2024, 10, 7),
         python_eol=datetime.date(2029, 10, 7),
     ),
     VersionInfo(
         version='3.14',
-        python_beta=datetime.date(2025, 5, 7),
         python_start=datetime.date(2025, 10, 7),
         python_eol=datetime.date(2030, 10, 7),
     ),
@@ -118,19 +100,18 @@ LOWEST_TRACKED_VERSION = min(PYTHON_VERSION_INFO.keys())
 _FAKE_PAST_DATE = datetime.date.min + datetime.timedelta(days=900)
 _FAKE_PAST_VERSION = VersionInfo(
     version='0.0',
-    python_beta=_FAKE_PAST_DATE,
     python_start=_FAKE_PAST_DATE,
     python_eol=_FAKE_PAST_DATE,
 )
 _FAKE_FUTURE_DATE = datetime.date.max - datetime.timedelta(days=900)
 _FAKE_FUTURE_VERSION = VersionInfo(
     version='999.0',
-    python_beta=_FAKE_FUTURE_DATE,
     python_start=_FAKE_FUTURE_DATE,
     python_eol=_FAKE_FUTURE_DATE,
 )
 DEPRECATION_WARNING_PERIOD = datetime.timedelta(days=365)
 EOL_GRACE_PERIOD = datetime.timedelta(weeks=1)
+_PACKAGE_LABEL = 'package firebase-admin (firebase_admin)'
 
 
 def _flatten_message(text: str) -> str:
@@ -138,50 +119,11 @@ def _flatten_message(text: str) -> str:
     return ' '.join(textwrap.dedent(text).strip().split())
 
 
-@functools.cache
-def _cached_packages_distributions():
-    # `importlib.metadata.packages_distributions()` is only available in Python 3.10+.
-    packages_distributions = getattr(metadata, 'packages_distributions', None)
-    if packages_distributions is None:  # pragma: NO COVER
-        return {}
-    return packages_distributions()
-
-
-def _get_pypi_package_name(module_name: str) -> Optional[str]:
-    """Determine the PyPI package name for a given module name."""
-    try:
-        module_to_distributions = _cached_packages_distributions()
-
-        if module_name in module_to_distributions:  # pragma: NO COVER
-            return module_to_distributions[module_name][0]
-    except Exception as err:  # pragma: NO COVER # pylint: disable=broad-except
-        _LOGGER.info(
-            'An error occurred while determining PyPI package name for %s: %s',
-            module_name,
-            err,
-        )
-
-    return None
-
-
-def _get_distribution_and_import_packages(import_package: str) -> Tuple[str, Any]:
-    """Return a pretty string with distribution & import package names."""
-    distribution_package = _get_pypi_package_name(import_package)
-    pretty_package_name = (
-        f'package {distribution_package} ({import_package})'
-        if distribution_package
-        else import_package
-    )
-    return pretty_package_name, distribution_package
-
-
 def check_python_version(
-        package: str = 'firebase-admin',
         today: Optional[datetime.date] = None) -> PythonVersionStatus:
     """Check the running Python version and issue a support warning if needed.
 
     Args:
-        package: The name of the package to display in the warning message.
         today: The date to check against. Defaults to the current date.
 
     Returns:
@@ -201,10 +143,12 @@ def check_python_version(
         else:
             version_info = _FAKE_FUTURE_VERSION
 
-    gapic_deprecation = version_info.gapic_deprecation or (
+    deprecation_date = version_info.deprecation_date or (
         version_info.python_eol - DEPRECATION_WARNING_PERIOD
     )
-    gapic_end = version_info.gapic_end or (version_info.python_eol + EOL_GRACE_PERIOD)
+    end_of_support_date = version_info.end_of_support_date or (
+        version_info.python_eol + EOL_GRACE_PERIOD
+    )
 
     def min_python(date: datetime.date) -> str:
         """Find the minimum supported Python version for a given date."""
@@ -213,52 +157,42 @@ def check_python_version(
                 return f'{version[0]}.{version[1]}'
         return 'at a currently supported version [https://devguide.python.org/versions]'
 
-    # Resolve the pretty package label lazily so we avoid any work on
-    # the happy path (supported Python version, no warning needed).
-    def get_package_label():
-        label, _ = _get_distribution_and_import_packages(package)
-        return label
-
-    if gapic_end < today:
-        package_label = get_package_label()
+    if end_of_support_date < today:
         message = _flatten_message(
             f"""
             You are using a non-supported Python version ({py_version_str}).
-            Google will not post any further updates to {package_label}
+            Google will not post any further updates to {_PACKAGE_LABEL}
             supporting this Python version. Please upgrade to the latest Python
             version, or at least Python {min_python(today)}, and then update
-            {package_label}.
+            {_PACKAGE_LABEL}.
             """
         )
         warnings.warn(message, FutureWarning)
         return PythonVersionStatus.PYTHON_VERSION_UNSUPPORTED
 
-    eol_date = version_info.python_eol + EOL_GRACE_PERIOD
-    if eol_date <= today <= gapic_end:
-        package_label = get_package_label()
+    if version_info.python_eol <= today <= end_of_support_date:
         message = _flatten_message(
             f"""
             You are using a Python version ({py_version_str})
-            past its end of life. Google will update {package_label}
+            past its end of life. Google will update {_PACKAGE_LABEL}
             with critical bug fixes on a best-effort basis, but not
             with any other fixes or features. Please upgrade
             to the latest Python version, or at least Python
-            {min_python(today)}, and then update {package_label}.
+            {min_python(today)}, and then update {_PACKAGE_LABEL}.
             """
         )
         warnings.warn(message, FutureWarning)
         return PythonVersionStatus.PYTHON_VERSION_EOL
 
-    if gapic_deprecation <= today <= gapic_end:
-        package_label = get_package_label()
+    if deprecation_date <= today < version_info.python_eol:
         message = _flatten_message(
             f"""
             You are using a Python version ({py_version_str}) which Google will
-            stop supporting in new releases of {package_label} once it reaches
+            stop supporting in new releases of {_PACKAGE_LABEL} once it reaches
             its end of life ({version_info.python_eol}). Please upgrade to the
             latest Python version, or at least Python
             {min_python(version_info.python_eol)}, to continue receiving updates
-            for {package_label} past that date.
+            for {_PACKAGE_LABEL} past that date.
             """
         )
         warnings.warn(message, FutureWarning)

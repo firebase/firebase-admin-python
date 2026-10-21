@@ -25,9 +25,7 @@ import pytest
 from firebase_admin._python_version_support import (
     PYTHON_VERSION_INFO,
     PythonVersionStatus,
-    _cached_packages_distributions,
     _flatten_message,
-    _get_distribution_and_import_packages,
     check_python_version,
 )
 
@@ -47,7 +45,7 @@ def test_flatten_message():
 
 
 def _create_failure_message(
-        expected, result, py_version, date, gapic_dep, py_eol, eol_warn, gapic_end):
+        expected, result, py_version, date, deprecation_date, py_eol, end_of_support_date):
     """Create a detailed failure message for a test."""
     return textwrap.dedent(  # pragma: NO COVER
         f"""
@@ -56,13 +54,12 @@ def _create_failure_message(
         Received status: {result.name}
         ---------------------
         Context:
-          - Mocked Python Version: {py_version}
-          - Mocked Today's Date:   {date}
+          - Mocked Python Version:   {py_version}
+          - Mocked Today's Date:     {date}
         Calculated Dates:
-          - gapic_deprecation:     {gapic_dep}
-          - python_eol:            {py_eol}
-          - eol_warning_starts:    {eol_warn}
-          - gapic_end:             {gapic_end}
+          - deprecation_date:        {deprecation_date}
+          - python_eol:              {py_eol}
+          - end_of_support_date:     {end_of_support_date}
         """
     )
 
@@ -73,41 +70,36 @@ def get_tracked_version_test_cases():
 
     for version_tuple, version_info in PYTHON_VERSION_INFO.items():
         py_version_str = f'{version_tuple[0]}.{version_tuple[1]}'
-        gapic_dep = version_info.gapic_deprecation or (
+        deprecation_date = version_info.deprecation_date or (
             version_info.python_eol - datetime.timedelta(days=365)
         )
-        gapic_end = version_info.gapic_end or (
+        end_of_support_date = version_info.end_of_support_date or (
             version_info.python_eol + datetime.timedelta(weeks=1)
         )
-        eol_warning_starts = version_info.python_eol + datetime.timedelta(weeks=1)
 
         test_cases = {
             'supported_before_deprecation_date': {
-                'date': gapic_dep - datetime.timedelta(days=1),
+                'date': deprecation_date - datetime.timedelta(days=1),
                 'expected': PythonVersionStatus.PYTHON_VERSION_SUPPORTED,
             },
             'deprecated_on_deprecation_date': {
-                'date': gapic_dep,
+                'date': deprecation_date,
                 'expected': PythonVersionStatus.PYTHON_VERSION_DEPRECATED,
             },
-            'deprecated_on_eol_date': {
+            'deprecated_before_eol_date': {
+                'date': version_info.python_eol - datetime.timedelta(days=1),
+                'expected': PythonVersionStatus.PYTHON_VERSION_DEPRECATED,
+            },
+            'eol_on_eol_date': {
                 'date': version_info.python_eol,
-                'expected': PythonVersionStatus.PYTHON_VERSION_DEPRECATED,
-            },
-            'deprecated_before_eol_warning_starts': {
-                'date': eol_warning_starts - datetime.timedelta(days=1),
-                'expected': PythonVersionStatus.PYTHON_VERSION_DEPRECATED,
-            },
-            'eol_on_eol_warning_date': {
-                'date': eol_warning_starts,
                 'expected': PythonVersionStatus.PYTHON_VERSION_EOL,
             },
-            'eol_on_gapic_end_date': {
-                'date': gapic_end,
+            'eol_on_end_of_support_date': {
+                'date': end_of_support_date,
                 'expected': PythonVersionStatus.PYTHON_VERSION_EOL,
             },
-            'unsupported_after_gapic_end_date': {
-                'date': gapic_end + datetime.timedelta(days=1),
+            'unsupported_after_end_of_support_date': {
+                'date': end_of_support_date + datetime.timedelta(days=1),
                 'expected': PythonVersionStatus.PYTHON_VERSION_UNSUPPORTED,
             },
         }
@@ -118,9 +110,8 @@ def get_tracked_version_test_cases():
                     version_tuple,
                     params['date'],
                     params['expected'],
-                    gapic_dep,
-                    gapic_end,
-                    eol_warning_starts,
+                    deprecation_date,
+                    end_of_support_date,
                     id=f'{py_version_str}-{name}',
                 )
             )
@@ -128,11 +119,11 @@ def get_tracked_version_test_cases():
 
 
 @pytest.mark.parametrize(
-    'version_tuple, mock_date, expected_status, gapic_dep, gapic_end, eol_warning_starts',
+    'version_tuple, mock_date, expected_status, deprecation_date, end_of_support_date',
     get_tracked_version_test_cases(),
 )
 def test_all_tracked_versions_and_date_scenarios(
-        version_tuple, mock_date, expected_status, gapic_dep, gapic_end, eol_warning_starts):
+        version_tuple, mock_date, expected_status, deprecation_date, end_of_support_date):
     """Test all outcomes for each tracked version using parametrization."""
     mock_py_v = VersionInfoMock(major=version_tuple[0], minor=version_tuple[1])
 
@@ -148,7 +139,7 @@ def test_all_tracked_versions_and_date_scenarios(
             with pytest.warns(FutureWarning) as record:
                 result = check_python_version(today=mock_date)
             assert len(record) == 1
-            assert 'firebase-admin' in str(record[0].message)
+            assert 'package firebase-admin (firebase_admin)' in str(record[0].message)
 
         if result != expected_status:  # pragma: NO COVER
             py_version_str = f'{version_tuple[0]}.{version_tuple[1]}'
@@ -159,10 +150,9 @@ def test_all_tracked_versions_and_date_scenarios(
                 result,
                 py_version_str,
                 mock_date,
-                gapic_dep,
+                deprecation_date,
                 version_info.python_eol,
-                eol_warning_starts,
-                gapic_end,
+                end_of_support_date,
             )
             pytest.fail(fail_msg, pytrace=False)
 
@@ -182,18 +172,18 @@ def test_python_39_and_310_emit_unsupported_warning_past_eol(version_tuple):
         assert len(record) == 1
         message = str(record[0].message)
         assert 'non-supported Python version' in message
-        assert 'firebase-admin' in message
+        assert 'package firebase-admin (firebase_admin)' in message
         assert 'at least Python 3.11' in message
 
 
-def test_override_gapic_end_only():
-    """Test behavior when only gapic_end is manually overridden."""
+def test_override_end_of_support_date_only():
+    """Test behavior when only end_of_support_date is manually overridden."""
     version_tuple = (3, 10)
     original_info = PYTHON_VERSION_INFO[version_tuple]
     mock_py_version = VersionInfoMock(major=version_tuple[0], minor=version_tuple[1])
 
-    custom_gapic_end = original_info.python_eol + datetime.timedelta(days=212)
-    overridden_info = original_info._replace(gapic_end=custom_gapic_end)
+    custom_end = original_info.python_eol + datetime.timedelta(days=212)
+    overridden_info = original_info._replace(end_of_support_date=custom_end)
     version_info_target = 'firebase_admin._python_version_support.sys.version_info'
     info_dict_target = 'firebase_admin._python_version_support.PYTHON_VERSION_INFO'
 
@@ -201,45 +191,45 @@ def test_override_gapic_end_only():
         with patch.dict(info_dict_target, {version_tuple: overridden_info}):
             with pytest.warns(FutureWarning, match='past its end of life'):
                 result_before_boundary = check_python_version(
-                    today=custom_gapic_end + datetime.timedelta(days=-1)
+                    today=custom_end + datetime.timedelta(days=-1)
                 )
             assert result_before_boundary == PythonVersionStatus.PYTHON_VERSION_EOL
 
             with pytest.warns(FutureWarning, match='past its end of life'):
-                result_at_boundary = check_python_version(today=custom_gapic_end)
+                result_at_boundary = check_python_version(today=custom_end)
             assert result_at_boundary == PythonVersionStatus.PYTHON_VERSION_EOL
 
             with pytest.warns(FutureWarning, match='non-supported Python version'):
                 result_after_boundary = check_python_version(
-                    today=custom_gapic_end + datetime.timedelta(days=1)
+                    today=custom_end + datetime.timedelta(days=1)
                 )
             assert (
                 result_after_boundary == PythonVersionStatus.PYTHON_VERSION_UNSUPPORTED
             )
 
 
-def test_override_gapic_deprecation_only():
-    """Test behavior when only gapic_deprecation is manually overridden."""
+def test_override_deprecation_date_only():
+    """Test behavior when only deprecation_date is manually overridden."""
     version_tuple = (3, 10)
     original_info = PYTHON_VERSION_INFO[version_tuple]
     mock_py_version = VersionInfoMock(major=version_tuple[0], minor=version_tuple[1])
 
-    custom_gapic_dep = original_info.python_eol - datetime.timedelta(days=120)
-    overridden_info = original_info._replace(gapic_deprecation=custom_gapic_dep)
+    custom_dep = original_info.python_eol - datetime.timedelta(days=120)
+    overridden_info = original_info._replace(deprecation_date=custom_dep)
     version_info_target = 'firebase_admin._python_version_support.sys.version_info'
     info_dict_target = 'firebase_admin._python_version_support.PYTHON_VERSION_INFO'
 
     with patch(version_info_target, mock_py_version):
         with patch.dict(info_dict_target, {version_tuple: overridden_info}):
             result_before_boundary = check_python_version(
-                today=custom_gapic_dep - datetime.timedelta(days=1)
+                today=custom_dep - datetime.timedelta(days=1)
             )
             assert (
                 result_before_boundary == PythonVersionStatus.PYTHON_VERSION_SUPPORTED
             )
 
             with pytest.warns(FutureWarning, match='Google will stop supporting'):
-                result_at_boundary = check_python_version(today=custom_gapic_dep)
+                result_at_boundary = check_python_version(today=custom_dep)
             assert result_at_boundary == PythonVersionStatus.PYTHON_VERSION_DEPRECATED
 
 
@@ -272,17 +262,3 @@ def test_untracked_newer_version_is_supported():
 
                 assert result == PythonVersionStatus.PYTHON_VERSION_SUPPORTED
                 assert len(recorded_warnings) == 0
-
-
-def test_package_label_resolution():
-    """Test _get_distribution_and_import_packages with direct and mapped package names."""
-    _cached_packages_distributions.cache_clear()
-    target = 'firebase_admin._python_version_support._cached_packages_distributions'
-    with patch(target, return_value={'firebase_admin': ['firebase-admin']}):
-        label_direct, dist_direct = _get_distribution_and_import_packages('firebase-admin')
-        assert label_direct == 'firebase-admin'
-        assert dist_direct is None
-
-        label_mapped, dist_mapped = _get_distribution_and_import_packages('firebase_admin')
-        assert label_mapped == 'package firebase-admin (firebase_admin)'
-        assert dist_mapped == 'firebase-admin'

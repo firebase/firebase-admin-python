@@ -23,6 +23,7 @@ module uses the Firebase REST API underneath.
 import collections
 import json
 import os
+import string
 import sys
 import threading
 from urllib import parse
@@ -70,6 +71,9 @@ def reference(path='/', app=None, url=None):
     service = _utils.get_app_service(app, _DB_ATTRIBUTE, _DatabaseService)
     client = service.get_client(url)
     return Reference(client=client, path=path)
+
+_QUERY_VALUE_SAFE_CHARS = ''.join(c for c in string.punctuation if c not in '#%&+=?')
+
 
 def _parse_path(path):
     """Parses a path string into a set of segments."""
@@ -603,7 +607,10 @@ class Query:
     def _querystr(self):
         params = []
         for key in sorted(self._params):
-            params.append(f'{key}={self._params[key]}')
+            # Percent-encode the characters that have a special meaning in a query string
+            # (e.g. '&', '#' and '+'), so that they are sent as part of the value.
+            value = parse.quote(str(self._params[key]), safe=_QUERY_VALUE_SAFE_CHARS)
+            params.append(f'{key}={value}')
         return '&'.join(params)
 
     def get(self):

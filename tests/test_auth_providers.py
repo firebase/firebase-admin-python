@@ -45,6 +45,14 @@ CONFIG_NOT_FOUND_RESPONSE = """{
 }"""
 
 INVALID_PROVIDER_IDS = [None, True, False, 1, 0, [], tuple(), {}, '']
+INVALID_OIDC_PROVIDER_IDS = INVALID_PROVIDER_IDS + [
+    'saml.provider', 'oidc.', 'oidc.provider.', 'oidc.provider.\n', 'oidc.provider\n',
+    'oidc.provider/sub', 'oidc.provider?param=1', 'oidc.provider#frag',
+]
+INVALID_SAML_PROVIDER_IDS = INVALID_PROVIDER_IDS + [
+    'oidc.provider', 'saml.', 'saml.provider.', 'saml.provider.\n', 'saml.provider\n',
+    'saml.provider/sub', 'saml.provider?param=1', 'saml.provider#frag',
+]
 
 
 @pytest.fixture(scope='module', params=[{'emulated': False}, {'emulated': True}])
@@ -105,7 +113,7 @@ class TestOIDCProviderConfig:
         },
     }
 
-    @pytest.mark.parametrize('provider_id', INVALID_PROVIDER_IDS + ['saml.provider'])
+    @pytest.mark.parametrize('provider_id', INVALID_OIDC_PROVIDER_IDS)
     def test_get_invalid_provider_id(self, user_mgt_app, provider_id):
         with pytest.raises(ValueError) as excinfo:
             auth.get_oidc_provider_config(provider_id, app=user_mgt_app)
@@ -124,6 +132,9 @@ class TestOIDCProviderConfig:
 
     @pytest.mark.parametrize('invalid_opts', [
         {'provider_id': None}, {'provider_id': ''}, {'provider_id': 'saml.provider'},
+        {'provider_id': 'oidc.'}, {'provider_id': 'oidc.provider.'},
+        {'provider_id': 'oidc.provider/sub'}, {'provider_id': 'oidc.provider?param=1'},
+        {'provider_id': 'oidc.provider#frag'},
         {'client_id': None}, {'client_id': ''},
         {'issuer': None}, {'issuer': ''}, {'issuer': 'not a url'},
         {'display_name': True},
@@ -203,6 +214,9 @@ class TestOIDCProviderConfig:
     @pytest.mark.parametrize('invalid_opts', [
         {},
         {'provider_id': None}, {'provider_id': ''}, {'provider_id': 'saml.provider'},
+        {'provider_id': 'oidc.'}, {'provider_id': 'oidc.provider.'},
+        {'provider_id': 'oidc.provider/sub'}, {'provider_id': 'oidc.provider?param=1'},
+        {'provider_id': 'oidc.provider#frag'},
         {'client_id': ''},
         {'issuer': ''}, {'issuer': 'not a url'},
         {'display_name': True},
@@ -265,7 +279,7 @@ class TestOIDCProviderConfig:
         got = json.loads(recorder[0].body.decode())
         assert got == {'displayName': None, 'enabled': False, 'responseType': {'idToken': False}}
 
-    @pytest.mark.parametrize('provider_id', INVALID_PROVIDER_IDS + ['saml.provider'])
+    @pytest.mark.parametrize('provider_id', INVALID_OIDC_PROVIDER_IDS)
     def test_delete_invalid_provider_id(self, user_mgt_app, provider_id):
         with pytest.raises(ValueError) as excinfo:
             auth.delete_oidc_provider_config(provider_id, app=user_mgt_app)
@@ -302,6 +316,17 @@ class TestOIDCProviderConfig:
         assert len(recorder) == 1
         _assert_request(recorder[0], 'GET',
                         f'{USER_MGT_URLS["PREFIX"]}/oauthIdpConfigs?pageSize=100')
+
+    def test_list_page_token_encoding(self, user_mgt_app):
+        recorder = _instrument_provider_mgt(user_mgt_app, 200, LIST_OIDC_PROVIDER_CONFIGS_RESPONSE)
+        page = auth.list_oidc_provider_configs(page_token='token+1=2&3#4', app=user_mgt_app)
+
+        self._assert_page(page)
+        assert len(recorder) == 1
+        _assert_request(
+            recorder[0], 'GET',
+            f'{USER_MGT_URLS["PREFIX"]}/oauthIdpConfigs'
+            '?pageSize=100&pageToken=token%2B1%3D2%263%234')
 
     def test_list_multiple_pages(self, user_mgt_app):
         sample_response = json.loads(OIDC_PROVIDER_CONFIG_RESPONSE)
@@ -441,7 +466,7 @@ class TestSAMLProviderConfig:
         }
     }
 
-    @pytest.mark.parametrize('provider_id', INVALID_PROVIDER_IDS + ['oidc.provider'])
+    @pytest.mark.parametrize('provider_id', INVALID_SAML_PROVIDER_IDS)
     def test_get_invalid_provider_id(self, user_mgt_app, provider_id):
         with pytest.raises(ValueError) as excinfo:
             auth.get_saml_provider_config(provider_id, app=user_mgt_app)
@@ -460,6 +485,9 @@ class TestSAMLProviderConfig:
 
     @pytest.mark.parametrize('invalid_opts', [
         {'provider_id': None}, {'provider_id': ''}, {'provider_id': 'oidc.provider'},
+        {'provider_id': 'saml.'}, {'provider_id': 'saml.provider.'},
+        {'provider_id': 'saml.provider/sub'}, {'provider_id': 'saml.provider?param=1'},
+        {'provider_id': 'saml.provider#frag'},
         {'idp_entity_id': None}, {'idp_entity_id': ''},
         {'sso_url': None}, {'sso_url': ''}, {'sso_url': 'not a url'},
         {'x509_certificates': None}, {'x509_certificates': []}, {'x509_certificates': 'cert'},
@@ -530,6 +558,9 @@ class TestSAMLProviderConfig:
     @pytest.mark.parametrize('invalid_opts', [
         {},
         {'provider_id': None}, {'provider_id': ''}, {'provider_id': 'oidc.provider'},
+        {'provider_id': 'saml.'}, {'provider_id': 'saml.provider.'},
+        {'provider_id': 'saml.provider/sub'}, {'provider_id': 'saml.provider?param=1'},
+        {'provider_id': 'saml.provider#frag'},
         {'idp_entity_id': ''},
         {'sso_url': ''}, {'sso_url': 'not a url'},
         {'x509_certificates': []}, {'x509_certificates': 'cert'},
@@ -592,7 +623,7 @@ class TestSAMLProviderConfig:
         got = json.loads(recorder[0].body.decode())
         assert got == {'displayName': None, 'enabled': False}
 
-    @pytest.mark.parametrize('provider_id', INVALID_PROVIDER_IDS + ['oidc.provider'])
+    @pytest.mark.parametrize('provider_id', INVALID_SAML_PROVIDER_IDS)
     def test_delete_invalid_provider_id(self, user_mgt_app, provider_id):
         with pytest.raises(ValueError) as excinfo:
             auth.delete_saml_provider_config(provider_id, app=user_mgt_app)
@@ -641,6 +672,17 @@ class TestSAMLProviderConfig:
         assert len(recorder) == 1
         _assert_request(
             recorder[0], 'GET', f'{USER_MGT_URLS["PREFIX"]}/inboundSamlConfigs?pageSize=100')
+
+    def test_list_page_token_encoding(self, user_mgt_app):
+        recorder = _instrument_provider_mgt(user_mgt_app, 200, LIST_SAML_PROVIDER_CONFIGS_RESPONSE)
+        page = auth.list_saml_provider_configs(page_token='token+1=2&3#4', app=user_mgt_app)
+
+        self._assert_page(page)
+        assert len(recorder) == 1
+        _assert_request(
+            recorder[0], 'GET',
+            f'{USER_MGT_URLS["PREFIX"]}/inboundSamlConfigs'
+            '?pageSize=100&pageToken=token%2B1%3D2%263%234')
 
     def test_list_multiple_pages(self, user_mgt_app):
         sample_response = json.loads(SAML_PROVIDER_CONFIG_RESPONSE)

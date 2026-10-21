@@ -30,6 +30,7 @@ RESERVED_CLAIMS = set([
     'iss', 'jti', 'nbf', 'nonce', 'sub', 'firebase',
 ])
 VALID_EMAIL_ACTION_TYPES = set(['VERIFY_EMAIL', 'EMAIL_SIGNIN', 'PASSWORD_RESET'])
+_SAFE_URL_SEGMENT_PATTERN = re.compile(r'^[a-zA-Z0-9\-_.~]+\Z')
 
 
 class PageIterator:
@@ -81,6 +82,22 @@ def get_emulator_host():
 
 def is_emulated():
     return get_emulator_host() != ''
+
+
+def is_safe_url_segment(segment):
+    if not isinstance(segment, str) or not segment or segment.endswith('.'):
+        return False
+    return bool(_SAFE_URL_SEGMENT_PATTERN.match(segment))
+
+
+def validate_tenant_id(tenant_id):
+    if not isinstance(tenant_id, str) or not tenant_id:
+        raise ValueError(
+            f'Invalid tenant ID: {tenant_id}. Tenant ID must be a non-empty string.')
+    if not is_safe_url_segment(tenant_id):
+        raise ValueError(
+            f'Invalid tenant ID: {tenant_id}. Tenant ID must be a valid URL path segment.')
+    return tenant_id
 
 
 def validate_uid(uid, required=False):

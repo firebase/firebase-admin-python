@@ -602,7 +602,8 @@ class UserManager:
         self.http_client = http_client
         url_prefix = url_override or self.ID_TOOLKIT_URL
         self.base_url = f'{url_prefix}/projects/{project_id}'
-        if tenant_id:
+        if tenant_id is not None:
+            _auth_utils.validate_tenant_id(tenant_id)
             self.base_url += f'/tenants/{tenant_id}'
 
     def get_user(self, **kwargs):

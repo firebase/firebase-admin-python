@@ -590,7 +590,7 @@ class _ProjectManagementService:
             app_store_id=None):
         """Creates an Android or iOS app."""
         _check_is_string_or_none(display_name, 'display_name')
-        _check_is_string_or_none(app_store_id, 'app_store_id')
+        _check_is_nonempty_string_or_none(app_store_id, 'app_store_id')
         path = f'/v1beta1/projects/{self._project_id}/{platform_resource_name}'
         request_body = {identifier_name: identifier}
         if display_name:

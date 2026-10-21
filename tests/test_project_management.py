@@ -748,7 +748,7 @@ class TestCreateIOSApp(BaseProjectManagementTest):
         self._assert_request_is_correct(
             recorder[2], 'GET', 'https://firebase.googleapis.com/v1/operations/abcdefg')
 
-    @pytest.mark.parametrize('app_store_id', [12345, ['123'], {'id': '123'}, True])
+    @pytest.mark.parametrize('app_store_id', ['', 12345, ['123'], {'id': '123'}, True])
     def test_create_ios_app_invalid_app_store_id(self, app_store_id):
         recorder = self._instrument_service(statuses=[], responses=[])
 
@@ -757,7 +757,7 @@ class TestCreateIOSApp(BaseProjectManagementTest):
                 bundle_id='com.hello.world.ios',
                 app_store_id=app_store_id)
 
-        assert str(excinfo.value) == 'app_store_id must be a string.'
+        assert str(excinfo.value) == 'app_store_id must be a non-empty string.'
         assert len(recorder) == 0
 
     def test_create_ios_app_already_exists(self):

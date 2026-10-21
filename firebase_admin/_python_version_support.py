@@ -154,8 +154,8 @@ def check_python_version(
         """Find the minimum supported Python version for a given date."""
         for version, info in sorted(PYTHON_VERSION_INFO.items()):
             if info.python_start <= date < info.python_eol:
-                return f'{version[0]}.{version[1]}'
-        return 'at a currently supported version [https://devguide.python.org/versions]'
+                return f'Python {version[0]}.{version[1]}'
+        return 'a currently supported Python version [https://devguide.python.org/versions]'
 
     if end_of_support_date < today:
         message = _flatten_message(
@@ -163,11 +163,11 @@ def check_python_version(
             You are using a non-supported Python version ({py_version_str}).
             Google will not post any further updates to {_PACKAGE_LABEL}
             supporting this Python version. Please upgrade to the latest Python
-            version, or at least Python {min_python(today)}, and then update
+            version, or at least {min_python(today)}, and then update
             {_PACKAGE_LABEL}.
             """
         )
-        warnings.warn(message, FutureWarning)
+        warnings.warn(message, FutureWarning, stacklevel=2)
         return PythonVersionStatus.PYTHON_VERSION_UNSUPPORTED
 
     if version_info.python_eol <= today <= end_of_support_date:
@@ -177,11 +177,11 @@ def check_python_version(
             past its end of life. Google will update {_PACKAGE_LABEL}
             with critical bug fixes on a best-effort basis, but not
             with any other fixes or features. Please upgrade
-            to the latest Python version, or at least Python
+            to the latest Python version, or at least
             {min_python(today)}, and then update {_PACKAGE_LABEL}.
             """
         )
-        warnings.warn(message, FutureWarning)
+        warnings.warn(message, FutureWarning, stacklevel=2)
         return PythonVersionStatus.PYTHON_VERSION_EOL
 
     if deprecation_date <= today < version_info.python_eol:
@@ -190,12 +190,12 @@ def check_python_version(
             You are using a Python version ({py_version_str}) which Google will
             stop supporting in new releases of {_PACKAGE_LABEL} once it reaches
             its end of life ({version_info.python_eol}). Please upgrade to the
-            latest Python version, or at least Python
+            latest Python version, or at least
             {min_python(version_info.python_eol)}, to continue receiving updates
             for {_PACKAGE_LABEL} past that date.
             """
         )
-        warnings.warn(message, FutureWarning)
+        warnings.warn(message, FutureWarning, stacklevel=2)
         return PythonVersionStatus.PYTHON_VERSION_DEPRECATED
 
     return PythonVersionStatus.PYTHON_VERSION_SUPPORTED

@@ -107,7 +107,11 @@ SAML_PROVIDER_CONFIG_REQUEST = body = {
 LIST_OIDC_PROVIDER_CONFIGS_RESPONSE = testutils.resource('list_oidc_provider_configs.json')
 LIST_SAML_PROVIDER_CONFIGS_RESPONSE = testutils.resource('list_saml_provider_configs.json')
 
-INVALID_TENANT_IDS = [None, '', 0, 1, True, False, [], tuple(), {}]
+INVALID_TENANT_IDS = [
+    None, '', '.', '..', '..\n', 'tenant.', 'tenant.\n', 'tenant\n',
+    'tenant/sub', 'tenant?param=1', 'tenant#frag',
+    0, 1, True, False, [], tuple(), {},
+]
 INVALID_BOOLEANS = ['', 1, 0, [], tuple(), {}]
 
 USER_MGT_URL_PREFIX = 'https://identitytoolkit.googleapis.com/v1/projects/mock-project-id'
@@ -304,7 +308,7 @@ class TestUpdateTenant:
     def test_invalid_tenant_id(self, tenant_id, tenant_mgt_app):
         with pytest.raises(ValueError) as excinfo:
             tenant_mgt.update_tenant(tenant_id, display_name='My Tenant', app=tenant_mgt_app)
-        assert str(excinfo.value).startswith('Tenant ID must be a non-empty string')
+        assert str(excinfo.value).startswith('Invalid tenant ID')
 
     @pytest.mark.parametrize('display_name', [True, False, 1, 0, [], tuple(), {}])
     def test_invalid_display_name_type(self, display_name, tenant_mgt_app):

@@ -182,7 +182,8 @@ class ProviderConfigClient:
         self.http_client = http_client
         url_prefix = url_override or self.PROVIDER_CONFIG_URL
         self.base_url = f'{url_prefix}/projects/{project_id}'
-        if tenant_id:
+        if tenant_id is not None:
+            _auth_utils.validate_tenant_id(tenant_id)
             self.base_url += f'/tenants/{tenant_id}'
 
     def get_oidc_provider_config(self, provider_id):
@@ -218,7 +219,7 @@ class ProviderConfigClient:
         if response_type:
             req['responseType'] = response_type
 
-        params = f'oauthIdpConfigId={provider_id}'
+        params = {'oauthIdpConfigId': provider_id}
         body = self._make_request('post', '/oauthIdpConfigs', json=req, params=params)
         return OIDCProviderConfig(body)
 
@@ -301,7 +302,7 @@ class ProviderConfigClient:
         if enabled is not None:
             req['enabled'] = _auth_utils.validate_boolean(enabled, 'enabled')
 
-        params = f'inboundSamlConfigId={provider_id}'
+        params = {'inboundSamlConfigId': provider_id}
         body = self._make_request('post', '/inboundSamlConfigs', json=req, params=params)
         return SAMLProviderConfig(body)
 
@@ -369,9 +370,9 @@ class ProviderConfigClient:
                 'Max results must be a positive integer less than or equal to '
                 f'{MAX_LIST_CONFIGS_RESULTS}.')
 
-        params = f'pageSize={max_results}'
+        params = {'pageSize': max_results}
         if page_token:
-            params += f'&pageToken={page_token}'
+            params['pageToken'] = page_token
         return self._make_request('get', path, params=params)
 
     def _make_request(self, method, path, **kwargs):
@@ -386,7 +387,7 @@ def _validate_oidc_provider_id(provider_id):
     if not isinstance(provider_id, str):
         raise ValueError(
             f'Invalid OIDC provider ID: {provider_id}. Provider ID must be a non-empty string.')
-    if not provider_id.startswith('oidc.'):
+    if not provider_id.startswith('oidc.') or not _auth_utils.is_safe_url_segment(provider_id):
         raise ValueError(f'Invalid OIDC provider ID: {provider_id}.')
     return provider_id
 
@@ -395,7 +396,7 @@ def _validate_saml_provider_id(provider_id):
     if not isinstance(provider_id, str):
         raise ValueError(
             f'Invalid SAML provider ID: {provider_id}. Provider ID must be a non-empty string.')
-    if not provider_id.startswith('saml.'):
+    if not provider_id.startswith('saml.') or not _auth_utils.is_safe_url_segment(provider_id):
         raise ValueError(f'Invalid SAML provider ID: {provider_id}.')
     return provider_id
 

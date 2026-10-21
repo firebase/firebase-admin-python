@@ -841,6 +841,32 @@ class TestListAndroidApps(BaseProjectManagementTest):
         self._assert_request_is_correct(recorder[0], 'GET', TestListAndroidApps._LISTING_URL)
         self._assert_request_is_correct(recorder[1], 'GET', TestListAndroidApps._LISTING_PAGE_2_URL)
 
+    def test_list_android_apps_page_token_encoding(self):
+        page_1_response = json.dumps({
+            'apps': [{
+                'name': 'projects/test-project-id/androidApps/1:12345678:android:deadbeef',
+                'appId': '1:12345678:android:deadbeef',
+                'displayName': 'My Android App',
+                'projectId': 'test-project-id',
+                'packageName': 'com.hello.world.android',
+            }],
+            'nextPageToken': 'token+1=2&3#4',
+        })
+        recorder = self._instrument_service(
+            statuses=[200, 200],
+            responses=[page_1_response, LIST_ANDROID_APPS_PAGE_2_RESPONSE])
+
+        android_apps = project_management.list_android_apps()
+
+        assert len(android_apps) == 2
+        assert len(recorder) == 2
+        self._assert_request_is_correct(recorder[0], 'GET', TestListAndroidApps._LISTING_URL)
+        expected_page_2_url = (
+            'https://firebase.googleapis.com/v1beta1/projects/test-project-id/'
+            'androidApps?pageToken=token%2B1%3D2%263%234&pageSize=100'
+        )
+        self._assert_request_is_correct(recorder[1], 'GET', expected_page_2_url)
+
     def test_list_android_apps_multiple_pages_rpc_error(self):
         recorder = self._instrument_service(
             statuses=[200, 503],

@@ -721,6 +721,45 @@ class TestCreateIOSApp(BaseProjectManagementTest):
         self._assert_request_is_correct(
             recorder[2], 'GET', 'https://firebase.googleapis.com/v1/operations/abcdefg')
 
+    def test_create_ios_app_with_app_store_id(self):
+        recorder = self._instrument_service(
+            statuses=[200, 200, 200],
+            responses=[
+                OPERATION_IN_PROGRESS_RESPONSE,  # Request to create iOS app asynchronously.
+                OPERATION_IN_PROGRESS_RESPONSE,  # Creation operation is still not done.
+                IOS_APP_OPERATION_SUCCESSFUL_RESPONSE,  # Creation operation completed.
+            ])
+
+        ios_app = project_management.create_ios_app(
+            bundle_id='com.hello.world.ios',
+            display_name='My iOS App',
+            app_store_id='123456789')
+
+        assert ios_app.app_id == '1:12345678:ios:ca5cade5'
+        assert len(recorder) == 3
+        body = {
+            'bundleId': 'com.hello.world.ios',
+            'displayName': 'My iOS App',
+            'appStoreId': '123456789',
+        }
+        self._assert_request_is_correct(recorder[0], 'POST', TestCreateIOSApp._CREATION_URL, body)
+        self._assert_request_is_correct(
+            recorder[1], 'GET', 'https://firebase.googleapis.com/v1/operations/abcdefg')
+        self._assert_request_is_correct(
+            recorder[2], 'GET', 'https://firebase.googleapis.com/v1/operations/abcdefg')
+
+    @pytest.mark.parametrize('app_store_id', [12345, ['123'], {'id': '123'}, True])
+    def test_create_ios_app_invalid_app_store_id(self, app_store_id):
+        recorder = self._instrument_service(statuses=[], responses=[])
+
+        with pytest.raises(ValueError) as excinfo:
+            project_management.create_ios_app(
+                bundle_id='com.hello.world.ios',
+                app_store_id=app_store_id)
+
+        assert str(excinfo.value) == 'app_store_id must be a string.'
+        assert len(recorder) == 0
+
     def test_create_ios_app_already_exists(self):
         recorder = self._instrument_service(statuses=[409], responses=[ALREADY_EXISTS_RESPONSE])
 

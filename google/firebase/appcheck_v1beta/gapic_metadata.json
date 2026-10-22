@@ -1,0 +1,177 @@
+ {
+  "comment": "This file maps proto services/RPCs to the corresponding library clients/methods",
+  "language": "python",
+  "libraryPackage": "google.firebase.appcheck_v1beta",
+  "protoPackage": "google.firebase.appcheck.v1beta",
+  "schema": "1.0",
+  "services": {
+    "ConfigService": {
+      "clients": {
+        "rest": {
+          "libraryClient": "ConfigServiceClient",
+          "rpcs": {
+            "BatchGetAppAttestConfigs": {
+              "methods": [
+                "batch_get_app_attest_configs"
+              ]
+            },
+            "BatchGetDeviceCheckConfigs": {
+              "methods": [
+                "batch_get_device_check_configs"
+              ]
+            },
+            "BatchGetRecaptchaConfigs": {
+              "methods": [
+                "batch_get_recaptcha_configs"
+              ]
+            },
+            "BatchGetSafetyNetConfigs": {
+              "methods": [
+                "batch_get_safety_net_configs"
+              ]
+            },
+            "BatchUpdateServices": {
+              "methods": [
+                "batch_update_services"
+              ]
+            },
+            "CreateDebugToken": {
+              "methods": [
+                "create_debug_token"
+              ]
+            },
+            "DeleteDebugToken": {
+              "methods": [
+                "delete_debug_token"
+              ]
+            },
+            "GetAppAttestConfig": {
+              "methods": [
+                "get_app_attest_config"
+              ]
+            },
+            "GetDebugToken": {
+              "methods": [
+                "get_debug_token"
+              ]
+            },
+            "GetDeviceCheckConfig": {
+              "methods": [
+                "get_device_check_config"
+              ]
+            },
+            "GetRecaptchaConfig": {
+              "methods": [
+                "get_recaptcha_config"
+              ]
+            },
+            "GetSafetyNetConfig": {
+              "methods": [
+                "get_safety_net_config"
+              ]
+            },
+            "GetService": {
+              "methods": [
+                "get_service"
+              ]
+            },
+            "ListDebugTokens": {
+              "methods": [
+                "list_debug_tokens"
+              ]
+            },
+            "ListServices": {
+              "methods": [
+                "list_services"
+              ]
+            },
+            "UpdateAppAttestConfig": {
+              "methods": [
+                "update_app_attest_config"
+              ]
+            },
+            "UpdateDebugToken": {
+              "methods": [
+                "update_debug_token"
+              ]
+            },
+            "UpdateDeviceCheckConfig": {
+              "methods": [
+                "update_device_check_config"
+              ]
+            },
+            "UpdateRecaptchaConfig": {
+              "methods": [
+                "update_recaptcha_config"
+              ]
+            },
+            "UpdateSafetyNetConfig": {
+              "methods": [
+                "update_safety_net_config"
+              ]
+            },
+            "UpdateService": {
+              "methods": [
+                "update_service"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "TokenExchangeService": {
+      "clients": {
+        "rest": {
+          "libraryClient": "TokenExchangeServiceClient",
+          "rpcs": {
+            "ExchangeAppAttestAssertion": {
+              "methods": [
+                "exchange_app_attest_assertion"
+              ]
+            },
+            "ExchangeAppAttestAttestation": {
+              "methods": [
+                "exchange_app_attest_attestation"
+              ]
+            },
+            "ExchangeCustomToken": {
+              "methods": [
+                "exchange_custom_token"
+              ]
+            },
+            "ExchangeDebugToken": {
+              "methods": [
+                "exchange_debug_token"
+              ]
+            },
+            "ExchangeDeviceCheckToken": {
+              "methods": [
+                "exchange_device_check_token"
+              ]
+            },
+            "ExchangeRecaptchaToken": {
+              "methods": [
+                "exchange_recaptcha_token"
+              ]
+            },
+            "ExchangeSafetyNetToken": {
+              "methods": [
+                "exchange_safety_net_token"
+              ]
+            },
+            "GenerateAppAttestChallenge": {
+              "methods": [
+                "generate_app_attest_challenge"
+              ]
+            },
+            "GetPublicJwkSet": {
+              "methods": [
+                "get_public_jwk_set"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

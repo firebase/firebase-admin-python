@@ -16,6 +16,7 @@
 import base64
 import datetime
 import random
+import re
 import string
 import time
 from typing import List
@@ -30,6 +31,7 @@ import requests
 import firebase_admin
 from firebase_admin import auth
 from firebase_admin import credentials
+from firebase_admin import exceptions
 from firebase_admin._http_client import DEFAULT_TIMEOUT_SECONDS as timeout
 
 
@@ -496,6 +498,32 @@ def test_disable_user(new_user_with_params):
     assert user.email_verified is True
     assert user.disabled is True
     assert len(user.provider_data) == 1
+
+def test_add_valid_provider(new_user_with_provider):
+    new_provider = auth.UserProvider(uid=new_user_with_provider.uid, provider_id='microsoft.com')
+    existing_provider_ids = [provider.provider_id for provider in new_user_with_provider.provider_data]
+    assert new_provider.provider_id not in existing_provider_ids
+    user = auth.update_user(new_user_with_provider.uid, provider_to_add=new_provider)
+    assert user.uid == new_user_with_provider.uid
+    new_provider_ids = [provider.provider_id for provider in user.provider_data]
+    assert sorted(new_provider_ids) == sorted(existing_provider_ids + [new_provider.provider_id])
+
+def test_add_invalid_provider(new_user_with_provider):
+    new_provider = auth.UserProvider(uid=new_user_with_provider.uid, provider_id='xyz.com')
+    existing_provider_ids = [provider.provider_id for provider in new_user_with_provider.provider_data]
+    assert new_provider.provider_id not in existing_provider_ids
+    with pytest.raises(exceptions.InvalidArgumentError, match=re.escape(
+        f"Error while calling Auth service (INVALID_PROVIDER_ID ). provider {new_provider.provider_id} is not supported for linking."
+    )):
+        auth.update_user(new_user_with_provider.uid, provider_to_add=new_provider)
+
+def test_add_duplicate_provider(new_user_with_provider):
+    google_uid, google_email = _random_id()
+    duplicate_provider = auth.UserProvider(uid=google_uid, provider_id='google.com', email=google_email)
+    with pytest.raises(exceptions.InvalidArgumentError, match=re.escape(
+        f"Error while calling Auth service (PROVIDER_ALREADY_LINKED)."
+    )):
+        auth.update_user(new_user_with_provider.uid, provider_to_add=duplicate_provider)
 
 def test_remove_provider(new_user_with_provider):
     provider_ids = [provider.provider_id for provider in new_user_with_provider.provider_data]

@@ -235,9 +235,19 @@ class _TenantManagementService:
     TENANT_MGT_URL = 'https://identitytoolkit.googleapis.com/v2'
 
     def __init__(self, app):
-        credential = app.credential.get_credential()
+        tenant_emulator_host = _auth_utils.get_tenant_emulator_host()
+
+        if tenant_emulator_host:
+            credential = _utils.EmulatorAdminCredentials()
+            tenant_mgt_url = (
+                f'http://{tenant_emulator_host}/identitytoolkit.googleapis.com/v2'
+            )
+        else:
+            credential = app.credential.get_credential()
+            tenant_mgt_url = self.TENANT_MGT_URL
+
         version_header = f'Python/Admin/{firebase_admin.__version__}'
-        base_url = f'{self.TENANT_MGT_URL}/projects/{app.project_id}'
+        base_url = f'{tenant_mgt_url}/projects/{app.project_id}'
         self.app = app
         self.client = _http_client.JsonHttpClient(
             credential=credential, base_url=base_url, headers={'X-Client-Version': version_header})

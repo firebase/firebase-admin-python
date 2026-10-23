@@ -15,7 +15,7 @@
 """Tests for firebase_admin._http_client."""
 from typing import Dict, Optional, Union
 import pytest
-import httpx
+import httpx2
 import respx
 from pytest_localserver import http
 from pytest_mock import MockerFixture
@@ -203,8 +203,8 @@ class TestHttpxAsyncClient:
     def test_init_default(self, mocker: MockerFixture, default_retry_config: HttpxRetry):
         """Test client initialization with default settings (no credentials)."""
 
-        # Mock httpx.AsyncClient and HttpxRetryTransport init to check args passed to them
-        mock_async_client_init = mocker.patch('httpx.AsyncClient.__init__', return_value=None)
+        # Mock httpx2.AsyncClient and HttpxRetryTransport init to check args passed to them
+        mock_async_client_init = mocker.patch('httpx2.AsyncClient.__init__', return_value=None)
         mock_transport_init = mocker.patch(
             'firebase_admin._retry.HttpxRetryTransport.__init__', return_value=None
         )
@@ -216,7 +216,7 @@ class TestHttpxAsyncClient:
         assert client._headers == _http_client.METRICS_HEADERS
         assert client._retry_config == default_retry_config
 
-        # Check httpx.AsyncClient call args
+        # Check httpx2.AsyncClient call args
         _, init_kwargs = mock_async_client_init.call_args
         assert init_kwargs.get('http2') is True
         assert init_kwargs.get('timeout') == DEFAULT_TIMEOUT_SECONDS
@@ -237,12 +237,12 @@ class TestHttpxAsyncClient:
     def test_init_with_credentials(self, mocker: MockerFixture, default_retry_config: HttpxRetry):
         """Test client initialization with credentials."""
 
-        # Mock GoogleAuthCredentialFlow, httpx.AsyncClient and HttpxRetryTransport init to
+        # Mock GoogleAuthCredentialFlow, httpx2.AsyncClient and HttpxRetryTransport init to
         # check args passed to them
         mock_auth_flow_init = mocker.patch(
             'firebase_admin._http_client.GoogleAuthCredentialFlow.__init__', return_value=None
         )
-        mock_async_client_init = mocker.patch('httpx.AsyncClient.__init__', return_value=None)
+        mock_async_client_init = mocker.patch('httpx2.AsyncClient.__init__', return_value=None)
         mock_transport_init = mocker.patch(
             'firebase_admin._retry.HttpxRetryTransport.__init__', return_value=None
         )
@@ -258,7 +258,7 @@ class TestHttpxAsyncClient:
         # Verify GoogleAuthCredentialFlow was initialized with the credential
         mock_auth_flow_init.assert_called_once_with(mock_credential)
 
-        # Check httpx.AsyncClient call args
+        # Check httpx2.AsyncClient call args
         _, init_kwargs = mock_async_client_init.call_args
         assert init_kwargs.get('http2') is True
         assert init_kwargs.get('timeout') == DEFAULT_TIMEOUT_SECONDS
@@ -279,11 +279,11 @@ class TestHttpxAsyncClient:
     def test_init_with_custom_settings(self, mocker: MockerFixture):
         """Test client initialization with custom settings."""
 
-        # Mock httpx.AsyncClient and HttpxRetryTransport init to check args passed to them
+        # Mock httpx2.AsyncClient and HttpxRetryTransport init to check args passed to them
         mock_auth_flow_init = mocker.patch(
             'firebase_admin._http_client.GoogleAuthCredentialFlow.__init__', return_value=None
         )
-        mock_async_client_init = mocker.patch('httpx.AsyncClient.__init__', return_value=None)
+        mock_async_client_init = mocker.patch('httpx2.AsyncClient.__init__', return_value=None)
         mock_transport_init = mocker.patch(
             'firebase_admin._retry.HttpxRetryTransport.__init__', return_value=None
         )
@@ -310,7 +310,7 @@ class TestHttpxAsyncClient:
         # Verify original headers are not mutated
         assert headers == {'X-Custom': 'Test'}
 
-        # Check httpx.AsyncClient call args
+        # Check httpx2.AsyncClient call args
         _, init_kwargs = mock_async_client_init.call_args
         assert init_kwargs.get('http2') is False
         assert init_kwargs.get('timeout') == timeout
@@ -363,7 +363,7 @@ class TestHttpxAsyncClient:
         ]
         route = respx.request('POST', _TEST_URL).mock(side_effect=responses)
 
-        with pytest.raises(httpx.HTTPStatusError) as exc_info:
+        with pytest.raises(httpx2.HTTPStatusError) as exc_info:
             resp = await client.request('post', _TEST_URL)
         resp = exc_info.value.response
         assert resp.status_code == 404
@@ -451,7 +451,7 @@ class TestHttpxAsyncClient:
         """Test client request with credentials."""
 
         mock_credential = testutils.MockGoogleCredential()
-        headers = httpx.Headers({'X-Custom': 'Test'})
+        headers = httpx2.Headers({'X-Custom': 'Test'})
         client = HttpxAsyncClient(credential=mock_credential, headers=headers)
 
         responses = [
@@ -583,8 +583,8 @@ class TestHttpxAsyncClient:
 
     def check_headers(
             self,
-            headers: Union[httpx.Headers, Dict[str, str]],
-            expected_headers: Optional[Union[httpx.Headers, Dict[str, str]]] = None,
+            headers: Union[httpx2.Headers, Dict[str, str]],
+            expected_headers: Optional[Union[httpx2.Headers, Dict[str, str]]] = None,
             has_auth: bool = True,
             has_metrics: bool = True
     ):
@@ -653,7 +653,7 @@ class TestGoogleAuthCredentialFlow:
         ]
         route = respx.request('POST', _TEST_URL).mock(side_effect=responses)
 
-        with pytest.raises(httpx.HTTPStatusError) as exc_info:
+        with pytest.raises(httpx2.HTTPStatusError) as exc_info:
             resp = await client.request('post', _TEST_URL)
         resp = exc_info.value.response
         assert resp.status_code == 401

@@ -13,4 +13,4 @@ google-cloud-firestore >= 2.27.0; platform.python_implementation != 'PyPy'
 google-cloud-storage >= 3.1.1
 pyjwt[crypto] >= 2.12.1
 cryptography < 44.0.0; platform.python_implementation == 'PyPy' and python_version < '3.11'
-httpx[http2] == 0.28.1
+httpx2[http2] == 2.13.1

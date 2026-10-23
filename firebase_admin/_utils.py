@@ -20,7 +20,7 @@ from typing import Callable, Optional
 
 import google.auth
 import requests
-import httpx
+import httpx2
 
 import firebase_admin
 from firebase_admin import exceptions
@@ -132,7 +132,7 @@ def handle_platform_error_from_requests(error, handle_func=None):
     return exc if exc else _handle_func_requests(error, message, error_dict)
 
 def handle_platform_error_from_httpx(
-        error: httpx.HTTPError,
+        error: httpx2.HTTPError,
         handle_func: Optional[Callable[..., Optional[exceptions.FirebaseError]]] = None
 ) -> exceptions.FirebaseError:
     """Constructs a ``FirebaseError`` from the given httpx error.
@@ -140,7 +140,7 @@ def handle_platform_error_from_httpx(
     This can be used to handle errors returned by Google Cloud Platform (GCP) APIs.
 
     Args:
-        error: An error raised by the httpx module while making an HTTP call to a GCP API.
+        error: An error raised by the httpx2 module while making an HTTP call to a GCP API.
         handle_func: A function that can be used to handle platform errors in a custom way. When
             specified, this function will be called with three arguments. It has the same
             signature as ```_handle_func_httpx``, but may return ``None``.
@@ -149,7 +149,7 @@ def handle_platform_error_from_httpx(
         FirebaseError: A ``FirebaseError`` that can be raised to the user code.
     """
 
-    if isinstance(error, httpx.HTTPStatusError):
+    if isinstance(error, httpx2.HTTPStatusError):
         response = error.response
         content = response.content.decode()
         status_code = response.status_code
@@ -237,11 +237,11 @@ def handle_requests_error(error, message=None, code=None):
     err_type = _error_code_to_exception_type(code)
     return err_type(message=message, cause=error, http_response=error.response)
 
-def _handle_func_httpx(error: httpx.HTTPError, message, error_dict) -> exceptions.FirebaseError:
+def _handle_func_httpx(error: httpx2.HTTPError, message, error_dict) -> exceptions.FirebaseError:
     """Constructs a ``FirebaseError`` from the given GCP error.
 
     Args:
-        error: An error raised by the httpx module while making an HTTP call.
+        error: An error raised by the httpx2 module while making an HTTP call.
         message: A message to be included in the resulting ``FirebaseError``.
         error_dict: Parsed GCP error response.
 
@@ -252,7 +252,8 @@ def _handle_func_httpx(error: httpx.HTTPError, message, error_dict) -> exception
     return handle_httpx_error(error, message, code)
 
 
-def handle_httpx_error(error: httpx.HTTPError, message=None, code=None) -> exceptions.FirebaseError:
+def handle_httpx_error(
+        error: httpx2.HTTPError, message=None, code=None) -> exceptions.FirebaseError:
     """Constructs a ``FirebaseError`` from the given httpx error.
 
     This method is agnostic of the remote service that produced the error, whether it is a GCP
@@ -260,7 +261,7 @@ def handle_httpx_error(error: httpx.HTTPError, message=None, code=None) -> excep
     any way.
 
     Args:
-        error: An error raised by the httpx module while making an HTTP call.
+        error: An error raised by the httpx2 module while making an HTTP call.
         message: A message to be included in the resulting ``FirebaseError`` (optional). If not
             specified the string representation of the ``error`` argument is used as the message.
         code: A GCP error code that will be used to determine the resulting error type (optional).
@@ -270,15 +271,15 @@ def handle_httpx_error(error: httpx.HTTPError, message=None, code=None) -> excep
     Returns:
         FirebaseError: A ``FirebaseError`` that can be raised to the user code.
     """
-    if isinstance(error, httpx.TimeoutException):
+    if isinstance(error, httpx2.TimeoutException):
         return exceptions.DeadlineExceededError(
             message=f'Timed out while making an API call: {error}',
             cause=error)
-    if isinstance(error, httpx.ConnectError):
+    if isinstance(error, httpx2.ConnectError):
         return exceptions.UnavailableError(
             message=f'Failed to establish a connection: {error}',
             cause=error)
-    if isinstance(error, httpx.HTTPStatusError):
+    if isinstance(error, httpx2.HTTPStatusError):
         if not code:
             code = _http_status_to_error_code(error.response.status_code)
         if not message:

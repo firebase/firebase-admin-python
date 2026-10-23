@@ -18,7 +18,7 @@ import io
 from itertools import chain, repeat
 import json
 import numbers
-import httpx
+import httpx2
 import requests
 import respx
 
@@ -2164,7 +2164,7 @@ class TestSendEach():
     @pytest.mark.asyncio
     @respx.mock
     async def test_send_each_async_request_error(self):
-        responses = httpx.ConnectError("Test request error", request=httpx.Request(
+        responses = httpx2.ConnectError("Test request error", request=httpx2.Request(
             'POST',
             'https://fcm.googleapis.com/v1/projects/explicit-project-id/messages:send'))
 

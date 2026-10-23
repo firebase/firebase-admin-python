@@ -18,6 +18,7 @@ import json
 import os
 import sys
 import time
+from unittest import mock
 
 import pytest
 
@@ -949,6 +950,24 @@ class TestQuery:
     def test_order_by_key(self):
         query = self.ref.order_by_key()
         assert query._querystr == 'orderBy="$key"'
+
+    def test_order_by_key_does_not_resort_results(self):
+        # Regression test for https://github.com/firebase/firebase-admin-python/issues/677
+        # The RTDB server returns order_by_key() results in Firebase key order
+        # (integer-like keys first, in ascending numeric order). The SDK must not
+        # re-sort the results lexicographically at the client side, which would not
+        # match the server-side ordering.
+        query = self.ref.order_by_key()
+        query._client = mock.Mock()
+        query._client.body.return_value = collections.OrderedDict([
+            ('123', {'myValue': True}),
+            ('100001', {'myValue': True}),
+            ('100002', {'myValue': True}),
+            ('100003', {'myValue': True}),
+        ])
+        result = query.get()
+        assert isinstance(result, collections.OrderedDict)
+        assert list(result.keys()) == ['123', '100001', '100002', '100003']
 
     def test_key_filter(self):
         query = self.ref.order_by_key()

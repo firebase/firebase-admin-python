@@ -541,11 +541,9 @@ class _ProjectManagementService:
 
     def _list_apps(self, platform_resource_name, app_class):
         """Lists all the Android or iOS apps within the Firebase project."""
-        path = (
-            f'/v1beta1/projects/{self._project_id}/{platform_resource_name}?pageSize='
-            f'{_ProjectManagementService.MAXIMUM_LIST_APPS_PAGE_SIZE}'
-        )
-        response = self._make_request('get', path)
+        path = f'/v1beta1/projects/{self._project_id}/{platform_resource_name}'
+        params = {'pageSize': _ProjectManagementService.MAXIMUM_LIST_APPS_PAGE_SIZE}
+        response = self._make_request('get', path, params=params)
         apps_list = []
         while True:
             apps = response.get('apps')
@@ -556,12 +554,11 @@ class _ProjectManagementService:
             if not next_page_token:
                 break
             # Retrieve the next page of apps.
-            path = (
-                f'/v1beta1/projects/{self._project_id}/{platform_resource_name}'
-                f'?pageToken={next_page_token}'
-                f'&pageSize={_ProjectManagementService.MAXIMUM_LIST_APPS_PAGE_SIZE}'
-            )
-            response = self._make_request('get', path)
+            params = {
+                'pageToken': next_page_token,
+                'pageSize': _ProjectManagementService.MAXIMUM_LIST_APPS_PAGE_SIZE,
+            }
+            response = self._make_request('get', path, params=params)
         return apps_list
 
     def create_android_app(self, package_name, display_name=None):
@@ -652,12 +649,12 @@ class _ProjectManagementService:
         path = f'/v1beta1/{name}'
         self._make_request('delete', path)
 
-    def _make_request(self, method, url, json=None):
-        body, _ = self._body_and_response(method, url, json)
+    def _make_request(self, method, url, json=None, params=None):
+        body, _ = self._body_and_response(method, url, json=json, params=params)
         return body
 
-    def _body_and_response(self, method, url, json=None):
+    def _body_and_response(self, method, url, json=None, params=None):
         try:
-            return self._client.body_and_response(method=method, url=url, json=json)
+            return self._client.body_and_response(method=method, url=url, json=json, params=params)
         except requests.exceptions.RequestException as error:
             raise _utils.handle_platform_error_from_requests(error)

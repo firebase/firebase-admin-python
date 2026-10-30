@@ -246,9 +246,7 @@ class _TenantManagementService:
 
     def auth_for_tenant(self, tenant_id):
         """Gets an Auth Client instance scoped to the given tenant ID."""
-        if not isinstance(tenant_id, str) or not tenant_id:
-            raise ValueError(
-                f'Invalid tenant ID: {tenant_id}. Tenant ID must be a non-empty string.')
+        _auth_utils.validate_tenant_id(tenant_id)
 
         with self.lock:
             if tenant_id in self.tenant_clients:
@@ -260,9 +258,7 @@ class _TenantManagementService:
 
     def get_tenant(self, tenant_id):
         """Gets the tenant corresponding to the given ``tenant_id``."""
-        if not isinstance(tenant_id, str) or not tenant_id:
-            raise ValueError(
-                f'Invalid tenant ID: {tenant_id}. Tenant ID must be a non-empty string.')
+        _auth_utils.validate_tenant_id(tenant_id)
 
         try:
             body = self.client.body('get', f'/tenants/{tenant_id}')
@@ -292,8 +288,7 @@ class _TenantManagementService:
             self, tenant_id, display_name=None, allow_password_sign_up=None,
             enable_email_link_sign_in=None):
         """Updates the specified tenant with the given parameters."""
-        if not isinstance(tenant_id, str) or not tenant_id:
-            raise ValueError('Tenant ID must be a non-empty string.')
+        _auth_utils.validate_tenant_id(tenant_id)
 
         payload = {}
         if display_name is not None:
@@ -319,9 +314,7 @@ class _TenantManagementService:
 
     def delete_tenant(self, tenant_id):
         """Deletes the tenant corresponding to the given ``tenant_id``."""
-        if not isinstance(tenant_id, str) or not tenant_id:
-            raise ValueError(
-                f'Invalid tenant ID: {tenant_id}. Tenant ID must be a non-empty string.')
+        _auth_utils.validate_tenant_id(tenant_id)
 
         try:
             self.client.request('delete', f'/tenants/{tenant_id}')

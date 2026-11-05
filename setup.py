@@ -22,7 +22,7 @@ from setuptools import setup
 
 
 (major, minor) = (sys.version_info.major, sys.version_info.minor)
-if major != 3 or minor < 10:
+if (major, minor) < (3, 10):
     print('firebase_admin requires python >= 3.10', file=sys.stderr)
     sys.exit(1)
 

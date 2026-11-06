@@ -80,14 +80,14 @@ def test_update_tenant():
     tenant = tenant_mgt.create_tenant(
         display_name='py-update-test', allow_password_sign_up=True, enable_email_link_sign_in=True)
     try:
-        tenant = tenant_mgt.update_tenant(
+        updated_tenant = tenant_mgt.update_tenant(
             tenant.tenant_id, display_name='updated-py-tenant', allow_password_sign_up=False,
             enable_email_link_sign_in=False)
-        assert isinstance(tenant, tenant_mgt.Tenant)
-        assert tenant.tenant_id == tenant.tenant_id
-        assert tenant.display_name == 'updated-py-tenant'
-        assert tenant.allow_password_sign_up is False
-        assert tenant.enable_email_link_sign_in is False
+        assert isinstance(updated_tenant, tenant_mgt.Tenant)
+        assert updated_tenant.tenant_id == tenant.tenant_id
+        assert updated_tenant.display_name == 'updated-py-tenant'
+        assert updated_tenant.allow_password_sign_up is False
+        assert updated_tenant.enable_email_link_sign_in is False
     finally:
         tenant_mgt.delete_tenant(tenant.tenant_id)
 

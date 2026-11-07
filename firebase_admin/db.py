@@ -618,7 +618,11 @@ class Query:
           FirebaseError: If an error occurs while communicating with the remote database server.
         """
         result = self._client.body('get', self._pathurl, params=self._querystr)
-        if isinstance(result, (dict, list)) and self._order_by != '$priority':
+        # The server returns order_by_key() results in Firebase key order (integer-like
+        # keys first, in ascending numeric order). Do not re-sort them at the client side
+        # since the lexicographic ordering applied by _Sorter would not match the
+        # server-side ordering. See https://github.com/firebase/firebase-admin-python/issues/677
+        if isinstance(result, (dict, list)) and self._order_by not in ('$priority', '$key'):
             return _Sorter(result, self._order_by).get()
         return result
 

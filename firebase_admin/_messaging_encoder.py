@@ -16,7 +16,6 @@
 
 import datetime
 import json
-import math
 import numbers
 import re
 import warnings
@@ -275,14 +274,9 @@ class MessageEncoder(json.JSONEncoder):
         if not isinstance(ttl, datetime.timedelta):
             raise ValueError('AndroidConfig.ttl must be a duration in seconds or an instance of '
                              'datetime.timedelta.')
-        total_seconds = ttl.total_seconds()
-        if total_seconds < 0:
+        if ttl < datetime.timedelta(0):
             raise ValueError('AndroidConfig.ttl must not be negative.')
-        seconds = int(math.floor(total_seconds))
-        nanos = int((total_seconds - seconds) * 1e9)
-        if nanos:
-            return f'{seconds}.{str(nanos).zfill(9)}s'
-        return f'{seconds}s'
+        return cls.encode_duration(ttl)
 
     @classmethod
     def encode_milliseconds(cls, label, msec):
@@ -294,13 +288,19 @@ class MessageEncoder(json.JSONEncoder):
         if not isinstance(msec, datetime.timedelta):
             raise ValueError(
                 f'{label} must be a duration in milliseconds or an instance of datetime.timedelta.')
-        total_seconds = msec.total_seconds()
-        if total_seconds < 0:
+        if msec < datetime.timedelta(0):
             raise ValueError(f'{label} must not be negative.')
-        seconds = int(math.floor(total_seconds))
-        nanos = int((total_seconds - seconds) * 1e9)
+        return cls.encode_duration(msec)
+
+    @classmethod
+    def encode_duration(cls, duration):
+        """Encodes a non-negative ``datetime.timedelta`` into a protobuf Duration string."""
+        # Use the exact integer fields of the timedelta instead of total_seconds(), which
+        # is a float and can turn e.g. 86400.9 seconds into 86400.899999999s.
+        seconds = duration.days * 86400 + duration.seconds
+        nanos = duration.microseconds * 1000
         if nanos:
-            return f'{seconds}.{str(nanos).zfill(9)}s'
+            return f'{seconds}.{nanos:09d}s'
         return f'{seconds}s'
 
     @classmethod

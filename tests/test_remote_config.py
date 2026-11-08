@@ -275,7 +275,7 @@ class TestEvaluate:
     def test_evaluate_default_when_no_param(self):
         app = firebase_admin.get_app()
         default_config = {'promo_enabled': False, 'promo_discount': '20',}
-        template_data = SERVER_REMOTE_CONFIG_RESPONSE
+        template_data = SERVER_REMOTE_CONFIG_RESPONSE.copy()
         template_data['parameters'] = {}
         server_template = remote_config.init_server_template(
             app=app,
@@ -289,7 +289,7 @@ class TestEvaluate:
     def test_evaluate_default_when_no_default_value(self):
         app = firebase_admin.get_app()
         default_config = {'default_value': 'local default'}
-        template_data = SERVER_REMOTE_CONFIG_RESPONSE
+        template_data = SERVER_REMOTE_CONFIG_RESPONSE.copy()
         template_data['parameters'] = {
             'default_value': {}
         }
@@ -304,7 +304,7 @@ class TestEvaluate:
     def test_evaluate_conditional_value_without_explicit_value(self):
         app = firebase_admin.get_app()
         default_config = {'dog_type': 'shiba'}
-        template_data = SERVER_REMOTE_CONFIG_RESPONSE
+        template_data = SERVER_REMOTE_CONFIG_RESPONSE.copy()
         template_data['conditions'] = [{'name': 'is_true', 'condition': {'true': {}}}]
         template_data['parameters'] = {
             'dog_type': {
@@ -322,7 +322,7 @@ class TestEvaluate:
     def test_evaluate_default_value_without_explicit_value(self):
         app = firebase_admin.get_app()
         default_config = {'dog_type': 'shiba'}
-        template_data = SERVER_REMOTE_CONFIG_RESPONSE
+        template_data = SERVER_REMOTE_CONFIG_RESPONSE.copy()
         template_data['parameters'] = {
             'dog_type': {'defaultValue': {'useInAppDefault': False}}
         }
@@ -337,7 +337,7 @@ class TestEvaluate:
 
     def test_evaluate_default_when_in_default(self):
         app = firebase_admin.get_app()
-        template_data = SERVER_REMOTE_CONFIG_RESPONSE
+        template_data = SERVER_REMOTE_CONFIG_RESPONSE.copy()
         template_data['parameters'] = {
             'remote_default_value': {}
         }
@@ -354,7 +354,7 @@ class TestEvaluate:
 
     def test_evaluate_default_when_defined(self):
         app = firebase_admin.get_app()
-        template_data = SERVER_REMOTE_CONFIG_RESPONSE
+        template_data = SERVER_REMOTE_CONFIG_RESPONSE.copy()
         template_data['parameters'] = {}
         default_config = {
             'dog_type': 'shiba'
@@ -369,7 +369,7 @@ class TestEvaluate:
 
     def test_evaluate_return_numeric_value(self):
         app = firebase_admin.get_app()
-        template_data = SERVER_REMOTE_CONFIG_RESPONSE
+        template_data = SERVER_REMOTE_CONFIG_RESPONSE.copy()
         default_config = {
             'dog_age': '12'
         }
@@ -383,7 +383,7 @@ class TestEvaluate:
 
     def test_evaluate_return_boolean_value(self):
         app = firebase_admin.get_app()
-        template_data = SERVER_REMOTE_CONFIG_RESPONSE
+        template_data = SERVER_REMOTE_CONFIG_RESPONSE.copy()
         default_config = {
             'dog_is_cute': True
         }

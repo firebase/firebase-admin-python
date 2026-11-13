@@ -30,6 +30,8 @@ conditions like connection timeouts and other I/O errors as instances of ``Fireb
 Therefore it is always a good idea to have a handler specified for ``FirebaseError``, after all the
 subtype error handlers.
 """
+from typing import Optional
+from requests import Response
 
 
 #: Error code for ``InvalidArgumentError`` type.
@@ -95,7 +97,11 @@ class FirebaseError(Exception):
             this object.
     """
 
-    def __init__(self, code, message, cause=None, http_response=None):
+    def __init__(self,
+    code: str,
+    message: str,
+    cause: Optional[Exception] = None,
+    http_response: Optional[Response] = None,):
         Exception.__init__(self, message)
         self._code = code
         self._cause = cause

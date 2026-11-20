@@ -3,7 +3,7 @@ pylint == 4.1.4
 pytest >= 9.2.0
 pytest-cov >= 7.1.0
 pytest-localserver >= 0.10.0
-pytest-asyncio >= 1.4.1
+pytest-asyncio >= 1.5.0
 pytest-mock >= 3.17.0
 respx == 0.23.1
 

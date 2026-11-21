@@ -14,7 +14,7 @@ The Firebase Admin Python SDK provides a Pythonic interface to Firebase services
     -   `_http_client.py`: Contains the centralized `JsonHttpClient` and `HttpxAsyncClient` for all outgoing HTTP requests.
     -   Service modules (e.g., `auth.py`, `db.py`, `messaging.py`): Each module contains the logic for a specific Firebase service.
 -   `tests/`: Contains all unit tests.
-    -   `tests/resources/`: Contains mock data, keys, and other test assets.
+    -   `tests/data/`: Contains mock data, keys, and other test assets.
 -   `integration/`: Contains all integration tests.* 
     -   These integration tests require a real Firebase project to run against.
     -   `integration/conftest.py`: Contains provides configurations for these integration tests including how credentials are provided through pytest.

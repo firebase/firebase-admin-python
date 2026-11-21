@@ -2182,6 +2182,34 @@ class TestSendEach():
         exception = batch_response.responses[0].exception
         assert isinstance(exception, exceptions.UnavailableError)
 
+    @pytest.mark.asyncio
+    @respx.mock
+    async def test_send_each_async_unexpected_exception_preserves_other_results(self):
+        responses = [
+            respx.MockResponse(200, http_version='HTTP/2', json={'name': 'message-id1'}),
+            KeyError(4213),
+        ]
+        msg1 = messaging.Message(topic='foo1')
+        msg2 = messaging.Message(topic='foo2')
+        route = respx.request(
+            'POST',
+            'https://fcm.googleapis.com/v1/projects/explicit-project-id/messages:send'
+        ).mock(side_effect=responses)
+
+        batch_response = await messaging.send_each_async([msg1, msg2], dry_run=True)
+
+        assert route.call_count == 2
+        assert batch_response.success_count == 1
+        assert batch_response.failure_count == 1
+        assert len(batch_response.responses) == 2
+        assert batch_response.responses[0].success is True
+        assert batch_response.responses[0].message_id == 'message-id1'
+        assert batch_response.responses[1].success is False
+        exception = batch_response.responses[1].exception
+        assert isinstance(exception, exceptions.UnknownError)
+        assert isinstance(exception.cause, KeyError)
+        assert exception.cause.args == (4213,)
+
     @pytest.mark.parametrize('status', HTTP_ERROR_CODES)
     def test_send_each_detailed_error(self, status):
         success_payload = json.dumps({'name': 'message-id'})

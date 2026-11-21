@@ -600,6 +600,14 @@ class _MessagingService:
             # Catch errors caused by the requests library during authorization
             except requests.exceptions.RequestException as exception:
                 return SendResponse(resp=None, exception=self._handle_fcm_error(exception))
+            except Exception as exception:
+                return SendResponse(
+                    resp=None,
+                    exception=exceptions.UnknownError(
+                        message=f'Unknown error while making remote service calls: {exception}',
+                        cause=exception,
+                    ),
+                )
             return SendResponse(resp.json(), exception=None)
 
         message_data = [self._message_data(message, dry_run) for message in messages]

@@ -20,6 +20,7 @@ import math
 import numbers
 import re
 import warnings
+from collections.abc import Collection
 
 from firebase_admin import _messaging_utils
 
@@ -165,7 +166,7 @@ class _Validators:
         """Checks if the given value is a list comprised only of strings."""
         if value is None or value == []:
             return None
-        if not isinstance(value, list):
+        if not isinstance(value, Collection) or isinstance(value, str) or isinstance(value, dict):
             raise ValueError(f'{label} must be a list of strings.')
         non_str = [k for k in value if not isinstance(k, str)]
         if non_str:
@@ -177,7 +178,7 @@ class _Validators:
         """Checks if the given value is a list comprised only of numbers."""
         if value is None or value == []:
             return None
-        if not isinstance(value, list):
+        if not isinstance(value, Collection) or isinstance(value, str) or isinstance(value, dict):
             raise ValueError(f'{label} must be a list of numbers.')
         non_number = [k for k in value if not isinstance(k, numbers.Number)]
         if non_number:

@@ -101,18 +101,20 @@ def create_android_app(package_name, display_name=None, app=None):
     return _get_project_management_service(app).create_android_app(package_name, display_name)
 
 
-def create_ios_app(bundle_id, display_name=None, app=None):
+def create_ios_app(bundle_id, display_name=None, app=None, app_store_id=None):
     """Creates a new iOS app in the associated Firebase project.
 
     Args:
         bundle_id: The bundle ID of the iOS app to be created.
         display_name: A nickname for this iOS app (optional).
         app: An App instance (optional).
+        app_store_id: The Apple App Store ID of this iOS app (optional).
 
     Returns:
         IOSApp: An ``IOSApp`` instance that is a reference to the newly created app.
     """
-    return _get_project_management_service(app).create_ios_app(bundle_id, display_name)
+    return _get_project_management_service(app).create_ios_app(
+        bundle_id, display_name, app_store_id)
 
 
 def _check_is_string_or_none(obj, field_name):
@@ -569,13 +571,14 @@ class _ProjectManagementService:
             display_name=display_name,
             app_class=AndroidApp)
 
-    def create_ios_app(self, bundle_id, display_name=None):
+    def create_ios_app(self, bundle_id, display_name=None, app_store_id=None):
         return self._create_app(
             platform_resource_name=_ProjectManagementService.IOS_APPS_RESOURCE_NAME,
             identifier_name=_ProjectManagementService.IOS_APP_IDENTIFIER_NAME,
             identifier=bundle_id,
             display_name=display_name,
-            app_class=IOSApp)
+            app_class=IOSApp,
+            app_store_id=app_store_id)
 
     def _create_app(
             self,
@@ -583,13 +586,17 @@ class _ProjectManagementService:
             identifier_name,
             identifier,
             display_name,
-            app_class):
+            app_class,
+            app_store_id=None):
         """Creates an Android or iOS app."""
         _check_is_string_or_none(display_name, 'display_name')
+        _check_is_nonempty_string_or_none(app_store_id, 'app_store_id')
         path = f'/v1beta1/projects/{self._project_id}/{platform_resource_name}'
         request_body = {identifier_name: identifier}
         if display_name:
             request_body['displayName'] = display_name
+        if app_store_id:
+            request_body['appStoreId'] = app_store_id
         response = self._make_request('post', path, json=request_body)
         operation_name = response['name']
         poll_response = self._poll_app_creation(operation_name)

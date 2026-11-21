@@ -215,7 +215,7 @@ class TestUserRecord:
     def test_redacted_passwords_cleared(self):
         user = auth.ExportedUserRecord({
             'localId': 'user',
-            'passwordHash': base64.b64encode(b'REDACTED'),
+            'passwordHash': base64.b64encode(b'REDACTED').decode(),
         })
         assert user.password_hash is None
 
@@ -946,6 +946,22 @@ class TestListUsers:
         assert len(page.users) == 0
         users = list(user for user in page.iterate_all())
         assert len(users) == 0
+
+    def test_list_users_redacted_password_hash(self, user_mgt_app):
+        response = {'users': [
+            {
+                'localId': 'redacted',
+                'passwordHash': base64.b64encode(b'REDACTED').decode(),
+                'salt': 'passwordSalt',
+            },
+            {'localId': 'user', 'passwordHash': 'passwordHash', 'salt': 'passwordSalt'},
+        ]}
+        _instrument_user_manager(user_mgt_app, 200, json.dumps(response))
+        page = auth.list_users(app=user_mgt_app)
+        assert len(page.users) == 2
+        redacted, user = page.users
+        assert redacted.password_hash is None
+        assert user.password_hash == 'passwordHash'
 
     def test_list_users_with_max_results(self, user_mgt_app):
         _, recorder = _instrument_user_manager(user_mgt_app, 200, MOCK_LIST_USERS_RESPONSE)

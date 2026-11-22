@@ -1,0 +1,2 @@
+recursive-include google/firebase/appcheck *.py
+recursive-include google/firebase/appcheck_v1beta *.py

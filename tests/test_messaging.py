@@ -466,6 +466,9 @@ class TestAndroidConfigEncoder:
         (123, '123s'),
         (123.45, '123.450000000s'),
         (datetime.timedelta(days=1, seconds=100), '86500s'),
+        (1.123457, '1.123457000s'),
+        (86400.9, '86400.900000000s'),
+        (datetime.timedelta(days=1, microseconds=900000), '86400.900000000s'),
     ])
     def test_android_ttl(self, ttl):
         msg = messaging.Message(

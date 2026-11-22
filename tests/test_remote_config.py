@@ -275,7 +275,7 @@ class TestEvaluate:
     def test_evaluate_default_when_no_param(self):
         app = firebase_admin.get_app()
         default_config = {'promo_enabled': False, 'promo_discount': '20',}
-        template_data = SERVER_REMOTE_CONFIG_RESPONSE
+        template_data = SERVER_REMOTE_CONFIG_RESPONSE.copy()
         template_data['parameters'] = {}
         server_template = remote_config.init_server_template(
             app=app,
@@ -289,7 +289,7 @@ class TestEvaluate:
     def test_evaluate_default_when_no_default_value(self):
         app = firebase_admin.get_app()
         default_config = {'default_value': 'local default'}
-        template_data = SERVER_REMOTE_CONFIG_RESPONSE
+        template_data = SERVER_REMOTE_CONFIG_RESPONSE.copy()
         template_data['parameters'] = {
             'default_value': {}
         }
@@ -301,9 +301,43 @@ class TestEvaluate:
         server_config = server_template.evaluate()
         assert server_config.get_string('default_value') == default_config.get('default_value')
 
+    def test_evaluate_conditional_value_without_explicit_value(self):
+        app = firebase_admin.get_app()
+        default_config = {'dog_type': 'shiba'}
+        template_data = SERVER_REMOTE_CONFIG_RESPONSE.copy()
+        template_data['conditions'] = [{'name': 'is_true', 'condition': {'true': {}}}]
+        template_data['parameters'] = {
+            'dog_type': {
+                'conditionalValues': {'is_true': {'useInAppDefault': False}}
+            }
+        }
+        server_template = remote_config.init_server_template(
+            app=app,
+            default_config=default_config,
+            template_data_json=json.dumps(template_data)
+        )
+        server_config = server_template.evaluate()
+        assert server_config.get_string('dog_type') == default_config.get('dog_type')
+
+    def test_evaluate_default_value_without_explicit_value(self):
+        app = firebase_admin.get_app()
+        default_config = {'dog_type': 'shiba'}
+        template_data = SERVER_REMOTE_CONFIG_RESPONSE.copy()
+        template_data['parameters'] = {
+            'dog_type': {'defaultValue': {'useInAppDefault': False}}
+        }
+        server_template = remote_config.init_server_template(
+            app=app,
+            default_config=default_config,
+            template_data_json=json.dumps(template_data)
+        )
+        server_config = server_template.evaluate()
+        assert server_config.get_string('dog_type') == ''
+        assert server_config.get_int('dog_type') == 0
+
     def test_evaluate_default_when_in_default(self):
         app = firebase_admin.get_app()
-        template_data = SERVER_REMOTE_CONFIG_RESPONSE
+        template_data = SERVER_REMOTE_CONFIG_RESPONSE.copy()
         template_data['parameters'] = {
             'remote_default_value': {}
         }
@@ -320,7 +354,7 @@ class TestEvaluate:
 
     def test_evaluate_default_when_defined(self):
         app = firebase_admin.get_app()
-        template_data = SERVER_REMOTE_CONFIG_RESPONSE
+        template_data = SERVER_REMOTE_CONFIG_RESPONSE.copy()
         template_data['parameters'] = {}
         default_config = {
             'dog_type': 'shiba'
@@ -335,7 +369,7 @@ class TestEvaluate:
 
     def test_evaluate_return_numeric_value(self):
         app = firebase_admin.get_app()
-        template_data = SERVER_REMOTE_CONFIG_RESPONSE
+        template_data = SERVER_REMOTE_CONFIG_RESPONSE.copy()
         default_config = {
             'dog_age': '12'
         }
@@ -349,7 +383,7 @@ class TestEvaluate:
 
     def test_evaluate_return_boolean_value(self):
         app = firebase_admin.get_app()
-        template_data = SERVER_REMOTE_CONFIG_RESPONSE
+        template_data = SERVER_REMOTE_CONFIG_RESPONSE.copy()
         default_config = {
             'dog_is_cute': True
         }
@@ -818,6 +852,58 @@ class TestEvaluate:
         )
         server_config = server_template.evaluate(context)
         assert server_config.get_boolean('is_enabled') == parameter_value
+
+    @pytest.mark.parametrize(
+        'custom_signal_operator, target_custom_signal_values, context_value',
+        [
+            (CustomSignalOperator.STRING_CONTAINS.value, ['0'], 0),
+            (CustomSignalOperator.NUMERIC_EQUAL.value, ['0'], 0),
+            (CustomSignalOperator.NUMERIC_GREATER_EQUAL.value, ['0'], 0),
+            (CustomSignalOperator.SEMANTIC_VERSION_EQUAL.value, ['0.0.0'], 0),
+            (CustomSignalOperator.STRING_EXACTLY_MATCHES.value, [''], ''),
+        ])
+    def test_evaluate_custom_signal_with_falsy_value(self,
+                                                     custom_signal_operator,
+                                                     target_custom_signal_values,
+                                                     context_value):
+        app = firebase_admin.get_app()
+        condition = {
+            'name': 'is_true',
+            'condition': {
+                'orCondition': {
+                    'conditions': [{
+                        'andCondition': {
+                            'conditions': [{
+                                'customSignal': {
+                                    'customSignalOperator': custom_signal_operator,
+                                    'customSignalKey': 'signal_key',
+                                    'targetCustomSignalValues': target_custom_signal_values
+                                }
+                            }],
+                        }
+                    }]
+                }
+            }
+        }
+        template_data = {
+            'conditions': [condition],
+            'parameters': {
+                'is_enabled': {
+                    'defaultValue': {'value': 'false'},
+                    'conditionalValues': {'is_true': {'value': 'true'}}
+                },
+            },
+            'parameterGroups': '',
+            'version': '',
+            'etag': '123'
+        }
+        server_template = remote_config.init_server_template(
+            app=app,
+            default_config={},
+            template_data_json=json.dumps(template_data)
+        )
+        server_config = server_template.evaluate({'signal_key': context_value})
+        assert server_config.get_boolean('is_enabled')
 
 
 class MockAdapter(testutils.MockAdapter):

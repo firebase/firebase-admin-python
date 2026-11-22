@@ -18,6 +18,7 @@ import json
 import os
 import sys
 import time
+from urllib import parse
 
 import pytest
 
@@ -992,6 +993,20 @@ class TestQuery:
     def test_valid_start_at(self, arg):
         query = self.ref.order_by_child('foo').start_at(arg)
         assert query._querystr == f'orderBy="foo"&startAt={json.dumps(arg)}'
+
+    @pytest.mark.parametrize('value, encoded', [
+        ('C#', '"C%23"'),
+        ('+15555555', '"%2B15555555"'),
+        ('a&b=c', '"a%26b%3Dc"'),
+        ('100%', '"100%25"'),
+        ('what?', '"what%3F"'),
+        ('a b', '"a%20b"'),
+    ])
+    def test_special_characters_are_encoded(self, value, encoded):
+        query = self.ref.order_by_child('foo').equal_to(value)
+        assert query._querystr == f'equalTo={encoded}&orderBy="foo"'
+        parsed = parse.parse_qs(query._querystr)
+        assert json.loads(parsed['equalTo'][0]) == value
 
     def test_end_at_none(self):
         query = self.ref.order_by_child('foo')

@@ -7,7 +7,7 @@ pytest-asyncio >= 1.5.0
 pytest-mock >= 3.17.0
 respx == 0.23.1
 
-cachecontrol >= 0.14.4
+cachecontrol >= 0.15.0
 google-api-core[grpc] >= 2.44.0, < 3.0.0dev; platform.python_implementation != 'PyPy'
 google-cloud-firestore >= 2.34.1; platform.python_implementation != 'PyPy'
 google-cloud-storage >= 3.17.1
